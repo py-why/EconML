@@ -1,0 +1,32 @@
+﻿econml.inference.GenericModelFinalInference
+===========================================
+
+.. currentmodule:: econml.inference
+
+.. autoclass:: GenericModelFinalInference
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~GenericModelFinalInference.__init__
+      ~GenericModelFinalInference.ate_inference
+      ~GenericModelFinalInference.ate_interval
+      ~GenericModelFinalInference.const_marginal_ate_inference
+      ~GenericModelFinalInference.const_marginal_ate_interval
+      ~GenericModelFinalInference.const_marginal_effect_inference
+      ~GenericModelFinalInference.const_marginal_effect_interval
+      ~GenericModelFinalInference.fit
+      ~GenericModelFinalInference.marginal_ate_inference
+      ~GenericModelFinalInference.marginal_ate_interval
+      ~GenericModelFinalInference.prefit
+   
+   
+
+   
+   
+   

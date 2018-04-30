@@ -1,0 +1,73 @@
+﻿econml.iv.dr.DRIV
+=================
+
+.. currentmodule:: econml.iv.dr
+
+.. autoclass:: DRIV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DRIV.__init__
+      ~DRIV.ate
+      ~DRIV.ate_inference
+      ~DRIV.ate_interval
+      ~DRIV.cate_feature_names
+      ~DRIV.cate_output_names
+      ~DRIV.cate_treatment_names
+      ~DRIV.const_marginal_ate
+      ~DRIV.const_marginal_ate_inference
+      ~DRIV.const_marginal_ate_interval
+      ~DRIV.const_marginal_effect
+      ~DRIV.const_marginal_effect_inference
+      ~DRIV.const_marginal_effect_interval
+      ~DRIV.effect
+      ~DRIV.effect_inference
+      ~DRIV.effect_interval
+      ~DRIV.fit
+      ~DRIV.marginal_ate
+      ~DRIV.marginal_ate_inference
+      ~DRIV.marginal_ate_interval
+      ~DRIV.marginal_effect
+      ~DRIV.marginal_effect_inference
+      ~DRIV.marginal_effect_interval
+      ~DRIV.refit_final
+      ~DRIV.score
+      ~DRIV.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DRIV.dowhy
+      ~DRIV.featurizer_
+      ~DRIV.model_cate
+      ~DRIV.model_final_
+      ~DRIV.models_nuisance_
+      ~DRIV.models_prel_model_effect
+      ~DRIV.models_t_xw
+      ~DRIV.models_t_xwz
+      ~DRIV.models_tz_xw
+      ~DRIV.models_y_xw
+      ~DRIV.models_z_xw
+      ~DRIV.nuisance_scores_prel_model_effect
+      ~DRIV.nuisance_scores_t_xw
+      ~DRIV.nuisance_scores_t_xwz
+      ~DRIV.nuisance_scores_tz_xw
+      ~DRIV.nuisance_scores_y_xw
+      ~DRIV.nuisance_scores_z_xw
+      ~DRIV.original_featurizer
+      ~DRIV.ortho_learner_model_final_
+      ~DRIV.residuals_
+      ~DRIV.transformer
+   
+   

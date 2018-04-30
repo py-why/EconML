@@ -1,0 +1,81 @@
+﻿econml.dml.DML
+==============
+
+.. currentmodule:: econml.dml
+
+.. autoclass:: DML
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DML.__init__
+      ~DML.ate
+      ~DML.ate_inference
+      ~DML.ate_interval
+      ~DML.cate_feature_names
+      ~DML.cate_output_names
+      ~DML.cate_treatment_names
+      ~DML.coef__inference
+      ~DML.coef__interval
+      ~DML.const_marginal_ate
+      ~DML.const_marginal_ate_inference
+      ~DML.const_marginal_ate_interval
+      ~DML.const_marginal_effect
+      ~DML.const_marginal_effect_inference
+      ~DML.const_marginal_effect_interval
+      ~DML.effect
+      ~DML.effect_inference
+      ~DML.effect_interval
+      ~DML.fit
+      ~DML.intercept__inference
+      ~DML.intercept__interval
+      ~DML.marginal_ate
+      ~DML.marginal_ate_inference
+      ~DML.marginal_ate_interval
+      ~DML.marginal_effect
+      ~DML.marginal_effect_inference
+      ~DML.marginal_effect_interval
+      ~DML.refit_final
+      ~DML.robustness_value
+      ~DML.score
+      ~DML.score_nuisances
+      ~DML.scoring_name
+      ~DML.sensitivity_interval
+      ~DML.sensitivity_summary
+      ~DML.shap_values
+      ~DML.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DML.bias_part_of_coef
+      ~DML.coef_
+      ~DML.dowhy
+      ~DML.featurizer
+      ~DML.featurizer_
+      ~DML.fit_cate_intercept_
+      ~DML.intercept_
+      ~DML.model_cate
+      ~DML.model_final_
+      ~DML.models_nuisance_
+      ~DML.models_t
+      ~DML.models_y
+      ~DML.nuisance_scores_t
+      ~DML.nuisance_scores_y
+      ~DML.original_featurizer
+      ~DML.ortho_learner_model_final_
+      ~DML.residuals_
+      ~DML.rlearner_model_final_
+      ~DML.transformer
+   
+   

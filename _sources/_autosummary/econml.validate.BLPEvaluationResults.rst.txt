@@ -1,0 +1,23 @@
+﻿econml.validate.BLPEvaluationResults
+====================================
+
+.. currentmodule:: econml.validate
+
+.. autoclass:: BLPEvaluationResults
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~BLPEvaluationResults.__init__
+      ~BLPEvaluationResults.summary
+   
+   
+
+   
+   
+   

@@ -1,0 +1,82 @@
+﻿econml.dml.SparseLinearDML
+==========================
+
+.. currentmodule:: econml.dml
+
+.. autoclass:: SparseLinearDML
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SparseLinearDML.__init__
+      ~SparseLinearDML.ate
+      ~SparseLinearDML.ate_inference
+      ~SparseLinearDML.ate_interval
+      ~SparseLinearDML.cate_feature_names
+      ~SparseLinearDML.cate_output_names
+      ~SparseLinearDML.cate_treatment_names
+      ~SparseLinearDML.coef__inference
+      ~SparseLinearDML.coef__interval
+      ~SparseLinearDML.const_marginal_ate
+      ~SparseLinearDML.const_marginal_ate_inference
+      ~SparseLinearDML.const_marginal_ate_interval
+      ~SparseLinearDML.const_marginal_effect
+      ~SparseLinearDML.const_marginal_effect_inference
+      ~SparseLinearDML.const_marginal_effect_interval
+      ~SparseLinearDML.effect
+      ~SparseLinearDML.effect_inference
+      ~SparseLinearDML.effect_interval
+      ~SparseLinearDML.fit
+      ~SparseLinearDML.intercept__inference
+      ~SparseLinearDML.intercept__interval
+      ~SparseLinearDML.marginal_ate
+      ~SparseLinearDML.marginal_ate_inference
+      ~SparseLinearDML.marginal_ate_interval
+      ~SparseLinearDML.marginal_effect
+      ~SparseLinearDML.marginal_effect_inference
+      ~SparseLinearDML.marginal_effect_interval
+      ~SparseLinearDML.refit_final
+      ~SparseLinearDML.robustness_value
+      ~SparseLinearDML.score
+      ~SparseLinearDML.score_nuisances
+      ~SparseLinearDML.scoring_name
+      ~SparseLinearDML.sensitivity_interval
+      ~SparseLinearDML.sensitivity_summary
+      ~SparseLinearDML.shap_values
+      ~SparseLinearDML.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SparseLinearDML.bias_part_of_coef
+      ~SparseLinearDML.coef_
+      ~SparseLinearDML.dowhy
+      ~SparseLinearDML.featurizer
+      ~SparseLinearDML.featurizer_
+      ~SparseLinearDML.fit_cate_intercept_
+      ~SparseLinearDML.intercept_
+      ~SparseLinearDML.model_cate
+      ~SparseLinearDML.model_final
+      ~SparseLinearDML.model_final_
+      ~SparseLinearDML.models_nuisance_
+      ~SparseLinearDML.models_t
+      ~SparseLinearDML.models_y
+      ~SparseLinearDML.nuisance_scores_t
+      ~SparseLinearDML.nuisance_scores_y
+      ~SparseLinearDML.original_featurizer
+      ~SparseLinearDML.ortho_learner_model_final_
+      ~SparseLinearDML.residuals_
+      ~SparseLinearDML.rlearner_model_final_
+      ~SparseLinearDML.transformer
+   
+   

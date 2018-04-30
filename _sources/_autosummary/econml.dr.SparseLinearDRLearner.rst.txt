@@ -1,0 +1,78 @@
+﻿econml.dr.SparseLinearDRLearner
+===============================
+
+.. currentmodule:: econml.dr
+
+.. autoclass:: SparseLinearDRLearner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SparseLinearDRLearner.__init__
+      ~SparseLinearDRLearner.ate
+      ~SparseLinearDRLearner.ate_inference
+      ~SparseLinearDRLearner.ate_interval
+      ~SparseLinearDRLearner.cate_feature_names
+      ~SparseLinearDRLearner.cate_output_names
+      ~SparseLinearDRLearner.cate_treatment_names
+      ~SparseLinearDRLearner.coef_
+      ~SparseLinearDRLearner.coef__inference
+      ~SparseLinearDRLearner.coef__interval
+      ~SparseLinearDRLearner.const_marginal_ate
+      ~SparseLinearDRLearner.const_marginal_ate_inference
+      ~SparseLinearDRLearner.const_marginal_ate_interval
+      ~SparseLinearDRLearner.const_marginal_effect
+      ~SparseLinearDRLearner.const_marginal_effect_inference
+      ~SparseLinearDRLearner.const_marginal_effect_interval
+      ~SparseLinearDRLearner.effect
+      ~SparseLinearDRLearner.effect_inference
+      ~SparseLinearDRLearner.effect_interval
+      ~SparseLinearDRLearner.fit
+      ~SparseLinearDRLearner.intercept_
+      ~SparseLinearDRLearner.intercept__inference
+      ~SparseLinearDRLearner.intercept__interval
+      ~SparseLinearDRLearner.marginal_ate
+      ~SparseLinearDRLearner.marginal_ate_inference
+      ~SparseLinearDRLearner.marginal_ate_interval
+      ~SparseLinearDRLearner.marginal_effect
+      ~SparseLinearDRLearner.marginal_effect_inference
+      ~SparseLinearDRLearner.marginal_effect_interval
+      ~SparseLinearDRLearner.model_cate
+      ~SparseLinearDRLearner.refit_final
+      ~SparseLinearDRLearner.robustness_value
+      ~SparseLinearDRLearner.score
+      ~SparseLinearDRLearner.sensitivity_interval
+      ~SparseLinearDRLearner.sensitivity_summary
+      ~SparseLinearDRLearner.shap_values
+      ~SparseLinearDRLearner.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SparseLinearDRLearner.dowhy
+      ~SparseLinearDRLearner.featurizer_
+      ~SparseLinearDRLearner.fit_cate_intercept_
+      ~SparseLinearDRLearner.fitted_models_final
+      ~SparseLinearDRLearner.model_final
+      ~SparseLinearDRLearner.model_final_
+      ~SparseLinearDRLearner.models_nuisance_
+      ~SparseLinearDRLearner.models_propensity
+      ~SparseLinearDRLearner.models_regression
+      ~SparseLinearDRLearner.multitask_model_cate
+      ~SparseLinearDRLearner.multitask_model_final
+      ~SparseLinearDRLearner.nuisance_scores_propensity
+      ~SparseLinearDRLearner.nuisance_scores_regression
+      ~SparseLinearDRLearner.ortho_learner_model_final_
+      ~SparseLinearDRLearner.transformer
+   
+   

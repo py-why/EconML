@@ -1,0 +1,78 @@
+﻿econml.iv.dr.LinearIntentToTreatDRIV
+====================================
+
+.. currentmodule:: econml.iv.dr
+
+.. autoclass:: LinearIntentToTreatDRIV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~LinearIntentToTreatDRIV.__init__
+      ~LinearIntentToTreatDRIV.ate
+      ~LinearIntentToTreatDRIV.ate_inference
+      ~LinearIntentToTreatDRIV.ate_interval
+      ~LinearIntentToTreatDRIV.cate_feature_names
+      ~LinearIntentToTreatDRIV.cate_output_names
+      ~LinearIntentToTreatDRIV.cate_treatment_names
+      ~LinearIntentToTreatDRIV.coef__inference
+      ~LinearIntentToTreatDRIV.coef__interval
+      ~LinearIntentToTreatDRIV.const_marginal_ate
+      ~LinearIntentToTreatDRIV.const_marginal_ate_inference
+      ~LinearIntentToTreatDRIV.const_marginal_ate_interval
+      ~LinearIntentToTreatDRIV.const_marginal_effect
+      ~LinearIntentToTreatDRIV.const_marginal_effect_inference
+      ~LinearIntentToTreatDRIV.const_marginal_effect_interval
+      ~LinearIntentToTreatDRIV.effect
+      ~LinearIntentToTreatDRIV.effect_inference
+      ~LinearIntentToTreatDRIV.effect_interval
+      ~LinearIntentToTreatDRIV.fit
+      ~LinearIntentToTreatDRIV.intercept__inference
+      ~LinearIntentToTreatDRIV.intercept__interval
+      ~LinearIntentToTreatDRIV.marginal_ate
+      ~LinearIntentToTreatDRIV.marginal_ate_inference
+      ~LinearIntentToTreatDRIV.marginal_ate_interval
+      ~LinearIntentToTreatDRIV.marginal_effect
+      ~LinearIntentToTreatDRIV.marginal_effect_inference
+      ~LinearIntentToTreatDRIV.marginal_effect_interval
+      ~LinearIntentToTreatDRIV.refit_final
+      ~LinearIntentToTreatDRIV.score
+      ~LinearIntentToTreatDRIV.shap_values
+      ~LinearIntentToTreatDRIV.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~LinearIntentToTreatDRIV.bias_part_of_coef
+      ~LinearIntentToTreatDRIV.coef_
+      ~LinearIntentToTreatDRIV.dowhy
+      ~LinearIntentToTreatDRIV.featurizer
+      ~LinearIntentToTreatDRIV.featurizer_
+      ~LinearIntentToTreatDRIV.fit_cate_intercept_
+      ~LinearIntentToTreatDRIV.intercept_
+      ~LinearIntentToTreatDRIV.model_cate
+      ~LinearIntentToTreatDRIV.model_final
+      ~LinearIntentToTreatDRIV.model_final_
+      ~LinearIntentToTreatDRIV.models_nuisance_
+      ~LinearIntentToTreatDRIV.models_prel_model_effect
+      ~LinearIntentToTreatDRIV.models_t_xwz
+      ~LinearIntentToTreatDRIV.models_y_xw
+      ~LinearIntentToTreatDRIV.nuisance_scores_prel_model_effect
+      ~LinearIntentToTreatDRIV.nuisance_scores_t_xwz
+      ~LinearIntentToTreatDRIV.nuisance_scores_y_xw
+      ~LinearIntentToTreatDRIV.original_featurizer
+      ~LinearIntentToTreatDRIV.ortho_learner_model_final_
+      ~LinearIntentToTreatDRIV.residuals_
+      ~LinearIntentToTreatDRIV.transformer
+   
+   

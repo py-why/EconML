@@ -1,0 +1,52 @@
+﻿econml.grf.CausalIVForest
+=========================
+
+.. currentmodule:: econml.grf
+
+.. autoclass:: CausalIVForest
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~CausalIVForest.__init__
+      ~CausalIVForest.apply
+      ~CausalIVForest.decision_path
+      ~CausalIVForest.feature_importances
+      ~CausalIVForest.fit
+      ~CausalIVForest.get_metadata_routing
+      ~CausalIVForest.get_params
+      ~CausalIVForest.get_subsample_inds
+      ~CausalIVForest.oob_predict
+      ~CausalIVForest.predict
+      ~CausalIVForest.predict_alpha_and_jac
+      ~CausalIVForest.predict_and_var
+      ~CausalIVForest.predict_full
+      ~CausalIVForest.predict_interval
+      ~CausalIVForest.predict_moment_and_var
+      ~CausalIVForest.predict_projection
+      ~CausalIVForest.predict_projection_and_var
+      ~CausalIVForest.predict_projection_var
+      ~CausalIVForest.predict_tree_average
+      ~CausalIVForest.predict_tree_average_full
+      ~CausalIVForest.predict_var
+      ~CausalIVForest.prediction_stderr
+      ~CausalIVForest.set_fit_request
+      ~CausalIVForest.set_params
+      ~CausalIVForest.set_predict_request
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~CausalIVForest.feature_importances_
+   
+   

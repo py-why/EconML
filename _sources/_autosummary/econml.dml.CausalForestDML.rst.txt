@@ -1,0 +1,83 @@
+﻿econml.dml.CausalForestDML
+==========================
+
+.. currentmodule:: econml.dml
+
+.. autoclass:: CausalForestDML
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~CausalForestDML.__init__
+      ~CausalForestDML.ate
+      ~CausalForestDML.ate__inference
+      ~CausalForestDML.ate_inference
+      ~CausalForestDML.ate_interval
+      ~CausalForestDML.att_
+      ~CausalForestDML.att__inference
+      ~CausalForestDML.att_stderr_
+      ~CausalForestDML.cate_feature_names
+      ~CausalForestDML.cate_output_names
+      ~CausalForestDML.cate_treatment_names
+      ~CausalForestDML.const_marginal_ate
+      ~CausalForestDML.const_marginal_ate_inference
+      ~CausalForestDML.const_marginal_ate_interval
+      ~CausalForestDML.const_marginal_effect
+      ~CausalForestDML.const_marginal_effect_inference
+      ~CausalForestDML.const_marginal_effect_interval
+      ~CausalForestDML.effect
+      ~CausalForestDML.effect_inference
+      ~CausalForestDML.effect_interval
+      ~CausalForestDML.feature_importances
+      ~CausalForestDML.fit
+      ~CausalForestDML.marginal_ate
+      ~CausalForestDML.marginal_ate_inference
+      ~CausalForestDML.marginal_ate_interval
+      ~CausalForestDML.marginal_effect
+      ~CausalForestDML.marginal_effect_inference
+      ~CausalForestDML.marginal_effect_interval
+      ~CausalForestDML.refit_final
+      ~CausalForestDML.robustness_value
+      ~CausalForestDML.score
+      ~CausalForestDML.score_nuisances
+      ~CausalForestDML.scoring_name
+      ~CausalForestDML.sensitivity_interval
+      ~CausalForestDML.sensitivity_summary
+      ~CausalForestDML.shap_values
+      ~CausalForestDML.summary
+      ~CausalForestDML.tune
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~CausalForestDML.ate_
+      ~CausalForestDML.ate_stderr_
+      ~CausalForestDML.dowhy
+      ~CausalForestDML.feature_importances_
+      ~CausalForestDML.featurizer_
+      ~CausalForestDML.model_cate
+      ~CausalForestDML.model_final
+      ~CausalForestDML.model_final_
+      ~CausalForestDML.models_nuisance_
+      ~CausalForestDML.models_t
+      ~CausalForestDML.models_y
+      ~CausalForestDML.nuisance_scores_t
+      ~CausalForestDML.nuisance_scores_y
+      ~CausalForestDML.original_featurizer
+      ~CausalForestDML.ortho_learner_model_final_
+      ~CausalForestDML.residuals_
+      ~CausalForestDML.rlearner_model_final_
+      ~CausalForestDML.transformer
+      ~CausalForestDML.tunable_params
+   
+   

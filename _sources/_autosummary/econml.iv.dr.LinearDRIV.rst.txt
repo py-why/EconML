@@ -1,0 +1,84 @@
+﻿econml.iv.dr.LinearDRIV
+=======================
+
+.. currentmodule:: econml.iv.dr
+
+.. autoclass:: LinearDRIV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~LinearDRIV.__init__
+      ~LinearDRIV.ate
+      ~LinearDRIV.ate_inference
+      ~LinearDRIV.ate_interval
+      ~LinearDRIV.cate_feature_names
+      ~LinearDRIV.cate_output_names
+      ~LinearDRIV.cate_treatment_names
+      ~LinearDRIV.coef__inference
+      ~LinearDRIV.coef__interval
+      ~LinearDRIV.const_marginal_ate
+      ~LinearDRIV.const_marginal_ate_inference
+      ~LinearDRIV.const_marginal_ate_interval
+      ~LinearDRIV.const_marginal_effect
+      ~LinearDRIV.const_marginal_effect_inference
+      ~LinearDRIV.const_marginal_effect_interval
+      ~LinearDRIV.effect
+      ~LinearDRIV.effect_inference
+      ~LinearDRIV.effect_interval
+      ~LinearDRIV.fit
+      ~LinearDRIV.intercept__inference
+      ~LinearDRIV.intercept__interval
+      ~LinearDRIV.marginal_ate
+      ~LinearDRIV.marginal_ate_inference
+      ~LinearDRIV.marginal_ate_interval
+      ~LinearDRIV.marginal_effect
+      ~LinearDRIV.marginal_effect_inference
+      ~LinearDRIV.marginal_effect_interval
+      ~LinearDRIV.refit_final
+      ~LinearDRIV.score
+      ~LinearDRIV.shap_values
+      ~LinearDRIV.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~LinearDRIV.bias_part_of_coef
+      ~LinearDRIV.coef_
+      ~LinearDRIV.dowhy
+      ~LinearDRIV.featurizer
+      ~LinearDRIV.featurizer_
+      ~LinearDRIV.fit_cate_intercept_
+      ~LinearDRIV.intercept_
+      ~LinearDRIV.model_cate
+      ~LinearDRIV.model_final
+      ~LinearDRIV.model_final_
+      ~LinearDRIV.models_nuisance_
+      ~LinearDRIV.models_prel_model_effect
+      ~LinearDRIV.models_t_xw
+      ~LinearDRIV.models_t_xwz
+      ~LinearDRIV.models_tz_xw
+      ~LinearDRIV.models_y_xw
+      ~LinearDRIV.models_z_xw
+      ~LinearDRIV.nuisance_scores_prel_model_effect
+      ~LinearDRIV.nuisance_scores_t_xw
+      ~LinearDRIV.nuisance_scores_t_xwz
+      ~LinearDRIV.nuisance_scores_tz_xw
+      ~LinearDRIV.nuisance_scores_y_xw
+      ~LinearDRIV.nuisance_scores_z_xw
+      ~LinearDRIV.original_featurizer
+      ~LinearDRIV.ortho_learner_model_final_
+      ~LinearDRIV.residuals_
+      ~LinearDRIV.transformer
+   
+   

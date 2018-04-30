@@ -1,0 +1,44 @@
+﻿econml.iv.sieve.SieveTSLS
+=========================
+
+.. currentmodule:: econml.iv.sieve
+
+.. autoclass:: SieveTSLS
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SieveTSLS.__init__
+      ~SieveTSLS.ate
+      ~SieveTSLS.ate_inference
+      ~SieveTSLS.ate_interval
+      ~SieveTSLS.cate_feature_names
+      ~SieveTSLS.cate_output_names
+      ~SieveTSLS.cate_treatment_names
+      ~SieveTSLS.effect
+      ~SieveTSLS.effect_inference
+      ~SieveTSLS.effect_interval
+      ~SieveTSLS.fit
+      ~SieveTSLS.marginal_ate
+      ~SieveTSLS.marginal_ate_inference
+      ~SieveTSLS.marginal_ate_interval
+      ~SieveTSLS.marginal_effect
+      ~SieveTSLS.marginal_effect_inference
+      ~SieveTSLS.marginal_effect_interval
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SieveTSLS.dowhy
+   
+   

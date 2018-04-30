@@ -1,0 +1,12 @@
+﻿econml.inference.\_bootstrap
+============================
+
+.. automodule:: econml.inference._bootstrap
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BootstrapEstimator
+   

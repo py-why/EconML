@@ -1,0 +1,32 @@
+﻿econml.score.EnsembleCateEstimator
+==================================
+
+.. currentmodule:: econml.score
+
+.. autoclass:: EnsembleCateEstimator
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~EnsembleCateEstimator.__init__
+      ~EnsembleCateEstimator.const_marginal_effect
+      ~EnsembleCateEstimator.effect
+      ~EnsembleCateEstimator.marginal_effect
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~EnsembleCateEstimator.cate_models
+      ~EnsembleCateEstimator.weights
+   
+   

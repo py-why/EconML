@@ -1,0 +1,82 @@
+﻿econml.dml.LinearDML
+====================
+
+.. currentmodule:: econml.dml
+
+.. autoclass:: LinearDML
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~LinearDML.__init__
+      ~LinearDML.ate
+      ~LinearDML.ate_inference
+      ~LinearDML.ate_interval
+      ~LinearDML.cate_feature_names
+      ~LinearDML.cate_output_names
+      ~LinearDML.cate_treatment_names
+      ~LinearDML.coef__inference
+      ~LinearDML.coef__interval
+      ~LinearDML.const_marginal_ate
+      ~LinearDML.const_marginal_ate_inference
+      ~LinearDML.const_marginal_ate_interval
+      ~LinearDML.const_marginal_effect
+      ~LinearDML.const_marginal_effect_inference
+      ~LinearDML.const_marginal_effect_interval
+      ~LinearDML.effect
+      ~LinearDML.effect_inference
+      ~LinearDML.effect_interval
+      ~LinearDML.fit
+      ~LinearDML.intercept__inference
+      ~LinearDML.intercept__interval
+      ~LinearDML.marginal_ate
+      ~LinearDML.marginal_ate_inference
+      ~LinearDML.marginal_ate_interval
+      ~LinearDML.marginal_effect
+      ~LinearDML.marginal_effect_inference
+      ~LinearDML.marginal_effect_interval
+      ~LinearDML.refit_final
+      ~LinearDML.robustness_value
+      ~LinearDML.score
+      ~LinearDML.score_nuisances
+      ~LinearDML.scoring_name
+      ~LinearDML.sensitivity_interval
+      ~LinearDML.sensitivity_summary
+      ~LinearDML.shap_values
+      ~LinearDML.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~LinearDML.bias_part_of_coef
+      ~LinearDML.coef_
+      ~LinearDML.dowhy
+      ~LinearDML.featurizer
+      ~LinearDML.featurizer_
+      ~LinearDML.fit_cate_intercept_
+      ~LinearDML.intercept_
+      ~LinearDML.model_cate
+      ~LinearDML.model_final
+      ~LinearDML.model_final_
+      ~LinearDML.models_nuisance_
+      ~LinearDML.models_t
+      ~LinearDML.models_y
+      ~LinearDML.nuisance_scores_t
+      ~LinearDML.nuisance_scores_y
+      ~LinearDML.original_featurizer
+      ~LinearDML.ortho_learner_model_final_
+      ~LinearDML.residuals_
+      ~LinearDML.rlearner_model_final_
+      ~LinearDML.transformer
+   
+   

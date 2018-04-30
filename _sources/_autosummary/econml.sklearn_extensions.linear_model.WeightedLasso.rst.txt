@@ -1,0 +1,37 @@
+﻿econml.sklearn\_extensions.linear\_model.WeightedLasso
+======================================================
+
+.. currentmodule:: econml.sklearn_extensions.linear_model
+
+.. autoclass:: WeightedLasso
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~WeightedLasso.__init__
+      ~WeightedLasso.fit
+      ~WeightedLasso.get_metadata_routing
+      ~WeightedLasso.get_params
+      ~WeightedLasso.path
+      ~WeightedLasso.predict
+      ~WeightedLasso.score
+      ~WeightedLasso.set_fit_request
+      ~WeightedLasso.set_params
+      ~WeightedLasso.set_score_request
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~WeightedLasso.sparse_coef_
+   
+   

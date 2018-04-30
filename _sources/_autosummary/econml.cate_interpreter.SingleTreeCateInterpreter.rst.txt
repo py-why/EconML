@@ -1,0 +1,33 @@
+﻿econml.cate\_interpreter.SingleTreeCateInterpreter
+==================================================
+
+.. currentmodule:: econml.cate_interpreter
+
+.. autoclass:: SingleTreeCateInterpreter
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SingleTreeCateInterpreter.__init__
+      ~SingleTreeCateInterpreter.export_graphviz
+      ~SingleTreeCateInterpreter.interpret
+      ~SingleTreeCateInterpreter.plot
+      ~SingleTreeCateInterpreter.render
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SingleTreeCateInterpreter.node_dict_
+      ~SingleTreeCateInterpreter.tree_model_
+   
+   

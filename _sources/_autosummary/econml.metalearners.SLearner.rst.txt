@@ -1,0 +1,52 @@
+﻿econml.metalearners.SLearner
+============================
+
+.. currentmodule:: econml.metalearners
+
+.. autoclass:: SLearner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SLearner.__init__
+      ~SLearner.ate
+      ~SLearner.ate_inference
+      ~SLearner.ate_interval
+      ~SLearner.cate_feature_names
+      ~SLearner.cate_output_names
+      ~SLearner.cate_treatment_names
+      ~SLearner.const_marginal_ate
+      ~SLearner.const_marginal_ate_inference
+      ~SLearner.const_marginal_ate_interval
+      ~SLearner.const_marginal_effect
+      ~SLearner.const_marginal_effect_inference
+      ~SLearner.const_marginal_effect_interval
+      ~SLearner.effect
+      ~SLearner.effect_inference
+      ~SLearner.effect_interval
+      ~SLearner.fit
+      ~SLearner.marginal_ate
+      ~SLearner.marginal_ate_inference
+      ~SLearner.marginal_ate_interval
+      ~SLearner.marginal_effect
+      ~SLearner.marginal_effect_inference
+      ~SLearner.marginal_effect_interval
+      ~SLearner.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SLearner.dowhy
+      ~SLearner.transformer
+   
+   

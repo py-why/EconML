@@ -1,0 +1,22 @@
+﻿econml.grf.LinearMomentGRFCriterion
+===================================
+
+.. currentmodule:: econml.grf
+
+.. autoclass:: LinearMomentGRFCriterion
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~LinearMomentGRFCriterion.__init__
+   
+   
+
+   
+   
+   

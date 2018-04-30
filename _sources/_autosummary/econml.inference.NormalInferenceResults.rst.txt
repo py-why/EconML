@@ -1,0 +1,37 @@
+﻿econml.inference.NormalInferenceResults
+=======================================
+
+.. currentmodule:: econml.inference
+
+.. autoclass:: NormalInferenceResults
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~NormalInferenceResults.__init__
+      ~NormalInferenceResults.conf_int
+      ~NormalInferenceResults.population_summary
+      ~NormalInferenceResults.pvalue
+      ~NormalInferenceResults.scale
+      ~NormalInferenceResults.summary_frame
+      ~NormalInferenceResults.translate
+      ~NormalInferenceResults.zstat
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~NormalInferenceResults.point_estimate
+      ~NormalInferenceResults.stderr
+      ~NormalInferenceResults.var
+   
+   

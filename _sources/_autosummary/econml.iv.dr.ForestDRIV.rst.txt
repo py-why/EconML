@@ -1,0 +1,75 @@
+﻿econml.iv.dr.ForestDRIV
+=======================
+
+.. currentmodule:: econml.iv.dr
+
+.. autoclass:: ForestDRIV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~ForestDRIV.__init__
+      ~ForestDRIV.ate
+      ~ForestDRIV.ate_inference
+      ~ForestDRIV.ate_interval
+      ~ForestDRIV.cate_feature_names
+      ~ForestDRIV.cate_output_names
+      ~ForestDRIV.cate_treatment_names
+      ~ForestDRIV.const_marginal_ate
+      ~ForestDRIV.const_marginal_ate_inference
+      ~ForestDRIV.const_marginal_ate_interval
+      ~ForestDRIV.const_marginal_effect
+      ~ForestDRIV.const_marginal_effect_inference
+      ~ForestDRIV.const_marginal_effect_interval
+      ~ForestDRIV.effect
+      ~ForestDRIV.effect_inference
+      ~ForestDRIV.effect_interval
+      ~ForestDRIV.fit
+      ~ForestDRIV.marginal_ate
+      ~ForestDRIV.marginal_ate_inference
+      ~ForestDRIV.marginal_ate_interval
+      ~ForestDRIV.marginal_effect
+      ~ForestDRIV.marginal_effect_inference
+      ~ForestDRIV.marginal_effect_interval
+      ~ForestDRIV.refit_final
+      ~ForestDRIV.score
+      ~ForestDRIV.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~ForestDRIV.dowhy
+      ~ForestDRIV.feature_importances_
+      ~ForestDRIV.featurizer_
+      ~ForestDRIV.model_cate
+      ~ForestDRIV.model_final
+      ~ForestDRIV.model_final_
+      ~ForestDRIV.models_nuisance_
+      ~ForestDRIV.models_prel_model_effect
+      ~ForestDRIV.models_t_xw
+      ~ForestDRIV.models_t_xwz
+      ~ForestDRIV.models_tz_xw
+      ~ForestDRIV.models_y_xw
+      ~ForestDRIV.models_z_xw
+      ~ForestDRIV.nuisance_scores_prel_model_effect
+      ~ForestDRIV.nuisance_scores_t_xw
+      ~ForestDRIV.nuisance_scores_t_xwz
+      ~ForestDRIV.nuisance_scores_tz_xw
+      ~ForestDRIV.nuisance_scores_y_xw
+      ~ForestDRIV.nuisance_scores_z_xw
+      ~ForestDRIV.original_featurizer
+      ~ForestDRIV.ortho_learner_model_final_
+      ~ForestDRIV.residuals_
+      ~ForestDRIV.transformer
+   
+   

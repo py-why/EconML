@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Introduction to Causal Inference &mdash; econml 0.16.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/graphviz.css?v=fd3f3429" />
+
+  
+    <link rel="shortcut icon" href="../_static/econml.ico"/>
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="../_static/documentation_options.js?v=7de89ed4"></script>
+        <script src="../_static/doctools.js?v=9a2dae69"></script>
+        <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Problem Setup and API Design" href="api.html" />
+    <link rel="prev" title="Machine Learning Based Estimation of Heterogeneous Treatment Effects" href="motivation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            econml
+              <img src="../_static/econml-logo-inverse.png" class="logo" alt="Logo"/>
+          </a>
+              <div class="version">
+                0.16.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="spec.html">EconML User Guide</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="overview.html">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="motivation.html">Machine Learning Based Estimation of Heterogeneous Treatment Effects</a></li>
+<li class="toctree-l2"><a class="reference internal" href="motivation.html#motivating-examples">Motivating Examples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="motivation.html#recommendation-a-b-testing">Recommendation A/B testing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="motivation.html#customer-segmentation">Customer Segmentation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="motivation.html#multi-investment-attribution">Multi-investment Attribution</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Introduction to Causal Inference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api.html">Problem Setup and API Design</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="api.html#api-of-conditional-average-treatment-effect-package">API of Conditional Average Treatment Effect Package</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#linear-in-treatment-cate-estimators">Linear in Treatment CATE Estimators</a></li>
+<li class="toctree-l3"><a class="reference internal" href="api.html#example-use-of-api">Example Use of API</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="flowchart.html">Library Flow Chart</a></li>
+<li class="toctree-l2"><a class="reference internal" href="comparison.html">Detailed estimator comparison</a></li>
+<li class="toctree-l2"><a class="reference internal" href="estimation.html">Estimation Methods under Unconfoundedness</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="estimation/dml.html">Orthogonal/Double Machine Learning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dml.html#what-is-it">What is it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dml.html#what-are-the-relevant-estimator-classes">What are the relevant estimator classes?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dml.html#when-should-you-use-it">When should you use it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dml.html#overview-of-formal-methodology">Overview of Formal Methodology</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dml.html#class-hierarchy-structure">Class Hierarchy Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dml.html#usage-faqs">Usage FAQs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dml.html#usage-examples">Usage Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="estimation/dr.html">Doubly Robust Learning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dr.html#what-is-it">What is it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dr.html#what-are-the-relevant-estimator-classes">What are the relevant estimator classes?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dr.html#when-should-you-use-it">When should you use it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dr.html#overview-of-formal-methodology">Overview of Formal Methodology</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dr.html#class-hierarchy-structure">Class Hierarchy Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dr.html#usage-faqs">Usage FAQs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dr.html#usage-examples">Usage Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="estimation/forest.html">Forest Based Estimators</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="estimation/forest.html#what-is-it">What is it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/forest.html#what-are-the-relevant-estimator-classes">What are the relevant estimator classes?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/forest.html#when-should-you-use-it">When should you use it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/forest.html#overview-of-formal-methodology">Overview of Formal Methodology</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/forest.html#class-hierarchy-structure">Class Hierarchy Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/forest.html#usage-examples">Usage Examples</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="estimation/metalearners.html">Meta-Learners</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="estimation/metalearners.html#what-is-it">What is it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/metalearners.html#what-are-the-relevant-estimator-classes">What are the relevant estimator classes?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/metalearners.html#when-should-you-use-it">When should you use it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/metalearners.html#overview-of-formal-methodology">Overview of Formal Methodology</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/metalearners.html#class-hierarchy-structure">Class Hierarchy Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/metalearners.html#usage-examples">Usage Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="estimation_iv.html">Estimation Methods with Instruments</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="estimation/two_sls.html">Sieve 2SLS Instrumental Variable Estimation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="estimation/orthoiv.html">Orthogonal instrumental variables</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="estimation/orthoiv.html#what-is-it">What is it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/orthoiv.html#what-are-the-relevant-estimator-classes">What are the relevant estimator classes?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/orthoiv.html#when-should-you-use-it">When should you use it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/orthoiv.html#class-hierarchy-structure">Class Hierarchy Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/orthoiv.html#usage-examples">Usage Examples</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="estimation_dynamic.html">Estimation Methods for Dynamic Treatment Regimes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="estimation/dynamic_dml.html">Dynamic Double Machine Learning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dynamic_dml.html#what-is-it">What is it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dynamic_dml.html#what-are-the-relevant-estimator-classes">What are the relevant estimator classes?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dynamic_dml.html#when-should-you-use-it">When should you use it?</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dynamic_dml.html#class-hierarchy-structure">Class Hierarchy Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="estimation/dynamic_dml.html#usage-faqs">Usage FAQs</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="inference.html">Inference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="inference.html#bootstrap-inference">Bootstrap Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inference.html#ols-inference">OLS Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inference.html#debiased-lasso-inference">Debiased Lasso Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inference.html#subsampled-honest-forest-inference">Subsampled Honest Forest Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="inference.html#orthoforest-bootstrap-of-little-bags-inference">OrthoForest Bootstrap of Little Bags Inference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="model_selection.html">Model Selection</a></li>
+<li class="toctree-l2"><a class="reference internal" href="validation.html">Validation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="validation.html#sensitivity-analysis">Sensitivity Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="validation.html#drtester">DRTester</a></li>
+<li class="toctree-l3"><a class="reference internal" href="validation.html#scoring">Scoring</a></li>
+<li class="toctree-l3"><a class="reference internal" href="validation.html#confidence-intervals-and-inference">Confidence Intervals and Inference</a></li>
+<li class="toctree-l3"><a class="reference internal" href="validation.html#dowhy-refutation-tests">DoWhy Refutation Tests</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="interpretability.html">Interpretability</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#tree-interpreter">Tree Interpreter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#policy-interpreter">Policy Interpreter</a></li>
+<li class="toctree-l3"><a class="reference internal" href="interpretability.html#shap">SHAP</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="federated_learning.html">Federated Learning in EconML</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="federated_learning.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="federated_learning.html#motivation-for-incorporating-federated-learning-into-the-econml-library">Motivation for Incorporating Federated Learning into the EconML Library</a></li>
+<li class="toctree-l3"><a class="reference internal" href="federated_learning.html#federated-learning-with-econml">Federated Learning with EconML</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="federated_learning.html#introducing-the-federatedestimator">Introducing the <cite>FederatedEstimator</cite></a></li>
+<li class="toctree-l4"><a class="reference internal" href="federated_learning.html#example-usage">Example Usage</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="federated_learning.html#theory">Theory</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="references.html">References</a></li>
+<li class="toctree-l2"><a class="reference internal" href="faq.html">Frequently Asked Questions (FAQ)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#when-should-i-use-econml">When should I use EconML?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#what-are-the-advantages-of-econml">What are the advantages of EconML?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#how-do-i-know-if-the-results-make-sense">How do I know if the results make sense?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#i-m-getting-causal-estimates-that-don-t-make-sense-what-next">I’m getting causal estimates that don’t make sense. What next?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#what-if-i-don-t-have-a-good-instrument-can-t-run-an-experiment-and-don-t-observe-all-confounders">What if I don’t have a good instrument, can’t run an experiment, and don’t observe all confounders?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#how-can-i-test-whether-i-m-identifying-the-causal-effect">How can I test whether I’m identifying the causal effect?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="faq.html#how-do-i-give-feedback">How do I give feedback?</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="community.html">Community</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html">Public Module Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#cate-estimators">CATE Estimators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#double-machine-learning-dml">Double Machine Learning (DML)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml.DML.html">econml.dml.DML</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml.LinearDML.html">econml.dml.LinearDML</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml.SparseLinearDML.html">econml.dml.SparseLinearDML</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml.CausalForestDML.html">econml.dml.CausalForestDML</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml.NonParamDML.html">econml.dml.NonParamDML</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml.KernelDML.html">econml.dml.KernelDML</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#doubly-robust-dr">Doubly Robust (DR)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dr.DRLearner.html">econml.dr.DRLearner</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dr.LinearDRLearner.html">econml.dr.LinearDRLearner</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dr.SparseLinearDRLearner.html">econml.dr.SparseLinearDRLearner</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dr.ForestDRLearner.html">econml.dr.ForestDRLearner</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#meta-learners">Meta-Learners</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.metalearners.XLearner.html">econml.metalearners.XLearner</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.metalearners.TLearner.html">econml.metalearners.TLearner</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.metalearners.SLearner.html">econml.metalearners.SLearner</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.metalearners.DomainAdaptationLearner.html">econml.metalearners.DomainAdaptationLearner</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#orthogonal-random-forest-orf">Orthogonal Random Forest (ORF)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.orf.DMLOrthoForest.html">econml.orf.DMLOrthoForest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.orf.DROrthoForest.html">econml.orf.DROrthoForest</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#instrumental-variable-cate-estimators">Instrumental Variable CATE Estimators</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#double-machine-learning-dml-iv">Double Machine Learning (DML) IV</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dml.OrthoIV.html">econml.iv.dml.OrthoIV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dml.DMLIV.html">econml.iv.dml.DMLIV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dml.NonParamDMLIV.html">econml.iv.dml.NonParamDMLIV</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#doubly-robust-dr-iv">Doubly Robust (DR) IV</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dr.DRIV.html">econml.iv.dr.DRIV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dr.LinearDRIV.html">econml.iv.dr.LinearDRIV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dr.SparseLinearDRIV.html">econml.iv.dr.SparseLinearDRIV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dr.ForestDRIV.html">econml.iv.dr.ForestDRIV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dr.IntentToTreatDRIV.html">econml.iv.dr.IntentToTreatDRIV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.dr.LinearIntentToTreatDRIV.html">econml.iv.dr.LinearIntentToTreatDRIV</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#sieve-methods">Sieve Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.sieve.SieveTSLS.html">econml.iv.sieve.SieveTSLS</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.sieve.HermiteFeatures.html">econml.iv.sieve.HermiteFeatures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.iv.sieve.DPolynomialFeatures.html">econml.iv.sieve.DPolynomialFeatures</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#estimators-for-panel-data">Estimators for Panel Data</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#dynamic-double-machine-learning">Dynamic Double Machine Learning</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.panel.dml.DynamicDML.html">econml.panel.dml.DynamicDML</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#policy-learning">Policy Learning</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.policy.DRPolicyForest.html">econml.policy.DRPolicyForest</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.policy.DRPolicyForest.html#econml.policy.DRPolicyForest"><code class="docutils literal notranslate"><span class="pre">DRPolicyForest</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.policy.DRPolicyTree.html">econml.policy.DRPolicyTree</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.policy.DRPolicyTree.html#econml.policy.DRPolicyTree"><code class="docutils literal notranslate"><span class="pre">DRPolicyTree</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.policy.PolicyForest.html">econml.policy.PolicyForest</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.policy.PolicyForest.html#econml.policy.PolicyForest"><code class="docutils literal notranslate"><span class="pre">PolicyForest</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.policy.PolicyTree.html">econml.policy.PolicyTree</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.policy.PolicyTree.html#econml.policy.PolicyTree"><code class="docutils literal notranslate"><span class="pre">PolicyTree</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#cate-interpreters">CATE Interpreters</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.cate_interpreter.SingleTreeCateInterpreter.html">econml.cate_interpreter.SingleTreeCateInterpreter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.cate_interpreter.SingleTreeCateInterpreter.html#econml.cate_interpreter.SingleTreeCateInterpreter"><code class="docutils literal notranslate"><span class="pre">SingleTreeCateInterpreter</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.cate_interpreter.SingleTreePolicyInterpreter.html">econml.cate_interpreter.SingleTreePolicyInterpreter</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.cate_interpreter.SingleTreePolicyInterpreter.html#econml.cate_interpreter.SingleTreePolicyInterpreter"><code class="docutils literal notranslate"><span class="pre">SingleTreePolicyInterpreter</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#cate-validation">CATE Validation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.validate.DRTester.html">econml.validate.DRTester</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.validate.DRTester.html#econml.validate.DRTester"><code class="docutils literal notranslate"><span class="pre">DRTester</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.validate.BLPEvaluationResults.html">econml.validate.BLPEvaluationResults</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.validate.BLPEvaluationResults.html#econml.validate.BLPEvaluationResults"><code class="docutils literal notranslate"><span class="pre">BLPEvaluationResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.validate.CalibrationEvaluationResults.html">econml.validate.CalibrationEvaluationResults</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.validate.CalibrationEvaluationResults.html#econml.validate.CalibrationEvaluationResults"><code class="docutils literal notranslate"><span class="pre">CalibrationEvaluationResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.validate.UpliftEvaluationResults.html">econml.validate.UpliftEvaluationResults</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.validate.UpliftEvaluationResults.html#econml.validate.UpliftEvaluationResults"><code class="docutils literal notranslate"><span class="pre">UpliftEvaluationResults</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.validate.EvaluationResults.html">econml.validate.EvaluationResults</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.validate.EvaluationResults.html#econml.validate.EvaluationResults"><code class="docutils literal notranslate"><span class="pre">EvaluationResults</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#cate-scorers">CATE Scorers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.score.RScorer.html">econml.score.RScorer</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.score.RScorer.html#econml.score.RScorer"><code class="docutils literal notranslate"><span class="pre">RScorer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.score.EnsembleCateEstimator.html">econml.score.EnsembleCateEstimator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.score.EnsembleCateEstimator.html#econml.score.EnsembleCateEstimator"><code class="docutils literal notranslate"><span class="pre">EnsembleCateEstimator</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#generalized-random-forests">Generalized Random Forests</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.grf.CausalForest.html">econml.grf.CausalForest</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.grf.CausalForest.html#econml.grf.CausalForest"><code class="docutils literal notranslate"><span class="pre">CausalForest</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.grf.CausalIVForest.html">econml.grf.CausalIVForest</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.grf.CausalIVForest.html#econml.grf.CausalIVForest"><code class="docutils literal notranslate"><span class="pre">CausalIVForest</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.grf.RegressionForest.html">econml.grf.RegressionForest</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.grf.RegressionForest.html#econml.grf.RegressionForest"><code class="docutils literal notranslate"><span class="pre">RegressionForest</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.grf.MultiOutputGRF.html">econml.grf.MultiOutputGRF</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.grf.MultiOutputGRF.html#econml.grf.MultiOutputGRF"><code class="docutils literal notranslate"><span class="pre">MultiOutputGRF</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.grf.LinearMomentGRFCriterion.html">econml.grf.LinearMomentGRFCriterion</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.grf.LinearMomentGRFCriterion.html#econml.grf.LinearMomentGRFCriterion"><code class="docutils literal notranslate"><span class="pre">LinearMomentGRFCriterion</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.grf.LinearMomentGRFCriterionMSE.html">econml.grf.LinearMomentGRFCriterionMSE</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.grf.LinearMomentGRFCriterionMSE.html#econml.grf.LinearMomentGRFCriterionMSE"><code class="docutils literal notranslate"><span class="pre">LinearMomentGRFCriterionMSE</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.grf._base_grf.BaseGRF.html">econml.grf._base_grf.BaseGRF</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.grf._base_grf.BaseGRF.html#econml.grf._base_grf.BaseGRF"><code class="docutils literal notranslate"><span class="pre">BaseGRF</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.grf._base_grftree.GRFTree.html">econml.grf._base_grftree.GRFTree</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.grf._base_grftree.GRFTree.html#econml.grf._base_grftree.GRFTree"><code class="docutils literal notranslate"><span class="pre">GRFTree</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#scikit-learn-extensions">Scikit-Learn Extensions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#linear-model-extensions">Linear Model Extensions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.DebiasedLasso.html">econml.sklearn_extensions.linear_model.DebiasedLasso</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.MultiOutputDebiasedLasso.html">econml.sklearn_extensions.linear_model.MultiOutputDebiasedLasso</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.SelectiveRegularization.html">econml.sklearn_extensions.linear_model.SelectiveRegularization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.StatsModelsLinearRegression.html">econml.sklearn_extensions.linear_model.StatsModelsLinearRegression</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.StatsModelsRLM.html">econml.sklearn_extensions.linear_model.StatsModelsRLM</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.WeightedLasso.html">econml.sklearn_extensions.linear_model.WeightedLasso</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.WeightedLassoCV.html">econml.sklearn_extensions.linear_model.WeightedLassoCV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.WeightedMultiTaskLassoCV.html">econml.sklearn_extensions.linear_model.WeightedMultiTaskLassoCV</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper.html">econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#model-selection-extensions">Model Selection Extensions</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.model_selection.GridSearchCVList.html">econml.sklearn_extensions.model_selection.GridSearchCVList</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.model_selection.WeightedKFold.html">econml.sklearn_extensions.model_selection.WeightedKFold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.sklearn_extensions.model_selection.WeightedStratifiedKFold.html">econml.sklearn_extensions.model_selection.WeightedStratifiedKFold</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#inference">Inference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#inference-results">Inference Results</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.NormalInferenceResults.html">econml.inference.NormalInferenceResults</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.EmpiricalInferenceResults.html">econml.inference.EmpiricalInferenceResults</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.PopulationSummaryResults.html">econml.inference.PopulationSummaryResults</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#inference-methods">Inference Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.BootstrapInference.html">econml.inference.BootstrapInference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.GenericModelFinalInference.html">econml.inference.GenericModelFinalInference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.GenericSingleTreatmentModelFinalInference.html">econml.inference.GenericSingleTreatmentModelFinalInference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.LinearModelFinalInference.html">econml.inference.LinearModelFinalInference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.StatsModelsInference.html">econml.inference.StatsModelsInference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.GenericModelFinalInferenceDiscrete.html">econml.inference.GenericModelFinalInferenceDiscrete</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.LinearModelFinalInferenceDiscrete.html">econml.inference.LinearModelFinalInferenceDiscrete</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference.StatsModelsInferenceDiscrete.html">econml.inference.StatsModelsInferenceDiscrete</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#federated-estimation">Federated Estimation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.federated_learning.FederatedEstimator.html">econml.federated_learning.FederatedEstimator</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.federated_learning.FederatedEstimator.html#econml.federated_learning.FederatedEstimator"><code class="docutils literal notranslate"><span class="pre">FederatedEstimator</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#solutions">Solutions</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference.html#causal-analysis">Causal Analysis</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.solutions.causal_analysis.CausalAnalysis.html">econml.solutions.causal_analysis.CausalAnalysis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#integration-with-dowhy">Integration with DoWhy</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.dowhy.DoWhyWrapper.html">econml.dowhy.DoWhyWrapper</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dowhy.DoWhyWrapper.html#econml.dowhy.DoWhyWrapper"><code class="docutils literal notranslate"><span class="pre">DoWhyWrapper</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference.html#utilities">Utilities</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.utilities.html">econml.utilities</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.IdentityFeatures"><code class="docutils literal notranslate"><span class="pre">IdentityFeatures</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.MissingModule"><code class="docutils literal notranslate"><span class="pre">MissingModule</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.MultiModelWrapper"><code class="docutils literal notranslate"><span class="pre">MultiModelWrapper</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.SeparateModel"><code class="docutils literal notranslate"><span class="pre">SeparateModel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.Summary"><code class="docutils literal notranslate"><span class="pre">Summary</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.WeightedModelWrapper"><code class="docutils literal notranslate"><span class="pre">WeightedModelWrapper</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.add_intercept"><code class="docutils literal notranslate"><span class="pre">add_intercept()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.broadcast_unit_treatments"><code class="docutils literal notranslate"><span class="pre">broadcast_unit_treatments()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.check_input_arrays"><code class="docutils literal notranslate"><span class="pre">check_input_arrays()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.check_inputs"><code class="docutils literal notranslate"><span class="pre">check_inputs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.check_models"><code class="docutils literal notranslate"><span class="pre">check_models()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.concatenate"><code class="docutils literal notranslate"><span class="pre">concatenate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.cross_product"><code class="docutils literal notranslate"><span class="pre">cross_product()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.deprecated"><code class="docutils literal notranslate"><span class="pre">deprecated()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.einsum_sparse"><code class="docutils literal notranslate"><span class="pre">einsum_sparse()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.filter_none_kwargs"><code class="docutils literal notranslate"><span class="pre">filter_none_kwargs()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.get_feature_names_or_default"><code class="docutils literal notranslate"><span class="pre">get_feature_names_or_default()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.get_input_columns"><code class="docutils literal notranslate"><span class="pre">get_input_columns()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.hstack"><code class="docutils literal notranslate"><span class="pre">hstack()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.inverse_onehot"><code class="docutils literal notranslate"><span class="pre">inverse_onehot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.iscoo"><code class="docutils literal notranslate"><span class="pre">iscoo()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.issparse"><code class="docutils literal notranslate"><span class="pre">issparse()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.jacify_featurizer"><code class="docutils literal notranslate"><span class="pre">jacify_featurizer()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.ndim"><code class="docutils literal notranslate"><span class="pre">ndim()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.one_hot_encoder"><code class="docutils literal notranslate"><span class="pre">one_hot_encoder()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.reshape"><code class="docutils literal notranslate"><span class="pre">reshape()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.reshape_Y_T"><code class="docutils literal notranslate"><span class="pre">reshape_Y_T()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.reshape_arrays_2dim"><code class="docutils literal notranslate"><span class="pre">reshape_arrays_2dim()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.reshape_outcomewise_effects"><code class="docutils literal notranslate"><span class="pre">reshape_outcomewise_effects()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.reshape_treatmentwise_effects"><code class="docutils literal notranslate"><span class="pre">reshape_treatmentwise_effects()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.shape"><code class="docutils literal notranslate"><span class="pre">shape()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.size"><code class="docutils literal notranslate"><span class="pre">size()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.stack"><code class="docutils literal notranslate"><span class="pre">stack()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.strata_from_discrete_arrays"><code class="docutils literal notranslate"><span class="pre">strata_from_discrete_arrays()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.tensordot"><code class="docutils literal notranslate"><span class="pre">tensordot()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.tocoo"><code class="docutils literal notranslate"><span class="pre">tocoo()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.todense"><code class="docutils literal notranslate"><span class="pre">todense()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.transpose"><code class="docutils literal notranslate"><span class="pre">transpose()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.transpose_dictionary"><code class="docutils literal notranslate"><span class="pre">transpose_dictionary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.utilities.html#econml.utilities.vstack"><code class="docutils literal notranslate"><span class="pre">vstack()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference.html#private-module-reference">Private Module Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html">econml._ortho_learner</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues"><code class="docutils literal notranslate"><span class="pre">CachedValues</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.count"><code class="docutils literal notranslate"><span class="pre">CachedValues.count()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.index"><code class="docutils literal notranslate"><span class="pre">CachedValues.index()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.T"><code class="docutils literal notranslate"><span class="pre">CachedValues.T</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.W"><code class="docutils literal notranslate"><span class="pre">CachedValues.W</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.X"><code class="docutils literal notranslate"><span class="pre">CachedValues.X</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.Y"><code class="docutils literal notranslate"><span class="pre">CachedValues.Y</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.Z"><code class="docutils literal notranslate"><span class="pre">CachedValues.Z</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.freq_weight"><code class="docutils literal notranslate"><span class="pre">CachedValues.freq_weight</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.groups"><code class="docutils literal notranslate"><span class="pre">CachedValues.groups</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.nuisances"><code class="docutils literal notranslate"><span class="pre">CachedValues.nuisances</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.sample_var"><code class="docutils literal notranslate"><span class="pre">CachedValues.sample_var</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner.CachedValues.sample_weight"><code class="docutils literal notranslate"><span class="pre">CachedValues.sample_weight</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.models_nuisance_"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.models_nuisance_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.ortho_learner_model_final_"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.ortho_learner_model_final_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.score_"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.score_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.nuisance_scores_"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.nuisance_scores_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.ate"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.ate_inference"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.ate_interval"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.cate_output_names"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.const_marginal_ate"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.const_marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.const_marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.const_marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.const_marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.const_marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.const_marginal_effect"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.const_marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.const_marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.const_marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.const_marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.const_marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.effect"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.effect_inference"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.effect_interval"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.fit"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.marginal_ate"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.marginal_effect"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.refit_final"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.refit_final()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.score"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.shap_values"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.shap_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._OrthoLearner.dowhy"><code class="docutils literal notranslate"><span class="pre">_OrthoLearner.dowhy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._ortho_learner.html#econml._ortho_learner._crossfit"><code class="docutils literal notranslate"><span class="pre">_crossfit()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html">econml._cate_estimator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.ate"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.ate_inference"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.ate_interval"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.cate_output_names"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.effect"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.effect_inference"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.effect_interval"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.fit"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.marginal_ate"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.marginal_effect"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.BaseCateEstimator.dowhy"><code class="docutils literal notranslate"><span class="pre">BaseCateEstimator.dowhy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.ate"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.coef_"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.coef_()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.coef__inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.coef__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.coef__interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.coef__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.effect"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.fit"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.intercept_"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.intercept_()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.intercept__inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.intercept__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.intercept__interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.intercept__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.summary"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.summary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorDiscreteMixin.dowhy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.ate"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.coef__inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.coef__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.coef__interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.coef__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.effect"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.fit"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.intercept__inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.intercept__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.intercept__interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.intercept__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.shap_values"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.shap_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.summary"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.summary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.coef_"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.coef_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.dowhy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.DebiasedLassoCateEstimatorMixin.intercept_"><code class="docutils literal notranslate"><span class="pre">DebiasedLassoCateEstimatorMixin.intercept_</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.ate"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.effect"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.fit"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorDiscreteMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorDiscreteMixin.dowhy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.ate"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.effect"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.fit"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.ForestModelFinalCateEstimatorMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">ForestModelFinalCateEstimatorMixin.dowhy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.ate"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.ate_inference"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.ate_interval"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.cate_output_names"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.const_marginal_ate"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.const_marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.const_marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.const_marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.const_marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.const_marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.const_marginal_effect"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.const_marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.const_marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.const_marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.const_marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.const_marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.effect"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.effect_inference"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.effect_interval"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.fit"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.marginal_ate"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.marginal_effect"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.shap_values"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.shap_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearCateEstimator.dowhy"><code class="docutils literal notranslate"><span class="pre">LinearCateEstimator.dowhy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.ate"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.coef_"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.coef_()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.coef__inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.coef__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.coef__interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.coef__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.effect"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.fit"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.intercept_"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.intercept_()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.intercept__inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.intercept__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.intercept__interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.intercept__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.summary"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.summary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorDiscreteMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorDiscreteMixin.dowhy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.bias_part_of_coef"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.bias_part_of_coef</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.ate"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.coef__inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.coef__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.coef__interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.coef__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.effect"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.fit"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.intercept__inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.intercept__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.intercept__interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.intercept__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.shap_values"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.shap_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.summary"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.summary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.coef_"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.coef_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.dowhy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.LinearModelFinalCateEstimatorMixin.intercept_"><code class="docutils literal notranslate"><span class="pre">LinearModelFinalCateEstimatorMixin.intercept_</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.ate"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.coef_"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.coef_()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.coef__inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.coef__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.coef__interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.coef__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.effect"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.fit"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.intercept_"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.intercept_()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.intercept__inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.intercept__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.intercept__interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.intercept__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.summary"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.summary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorDiscreteMixin.dowhy</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.ate"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.coef__inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.coef__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.coef__interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.coef__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.effect"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.fit"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.intercept__inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.intercept__inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.intercept__interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.intercept__interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.shap_values"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.shap_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.summary"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.summary()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.coef_"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.coef_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.dowhy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.StatsModelsCateEstimatorMixin.intercept_"><code class="docutils literal notranslate"><span class="pre">StatsModelsCateEstimatorMixin.intercept_</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.ate"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.ate_inference"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.ate_interval"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.cate_output_names"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.effect"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.effect_inference"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.effect_interval"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.fit"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.marginal_ate"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.marginal_effect"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml._cate_estimator.html#econml._cate_estimator.TreatmentExpansionMixin.dowhy"><code class="docutils literal notranslate"><span class="pre">TreatmentExpansionMixin.dowhy</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html">econml.dml._rlearner</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner"><code class="docutils literal notranslate"><span class="pre">_RLearner</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.models_y"><code class="docutils literal notranslate"><span class="pre">_RLearner.models_y</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.models_t"><code class="docutils literal notranslate"><span class="pre">_RLearner.models_t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.rlearner_model_final_"><code class="docutils literal notranslate"><span class="pre">_RLearner.rlearner_model_final_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.score_"><code class="docutils literal notranslate"><span class="pre">_RLearner.score_</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.nuisance_scores_y"><code class="docutils literal notranslate"><span class="pre">_RLearner.nuisance_scores_y</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.nuisance_scores_t"><code class="docutils literal notranslate"><span class="pre">_RLearner.nuisance_scores_t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.ate"><code class="docutils literal notranslate"><span class="pre">_RLearner.ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.ate_inference"><code class="docutils literal notranslate"><span class="pre">_RLearner.ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.ate_interval"><code class="docutils literal notranslate"><span class="pre">_RLearner.ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.cate_feature_names"><code class="docutils literal notranslate"><span class="pre">_RLearner.cate_feature_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.cate_output_names"><code class="docutils literal notranslate"><span class="pre">_RLearner.cate_output_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.cate_treatment_names"><code class="docutils literal notranslate"><span class="pre">_RLearner.cate_treatment_names()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.const_marginal_ate"><code class="docutils literal notranslate"><span class="pre">_RLearner.const_marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.const_marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">_RLearner.const_marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.const_marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">_RLearner.const_marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.const_marginal_effect"><code class="docutils literal notranslate"><span class="pre">_RLearner.const_marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.const_marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">_RLearner.const_marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.const_marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">_RLearner.const_marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.effect"><code class="docutils literal notranslate"><span class="pre">_RLearner.effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.effect_inference"><code class="docutils literal notranslate"><span class="pre">_RLearner.effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.effect_interval"><code class="docutils literal notranslate"><span class="pre">_RLearner.effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.fit"><code class="docutils literal notranslate"><span class="pre">_RLearner.fit()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.marginal_ate"><code class="docutils literal notranslate"><span class="pre">_RLearner.marginal_ate()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.marginal_ate_inference"><code class="docutils literal notranslate"><span class="pre">_RLearner.marginal_ate_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.marginal_ate_interval"><code class="docutils literal notranslate"><span class="pre">_RLearner.marginal_ate_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.marginal_effect"><code class="docutils literal notranslate"><span class="pre">_RLearner.marginal_effect()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.marginal_effect_inference"><code class="docutils literal notranslate"><span class="pre">_RLearner.marginal_effect_inference()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.marginal_effect_interval"><code class="docutils literal notranslate"><span class="pre">_RLearner.marginal_effect_interval()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.refit_final"><code class="docutils literal notranslate"><span class="pre">_RLearner.refit_final()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.score"><code class="docutils literal notranslate"><span class="pre">_RLearner.score()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.score_nuisances"><code class="docutils literal notranslate"><span class="pre">_RLearner.score_nuisances()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.shap_values"><code class="docutils literal notranslate"><span class="pre">_RLearner.shap_values()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.dowhy"><code class="docutils literal notranslate"><span class="pre">_RLearner.dowhy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.dml._rlearner.html#econml.dml._rlearner._RLearner.residuals_"><code class="docutils literal notranslate"><span class="pre">_RLearner.residuals_</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../_autosummary/econml.inference._bootstrap.html">econml.inference._bootstrap</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../_autosummary/econml.inference._bootstrap.html#econml.inference._bootstrap.BootstrapEstimator"><code class="docutils literal notranslate"><span class="pre">BootstrapEstimator</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../_autosummary/econml.inference._bootstrap.html#econml.inference._bootstrap.BootstrapEstimator.fit"><code class="docutils literal notranslate"><span class="pre">BootstrapEstimator.fit()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">econml</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="spec.html">EconML User Guide</a></li>
+      <li class="breadcrumb-item active">Introduction to Causal Inference</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/spec/causal_intro.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="introduction-to-causal-inference">
+<h1>Introduction to Causal Inference<a class="headerlink" href="#introduction-to-causal-inference" title="Link to this heading"></a></h1>
+<p>If you are new to causal inference, it may be helpful to walk through a quick overview of concepts and techniques that we refer to over the course of the documentation. Below we provide a high level introduction to causal inference tailored for EconML:</p>
+<iframe src="../Causal-Inference-User-Guide-v4-022520.pdf" width="700" height="388"> </iframe><p>The folks at DoWhy also have a broader introduction <a class="reference external" href="https://causalinference.gitlab.io/kdd-tutorial/">here</a>.</p>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="motivation.html" class="btn btn-neutral float-left" title="Machine Learning Based Estimation of Heterogeneous Treatment Effects" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="api.html" class="btn btn-neutral float-right" title="Problem Setup and API Design" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2023, PyWhy contributors.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

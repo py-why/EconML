@@ -1,0 +1,36 @@
+﻿econml.inference.GenericSingleTreatmentModelFinalInference
+==========================================================
+
+.. currentmodule:: econml.inference
+
+.. autoclass:: GenericSingleTreatmentModelFinalInference
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~GenericSingleTreatmentModelFinalInference.__init__
+      ~GenericSingleTreatmentModelFinalInference.ate_inference
+      ~GenericSingleTreatmentModelFinalInference.ate_interval
+      ~GenericSingleTreatmentModelFinalInference.const_marginal_ate_inference
+      ~GenericSingleTreatmentModelFinalInference.const_marginal_ate_interval
+      ~GenericSingleTreatmentModelFinalInference.const_marginal_effect_inference
+      ~GenericSingleTreatmentModelFinalInference.const_marginal_effect_interval
+      ~GenericSingleTreatmentModelFinalInference.effect_inference
+      ~GenericSingleTreatmentModelFinalInference.effect_interval
+      ~GenericSingleTreatmentModelFinalInference.fit
+      ~GenericSingleTreatmentModelFinalInference.marginal_ate_inference
+      ~GenericSingleTreatmentModelFinalInference.marginal_ate_interval
+      ~GenericSingleTreatmentModelFinalInference.marginal_effect_inference
+      ~GenericSingleTreatmentModelFinalInference.marginal_effect_interval
+      ~GenericSingleTreatmentModelFinalInference.prefit
+   
+   
+
+   
+   
+   

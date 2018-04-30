@@ -1,0 +1,26 @@
+﻿econml.iv.sieve.HermiteFeatures
+===============================
+
+.. currentmodule:: econml.iv.sieve
+
+.. autoclass:: HermiteFeatures
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~HermiteFeatures.__init__
+      ~HermiteFeatures.fit
+      ~HermiteFeatures.fit_transform
+      ~HermiteFeatures.set_output
+      ~HermiteFeatures.transform
+   
+   
+
+   
+   
+   

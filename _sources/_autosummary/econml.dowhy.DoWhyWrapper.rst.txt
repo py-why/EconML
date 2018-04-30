@@ -1,0 +1,25 @@
+﻿econml.dowhy.DoWhyWrapper
+=========================
+
+.. currentmodule:: econml.dowhy
+
+.. autoclass:: DoWhyWrapper
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DoWhyWrapper.__init__
+      ~DoWhyWrapper.fit
+      ~DoWhyWrapper.refit_final
+      ~DoWhyWrapper.refute_estimate
+   
+   
+
+   
+   
+   

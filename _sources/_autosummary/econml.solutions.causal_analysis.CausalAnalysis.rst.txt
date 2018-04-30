@@ -1,0 +1,31 @@
+﻿econml.solutions.causal\_analysis.CausalAnalysis
+================================================
+
+.. currentmodule:: econml.solutions.causal_analysis
+
+.. autoclass:: CausalAnalysis
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~CausalAnalysis.__init__
+      ~CausalAnalysis.cohort_causal_effect
+      ~CausalAnalysis.fit
+      ~CausalAnalysis.global_causal_effect
+      ~CausalAnalysis.individualized_policy
+      ~CausalAnalysis.local_causal_effect
+      ~CausalAnalysis.plot_heterogeneity_tree
+      ~CausalAnalysis.plot_policy_tree
+      ~CausalAnalysis.typical_treatment_value
+      ~CausalAnalysis.whatif
+   
+   
+
+   
+   
+   

@@ -1,0 +1,37 @@
+﻿econml.inference.PopulationSummaryResults
+=========================================
+
+.. currentmodule:: econml.inference
+
+.. autoclass:: PopulationSummaryResults
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~PopulationSummaryResults.__init__
+      ~PopulationSummaryResults.conf_int_mean
+      ~PopulationSummaryResults.conf_int_point
+      ~PopulationSummaryResults.percentile_point
+      ~PopulationSummaryResults.pvalue
+      ~PopulationSummaryResults.summary
+      ~PopulationSummaryResults.zstat
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~PopulationSummaryResults.mean_point
+      ~PopulationSummaryResults.std_point
+      ~PopulationSummaryResults.stderr_mean
+      ~PopulationSummaryResults.stderr_point
+   
+   

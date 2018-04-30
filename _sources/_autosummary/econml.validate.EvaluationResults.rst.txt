@@ -1,0 +1,26 @@
+﻿econml.validate.EvaluationResults
+=================================
+
+.. currentmodule:: econml.validate
+
+.. autoclass:: EvaluationResults
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~EvaluationResults.__init__
+      ~EvaluationResults.plot_cal
+      ~EvaluationResults.plot_qini
+      ~EvaluationResults.plot_toc
+      ~EvaluationResults.summary
+   
+   
+
+   
+   
+   

@@ -1,0 +1,80 @@
+﻿econml.iv.dml.OrthoIV
+=====================
+
+.. currentmodule:: econml.iv.dml
+
+.. autoclass:: OrthoIV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~OrthoIV.__init__
+      ~OrthoIV.ate
+      ~OrthoIV.ate_inference
+      ~OrthoIV.ate_interval
+      ~OrthoIV.cate_feature_names
+      ~OrthoIV.cate_output_names
+      ~OrthoIV.cate_treatment_names
+      ~OrthoIV.coef__inference
+      ~OrthoIV.coef__interval
+      ~OrthoIV.const_marginal_ate
+      ~OrthoIV.const_marginal_ate_inference
+      ~OrthoIV.const_marginal_ate_interval
+      ~OrthoIV.const_marginal_effect
+      ~OrthoIV.const_marginal_effect_inference
+      ~OrthoIV.const_marginal_effect_interval
+      ~OrthoIV.effect
+      ~OrthoIV.effect_inference
+      ~OrthoIV.effect_interval
+      ~OrthoIV.fit
+      ~OrthoIV.intercept__inference
+      ~OrthoIV.intercept__interval
+      ~OrthoIV.marginal_ate
+      ~OrthoIV.marginal_ate_inference
+      ~OrthoIV.marginal_ate_interval
+      ~OrthoIV.marginal_effect
+      ~OrthoIV.marginal_effect_inference
+      ~OrthoIV.marginal_effect_interval
+      ~OrthoIV.refit_final
+      ~OrthoIV.score
+      ~OrthoIV.shap_values
+      ~OrthoIV.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~OrthoIV.bias_part_of_coef
+      ~OrthoIV.coef_
+      ~OrthoIV.dowhy
+      ~OrthoIV.featurizer
+      ~OrthoIV.featurizer_
+      ~OrthoIV.fit_cate_intercept_
+      ~OrthoIV.intercept_
+      ~OrthoIV.model_cate
+      ~OrthoIV.model_final
+      ~OrthoIV.model_final_
+      ~OrthoIV.models_nuisance_
+      ~OrthoIV.models_t_xw
+      ~OrthoIV.models_t_xwz
+      ~OrthoIV.models_y_xw
+      ~OrthoIV.models_z_xw
+      ~OrthoIV.nuisance_scores_t_xw
+      ~OrthoIV.nuisance_scores_t_xwz
+      ~OrthoIV.nuisance_scores_y_xw
+      ~OrthoIV.nuisance_scores_z_xw
+      ~OrthoIV.original_featurizer
+      ~OrthoIV.ortho_learner_model_final_
+      ~OrthoIV.residuals_
+      ~OrthoIV.transformer
+   
+   

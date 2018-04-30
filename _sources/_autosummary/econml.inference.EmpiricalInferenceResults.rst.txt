@@ -1,0 +1,37 @@
+﻿econml.inference.EmpiricalInferenceResults
+==========================================
+
+.. currentmodule:: econml.inference
+
+.. autoclass:: EmpiricalInferenceResults
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~EmpiricalInferenceResults.__init__
+      ~EmpiricalInferenceResults.conf_int
+      ~EmpiricalInferenceResults.population_summary
+      ~EmpiricalInferenceResults.pvalue
+      ~EmpiricalInferenceResults.scale
+      ~EmpiricalInferenceResults.summary_frame
+      ~EmpiricalInferenceResults.translate
+      ~EmpiricalInferenceResults.zstat
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~EmpiricalInferenceResults.point_estimate
+      ~EmpiricalInferenceResults.stderr
+      ~EmpiricalInferenceResults.var
+   
+   

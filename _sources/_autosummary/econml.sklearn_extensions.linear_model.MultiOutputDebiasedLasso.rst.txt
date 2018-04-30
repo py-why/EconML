@@ -1,0 +1,36 @@
+﻿econml.sklearn\_extensions.linear\_model.MultiOutputDebiasedLasso
+=================================================================
+
+.. currentmodule:: econml.sklearn_extensions.linear_model
+
+.. autoclass:: MultiOutputDebiasedLasso
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~MultiOutputDebiasedLasso.__init__
+      ~MultiOutputDebiasedLasso.coef__interval
+      ~MultiOutputDebiasedLasso.fit
+      ~MultiOutputDebiasedLasso.get_metadata_routing
+      ~MultiOutputDebiasedLasso.get_params
+      ~MultiOutputDebiasedLasso.intercept__interval
+      ~MultiOutputDebiasedLasso.partial_fit
+      ~MultiOutputDebiasedLasso.predict
+      ~MultiOutputDebiasedLasso.predict_interval
+      ~MultiOutputDebiasedLasso.prediction_stderr
+      ~MultiOutputDebiasedLasso.score
+      ~MultiOutputDebiasedLasso.set_fit_request
+      ~MultiOutputDebiasedLasso.set_params
+      ~MultiOutputDebiasedLasso.set_partial_fit_request
+      ~MultiOutputDebiasedLasso.set_score_request
+   
+   
+
+   
+   
+   

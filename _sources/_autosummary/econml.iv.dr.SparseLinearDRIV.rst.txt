@@ -1,0 +1,84 @@
+﻿econml.iv.dr.SparseLinearDRIV
+=============================
+
+.. currentmodule:: econml.iv.dr
+
+.. autoclass:: SparseLinearDRIV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~SparseLinearDRIV.__init__
+      ~SparseLinearDRIV.ate
+      ~SparseLinearDRIV.ate_inference
+      ~SparseLinearDRIV.ate_interval
+      ~SparseLinearDRIV.cate_feature_names
+      ~SparseLinearDRIV.cate_output_names
+      ~SparseLinearDRIV.cate_treatment_names
+      ~SparseLinearDRIV.coef__inference
+      ~SparseLinearDRIV.coef__interval
+      ~SparseLinearDRIV.const_marginal_ate
+      ~SparseLinearDRIV.const_marginal_ate_inference
+      ~SparseLinearDRIV.const_marginal_ate_interval
+      ~SparseLinearDRIV.const_marginal_effect
+      ~SparseLinearDRIV.const_marginal_effect_inference
+      ~SparseLinearDRIV.const_marginal_effect_interval
+      ~SparseLinearDRIV.effect
+      ~SparseLinearDRIV.effect_inference
+      ~SparseLinearDRIV.effect_interval
+      ~SparseLinearDRIV.fit
+      ~SparseLinearDRIV.intercept__inference
+      ~SparseLinearDRIV.intercept__interval
+      ~SparseLinearDRIV.marginal_ate
+      ~SparseLinearDRIV.marginal_ate_inference
+      ~SparseLinearDRIV.marginal_ate_interval
+      ~SparseLinearDRIV.marginal_effect
+      ~SparseLinearDRIV.marginal_effect_inference
+      ~SparseLinearDRIV.marginal_effect_interval
+      ~SparseLinearDRIV.refit_final
+      ~SparseLinearDRIV.score
+      ~SparseLinearDRIV.shap_values
+      ~SparseLinearDRIV.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~SparseLinearDRIV.bias_part_of_coef
+      ~SparseLinearDRIV.coef_
+      ~SparseLinearDRIV.dowhy
+      ~SparseLinearDRIV.featurizer
+      ~SparseLinearDRIV.featurizer_
+      ~SparseLinearDRIV.fit_cate_intercept_
+      ~SparseLinearDRIV.intercept_
+      ~SparseLinearDRIV.model_cate
+      ~SparseLinearDRIV.model_final
+      ~SparseLinearDRIV.model_final_
+      ~SparseLinearDRIV.models_nuisance_
+      ~SparseLinearDRIV.models_prel_model_effect
+      ~SparseLinearDRIV.models_t_xw
+      ~SparseLinearDRIV.models_t_xwz
+      ~SparseLinearDRIV.models_tz_xw
+      ~SparseLinearDRIV.models_y_xw
+      ~SparseLinearDRIV.models_z_xw
+      ~SparseLinearDRIV.nuisance_scores_prel_model_effect
+      ~SparseLinearDRIV.nuisance_scores_t_xw
+      ~SparseLinearDRIV.nuisance_scores_t_xwz
+      ~SparseLinearDRIV.nuisance_scores_tz_xw
+      ~SparseLinearDRIV.nuisance_scores_y_xw
+      ~SparseLinearDRIV.nuisance_scores_z_xw
+      ~SparseLinearDRIV.original_featurizer
+      ~SparseLinearDRIV.ortho_learner_model_final_
+      ~SparseLinearDRIV.residuals_
+      ~SparseLinearDRIV.transformer
+   
+   

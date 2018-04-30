@@ -1,0 +1,67 @@
+﻿econml.iv.dr.IntentToTreatDRIV
+==============================
+
+.. currentmodule:: econml.iv.dr
+
+.. autoclass:: IntentToTreatDRIV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~IntentToTreatDRIV.__init__
+      ~IntentToTreatDRIV.ate
+      ~IntentToTreatDRIV.ate_inference
+      ~IntentToTreatDRIV.ate_interval
+      ~IntentToTreatDRIV.cate_feature_names
+      ~IntentToTreatDRIV.cate_output_names
+      ~IntentToTreatDRIV.cate_treatment_names
+      ~IntentToTreatDRIV.const_marginal_ate
+      ~IntentToTreatDRIV.const_marginal_ate_inference
+      ~IntentToTreatDRIV.const_marginal_ate_interval
+      ~IntentToTreatDRIV.const_marginal_effect
+      ~IntentToTreatDRIV.const_marginal_effect_inference
+      ~IntentToTreatDRIV.const_marginal_effect_interval
+      ~IntentToTreatDRIV.effect
+      ~IntentToTreatDRIV.effect_inference
+      ~IntentToTreatDRIV.effect_interval
+      ~IntentToTreatDRIV.fit
+      ~IntentToTreatDRIV.marginal_ate
+      ~IntentToTreatDRIV.marginal_ate_inference
+      ~IntentToTreatDRIV.marginal_ate_interval
+      ~IntentToTreatDRIV.marginal_effect
+      ~IntentToTreatDRIV.marginal_effect_inference
+      ~IntentToTreatDRIV.marginal_effect_interval
+      ~IntentToTreatDRIV.refit_final
+      ~IntentToTreatDRIV.score
+      ~IntentToTreatDRIV.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~IntentToTreatDRIV.dowhy
+      ~IntentToTreatDRIV.featurizer_
+      ~IntentToTreatDRIV.model_cate
+      ~IntentToTreatDRIV.model_final_
+      ~IntentToTreatDRIV.models_nuisance_
+      ~IntentToTreatDRIV.models_prel_model_effect
+      ~IntentToTreatDRIV.models_t_xwz
+      ~IntentToTreatDRIV.models_y_xw
+      ~IntentToTreatDRIV.nuisance_scores_prel_model_effect
+      ~IntentToTreatDRIV.nuisance_scores_t_xwz
+      ~IntentToTreatDRIV.nuisance_scores_y_xw
+      ~IntentToTreatDRIV.original_featurizer
+      ~IntentToTreatDRIV.ortho_learner_model_final_
+      ~IntentToTreatDRIV.residuals_
+      ~IntentToTreatDRIV.transformer
+   
+   

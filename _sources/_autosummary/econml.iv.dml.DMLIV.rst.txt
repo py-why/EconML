@@ -1,0 +1,72 @@
+﻿econml.iv.dml.DMLIV
+===================
+
+.. currentmodule:: econml.iv.dml
+
+.. autoclass:: DMLIV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DMLIV.__init__
+      ~DMLIV.ate
+      ~DMLIV.ate_inference
+      ~DMLIV.ate_interval
+      ~DMLIV.cate_feature_names
+      ~DMLIV.cate_output_names
+      ~DMLIV.cate_treatment_names
+      ~DMLIV.const_marginal_ate
+      ~DMLIV.const_marginal_ate_inference
+      ~DMLIV.const_marginal_ate_interval
+      ~DMLIV.const_marginal_effect
+      ~DMLIV.const_marginal_effect_inference
+      ~DMLIV.const_marginal_effect_interval
+      ~DMLIV.effect
+      ~DMLIV.effect_inference
+      ~DMLIV.effect_interval
+      ~DMLIV.fit
+      ~DMLIV.marginal_ate
+      ~DMLIV.marginal_ate_inference
+      ~DMLIV.marginal_ate_interval
+      ~DMLIV.marginal_effect
+      ~DMLIV.marginal_effect_inference
+      ~DMLIV.marginal_effect_interval
+      ~DMLIV.refit_final
+      ~DMLIV.score
+      ~DMLIV.shap_values
+      ~DMLIV.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DMLIV.bias_part_of_coef
+      ~DMLIV.coef_
+      ~DMLIV.dowhy
+      ~DMLIV.featurizer_
+      ~DMLIV.fit_cate_intercept_
+      ~DMLIV.intercept_
+      ~DMLIV.model_cate
+      ~DMLIV.model_final_
+      ~DMLIV.models_nuisance_
+      ~DMLIV.models_t_xw
+      ~DMLIV.models_t_xwz
+      ~DMLIV.models_y_xw
+      ~DMLIV.nuisance_scores_t_xw
+      ~DMLIV.nuisance_scores_t_xwz
+      ~DMLIV.nuisance_scores_y_xw
+      ~DMLIV.original_featurizer
+      ~DMLIV.ortho_learner_model_final_
+      ~DMLIV.residuals_
+      ~DMLIV.transformer
+   
+   

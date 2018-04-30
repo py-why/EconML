@@ -1,0 +1,39 @@
+﻿econml.policy.DRPolicyTree
+==========================
+
+.. currentmodule:: econml.policy
+
+.. autoclass:: DRPolicyTree
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DRPolicyTree.__init__
+      ~DRPolicyTree.export_graphviz
+      ~DRPolicyTree.feature_importances
+      ~DRPolicyTree.fit
+      ~DRPolicyTree.plot
+      ~DRPolicyTree.policy_feature_names
+      ~DRPolicyTree.policy_treatment_names
+      ~DRPolicyTree.predict
+      ~DRPolicyTree.predict_proba
+      ~DRPolicyTree.predict_value
+      ~DRPolicyTree.render
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DRPolicyTree.feature_importances_
+      ~DRPolicyTree.policy_model_
+   
+   

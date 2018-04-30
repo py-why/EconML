@@ -1,0 +1,42 @@
+﻿econml.sklearn\_extensions.linear\_model.StatsModelsLinearRegression
+====================================================================
+
+.. currentmodule:: econml.sklearn_extensions.linear_model
+
+.. autoclass:: StatsModelsLinearRegression
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~StatsModelsLinearRegression.__init__
+      ~StatsModelsLinearRegression.aggregate
+      ~StatsModelsLinearRegression.coef__interval
+      ~StatsModelsLinearRegression.fit
+      ~StatsModelsLinearRegression.get_metadata_routing
+      ~StatsModelsLinearRegression.get_params
+      ~StatsModelsLinearRegression.intercept__interval
+      ~StatsModelsLinearRegression.predict
+      ~StatsModelsLinearRegression.predict_interval
+      ~StatsModelsLinearRegression.prediction_stderr
+      ~StatsModelsLinearRegression.set_fit_request
+      ~StatsModelsLinearRegression.set_params
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~StatsModelsLinearRegression.coef_
+      ~StatsModelsLinearRegression.coef_stderr_
+      ~StatsModelsLinearRegression.intercept_
+      ~StatsModelsLinearRegression.intercept_stderr_
+   
+   

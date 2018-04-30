@@ -1,0 +1,51 @@
+﻿econml.policy.PolicyTree
+========================
+
+.. currentmodule:: econml.policy
+
+.. autoclass:: PolicyTree
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~PolicyTree.__init__
+      ~PolicyTree.apply
+      ~PolicyTree.decision_path
+      ~PolicyTree.export_graphviz
+      ~PolicyTree.feature_importances
+      ~PolicyTree.fit
+      ~PolicyTree.get_depth
+      ~PolicyTree.get_metadata_routing
+      ~PolicyTree.get_n_leaves
+      ~PolicyTree.get_params
+      ~PolicyTree.get_train_test_split_inds
+      ~PolicyTree.init
+      ~PolicyTree.plot
+      ~PolicyTree.predict
+      ~PolicyTree.predict_proba
+      ~PolicyTree.predict_value
+      ~PolicyTree.render
+      ~PolicyTree.set_fit_request
+      ~PolicyTree.set_params
+      ~PolicyTree.set_predict_proba_request
+      ~PolicyTree.set_predict_request
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~PolicyTree.feature_importances_
+      ~PolicyTree.n_features_
+      ~PolicyTree.node_dict_
+      ~PolicyTree.tree_model_
+   
+   

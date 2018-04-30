@@ -1,0 +1,12 @@
+﻿econml.dml.\_rlearner
+=====================
+
+.. automodule:: econml.dml._rlearner
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      _RLearner
+   

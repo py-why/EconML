@@ -1,0 +1,32 @@
+﻿econml.validate.DRTester
+========================
+
+.. currentmodule:: econml.validate
+
+.. autoclass:: DRTester
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DRTester.__init__
+      ~DRTester.evaluate_all
+      ~DRTester.evaluate_blp
+      ~DRTester.evaluate_cal
+      ~DRTester.evaluate_uplift
+      ~DRTester.fit_nuisance
+      ~DRTester.fit_nuisance_cv
+      ~DRTester.fit_nuisance_train
+      ~DRTester.get_cate_preds
+      ~DRTester.get_cv_splits
+      ~DRTester.get_cv_splitter
+   
+   
+
+   
+   
+   

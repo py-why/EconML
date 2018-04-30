@@ -1,0 +1,75 @@
+﻿econml.panel.dml.DynamicDML
+===========================
+
+.. currentmodule:: econml.panel.dml
+
+.. autoclass:: DynamicDML
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DynamicDML.__init__
+      ~DynamicDML.ate
+      ~DynamicDML.ate_inference
+      ~DynamicDML.ate_interval
+      ~DynamicDML.cate_feature_names
+      ~DynamicDML.cate_output_names
+      ~DynamicDML.cate_treatment_names
+      ~DynamicDML.coef__inference
+      ~DynamicDML.coef__interval
+      ~DynamicDML.const_marginal_ate
+      ~DynamicDML.const_marginal_ate_inference
+      ~DynamicDML.const_marginal_ate_interval
+      ~DynamicDML.const_marginal_effect
+      ~DynamicDML.const_marginal_effect_inference
+      ~DynamicDML.const_marginal_effect_interval
+      ~DynamicDML.effect
+      ~DynamicDML.effect_inference
+      ~DynamicDML.effect_interval
+      ~DynamicDML.fit
+      ~DynamicDML.intercept__inference
+      ~DynamicDML.intercept__interval
+      ~DynamicDML.marginal_ate
+      ~DynamicDML.marginal_ate_inference
+      ~DynamicDML.marginal_ate_interval
+      ~DynamicDML.marginal_effect
+      ~DynamicDML.marginal_effect_inference
+      ~DynamicDML.marginal_effect_interval
+      ~DynamicDML.refit_final
+      ~DynamicDML.score
+      ~DynamicDML.shap_values
+      ~DynamicDML.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DynamicDML.bias_part_of_coef
+      ~DynamicDML.coef_
+      ~DynamicDML.dowhy
+      ~DynamicDML.featurizer
+      ~DynamicDML.featurizer_
+      ~DynamicDML.fit_cate_intercept_
+      ~DynamicDML.intercept_
+      ~DynamicDML.model_final
+      ~DynamicDML.model_final_
+      ~DynamicDML.models_nuisance_
+      ~DynamicDML.models_t
+      ~DynamicDML.models_y
+      ~DynamicDML.nuisance_scores_t
+      ~DynamicDML.nuisance_scores_y
+      ~DynamicDML.original_featurizer
+      ~DynamicDML.ortho_learner_model_final_
+      ~DynamicDML.residuals_
+      ~DynamicDML.transformer
+   
+   

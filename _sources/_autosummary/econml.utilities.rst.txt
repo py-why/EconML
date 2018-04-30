@@ -1,0 +1,58 @@
+﻿econml.utilities
+================
+
+.. automodule:: econml.utilities
+
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+   
+      add_intercept
+      broadcast_unit_treatments
+      check_high_dimensional
+      check_input_arrays
+      check_inputs
+      check_models
+      concatenate
+      cross_product
+      deprecated
+      einsum_sparse
+      filter_none_kwargs
+      get_feature_names_or_default
+      get_input_columns
+      hstack
+      inverse_onehot
+      iscoo
+      issparse
+      jacify_featurizer
+      ndim
+      one_hot_encoder
+      parse_final_model_params
+      reshape
+      reshape_Y_T
+      reshape_arrays_2dim
+      reshape_outcomewise_effects
+      reshape_treatmentwise_effects
+      shape
+      size
+      stack
+      strata_from_discrete_arrays
+      tensordot
+      tocoo
+      todense
+      transpose
+      transpose_dictionary
+      vstack
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      IdentityFeatures
+      MissingModule
+      MultiModelWrapper
+      SeparateModel
+      Summary
+      WeightedModelWrapper
+   

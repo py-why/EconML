@@ -1,0 +1,31 @@
+﻿econml.sklearn\_extensions.linear\_model.WeightedLassoCV
+========================================================
+
+.. currentmodule:: econml.sklearn_extensions.linear_model
+
+.. autoclass:: WeightedLassoCV
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~WeightedLassoCV.__init__
+      ~WeightedLassoCV.fit
+      ~WeightedLassoCV.get_metadata_routing
+      ~WeightedLassoCV.get_params
+      ~WeightedLassoCV.path
+      ~WeightedLassoCV.predict
+      ~WeightedLassoCV.score
+      ~WeightedLassoCV.set_fit_request
+      ~WeightedLassoCV.set_params
+      ~WeightedLassoCV.set_score_request
+   
+   
+
+   
+   
+   

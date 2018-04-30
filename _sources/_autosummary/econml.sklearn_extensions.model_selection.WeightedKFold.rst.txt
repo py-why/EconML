@@ -1,0 +1,24 @@
+﻿econml.sklearn\_extensions.model\_selection.WeightedKFold
+=========================================================
+
+.. currentmodule:: econml.sklearn_extensions.model_selection
+
+.. autoclass:: WeightedKFold
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~WeightedKFold.__init__
+      ~WeightedKFold.get_n_splits
+      ~WeightedKFold.split
+   
+   
+
+   
+   
+   

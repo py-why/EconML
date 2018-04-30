@@ -1,0 +1,71 @@
+﻿econml.dr.ForestDRLearner
+=========================
+
+.. currentmodule:: econml.dr
+
+.. autoclass:: ForestDRLearner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~ForestDRLearner.__init__
+      ~ForestDRLearner.ate
+      ~ForestDRLearner.ate_inference
+      ~ForestDRLearner.ate_interval
+      ~ForestDRLearner.cate_feature_names
+      ~ForestDRLearner.cate_output_names
+      ~ForestDRLearner.cate_treatment_names
+      ~ForestDRLearner.const_marginal_ate
+      ~ForestDRLearner.const_marginal_ate_inference
+      ~ForestDRLearner.const_marginal_ate_interval
+      ~ForestDRLearner.const_marginal_effect
+      ~ForestDRLearner.const_marginal_effect_inference
+      ~ForestDRLearner.const_marginal_effect_interval
+      ~ForestDRLearner.effect
+      ~ForestDRLearner.effect_inference
+      ~ForestDRLearner.effect_interval
+      ~ForestDRLearner.feature_importances_
+      ~ForestDRLearner.fit
+      ~ForestDRLearner.marginal_ate
+      ~ForestDRLearner.marginal_ate_inference
+      ~ForestDRLearner.marginal_ate_interval
+      ~ForestDRLearner.marginal_effect
+      ~ForestDRLearner.marginal_effect_inference
+      ~ForestDRLearner.marginal_effect_interval
+      ~ForestDRLearner.model_cate
+      ~ForestDRLearner.multitask_model_cate
+      ~ForestDRLearner.refit_final
+      ~ForestDRLearner.robustness_value
+      ~ForestDRLearner.score
+      ~ForestDRLearner.sensitivity_interval
+      ~ForestDRLearner.sensitivity_summary
+      ~ForestDRLearner.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~ForestDRLearner.dowhy
+      ~ForestDRLearner.featurizer_
+      ~ForestDRLearner.fitted_models_final
+      ~ForestDRLearner.model_final
+      ~ForestDRLearner.model_final_
+      ~ForestDRLearner.models_nuisance_
+      ~ForestDRLearner.models_propensity
+      ~ForestDRLearner.models_regression
+      ~ForestDRLearner.multitask_model_final
+      ~ForestDRLearner.nuisance_scores_propensity
+      ~ForestDRLearner.nuisance_scores_regression
+      ~ForestDRLearner.ortho_learner_model_final_
+      ~ForestDRLearner.transformer
+   
+   

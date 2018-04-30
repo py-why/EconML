@@ -1,0 +1,52 @@
+﻿econml.orf.DMLOrthoForest
+=========================
+
+.. currentmodule:: econml.orf
+
+.. autoclass:: DMLOrthoForest
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DMLOrthoForest.__init__
+      ~DMLOrthoForest.ate
+      ~DMLOrthoForest.ate_inference
+      ~DMLOrthoForest.ate_interval
+      ~DMLOrthoForest.cate_feature_names
+      ~DMLOrthoForest.cate_output_names
+      ~DMLOrthoForest.cate_treatment_names
+      ~DMLOrthoForest.const_marginal_ate
+      ~DMLOrthoForest.const_marginal_ate_inference
+      ~DMLOrthoForest.const_marginal_ate_interval
+      ~DMLOrthoForest.const_marginal_effect
+      ~DMLOrthoForest.const_marginal_effect_inference
+      ~DMLOrthoForest.const_marginal_effect_interval
+      ~DMLOrthoForest.effect
+      ~DMLOrthoForest.effect_inference
+      ~DMLOrthoForest.effect_interval
+      ~DMLOrthoForest.fit
+      ~DMLOrthoForest.marginal_ate
+      ~DMLOrthoForest.marginal_ate_inference
+      ~DMLOrthoForest.marginal_ate_interval
+      ~DMLOrthoForest.marginal_effect
+      ~DMLOrthoForest.marginal_effect_inference
+      ~DMLOrthoForest.marginal_effect_interval
+      ~DMLOrthoForest.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DMLOrthoForest.dowhy
+      ~DMLOrthoForest.transformer
+   
+   

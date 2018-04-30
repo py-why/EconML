@@ -1,0 +1,28 @@
+﻿econml.sklearn\_extensions.model\_selection.GridSearchCVList
+============================================================
+
+.. currentmodule:: econml.sklearn_extensions.model_selection
+
+.. autoclass:: GridSearchCVList
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~GridSearchCVList.__init__
+      ~GridSearchCVList.fit
+      ~GridSearchCVList.get_metadata_routing
+      ~GridSearchCVList.get_params
+      ~GridSearchCVList.predict
+      ~GridSearchCVList.predict_proba
+      ~GridSearchCVList.set_params
+   
+   
+
+   
+   
+   

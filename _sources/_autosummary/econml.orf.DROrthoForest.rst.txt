@@ -1,0 +1,56 @@
+﻿econml.orf.DROrthoForest
+========================
+
+.. currentmodule:: econml.orf
+
+.. autoclass:: DROrthoForest
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DROrthoForest.__init__
+      ~DROrthoForest.ate
+      ~DROrthoForest.ate_inference
+      ~DROrthoForest.ate_interval
+      ~DROrthoForest.cate_feature_names
+      ~DROrthoForest.cate_output_names
+      ~DROrthoForest.cate_treatment_names
+      ~DROrthoForest.const_marginal_ate
+      ~DROrthoForest.const_marginal_ate_inference
+      ~DROrthoForest.const_marginal_ate_interval
+      ~DROrthoForest.const_marginal_effect
+      ~DROrthoForest.const_marginal_effect_inference
+      ~DROrthoForest.const_marginal_effect_interval
+      ~DROrthoForest.effect
+      ~DROrthoForest.effect_inference
+      ~DROrthoForest.effect_interval
+      ~DROrthoForest.fit
+      ~DROrthoForest.marginal_ate
+      ~DROrthoForest.marginal_ate_inference
+      ~DROrthoForest.marginal_ate_interval
+      ~DROrthoForest.marginal_effect
+      ~DROrthoForest.marginal_effect_inference
+      ~DROrthoForest.marginal_effect_interval
+      ~DROrthoForest.moment_and_mean_gradient_estimator_func
+      ~DROrthoForest.nuisance_estimator_generator
+      ~DROrthoForest.parameter_estimator_func
+      ~DROrthoForest.second_stage_parameter_estimator_gen
+      ~DROrthoForest.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DROrthoForest.dowhy
+      ~DROrthoForest.transformer
+   
+   

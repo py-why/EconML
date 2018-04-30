@@ -1,0 +1,53 @@
+﻿econml.federated\_learning.FederatedEstimator
+=============================================
+
+.. currentmodule:: econml.federated_learning
+
+.. autoclass:: FederatedEstimator
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~FederatedEstimator.__init__
+      ~FederatedEstimator.ate
+      ~FederatedEstimator.ate_inference
+      ~FederatedEstimator.ate_interval
+      ~FederatedEstimator.bias_part_of_coef
+      ~FederatedEstimator.cate_feature_names
+      ~FederatedEstimator.cate_output_names
+      ~FederatedEstimator.cate_treatment_names
+      ~FederatedEstimator.const_marginal_ate
+      ~FederatedEstimator.const_marginal_ate_inference
+      ~FederatedEstimator.const_marginal_ate_interval
+      ~FederatedEstimator.const_marginal_effect
+      ~FederatedEstimator.const_marginal_effect_inference
+      ~FederatedEstimator.const_marginal_effect_interval
+      ~FederatedEstimator.effect
+      ~FederatedEstimator.effect_inference
+      ~FederatedEstimator.effect_interval
+      ~FederatedEstimator.fit
+      ~FederatedEstimator.marginal_ate
+      ~FederatedEstimator.marginal_ate_inference
+      ~FederatedEstimator.marginal_ate_interval
+      ~FederatedEstimator.marginal_effect
+      ~FederatedEstimator.marginal_effect_inference
+      ~FederatedEstimator.marginal_effect_interval
+      ~FederatedEstimator.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~FederatedEstimator.dowhy
+      ~FederatedEstimator.transformer
+   
+   

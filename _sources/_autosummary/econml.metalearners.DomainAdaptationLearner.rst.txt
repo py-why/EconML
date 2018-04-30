@@ -1,0 +1,52 @@
+﻿econml.metalearners.DomainAdaptationLearner
+===========================================
+
+.. currentmodule:: econml.metalearners
+
+.. autoclass:: DomainAdaptationLearner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DomainAdaptationLearner.__init__
+      ~DomainAdaptationLearner.ate
+      ~DomainAdaptationLearner.ate_inference
+      ~DomainAdaptationLearner.ate_interval
+      ~DomainAdaptationLearner.cate_feature_names
+      ~DomainAdaptationLearner.cate_output_names
+      ~DomainAdaptationLearner.cate_treatment_names
+      ~DomainAdaptationLearner.const_marginal_ate
+      ~DomainAdaptationLearner.const_marginal_ate_inference
+      ~DomainAdaptationLearner.const_marginal_ate_interval
+      ~DomainAdaptationLearner.const_marginal_effect
+      ~DomainAdaptationLearner.const_marginal_effect_inference
+      ~DomainAdaptationLearner.const_marginal_effect_interval
+      ~DomainAdaptationLearner.effect
+      ~DomainAdaptationLearner.effect_inference
+      ~DomainAdaptationLearner.effect_interval
+      ~DomainAdaptationLearner.fit
+      ~DomainAdaptationLearner.marginal_ate
+      ~DomainAdaptationLearner.marginal_ate_inference
+      ~DomainAdaptationLearner.marginal_ate_interval
+      ~DomainAdaptationLearner.marginal_effect
+      ~DomainAdaptationLearner.marginal_effect_inference
+      ~DomainAdaptationLearner.marginal_effect_interval
+      ~DomainAdaptationLearner.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DomainAdaptationLearner.dowhy
+      ~DomainAdaptationLearner.transformer
+   
+   

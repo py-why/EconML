@@ -1,0 +1,22 @@
+﻿econml.\_cate\_estimator
+========================
+
+.. automodule:: econml._cate_estimator
+
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+   
+      BaseCateEstimator
+      DebiasedLassoCateEstimatorDiscreteMixin
+      DebiasedLassoCateEstimatorMixin
+      ForestModelFinalCateEstimatorDiscreteMixin
+      ForestModelFinalCateEstimatorMixin
+      LinearCateEstimator
+      LinearModelFinalCateEstimatorDiscreteMixin
+      LinearModelFinalCateEstimatorMixin
+      StatsModelsCateEstimatorDiscreteMixin
+      StatsModelsCateEstimatorMixin
+      TreatmentExpansionMixin
+   

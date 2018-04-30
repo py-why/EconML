@@ -1,0 +1,40 @@
+﻿econml.policy.PolicyForest
+==========================
+
+.. currentmodule:: econml.policy
+
+.. autoclass:: PolicyForest
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~PolicyForest.__init__
+      ~PolicyForest.apply
+      ~PolicyForest.decision_path
+      ~PolicyForest.feature_importances
+      ~PolicyForest.fit
+      ~PolicyForest.get_metadata_routing
+      ~PolicyForest.get_params
+      ~PolicyForest.get_subsample_inds
+      ~PolicyForest.predict
+      ~PolicyForest.predict_proba
+      ~PolicyForest.predict_value
+      ~PolicyForest.set_fit_request
+      ~PolicyForest.set_params
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~PolicyForest.feature_importances_
+   
+   

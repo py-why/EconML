@@ -1,0 +1,41 @@
+﻿econml.sklearn\_extensions.linear\_model.DebiasedLasso
+======================================================
+
+.. currentmodule:: econml.sklearn_extensions.linear_model
+
+.. autoclass:: DebiasedLasso
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DebiasedLasso.__init__
+      ~DebiasedLasso.coef__interval
+      ~DebiasedLasso.fit
+      ~DebiasedLasso.get_metadata_routing
+      ~DebiasedLasso.get_params
+      ~DebiasedLasso.intercept__interval
+      ~DebiasedLasso.path
+      ~DebiasedLasso.predict
+      ~DebiasedLasso.predict_interval
+      ~DebiasedLasso.prediction_stderr
+      ~DebiasedLasso.score
+      ~DebiasedLasso.set_fit_request
+      ~DebiasedLasso.set_params
+      ~DebiasedLasso.set_score_request
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DebiasedLasso.sparse_coef_
+   
+   

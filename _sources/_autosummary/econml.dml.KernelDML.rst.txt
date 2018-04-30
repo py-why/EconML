@@ -1,0 +1,82 @@
+﻿econml.dml.KernelDML
+====================
+
+.. currentmodule:: econml.dml
+
+.. autoclass:: KernelDML
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~KernelDML.__init__
+      ~KernelDML.ate
+      ~KernelDML.ate_inference
+      ~KernelDML.ate_interval
+      ~KernelDML.cate_feature_names
+      ~KernelDML.cate_output_names
+      ~KernelDML.cate_treatment_names
+      ~KernelDML.coef__inference
+      ~KernelDML.coef__interval
+      ~KernelDML.const_marginal_ate
+      ~KernelDML.const_marginal_ate_inference
+      ~KernelDML.const_marginal_ate_interval
+      ~KernelDML.const_marginal_effect
+      ~KernelDML.const_marginal_effect_inference
+      ~KernelDML.const_marginal_effect_interval
+      ~KernelDML.effect
+      ~KernelDML.effect_inference
+      ~KernelDML.effect_interval
+      ~KernelDML.fit
+      ~KernelDML.intercept__inference
+      ~KernelDML.intercept__interval
+      ~KernelDML.marginal_ate
+      ~KernelDML.marginal_ate_inference
+      ~KernelDML.marginal_ate_interval
+      ~KernelDML.marginal_effect
+      ~KernelDML.marginal_effect_inference
+      ~KernelDML.marginal_effect_interval
+      ~KernelDML.refit_final
+      ~KernelDML.robustness_value
+      ~KernelDML.score
+      ~KernelDML.score_nuisances
+      ~KernelDML.scoring_name
+      ~KernelDML.sensitivity_interval
+      ~KernelDML.sensitivity_summary
+      ~KernelDML.shap_values
+      ~KernelDML.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~KernelDML.bias_part_of_coef
+      ~KernelDML.coef_
+      ~KernelDML.dowhy
+      ~KernelDML.featurizer
+      ~KernelDML.featurizer_
+      ~KernelDML.fit_cate_intercept_
+      ~KernelDML.intercept_
+      ~KernelDML.model_cate
+      ~KernelDML.model_final
+      ~KernelDML.model_final_
+      ~KernelDML.models_nuisance_
+      ~KernelDML.models_t
+      ~KernelDML.models_y
+      ~KernelDML.nuisance_scores_t
+      ~KernelDML.nuisance_scores_y
+      ~KernelDML.original_featurizer
+      ~KernelDML.ortho_learner_model_final_
+      ~KernelDML.residuals_
+      ~KernelDML.rlearner_model_final_
+      ~KernelDML.transformer
+   
+   

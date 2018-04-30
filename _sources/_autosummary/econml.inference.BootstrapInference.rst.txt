@@ -1,0 +1,30 @@
+﻿econml.inference.BootstrapInference
+===================================
+
+.. currentmodule:: econml.inference
+
+.. autoclass:: BootstrapInference
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~BootstrapInference.__init__
+      ~BootstrapInference.ate_inference
+      ~BootstrapInference.ate_interval
+      ~BootstrapInference.const_marginal_ate_inference
+      ~BootstrapInference.const_marginal_ate_interval
+      ~BootstrapInference.fit
+      ~BootstrapInference.marginal_ate_inference
+      ~BootstrapInference.marginal_ate_interval
+      ~BootstrapInference.prefit
+   
+   
+
+   
+   
+   

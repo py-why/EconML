@@ -1,0 +1,39 @@
+﻿econml.policy.DRPolicyForest
+============================
+
+.. currentmodule:: econml.policy
+
+.. autoclass:: DRPolicyForest
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DRPolicyForest.__init__
+      ~DRPolicyForest.export_graphviz
+      ~DRPolicyForest.feature_importances
+      ~DRPolicyForest.fit
+      ~DRPolicyForest.plot
+      ~DRPolicyForest.policy_feature_names
+      ~DRPolicyForest.policy_treatment_names
+      ~DRPolicyForest.predict
+      ~DRPolicyForest.predict_proba
+      ~DRPolicyForest.predict_value
+      ~DRPolicyForest.render
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DRPolicyForest.feature_importances_
+      ~DRPolicyForest.policy_model_
+   
+   

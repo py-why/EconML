@@ -1,0 +1,52 @@
+﻿econml.grf.\_base\_grf.BaseGRF
+==============================
+
+.. currentmodule:: econml.grf._base_grf
+
+.. autoclass:: BaseGRF
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~BaseGRF.__init__
+      ~BaseGRF.apply
+      ~BaseGRF.decision_path
+      ~BaseGRF.feature_importances
+      ~BaseGRF.fit
+      ~BaseGRF.get_metadata_routing
+      ~BaseGRF.get_params
+      ~BaseGRF.get_subsample_inds
+      ~BaseGRF.oob_predict
+      ~BaseGRF.predict
+      ~BaseGRF.predict_alpha_and_jac
+      ~BaseGRF.predict_and_var
+      ~BaseGRF.predict_full
+      ~BaseGRF.predict_interval
+      ~BaseGRF.predict_moment_and_var
+      ~BaseGRF.predict_projection
+      ~BaseGRF.predict_projection_and_var
+      ~BaseGRF.predict_projection_var
+      ~BaseGRF.predict_tree_average
+      ~BaseGRF.predict_tree_average_full
+      ~BaseGRF.predict_var
+      ~BaseGRF.prediction_stderr
+      ~BaseGRF.set_fit_request
+      ~BaseGRF.set_params
+      ~BaseGRF.set_predict_request
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~BaseGRF.feature_importances_
+   
+   

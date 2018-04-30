@@ -1,0 +1,40 @@
+﻿econml.inference.StatsModelsInference
+=====================================
+
+.. currentmodule:: econml.inference
+
+.. autoclass:: StatsModelsInference
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~StatsModelsInference.__init__
+      ~StatsModelsInference.ate_inference
+      ~StatsModelsInference.ate_interval
+      ~StatsModelsInference.coef__inference
+      ~StatsModelsInference.coef__interval
+      ~StatsModelsInference.const_marginal_ate_inference
+      ~StatsModelsInference.const_marginal_ate_interval
+      ~StatsModelsInference.const_marginal_effect_inference
+      ~StatsModelsInference.const_marginal_effect_interval
+      ~StatsModelsInference.effect_inference
+      ~StatsModelsInference.effect_interval
+      ~StatsModelsInference.fit
+      ~StatsModelsInference.intercept__inference
+      ~StatsModelsInference.intercept__interval
+      ~StatsModelsInference.marginal_ate_inference
+      ~StatsModelsInference.marginal_ate_interval
+      ~StatsModelsInference.marginal_effect_inference
+      ~StatsModelsInference.marginal_effect_interval
+      ~StatsModelsInference.prefit
+   
+   
+
+   
+   
+   

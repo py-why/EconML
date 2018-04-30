@@ -1,0 +1,26 @@
+﻿econml.iv.sieve.DPolynomialFeatures
+===================================
+
+.. currentmodule:: econml.iv.sieve
+
+.. autoclass:: DPolynomialFeatures
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DPolynomialFeatures.__init__
+      ~DPolynomialFeatures.fit
+      ~DPolynomialFeatures.fit_transform
+      ~DPolynomialFeatures.set_output
+      ~DPolynomialFeatures.transform
+   
+   
+
+   
+   
+   

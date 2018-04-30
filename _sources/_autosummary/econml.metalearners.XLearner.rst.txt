@@ -1,0 +1,52 @@
+﻿econml.metalearners.XLearner
+============================
+
+.. currentmodule:: econml.metalearners
+
+.. autoclass:: XLearner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~XLearner.__init__
+      ~XLearner.ate
+      ~XLearner.ate_inference
+      ~XLearner.ate_interval
+      ~XLearner.cate_feature_names
+      ~XLearner.cate_output_names
+      ~XLearner.cate_treatment_names
+      ~XLearner.const_marginal_ate
+      ~XLearner.const_marginal_ate_inference
+      ~XLearner.const_marginal_ate_interval
+      ~XLearner.const_marginal_effect
+      ~XLearner.const_marginal_effect_inference
+      ~XLearner.const_marginal_effect_interval
+      ~XLearner.effect
+      ~XLearner.effect_inference
+      ~XLearner.effect_interval
+      ~XLearner.fit
+      ~XLearner.marginal_ate
+      ~XLearner.marginal_ate_inference
+      ~XLearner.marginal_ate_interval
+      ~XLearner.marginal_effect
+      ~XLearner.marginal_effect_inference
+      ~XLearner.marginal_effect_interval
+      ~XLearner.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~XLearner.dowhy
+      ~XLearner.transformer
+   
+   

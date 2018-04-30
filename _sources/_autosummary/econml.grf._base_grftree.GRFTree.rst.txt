@@ -1,0 +1,46 @@
+﻿econml.grf.\_base\_grftree.GRFTree
+==================================
+
+.. currentmodule:: econml.grf._base_grftree
+
+.. autoclass:: GRFTree
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~GRFTree.__init__
+      ~GRFTree.apply
+      ~GRFTree.decision_path
+      ~GRFTree.feature_importances
+      ~GRFTree.fit
+      ~GRFTree.get_depth
+      ~GRFTree.get_metadata_routing
+      ~GRFTree.get_n_leaves
+      ~GRFTree.get_params
+      ~GRFTree.get_train_test_split_inds
+      ~GRFTree.init
+      ~GRFTree.predict
+      ~GRFTree.predict_alpha_and_jac
+      ~GRFTree.predict_full
+      ~GRFTree.predict_moment
+      ~GRFTree.set_fit_request
+      ~GRFTree.set_params
+      ~GRFTree.set_predict_request
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~GRFTree.feature_importances_
+      ~GRFTree.n_features_
+   
+   

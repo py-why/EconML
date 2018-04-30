@@ -1,0 +1,40 @@
+﻿econml.inference.LinearModelFinalInference
+==========================================
+
+.. currentmodule:: econml.inference
+
+.. autoclass:: LinearModelFinalInference
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~LinearModelFinalInference.__init__
+      ~LinearModelFinalInference.ate_inference
+      ~LinearModelFinalInference.ate_interval
+      ~LinearModelFinalInference.coef__inference
+      ~LinearModelFinalInference.coef__interval
+      ~LinearModelFinalInference.const_marginal_ate_inference
+      ~LinearModelFinalInference.const_marginal_ate_interval
+      ~LinearModelFinalInference.const_marginal_effect_inference
+      ~LinearModelFinalInference.const_marginal_effect_interval
+      ~LinearModelFinalInference.effect_inference
+      ~LinearModelFinalInference.effect_interval
+      ~LinearModelFinalInference.fit
+      ~LinearModelFinalInference.intercept__inference
+      ~LinearModelFinalInference.intercept__interval
+      ~LinearModelFinalInference.marginal_ate_inference
+      ~LinearModelFinalInference.marginal_ate_interval
+      ~LinearModelFinalInference.marginal_effect_inference
+      ~LinearModelFinalInference.marginal_effect_interval
+      ~LinearModelFinalInference.prefit
+   
+   
+
+   
+   
+   

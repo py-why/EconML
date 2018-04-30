@@ -1,0 +1,68 @@
+﻿econml.dml.NonParamDML
+======================
+
+.. currentmodule:: econml.dml
+
+.. autoclass:: NonParamDML
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~NonParamDML.__init__
+      ~NonParamDML.ate
+      ~NonParamDML.ate_inference
+      ~NonParamDML.ate_interval
+      ~NonParamDML.cate_feature_names
+      ~NonParamDML.cate_output_names
+      ~NonParamDML.cate_treatment_names
+      ~NonParamDML.const_marginal_ate
+      ~NonParamDML.const_marginal_ate_inference
+      ~NonParamDML.const_marginal_ate_interval
+      ~NonParamDML.const_marginal_effect
+      ~NonParamDML.const_marginal_effect_inference
+      ~NonParamDML.const_marginal_effect_interval
+      ~NonParamDML.effect
+      ~NonParamDML.effect_inference
+      ~NonParamDML.effect_interval
+      ~NonParamDML.fit
+      ~NonParamDML.marginal_ate
+      ~NonParamDML.marginal_ate_inference
+      ~NonParamDML.marginal_ate_interval
+      ~NonParamDML.marginal_effect
+      ~NonParamDML.marginal_effect_inference
+      ~NonParamDML.marginal_effect_interval
+      ~NonParamDML.refit_final
+      ~NonParamDML.score
+      ~NonParamDML.score_nuisances
+      ~NonParamDML.scoring_name
+      ~NonParamDML.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~NonParamDML.dowhy
+      ~NonParamDML.featurizer_
+      ~NonParamDML.model_cate
+      ~NonParamDML.model_final_
+      ~NonParamDML.models_nuisance_
+      ~NonParamDML.models_t
+      ~NonParamDML.models_y
+      ~NonParamDML.nuisance_scores_t
+      ~NonParamDML.nuisance_scores_y
+      ~NonParamDML.original_featurizer
+      ~NonParamDML.ortho_learner_model_final_
+      ~NonParamDML.residuals_
+      ~NonParamDML.rlearner_model_final_
+      ~NonParamDML.transformer
+   
+   

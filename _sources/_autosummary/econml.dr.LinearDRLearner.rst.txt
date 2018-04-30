@@ -1,0 +1,78 @@
+﻿econml.dr.LinearDRLearner
+=========================
+
+.. currentmodule:: econml.dr
+
+.. autoclass:: LinearDRLearner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~LinearDRLearner.__init__
+      ~LinearDRLearner.ate
+      ~LinearDRLearner.ate_inference
+      ~LinearDRLearner.ate_interval
+      ~LinearDRLearner.cate_feature_names
+      ~LinearDRLearner.cate_output_names
+      ~LinearDRLearner.cate_treatment_names
+      ~LinearDRLearner.coef_
+      ~LinearDRLearner.coef__inference
+      ~LinearDRLearner.coef__interval
+      ~LinearDRLearner.const_marginal_ate
+      ~LinearDRLearner.const_marginal_ate_inference
+      ~LinearDRLearner.const_marginal_ate_interval
+      ~LinearDRLearner.const_marginal_effect
+      ~LinearDRLearner.const_marginal_effect_inference
+      ~LinearDRLearner.const_marginal_effect_interval
+      ~LinearDRLearner.effect
+      ~LinearDRLearner.effect_inference
+      ~LinearDRLearner.effect_interval
+      ~LinearDRLearner.fit
+      ~LinearDRLearner.intercept_
+      ~LinearDRLearner.intercept__inference
+      ~LinearDRLearner.intercept__interval
+      ~LinearDRLearner.marginal_ate
+      ~LinearDRLearner.marginal_ate_inference
+      ~LinearDRLearner.marginal_ate_interval
+      ~LinearDRLearner.marginal_effect
+      ~LinearDRLearner.marginal_effect_inference
+      ~LinearDRLearner.marginal_effect_interval
+      ~LinearDRLearner.model_cate
+      ~LinearDRLearner.refit_final
+      ~LinearDRLearner.robustness_value
+      ~LinearDRLearner.score
+      ~LinearDRLearner.sensitivity_interval
+      ~LinearDRLearner.sensitivity_summary
+      ~LinearDRLearner.shap_values
+      ~LinearDRLearner.summary
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~LinearDRLearner.dowhy
+      ~LinearDRLearner.featurizer_
+      ~LinearDRLearner.fit_cate_intercept_
+      ~LinearDRLearner.fitted_models_final
+      ~LinearDRLearner.model_final
+      ~LinearDRLearner.model_final_
+      ~LinearDRLearner.models_nuisance_
+      ~LinearDRLearner.models_propensity
+      ~LinearDRLearner.models_regression
+      ~LinearDRLearner.multitask_model_cate
+      ~LinearDRLearner.multitask_model_final
+      ~LinearDRLearner.nuisance_scores_propensity
+      ~LinearDRLearner.nuisance_scores_regression
+      ~LinearDRLearner.ortho_learner_model_final_
+      ~LinearDRLearner.transformer
+   
+   

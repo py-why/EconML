@@ -1,0 +1,26 @@
+﻿econml.score.RScorer
+====================
+
+.. currentmodule:: econml.score
+
+.. autoclass:: RScorer
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~RScorer.__init__
+      ~RScorer.best_model
+      ~RScorer.ensemble
+      ~RScorer.fit
+      ~RScorer.score
+   
+   
+
+   
+   
+   

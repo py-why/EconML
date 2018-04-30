@@ -1,0 +1,68 @@
+﻿econml.dr.DRLearner
+===================
+
+.. currentmodule:: econml.dr
+
+.. autoclass:: DRLearner
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DRLearner.__init__
+      ~DRLearner.ate
+      ~DRLearner.ate_inference
+      ~DRLearner.ate_interval
+      ~DRLearner.cate_feature_names
+      ~DRLearner.cate_output_names
+      ~DRLearner.cate_treatment_names
+      ~DRLearner.const_marginal_ate
+      ~DRLearner.const_marginal_ate_inference
+      ~DRLearner.const_marginal_ate_interval
+      ~DRLearner.const_marginal_effect
+      ~DRLearner.const_marginal_effect_inference
+      ~DRLearner.const_marginal_effect_interval
+      ~DRLearner.effect
+      ~DRLearner.effect_inference
+      ~DRLearner.effect_interval
+      ~DRLearner.fit
+      ~DRLearner.marginal_ate
+      ~DRLearner.marginal_ate_inference
+      ~DRLearner.marginal_ate_interval
+      ~DRLearner.marginal_effect
+      ~DRLearner.marginal_effect_inference
+      ~DRLearner.marginal_effect_interval
+      ~DRLearner.model_cate
+      ~DRLearner.refit_final
+      ~DRLearner.robustness_value
+      ~DRLearner.score
+      ~DRLearner.sensitivity_interval
+      ~DRLearner.sensitivity_summary
+      ~DRLearner.shap_values
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~DRLearner.dowhy
+      ~DRLearner.featurizer_
+      ~DRLearner.fitted_models_final
+      ~DRLearner.model_final_
+      ~DRLearner.models_nuisance_
+      ~DRLearner.models_propensity
+      ~DRLearner.models_regression
+      ~DRLearner.multitask_model_cate
+      ~DRLearner.nuisance_scores_propensity
+      ~DRLearner.nuisance_scores_regression
+      ~DRLearner.ortho_learner_model_final_
+      ~DRLearner.transformer
+   
+   
