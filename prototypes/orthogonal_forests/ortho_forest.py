@@ -352,27 +352,32 @@ class DishonestOrthoForest(BaseOrthoForest):
         return self._predict(x, weights=True)
 
     def _predict(self, x,  weights=False):
-        out_tau = np.zeros(len(x))
+        results = Parallel(n_jobs=-1, verbose=3)(
+            delayed(self._point_predict)(x_out, weights) for x_out in x)
+        if weights:
+            tau_out = [r[0] for r in results]
+            x_weights = np.zeros((len(self.x), len(x)))
+            for x_ind, x_out in enumerate(x):
+                x_weights[:, x_ind] = results[x_ind][1]
+            return out_tau, np.concatenate((self.x, x_weights), axis=1)
+        return results
+
+    def _point_predict(self, x_out, weights=False):
         model_T = self._get_weighted_pipeline(self.model_T_final)
         model_Y = self._get_weighted_pipeline(self.model_Y_final)
-        for x_ind, x_out in enumerate(x):
-            w, a = self._get_weights(x_out)
-            mask_w = (w != 0)
-            mask_a = (a != 0)
-            w_nonzero = w[mask_w]
-            a_nonzero = a[mask_a]
-            if weights:
-                if x_ind == 0:
-                    x_weights = np.zeros((len(self.W_two), len(x)))
-                x_weights[:, x_ind] = a
-            self._fit_weighted_pipeline(model_T, self.W[mask_w], self.T[mask_w], w_nonzero)
-            self._fit_weighted_pipeline(model_Y, self.W[mask_w], self.Y[mask_w], w_nonzero)
-            res_T = self.T[mask_a] - model_T.predict(self.W[mask_a])
-            res_Y = self.Y[mask_a] - model_Y.predict(self.W[mask_a])
-            # Weighted linear regression
-            out_tau[z_ind] = np.dot(res_T, a_nonzero * res_Y) / np.dot(res_T, a_nonzero * res_Y)
+        w, a = self._get_weights(x_out)
+        mask_w = (w != 0)
+        mask_a = (a != 0)
+        w_nonzero = w[mask_w]
+        a_nonzero = a[mask_a]
+        self._fit_weighted_pipeline(model_T, self.W[mask_w], self.T[mask_w], w_nonzero)
+        self._fit_weighted_pipeline(model_Y, self.W[mask_w], self.Y[mask_w], w_nonzero)
+        res_T = self.T[mask_a] - model_T.predict(self.W[mask_a])
+        res_Y = self.Y[mask_a] - model_Y.predict(self.W[mask_a])
+        # Weighted linear regression
+        out_tau = np.dot(res_T, a_nonzero * res_Y) / np.dot(res_T, a_nonzero * res_T)
         if weights:
-            return out_tau, np.concatenate((self.x, x_weights), axis=1)
+            return out_tau, a
         return out_tau
 
     def _get_weights(self, x_out):
@@ -513,49 +518,33 @@ class OrthoForest(DishonestOrthoForest):
         self.forest_one_subsample_ind, self.forest_one_trees = self.fit_forest(W=self.W_one, x=self.x_one, T=self.T_one, Y=self.Y_one)
         self.forest_two_subsample_ind, self.forest_two_trees = self.fit_forest(W=self.W_two, x=self.x_two, T=self.T_two, Y=self.Y_two)
 
-    def predict(self, x):
-        """Predict treatment effects for features x.
-
-        Parameters
-        ----------
-        x : array-like, shape [n_samples, n_features]
-            Feature vector that captures heterogeneity.
-        """
-        return self._predict(x)
-    
-    def predict_with_weights(self, x):
-        """Predict treatment effects for features x.
-            Returns both treatment effects and the weights on the training points. 
-
-        Parameters
-        ----------
-        x : array-like, shape [n_samples, n_features]
-            Feature vector that captures heterogeneity.
-        """
-        return self._predict(x, weights=True)
-
     def _predict(self, x, weights=False):
-        out_tau = np.zeros(len(x))
+        results = Parallel(n_jobs=-1, verbose=3)(
+            delayed(self._point_predict)(x_out, weights) for x_out in x)
+        if weights:
+            tau_out = [r[0] for r in results]
+            x_weights = np.zeros((len(self.x_two), len(x)))
+            for x_ind, x_out in enumerate(x):
+                x_weights[:, x_ind] = results[x_ind][1]
+            return out_tau, np.concatenate((self.x_two, x_weights), axis=1)
+        return results
+
+    def _point_predict(self, x_out, weights=False):
         model_T = self._get_weighted_pipeline(self.model_T_final)
         model_Y = self._get_weighted_pipeline(self.model_Y_final)
-        for x_ind, x_out in enumerate(x):
-            w, a = self._get_weights(x_out)
-            mask_w = (w != 0)
-            mask_a = (a != 0)
-            w_nonzero = w[mask_w]
-            a_nonzero = a[mask_a]
-            if weights:
-                if x_ind == 0:
-                    x_weights = np.zeros((len(self.x_two), len(x)))
-                x_weights[:, x_ind] = a
-            self._fit_weighted_pipeline(model_T, self.W_one[mask_w], self.T_one[mask_w], w_nonzero)
-            self._fit_weighted_pipeline(model_Y, self.W_one[mask_w], self.Y_one[mask_w], w_nonzero)
-            res_T = self.T_two[mask_a] - model_T.predict(self.W_two[mask_a])
-            res_Y = self.Y_two[mask_a] - model_Y.predict(self.W_two[mask_a])
-            # Weighted linear regression
-            out_tau[x_ind] = np.dot(res_T, a_nonzero * res_Y) / np.dot(res_T, a_nonzero * res_T)
+        w, a = self._get_weights(x_out)
+        mask_w = (w != 0)
+        mask_a = (a != 0)
+        w_nonzero = w[mask_w]
+        a_nonzero = a[mask_a]
+        self._fit_weighted_pipeline(model_T, self.W_one[mask_w], self.T_one[mask_w], w_nonzero)
+        self._fit_weighted_pipeline(model_Y, self.W_one[mask_w], self.Y_one[mask_w], w_nonzero)
+        res_T = self.T_two[mask_a] - model_T.predict(self.W_two[mask_a])
+        res_Y = self.Y_two[mask_a] - model_Y.predict(self.W_two[mask_a])
+        # Weighted linear regression
+        out_tau = np.dot(res_T, a_nonzero * res_Y) / np.dot(res_T, a_nonzero * res_T)
         if weights:
-            return out_tau, np.concatenate((self.x_two, x_weights), axis=1)
+            return out_tau, a
         return out_tau
 
     def _get_weights(self, x_out):
