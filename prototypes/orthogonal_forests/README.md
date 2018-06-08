@@ -44,7 +44,7 @@ For more information on parameter choices for the ORF algorithm, see the *Refere
 
 To generate comparison plots for the different methods considered, execute the following script on Linus or `Git Bash` on Windows/MacOS:
 ```shell
-./map_seq.sh results/piecewise_linear 0
+./seq_map.sh results/piecewise_linear 0
 ```
 
 ### References 
