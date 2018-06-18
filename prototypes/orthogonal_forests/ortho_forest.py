@@ -355,7 +355,7 @@ class DishonestOrthoForest(BaseOrthoForest):
         results = Parallel(n_jobs=-1, verbose=3)(
             delayed(self._point_predict)(x_out, weights) for x_out in x)
         if weights:
-            tau_out = [r[0] for r in results]
+            out_tau = [r[0] for r in results]
             x_weights = np.zeros((len(self.x), len(x)))
             for x_ind, x_out in enumerate(x):
                 x_weights[:, x_ind] = results[x_ind][1]
@@ -522,7 +522,7 @@ class OrthoForest(DishonestOrthoForest):
         results = Parallel(n_jobs=-1, verbose=3)(
             delayed(self._point_predict)(x_out, weights) for x_out in x)
         if weights:
-            tau_out = [r[0] for r in results]
+            out_tau = [r[0] for r in results]
             x_weights = np.zeros((len(self.x_two), len(x)))
             for x_ind, x_out in enumerate(x):
                 x_weights[:, x_ind] = results[x_ind][1]
