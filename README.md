@@ -1,3 +1,5 @@
+[![Build Status](https://dev.azure.com/ms/EconML/_apis/build/status/Microsoft.EconML?branchName=master)](https://dev.azure.com/ms/EconML/_build/latest?definitionId=49&branchName=master)
+
 # Introduction 
 
 The [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research is 

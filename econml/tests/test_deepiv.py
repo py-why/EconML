@@ -136,8 +136,8 @@ class TestDeepIV(unittest.TestCase):
 
             losses.append(np.mean(np.square(y_fresh - deepIv.predict(p_fresh, x_fresh))))
             marg_effs.append(deepIv.marginal_effect(np.array([[0.3], [0.5], [0.7]]), np.array([[0.4], [0.6], [0.2]])))
-        print(f"losses: {losses}")
-        print(f"marg_effs: {marg_effs}")
+        print("losses: {}".format(losses))
+        print("marg_effs: {}".format(marg_effs))
 
     @pytest.mark.slow
     def test_deepiv_models_paper(self):
@@ -278,7 +278,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
             losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
                 t, x), datafunction, has_latent=False, debug=False))
-        print(f"losses: {losses}")
+        print("losses: {}".format(losses))
 
     @pytest.mark.slow
     def test_deepiv_models_paper2(self):
@@ -404,7 +404,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
             losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
                 t, x), datafunction, has_latent=False, debug=False))
-        print(f"losses: {losses}")
+        print("losses: {}".format(losses))
 
     @pytest.mark.slow
     def test_mog_models(self):
@@ -448,7 +448,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         model3 = keras.engine.Model([x_input], [samp([pi, mu, sig])])
         model4 = keras.engine.Model([x_input], [samp2])
 
-        print(f"samp2: {model4.predict(np.array([[0.,0.]]))}")
+        print("samp2: {}".format(model4.predict(np.array([[0., 0.]]))))
 
         for x_i in [-10, -5, 0, 5, 10]:
             t = np.array([[np.sqrt(100 - x_i**2), -np.sqrt(100 - x_i**2)]])
@@ -470,9 +470,9 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
         print(pi[0], mu[0], sig[0], x[0], t[0])
         import io
-        with io.open(f"sampled_{K.backend()}.csv", 'w') as f:
+        with io.open("sampled_{}.csv".format(K.backend()), 'w') as f:
             for (x1, x2), (t1, t2) in zip(x, sampled_t):
-                f.write(f"{x1},{t1},{x2},{t2}\n")
+                f.write("{},{},{},{}\n".format(x1, t1, x2, t2))
 
     @pytest.mark.slow
     def test_mog_models2(self):
