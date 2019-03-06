@@ -6,53 +6,79 @@
 trigger:
 - master
 
-jobs:
+variables:
+  runAllTests: 'true'
 
+jobs:
 - job: 'Test'
-  pool:
-    vmImage: 'Ubuntu-16.04'
+
   strategy:
     matrix:
-      Python27:
-        python.version: '2.7'
-      Python35:
+      linux35:
+        imageName: 'ubuntu-16.04'
         python.version: '3.5'
-      Python36:
+      mac35:
+        imageName: 'macOS-10.13'
+        python.version: '3.5'
+      windows35:
+        imageName: 'vs2017-win2016'
+        python.version: '3.5'
+      linux36:
+        imageName: 'ubuntu-16.04'
         python.version: '3.6'
-      Python37:
+      mac36:
+        imageName: 'macOS-10.13'
+        python.version: '3.6'
+      windows36:
+        imageName: 'vs2017-win2016'
+        python.version: '3.6'
+      linux37:
+        imageName: 'ubuntu-16.04'
         python.version: '3.7'
-    maxParallel: 4
+      mac37:
+        imageName: 'macOS-10.13'
+        python.version: '3.7'
+      windows37:
+        imageName: 'vs2017-win2016'
+        python.version: '3.7'
+
+  pool:
+    vmImage: $(imageName)
 
   steps:
   - task: UsePythonVersion@0
+    displayName: 'Use Python $(python.version)'
     inputs:
       versionSpec: '$(python.version)'
-      architecture: 'x64'
 
-  - script: python -m pip install --upgrade pip && pip install -r requirements.txt
+  - script: 'reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f'
+    displayName: 'Enable long paths on Windows'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+  - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools && python setup.py install'
     displayName: 'Install dependencies'
 
-  - script: |
-      pip install pytest
-      pytest tests --doctest-modules --junitxml=junit/test-results.xml
-    displayName: 'pytest'
+  - script: 'pip install pycodestyle && pycodestyle econml'
+    failOnStderr: true
+    displayName: Linting
+    continueOnError: true
+
+  - script: 'python setup.py build_sphinx -W'
+    displayName: 'Build documentation'
+
+  - powershell: |
+      Write-Host '##vso[task.setvariable variable=PYTEST_ADDOPTS]-m "not slow"'
+    displayName: 'Define markers for non-nightly builds'
+    condition: and(succeeded(), eq(variables['runAllTests'], 'false'), ne(variables['Build.Reason'], 'Schedule'))
+    enabled: false
+
+  - script: 'python setup.py pytest'
+    displayName: 'Unit tests'
+    condition: and(succeeded(), ne(variables['python.version'], '3.5'))
 
   - task: PublishTestResults@2
+    displayName: 'Publish Test Results **/test-results.xml'
     inputs:
       testResultsFiles: '**/test-results.xml'
-      testRunTitle: 'Python $(python.version)'
+      testRunTitle: 'Python $(python.version), image $(imageName)'
     condition: succeededOrFailed()
-
-- job: 'Publish'
-  dependsOn: 'Test'
-  pool:
-    vmImage: 'Ubuntu-16.04'
-
-  steps:
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.x'
-      architecture: 'x64'
-
-  - script: python setup.py sdist
-    displayName: 'Build sdist'
