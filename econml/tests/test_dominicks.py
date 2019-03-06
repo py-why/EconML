@@ -10,8 +10,12 @@ from econml.dml import DMLCateEstimator
 from sklearn.base import TransformerMixin
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import RidgeCV, LinearRegression
+import pytest
 
 file_name = "oj_large.csv"
+
+pytestmark = pytest.mark.xfail(
+    reason="This test used to work, but fully downloading the blob has become flaky. Needs investigation.")
 
 if not os.path.isfile(file_name):
     print("Downloading file (this might take a few seconds)...")
@@ -55,9 +59,9 @@ class PriceFeaturizer(TransformerMixin):
         if cross_price_indiv:
             for p in range(n_prods):
                 base_arrays.append(one_hots[p] * np.ones((n_prods, 1)) - np.diag(one_hots[p]))
-                effect_names.append(f"cross price effect {p} ->")
+                effect_names.append("cross price effect {} ->".format(p))
         if per_product_effects:
-            all = [(np.diag(one_hots[p]) @ arr, nm + f" {p}")
+            all = [(np.diag(one_hots[p]) @ arr, nm + " {}".format(p))
                    for arr, nm in zip(base_arrays, effect_names) for p in range(n_prods)]
             # remove meaningless features (e.g. cross-price effects of products on themselves),
             # which have all zero coeffs
@@ -110,9 +114,9 @@ for name, op, xp_g, xp_i, pp in [("Homogeneous treatment effect", True, False, F
         effects.append(dml.coef_)
     effects = np.array(effects)
     for nm, eff in zip(names, effects.T):
-        print(f" Effect: {nm}")
-        print(f"   Mean: {np.mean(eff)}")
-        print(f"   Std.: {np.std(eff)}")
+        print(" Effect: {}".format(nm))
+        print("   Mean: {}".format(np.mean(eff)))
+        print("   Std.: {}".format(np.std(eff)))
 
 
 class ConstFt(TransformerMixin):
@@ -139,8 +143,8 @@ for store in stores:
             W=reshape(data.as_matrix(featnames), (-1, 3 * len(featnames))))
     effects.append(dml.coef_)
 effects = np.array(effects)
-names = [f"{i} on {j}" for j in range(3) for i in range(3)]
+names = ["{} on {}".format(i, j) for j in range(3) for i in range(3)]
 for nm, eff in zip(names, reshape(effects, (-1, 9)).T):
-    print(f" Effect: {nm}")
-    print(f"   Mean: {np.mean(eff)}")
-    print(f"   Std.: {np.std(eff)}")
+    print(" Effect: {}".format(nm))
+    print("   Mean: {}".format(np.mean(eff)))
+    print("   Std.: {}".format(np.std(eff)))
