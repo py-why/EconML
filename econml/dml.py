@@ -69,8 +69,9 @@ class DMLCateEstimator(LinearCateEstimator):
         T : array_like, shape (n, d_t)
             Treatment policy.
 
-        X : array-like, shape (n, d_x)
+        X : array-like, shape (n, d_x) or None (default=None)
             Feature vector that captures heterogeneity.
+            If X is None, then the featurizer will be ignored and X will be treated as a column of ones.
 
         W : array-like, shape (n, d_w) or None (default=None)
             High-dimensional controls.
@@ -81,14 +82,17 @@ class DMLCateEstimator(LinearCateEstimator):
 
         """
         if X is None:
-            X = np.empty((shape(Y)[0], 0))
+            X = np.ones((shape(Y)[0], 1))
+            phi_X = X
+        else:
+            phi_X = self._featurizer.fit_transform(X)
         if W is None:
             W = np.empty((shape(Y)[0], 0))
         assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0]
 
         # Handle case where Y or T is a vector instead of a 2-dimensional array
-        self._d_t = shape(T)[1] if ndim(T) == 2 else 1
-        self._d_y = shape(Y)[1] if ndim(Y) == 2 else 1
+        self._d_t = shape(T)[1:]
+        self._d_y = shape(Y)[1:]
 
         y_res = np.zeros(shape(Y))
         t_res = np.zeros(shape(T))
@@ -108,7 +112,6 @@ class DMLCateEstimator(LinearCateEstimator):
             self._models_y[idx].fit(hstack([X_train, W_train]), Y_train)
             y_res[test_idxs] = Y_test - self._models_y[idx].predict(hstack([X_test, W_test]))
 
-        phi_X = self._featurizer.fit_transform(X)
         self._d_phi = shape(phi_X)[1]
 
         self._model_final.fit(cross_product(phi_X, t_res), y_res)
@@ -123,7 +126,8 @@ class DMLCateEstimator(LinearCateEstimator):
         Parameters
         ----------
         X: optional (m × dₓ) matrix
-            Features for each sample
+            Features for each sample.
+            If X is None, it will be treated as a column of ones with a single row
 
         Returns
         -------
@@ -134,15 +138,22 @@ class DMLCateEstimator(LinearCateEstimator):
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         if X is None:
-            X = np.empty((1, 0))
+            phi_X = np.ones((1, 1))
+        else:
+            phi_X = self._featurizer.fit_transform(X)
+        # create an identity matrix of size d_t (or just a 1-element array if T was a vector)
+        eye = np.eye(self._d_t[0]) if self._d_t else np.array([1])
         # TODO: Doing this kronecker/reshaping/transposing stuff so that predict can be called
         #       rather than just using coef_ seems silly, but one benefit is that we can use linear models
         #       that don't expose a coef_ (e.g. a GridSearchCV over underlying linear models)
-        flat_eye = reshape(np.eye(self._d_t), (1, -1))
-        XT = reshape(np.kron(flat_eye, self._featurizer.fit_transform(X)),
-                     (self._d_t * shape(X)[0], -1))
-        effects = reshape(self._model_final.predict(XT), (-1, self._d_t, self._d_y))
-        return transpose(effects, (0, 2, 1))  # need to return as m by d_y by d_t matrix
+        flat_eye = reshape(eye, (1, -1))
+        XT = reshape(np.kron(flat_eye, phi_X),
+                     ((self._d_t[0] if self._d_t else 1) * shape(phi_X)[0], -1))
+        effects = reshape(self._model_final.predict(XT), (-1,) + self._d_t + self._d_y)
+        if self._d_t and self._d_y:
+            return transpose(effects, (0, 2, 1))  # need to return as m by d_y by d_t matrix
+        else:
+            return effects
 
     @property
     def coef_(self):
@@ -154,7 +165,7 @@ class DMLCateEstimator(LinearCateEstimator):
         (e.g. a `Pipeline` or `GridSearchCV` which wraps a linear model)
         """
         # TODO: handle case where final model doesn't directly expose coef_?
-        return reshape(self._model_final.coef_, (self._d_y, self._d_t, self._d_phi))
+        return reshape(self._model_final.coef_, self._d_y + self._d_t + (self._d_phi,))
 
 
 class SparseLinearDMLCateEstimator(DMLCateEstimator):

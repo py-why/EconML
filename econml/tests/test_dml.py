@@ -4,7 +4,7 @@
 import unittest
 import pytest
 from sklearn.base import TransformerMixin
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from econml.dml import DMLCateEstimator, SparseLinearDMLCateEstimator
@@ -26,19 +26,22 @@ class TestDML(unittest.TestCase):
 
     def test_cate_api(self):
         """Test that we correctly implement the CATE API."""
-        d_w = 2
-        d_x = 2
-        d_y = 2
-        d_t = 2
-        n = 20
-        with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t):
-            W, X, Y, T = [np.random.normal(size=(n, d)) for d in [d_w, d_x, d_y, d_t]]
+        for d_t in [2, -1]:
+            for d_y in [2, -1]:
+                for d_x in [2, None]:
+                    for d_w in [2, None]:
+                        n = 20
+                        with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t):
+                            W, X, Y, T = [np.random.normal(size=(n, d)) if (d and d >= 0)
+                                          else np.random.normal(size=(n,)) if (d and d < 0)
+                                          else None
+                                          for d in [d_w, d_x, d_y, d_t]]
 
-            dml = DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())
-            dml.fit(Y, T, X, W)
-            # just make sure we can call the marginal_effect and effect methods
-            dml.marginal_effect(None, X)
-            dml.effect(0, T, X)
+                            dml = DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())
+                            dml.fit(Y, T, X, W)
+                            # just make sure we can call the marginal_effect and effect methods
+                            dml.marginal_effect(None, X)
+                            dml.effect(0, T, X)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
@@ -121,5 +124,5 @@ class TestDML(unittest.TestCase):
         # note that this would fail for the non-sparse DMLCateEstimator
 
         np.testing.assert_allclose(a, dml.coef_.reshape(-1))
-        eff = reshape(t * np.choose(np.tile(p, 2), a), (-1, 1))
+        eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(0, t, x))
