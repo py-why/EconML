@@ -145,9 +145,13 @@ class LinearCateEstimator(BaseCateEstimator):
         # TODO: what if input is sparse? - there's no equivalent to einsum,
         #       but tensordot can't be applied to this problem because we don't sum over m
         dT = T1 - T0
+        eff = self.const_marginal_effect(X)
+        einsum_str = 'myt,mt->my'
         if ndim(dT) == 1:
-            dT = reshape(dT, (-1, 1))
-        return np.einsum('myt,mt->my', self.const_marginal_effect(X), dT)
+            einsum_str = einsum_str.replace('t', '')
+        if ndim(eff) == ndim(dT):  # y is a vector, rather than a 2D array
+            einsum_str = einsum_str.replace('y', '')
+        return np.einsum(einsum_str, eff, dT)
 
     def marginal_effect(self, T, X=None):
         """
