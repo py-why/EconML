@@ -22,7 +22,7 @@ the ALICE project of Microsoft Research, and many others from leading groups in 
 Examples include Double Machine Learning (see e.g. [Chernozhukov2016]_, [Chernozhukov2017]_,
 [Mackey2017]_, [Nie2017]_, [Chernozhukov2018]_, [Foster2019]_), Causal Forests (see e.g. [Wager2018]_, [Athey2019]_
 [Oprescu2018]_),
-Deep Instrumental Variables (see e.g. [Hartford17a]_), Non-parametric Instrumental Variables [Newey2003]_,
+Deep Instrumental Variables (see e.g. [Hartford2017]_), Non-parametric Instrumental Variables [Newey2003]_,
 meta-learners (see e.g. [Kunzel2017]_).
 The library brings together all these diverse techniques under a common
 python API.
