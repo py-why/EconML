@@ -301,8 +301,7 @@ matrix of cross price elasticities as:
     :caption: Cross-Price Elasticities
 
     est = DMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1), 
-                            model_t=MultiTaskElasticNet(alpha=0.1),
-                            model_t=sklearn.ensemble.RandomForestRegressor())
+                            model_t=MultiTaskElasticNet(alpha=0.1))
     est.fit(Y, T, None, W)
 
     # a_hat[i,j] contains the elasticity of the demand of product i on the price of product j
