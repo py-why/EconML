@@ -95,95 +95,8 @@ one can impose several extensions to the matrix of parameters :math:`\alpha`, su
 constraints on the matrix :math:`\alpha`. Even under regularized second stage estimation, there is benefit in using the Double ML approach 
 as it still renders the MSE of second stage estimation robust to first stage errors (see e.g.  [Chernozhukov2017]_, [Chernozhukov2018]_). 
 
-API and Pseudocode for General Double ML Estimator
---------------------------------------------------
 
-\kbcomment{The implementation for \texttt{const\_marginal\_effect} below is wrong: for the output to have the right number of elements (:math:`m \times d_y \times d_t`),
-we need to pass in :math:`d_t` times as much input - and it should not be all ones but rather have a single one per row.  Sadly, I don't know of a concise way to describe the necessary contortions required to reshape the input and output. }
-
-.. code-block:: python3
-    :caption: Double ML CATE Estimator Class
-
-    class DMLCateEstimator(LinearCateEstimator):
-
-        def __init__(self, model_y, model_t, 
-                        model_final=LinearRegression(fit_intercept=False),
-                        featurizer=PolynomialFeatures(degree=1, include_bias=True)):
-            ''' Initialize models and feature creator.
-            
-            Parameters
-            model_y: (sklearn model) used to fit the regression of Y on X, W
-            model_t: (sklearn model) used to fit the regression of T on X, W
-            model_final: (sklearn linear model) used to fit the final regression
-            featurizer: (sklearn preprocessor) used to create features ϕ(X) of X
-                        in the final stage
-            '''
-            self.models_y = [clone(model_y), clone(model_y)]
-            self.models_t = [clone(model_t), clone(model_t)]
-            self.model_final = clone(model_final)
-            self.featurizer = clone(featurizer)
-
-        def fit(self, Y, T, X=None, W=None):
-            ''' Fits a model of the heterogeneous constant marginal CATE based on
-            the Double ML process.
-        
-            Parameters:
-            Y: (n × d_y) matrix of outcomes for each sample
-            T: (n × d_t) matrix of treatments for each sample
-            X: optional (n × d_x) matrix of features for each sample
-            W: optional (n × d_w) matrix of controls for each sample
-            '''
-            kf = KFold(n_splits=2)
-            y_res = np.zeros(np.shape(Y))
-            T_res = np.zeros(np.shape(T))
-            for fid, (train_index, test_index) in enumerate(kf.split(X)):
-                Y_train, Y_test = Y[train_index], Y[test_index]            
-                T_train, T_test = T[train_index], T[test_index]
-                X_train, X_test = X[train_index], X[test_index]            
-                W_train, W_test = W[train_index], W[test_index]
-                
-                # Fit treatment model on co-variates from train data
-                self.models_t[fid].fit((X_train, W_train), T_train)
-                # Compute treatment residuals for test data
-                T_res[test_index] = T_test - self.models_t[fid].predict((X_test, W_test))
-                # Fit outcome model on co-variates from train data
-                self.models_y[fid].fit((X_train, W_train), Y_train)
-                # Compute outcome residuals for test data
-                y_res[test_index] = Y_test - self.models_y[fid].predict((X_test, W_test))
-            
-            
-            self.model_final.fit(product(T_res, self.featurizer.fit_transform(X)), y_res)
-
-        
-        def const_marginal_effect(self, X=None):
-            ''' Calculates the constant marginal CATE θ(·) conditional on a vector of
-                features on a set of m test samples {X_i}
-            
-                Parameters:
-                X: optional (m × d_x) matrix of features for each sample
-            
-                Returns:
-                theta: (m × d_y × d_t) matrix of constant marginal CATE of each treatment
-                        on each outcome for each sample
-            '''
-            return self.model_final.predict(product(ones, self.featurizer.fit_transform(X)))
-        
-        @property
-        def coef_(self):
-            ''' Returns the sparse three dimensional tensor α, whose α[i,j,k] entry is the 
-            coefficient associated with outcome i, treatment j and feature k'''
-            return self.model_final.coef_.reshape(d_y, d_t, d_{phi(x)})
-            
-        def fitted_models_y(self):
-            return self.models_y if fitted else raise error
-        
-        def fitted_models_t(self):
-            return self.models_t if fitted else raise error
-        
-        def fitted_model_final(self):
-            return self.model_final if fitted else raise error
-	
-API and Pseudocode for Sparse Linear Double ML Estimator
+Sparse Linear Double ML Estimator
 --------------------------------------------------------
 
 One particularly attractive special case of the DML framework is the case when :math:`W` is a high-dimensional vector (i.e. :math:`d_w >> n`) and further the nuisance functions :math:`f, g` are assumed to be linear in :math:`X, W, \epsilon`, and :math:`H(X, W)` is also linear in :math:`\phi(X), W`, i.e.: 
@@ -210,70 +123,6 @@ In this case we have a more structural form for the two regression tasks of esti
 Thus one can use the Lasso regression to estimate the nuisance functions :math:`q` and :math:`p` in the first stage of the Double ML process. This high-dimensional linear structural assumption enables provable worst-case rates of :math:`n^{-1/4}` from the first stage estimates as long as the sparsity of the coefficients :math:`\delta` and :math:`\gamma` is small enough. Hence, the assumptions of the DML framework are provably satisfied. 
 
 For this reason our library also provides a subclass of the DML estimator class that is tailored to sparse linear models for the nuisance functions. 
-
-.. code-block:: python3
-    :caption: Sparse Linear Double ML CATE Estimator Class
-
-    class MultiTaskWrapper(BaseEstimator):
-        ''' This is a generic MultiTask wrapper for any sklearn base estimator.
-        Essentially takes any estimator that is supposed to predict a 1-dimensional
-        label y, and turns it into an estimator that predict a d-dimensional
-        label y, produced by running d independent estimation problems for each
-        output. This is mostly a utility class.
-        '''
-
-        def __init__(self, base_model):
-            self.base_model = base_model
-        
-        def fit(self, X, Y):
-            self.base_models = [clone(self.base_model).fit(X, Y[:, i]) 
-                                    for i in range(Y.shape[1])]	
-        
-        def predict(self, X):
-            return np.array([model.predict(X) for model in self.base_models]).T
-        
-        def	__getattr__(self, name):
-            return [model.__getattr__(name) for model in self.base_models]
-        
-        def __setattr__(self, name, value):
-            [model.__setattr__(name, value) for model in self.base_models]
-        
-    class SparseLinearDMLCateEstimator(DMLCateEstimator):
-        ''' This is a specialization of the DMLCateEstimator to sparse linear models
-        for the nuisance functions.
-        '''
-        
-        def __init__(self, linear_model_y=LassoCV(), linear_model_t=LassoCV(), 
-                        model_final=LinearRegression(fit_intercept=False),
-                        featurizer=PolynomialFeatures(degree=1)):
-            ''' Initialize models and feature creator.
-            
-            Parameters
-            model_y: (sklearn linear model) used to fit the regression of each Y_i
-                        on X, W, (X; W) ⊗ (ϕ(X); W)
-            model_t: (sklearn linear model) used to fit the regression of T_i on X, W
-            model_final: (sklearn linear model) used to fit the final regression
-            featurizer: (sklearn preprocessor) used to create features ϕ(X) of X
-                        in the final stage
-            '''
-            self.linear_model_y = linear_model_y
-            self.linear_model_t = linear_model_t
-            super().__init__(None, None, model_final, featurizer)
-        
-        def fit(self, Y, T, X=None, W=None):
-            ''' Fits based on a sparse linear DML model. Builds the right composite models
-            from the two base linear models that the user specified. The model for Y
-            first transforms the data to add the cross product terms and then calls the base
-            linear model on the transformed data for every coordinate of Y. For the model
-            for T it calls the base estimator for every coordinate of T.
-            '''
-            def transform(XW, dX=X.shape[1]):
-                return (XW; cross_product(XW, (XW[:dX], self.featurizer.fit_transform(XW[dX:])))) 
-            
-            self.model_y = Pipeline(transform, MultiTaskWrapper(clone(self.linear_model_y)))
-            self.model_t = MultiTaskWrapper(self.linear_model_t)
-            
-            super().fit(Y, T, X, W)
 
 
 Example Use Cases: Single Outcome, Single Treatment
@@ -314,7 +163,7 @@ Then we can estimate the coefficients :math:`\alpha_i` by running:
     # To get the coefficients of the polynomial fitted in the final stage we can
     # access the coef_ attribute of the fitted second stage model. This would 
     # return the coefficients in front of each term in the vector T⊗ϕ(X).
-    a_hat = est.sparse_coef_
+    a_hat = est.coef_
 
 
 .. rubric:: Fixed Effects
@@ -333,7 +182,7 @@ To add fixed effect heterogeneity, we can create one-hot encodings of the id, wh
     est.fit(y, T, X, W)
     # The latter will fit a model for θ(x) of the form ̂α_0 + ̂α_1 𝟙{id=1} + ̂α_2 𝟙{id=2} + ...
     # The vector of α can be extracted as follows
-    a_hat = est.sparse_coef_
+    a_hat = est.coef_
 
 .. rubric:: Custom Features
 
@@ -351,7 +200,7 @@ One can also define a custom featurizer, as long as it supports the fit\_transfo
                             model_t=sklearn.ensemble.RandomForestRegressor(),
                             featurizer=sklearn.preprocessing.LogFeatures())
     est.fit(y, T, X, W)
-    a_hat = est.sparse_coef_
+    a_hat = est.coef_
 
 We can even create a Pipeline or Union of featurizers that will apply multiply featurizations, e.g. first creating log features and then adding polynomials of them:
 
@@ -360,10 +209,10 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
 
     est = DMLCateEstimator(model_y=sklearn.ensemble.RandomForestRegressor(), 
                             model_t=sklearn.ensemble.RandomForestRegressor(),
-                            featurizer=Pipeline({sklearn.preprocessing.LogFeatures(), 
-                                            sklearn.preprocessing.PolynomialFeatures(degree=3)}))
+                            featurizer=Pipeline([('log', sklearn.preprocessing.LogFeatures()), 
+                                            ('poly', sklearn.preprocessing.PolynomialFeatures(degree=3))]))
     est.fit(y, T, X, W)
-    a_hat = est.sparse_coef_
+    a_hat = est.coef_
 
 
 .. rubric:: Sparse Linear Models
@@ -384,7 +233,7 @@ on each split:
 .. code-block:: python3
     :caption: Examining First Stage Treatment Models
 
-    gamma_hat1, gamma_hat2 = [model.coef_ for model in est.fitted_models_t]
+    gamma_hat1, gamma_hat2 = [model.coef_ for model in est._models_t]
 
 The first :math:`d_x` coordinates of these coefficients correspond to coefficients in front of :math:`X` and the remainder the coefficients in front of :math:`W`. 
 
@@ -426,7 +275,7 @@ If one wants to enforce sparsity of the :math:`\alpha_{ij}` coefficients, then a
 
     est = DMLCateEstimator(model_y=sklearn.ensemble.RandomForestRegressor(), 
                             model_t=sklearn.ensemble.RandomForestRegressor(),
-                            model_final=LassoCV() or DebiasedLasso(),
+                            model_final=LassoCV(),
                             featurizer=PolynomialFeatures(degree=2))
     est.fit(y, np.concatenate((T, T**2), axis=1), X, W)
 
@@ -451,43 +300,67 @@ matrix of cross price elasticities as:
 .. code-block:: python3
     :caption: Cross-Price Elasticities
 
-    est = DMLCateEstimator(model_y=sklearn.ensemble.RandomForestRegressor(), 
+    est = DMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1), 
+                            model_t=MultiTaskElasticNet(alpha=0.1),
                             model_t=sklearn.ensemble.RandomForestRegressor())
     est.fit(Y, T, None, W)
 
     # a_hat[i,j] contains the elasticity of the demand of product i on the price of product j
-    a_hat = est.constant_marginal_effect()
+    a_hat = est.const_marginal_effect()
 
+If we have too many products then the cross-price elasticity matrix contains many parameters and we need
+to regularize. Given that we want to estimate a matrix, it makes sense in this application to consider
+the case where this matrix has low rank: all the products can be embedded in some low dimensional feature
+space and the cross-price elasticities is a linear function of these low dimensional embeddings. This corresponds
+to well-studied latent factor models in pricing. Our framework can easily handle this by using 
+a nuclear norm regularized multi-task regression in the final stage. For instance the 
+lightning package implements such a class:
 
-\kbcomment{Note that the model here is extremely general: the prices of every product can depend on the features of all other products; while this may be desirable in some cases, it also limits the ability to put useful priors on the price setter's behavior.  Is this where we should introduce a discussion of panel creation?}
+.. code-block:: python3
+    :caption: Cross-Price Elasticities with Low-Rank Regularization
+
+    from econml.dml import DMLCateEstimator
+    from sklearn.preprocessing import PolynomialFeatures
+    from lightning.regression import FistaRegressor
+    from econml.bootstrap import BootstrapEstimator
+    from sklearn.linear_model import MultiTaskElasticNet
+
+    est = DMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1),
+                        model_t=MultiTaskElasticNet(alpha=0.1),
+                        model_final=FistaRegressor(penalty='trace', C=0.0001),
+                        featurizer=PolynomialFeatures(degree=1, include_bias=False))
+    est.fit(Y, T, X, W)
+    te_pred = est.const_marginal_effect(np.array([[np.median(X)]]))
+    print(te_pred)
+    print(np.linalg.svd(te_pred[0]))
 
 Similarly we can get heterogeneous cross-price elasticities with respect to some variables :math:`X`.
 
 .. code-block:: python3
     :caption: Heterogeneous Cross-Price Elasticities
 
-    X = 1\{Christmas\}
-    est = DMLCateEstimator(model_y=sklearn.ensemble.RandomForestRegressor(), 
-                            model_t=sklearn.ensemble.RandomForestRegressor())
+    X = df['Christmas']==1
+    est = DMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1), 
+                            model_t=MultiTaskElasticNet(alpha=0.1))
     est.fit(Y, T, X, W)
 
     # est.coef(1) contains the cross-price elasticities when X=1, i.e. during christmas. 
-    a_christmas = est.constant_marginal_effect([[1]])
+    a_christmas = est.const_marginal_effect([[1]])
     # Similarly est.coef(0) contains the cross price elasticities when it is not christmas.
-    a_non_christmas = est.constant_marginal_effect([[0]])
+    a_non_christmas = est.const_marginal_effect([[0]])
 
 We can create even more complex conditional statements, such as store specific elasticities during christmas:
 
 .. code-block:: python3
     :caption: Heterogeneous Cross-Price Elasticities
 
-    X = (1\{Christmas\}, 1\{Store=Online\})
-    est = DMLCateEstimator(model_y=sklearn.ensemble.RandomForestRegressor(), 
-                            model_t=sklearn.ensemble.RandomForestRegressor())
+    X = np.concatenate((df['Christmas']==1, df['Store']=='Online'), axis=1)
+    est = DMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1), 
+                            model_t=MultiTaskElasticNet(alpha=0.1))
     est.fit(Y, T, X, W)
 
     # est.coef(1, 1) contains the cross-price elasticities in the online store during christmas. 
-    a_christmas = est.constant_marginal_effect([[1, 1]])
+    a_christmas = est.const_marginal_effect([[1, 1]])
     # est.coef(0, 1) contains the cross price elasticities in the online store
     # when it is not christmas, etc.
-    a_non_christmas = est.constant_marginal_effect([[0, 1]])
+    a_non_christmas = est.const_marginal_effect([[0, 1]])
