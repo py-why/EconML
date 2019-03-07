@@ -1,6 +1,9 @@
 Orthogonal/Double Machine Learning
 ==================================
 
+This section describes the methodology at the foundation behind the classes, :py:class:`~econml.dml.DMLCateEstimator` 
+and :py:class:`~econml.dml.SparseLinearDMLCateEstimator`.
+
 Orthogonal/Double Machine Learning (DML) is a particular approach to estimating heterogeneous treatment effects in models where the response is 
 linear in the treatment and where we do not assume that there is any observed instrument :math:`Z`. Furthermore, we will assume that the 
 error :math:`\eta` in the treatment equation enters linearly and is exogenous and independent of any other random variable. 
@@ -79,7 +82,10 @@ takes the form :math:`h_{ij}(X; \alpha) = \ldot{\alpha_{ij}}{\phi(X)}`, then the
 regression between :math:`\tilde{Y}` and the vector produced by taking the Kronecker-product of the vectors :math:`T` and :math:`\phi(X)`, 
 i.e. :math:`T\otimes \phi(X) = \mathtt{vec}(T\cdot \phi(X)^T)`. This regression will estimate the coefficients :math:`\alpha_{ijk}` 
 for each outcome :math:`i`, treatment :math:`j` and feature :math:`k`. To avoid invoking non-convex minimization processes as part of the 
-final stage estimation, we will focus on such a linear parametrization of the treatment effect in our implementation. 
+final stage estimation, we will focus on such a linear parametrization of the treatment effect in our implementation. The class
+:py:class:`~econml.dml.DMLCateEstimator` implements exactly the aforementioned approach. The input to the class is a featurizer
+that takes the input :math:`X` and transforms it to :math:`\phi(X)`. Subsequently the class estimates the coefficients :math:`\alpha_{ij}`.
+
 
 One might also want to regularize the second stage if the parameterization :math:`h(X; \alpha)` is too flexible compared to the 
 sample size :math:`n`. In that case, the final stage corresponds to a regularized :math:`M` estimation:
@@ -123,7 +129,7 @@ In this case we have a more structural form for the two regression tasks of esti
 Thus one can use the Lasso regression to estimate the nuisance functions :math:`q` and :math:`p` in the first stage of the Double ML process. This high-dimensional linear structural assumption enables provable worst-case rates of :math:`n^{-1/4}` from the first stage estimates as long as the sparsity of the coefficients :math:`\delta` and :math:`\gamma` is small enough. Hence, the assumptions of the DML framework are provably satisfied. 
 
 For this reason our library also provides a subclass of the DML estimator class that is tailored to sparse linear models for the nuisance functions. 
-
+This special case of DML is implemented in the class :py:class:`~econml.dml.SparseLinearDMLCateEstimator`. 
 
 Example Use Cases: Single Outcome, Single Treatment
 ---------------------------------------------------

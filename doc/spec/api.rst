@@ -55,7 +55,7 @@ we assume the following structural equation model of the world:
 
     T =~& f(X, W, Z, \eta)
 
-where :math:`\epsilon` and :math:`\eta` are *noise* random variables that are independent of $X, Z, T, W$ but could be potentially correlated with each other. 
+where :math:`\epsilon` and :math:`\eta` are *noise* random variables that are independent of :math:`X, Z, T, W` but could be potentially correlated with each other. 
 The target quantity that we want to estimate can then be expressed as:
 
 .. math ::
