@@ -5,8 +5,14 @@ Problem Setup and API Design
 .. rubric::
     Potential Outcomes Formulation
 
-All of the applications described in the previous section fall into the following general problem: 
-given two vectors of treatments :math:`\vec{t}_0, \vec{t}_1 \in \T`, a vector of co-variates :math:`\vec{z}` 
+We begin by formulating the problem in the potential outcomes terminology. Subsequently,
+we will also provide a formulation in the structural equations notation for readers more familiar
+with that notation.
+
+The methods developed in our library tackle the following general problem: let :math:`Y(\vec{t})` 
+denote the random variable that corresponds to the value of the outcome of interest if we were to treat a sample
+with treatment :math:`\vec{t} \in \T`.
+Given two vectors of treatments :math:`\vec{t}_0, \vec{t}_1 \in \T`, a vector of co-variates :math:`\vec{x}` 
 and a random vector of potential outcomes :math:`Y(\vec{t})`, we want to estimate the quantity: 
 
 .. math ::
@@ -49,15 +55,15 @@ we assume the following structural equation model of the world:
 
     T =~& f(X, W, Z, \eta)
 
-where :math:`\epsilon` and :math:`\eta` are extra *noise* random variables, that could be potentially correlated with each other. 
+where :math:`\epsilon` and :math:`\eta` are *noise* random variables that are independent of :math:`X, Z, T, W` but could be potentially correlated with each other. 
 The target quantity that we want to estimate can then be expressed as:
 
 .. math ::
     :nowrap:
 
     \begin{align}
-        \tau(\vec{t}_0, \vec{t}_1, \vec{x}) =~& \E[g(\vec{t}_1, X, W, \epsilon) - g(\vec{t}_0, X, W, \epsilon) | X=\vec{x}] \tag{CATE} \\
-        \partial\tau(\vec{t}, \vec{x}) =~& \E[\nabla_{\vec{t}} g(\vec{t}, X, W, \epsilon) | X=\vec{x}] \tag{marginal CATE} \\
+        \tau(\vec{t}_0, \vec{t}_1, \vec{x}) =& \E[g(\vec{t}_1, X, W, \epsilon) - g(\vec{t}_0, X, W, \epsilon) | X=\vec{x}] \tag{CATE} \\
+        \partial\tau(\vec{t}, \vec{x}) =& \E[\nabla_{\vec{t}} g(\vec{t}, X, W, \epsilon) | X=\vec{x}] \tag{marginal CATE} \\
     \end{align}
 
 where in these expectations, the random variables :math:`W, \epsilon` are taken from the same distribution as the one that generated the data. 
@@ -65,8 +71,10 @@ In other words, there is a one-to-one correspondence between the potential outco
 in that the random variable :math:`Y(t)` is equal to the random variable :math:`g(t, X, W, \epsilon)`, where :math:`X, W, \epsilon` 
 is drawn from the distribution that generated each sample in the data set.
 
-API of Conditional Average Treatment Effect (CATE) Package
+API of Conditional Average Treatment Effect Package
 ----------------------------------------------------------
+
+The base class of all the methods in our API has the following signature:
 
 .. code-block:: python3
     :caption: Base CATE Estimator Class
@@ -116,7 +124,8 @@ API of Conditional Average Treatment Effect (CATE) Package
 Linear in Treatment CATE Estimators
 -----------------------------------
 
-In many settings, we might want to make further structural assumptions on the form of the data generating process. One particular prevalent assumption is that the outcome $y$ is linear in the treatment vector and therefore that the marginal effect is constant across treatments, i.e.:
+In many settings, we might want to make further structural assumptions on the form of the data generating process.
+One particular prevalent assumption is that the outcome :math:`y` is linear in the treatment vector and therefore that the marginal effect is constant across treatments, i.e.:
 
 .. math ::
     Y =~& H(X, W) \cdot T + g(X, W, \epsilon)
@@ -164,6 +173,23 @@ Given the prevalence of linear treatment effect assumptions, we will create a ge
 Example Use of API
 ------------------
 
+Let us walk through a simple example of what one can achieve via the latter API
+even irrespective of the actual estimation method that is being used.
+
+Let us consider a hypothetical data generating process governed by the 
+following equations:
+
+.. math ::
+    \begin{align}
+        Y(t) =~& \gamma t^2 + \delta X t + \langle \zeta, W \rangle + \epsilon\\
+        T =~& \langle \alpha, W \rangle + \langle \beta, Z \rangle + \eta\\
+        X, Z, \epsilon, \eta \sim~& N(0, 1), ~~ W \sim N(0, I_{d})
+    \end{align}
+
+
+Suppose that we have $n$ samples from this dgp. For instance, we could create these
+samples with the following code:
+
 .. code-block:: python3
     :caption: Example Data Generated from Structural Equations
 
@@ -180,10 +206,6 @@ Example Use of API
     delta = np.random.normal(size=(n_treatments, 1))
     zeta = np.random.normal(size=(n_controls, 1))
 
-    ''' Generate data from structural equations model:
-            y = γ t^2 + δ x t + ⟨ζ,w⟩ + κ + ϵ
-            t = ⟨α,w⟩ + ⟨β,z⟩ + η
-    '''
     n_samples = 1000
     W = np.random.normal(size=(n_samples, n_controls))
     Z = np.random.normal(size=(n_samples, n_instruments))
@@ -193,21 +215,46 @@ Example Use of API
     T = np.dot(W, alpha) + np.dot(Z, beta) + eta
     y = np.dot(T**2, gamma) + np.dot(np.multiply(T, X), delta) + np.dot(W, zeta) + epsilon
 
+
+We can then fit a counterfactual model to the data via the following code snippet:
+
 .. code-block:: python3
-    :caption: Example Use of Package
+    :caption: Example fit of causal model
 
     # Fit counterfactual model 
     cfest = BaseCateEstimator()
     cfest.fit(y, T, X, W, Z)
+
+Suppose now that we wanted to estimate the conditional average treatment effect for every point :math:`X_i` 
+in the training data and between treatment 1 and treatment 0. 
+This should be an estimate of the quantities: :math:`\gamma + \delta X_i`. We can run the following:
+
+.. code-block:: python3
+    :caption: Estimating cate for all training features from treatment 0 to 1
+
     X_test = X
     # Estimate heterogeneous treatment effects from going from treatment 0 to treatment 1
     T0_test = np.zeros((X_test.shape[0], n_treatments))
     T1_test = np.ones((X_test.shape[0], n_treatments))
-    hetero_te = cfest.effect(T0_test, T1_test, X_test) # returns estimates of γ + δ X_test
+    hetero_te = cfest.effect(T0_test, T1_test, X_test) 
+
+Suppose now that we wanted to estimate the conditional marginal effect for every point :math:`X_i` 
+at treatment 0.
+This should be an estimate of the quantities: :math:`\delta X_i`. We can run the following:
+
+.. code-block:: python3
+    :caption: Estimating marginal cate for all training features at treatment 0
 
     # Estimate heterogeneous marginal effects around treatment 0
     T_test = np.zeros((X_test.shape[0], n_treatments))
-    hetero_marginal_te = cfest.marginal_effect(T_test, X_test) # returns estimates of δ X_test
+    hetero_marginal_te = cfest.marginal_effect(T_test, X_test)
+
+Suppose we wanted to create projections of these estimated quantities on sub-populations, i.e.
+the average treatment effect or the average treatment effect on the population where :math:`X_i\geq 1/2`.
+We could simply achieve this as follows:
+
+.. code-block:: python3
+    :caption: Projecting on subpopulations
 
     # Estimate average treatment effects over a population of z's
     T0_test = np.zeros((X_test.shape[0], n_treatments))
@@ -220,6 +267,13 @@ Example Use of API
     # returns estimate of γ + δ 𝔼[x | x>1/2]
     cate = np.mean(cfest.effect(T0_test[X_test>1/2], T1_test[X_test>1/2], X_test[X_test>1/2])) 
 
+More importantly, suppose we wanted to understand what would be the overall expected change in response
+if we were to follow some treatment policy (e.g. treat everyone with :math:`X_i\geq 0`). This
+can also be easily done as follows:
+
+.. code-block:: python3
+    :caption: Estimating expected lift of some treatment policy
+    
     # Estimate expected lift of treatment policy: π(z) = 𝟙{x > 0} over existing policy
     Pi0_test = T
     Pi1_test = (X_test > 0) * 1.
