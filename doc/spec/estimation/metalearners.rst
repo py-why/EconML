@@ -282,3 +282,9 @@ The CATE package provides the following implementation of the Domain Adaptation 
 .. todo::
     * Synthetic Controls via Matchings
     * Regression Discontinuity Estimators
+
+
+Doubly Robust Learner
+---------------------
+
+
