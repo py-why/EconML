@@ -91,8 +91,8 @@ corresponding conditional expectations. These two regression functions are fitte
 as in the continuous treatment case. However, in the case of discrete treatment, the model for the treatment is 
 a multi-class classification model and should support :code:`predict_proba`.    
 
-Class Description and Parameters
---------------------------------
+Class Parameters and Customizing the Defaults
+---------------------------------------------
 
 
 Examples
@@ -126,3 +126,5 @@ Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoFor
      [1.2]]
 
 
+Test Case: Heterogeneous Elasticity of Demand for OJ
+----------------------------------------------------
