@@ -83,5 +83,5 @@ class Test2SLS(unittest.TestCase):
             effect = np2sls.effect(np.zeros(shape(p_fresh)), p_fresh, x_fresh)
             losses.append(np.mean(np.square(p_fresh * x_fresh - effect)))
             marg_effs.append(np2sls.marginal_effect(np.array([[0.3], [0.5], [0.7]]), np.array([[0.4], [0.6], [0.2]])))
-        print(f"losses: {losses}")
-        print(f"marg_effs: {marg_effs}")
+        print("losses: {}".format(losses))
+        print("marg_effs: {}".format(marg_effs))

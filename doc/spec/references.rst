@@ -17,7 +17,7 @@ References
     Two-Stage Estimation with a High-Dimensional Second Stage.
     2018.
 
-.. [Hartford17a]
+.. [Hartford2017]
     Jason Hartford, Greg Lewis, Kevin Leyton-Brown, and Matt Taddy.
     Deep IV: A flexible approach for counterfactual prediction.
     *Proceedings of the 34th International Conference on Machine Learning*, 2017.
@@ -25,14 +25,15 @@ References
 .. [Jaggi2010]
     Martin Jaggi and Marek Sulovský.
     A simple algorithm for nuclear norm regularized problems.
-    \emph{Proceedings of the 27th International Conference on Machine
-    Learning (ICML-10), June 21-24, 2010, Haifa, Israel}, pages 471--478, 2010.
+    *Proceedings of the 27th International Conference on Machine
+    Learning (ICML-10), June 21-24, 2010, Haifa, Israel*, pages 471--478, 2010.
 
 .. [Kunzel2017]
     Sören R Künzel, Jasjeet S Sekhon, Peter J Bickel, and Bin Yu.
     Meta-learners for estimating heterogeneous treatment effects using
     machine learning.
     *arXiv preprint arXiv:1706.03461*, 2017.
+    URL http://arxiv.org/abs/1706.03461.
 
 .. [Mackey2017]
     Lester W. Mackey, Vasilis Syrgkanis, and Ilias Zadik.
@@ -49,6 +50,7 @@ References
     D. Foster and V. Syrgkanis.
     Orthogonal Statistical Learning.
     *arXiv preprint arXiv:1901.09036*, 2019.
+    URL http://arxiv.org/abs/1901.09036.
 
 .. [Wager2018]
     S. Wager and S. Athey. 
@@ -63,9 +65,11 @@ References
 .. [Oprescu2018]
     M. Oprescu, V. Syrgkanis and Z. S. Wu.
     Orthogonal Random Forest for Causal Inference.
-    *arXiv prepring arXiv:arXiv:1806.03467*, 2018
+    *arXiv preprint arXiv:1806.03467*, 2018.
+    URL http://arxiv.org/abs/1806.03467.
 
 .. [Nie2017]
     X. Nie and S. Wager.
     Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
     *arXiv preprint arXiv:1712.04912*, 2017.
+    URL http://arxiv.org/abs/1712.04912.
