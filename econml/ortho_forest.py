@@ -943,11 +943,11 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         if sample_weight is not None:
             weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
         else:
-            weighted_XT_res = XT_res
+            weighted_XT_res = XT_res / XT_res.shape[0]
         # \ell_2 regularization
         diagonal = np.ones(XT_res.shape[1])
         diagonal[:T_res.shape[1]] = 0
-        reg = 0.1 * np.diag(diagonal)
+        reg = 0.01 * np.diag(diagonal)
         # Ridge regression estimate
         param_estimate = np.matmul(np.linalg.inv(np.matmul(weighted_XT_res.T, XT_res) + reg),
                                     np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
@@ -969,7 +969,7 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         # Moments shape is (n, d_T)
         diagonal = np.ones(XT_res.shape[1])
         diagonal[:T_res.shape[1]] = 0
-        reg = 0.1 * np.diag(diagonal)
+        reg = 0.01 * np.diag(diagonal)
         # regularized moments
         moments = (Y_res - np.matmul(XT_res, parameter_estimate)).reshape(-1, 1) * XT_res\
                      - np.matmul(reg, parameter_estimate).reshape(1, -1)
