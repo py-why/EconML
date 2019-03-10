@@ -97,7 +97,7 @@ it first constructs the proxies:
 
 and then runs a regression between :math:`Y_{i, 1}^{DR} - Y_{i, 0}^{DR}` and :math:`X`.
 
-The EconML package provides the following implementation of the Domain Adaptation Learner: 
+The EconML package provides the following implementation of the Doubly Robust Learner: 
 :py:class:`~econml.metalearners.DoublyRobustLearner`
 
 

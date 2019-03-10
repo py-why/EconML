@@ -1,6 +1,7 @@
 Forest Based Estimators
 =======================
 
+\
 
 Orthogonal Random Forests
 -------------------------
@@ -93,15 +94,15 @@ a multi-class classification model and should support :code:`predict_proba`.
 
 For more details on the input parameters of the orthogonal forest classes and how to customize
 the estimator checkout the two modules:
-    - :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
-    - :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
+- :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
+- :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
 
 
 For more examples check out our 
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
 
 Examples
---------
+^^^^^^^^
 
 Here is a simple example of how to call :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
 and what the returned values correspond to in a simple data generating process:
