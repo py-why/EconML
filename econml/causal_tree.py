@@ -149,7 +149,7 @@ class CausalTree:
                 # Nuisance estimate cannot be calculated
                 return
             # Estimate parameter for current node
-            node_estimate = self.parameter_estimator(node_Y, node_T, nuisance_estimates)
+            node_estimate = self.parameter_estimator(node_Y, node_T, node_X, nuisance_estimates)
             if node_estimate is None:
                 # Node estimate cannot be calculated
                 return
@@ -263,6 +263,7 @@ class CausalTree:
             node.estimate = self.parameter_estimator(
                 self.Y[node.est_sample_inds],
                 self.T[node.est_sample_inds],
+                self.X[node.est_sample_inds],
                 nuisance_estimates)
 
     def estimate(self):

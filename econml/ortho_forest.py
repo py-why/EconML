@@ -329,10 +329,11 @@ class BaseOrthoForest(LinearCateEstimator):
         parameter_estimate = self.parameter_estimator(
             np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
             np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
+            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
             nuisance_estimates,
             w_nonzero
         )
-        return parameter_estimate
+        return np.dot(parameter_estimate[:X_single.shape[0]], X_single) + parameter_estimate[X_single.shape[0]:]
 
     def _fit_forest(self, Y, T, X, W=None):
         # Generate subsample indices
@@ -506,7 +507,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         return nuisance_estimator
 
     @staticmethod
-    def parameter_estimator_func(Y, T,
+    def parameter_estimator_func(Y, T, X,
                                  nuisance_estimates,
                                  sample_weight=None):
         """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
@@ -515,7 +516,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
         # Compute coefficient by OLS on residuals
         param_estimate = LinearRegression(fit_intercept=False).fit(
-            T_res, Y_res, sample_weight=sample_weight
+            np.concatenate((X*T_res, T_res), axis=1), Y_res, sample_weight=sample_weight
         ).coef_
         # Parameter returned by LinearRegression is (d_T, )
         return param_estimate
@@ -531,7 +532,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
         # Compute moments
         # Moments shape is (n, d_T)
-        moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
+        moments = (Y_res - np.matmul(np.concatenate((X*T_res, T_res), axis=1), parameter_estimate)).reshape(-1, 1) * T_res
         # Compute moment gradients
         mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
         return moments, mean_gradient
