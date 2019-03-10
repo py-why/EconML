@@ -1,4 +1,0 @@
-Monte Carlo Benchmark Suite
-===========================
-
-\ 
