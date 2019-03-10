@@ -29,13 +29,14 @@ from joblib import Parallel, delayed
 from sklearn import clone
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegression, LogisticRegressionCV
+from sklearn.linear_model import ElasticNet
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures
 from sklearn.utils import check_random_state, check_array, column_or_1d
 from .cate_estimator import LinearCateEstimator
 from .causal_tree import CausalTree
-from .utilities import reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper
+from .utilities import reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -901,7 +902,9 @@ class LocalLinearOrthoForest(BaseOrthoForest):
 
     def _pointwise_effect(self, X_single):
         parameter = super(LocalLinearOrthoForest, self)._pointwise_effect(X_single)
-        return np.dot(parameter[:X_single.shape[0]], X_single) + parameter[X_single.shape[0]:]
+        X_aug = np.append([1], X_single)
+        parameter = parameter.reshape((X_aug.shape[0], -1)).T
+        return np.dot(parameter, X_aug)
 
     @staticmethod
     def nuisance_estimator_generator(model_T, model_Y, random_state=None):
@@ -934,10 +937,15 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         # Compute residuals
         Y_hat, T_hat = nuisance_estimates
         Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+        X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+        XT_res = cross_product(T_res, X_aug)
         # Compute coefficient by OLS on residuals
-        param_estimate = LinearRegression(fit_intercept=False).fit(
-            np.concatenate((X*T_res, T_res), axis=1), Y_res, sample_weight=sample_weight
-        ).coef_
+        if sample_weight is not None:
+            weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
+        else:
+            weighted_XT_res = XT_res
+        param_estimate = np.matmul(np.linalg.inv(np.matmul(weighted_XT_res.T, XT_res)),
+                                    np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
         # Parameter returned by LinearRegression is (d_T, )
         return param_estimate
 
@@ -950,9 +958,11 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         # Compute residuals
         Y_hat, T_hat = nuisance_estimates
         Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+        X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+        XT_res = cross_product(T_res, X_aug)
         # Compute moments
         # Moments shape is (n, d_T)
-        moments = (Y_res - np.matmul(np.concatenate((X*T_res, T_res), axis=1), parameter_estimate)).reshape(-1, 1) * T_res
+        moments = (Y_res - np.matmul(XT_res, parameter_estimate)).reshape(-1, 1) * XT_res
         # Compute moment gradients
-        mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
+        mean_gradient = - np.matmul(XT_res.T, XT_res) / XT_res.shape[0]
         return moments, mean_gradient
