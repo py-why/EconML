@@ -125,6 +125,29 @@ Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoFor
     [[1. ]
      [1.2]]
 
+Let's now look at a more involved example with a high-dimensional set of confounders :math:`W`
+and with more realistic noisy data. In this case we can just use the default Parameters
+of the class, which specify the use of the :py:class:`~sklearn.linear_model.LassoCV` for 
+both the treatment and the outcome regressions, in the case of continuous treatments.
+
+    >>> X = np.random.normal(size=(1000, 1))
+    >>> W = np.random.normal(size=(1000, 50))
+    >>> support = np.random.choice(50, 4, replace=False)
+    >>> T = np.dot(W[:, support], np.random.normal(size=4)) + np.random.normal(size=1000)
+    >>> Y = np.exp(2*X[:, 0]) * T + np.dot(W[:, support], np.random.normal(size=4)) + .5
+    >>> est = ContinuousTreatmentOrthoForest()
+    >>> est.fit(Y, T, X, W)
+    >>> X_test = np.linspace(-1, 1, 30).reshape(-1, 1)
+    >>> treatment_effects = est.const_marginal_effect(X_test)
+    >>> plt.plot(X_test, y, label='ORF estimate')
+    >>> plt.plot(X_test[:, 0], np.exp(2*X_test[:, 0]), 'b--', label='True effect')
+    >>> plt.legend()
+    >>> plt.show()
+
+.. figure:: continuous_ortho_forest_doc_example.png
+    :align: center
+
+    Synthetic data estimation with high dimensional controls
 
 Test Case: Heterogeneous Elasticity of Demand for OJ
 ----------------------------------------------------
