@@ -863,6 +863,7 @@ class LocalLinearOrthoForest(BaseOrthoForest):
                  min_leaf_size=10, max_splits=10,
                  subsample_ratio=0.25,
                  bootstrap=False,
+                 lambda_reg=0.01,
                  model_T=WeightedModelWrapper(LassoCV()),
                  model_Y=WeightedModelWrapper(LassoCV()),
                  model_T_final=None,
@@ -870,6 +871,7 @@ class LocalLinearOrthoForest(BaseOrthoForest):
                  n_jobs=-1,
                  random_state=None):
         # Copy and/or define models
+        self.lambda_reg = lambda_reg
         self.model_T = model_T
         self.model_Y = model_Y
         self.model_T_final = model_T_final
@@ -884,9 +886,9 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         second_stage_nuisance_estimator = LocalLinearOrthoForest.nuisance_estimator_generator(
             self.model_T_final, self.model_Y_final, random_state)
         # Define parameter estimators
-        parameter_estimator = LocalLinearOrthoForest.parameter_estimator_func
+        parameter_estimator = LocalLinearOrthoForest.parameter_estimator_generator(self.lambda_reg)
         # Define
-        moment_and_mean_gradient_estimator = LocalLinearOrthoForest.moment_and_mean_gradient_estimator_func
+        moment_and_mean_gradient_estimator = LocalLinearOrthoForest.moment_and_mean_gradient_estimator_generator(self.lambda_reg)
         super(LocalLinearOrthoForest, self).__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -930,49 +932,55 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         return nuisance_estimator
 
     @staticmethod
-    def parameter_estimator_func(Y, T, X,
-                                 nuisance_estimates,
-                                 sample_weight=None):
-        """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
-        # Compute residuals
-        Y_hat, T_hat = nuisance_estimates
-        Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
-        X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
-        XT_res = cross_product(T_res, X_aug)
-        # Compute coefficient by OLS on residuals
-        if sample_weight is not None:
-            weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
-        else:
-            weighted_XT_res = XT_res / XT_res.shape[0]
-        # \ell_2 regularization
-        diagonal = np.ones(XT_res.shape[1])
-        diagonal[:T_res.shape[1]] = 0
-        reg = 0.01 * np.diag(diagonal)
-        # Ridge regression estimate
-        param_estimate = np.matmul(np.linalg.inv(np.matmul(weighted_XT_res.T, XT_res) + reg),
-                                    np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
-        # Parameter returned by LinearRegression is (d_T, )
-        return param_estimate
+    def parameter_estimator_generator(lambda_reg):
+        def parameter_estimator_func(Y, T, X,
+                                    nuisance_estimates,
+                                    sample_weight=None):
+            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+            # Compute residuals
+            Y_hat, T_hat = nuisance_estimates
+            Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+            XT_res = cross_product(T_res, X_aug)
+            # Compute coefficient by OLS on residuals
+            if sample_weight is not None:
+                weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
+            else:
+                weighted_XT_res = XT_res / XT_res.shape[0]
+            # \ell_2 regularization
+            diagonal = np.ones(XT_res.shape[1])
+            diagonal[:T_res.shape[1]] = 0
+            reg = lambda_reg * np.diag(diagonal)
+            # Ridge regression estimate
+            param_estimate = np.matmul(np.linalg.inv(np.matmul(weighted_XT_res.T, XT_res) + reg),
+                                        np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
+            # Parameter returned by LinearRegression is (d_T, )
+            return param_estimate
+
+        return parameter_estimator_func
 
     @staticmethod
-    def moment_and_mean_gradient_estimator_func(Y, T, X, W,
-                                                nuisance_estimates,
-                                                parameter_estimate):
-        """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
-        # Return moments and gradients
-        # Compute residuals
-        Y_hat, T_hat = nuisance_estimates
-        Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
-        X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
-        XT_res = cross_product(T_res, X_aug)
-        # Compute moments
-        # Moments shape is (n, d_T)
-        diagonal = np.ones(XT_res.shape[1])
-        diagonal[:T_res.shape[1]] = 0
-        reg = 0.01 * np.diag(diagonal)
-        # regularized moments
-        moments = (Y_res - np.matmul(XT_res, parameter_estimate)).reshape(-1, 1) * XT_res\
-                     - np.matmul(reg, parameter_estimate).reshape(1, -1)
-        # Compute regularized moment gradients
-        mean_gradient = - np.matmul(XT_res.T, XT_res) / XT_res.shape[0] - reg
-        return moments, mean_gradient
+    def moment_and_mean_gradient_estimator_generator(lambda_reg):
+        def moment_and_mean_gradient_estimator_func(Y, T, X, W,
+                                                    nuisance_estimates,
+                                                    parameter_estimate):
+            """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
+            # Return moments and gradients
+            # Compute residuals
+            Y_hat, T_hat = nuisance_estimates
+            Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+            XT_res = cross_product(T_res, X_aug)
+            # Compute moments
+            # Moments shape is (n, d_T)
+            diagonal = np.ones(XT_res.shape[1])
+            diagonal[:T_res.shape[1]] = 0
+            reg = lambda_reg * np.diag(diagonal)
+            # regularized moments
+            moments = (Y_res - np.matmul(XT_res, parameter_estimate)).reshape(-1, 1) * XT_res\
+                        - np.matmul(reg, parameter_estimate).reshape(1, -1)
+            # Compute regularized moment gradients
+            mean_gradient = - np.matmul(XT_res.T, XT_res) / XT_res.shape[0] - reg
+            return moments, mean_gradient
+    
+        return moment_and_mean_gradient_estimator_func
