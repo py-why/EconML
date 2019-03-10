@@ -130,10 +130,10 @@ and with more realistic noisy data. In this case we can just use the default Par
 of the class, which specify the use of the :py:class:`~sklearn.linear_model.LassoCV` for 
 both the treatment and the outcome regressions, in the case of continuous treatments.
 
-    >>> X = np.random.normal(size=(1000, 1))
-    >>> W = np.random.normal(size=(1000, 50))
+    >>> X = np.random.uniform(-1, 1, size=(4000, 1))
+    >>> W = np.random.normal(size=(4000, 50))
     >>> support = np.random.choice(50, 4, replace=False)
-    >>> T = np.dot(W[:, support], np.random.normal(size=4)) + np.random.normal(size=1000)
+    >>> T = np.dot(W[:, support], np.random.normal(size=4)) + np.random.normal(size=4000)
     >>> Y = np.exp(2*X[:, 0]) * T + np.dot(W[:, support], np.random.normal(size=4)) + .5
     >>> est = ContinuousTreatmentOrthoForest()
     >>> est.fit(Y, T, X, W)
@@ -144,7 +144,7 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     >>> plt.legend()
     >>> plt.show()
 
-.. figure:: continuous_ortho_forest_doc_example.png
+.. figure:: figures/continuous_ortho_forest_doc_example.png
     :align: center
 
     Synthetic data estimation with high dimensional controls
