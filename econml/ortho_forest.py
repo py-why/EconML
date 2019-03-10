@@ -333,7 +333,7 @@ class BaseOrthoForest(LinearCateEstimator):
             nuisance_estimates,
             w_nonzero
         )
-        return np.dot(parameter_estimate[:X_single.shape[0]], X_single) + parameter_estimate[X_single.shape[0]:]
+        return parameter_estimate
 
     def _fit_forest(self, Y, T, X, W=None):
         # Generate subsample indices
@@ -516,7 +516,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
         # Compute coefficient by OLS on residuals
         param_estimate = LinearRegression(fit_intercept=False).fit(
-            np.concatenate((X*T_res, T_res), axis=1), Y_res, sample_weight=sample_weight
+            T_res, Y_res, sample_weight=sample_weight
         ).coef_
         # Parameter returned by LinearRegression is (d_T, )
         return param_estimate
@@ -532,7 +532,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
         # Compute moments
         # Moments shape is (n, d_T)
-        moments = (Y_res - np.matmul(np.concatenate((X*T_res, T_res), axis=1), parameter_estimate)).reshape(-1, 1) * T_res
+        moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
         # Compute moment gradients
         mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
         return moments, mean_gradient
@@ -749,7 +749,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         return nuisance_estimator
 
     @staticmethod
-    def parameter_estimator_func(Y, T,
+    def parameter_estimator_func(Y, T, X,
                                  nuisance_estimates,
                                  sample_weight=None):
         """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
@@ -800,3 +800,159 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         except Exception as exc:
             raise ValueError("Expected numeric array but got non-numeric types.")
         return T
+
+
+class LocalLinearOrthoForest(BaseOrthoForest):
+    """OrthoForest for continuous treatments.
+
+    A two-forest approach for learning heterogeneous treatment effects using
+    kernel two stage estimation.
+
+    Parameters
+    ----------
+    n_trees : integer, optional (default=500)
+        Number of causal estimators in the forest.
+
+    min_leaf_size : integer, optional (default=10)
+        The minimum number of samples in a leaf.
+
+    max_splits : integer, optional (default=10)
+        The maximum number of splits to be performed when expanding the tree.
+
+    subsample_ratio : float, optional (default=0.25)
+        The ratio of the total sample to be used when training a causal tree.
+        Values greater than 1.0 will be considered equal to 1.0.
+        Parameter is ignored when bootstrap=True.
+
+    bootstrap : boolean, optional (default=False)
+        Whether to use bootstrap subsampling.
+
+    model_T : estimator, optional (default=sklearn.linear_model.LassoCV())
+        The estimator for residualizing the continuous treatment at each leaf.
+        Must implement `fit` and `predict` methods.
+
+    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV())
+        The estimator for residualizing the outcome at each leaf. Must implement
+        `fit` and `predict` methods.
+
+    model_T_final : estimator, optional (default=None)
+        The estimator for residualizing the treatment at prediction time. Must implement
+        `fit` and `predict` methods. If parameter is set to `None`, it defaults to the
+        value of `model_T` parameter.
+
+    model_Y_final : estimator, optional (default=None)
+        The estimator for residualizing the outcome at prediction time. Must implement
+        `fit` and `predict` methods. If parameter is set to `None`, it defaults to the
+        value of `model_Y` parameter.
+
+    n_jobs : int, optional (default=-1)
+        The number of jobs to run in parallel for both `fit` and `predict`.
+        ``-1`` means using all processors. Since `OrthoForest` methods are
+        computationally heavy, it is recommended to set `n_jobs` to -1.
+
+    random_state : int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+    """
+
+    def __init__(self,
+                 n_trees=500,
+                 min_leaf_size=10, max_splits=10,
+                 subsample_ratio=0.25,
+                 bootstrap=False,
+                 model_T=WeightedModelWrapper(LassoCV()),
+                 model_Y=WeightedModelWrapper(LassoCV()),
+                 model_T_final=None,
+                 model_Y_final=None,
+                 n_jobs=-1,
+                 random_state=None):
+        # Copy and/or define models
+        self.model_T = model_T
+        self.model_Y = model_Y
+        self.model_T_final = model_T_final
+        self.model_Y_final = model_Y_final
+        if self.model_T_final is None:
+            self.model_T_final = clone(self.model_T, safe=False)
+        if self.model_Y_final is None:
+            self.model_Y_final = clone(self.model_Y, safe=False)
+        # Define nuisance estimators
+        nuisance_estimator = LocalLinearOrthoForest.nuisance_estimator_generator(
+            self.model_T, self.model_Y, random_state)
+        second_stage_nuisance_estimator = LocalLinearOrthoForest.nuisance_estimator_generator(
+            self.model_T_final, self.model_Y_final, random_state)
+        # Define parameter estimators
+        parameter_estimator = LocalLinearOrthoForest.parameter_estimator_func
+        # Define
+        moment_and_mean_gradient_estimator = LocalLinearOrthoForest.moment_and_mean_gradient_estimator_func
+        super(LocalLinearOrthoForest, self).__init__(
+            nuisance_estimator,
+            second_stage_nuisance_estimator,
+            parameter_estimator,
+            moment_and_mean_gradient_estimator,
+            n_trees=n_trees,
+            min_leaf_size=min_leaf_size,
+            max_splits=max_splits,
+            subsample_ratio=subsample_ratio,
+            bootstrap=bootstrap,
+            n_jobs=n_jobs,
+            random_state=random_state)
+
+    def _pointwise_effect(self, X_single):
+        parameter = super(LocalLinearOrthoForest, self)._pointwise_effect(X_single)
+        return np.dot(parameter[:X_single.shape[0]], X_single) + parameter[X_single.shape[0]:]
+
+    @staticmethod
+    def nuisance_estimator_generator(model_T, model_Y, random_state=None):
+        """Generate nuissance estimator given model inputs from the class."""
+        def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
+            # Nuissance estimates evaluated with cross-fitting
+            this_random_state = check_random_state(random_state)
+            if split_indices is None:
+                # Define 2-fold iterator
+                kfold_it = KFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X)
+                split_indices = list(kfold_it)[0]
+            if W is not None:
+                try:
+                    T_hat = _cross_fit(model_T, W, T, split_indices, sample_weight=sample_weight)
+                    Y_hat = _cross_fit(model_Y, W, Y, split_indices, sample_weight=sample_weight)
+                except ValueError as exc:
+                    raise ValueError("The original error: {0}".format(str(exc)) +
+                                     " This might be caused by too few sample in the tree leafs." +
+                                     " Try increasing the min_leaf_size.")
+                return Y_hat, T_hat
+            else:
+                return np.zeros(Y.shape), np.zeros(T.shape)
+        return nuisance_estimator
+
+    @staticmethod
+    def parameter_estimator_func(Y, T, X,
+                                 nuisance_estimates,
+                                 sample_weight=None):
+        """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+        # Compute residuals
+        Y_hat, T_hat = nuisance_estimates
+        Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+        # Compute coefficient by OLS on residuals
+        param_estimate = LinearRegression(fit_intercept=False).fit(
+            np.concatenate((X*T_res, T_res), axis=1), Y_res, sample_weight=sample_weight
+        ).coef_
+        # Parameter returned by LinearRegression is (d_T, )
+        return param_estimate
+
+    @staticmethod
+    def moment_and_mean_gradient_estimator_func(Y, T, X, W,
+                                                nuisance_estimates,
+                                                parameter_estimate):
+        """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
+        # Return moments and gradients
+        # Compute residuals
+        Y_hat, T_hat = nuisance_estimates
+        Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+        # Compute moments
+        # Moments shape is (n, d_T)
+        moments = (Y_res - np.matmul(np.concatenate((X*T_res, T_res), axis=1), parameter_estimate)).reshape(-1, 1) * T_res
+        # Compute moment gradients
+        mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
+        return moments, mean_gradient
