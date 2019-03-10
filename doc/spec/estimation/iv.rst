@@ -6,7 +6,7 @@ The assumptions made are weaker than the unconfoundedness assumption needed in D
 The cost is that when unconfoundedness holds, IV estimators will be less efficient than DML estimators.  
 What is required is a vector of instruments :math:`Z`, assumed to casually affect the distribution of the treatment :math:`T`, 
 and to have no direct causal effect on the expected value of the outcome :math:`Y`.  The package offers two IV methods for 
-estimating heterogeneous treatment effects: deep instrumental variables [Hartford17a]_ and the two-stage basis expansion approach 
+estimating heterogeneous treatment effects: deep instrumental variables [Hartford2017]_ and the two-stage basis expansion approach 
 of [Newey2003]_.  
 
 The setup of the model is as follows: 
@@ -36,7 +36,7 @@ this amounts to assuming that :math:`g` is a weighted sum of a fixed set of basi
 Deep Instrumental Variables
 ---------------------------
 
-As explained in [Hartford17a]_, the Deep IV module learns the heterogenous causal effects by minimizing the "reduced-form" prediction error:
+As explained in [Hartford2017]_, the Deep IV module learns the heterogenous causal effects by minimizing the "reduced-form" prediction error:
 
 .. math::
 
