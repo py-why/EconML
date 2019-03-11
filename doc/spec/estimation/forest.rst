@@ -94,6 +94,7 @@ a multi-class classification model and should support :code:`predict_proba`.
 
 For more details on the input parameters of the orthogonal forest classes and how to customize
 the estimator checkout the two modules:
+
 - :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
 - :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
 
@@ -111,8 +112,8 @@ and what the returned values correspond to in a simple data generating process:
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
     >>> Y = (.2 * W[:, 0] + 1) * T + .5
     >>> est = ContinuousTreatmentOrthoForest(n_trees=1, max_splits=1, subsample_ratio=1,
-    ...                                 model_T=sklearn.linear_model.LinearRegression(),
-    ...                                 model_Y=sklearn.linear_model.LinearRegression())
+    ...                                      model_T=sklearn.linear_model.LinearRegression(),
+    ...                                      model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, W, W)
     >>> print(est.const_marginal_effect(W[:2]))
     [[1. ]
@@ -124,8 +125,8 @@ Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoFor
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
     >>> Y = (.2 * W[:, 0] + 1) * T + .5
     >>> est = DiscreteTreatmentOrthoForest(n_trees=1, max_splits=1, subsample_ratio=1,
-    ...                                 propensity_model=sklearn.linear_model.LogisticRegression(),
-    ...                                 model_Y=sklearn.linear_model.LinearRegression())
+    ...                                    propensity_model=sklearn.linear_model.LogisticRegression(),
+    ...                                    model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, W, W)
     >>> print(est.const_marginal_effect(W[:2]))
     [[1. ]
