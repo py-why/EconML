@@ -8,8 +8,8 @@ This is the spec.
     api
     estimation
     inference
-    benchmark
     references
 
 .. todo::
+    benchmark
     Panel data wrapper
