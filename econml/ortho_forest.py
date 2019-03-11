@@ -952,7 +952,7 @@ class LocalLinearOrthoForest(BaseOrthoForest):
             diagonal[:T_res.shape[1]] = 0
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
-            param_estimate = np.matmul(np.linalg.inv(np.matmul(weighted_XT_res.T, XT_res) + reg),
+            param_estimate = np.matmul(np.linalg.pinv(np.matmul(weighted_XT_res.T, XT_res) + reg),
                                         np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
             # Parameter returned by LinearRegression is (d_T, )
             return param_estimate
@@ -969,18 +969,11 @@ class LocalLinearOrthoForest(BaseOrthoForest):
             # Compute residuals
             Y_hat, T_hat = nuisance_estimates
             Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
-            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
-            XT_res = cross_product(T_res, X_aug)
             # Compute moments
             # Moments shape is (n, d_T)
-            diagonal = np.ones(XT_res.shape[1])
-            diagonal[:T_res.shape[1]] = 0
-            reg = lambda_reg * np.diag(diagonal)
-            # regularized moments
-            moments = (Y_res - np.matmul(XT_res, parameter_estimate)).reshape(-1, 1) * XT_res\
-                        - np.matmul(reg, parameter_estimate).reshape(1, -1)
+            moments = (Y_res - np.matmul(T_res, parameter_estimate[:T_res.shape[1]])).reshape(-1, 1) * T_res
             # Compute regularized moment gradients
-            mean_gradient = - np.matmul(XT_res.T, XT_res) / XT_res.shape[0] - reg
+            mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
             return moments, mean_gradient
     
         return moment_and_mean_gradient_estimator_func
