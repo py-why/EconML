@@ -869,7 +869,7 @@ class LocalLinearOrthoForest(BaseOrthoForest):
     def __init__(self,
                  n_trees=500,
                  min_leaf_size=10, max_splits=10,
-                 subsample_ratio=0.25,
+                 subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
                  model_T=WeightedModelWrapper(LassoCV()),
