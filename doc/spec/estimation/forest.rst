@@ -58,7 +58,6 @@ can wrap any class that supports fit and predict and enables sample weight funct
 by re-sampling the data based on the weights and then calling fit and predict, or, in the case of linear losses,
 by re-scaling the features and labels appropriately based on the weights.
 
-
     >>> est = ContinuousTreatmentOrthoForest(model_y=WeightedModelWrapper(Lasso(), sample_type=sample_type),
     ...                                      model_t=WeightedModelWrapper(Lasso(), sample_type=sample_type))
 
@@ -97,7 +96,6 @@ the estimator checkout the two modules:
 
 - :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
 - :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
-
 
 For more examples check out our 
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
@@ -155,4 +153,3 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     :align: center
 
     Synthetic data estimation with high dimensional controls
-
