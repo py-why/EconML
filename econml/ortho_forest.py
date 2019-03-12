@@ -208,7 +208,9 @@ class BaseOrthoForest(LinearCateEstimator):
                  nuisance_estimator,
                  second_stage_nuisance_estimator,
                  parameter_estimator,
+                 second_stage_parameter_estimator,
                  moment_and_mean_gradient_estimator,
+                 second_stage_moment_and_mean_gradient_estimator,
                  n_trees=500,
                  min_leaf_size=10, max_splits=10,
                  subsample_ratio=0.25,
@@ -217,9 +219,11 @@ class BaseOrthoForest(LinearCateEstimator):
                  random_state=None):
         # Estimators
         self.nuisance_estimator = nuisance_estimator
-        self.parameter_estimator = parameter_estimator
         self.second_stage_nuisance_estimator = second_stage_nuisance_estimator
+        self.parameter_estimator = parameter_estimator
+        self.second_stage_parameter_estimator = second_stage_parameter_estimator
         self.moment_and_mean_gradient_estimator = moment_and_mean_gradient_estimator
+        self.second_stage_moment_and_mean_gradient_estimator = second_stage_moment_and_mean_gradient_estimator
         # OrthoForest parameters
         self.n_trees = n_trees
         self.min_leaf_size = min_leaf_size
@@ -327,7 +331,7 @@ class BaseOrthoForest(LinearCateEstimator):
             split_indices=(np.arange(len(w1_nonzero)), np.arange(
                 len(w1_nonzero), len(w_nonzero)))
         )
-        parameter_estimate = self.parameter_estimator(
+        parameter_estimate = self.second_stage_parameter_estimator(
             np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
             np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
             np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
@@ -475,6 +479,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             nuisance_estimator,
             second_stage_nuisance_estimator,
             parameter_estimator,
+            parameter_estimator,
+            moment_and_mean_gradient_estimator,
             moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
@@ -632,6 +638,8 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             nuisance_estimator,
             second_stage_nuisance_estimator,
             parameter_estimator,
+            parameter_estimator,
+            moment_and_mean_gradient_estimator,
             moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
@@ -886,14 +894,18 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         second_stage_nuisance_estimator = LocalLinearOrthoForest.nuisance_estimator_generator(
             self.model_T_final, self.model_Y_final, random_state)
         # Define parameter estimators
-        parameter_estimator = LocalLinearOrthoForest.parameter_estimator_generator(self.lambda_reg)
+        parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
+        second_stage_parameter_estimator = LocalLinearOrthoForest.parameter_estimator_generator(self.lambda_reg)
         # Define
-        moment_and_mean_gradient_estimator = LocalLinearOrthoForest.moment_and_mean_gradient_estimator_generator(self.lambda_reg)
+        moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
+        second_stage_moment_and_mean_gradient_estimator = LocalLinearOrthoForest.moment_and_mean_gradient_estimator_generator(self.lambda_reg)
         super(LocalLinearOrthoForest, self).__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
             parameter_estimator,
+            second_stage_parameter_estimator,
             moment_and_mean_gradient_estimator,
+            second_stage_moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
             max_splits=max_splits,
