@@ -122,7 +122,7 @@ class CausalTree:
         # Tree structure
         self.tree = None
 
-    def recursive_split(self, node, split_acc, node_Y, node_T, node_X, node_W, node_X_estimate):
+    def create_splits(self, Y, T, X, W):
         """
         Recursively build a causal tree.
 
@@ -135,101 +135,6 @@ class CausalTree:
             Accumulator that counts the number of splits made up
             until this node.
         """
-        # If by splitting we have too small leaves or if we reached the maximum number of splits we stop
-        if node.split_sample_inds.shape[0] // 2 < self.min_leaf_size or split_acc >= self.max_splits:
-            return False
-        else:
-            
-            node_size_split = node_X.shape[0]
-            node_size_est = node_X_estimate.shape[0]
-
-            # Compute nuisance estimates for the current node
-            nuisance_estimates = self.nuisance_estimator(node_Y, node_T, node_X, node_W)
-            if nuisance_estimates is None:
-                # Nuisance estimate cannot be calculated
-                return False
-            # Estimate parameter for current node
-            node_estimate = self.parameter_estimator(node_Y, node_T, node_X, nuisance_estimates)
-            if node_estimate is None:
-                # Node estimate cannot be calculated
-                return False
-            # Calculate moments and gradient of moments for current data
-            moments, mean_grad = self.moment_and_mean_gradient_estimator(
-                node_Y, node_T, node_X, node_W,
-                nuisance_estimates,
-                node_estimate)
-            # Calculate inverse gradient
-            try:
-                inverse_grad = np.linalg.inv(mean_grad)
-            except np.linalg.LinAlgError as exc:
-                if 'Singular matrix' in str(exc):
-                    # The gradient matrix is not invertible.
-                    # No good split can be found
-                    return False
-                else:
-                    raise exc
-            # Calculate point-wise pseudo-outcomes rho
-            rho = np.matmul(moments, inverse_grad)
-
-            # Generate random proposals of dimensions to split
-            dim_proposals = self.random_state.choice(
-                np.arange(node_X.shape[1]), size=self.n_proposals, replace=True)
-            thr_proposals = node_X[self.random_state.choice(
-                np.arange(node_X.shape[0]), size=self.n_proposals, replace=True), dim_proposals]
-            
-            side = node_X[:, dim_proposals] < thr_proposals.reshape(1, -1)
-            
-            size_left = np.sum(side, axis=0)
-            side_est = node_X_estimate[:, dim_proposals] < thr_proposals.reshape(1, -1)
-            size_est_left = np.sum(side_est, axis=0)
-
-            lower_bound = max((.5 - self.balancedness_tol)*node_size_split, self.min_leaf_size)
-            upper_bound = min((.5 + self.balancedness_tol)*node_size_split, node_size_split - self.min_leaf_size)
-            valid_split = (lower_bound <= size_left)
-            valid_split &= (size_left  <= upper_bound)
-            
-            lower_bound_est = max((.5 - self.balancedness_tol)*node_size_est, self.min_leaf_size)
-            upper_bound_est = min((.5 + self.balancedness_tol)*node_size_est, node_size_est - self.min_leaf_size)
-            valid_split &= (lower_bound_est <= size_est_left)
-            valid_split &= (size_est_left <= upper_bound_est)
-
-            if ~np.any(valid_split):
-                return False
-
-            valid_dim_proposals = dim_proposals[valid_split]
-            valid_thr_proposals = thr_proposals[valid_split]
-            valid_side = side[:, valid_split]
-            valid_size_left = size_left[valid_split]
-            valid_side_est = side_est[:, valid_split]
-            left_diff = np.matmul(rho.T, valid_side)
-            right_diff = np.matmul(rho.T, 1 - valid_side)
-            left_score = left_diff**2 / valid_size_left.reshape(1, -1)
-            right_score = right_diff**2 / (node_size_split - valid_size_left).reshape(1, -1)
-            spl_score = (right_score + left_score) / 2
-
-            # eta specifies how much weight to put on individual heterogeneity vs common heterogeneity
-            # across parameters. we give some benefit to individual heterogeneity factors for cases
-            # where there might be large discontinuities in some parameter as the conditioning set varies
-            eta = np.random.uniform(0.25, 1)
-            split_scores = np.max(spl_score, axis=0) * eta + np.mean(spl_score, axis=0) * (1 - eta)
-
-            # Find split that minimizes criterion
-            best_split_ind = np.argmax(split_scores)
-            node.feature = valid_dim_proposals[best_split_ind]
-            node.threshold = valid_thr_proposals[best_split_ind]
-            
-            # Create child nodes with corresponding subsamples
-            left_split_sample_inds = node.split_sample_inds[valid_side[:, best_split_ind]]
-            left_est_sample_inds = node.est_sample_inds[valid_side_est[:, best_split_ind]]
-            node.left = Node(left_split_sample_inds, left_est_sample_inds)
-            right_split_sample_inds = node.split_sample_inds[~valid_side[:, best_split_ind]]
-            right_est_sample_inds = node.est_sample_inds[~valid_side_est[:, best_split_ind]]
-            node.right = Node(right_split_sample_inds, right_est_sample_inds)
-
-            # Return parent node
-            return (node.left, split_acc + 1), (node.right, split_acc + 1)
-
-    def create_splits(self, Y, T, X, W):
         # No need for a random split since the data is already
         # a random subsample from the original input
         n = Y.shape[0] // 2
@@ -238,17 +143,105 @@ class CausalTree:
 
         while len(node_list) > 0:
             node, depth = node_list.pop()
+            
             # Create local sample set
             node_X = X[node.split_sample_inds]
             node_W = W[node.split_sample_inds] if W is not None else None
             node_T = T[node.split_sample_inds]
             node_Y = Y[node.split_sample_inds]
             node_X_estimate = X[node.est_sample_inds]
-            children = self.recursive_split(node, depth, node_Y, node_T, node_X, node_W, node_X_estimate)
-            if children:
-                left, right = children
-                node_list.append(left)
-                node_list.append(right)
+            
+            # If by splitting we have too small leaves or if we reached the maximum number of splits we stop
+            if node.split_sample_inds.shape[0] // 2 >= self.min_leaf_size and depth < self.max_splits:
+
+                node_size_split = node_X.shape[0]
+                node_size_est = node_X_estimate.shape[0]
+
+                # Compute nuisance estimates for the current node
+                nuisance_estimates = self.nuisance_estimator(node_Y, node_T, node_X, node_W)
+                if nuisance_estimates is None:
+                    # Nuisance estimate cannot be calculated
+                    continue
+                # Estimate parameter for current node
+                node_estimate = self.parameter_estimator(node_Y, node_T, node_X, nuisance_estimates)
+                if node_estimate is None:
+                    # Node estimate cannot be calculated
+                    continue
+                # Calculate moments and gradient of moments for current data
+                moments, mean_grad = self.moment_and_mean_gradient_estimator(
+                    node_Y, node_T, node_X, node_W,
+                    nuisance_estimates,
+                    node_estimate)
+                # Calculate inverse gradient
+                try:
+                    inverse_grad = np.linalg.inv(mean_grad)
+                except np.linalg.LinAlgError as exc:
+                    if 'Singular matrix' in str(exc):
+                        # The gradient matrix is not invertible.
+                        # No good split can be found
+                        continue
+                    else:
+                        raise exc
+                # Calculate point-wise pseudo-outcomes rho
+                rho = np.matmul(moments, inverse_grad)
+
+                # Generate random proposals of dimensions to split
+                dim_proposals = self.random_state.choice(
+                    np.arange(node_X.shape[1]), size=self.n_proposals, replace=True)
+                thr_proposals = node_X[self.random_state.choice(
+                    np.arange(node_X.shape[0]), size=self.n_proposals, replace=True), dim_proposals]
+                
+                side = node_X[:, dim_proposals] < thr_proposals.reshape(1, -1)
+                
+                size_left = np.sum(side, axis=0)
+                side_est = node_X_estimate[:, dim_proposals] < thr_proposals.reshape(1, -1)
+                size_est_left = np.sum(side_est, axis=0)
+
+                lower_bound = max((.5 - self.balancedness_tol)*node_size_split, self.min_leaf_size)
+                upper_bound = min((.5 + self.balancedness_tol)*node_size_split, node_size_split - self.min_leaf_size)
+                valid_split = (lower_bound <= size_left)
+                valid_split &= (size_left  <= upper_bound)
+                
+                lower_bound_est = max((.5 - self.balancedness_tol)*node_size_est, self.min_leaf_size)
+                upper_bound_est = min((.5 + self.balancedness_tol)*node_size_est, node_size_est - self.min_leaf_size)
+                valid_split &= (lower_bound_est <= size_est_left)
+                valid_split &= (size_est_left <= upper_bound_est)
+
+                if ~np.any(valid_split):
+                    continue
+
+                valid_dim_proposals = dim_proposals[valid_split]
+                valid_thr_proposals = thr_proposals[valid_split]
+                valid_side = side[:, valid_split]
+                valid_size_left = size_left[valid_split]
+                valid_side_est = side_est[:, valid_split]
+                left_diff = np.matmul(rho.T, valid_side)
+                right_diff = np.matmul(rho.T, 1 - valid_side)
+                left_score = left_diff**2 / valid_size_left.reshape(1, -1)
+                right_score = right_diff**2 / (node_size_split - valid_size_left).reshape(1, -1)
+                spl_score = (right_score + left_score) / 2
+
+                # eta specifies how much weight to put on individual heterogeneity vs common heterogeneity
+                # across parameters. we give some benefit to individual heterogeneity factors for cases
+                # where there might be large discontinuities in some parameter as the conditioning set varies
+                eta = np.random.uniform(0.25, 1)
+                split_scores = np.max(spl_score, axis=0) * eta + np.mean(spl_score, axis=0) * (1 - eta)
+
+                # Find split that minimizes criterion
+                best_split_ind = np.argmax(split_scores)
+                node.feature = valid_dim_proposals[best_split_ind]
+                node.threshold = valid_thr_proposals[best_split_ind]
+                
+                # Create child nodes with corresponding subsamples
+                left_split_sample_inds = node.split_sample_inds[valid_side[:, best_split_ind]]
+                left_est_sample_inds = node.est_sample_inds[valid_side_est[:, best_split_ind]]
+                node.left = Node(left_split_sample_inds, left_est_sample_inds)
+                right_split_sample_inds = node.split_sample_inds[~valid_side[:, best_split_ind]]
+                right_est_sample_inds = node.est_sample_inds[~valid_side_est[:, best_split_ind]]
+                node.right = Node(right_split_sample_inds, right_est_sample_inds)
+
+                node_list.append((node.left, depth + 1))
+                node_list.append((node.right, depth + 1))
 
     def print_tree_rec(self, node):
         if not node:
