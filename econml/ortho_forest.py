@@ -168,16 +168,13 @@ class BaseOrthoTree(LinearCateEstimator):
             raise ValueError(
                 "The outcome matrix must be of shape ({0}, ) or ({0}, 1), instead got {1}.".format(len(X), Y.shape))
         # Initialize causal tree parameters
-        self.ct = CausalTree(Y, T, X, W,
-                             nuisance_estimator=self.nuisance_estimator,
+        self.ct = CausalTree(Y, T, X, W, nuisance_estimator=self.nuisance_estimator,
                              parameter_estimator=self.parameter_estimator,
                              moment_and_mean_gradient_estimator=self.moment_and_mean_gradient_estimator,
                              min_leaf_size=self.min_leaf_size, max_splits=self.max_splits,
                              random_state=self.random_state)
         # Create splits of causal tree
         self.ct.create_splits()
-        # Estimate treatment effects at the leafs
-        self.ct.estimate()
         return self
 
     def const_marginal_effect(self, X):
@@ -306,8 +303,7 @@ class BaseOrthoForest(LinearCateEstimator):
         if not self.model_is_fitted:
             raise NotFittedError('This {0} instance is not fitted yet.'.format(self.__class__.__name__))
         X = check_array(X)
-        results = Parallel(n_jobs=self.n_jobs, verbose=3)(
-            delayed(self._pointwise_effect)(X_single) for X_single in X)
+        results = [self._pointwise_effect(X_single) for X_single in X]
         # TODO: Check performance
         return np.asarray(results)
 
@@ -451,8 +447,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  min_leaf_size=10, max_splits=10,
                  subsample_ratio=0.25,
                  bootstrap=False,
-                 model_T=WeightedModelWrapper(LassoCV()),
-                 model_Y=WeightedModelWrapper(LassoCV()),
+                 model_T=WeightedModelWrapper(LassoCV(cv=3)),
+                 model_Y=WeightedModelWrapper(LassoCV(cv=3)),
                  model_T_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
@@ -468,9 +464,9 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             self.model_Y_final = clone(self.model_Y, safe=False)
         # Define nuisance estimators
         nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
-            self.model_T, self.model_Y, random_state)
+            self.model_T, self.model_Y, random_state, second_stage=False)
         second_stage_nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
-            self.model_T_final, self.model_Y_final, random_state)
+            self.model_T_final, self.model_Y_final, random_state, second_stage=True)
         # Define parameter estimators
         parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
         # Define
@@ -491,7 +487,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             random_state=random_state)
 
     @staticmethod
-    def nuisance_estimator_generator(model_T, model_Y, random_state=None):
+    def nuisance_estimator_generator(model_T, model_Y, random_state=None, second_stage=True):
         """Generate nuissance estimator given model inputs from the class."""
         def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
             # Nuissance estimates evaluated with cross-fitting
@@ -501,16 +497,23 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                 kfold_it = KFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X)
                 split_indices = list(kfold_it)[0]
             if W is not None:
-                try:
-                    T_hat = _cross_fit(model_T, W, T, split_indices, sample_weight=sample_weight)
-                    Y_hat = _cross_fit(model_Y, W, Y, split_indices, sample_weight=sample_weight)
-                except ValueError as exc:
-                    raise ValueError("The original error: {0}".format(str(exc)) +
-                                     " This might be caused by too few sample in the tree leafs." +
-                                     " Try increasing the min_leaf_size.")
-                return Y_hat, T_hat
+                X_tilde = np.concatenate((X, W), axis=1)
             else:
-                return np.zeros(Y.shape), np.zeros(T.shape)
+                X_tilde = X
+
+            try:
+                if second_stage:
+                    T_hat = _cross_fit(model_T, X_tilde, T, split_indices, sample_weight=sample_weight)
+                    Y_hat = _cross_fit(model_Y, X_tilde, Y, split_indices, sample_weight=sample_weight)
+                else:
+                    T_hat = model_T.fit(X_tilde, T, sample_weight=sample_weight).predict(X_tilde)
+                    Y_hat = model_Y.fit(X_tilde, Y, sample_weight=sample_weight).predict(X_tilde)
+            except ValueError as exc:
+                raise ValueError("The original error: {0}".format(str(exc)) +
+                                    " This might be caused by too few sample in the tree leafs." +
+                                    " Try increasing the min_leaf_size.")
+            return Y_hat, T_hat
+
         return nuisance_estimator
 
     @staticmethod
@@ -610,7 +613,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  subsample_ratio=0.25,
                  bootstrap=True,
                  propensity_model=LogisticRegression(penalty='l1', solver='saga'),  # saga solver supports l1
-                 model_Y=WeightedModelWrapper(LassoCV()),
+                 model_Y=WeightedModelWrapper(LassoCV(cv=3)),
                  propensity_model_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
@@ -872,8 +875,8 @@ class LocalLinearOrthoForest(BaseOrthoForest):
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
-                 model_T=WeightedModelWrapper(LassoCV()),
-                 model_Y=WeightedModelWrapper(LassoCV()),
+                 model_T=WeightedModelWrapper(LassoCV(cv=3)),
+                 model_Y=WeightedModelWrapper(LassoCV(cv=3)),
                  model_T_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
@@ -889,10 +892,10 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y, safe=False)
         # Define nuisance estimators
-        nuisance_estimator = LocalLinearOrthoForest.nuisance_estimator_generator(
-            self.model_T, self.model_Y, random_state)
-        second_stage_nuisance_estimator = LocalLinearOrthoForest.nuisance_estimator_generator(
-            self.model_T_final, self.model_Y_final, random_state)
+        nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
+            self.model_T, self.model_Y, random_state, second_stage=False)
+        second_stage_nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
+            self.model_T_final, self.model_Y_final, random_state, second_stage=True)
         # Define parameter estimators
         parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
         second_stage_parameter_estimator = LocalLinearOrthoForest.parameter_estimator_generator(self.lambda_reg)
@@ -919,29 +922,6 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         X_aug = np.append([1], X_single)
         parameter = parameter.reshape((X_aug.shape[0], -1)).T
         return np.dot(parameter, X_aug)
-
-    @staticmethod
-    def nuisance_estimator_generator(model_T, model_Y, random_state=None):
-        """Generate nuissance estimator given model inputs from the class."""
-        def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
-            # Nuissance estimates evaluated with cross-fitting
-            this_random_state = check_random_state(random_state)
-            if split_indices is None:
-                # Define 2-fold iterator
-                kfold_it = KFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X)
-                split_indices = list(kfold_it)[0]
-            if W is not None:
-                try:
-                    T_hat = _cross_fit(model_T, W, T, split_indices, sample_weight=sample_weight)
-                    Y_hat = _cross_fit(model_Y, W, Y, split_indices, sample_weight=sample_weight)
-                except ValueError as exc:
-                    raise ValueError("The original error: {0}".format(str(exc)) +
-                                     " This might be caused by too few sample in the tree leafs." +
-                                     " Try increasing the min_leaf_size.")
-                return Y_hat, T_hat
-            else:
-                return np.zeros(Y.shape), np.zeros(T.shape)
-        return nuisance_estimator
 
     @staticmethod
     def parameter_estimator_generator(lambda_reg):
