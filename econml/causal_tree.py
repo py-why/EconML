@@ -190,18 +190,21 @@ class CausalTree:
                 np.arange(node_X.shape[0]), size=self.n_proposals, replace=True), dim_proposals]
             
             side = node_X[:, dim_proposals] < thr_proposals.reshape(1, -1)
+            
             size_left = np.sum(side, axis=0)
             side_est = node_X_estimate[:, dim_proposals] < thr_proposals.reshape(1, -1)
             size_est_left = np.sum(side_est, axis=0)
-            valid_split = (.5 - self.balancedness_tol <= size_left / node_size_split)
-            valid_split &= (size_left / node_size_split <= .5 + self.balancedness_tol)
-            valid_split &= (.5 - self.balancedness_tol <= size_est_left / node_size_est)
-            valid_split &= (size_est_left / node_size_est <= .5 + self.balancedness_tol)
-            valid_split &= (self.min_leaf_size <= size_left)
-            valid_split &= (size_left <= node_size_split - self.min_leaf_size)
-            valid_split &= (self.min_leaf_size <= size_est_left)
-            valid_split &= (size_est_left <= node_size_split - self.min_leaf_size)
+
+            lower_bound = max((.5 - self.balancedness_tol)*node_size_split, self.min_leaf_size)
+            upper_bound = min((.5 + self.balancedness_tol)*node_size_split, node_size_split - self.min_leaf_size)
+            valid_split = (lower_bound <= size_left)
+            valid_split &= (size_left  <= upper_bound)
             
+            lower_bound_est = max((.5 - self.balancedness_tol)*node_size_est, self.min_leaf_size)
+            upper_bound_est = min((.5 + self.balancedness_tol)*node_size_est, node_size_est - self.min_leaf_size)
+            valid_split &= (lower_bound_est <= size_est_left)
+            valid_split &= (size_est_left <= upper_bound_est)
+
             if ~np.any(valid_split):
                 return False
 
