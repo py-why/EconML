@@ -101,7 +101,6 @@ class CausalTree:
     """
 
     def __init__(self,
-                 Y, T, X, W,
                  nuisance_estimator,
                  parameter_estimator,
                  moment_and_mean_gradient_estimator,
@@ -110,11 +109,6 @@ class CausalTree:
                  n_proposals=1000,
                  balancedness_tol=.3,
                  random_state=None):
-        # Input datasets
-        self.W = W
-        self.X = X
-        self.T = T
-        self.Y = Y
         # Estimators
         self.nuisance_estimator = nuisance_estimator
         self.parameter_estimator = parameter_estimator
@@ -128,7 +122,7 @@ class CausalTree:
         # Tree structure
         self.tree = None
 
-    def recursive_split(self, node, split_acc):
+    def recursive_split(self, node, split_acc, node_Y, node_T, node_X, node_W, node_X_estimate):
         """
         Recursively build a causal tree.
 
@@ -145,13 +139,7 @@ class CausalTree:
         if node.split_sample_inds.shape[0] // 2 < self.min_leaf_size or split_acc >= self.max_splits:
             return False
         else:
-
-            # Create local sample set
-            node_X = self.X[node.split_sample_inds]
-            node_W = self.W[node.split_sample_inds] if self.W is not None else None
-            node_T = self.T[node.split_sample_inds]
-            node_Y = self.Y[node.split_sample_inds]
-            node_X_estimate = self.X[node.est_sample_inds]
+            
             node_size_split = node_X.shape[0]
             node_size_est = node_X_estimate.shape[0]
 
@@ -241,44 +229,26 @@ class CausalTree:
             # Return parent node
             return (node.left, split_acc + 1), (node.right, split_acc + 1)
 
-    def create_splits(self):
+    def create_splits(self, Y, T, X, W):
         # No need for a random split since the data is already
         # a random subsample from the original input
-        n = self.Y.shape[0] // 2
-        self.tree = Node(np.arange(n), np.arange(n, self.Y.shape[0]))
+        n = Y.shape[0] // 2
+        self.tree = Node(np.arange(n), np.arange(n, Y.shape[0]))
         node_list = [(self.tree, 0)]
 
         while len(node_list) > 0:
             node, depth = node_list.pop()
-            children = self.recursive_split(node, depth)
+            # Create local sample set
+            node_X = X[node.split_sample_inds]
+            node_W = W[node.split_sample_inds] if W is not None else None
+            node_T = T[node.split_sample_inds]
+            node_Y = Y[node.split_sample_inds]
+            node_X_estimate = X[node.est_sample_inds]
+            children = self.recursive_split(node, depth, node_Y, node_T, node_X, node_W, node_X_estimate)
             if children:
                 left, right = children
                 node_list.append(left)
                 node_list.append(right)
-
-
-    def estimate_leafs(self, node):
-        if node.left or node.right:
-            self.estimate_leafs(node.left)
-            self.estimate_leafs(node.right)
-        else:
-            # Estimate the local parameter at the leaf using the estimate data
-            nuisance_estimates = self.nuisance_estimator(
-                self.Y[node.est_sample_inds],
-                self.T[node.est_sample_inds],
-                self.X[node.est_sample_inds],
-                self.W[node.est_sample_inds] if self.W is not None else None)
-            if nuisance_estimates is None:
-                node.estimate = None
-                return
-            node.estimate = self.parameter_estimator(
-                self.Y[node.est_sample_inds],
-                self.T[node.est_sample_inds],
-                self.X[node.est_sample_inds],
-                nuisance_estimates)
-
-    def estimate(self):
-        self.estimate_leafs(self.tree)
 
     def print_tree_rec(self, node):
         if not node:

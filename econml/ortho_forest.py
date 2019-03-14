@@ -168,13 +168,13 @@ class BaseOrthoTree(LinearCateEstimator):
             raise ValueError(
                 "The outcome matrix must be of shape ({0}, ) or ({0}, 1), instead got {1}.".format(len(X), Y.shape))
         # Initialize causal tree parameters
-        self.ct = CausalTree(Y, T, X, W, nuisance_estimator=self.nuisance_estimator,
+        self.ct = CausalTree(nuisance_estimator=self.nuisance_estimator,
                              parameter_estimator=self.parameter_estimator,
                              moment_and_mean_gradient_estimator=self.moment_and_mean_gradient_estimator,
                              min_leaf_size=self.min_leaf_size, max_splits=self.max_splits,
                              random_state=self.random_state)
         # Create splits of causal tree
-        self.ct.create_splits()
+        self.ct.create_splits(Y, T, X, W)
         return self
 
     def const_marginal_effect(self, X):
