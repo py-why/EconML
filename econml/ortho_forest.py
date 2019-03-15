@@ -45,10 +45,10 @@ def _build_tree_in_parallel(Y, T, X, W,
                             moment_and_mean_gradient_estimator,
                             min_leaf_size, max_splits, random_state):
     tree = CausalTree(nuisance_estimator=nuisance_estimator,
-                             parameter_estimator=parameter_estimator,
-                             moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
-                             min_leaf_size=min_leaf_size, max_splits=max_splits,
-                             random_state=random_state)
+                        parameter_estimator=parameter_estimator,
+                        moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
+                        min_leaf_size=min_leaf_size, max_splits=max_splits,
+                        random_state=random_state)
     # Create splits of causal tree
     tree.create_splits(Y, T, X, W)
     return tree
@@ -119,7 +119,6 @@ def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None,
     # Must make sure indices are merged correctly
     sorted_split_indices = np.argsort(np.concatenate(split_indices), kind='mergesort')
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
-
 
 
 class BaseOrthoForest(LinearCateEstimator):
@@ -393,7 +392,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             self.model_T_final, self.model_Y_final, random_state, second_stage=True)
         # Define parameter estimators
         parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
-        second_stage_parameter_estimator = ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(self.lambda_reg)
+        second_stage_parameter_estimator =\
+            ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(self.lambda_reg)
         # Define
         moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
         super(ContinuousTreatmentOrthoForest, self).__init__(
@@ -415,7 +415,6 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         X_aug = np.append([1], X_single)
         parameter = parameter.reshape((X_aug.shape[0], -1)).T
         return np.dot(parameter, X_aug)
-
 
     @staticmethod
     def nuisance_estimator_generator(model_T, model_Y, random_state=None, second_stage=True):
@@ -441,8 +440,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                     Y_hat = model_Y.fit(X_tilde, Y, sample_weight=sample_weight).predict(X_tilde)
             except ValueError as exc:
                 raise ValueError("The original error: {0}".format(str(exc)) +
-                                    " This might be caused by too few sample in the tree leafs." +
-                                    " Try increasing the min_leaf_size.")
+                                " This might be caused by too few sample in the tree leafs." +
+                                " Try increasing the min_leaf_size.")
             return Y_hat, T_hat
 
         return nuisance_estimator
@@ -462,12 +461,11 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         # Parameter returned by LinearRegression is (d_T, )
         return param_estimate
 
-    
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
         def parameter_estimator_func(Y, T, X,
-                                    nuisance_estimates,
-                                    sample_weight=None):
+                                        nuisance_estimates,
+                                        sample_weight=None):
             """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
             # Compute residuals
             Y_hat, T_hat = nuisance_estimates
@@ -594,9 +592,11 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         second_stage_nuisance_estimator = None
         # Define parameter estimators
         parameter_estimator = DiscreteTreatmentOrthoForest.parameter_estimator_func
-        second_stage_parameter_estimator = DiscreteTreatmentOrthoForest.second_stage_parameter_estimator_gen(lambda_reg)
+        second_stage_parameter_estimator =\
+            DiscreteTreatmentOrthoForest.second_stage_parameter_estimator_gen(lambda_reg)
         # Define moment and mean gradient estimator
-        moment_and_mean_gradient_estimator = DiscreteTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
+        moment_and_mean_gradient_estimator =\
+            DiscreteTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
         # Define autoencoder
         self._label_encoder = LabelEncoder()
         super(DiscreteTreatmentOrthoForest, self).__init__(
@@ -737,13 +737,12 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         param_estimate = np.average(pointwise_params, weights=sample_weight, axis=0)
         # If any of the values in the parameter estimate is nan, return None
         return param_estimate
-    
-    
+
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
         def parameter_estimator_func(Y, T, X,
-                                    nuisance_estimates,
-                                    sample_weight=None):
+                                        nuisance_estimates,
+                                        sample_weight=None):
             """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
             # Compute partial moments
             pointwise_params = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)

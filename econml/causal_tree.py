@@ -12,8 +12,6 @@ import warnings
 from sklearn.model_selection import train_test_split
 from sklearn.utils import check_random_state
 import scipy.special
-#from .causal_tree_node import Node
-
 
 class Node:
     """Building block of `CausalTree` class.
@@ -35,7 +33,7 @@ class Node:
         self.est_sample_inds = estimate_inds
         self.left = None
         self.right = None
-    
+
     def _find_tree_node(self, value):
         if self.feature == -1:
             return self
@@ -142,14 +140,14 @@ class CausalTree:
 
         while len(node_list) > 0:
             node, depth = node_list.pop()
-            
+
             # Create local sample set
             node_X = X[node.split_sample_inds]
             node_W = W[node.split_sample_inds] if W is not None else None
             node_T = T[node.split_sample_inds]
             node_Y = Y[node.split_sample_inds]
             node_X_estimate = X[node.est_sample_inds]
-            
+
             # If by splitting we have too small leaves or if we reached the maximum number of splits we stop
             if node.split_sample_inds.shape[0] // 2 >= self.min_leaf_size and depth < self.max_splits:
 
@@ -189,20 +187,20 @@ class CausalTree:
                     np.arange(node_X.shape[1]), size=self.n_proposals, replace=True)
                 thr_proposals = node_X[self.random_state.choice(
                     np.arange(node_X.shape[0]), size=self.n_proposals, replace=True), dim_proposals]
-                
+
                 side = node_X[:, dim_proposals] < thr_proposals.reshape(1, -1)
-                
+
                 size_left = np.sum(side, axis=0)
                 side_est = node_X_estimate[:, dim_proposals] < thr_proposals.reshape(1, -1)
                 size_est_left = np.sum(side_est, axis=0)
 
-                lower_bound = max((.5 - self.balancedness_tol)*node_size_split, self.min_leaf_size)
-                upper_bound = min((.5 + self.balancedness_tol)*node_size_split, node_size_split - self.min_leaf_size)
+                lower_bound = max((.5 - self.balancedness_tol) * node_size_split, self.min_leaf_size)
+                upper_bound = min((.5 + self.balancedness_tol) * node_size_split, node_size_split - self.min_leaf_size)
                 valid_split = (lower_bound <= size_left)
-                valid_split &= (size_left  <= upper_bound)
-                
-                lower_bound_est = max((.5 - self.balancedness_tol)*node_size_est, self.min_leaf_size)
-                upper_bound_est = min((.5 + self.balancedness_tol)*node_size_est, node_size_est - self.min_leaf_size)
+                valid_split &= (size_left <= upper_bound)
+
+                lower_bound_est = max((.5 - self.balancedness_tol) * node_size_est, self.min_leaf_size)
+                upper_bound_est = min((.5 + self.balancedness_tol) * node_size_est, node_size_est - self.min_leaf_size)
                 valid_split &= (lower_bound_est <= size_est_left)
                 valid_split &= (size_est_left <= upper_bound_est)
 
@@ -230,7 +228,7 @@ class CausalTree:
                 best_split_ind = np.argmax(split_scores)
                 node.feature = valid_dim_proposals[best_split_ind]
                 node.threshold = valid_thr_proposals[best_split_ind]
-                
+
                 # Create child nodes with corresponding subsamples
                 left_split_sample_inds = node.split_sample_inds[valid_side[:, best_split_ind]]
                 left_est_sample_inds = node.est_sample_inds[valid_side_est[:, best_split_ind]]
