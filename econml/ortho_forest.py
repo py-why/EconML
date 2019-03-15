@@ -45,10 +45,10 @@ def _build_tree_in_parallel(Y, T, X, W,
                             moment_and_mean_gradient_estimator,
                             min_leaf_size, max_splits, random_state):
     tree = CausalTree(nuisance_estimator=nuisance_estimator,
-                    parameter_estimator=parameter_estimator,
-                    moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
-                    min_leaf_size=min_leaf_size, max_splits=max_splits,
-                    random_state=random_state)
+                      parameter_estimator=parameter_estimator,
+                      moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
+                      min_leaf_size=min_leaf_size, max_splits=max_splits,
+                      random_state=random_state)
     # Create splits of causal tree
     tree.create_splits(Y, T, X, W)
     return tree
@@ -440,8 +440,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                     Y_hat = model_Y.fit(X_tilde, Y, sample_weight=sample_weight).predict(X_tilde)
             except ValueError as exc:
                 raise ValueError("The original error: {0}".format(str(exc)) +
-                                    " This might be caused by too few sample in the tree leafs." +
-                                    " Try increasing the min_leaf_size.")
+                                 " This might be caused by too few sample in the tree leafs." +
+                                 " Try increasing the min_leaf_size.")
             return Y_hat, T_hat
 
         return nuisance_estimator
@@ -464,8 +464,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
         def parameter_estimator_func(Y, T, X,
-                                nuisance_estimates,
-                                sample_weight=None):
+                                     nuisance_estimates,
+                                     sample_weight=None):
             """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
             # Compute residuals
             Y_hat, T_hat = nuisance_estimates
@@ -483,7 +483,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
             param_estimate = np.matmul(np.linalg.pinv(np.matmul(weighted_XT_res.T, XT_res) + reg),
-                                np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
+                                       np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
             # Parameter returned by LinearRegression is (d_T, )
             return param_estimate
 
@@ -741,8 +741,8 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
         def parameter_estimator_func(Y, T, X,
-                                nuisance_estimates,
-                                sample_weight=None):
+                                     nuisance_estimates,
+                                     sample_weight=None):
             """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
             # Compute partial moments
             pointwise_params = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)
@@ -758,7 +758,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
             param_estimate = np.matmul(np.linalg.pinv(np.matmul(weighted_X_aug.T, X_aug) + reg),
-                                np.matmul(weighted_X_aug.T, pointwise_params)).flatten()
+                                       np.matmul(weighted_X_aug.T, pointwise_params)).flatten()
             # Parameter returned by LinearRegression is (d_T, )
             return param_estimate
 
