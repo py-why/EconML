@@ -411,6 +411,11 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             random_state=random_state)
 
     def _pointwise_effect(self, X_single):
+        """ We need to post-process the parameters returned by the _pointwise_effect
+        of the BaseOrthoForest class due to the local linear correction. The
+        base class function will return the intercept and the coefficient of the
+        local linear fit. We multiply it with the input co-variate to get the
+        predicted effect.""" 
         parameter = super(ContinuousTreatmentOrthoForest, self)._pointwise_effect(X_single)
         X_aug = np.append([1], X_single)
         parameter = parameter.reshape((X_aug.shape[0], -1)).T
@@ -463,6 +468,9 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
 
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
+        """ For the second stage parameter estimation we add a local linear correction. So
+        we fit a local linear function as opposed to a local constant function. We also penalize
+        the linear part to reduce variance. """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
                                      sample_weight=None):
@@ -571,7 +579,8 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
-                 propensity_model=LogisticRegression(penalty='l1', solver='saga'),  # saga solver supports l1
+                 propensity_model=LogisticRegression(penalty='l1', solver='saga',
+                                                     multi_class='auto'),  # saga solver supports l1
                  model_Y=WeightedModelWrapper(LassoCV(cv=3)),
                  propensity_model_final=None,
                  model_Y_final=None,
@@ -679,6 +688,11 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         return super(DiscreteTreatmentOrthoForest, self).effect(T0_encoded, T1_encoded, X)
 
     def _pointwise_effect(self, X_single):
+        """ We need to post-process the parameters returned by the _pointwise_effect
+        of the BaseOrthoForest class due to the local linear correction. The
+        base class function will return the intercept and the coefficient of the
+        local linear fit. We multiply it with the input co-variate to get the
+        predicted effect.""" 
         parameter = super(DiscreteTreatmentOrthoForest, self)._pointwise_effect(X_single)
         X_aug = np.append([1], X_single)
         parameter = parameter.reshape((X_aug.shape[0], -1)).T
@@ -740,6 +754,9 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
 
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
+        """ For the second stage parameter estimation we add a local linear correction. So
+        we fit a local linear function as opposed to a local constant function. We also penalize
+        the linear part to reduce variance. """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
                                      sample_weight=None):
