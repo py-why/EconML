@@ -10,74 +10,95 @@ variables:
   runAllTests: 'true'
 
 jobs:
-- job: 'Test'
+- job: 'EvalChanges'
+  displayName: 'Analyze changed files to determine which job to run'
+  steps:
+  # We want to enforce the following rules:
+  # * if all modifications are to README.md
+  #     no testing is needed
+  # * elif all modifications are to docs/* (and possibly README.md)
+  #     then only docs need to be built to verify consistency (these changes cannot affect tests)
+  # * otherwise, full test suite needs to run
+  # For a PR build, HEAD will be the merge commit, and we want to diff against the base branch,
+  #  which will be the first parent: HEAD^ 
+  - powershell: |
+      $editedFiles = git diff HEAD^ --name-only
+      $editedFiles # echo edited files to enable easier debugging
+      $codeChanges = $false
+      $docChanges = $false
+      $changeType = "none"
+      foreach ($file in $editedFiles) {
+        switch -Wildcard ($file) {
+          "README.md" { Continue }
+          "doc/*" { $docChanges = $true; Continue }
+          default { $codeChanges = $true; Continue }
+        }
+      }
+      if ($codeChanges) { $changeType = "code" }
+      elseif ($docChanges) { $changeType = "docs" }
+      Write-Host "##vso[task.setvariable variable=changeType]$changeType"
+    displayName: 'Determine type of code change for Pull Requests'
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+  # For non-PR builds, we always run the full test suite
+  - powershell: |
+      Write-Host "##vso[task.setvariable variable=changeType]code"
+    displayName: 'Determine type of code change for other builds'
+    condition: ne(variables['Build.Reason'], 'PullRequest')
+  - powershell: |
+      Write-Host "##vso[task.setvariable variable=changeType;isOutput=true]$(changeType)"
+    name: output
+    displayName: 'Output change type'
 
+- job: 'Docs'
+  displayName: 'Build documentation'  
+  dependsOn: 'EvalChanges'
+  condition: eq(dependencies.EvalChanges.outputs['output.changeType'], 'docs')
+  variables:
+    python.version: '3.6'
+  steps:
+  - template: azure-pipelines-steps.yml
+    parameters:
+      runTests : 'false'
+
+- job: 'FullTests'
+  dependsOn: 'EvalChanges'
+  condition: eq(dependencies.EvalChanges.outputs['output.changeType'], 'code')
   strategy:
     matrix:
-      linux35:
+      Linux, Python 3.5:
         imageName: 'ubuntu-16.04'
         python.version: '3.5'
-      mac35:
+      macOS, Python 3.5:
         imageName: 'macOS-10.13'
         python.version: '3.5'
-      windows35:
+      Windows, Python 3.5:
         imageName: 'vs2017-win2016'
         python.version: '3.5'
-      linux36:
+      Linux, Python 3.6:
         imageName: 'ubuntu-16.04'
         python.version: '3.6'
-      mac36:
+      macOS, Python 3.6:
         imageName: 'macOS-10.13'
         python.version: '3.6'
-      windows36:
+      Windows, Python 3.6:
         imageName: 'vs2017-win2016'
         python.version: '3.6'
-      linux37:
+      Linux, Python 3.7:
         imageName: 'ubuntu-16.04'
         python.version: '3.7'
-      mac37:
+      macOS, Python 3.7:
         imageName: 'macOS-10.13'
         python.version: '3.7'
-      windows37:
+      Windows, Python 3.7:
         imageName: 'vs2017-win2016'
         python.version: '3.7'
 
   pool:
     vmImage: $(imageName)
 
+  displayName: 'Run tests '
+
   steps:
-  - task: UsePythonVersion@0
-    displayName: 'Use Python $(python.version)'
-    inputs:
-      versionSpec: '$(python.version)'
-
-  - script: 'reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f'
-    displayName: 'Enable long paths on Windows'
-    condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
-
-  - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools && python setup.py install'
-    displayName: 'Install dependencies'
-
-  - script: 'pip install pycodestyle && pycodestyle econml'
-    failOnStderr: true
-    displayName: Linting
-    continueOnError: true
-
-  - script: 'python setup.py build_sphinx -W'
-    displayName: 'Build documentation'
-
-  - powershell: |
-      Write-Host '##vso[task.setvariable variable=PYTEST_ADDOPTS]-m "not slow"'
-    displayName: 'Define markers for non-nightly builds'
-    condition: and(succeeded(), eq(variables['runAllTests'], 'false'), ne(variables['Build.Reason'], 'Schedule'))
-    enabled: false
-
-  - script: 'python setup.py pytest'
-    displayName: 'Unit tests'
-
-  - task: PublishTestResults@2
-    displayName: 'Publish Test Results **/test-results.xml'
-    inputs:
-      testResultsFiles: '**/test-results.xml'
-      testRunTitle: 'Python $(python.version), image $(imageName)'
-    condition: succeededOrFailed()
+  - template: azure-pipelines-steps.yml
+    parameters:
+      runTests : 'true'
