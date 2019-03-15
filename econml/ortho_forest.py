@@ -415,7 +415,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         of the BaseOrthoForest class due to the local linear correction. The
         base class function will return the intercept and the coefficient of the
         local linear fit. We multiply it with the input co-variate to get the
-        predicted effect.""" 
+        predicted effect."""
         parameter = super(ContinuousTreatmentOrthoForest, self)._pointwise_effect(X_single)
         X_aug = np.append([1], X_single)
         parameter = parameter.reshape((X_aug.shape[0], -1)).T
@@ -692,7 +692,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         of the BaseOrthoForest class due to the local linear correction. The
         base class function will return the intercept and the coefficient of the
         local linear fit. We multiply it with the input co-variate to get the
-        predicted effect.""" 
+        predicted effect."""
         parameter = super(DiscreteTreatmentOrthoForest, self)._pointwise_effect(X_single)
         X_aug = np.append([1], X_single)
         parameter = parameter.reshape((X_aug.shape[0], -1)).T
