@@ -52,18 +52,6 @@ class CausalTree:
 
     Parameters
     ----------
-    Y : array-like, shape (n, d_y)
-            Outcome for the treatment policy.
-
-    T : array-like, shape (n, d_t)
-        Treatment policy.
-
-    X : array-like, shape (n, d_x)
-        Feature vector that captures heterogeneity.
-
-    W : array-like, shape (n, d_w) or None (default=None)
-        High-dimensional controls.
-
     nuisance_estimator : method
         Method that estimates the nuisances at each node.
         Takes in (Y, T, X, W) and returns nuisance estimates.
@@ -126,12 +114,17 @@ class CausalTree:
 
         Parameters
         ----------
-        node : Instance of class `Node`
-            Parent node from which to recursively grow a sub-tree.
+        Y : array-like, shape (n, d_y)
+                Outcome for the treatment policy.
 
-        split_acc : int
-            Accumulator that counts the number of splits made up
-            until this node.
+        T : array-like, shape (n, d_t)
+            Treatment policy.
+
+        X : array-like, shape (n, d_x)
+            Feature vector that captures heterogeneity.
+
+        W : array-like, shape (n, d_w) or None (default=None)
+            High-dimensional controls.
         """
         # No need for a random split since the data is already
         # a random subsample from the original input

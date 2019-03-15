@@ -333,6 +333,11 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
     bootstrap : boolean, optional (default=False)
         Whether to use bootstrap subsampling.
 
+    lambda_reg : float, optional (default=0.01)
+        The regularization coefficient in the \ell_2 penalty imposed on the
+        locally linear part of the second stage fit. This is not applied to
+        the local intercept, only to the coefficient of the linear component.
+
     model_T : estimator, optional (default=sklearn.linear_model.LassoCV())
         The estimator for residualizing the continuous treatment at each leaf.
         Must implement `fit` and `predict` methods.
@@ -538,6 +543,11 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
 
     bootstrap : boolean, optional (default=False)
         Whether to use bootstrap subsampling.
+
+    lambda_reg : float, optional (default=0.01)
+        The regularization coefficient in the \ell_2 penalty imposed on the
+        locally linear part of the second stage fit. This is not applied to
+        the local intercept, only to the coefficient of the linear component.
 
     propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression())
         Model for estimating propensity of treatment at each leaf.
