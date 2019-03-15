@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils import check_random_state
 import scipy.special
 
+
 class Node:
     """Building block of `CausalTree` class.
 
