@@ -49,7 +49,8 @@ class TestOrthoForest(unittest.TestCase):
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Instantiate model with most of the default parameters
         est = ContinuousTreatmentOrthoForest(n_jobs=4, n_trees=10,
-                                             model_T=Lasso(), model_Y=Lasso(),
+                                             model_T=WeightedModelWrapper(Lasso(), sample_type="weighted"),
+                                             model_Y=WeightedModelWrapper(Lasso(), sample_type="weighted"),
                                              model_T_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"),
                                              model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
         # Test inputs for continuous treatments
@@ -64,7 +65,8 @@ class TestOrthoForest(unittest.TestCase):
         # Test continuous treatments with controls
         est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
                                              max_splits=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
-                                             model_T=Lasso(alpha=0.024), model_Y=Lasso(alpha=0.024),
+                                             model_T=WeightedModelWrapper(Lasso(alpha=0.024), sample_type="weighted"),
+                                             model_Y=WeightedModelWrapper(Lasso(alpha=0.024), sample_type="weighted"),
                                              model_T_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"),
                                              model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
         est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W)
@@ -140,8 +142,9 @@ class TestOrthoForest(unittest.TestCase):
         # Test multiple treatments with controls
         est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
                                              max_splits=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
-                                             model_T=MultiOutputRegressor(Lasso(alpha=0.024)),
-                                             model_Y=Lasso(alpha=0.024),
+                                             model_T=WeightedModelWrapper(
+                                                 MultiOutputRegressor(Lasso(alpha=0.024)), sample_type="weighted"),
+                                             model_Y=WeightedModelWrapper(Lasso(alpha=0.024), sample_type="weighted"),
                                              model_T_final=WeightedModelWrapper(
                                                  MultiOutputRegressor(LassoCV()), sample_type="weighted"),
                                              model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
