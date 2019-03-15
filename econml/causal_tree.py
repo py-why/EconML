@@ -137,21 +137,21 @@ class CausalTree:
         # a random subsample from the original input
         n = Y.shape[0] // 2
         self.tree = Node(np.arange(n), np.arange(n, Y.shape[0]))
+        # node list stores the nodes that are yet to be splitted
         node_list = [(self.tree, 0)]
 
         while len(node_list) > 0:
             node, depth = node_list.pop()
 
-            # Create local sample set
-            node_X = X[node.split_sample_inds]
-            node_W = W[node.split_sample_inds] if W is not None else None
-            node_T = T[node.split_sample_inds]
-            node_Y = Y[node.split_sample_inds]
-            node_X_estimate = X[node.est_sample_inds]
-
             # If by splitting we have too small leaves or if we reached the maximum number of splits we stop
             if node.split_sample_inds.shape[0] // 2 >= self.min_leaf_size and depth < self.max_splits:
 
+                # Create local sample set
+                node_X = X[node.split_sample_inds]
+                node_W = W[node.split_sample_inds] if W is not None else None
+                node_T = T[node.split_sample_inds]
+                node_Y = Y[node.split_sample_inds]
+                node_X_estimate = X[node.est_sample_inds]
                 node_size_split = node_X.shape[0]
                 node_size_est = node_X_estimate.shape[0]
 
@@ -186,43 +186,63 @@ class CausalTree:
                 # Generate random proposals of dimensions to split
                 dim_proposals = self.random_state.choice(
                     np.arange(node_X.shape[1]), size=self.n_proposals, replace=True)
+                # Generate random thresholds to split as indices of samples whose
+                # feature value will be used as the threshold
                 thr_proposals = node_X[self.random_state.choice(
                     np.arange(node_X.shape[0]), size=self.n_proposals, replace=True), dim_proposals]
 
+                # calculate the binary indicator of whether sample i is on the left or the right
+                # side of proposed split j. So this is an n_samples x n_proposals matrix
                 side = node_X[:, dim_proposals] < thr_proposals.reshape(1, -1)
-
+                # calculate the number of samples on the left child for each proposed split
                 size_left = np.sum(side, axis=0)
+                # calculate the analogous binary indicator for the samples in the estimation set
                 side_est = node_X_estimate[:, dim_proposals] < thr_proposals.reshape(1, -1)
+                # calculate the number of estimation samples on the left child of each proposed split
                 size_est_left = np.sum(side_est, axis=0)
 
+                # find the upper and lower bound on the size of the left split for the split
+                # to be valid so as for the split to be balanced and leave at least min_leaf_size
+                # on each side.
                 lower_bound = max((.5 - self.balancedness_tol) * node_size_split, self.min_leaf_size)
                 upper_bound = min((.5 + self.balancedness_tol) * node_size_split, node_size_split - self.min_leaf_size)
                 valid_split = (lower_bound <= size_left)
                 valid_split &= (size_left <= upper_bound)
 
+                # similarly for the estimation sample set
                 lower_bound_est = max((.5 - self.balancedness_tol) * node_size_est, self.min_leaf_size)
                 upper_bound_est = min((.5 + self.balancedness_tol) * node_size_est, node_size_est - self.min_leaf_size)
                 valid_split &= (lower_bound_est <= size_est_left)
                 valid_split &= (size_est_left <= upper_bound_est)
 
+                # if there is no valid split then don't create any children
                 if ~np.any(valid_split):
                     continue
 
+                # filter only the valid splits
                 valid_dim_proposals = dim_proposals[valid_split]
                 valid_thr_proposals = thr_proposals[valid_split]
                 valid_side = side[:, valid_split]
                 valid_size_left = size_left[valid_split]
                 valid_side_est = side_est[:, valid_split]
+
+                # calculate the average influence vector of the samples in the left child
                 left_diff = np.matmul(rho.T, valid_side)
+                # calculate the average influence vector of the samples in the left child
                 right_diff = np.matmul(rho.T, 1 - valid_side)
+                # take the square of each of the entries of the influence vectors and normalize
+                # by size of each child
                 left_score = left_diff**2 / valid_size_left.reshape(1, -1)
                 right_score = right_diff**2 / (node_size_split - valid_size_left).reshape(1, -1)
+                # calculate the vector score of each candidate split as the average of left and right
+                # influence vectors
                 spl_score = (right_score + left_score) / 2
 
                 # eta specifies how much weight to put on individual heterogeneity vs common heterogeneity
                 # across parameters. we give some benefit to individual heterogeneity factors for cases
                 # where there might be large discontinuities in some parameter as the conditioning set varies
                 eta = np.random.uniform(0.25, 1)
+                # calculate the scalar score of each split by aggregating across the vector of scores
                 split_scores = np.max(spl_score, axis=0) * eta + np.mean(spl_score, axis=0) * (1 - eta)
 
                 # Find split that minimizes criterion
@@ -238,6 +258,7 @@ class CausalTree:
                 right_est_sample_inds = node.est_sample_inds[~valid_side_est[:, best_split_ind]]
                 node.right = Node(right_split_sample_inds, right_est_sample_inds)
 
+                # add the created children to the list of not yet split nodes
                 node_list.append((node.left, depth + 1))
                 node_list.append((node.right, depth + 1))
 
