@@ -44,13 +44,13 @@ def _build_tree_in_parallel(Y, T, X, W,
                             parameter_estimator,
                             moment_and_mean_gradient_estimator,
                             min_leaf_size, max_splits, random_state):
-    tree = BaseOrthoTree(nuisance_estimator=nuisance_estimator,
-                         parameter_estimator=parameter_estimator,
-                         moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
-                         min_leaf_size=min_leaf_size,
-                         max_splits=max_splits,
-                         random_state=random_state)
-    tree.fit(Y, T, X, W)
+    tree = CausalTree(nuisance_estimator=nuisance_estimator,
+                             parameter_estimator=parameter_estimator,
+                             moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
+                             min_leaf_size=min_leaf_size, max_splits=max_splits,
+                             random_state=random_state)
+    # Create splits of causal tree
+    tree.create_splits(Y, T, X, W)
     return tree
 
 
@@ -120,82 +120,6 @@ def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None,
     sorted_split_indices = np.argsort(np.concatenate(split_indices), kind='mergesort')
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
 
-
-class BaseOrthoTree(LinearCateEstimator):
-    """Base class for OrthoTree classes."""
-
-    def __init__(self,
-                 nuisance_estimator,
-                 parameter_estimator,
-                 moment_and_mean_gradient_estimator,
-                 min_leaf_size=10,
-                 max_splits=10,
-                 random_state=None):
-        # Estimators
-        self.nuisance_estimator = nuisance_estimator
-        self.parameter_estimator = parameter_estimator
-        self.moment_and_mean_gradient_estimator = moment_and_mean_gradient_estimator
-        # OrthoTree parameters
-        self.min_leaf_size = min_leaf_size
-        self.max_splits = max_splits
-        self.random_state = random_state
-        # Tree structure
-        self.ct = None
-
-    def fit(self, Y, T, X, W=None):
-        """Build a causal tree from a training set (Y, T, X, W).
-
-        Parameters
-        ----------
-        Y : array-like, shape (n, )
-            Outcome for the treatment policy. Must be a vector.
-
-        T : array-like, shape (n, d_t)
-            Continuous treatment policy.
-
-        X : array-like, shape (n, d_x)
-            Feature vector that captures heterogeneity.
-
-        W : array-like, shape (n, d_w) or None (default=None)
-            High-dimensional controls.
-
-        Returns
-        -------
-        self: an instance of self.
-        """
-        Y, T, X, W = check_inputs(Y, T, X, W, multi_output_Y=False)
-        if Y.ndim > 1 and Y.shape[1] > 1:
-            raise ValueError(
-                "The outcome matrix must be of shape ({0}, ) or ({0}, 1), instead got {1}.".format(len(X), Y.shape))
-        # Initialize causal tree parameters
-        self.ct = CausalTree(nuisance_estimator=self.nuisance_estimator,
-                             parameter_estimator=self.parameter_estimator,
-                             moment_and_mean_gradient_estimator=self.moment_and_mean_gradient_estimator,
-                             min_leaf_size=self.min_leaf_size, max_splits=self.max_splits,
-                             random_state=self.random_state)
-        # Create splits of causal tree
-        self.ct.create_splits(Y, T, X, W)
-        return self
-
-    def const_marginal_effect(self, X):
-        """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
-
-        Parameters
-        ----------
-        X : array-like, shape (n, d_x)
-            Feature vector that captures heterogeneity.
-
-        Returns
-        -------
-        Theta : matrix , shape (n, d_t)
-            Constant marginal CATE of each treatment on each outcome
-            for each sample.
-        """
-        X = check_array(X)
-        # Compute heterogeneous treatement effect for x's in x_list by finding
-        # the corresponding split and associating the effect computed on that leaf
-        theta = np.asarray([self.ct.find_split(X_instance).estimate for X_instance in X])
-        return theta
 
 
 class BaseOrthoForest(LinearCateEstimator):
@@ -362,7 +286,7 @@ class BaseOrthoForest(LinearCateEstimator):
         w1 = np.zeros(self.Y_one.shape[0])
         w2 = np.zeros(self.Y_two.shape[0])
         for t, tree in enumerate(self.forest_one_trees):
-            leaf = tree.ct.find_split(X_single)
+            leaf = tree.find_split(X_single)
             weight_indexes = self.forest_one_subsample_ind[t][leaf.est_sample_inds]
             leaf_weight = 1 / len(leaf.est_sample_inds)
             if self.bootstrap:
@@ -372,7 +296,7 @@ class BaseOrthoForest(LinearCateEstimator):
             else:
                 w1[weight_indexes] += leaf_weight
         for t, tree in enumerate(self.forest_two_trees):
-            leaf = tree.ct.find_split(X_single)
+            leaf = tree.find_split(X_single)
             # Similar for `a` weights
             weight_indexes = self.forest_two_subsample_ind[t][leaf.est_sample_inds]
             leaf_weight = 1 / len(leaf.est_sample_inds)
@@ -445,6 +369,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  min_leaf_size=10, max_splits=10,
                  subsample_ratio=0.25,
                  bootstrap=False,
+                 lambda_reg=0.01,
                  model_T=WeightedModelWrapper(LassoCV(cv=3)),
                  model_Y=WeightedModelWrapper(LassoCV(cv=3)),
                  model_T_final=None,
@@ -452,6 +377,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  n_jobs=-1,
                  random_state=None):
         # Copy and/or define models
+        self.lambda_reg = lambda_reg
         self.model_T = model_T
         self.model_Y = model_Y
         self.model_T_final = model_T_final
@@ -467,13 +393,14 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             self.model_T_final, self.model_Y_final, random_state, second_stage=True)
         # Define parameter estimators
         parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
+        second_stage_parameter_estimator = ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(self.lambda_reg)
         # Define
         moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
         super(ContinuousTreatmentOrthoForest, self).__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
             parameter_estimator,
-            parameter_estimator,
+            second_stage_parameter_estimator,
             moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
@@ -482,6 +409,13 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             bootstrap=bootstrap,
             n_jobs=n_jobs,
             random_state=random_state)
+
+    def _pointwise_effect(self, X_single):
+        parameter = super(ContinuousTreatmentOrthoForest, self)._pointwise_effect(X_single)
+        X_aug = np.append([1], X_single)
+        parameter = parameter.reshape((X_aug.shape[0], -1)).T
+        return np.dot(parameter, X_aug)
+
 
     @staticmethod
     def nuisance_estimator_generator(model_T, model_Y, random_state=None, second_stage=True):
@@ -527,6 +461,35 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         ).coef_
         # Parameter returned by LinearRegression is (d_T, )
         return param_estimate
+
+    
+    @staticmethod
+    def second_stage_parameter_estimator_gen(lambda_reg):
+        def parameter_estimator_func(Y, T, X,
+                                    nuisance_estimates,
+                                    sample_weight=None):
+            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+            # Compute residuals
+            Y_hat, T_hat = nuisance_estimates
+            Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+            XT_res = cross_product(T_res, X_aug)
+            # Compute coefficient by OLS on residuals
+            if sample_weight is not None:
+                weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
+            else:
+                weighted_XT_res = XT_res / XT_res.shape[0]
+            # \ell_2 regularization
+            diagonal = np.ones(XT_res.shape[1])
+            diagonal[:T_res.shape[1]] = 0
+            reg = lambda_reg * np.diag(diagonal)
+            # Ridge regression estimate
+            param_estimate = np.matmul(np.linalg.pinv(np.matmul(weighted_XT_res.T, XT_res) + reg),
+                                        np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
+            # Parameter returned by LinearRegression is (d_T, )
+            return param_estimate
+
+        return parameter_estimator_func
 
     @staticmethod
     def moment_and_mean_gradient_estimator_func(Y, T, X, W,
@@ -608,7 +571,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  n_trees=500,
                  min_leaf_size=10, max_splits=10,
                  subsample_ratio=0.25,
-                 bootstrap=True,
+                 bootstrap=False,
                  lambda_reg=0.01,
                  propensity_model=LogisticRegression(penalty='l1', solver='saga'),  # saga solver supports l1
                  model_Y=WeightedModelWrapper(LassoCV(cv=3)),
@@ -843,142 +806,3 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         except Exception as exc:
             raise ValueError("Expected numeric array but got non-numeric types.")
         return T
-
-
-class LocalLinearOrthoForest(BaseOrthoForest):
-    """OrthoForest for continuous treatments.
-
-    A two-forest approach for learning heterogeneous treatment effects using
-    kernel two stage estimation.
-
-    Parameters
-    ----------
-    n_trees : integer, optional (default=500)
-        Number of causal estimators in the forest.
-
-    min_leaf_size : integer, optional (default=10)
-        The minimum number of samples in a leaf.
-
-    max_splits : integer, optional (default=10)
-        The maximum number of splits to be performed when expanding the tree.
-
-    subsample_ratio : float, optional (default=0.25)
-        The ratio of the total sample to be used when training a causal tree.
-        Values greater than 1.0 will be considered equal to 1.0.
-        Parameter is ignored when bootstrap=True.
-
-    bootstrap : boolean, optional (default=False)
-        Whether to use bootstrap subsampling.
-
-    model_T : estimator, optional (default=sklearn.linear_model.LassoCV())
-        The estimator for residualizing the continuous treatment at each leaf.
-        Must implement `fit` and `predict` methods.
-
-    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV())
-        The estimator for residualizing the outcome at each leaf. Must implement
-        `fit` and `predict` methods.
-
-    model_T_final : estimator, optional (default=None)
-        The estimator for residualizing the treatment at prediction time. Must implement
-        `fit` and `predict` methods. If parameter is set to `None`, it defaults to the
-        value of `model_T` parameter.
-
-    model_Y_final : estimator, optional (default=None)
-        The estimator for residualizing the outcome at prediction time. Must implement
-        `fit` and `predict` methods. If parameter is set to `None`, it defaults to the
-        value of `model_Y` parameter.
-
-    n_jobs : int, optional (default=-1)
-        The number of jobs to run in parallel for both `fit` and `predict`.
-        ``-1`` means using all processors. Since `OrthoForest` methods are
-        computationally heavy, it is recommended to set `n_jobs` to -1.
-
-    random_state : int, RandomState instance or None, optional (default=None)
-        If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-    """
-
-    def __init__(self,
-                 n_trees=500,
-                 min_leaf_size=10, max_splits=10,
-                 subsample_ratio=0.7,
-                 bootstrap=False,
-                 lambda_reg=0.01,
-                 model_T=WeightedModelWrapper(LassoCV(cv=3)),
-                 model_Y=WeightedModelWrapper(LassoCV(cv=3)),
-                 model_T_final=None,
-                 model_Y_final=None,
-                 n_jobs=-1,
-                 random_state=None):
-        # Copy and/or define models
-        self.lambda_reg = lambda_reg
-        self.model_T = model_T
-        self.model_Y = model_Y
-        self.model_T_final = model_T_final
-        self.model_Y_final = model_Y_final
-        if self.model_T_final is None:
-            self.model_T_final = clone(self.model_T, safe=False)
-        if self.model_Y_final is None:
-            self.model_Y_final = clone(self.model_Y, safe=False)
-        # Define nuisance estimators
-        nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
-            self.model_T, self.model_Y, random_state, second_stage=False)
-        second_stage_nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
-            self.model_T_final, self.model_Y_final, random_state, second_stage=True)
-        # Define parameter estimators
-        parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
-        second_stage_parameter_estimator = LocalLinearOrthoForest.parameter_estimator_generator(self.lambda_reg)
-        # Define
-        moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
-        super(LocalLinearOrthoForest, self).__init__(
-            nuisance_estimator,
-            second_stage_nuisance_estimator,
-            parameter_estimator,
-            second_stage_parameter_estimator,
-            moment_and_mean_gradient_estimator,
-            n_trees=n_trees,
-            min_leaf_size=min_leaf_size,
-            max_splits=max_splits,
-            subsample_ratio=subsample_ratio,
-            bootstrap=bootstrap,
-            n_jobs=n_jobs,
-            random_state=random_state)
-
-    def _pointwise_effect(self, X_single):
-        parameter = super(LocalLinearOrthoForest, self)._pointwise_effect(X_single)
-        X_aug = np.append([1], X_single)
-        parameter = parameter.reshape((X_aug.shape[0], -1)).T
-        return np.dot(parameter, X_aug)
-
-    @staticmethod
-    def parameter_estimator_generator(lambda_reg):
-        def parameter_estimator_func(Y, T, X,
-                                    nuisance_estimates,
-                                    sample_weight=None):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
-            # Compute residuals
-            Y_hat, T_hat = nuisance_estimates
-            Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
-            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
-            XT_res = cross_product(T_res, X_aug)
-            # Compute coefficient by OLS on residuals
-            if sample_weight is not None:
-                weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
-            else:
-                weighted_XT_res = XT_res / XT_res.shape[0]
-            # \ell_2 regularization
-            diagonal = np.ones(XT_res.shape[1])
-            diagonal[:T_res.shape[1]] = 0
-            reg = lambda_reg * np.diag(diagonal)
-            # Ridge regression estimate
-            param_estimate = np.matmul(np.linalg.pinv(np.matmul(weighted_XT_res.T, XT_res) + reg),
-                                        np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
-            # Parameter returned by LinearRegression is (d_T, )
-            return param_estimate
-
-        return parameter_estimator_func
-
-
-
