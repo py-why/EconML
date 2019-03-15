@@ -207,7 +207,6 @@ class BaseOrthoForest(LinearCateEstimator):
                  parameter_estimator,
                  second_stage_parameter_estimator,
                  moment_and_mean_gradient_estimator,
-                 second_stage_moment_and_mean_gradient_estimator,
                  n_trees=500,
                  min_leaf_size=10, max_splits=10,
                  subsample_ratio=0.25,
@@ -220,7 +219,6 @@ class BaseOrthoForest(LinearCateEstimator):
         self.parameter_estimator = parameter_estimator
         self.second_stage_parameter_estimator = second_stage_parameter_estimator
         self.moment_and_mean_gradient_estimator = moment_and_mean_gradient_estimator
-        self.second_stage_moment_and_mean_gradient_estimator = second_stage_moment_and_mean_gradient_estimator
         # OrthoForest parameters
         self.n_trees = n_trees
         self.min_leaf_size = min_leaf_size
@@ -477,7 +475,6 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             parameter_estimator,
             parameter_estimator,
             moment_and_mean_gradient_estimator,
-            moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
             max_splits=max_splits,
@@ -612,6 +609,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  min_leaf_size=10, max_splits=10,
                  subsample_ratio=0.25,
                  bootstrap=True,
+                 lambda_reg=0.01,
                  propensity_model=LogisticRegression(penalty='l1', solver='saga'),  # saga solver supports l1
                  model_Y=WeightedModelWrapper(LassoCV(cv=3)),
                  propensity_model_final=None,
@@ -633,6 +631,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         second_stage_nuisance_estimator = None
         # Define parameter estimators
         parameter_estimator = DiscreteTreatmentOrthoForest.parameter_estimator_func
+        second_stage_parameter_estimator = DiscreteTreatmentOrthoForest.second_stage_parameter_estimator_gen(lambda_reg)
         # Define moment and mean gradient estimator
         moment_and_mean_gradient_estimator = DiscreteTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
         # Define autoencoder
@@ -641,8 +640,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             nuisance_estimator,
             second_stage_nuisance_estimator,
             parameter_estimator,
-            parameter_estimator,
-            moment_and_mean_gradient_estimator,
+            second_stage_parameter_estimator,
             moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
@@ -717,6 +715,12 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         T1_encoded = self._label_encoder.transform(T1)
         return super(DiscreteTreatmentOrthoForest, self).effect(T0_encoded, T1_encoded, X)
 
+    def _pointwise_effect(self, X_single):
+        parameter = super(DiscreteTreatmentOrthoForest, self)._pointwise_effect(X_single)
+        X_aug = np.append([1], X_single)
+        parameter = parameter.reshape((X_aug.shape[0], -1)).T
+        return np.dot(parameter, X_aug)
+
     @staticmethod
     def nuisance_estimator_generator(propensity_model, model_Y, n_T, random_state=None, second_stage=False):
         """Generate nuissance estimator given model inputs from the class."""
@@ -770,6 +774,33 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         param_estimate = np.average(pointwise_params, weights=sample_weight, axis=0)
         # If any of the values in the parameter estimate is nan, return None
         return param_estimate
+    
+    
+    @staticmethod
+    def second_stage_parameter_estimator_gen(lambda_reg):
+        def parameter_estimator_func(Y, T, X,
+                                    nuisance_estimates,
+                                    sample_weight=None):
+            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+            # Compute partial moments
+            pointwise_params = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)
+            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+            # Compute coefficient by OLS on residuals
+            if sample_weight is not None:
+                weighted_X_aug = sample_weight.reshape(-1, 1) * X_aug
+            else:
+                weighted_X_aug = X_aug / X_aug.shape[0]
+            # \ell_2 regularization
+            diagonal = np.ones(X_aug.shape[1])
+            diagonal[0] = 0
+            reg = lambda_reg * np.diag(diagonal)
+            # Ridge regression estimate
+            param_estimate = np.matmul(np.linalg.pinv(np.matmul(weighted_X_aug.T, X_aug) + reg),
+                                        np.matmul(weighted_X_aug.T, pointwise_params)).flatten()
+            # Parameter returned by LinearRegression is (d_T, )
+            return param_estimate
+
+        return parameter_estimator_func
 
     @staticmethod
     def moment_and_mean_gradient_estimator_func(Y, T, X, W,
@@ -901,14 +932,12 @@ class LocalLinearOrthoForest(BaseOrthoForest):
         second_stage_parameter_estimator = LocalLinearOrthoForest.parameter_estimator_generator(self.lambda_reg)
         # Define
         moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
-        second_stage_moment_and_mean_gradient_estimator = LocalLinearOrthoForest.moment_and_mean_gradient_estimator_generator(self.lambda_reg)
         super(LocalLinearOrthoForest, self).__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
             parameter_estimator,
             second_stage_parameter_estimator,
             moment_and_mean_gradient_estimator,
-            second_stage_moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
             max_splits=max_splits,
@@ -951,28 +980,5 @@ class LocalLinearOrthoForest(BaseOrthoForest):
 
         return parameter_estimator_func
 
-    @staticmethod
-    def moment_and_mean_gradient_estimator_generator(lambda_reg):
-        def moment_and_mean_gradient_estimator_func(Y, T, X, W,
-                                                    nuisance_estimates,
-                                                    parameter_estimate):
-            """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
-            # Return moments and gradients
-            # Compute residuals
-            Y_hat, T_hat = nuisance_estimates
-            Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
-            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
-            XT_res = cross_product(T_res, X_aug)
-            # Compute moments
-            # Moments shape is (n, d_T)
-            diagonal = np.ones(XT_res.shape[1])
-            diagonal[:T_res.shape[1]] = 0
-            reg = lambda_reg * np.diag(diagonal)
-            # regularized moments
-            moments = (Y_res - np.matmul(XT_res, parameter_estimate)).reshape(-1, 1) * XT_res\
-                        - np.matmul(reg, parameter_estimate).reshape(1, -1)
-            # Compute regularized moment gradients
-            mean_gradient = - np.matmul(XT_res.T, XT_res) / XT_res.shape[0] - reg
-            return moments, mean_gradient
-    
-        return moment_and_mean_gradient_estimator_func
+
+
