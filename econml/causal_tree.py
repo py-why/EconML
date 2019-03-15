@@ -33,7 +33,6 @@ class Node:
         self.threshold = np.inf
         self.split_sample_inds = sample_inds
         self.est_sample_inds = estimate_inds
-        self.estimate = 0
         self.left = None
         self.right = None
     
