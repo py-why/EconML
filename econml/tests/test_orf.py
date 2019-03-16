@@ -18,6 +18,7 @@ class TestOrthoForest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        np.random.seed(123)
         # DGP constants
         cls.n = 1000
         cls.d_w = 30
@@ -111,7 +112,7 @@ class TestOrthoForest(unittest.TestCase):
         out_te = est.const_marginal_effect(TestOrthoForest.x_test)
         self.assertSequenceEqual((TestOrthoForest.x_test.shape[0], 1), out_te.shape)
         # Test binary treatments with controls
-        est = DiscreteTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
+        est = DiscreteTreatmentOrthoForest(n_trees=100, min_leaf_size=10,
                                            max_splits=30, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
                                            propensity_model=LogisticRegression(C=1 / 0.024, penalty='l1'),
                                            model_Y=Lasso(alpha=0.024),
