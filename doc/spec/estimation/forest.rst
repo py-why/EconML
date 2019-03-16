@@ -1,6 +1,7 @@
 Forest Based Estimators
 =======================
 
+\
 
 Orthogonal Random Forests
 -------------------------
@@ -91,12 +92,17 @@ corresponding conditional expectations. These two regression functions are fitte
 as in the continuous treatment case. However, in the case of discrete treatment, the model for the treatment is 
 a multi-class classification model and should support :code:`predict_proba`.    
 
-Class Parameters and Customizing the Defaults
----------------------------------------------
+For more details on the input parameters of the orthogonal forest classes and how to customize
+the estimator checkout the two modules:
+- :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
+- :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
 
+
+For more examples check out our 
+`OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
 
 Examples
---------
+^^^^^^^^
 
 Here is a simple example of how to call :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
 and what the returned values correspond to in a simple data generating process:
@@ -149,5 +155,3 @@ both the treatment and the outcome regressions, in the case of continuous treatm
 
     Synthetic data estimation with high dimensional controls
 
-Test Case: Heterogeneous Elasticity of Demand for OJ
-----------------------------------------------------
