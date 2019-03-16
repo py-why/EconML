@@ -42,6 +42,7 @@ class TestOrthoForest(unittest.TestCase):
 
     @pytest.mark.slow
     def test_continuous_treatments(self):
+        np.random.seed(123)
         # Generate data with continuous treatments
         T = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_T) + \
             TestOrthoForest.eta_sample(TestOrthoForest.n)
