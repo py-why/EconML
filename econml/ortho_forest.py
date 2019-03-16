@@ -334,7 +334,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         Whether to use bootstrap subsampling.
 
     lambda_reg : float, optional (default=0.01)
-        The regularization coefficient in the \ell_2 penalty imposed on the
+        The regularization coefficient in the ell_2 penalty imposed on the
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
@@ -490,7 +490,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                 weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
             else:
                 weighted_XT_res = XT_res / XT_res.shape[0]
-            # \ell_2 regularization
+            # ell_2 regularization
             diagonal = np.ones(XT_res.shape[1])
             diagonal[:T_res.shape[1]] = 0
             reg = lambda_reg * np.diag(diagonal)
@@ -545,7 +545,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         Whether to use bootstrap subsampling.
 
     lambda_reg : float, optional (default=0.01)
-        The regularization coefficient in the \ell_2 penalty imposed on the
+        The regularization coefficient in the ell_2 penalty imposed on the
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
@@ -779,7 +779,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                 weighted_X_aug = sample_weight.reshape(-1, 1) * X_aug
             else:
                 weighted_X_aug = X_aug / X_aug.shape[0]
-            # \ell_2 regularization
+            # ell_2 regularization
             diagonal = np.ones(X_aug.shape[1])
             diagonal[0] = 0
             reg = lambda_reg * np.diag(diagonal)
