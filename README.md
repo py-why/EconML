@@ -1,8 +1,10 @@
+[![Build Status](https://dev.azure.com/ms/EconML/_apis/build/status/Microsoft.EconML?branchName=master)](https://dev.azure.com/ms/EconML/_build/latest?definitionId=49&branchName=master)
+
 # Introduction 
 
 The [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research is 
 aimed at applying Artificial Intelligence concepts to economic decision making.  The Microsoft EconML 
-pacakge is part of that project, providing a toolkit that combines state-of-the-art machine learning 
+package is part of that project, providing a toolkit that combines state-of-the-art machine learning 
 techniques with econometrics in order to bring automation to complex causal inference problems.  This 
 toolkit is designed to measure the causal effect of some treatment variable(s) `t` on an outcome 
 variable `y`, controlling for a set of features `x`.  For more information about how to use this package, 
