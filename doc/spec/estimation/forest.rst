@@ -155,4 +155,3 @@ both the treatment and the outcome regressions, in the case of continuous treatm
 
     Synthetic data estimation with high dimensional controls
 
-
