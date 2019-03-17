@@ -176,13 +176,16 @@ class CausalTree:
                 # Calculate point-wise pseudo-outcomes rho
                 rho = np.matmul(moments, inverse_grad)
 
-                # Generate random proposals of dimensions to split
-                dim_proposals = self.random_state.choice(
-                    np.arange(node_X.shape[1]), size=self.n_proposals, replace=True)
-                # Generate random thresholds to split as indices of samples whose
-                # feature value will be used as the threshold
-                thr_proposals = node_X[self.random_state.choice(
-                    np.arange(node_X.shape[0]), size=self.n_proposals, replace=True), dim_proposals]
+                # a split is determined by a feature and a sample pair
+                # the number of possible splits is at most (number of features) * (number of node samples)
+                n_proposals = min(self.n_proposals, node_X.shape[1] * node_X.shape[0])
+                #  we draw random such pairs by drawing a random number in {0, n_feats * n_node_samples}
+                random_pair = self.random_state.choice(
+                    np.arange(node_X.shape[1] * node_X.shape[0]), size=n_proposals, replace=False)
+                # the feature of the pair is the mod of the random number with n_feats
+                dim_proposals = random_pair % node_X.shape[1]
+                # the sample of the pair is the integer division of the random number with n_feats
+                thr_proposals = node_X[random_pair // node_X.shape[1], dim_proposals]
 
                 # calculate the binary indicator of whether sample i is on the left or the right
                 # side of proposed split j. So this is an n_samples x n_proposals matrix
