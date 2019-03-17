@@ -224,7 +224,8 @@ class BaseOrthoForest(LinearCateEstimator):
         if not self.model_is_fitted:
             raise NotFittedError('This {0} instance is not fitted yet.'.format(self.__class__.__name__))
         X = check_array(X)
-        results = [self._pointwise_effect(X_single) for X_single in X]
+        results = Parallel(n_jobs=self.n_jobs, verbose=3, backend='threading')(
+            delayed(self._pointwise_effect)(X_single) for X_single in X)
         # TODO: Check performance
         return np.asarray(results)
 
