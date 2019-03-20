@@ -74,7 +74,10 @@ class CausalTree:
 
     balancedness_tol : float, optional (default=.3)
         Tolerance for balance between child nodes in a split. A smaller value
-        will result in an unbalanced tree prone to overfitting.
+        will result in an unbalanced tree prone to overfitting. Has to lie
+        between 0 and .5 as it is used to control both directions of imbalancedness.
+        With the default value we guarantee that each child of a split contains
+        at least 20% and at most 80% of the data of the parent node.
 
     random_state : int, RandomState instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
@@ -185,11 +188,11 @@ class CausalTree:
 
                 # calculate the binary indicator of whether sample i is on the left or the right
                 # side of proposed split j. So this is an n_samples x n_proposals matrix
-                side = node_X[:, dim_proposals] < thr_proposals.reshape(1, -1)
+                side = node_X[:, dim_proposals] < thr_proposals
                 # calculate the number of samples on the left child for each proposed split
                 size_left = np.sum(side, axis=0)
                 # calculate the analogous binary indicator for the samples in the estimation set
-                side_est = node_X_estimate[:, dim_proposals] < thr_proposals.reshape(1, -1)
+                side_est = node_X_estimate[:, dim_proposals] < thr_proposals
                 # calculate the number of estimation samples on the left child of each proposed split
                 size_est_left = np.sum(side_est, axis=0)
 
