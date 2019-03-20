@@ -327,7 +327,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
     max_splits : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree.
 
-    subsample_ratio : float, optional (default=0.25)
+    subsample_ratio : float, optional (default=0.7)
         The ratio of the total sample to be used when training a causal tree.
         Values greater than 1.0 will be considered equal to 1.0.
         Parameter is ignored when bootstrap=True.
@@ -340,11 +340,11 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
-    model_T : estimator, optional (default=sklearn.linear_model.LassoCV())
+    model_T : estimator, optional (default=sklearn.linear_model.LassoCV(cv=3))
         The estimator for residualizing the continuous treatment at each leaf.
         Must implement `fit` and `predict` methods.
 
-    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV())
+    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV(cv=3)
         The estimator for residualizing the outcome at each leaf. Must implement
         `fit` and `predict` methods.
 
@@ -538,7 +538,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     max_splits : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree.
 
-    subsample_ratio : float, optional (default=0.25)
+    subsample_ratio : float, optional (default=0.7)
         The ratio of the total sample to be used when training a causal tree.
         Values greater than 1.0 will be considered equal to 1.0.
         Parameter is ignored when bootstrap=True.
@@ -551,11 +551,12 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
-    propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression())
+    propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression(penalty='l1', solver='saga',
+                                                                                            multi_class='auto'))
         Model for estimating propensity of treatment at each leaf.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
 
-    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV())
+    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV(cv=3))
         Estimator for learning potential outcomes at each leaf.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
         If different models per treatment arm are desired, see the <econml.ortho_forest.MultiModelWrapper>
