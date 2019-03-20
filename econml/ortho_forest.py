@@ -47,7 +47,8 @@ def _build_tree_in_parallel(Y, T, X, W,
     tree = CausalTree(nuisance_estimator=nuisance_estimator,
                       parameter_estimator=parameter_estimator,
                       moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
-                      min_leaf_size=min_leaf_size, max_splits=max_splits,
+                      min_leaf_size=min_leaf_size,
+                      max_splits=max_splits,
                       random_state=random_state)
     # Create splits of causal tree
     tree.create_splits(Y, T, X, W)
