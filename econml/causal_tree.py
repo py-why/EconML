@@ -35,16 +35,13 @@ class Node:
         self.left = None
         self.right = None
 
-    def _find_tree_node(self, value):
+    def find_tree_node(self, value):
         if self.feature == -1:
             return self
         elif value[self.feature] < self.threshold:
             return self.left.find_tree_node(value)
         else:
             return self.right.find_tree_node(value)
-
-    def find_tree_node(self, value):
-        return self._find_tree_node(value)
 
 
 class CausalTree:
