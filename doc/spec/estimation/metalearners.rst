@@ -6,7 +6,7 @@ response surfaces, :math:`Y(0)` and :math:`Y(1)`, separately. For a detailed ove
 see [Kunzel2017]_ and [Foster2019]_.
 
 For examples of how to use our implemented metelearners check out this
-`Metalearners Jypyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Metalearners%20Examples.ipynb>`_
+`Metalearners Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Metalearners%20Examples.ipynb>`_
 
 T-Learner
 -----------------
