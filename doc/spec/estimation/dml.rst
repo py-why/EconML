@@ -14,7 +14,7 @@ error :math:`\eta` in the treatment equation enters linearly and is exogenous an
     T =~& f(X, W) + \eta & \E[\eta|X, W, \epsilon]=0
 
 What is particularly attractive about DML is that it makes no further structural assumptions on :math:`g` and :math:`f` and estimates them 
-non-parametrically using arbitrary non-parametric Machine Learning methods. Since we are in a linear in treatment response setting, 
+non-parametrically using arbitrary non-parametric Machine Learning methods. Since we are in a linear treatment response setting, 
 the whole goal of the estimation part is to fit the constant marginal CATE :math:`\theta(\vec{x})`. All other quantities of interest are 
 directly computable given :math:`\theta(\vec{x})`.
 
@@ -126,7 +126,7 @@ In this case we have a more structural form for the two regression tasks of esti
     f_i(\vec{x}, \vec{w}) =~& \ldot{\gamma_i}{(\vec{x}; \vec{w})}
     \end{align*}
 
-Thus one can use the Lasso regression to estimate the nuisance functions :math:`q` and :math:`p` in the first stage of the Double ML process. This high-dimensional linear structural assumption enables provable worst-case rates of :math:`n^{-1/4}` from the first stage estimates as long as the sparsity of the coefficients :math:`\delta` and :math:`\gamma` is small enough. Hence, the assumptions of the DML framework are provably satisfied. 
+Thus one can use the Lasso regression to estimate the nuisance functions :math:`q` and :math:`f` in the first stage of the Double ML process. This high-dimensional linear structural assumption enables provable worst-case rates of :math:`n^{-1/4}` from the first stage estimates as long as the sparsity of the coefficients :math:`\delta` and :math:`\gamma` is small enough. Hence, the assumptions of the DML framework are provably satisfied. 
 
 For this reason our library also provides a subclass of the DML estimator class that is tailored to sparse linear models for the nuisance functions. 
 This special case of DML is implemented in the class :py:class:`~econml.dml.SparseLinearDMLCateEstimator`. 
