@@ -111,18 +111,7 @@ class DMLCateEstimator(LinearCateEstimator):
         phi_X = self._featurizer.fit_transform(X)
         self._d_phi = shape(phi_X)[1]
 
-        if phi_X.ndim == 2:
-            self._simple_features = True
-            self._model_final.fit(cross_product(phi_X, t_res), y_res)
-        else:
-            assert phi_X.ndim == 4  # m × d_phi × d_y × dₜ
-            assert shape(phi_X)[2] == shape(Y)[1] if ndim(Y) == 2 else 1
-            assert shape(phi_X)[3] == shape(T)[1] if ndim(T) == 2 else 1
-            self._simple_features = False
-            if ndim(T) == 1:
-                t_res = reshape(t_res, (-1, 1))  # reshape so that einsum indices are correct even in vector t case
-            self._model_final.fit(reshape(np.einsum('mt,mpyt->myp', t_res, phi_X),
-                                          (-1, self._d_phi)), reshape(y_res, (-1,)))
+        self._model_final.fit(cross_product(phi_X, t_res), y_res)
 
     def const_marginal_effect(self, X=None):
         """
@@ -146,21 +135,14 @@ class DMLCateEstimator(LinearCateEstimator):
         """
         if X is None:
             X = np.empty((1, 0))
-        if self._simple_features:
-            # TODO: Doing this kronecker/reshaping/transposing stuff so that predict can be called
-            #       rather than just using coef_ seems silly, but one benefit is that we can use linear models
-            #       that don't expose a coef_ (e.g. a GridSearchCV over underlying linear models)
-            flat_eye = reshape(np.eye(self._d_t), (1, -1))
-            XT = reshape(np.kron(flat_eye, self._featurizer.fit_transform(X)),
-                         (self._d_t * shape(X)[0], -1))
-            effects = reshape(self._model_final.predict(XT), (-1, self._d_t, self._d_y))
-            return transpose(effects, (0, 2, 1))  # need to return as m by d_y by d_t matrix
-        else:
-            return reshape(self._model_final.predict(reshape(np.einsum('ts,mpyt->mysp',
-                                                                       np.eye(self._d_t),
-                                                                       self._featurizer.fit_transform(X)),
-                                                             (-1, self._d_phi))),
-                           (-1, self._d_y, self._d_t))
+        # TODO: Doing this kronecker/reshaping/transposing stuff so that predict can be called
+        #       rather than just using coef_ seems silly, but one benefit is that we can use linear models
+        #       that don't expose a coef_ (e.g. a GridSearchCV over underlying linear models)
+        flat_eye = reshape(np.eye(self._d_t), (1, -1))
+        XT = reshape(np.kron(flat_eye, self._featurizer.fit_transform(X)),
+                     (self._d_t * shape(X)[0], -1))
+        effects = reshape(self._model_final.predict(XT), (-1, self._d_t, self._d_y))
+        return transpose(effects, (0, 2, 1))  # need to return as m by d_y by d_t matrix
 
     @property
     def coef_(self):
@@ -172,10 +154,7 @@ class DMLCateEstimator(LinearCateEstimator):
         (e.g. a `Pipeline` or `GridSearchCV` which wraps a linear model)
         """
         # TODO: handle case where final model doesn't directly expose coef_?
-        if self._simple_features:
-            return reshape(self._model_final.coef_, (self._d_y, self._d_t, self._d_phi))
-        else:
-            return self._model_final.coef_
+        return reshape(self._model_final.coef_, (self._d_y, self._d_t, self._d_phi))
 
 
 class SparseLinearDMLCateEstimator(DMLCateEstimator):
@@ -218,9 +197,6 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
             X = XW[:, :self._d_x]
             W = XW[:, self._d_x:]
             F = featurizer.fit_transform(X)
-            if ndim(F) == 4:
-                # flatten the matrix features so that we can properly perform the cross product
-                F = reshape(F, (shape(XW)[0], -1))
             return cross_product(XW, hstack([np.ones((shape(XW)[0], 1)), F, W]))
 
         model_y = Pipeline([("transform", FunctionTransformer(transform)), ("model", linear_model_y)])
