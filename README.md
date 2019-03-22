@@ -1,4 +1,5 @@
 [![Build Status](https://dev.azure.com/ms/EconML/_apis/build/status/Microsoft.EconML?branchName=master)](https://dev.azure.com/ms/EconML/_build/latest?definitionId=49&branchName=master)
+[![PyPI version](https://badge.fury.io/py/econml.svg)](https://pypi.org/project/econml/)
 
 # Introduction 
 
