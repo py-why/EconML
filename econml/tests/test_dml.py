@@ -12,26 +12,6 @@ import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 
 
-class MatrixFeatures(TransformerMixin):
-    """Featurizer that produces each one-entry matrix of size d_y by d_t for each feature in X (plus a constant)."""
-
-    def __init__(self, d_y, d_t):
-        self._d_y = d_y
-        self._d_t = d_t
-        self._fts = np.eye(d_y * d_t).reshape(d_y * d_t, d_y, d_t)
-
-    def fit(self, X):
-        return self
-
-    def transform(self, X):
-        # add column of ones to X
-        X = hstack([np.ones((shape(X)[0], 1)), X])
-        d_x = shape(X)[1]
-        d_y, d_t = self._d_y, self._d_t
-        # for each row, create the d_y*d_t*(d_x+1) features (which are matrices of size d_y by d_t)
-        return reshape(np.einsum('nx,fyt->nfxyt', X, self._fts), (shape(X)[0], d_y * d_t * d_x, d_y, d_t))
-
-
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
 def rand_sol(A, b):
@@ -55,13 +35,6 @@ class TestDML(unittest.TestCase):
             W, X, Y, T = [np.random.normal(size=(n, d)) for d in [d_w, d_x, d_y, d_t]]
 
             dml = DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())
-            dml.fit(Y, T, X, W)
-            # just make sure we can call the marginal_effect and effect methods
-            dml.marginal_effect(None, X)
-            dml.effect(0, T, X)
-
-            dml = DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression(),
-                                   featurizer=MatrixFeatures(d_y, d_t))
             dml.fit(Y, T, X, W)
             # just make sure we can call the marginal_effect and effect methods
             dml.marginal_effect(None, X)
@@ -150,32 +123,3 @@ class TestDML(unittest.TestCase):
         np.testing.assert_allclose(a, dml.coef_.reshape(-1))
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1, 1))
         np.testing.assert_allclose(eff, dml.effect(0, t, x))
-
-        dml = SparseLinearDMLCateEstimator(LinearRegression(fit_intercept=False),
-                                           LinearRegression(fit_intercept=False),
-                                           featurizer=Pipeline([("id", FunctionTransformer()),
-                                                                ("matrix", MatrixFeatures(1, 1))]))
-        dml.fit(y, t, x, w)
-        np.testing.assert_allclose(eff, dml.effect(0, t, x))
-
-    def test_complex_features(self):
-        # recover simple features by initializing complex features appropriately
-        for _ in range(10):
-            d_w = np.random.randint(0, 4)
-            d_x = np.random.randint(1, 3)
-            d_y = np.random.randint(1, 3)
-            d_t = np.random.randint(1, 3)
-            n = 20
-            with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t):
-                W, X, Y, T = [np.random.normal(size=(n, d)) for d in [d_w, d_x, d_y, d_t]]
-                # using full set of matrix features should be equivalent to using non-matrix featurizer
-                dml = DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression(),
-                                       featurizer=MatrixFeatures(d_y, d_t))
-                dml.fit(Y, T, X, W)
-                coef1 = dml.coef_
-
-                dml = DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())
-                dml.fit(Y, T, X, W)
-                coef2 = dml.coef_
-
-                np.testing.assert_allclose(coef1, reshape(coef2, -1))
