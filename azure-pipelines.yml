@@ -13,56 +13,82 @@ jobs:
 - job: 'EvalChanges'
   displayName: 'Analyze changed files to determine which job to run'
   steps:
-  # We want to enforce the following rules:
+  # We want to enforce the following rules for PRs:
   # * if all modifications are to README.md
   #     no testing is needed
-  # * elif all modifications are to docs/* (and possibly README.md)
-  #     then only docs need to be built to verify consistency (these changes cannot affect tests)
-  # * otherwise, full test suite needs to run
+  # * if there are modifications to docs/* or to any code
+  #     then docs need to be built to verify consistency
+  # * if there are modifications to notebooks/* or to any code
+  #     then notebooks need to be run to verify consistency
+  # * for any code changes (or changes to metadata files)
+  #     linting and testing should be run
   # For a PR build, HEAD will be the merge commit, and we want to diff against the base branch,
   #  which will be the first parent: HEAD^ 
+  # (For non-PR changes, we will always perform all CI tasks)
   - powershell: |
-      $editedFiles = git diff HEAD^ --name-only
-      $editedFiles # echo edited files to enable easier debugging
-      $codeChanges = $false
-      $docChanges = $false
-      $changeType = "none"
-      foreach ($file in $editedFiles) {
-        switch -Wildcard ($file) {
-          "README.md" { Continue }
-          "doc/*" { $docChanges = $true; Continue }
-          default { $codeChanges = $true; Continue }
+      if ($env:BUILD_REASON -eq 'PullRequest') {
+        $editedFiles = git diff HEAD^ --name-only
+        $editedFiles # echo edited files to enable easier debugging
+        $codeChanges = $false
+        $docChanges = $false
+        $nbChanges = $false
+        $changeType = "none"
+        foreach ($file in $editedFiles) {
+          switch -Wildcard ($file) {
+            "README.md" { Continue }
+            "doc/*" { $docChanges = $true; Continue }
+            "notebook/*" { $nbChanges = $true; Continue }
+            default { $codeChanges = $true; Continue }
+          }
         }
       }
-      if ($codeChanges) { $changeType = "code" }
-      elseif ($docChanges) { $changeType = "docs" }
-      Write-Host "##vso[task.setvariable variable=changeType]$changeType"
-    displayName: 'Determine type of code change for Pull Requests'
-    condition: eq(variables['Build.Reason'], 'PullRequest')
-  # For non-PR builds, we always run the full test suite
-  - powershell: |
-      Write-Host "##vso[task.setvariable variable=changeType]code"
-    displayName: 'Determine type of code change for other builds'
-    condition: ne(variables['Build.Reason'], 'PullRequest')
-  - powershell: |
-      Write-Host "##vso[task.setvariable variable=changeType;isOutput=true]$(changeType)"
+      Write-Host "##vso[task.setvariable variable=buildDocs;isOutput=true]$(($env:BUILD_REASON -ne 'PullRequest') -or ($docChanges -or $codeChanges))"
+      Write-Host "##vso[task.setvariable variable=buildNbs;isOutput=true]$(($env:BUILD_REASON -ne 'PullRequest') -or ($nbChanges -or $codeChanges))"
+      Write-Host "##vso[task.setvariable variable=testCode;isOutput=true]$(($env:BUILD_REASON -ne 'PullRequest') -or $codeChanges)"
     name: output
-    displayName: 'Output change type'
+    displayName: 'Determine type of code change'
 
 - job: 'Docs'
   displayName: 'Build documentation'  
   dependsOn: 'EvalChanges'
-  condition: eq(dependencies.EvalChanges.outputs['output.changeType'], 'docs')
+  condition: eq(dependencies.EvalChanges.outputs['output.buildDocs'], 'True')
   variables:
     python.version: '3.6'
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
-      runTests : 'false'
+      body:
+        - script: 'python setup.py build_sphinx -W'
+          displayName: 'Build documentation'
 
-- job: 'FullTests'
+- job: 'Notebooks'
   dependsOn: 'EvalChanges'
-  condition: eq(dependencies.EvalChanges.outputs['output.changeType'], 'code')
+  condition: eq(dependencies.EvalChanges.outputs['output.buildNbs'], 'True')
+  variables:
+    python.version: '3.6'
+  steps:
+  - template: azure-pipelines-steps.yml
+    parameters:
+      body:
+        # Set mark to test only notebooks
+        - powershell: |
+            Write-Host '##vso[task.setvariable variable=PYTEST_ADDOPTS]-m "notebook"'
+          displayName: 'Define marker for notebook tests'
+
+        - script: 'python setup.py pytest'
+          displayName: 'Unit tests'
+
+        - task: PublishTestResults@2
+          displayName: 'Publish Test Results **/test-results.xml'
+          inputs:
+            testResultsFiles: '**/test-results.xml'
+            testRunTitle: 'Notebooks'
+          condition: succeededOrFailed()
+
+
+- job: 'Tests'
+  dependsOn: 'EvalChanges'
+  condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
   strategy:
     matrix:
       Linux, Python 3.5:
@@ -101,4 +127,22 @@ jobs:
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
-      runTests : 'true'
+      body:
+        - script: 'pip install pycodestyle && pycodestyle econml'
+          failOnStderr: true
+          displayName: Linting
+
+        # Set mark to exclude notebook tests
+        - powershell: |
+            Write-Host '##vso[task.setvariable variable=PYTEST_ADDOPTS]-m "not notebook"'
+          displayName: 'Define marker to skip notebook tests'
+
+        - script: 'python setup.py pytest'
+          displayName: 'Unit tests'
+
+        - task: PublishTestResults@2
+          displayName: 'Publish Test Results **/test-results.xml'
+          inputs:
+            testResultsFiles: '**/test-results.xml'
+            testRunTitle: 'Python $(python.version), image $(imageName)'
+          condition: succeededOrFailed()
