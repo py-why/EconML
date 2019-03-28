@@ -116,7 +116,7 @@ One particularly attractive special case of the DML framework is the case when :
     f_i(X, W) =~& \ldot{\gamma_i}{(X; W)}\\
     \end{align}
 
-In this case we have a more structural form for the two regression tasks of estimating :math:`q` and :math:`p`. In particular, we can write:
+In this case we have a more structural form for the two regression tasks of estimating :math:`q` and :math:`f`. In particular, we can write:
 
 .. math::
     :nowrap:
