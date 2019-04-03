@@ -7,7 +7,7 @@ from sklearn.base import TransformerMixin
 from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from econml.dml import DMLCateEstimator, SparseLinearDMLCateEstimator
+from econml.dml import DMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 
@@ -30,18 +30,21 @@ class TestDML(unittest.TestCase):
             for d_y in [2, -1]:
                 for d_x in [2, None]:
                     for d_w in [2, None]:
-                        n = 20
-                        with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t):
-                            W, X, Y, T = [np.random.normal(size=(n, d)) if (d and d >= 0)
-                                          else np.random.normal(size=(n,)) if (d and d < 0)
-                                          else None
-                                          for d in [d_w, d_x, d_y, d_t]]
+                        for est in [DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression()),
+                                    SparseLinearDMLCateEstimator(linear_model_y=LinearRegression(),
+                                                                 linear_model_t=LinearRegression()),
+                                    KernelDMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())]:
+                            n = 20
+                            with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t):
+                                W, X, Y, T = [np.random.normal(size=(n, d)) if (d and d >= 0)
+                                              else np.random.normal(size=(n,)) if (d and d < 0)
+                                              else None
+                                              for d in [d_w, d_x, d_y, d_t]]
 
-                            dml = DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())
-                            dml.fit(Y, T, X, W)
-                            # just make sure we can call the marginal_effect and effect methods
-                            dml.marginal_effect(None, X)
-                            dml.effect(0, T, X)
+                                est.fit(Y, T, X, W)
+                                # just make sure we can call the marginal_effect and effect methods
+                                est.marginal_effect(None, X)
+                                est.effect(0, T, X)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
