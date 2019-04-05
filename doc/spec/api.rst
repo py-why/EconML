@@ -187,7 +187,7 @@ following equations:
     \end{align}
 
 
-Suppose that we have $n$ samples from this dgp. For instance, we could create these
+Suppose that we have :math:`n` samples from this dgp. For instance, we could create these
 samples with the following code:
 
 .. code-block:: python3
