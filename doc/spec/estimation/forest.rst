@@ -58,7 +58,6 @@ can wrap any class that supports fit and predict and enables sample weight funct
 by re-sampling the data based on the weights and then calling fit and predict, or, in the case of linear losses,
 by re-scaling the features and labels appropriately based on the weights.
 
-
     >>> est = ContinuousTreatmentOrthoForest(model_y=WeightedModelWrapper(Lasso(), sample_type=sample_type),
     ...                                      model_t=WeightedModelWrapper(Lasso(), sample_type=sample_type))
 
@@ -94,9 +93,9 @@ a multi-class classification model and should support :code:`predict_proba`.
 
 For more details on the input parameters of the orthogonal forest classes and how to customize
 the estimator checkout the two modules:
+
 - :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
 - :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
-
 
 For more examples check out our 
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
@@ -111,8 +110,8 @@ and what the returned values correspond to in a simple data generating process:
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
     >>> Y = (.2 * W[:, 0] + 1) * T + .5
     >>> est = ContinuousTreatmentOrthoForest(n_trees=1, max_splits=1, subsample_ratio=1,
-    ...                                 model_T=sklearn.linear_model.LinearRegression(),
-    ...                                 model_Y=sklearn.linear_model.LinearRegression())
+    ...                                      model_T=sklearn.linear_model.LinearRegression(),
+    ...                                      model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, W, W)
     >>> print(est.const_marginal_effect(W[:2]))
     [[1. ]
@@ -124,8 +123,8 @@ Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoFor
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
     >>> Y = (.2 * W[:, 0] + 1) * T + .5
     >>> est = DiscreteTreatmentOrthoForest(n_trees=1, max_splits=1, subsample_ratio=1,
-    ...                                 propensity_model=sklearn.linear_model.LogisticRegression(),
-    ...                                 model_Y=sklearn.linear_model.LinearRegression())
+    ...                                    propensity_model=sklearn.linear_model.LogisticRegression(),
+    ...                                    model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, W, W)
     >>> print(est.const_marginal_effect(W[:2]))
     [[1. ]
@@ -154,4 +153,3 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     :align: center
 
     Synthetic data estimation with high dimensional controls
-
