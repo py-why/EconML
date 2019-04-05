@@ -51,8 +51,8 @@ class TestOrthoForest(unittest.TestCase):
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Instantiate model with most of the default parameters
         est = ContinuousTreatmentOrthoForest(n_jobs=4, n_trees=10,
-                                             model_T=WeightedModelWrapper(Lasso(), sample_type="weighted"),
-                                             model_Y=WeightedModelWrapper(Lasso(), sample_type="weighted"),
+                                             model_T=Lasso(),
+                                             model_Y=Lasso(),
                                              model_T_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"),
                                              model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
         # Test inputs for continuous treatments
@@ -66,9 +66,9 @@ class TestOrthoForest(unittest.TestCase):
         self.assertSequenceEqual((TestOrthoForest.x_test.shape[0], 1), out_te.shape)
         # Test continuous treatments with controls
         est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
-                                             max_splits=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
-                                             model_T=WeightedModelWrapper(Lasso(alpha=0.024), sample_type="weighted"),
-                                             model_Y=WeightedModelWrapper(Lasso(alpha=0.024), sample_type="weighted"),
+                                             max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
+                                             model_T=Lasso(alpha=0.024),
+                                             model_Y=Lasso(alpha=0.024),
                                              model_T_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"),
                                              model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
         est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W)
@@ -114,7 +114,7 @@ class TestOrthoForest(unittest.TestCase):
         self.assertSequenceEqual((TestOrthoForest.x_test.shape[0], 1), out_te.shape)
         # Test binary treatments with controls
         est = DiscreteTreatmentOrthoForest(n_trees=100, min_leaf_size=10,
-                                           max_splits=30, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
+                                           max_depth=30, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
                                            propensity_model=LogisticRegression(C=1 / 0.024, penalty='l1'),
                                            model_Y=Lasso(alpha=0.024),
                                            propensity_model_final=LogisticRegressionCV(penalty='l1', solver='saga'),
@@ -143,7 +143,7 @@ class TestOrthoForest(unittest.TestCase):
             TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Test multiple treatments with controls
         est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
-                                             max_splits=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
+                                             max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
                                              model_T=MultiOutputRegressor(Lasso(alpha=0.024)),
                                              model_Y=Lasso(alpha=0.024),
                                              model_T_final=WeightedModelWrapper(
