@@ -144,9 +144,8 @@ class TestOrthoForest(unittest.TestCase):
         # Test multiple treatments with controls
         est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
                                              max_splits=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
-                                             model_T=WeightedModelWrapper(
-                                                 MultiOutputRegressor(Lasso(alpha=0.024)), sample_type="weighted"),
-                                             model_Y=WeightedModelWrapper(Lasso(alpha=0.024), sample_type="weighted"),
+                                             model_T=MultiOutputRegressor(Lasso(alpha=0.024)),
+                                             model_Y=Lasso(alpha=0.024),
                                              model_T_final=WeightedModelWrapper(
                                                  MultiOutputRegressor(LassoCV()), sample_type="weighted"),
                                              model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))

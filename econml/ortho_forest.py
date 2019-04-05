@@ -28,8 +28,8 @@ import warnings
 from joblib import Parallel, delayed
 from sklearn import clone
 from sklearn.exceptions import NotFittedError
-from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegression, LogisticRegressionCV
-from sklearn.linear_model import ElasticNet
+from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegression, \
+    LogisticRegressionCV, ElasticNet
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures
@@ -43,12 +43,12 @@ def _build_tree_in_parallel(Y, T, X, W,
                             nuisance_estimator,
                             parameter_estimator,
                             moment_and_mean_gradient_estimator,
-                            min_leaf_size, max_splits, random_state):
+                            min_leaf_size, max_depth, random_state):
     tree = CausalTree(nuisance_estimator=nuisance_estimator,
                       parameter_estimator=parameter_estimator,
                       moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
                       min_leaf_size=min_leaf_size,
-                      max_splits=max_splits,
+                      max_depth=max_depth,
                       random_state=random_state)
     # Create splits of causal tree
     tree.create_splits(Y, T, X, W)
@@ -132,7 +132,7 @@ class BaseOrthoForest(LinearCateEstimator):
                  second_stage_parameter_estimator,
                  moment_and_mean_gradient_estimator,
                  n_trees=500,
-                 min_leaf_size=10, max_splits=10,
+                 min_leaf_size=10, max_depth=10,
                  subsample_ratio=0.25,
                  bootstrap=False,
                  n_jobs=-1,
@@ -146,7 +146,7 @@ class BaseOrthoForest(LinearCateEstimator):
         # OrthoForest parameters
         self.n_trees = n_trees
         self.min_leaf_size = min_leaf_size
-        self.max_splits = max_splits
+        self.max_depth = max_depth
         self.bootstrap = bootstrap
         self.subsample_ratio = subsample_ratio
         self.n_jobs = n_jobs
@@ -279,7 +279,7 @@ class BaseOrthoForest(LinearCateEstimator):
                 self.nuisance_estimator,
                 self.parameter_estimator,
                 self.moment_and_mean_gradient_estimator,
-                self.min_leaf_size, self.max_splits,
+                self.min_leaf_size, self.max_depth,
                 self.random_state.randint(MAX_RAND_SEED)) for s in subsample_ind)
 
     def _get_weights(self, X_single):
@@ -324,7 +324,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
     min_leaf_size : integer, optional (default=10)
         The minimum number of samples in a leaf.
 
-    max_splits : integer, optional (default=10)
+    max_depth : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree.
 
     subsample_ratio : float, optional (default=0.7)
@@ -372,7 +372,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
 
     def __init__(self,
                  n_trees=500,
-                 min_leaf_size=10, max_splits=10,
+                 min_leaf_size=10, max_depth=10,
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
@@ -411,7 +411,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
-            max_splits=max_splits,
+            max_depth=max_depth,
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
@@ -448,8 +448,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                     T_hat = _cross_fit(model_T, X_tilde, T, split_indices, sample_weight=sample_weight)
                     Y_hat = _cross_fit(model_Y, X_tilde, Y, split_indices, sample_weight=sample_weight)
                 else:
-                    T_hat = model_T.fit(X_tilde, T, sample_weight=sample_weight).predict(X_tilde)
-                    Y_hat = model_Y.fit(X_tilde, Y, sample_weight=sample_weight).predict(X_tilde)
+                    T_hat = model_T.fit(X_tilde, T).predict(X_tilde)
+                    Y_hat = model_Y.fit(X_tilde, Y).predict(X_tilde)
             except ValueError as exc:
                 raise ValueError("The original error: {0}".format(str(exc)) +
                                  " This might be caused by too few sample in the tree leafs." +
@@ -535,7 +535,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     min_leaf_size : integer, optional (default=10)
         The minimum number of samples in a leaf.
 
-    max_splits : integer, optional (default=10)
+    max_depth : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree.
 
     subsample_ratio : float, optional (default=0.7)
@@ -588,7 +588,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
 
     def __init__(self,
                  n_trees=500,
-                 min_leaf_size=10, max_splits=10,
+                 min_leaf_size=10, max_depth=10,
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
@@ -629,7 +629,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             moment_and_mean_gradient_estimator,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
-            max_splits=max_splits,
+            max_depth=max_depth,
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
