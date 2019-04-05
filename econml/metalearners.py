@@ -431,7 +431,7 @@ class DoublyRobustLearner(BaseCateEstimator):
     Parameters
     ----------
     outcome_model : outcome estimator for all data points
-        Will be trained on features and treatments (concatenated).
+        Will be trained on features, controls and treatments (concatenated).
         If different models per treatment arm are desired, see the <econml.ortho_forest.MultiModelWrapper>
         helper class. The model(s) must implement `fit` and `predict` methods.
 
@@ -461,8 +461,8 @@ class DoublyRobustLearner(BaseCateEstimator):
         self.propensity_model = clone(propensity_model, safe=False)
         self.has_propensity_func = self.propensity_func is not None
 
-    def fit(self, Y, T, X):
-        """Build an instance of XLearner.
+    def fit(self, Y, T, X, W=None):
+        """Build an instance of DoublyRobustLearner.
 
         Parameters
         ----------
@@ -476,28 +476,37 @@ class DoublyRobustLearner(BaseCateEstimator):
         X : array-like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
+        W : array-like, shape (n, d_w) or None (default=None)
+            Controls (possibly high-dimensional). 
+
         Returns
         -------
         self: an instance of self.
         """
         # Check inputs
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        Y, T, X, W = check_inputs(Y, T, X, W, multi_output_T=False)
         Y = Y.flatten()
         if not np.array_equal(np.unique(T), [0, 1]):
             raise ValueError("The treatments array (T) can only contain 0 and 1.")
-        Xt = np.concatenate((X, T.reshape(-1, 1)), axis=1)
+        if W is not None:
+            XW = np.concatenate((X, W), axis=1)
+        else:
+            XW = X
         n = X.shape[0]
-        self.outcome_model.fit(Xt, Y)
+        # Fit outcome model on X||W||T (concatenated)
+        self.outcome_model.fit(
+            np.concatenate((XW, T.reshape(-1, 1)), axis=1),
+            Y)
         if not self.has_propensity_func:
-            self.propensity_model.fit(X, T)
-            self.propensity_func = lambda X_score: self.propensity_model.predict_proba(X_score)[:, 1]
+            self.propensity_model.fit(XW, T)
+            self.propensity_func = lambda XW_score: self.propensity_model.predict_proba(XW_score)[:, 1]
         Y0 = self.outcome_model.predict(
-            np.concatenate((X, np.zeros((n, 1))), axis=1)
+            np.concatenate((XW, np.zeros((n, 1))), axis=1)
         )
         Y1 = self.outcome_model.predict(
-            np.concatenate((X, np.ones((n, 1))), axis=1)
+            np.concatenate((XW, np.ones((n, 1))), axis=1)
         )
-        propensities = self.propensity_func(X)
+        propensities = self.propensity_func(XW)
         pseudo_te = Y1 - Y0
         pseudo_te[T == 0] -= (Y - Y0)[T == 0] / (1 - propensities)[T == 0]
         pseudo_te[T == 1] += (Y - Y1)[T == 1] / propensities[T == 1]

@@ -21,6 +21,7 @@ class TestMetalearners(unittest.TestCase):
         cls.n = 1000
         cls.n_test = 200
         cls.beta = np.array([0.25, -0.38, 1.41, 0.50, -1.22])
+        cls.heterogeneity_index = 1
         # Test data
         cls.X_test = multivariate_normal(
             np.zeros(cls.d),
@@ -113,6 +114,8 @@ class TestMetalearners(unittest.TestCase):
         DR_learner = DoublyRobustLearner(outcome_model=outcome_model,
                                          pseudo_treatment_model=LinearRegression())
         self._test_te(DR_learner, tol=0.5, te_type="heterogeneous")
+        # Test heterogenous treatment effect for W =/= None
+        self._test_with_W(DR_learner, tol=0.5)
 
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:
@@ -124,6 +127,19 @@ class TestMetalearners(unittest.TestCase):
         te_hat = learner_instance.effect(TestMetalearners.X_test)
         # Get the true treatment effect
         te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test)
+        # Compute treatment effect residuals (absolute)
+        te_res = np.abs(te - te_hat)
+        # Check that at least 90% of predictions are within tolerance interval
+        self.assertGreaterEqual(np.mean(te_res < tol), 0.90)
+
+    def _test_with_W(self, learner_instance, tol):
+        # Only for heterogeneous TE
+        X, T, Y = TestMetalearners.heterogeneous_te_data
+        # Fit learner on X and W and get the effect
+        learner_instance.fit(Y, T, X=X[:, [TestMetalearners.heterogeneity_index]], W=X)
+        te_hat = learner_instance.effect(TestMetalearners.X_test[:, [TestMetalearners.heterogeneity_index]])
+        # Get the true treatment effect
+        te = np.apply_along_axis(TestMetalearners._heterogeneous_te, 1, TestMetalearners.X_test)
         # Compute treatment effect residuals (absolute)
         te_res = np.abs(te - te_hat)
         # Check that at least 90% of predictions are within tolerance interval
@@ -143,7 +159,6 @@ class TestMetalearners(unittest.TestCase):
         self.assertWarns(DataConversionWarning,
                          learner_instance.fit, Y.reshape(-1, 1), T.reshape(-1, 1), X
                          )
-        # learner_instance.effect(TestMetalearners.X_test)
 
     @classmethod
     def _untreated_outcome(cls, x):
@@ -155,7 +170,7 @@ class TestMetalearners(unittest.TestCase):
 
     @classmethod
     def _heterogeneous_te(cls, x):
-        return x[1]
+        return x[cls.heterogeneity_index]
 
     @classmethod
     def _generate_data(cls, n, d, untreated_outcome, treatment_effect, propensity):
