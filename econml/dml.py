@@ -92,7 +92,7 @@ class DMLCateEstimator(LinearCateEstimator):
 
         y_res = np.zeros(shape(Y))
         t_res = np.zeros(shape(T))
-        for idx, (train_idxs, test_idxs) in enumerate(KFold(self._n_splits).split(X)):
+        for idx, (train_idxs, test_idxs) in enumerate(KFold(self._n_splits, shuffle=True).split(X)):
             Y_train, Y_test = Y[train_idxs], Y[test_idxs]
             T_train, T_test = T[train_idxs], T[test_idxs]
             X_train, X_test = X[train_idxs], X[test_idxs]
