@@ -498,7 +498,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
             param_estimate = np.linalg.lstsq(np.matmul(weighted_XT_res.T, XT_res) + reg,
-                                       np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)), rcond=None)[0].flatten()
+                                             np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)), rcond=None)[0].flatten()
             # Parameter returned by LinearRegression is (d_T, )
             return param_estimate
 
@@ -551,7 +551,8 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
-    propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression(penalty='l1', solver='saga',
+    propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression(penalty='l1',
+                                                                                            solver='saga',
                                                                                             multi_class='auto'))
         Model for estimating propensity of treatment at each leaf.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
@@ -788,7 +789,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
             param_estimate = np.linalg.lstsq(np.matmul(weighted_X_aug.T, X_aug) + reg,
-                                       np.matmul(weighted_X_aug.T, pointwise_params), rcond=None)[0].flatten()
+                                             np.matmul(weighted_X_aug.T, pointwise_params), rcond=None)[0].flatten()
             # Parameter returned by LinearRegression is (d_T, )
             return param_estimate
 
