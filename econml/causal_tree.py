@@ -36,6 +36,15 @@ class Node:
         self.right = None
 
     def find_tree_node(self, value):
+        """
+        Recursively find and return the node of the causal tree that corresponds
+        to the input feature vector.
+
+        Parameters
+        ----------
+        value : array-like, shape (d_x,)
+            Feature vector whose node we want to find.
+        """
         if self.feature == -1:
             return self
         elif value[self.feature] < self.threshold:
@@ -65,7 +74,7 @@ class CausalTree:
     min_leaf_size : integer, optional (default=10)
         The minimum number of samples in a leaf.
 
-    max_splits : integer, optional (default=10)
+    max_depth : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree.
 
     n_proposals :  int, optional (default=1000)
@@ -91,7 +100,7 @@ class CausalTree:
                  parameter_estimator,
                  moment_and_mean_gradient_estimator,
                  min_leaf_size=10,
-                 max_splits=10,
+                 max_depth=10,
                  n_proposals=1000,
                  balancedness_tol=.3,
                  random_state=None):
@@ -101,7 +110,7 @@ class CausalTree:
         self.moment_and_mean_gradient_estimator = moment_and_mean_gradient_estimator
         # Causal tree parameters
         self.min_leaf_size = min_leaf_size
-        self.max_splits = max_splits
+        self.max_depth = max_depth
         self.balancedness_tol = balancedness_tol
         self.n_proposals = n_proposals
         self.random_state = check_random_state(random_state)
@@ -137,7 +146,7 @@ class CausalTree:
             node, depth = node_list.pop()
 
             # If by splitting we have too small leaves or if we reached the maximum number of splits we stop
-            if node.split_sample_inds.shape[0] // 2 >= self.min_leaf_size and depth < self.max_splits:
+            if node.split_sample_inds.shape[0] // 2 >= self.min_leaf_size and depth < self.max_depth:
 
                 # Create local sample set
                 node_X = X[node.split_sample_inds]
@@ -223,7 +232,7 @@ class CausalTree:
 
                 # calculate the average influence vector of the samples in the left child
                 left_diff = np.matmul(rho.T, valid_side)
-                # calculate the average influence vector of the samples in the left child
+                # calculate the average influence vector of the samples in the right child
                 right_diff = np.matmul(rho.T, 1 - valid_side)
                 # take the square of each of the entries of the influence vectors and normalize
                 # by size of each child

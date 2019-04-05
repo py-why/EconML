@@ -497,8 +497,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             diagonal[:T_res.shape[1]] = 0
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
-            param_estimate = np.matmul(np.linalg.pinv(np.matmul(weighted_XT_res.T, XT_res) + reg),
-                                       np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1))).flatten()
+            param_estimate = np.linalg.lstsq(np.matmul(weighted_XT_res.T, XT_res) + reg,
+                                       np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)), rcond=None)[0].flatten()
             # Parameter returned by LinearRegression is (d_T, )
             return param_estimate
 
@@ -787,8 +787,8 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             diagonal[0] = 0
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
-            param_estimate = np.matmul(np.linalg.pinv(np.matmul(weighted_X_aug.T, X_aug) + reg),
-                                       np.matmul(weighted_X_aug.T, pointwise_params)).flatten()
+            param_estimate = np.linalg.lstsq(np.matmul(weighted_X_aug.T, X_aug) + reg,
+                                       np.matmul(weighted_X_aug.T, pointwise_params), rcond=None)[0].flatten()
             # Parameter returned by LinearRegression is (d_T, )
             return param_estimate
 
