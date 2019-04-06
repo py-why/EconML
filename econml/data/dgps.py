@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_random_state
 
-_ihdp_sim_file = os.path.join(os.path.dirname(__file__), "ihdp\\sim.csv")
+_ihdp_sim_file = os.path.join(os.path.dirname(__file__), "ihdp", "sim.csv")
 _ihdp_sim_data = pd.read_csv(_ihdp_sim_file)
 
 
