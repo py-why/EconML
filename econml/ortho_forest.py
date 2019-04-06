@@ -17,8 +17,7 @@ This file consists of classes that implement the following variants of the ORF m
 - The `DiscreteTreatmentOrthoForest`, a two-forest approach for learning discrete treatment effects
   using kernel two stage estimation.
 
-For more details on these methods, see our paper <Orthogonal Random Forest for Heterogeneous
-Treatment Effect Estimation> on arxiv.
+For more details on these methods, see our paper [Oprescu2018]_.
 """
 
 import abc
@@ -418,11 +417,13 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             random_state=random_state)
 
     def _pointwise_effect(self, X_single):
-        """ We need to post-process the parameters returned by the _pointwise_effect
+        """
+        We need to post-process the parameters returned by the _pointwise_effect
         of the BaseOrthoForest class due to the local linear correction. The
         base class function will return the intercept and the coefficient of the
         local linear fit. We multiply it with the input co-variate to get the
-        predicted effect."""
+        predicted effect.
+        """
         parameter = super(ContinuousTreatmentOrthoForest, self)._pointwise_effect(X_single)
         X_aug = np.append([1], X_single)
         parameter = parameter.reshape((X_aug.shape[0], -1)).T
@@ -475,9 +476,11 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
 
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
-        """ For the second stage parameter estimation we add a local linear correction. So
+        """
+        For the second stage parameter estimation we add a local linear correction. So
         we fit a local linear function as opposed to a local constant function. We also penalize
-        the linear part to reduce variance. """
+        the linear part to reduce variance.
+        """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
                                      sample_weight=None):
@@ -498,7 +501,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
             param_estimate = np.linalg.lstsq(np.matmul(weighted_XT_res.T, XT_res) + reg,
-                                             np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)), rcond=None)[0].flatten()
+                                             np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)),
+                                             rcond=None)[0].flatten()
             # Parameter returned by LinearRegression is (d_T, )
             return param_estimate
 
@@ -522,7 +526,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
 
 
 class DiscreteTreatmentOrthoForest(BaseOrthoForest):
-    """OrthoForest for discrete treatments.
+    """
+    OrthoForest for discrete treatments.
 
     A two-forest approach for learning heterogeneous treatment effects using
     kernel two stage estimation.
@@ -551,16 +556,16 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
-    propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression(penalty='l1',
-                                                                                            solver='saga',
-                                                                                            multi_class='auto'))
+    propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression(penalty='l1',\
+                                                                                             solver='saga',\
+                                                                                             multi_class='auto'))
         Model for estimating propensity of treatment at each leaf.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
 
     model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV(cv=3))
         Estimator for learning potential outcomes at each leaf.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
-        If different models per treatment arm are desired, see the <econml.ortho_forest.MultiModelWrapper>
+        If different models per treatment arm are desired, see the :py:class:`~econml.utilities.MultiModelWrapper`
         helper class. The model(s) must implement `fit` and `predict` methods.
 
     propensity_model_final : estimator, optional (default=None)
@@ -571,7 +576,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     model_Y_final : estimator, optional (default=None)
         Estimator for learning potential outcomes at prediction time.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
-        If different models per treatment arm are desired, see the <econml.ortho_forest.MultiModelWrapper>
+        If different models per treatment arm are desired, see the :py:class:`~econml.utilities.MultiModelWrapper`
         helper class. The model(s) must implement `fit` and `predict` methods.
         If parameter is set to `None`, it defaults to the value of `model_Y` parameter.
 
@@ -702,11 +707,13 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         return super(DiscreteTreatmentOrthoForest, self).effect(T0_encoded, T1_encoded, X)
 
     def _pointwise_effect(self, X_single):
-        """ We need to post-process the parameters returned by the _pointwise_effect
+        """
+        We need to post-process the parameters returned by the _pointwise_effect
         of the BaseOrthoForest class due to the local linear correction. The
         base class function will return the intercept and the coefficient of the
         local linear fit. We multiply it with the input co-variate to get the
-        predicted effect."""
+        predicted effect.
+        """
         parameter = super(DiscreteTreatmentOrthoForest, self)._pointwise_effect(X_single)
         X_aug = np.append([1], X_single)
         parameter = parameter.reshape((X_aug.shape[0], -1)).T
@@ -768,9 +775,11 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
 
     @staticmethod
     def second_stage_parameter_estimator_gen(lambda_reg):
-        """ For the second stage parameter estimation we add a local linear correction. So
+        """
+        For the second stage parameter estimation we add a local linear correction. So
         we fit a local linear function as opposed to a local constant function. We also penalize
-        the linear part to reduce variance. """
+        the linear part to reduce variance.
+        """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
                                      sample_weight=None):
