@@ -94,8 +94,8 @@ a multi-class classification model and should support :code:`predict_proba`.
 For more details on the input parameters of the orthogonal forest classes and how to customize
 the estimator checkout the two modules:
 
-    - :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
-    - :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
+- :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
+- :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
 
 For more examples check out our 
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
