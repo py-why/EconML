@@ -55,8 +55,8 @@ flexible manner, not restricted to :math:`\ell_1` regularization, as follows: th
 supports fit and predict. The fit function needs to also support sample weights, passed as a third argument. 
 If it does not, then we provided a weighted model wrapper :py:class:`~econml.ortho_forest.WeightedModelWrapper` that
 can wrap any class that supports fit and predict and enables sample weight functionality. This is done either
-by re-sampling the data based on the weights and then calling fit and predict, or, in the case of linear losses,
-by re-scaling the features and labels appropriately based on the weights.
+by re-sampling the data based on the weights and then calling fit and predict, or, in the case of square losses of
+linear function classes, by re-scaling the features and labels appropriately based on the weights.
 
     >>> est = ContinuousTreatmentOrthoForest(model_y=WeightedModelWrapper(Lasso(), sample_type=sample_type),
     ...                                      model_t=WeightedModelWrapper(Lasso(), sample_type=sample_type))
@@ -84,7 +84,7 @@ outcome of sample :math:`i` had we treated it with treatment :math:`t`, i.e.:
 
 .. math::
     
-    Y_{i,t}^{DR} = \hat{\E}[Y \mid T=t, x, W_i] - 1\{T_i=t\} \frac{Y_i - \hat{\E}[Y \mid T=t, x, W_i]}{\hat{\E}[1\{T=t\} \mid x, W_i]} 
+    Y_{i,t}^{DR} = \hat{\E}[Y \mid T=t, x, W_i] + 1\{T_i=t\} \frac{Y_i - \hat{\E}[Y \mid T=t, x, W_i]}{\hat{\E}[1\{T=t\} \mid x, W_i]} 
 
 where :math:`\hat{\E}[Y \mid T=t, x, W_i]` and :math:`\hat{\E}[1\{T=t\} \mid x, W_i]` are first stage estimates of the
 corresponding conditional expectations. These two regression functions are fitted in a similar manner
