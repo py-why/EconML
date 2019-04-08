@@ -477,7 +477,7 @@ class DoublyRobustLearner(BaseCateEstimator):
             Feature vector that captures heterogeneity.
 
         W : array-like, shape (n, d_w) or None (default=None)
-            Controls (possibly high-dimensional). 
+            Controls (possibly high-dimensional).
 
         Returns
         -------

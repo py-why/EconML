@@ -28,7 +28,6 @@ steps:
   - script: 'pip install pycodestyle && pycodestyle econml'
     failOnStderr: true
     displayName: Linting
-    continueOnError: true
 
   # Set mark to disable slow tests via environment variable, depending on certain conditions
   - powershell: |
