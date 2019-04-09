@@ -4,7 +4,7 @@
 import unittest
 import pytest
 from sklearn.base import TransformerMixin
-from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from econml.dml import DMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
@@ -51,6 +51,23 @@ class TestDML(unittest.TestCase):
         dml = DMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
         self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
+
+    def test_discrete_treatments(self):
+        """Test that we can use discrete treatments"""
+        dml = DMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
+                               featurizer=FunctionTransformer(), discrete_treatment=True)
+        # create a simple artificial setup where effect of moving from treatment
+        #     1 -> 2 is 2,
+        #     1 -> 3 is 1, and
+        #     2 -> 3 is -1 (necessarily, by composing the previous two effects)
+        # Using an uneven number of examples from different classes,
+        # and having the treatments in non-lexicographic order,
+        # Should rule out some basic issues.
+        dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+        np.testing.assert_almost_equal(dml.effect(np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                                                  np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]),
+                                                  np.ones((9, 1))),
+                                       [0, 2, 1, -2, 0, -1, -1, 1, 0])
 
     @staticmethod
     def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer()):
