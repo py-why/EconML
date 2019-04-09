@@ -12,9 +12,9 @@ from the treatment residuals.
 import numpy as np
 import copy
 from .utilities import shape, reshape, ndim, hstack, cross_product, transpose
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.linear_model import LinearRegression, LassoCV
-from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
+from sklearn.preprocessing import PolynomialFeatures, LabelEncoder, OneHotEncoder
 from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
@@ -53,11 +53,12 @@ class _RLearner(LinearCateEstimator):
     """
 
     def __init__(self, model_y, model_t, model_final,
-                 n_splits, random_state):
+                 discrete_treatment, n_splits, random_state):
         self._models_y = [clone(model_y, safe=False) for _ in range(n_splits)]
         self._models_t = [clone(model_t, safe=False) for _ in range(n_splits)]
         self._model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
+        self._discrete_treatment = discrete_treatment
         self._random_state = check_random_state(random_state)
 
     def fit(self, Y, T, X=None, W=None):
@@ -67,19 +68,33 @@ class _RLearner(LinearCateEstimator):
             W = np.empty((shape(Y)[0], 0))
         assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0]
 
-        folds = KFold(self._n_splits, shuffle=True, random_state=self._random_state).split(X)
-        Y_res = np.zeros_like(Y)
-        T_res = np.zeros_like(T)
+        if self._discrete_treatment:
+            folds = StratifiedKFold(self._n_splits, shuffle=True,
+                                    random_state=self._random_state).split(np.empty_like(X), T)
+            self._label_encoder = LabelEncoder()
+            self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
+            T = self._label_encoder.fit_transform(T)
+            T_out = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
+            T_out = T_out[:, 1:]  # drop first column since all columns sum to one
+        else:
+            folds = KFold(self._n_splits, shuffle=True, random_state=self._random_state).split(X)
+            T_out = T
+
+        Y_res = np.zeros(shape(Y))
+        T_res = np.zeros(shape(T_out))
         for idx, (train_idxs, test_idxs) in enumerate(folds):
             Y_train, Y_test = Y[train_idxs], Y[test_idxs]
-            T_train, T_test = T[train_idxs], T[test_idxs]
+            T_train, T_test = T[train_idxs], T_out[test_idxs]
             X_train, X_test = X[train_idxs], X[test_idxs]
             W_train, W_test = W[train_idxs], W[test_idxs]
             # TODO: If T is a vector rather than a 2-D array, then the model's fit must accept a vector...
             #       Do we want to reshape to an nx1, or just trust the user's choice of input?
             #       (Likewise for Y below)
             self._models_t[idx].fit(X_train, W_train, T_train)
-            T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)
+            if self._discrete_treatment:
+                T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)[:, 1:]
+            else:
+                T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)
             self._models_y[idx].fit(X_train, W_train, Y_train)
             Y_res[test_idxs] = Y_test - self._models_y[idx].predict(X_test, W_test)
 
@@ -110,6 +125,15 @@ class _RLearner(LinearCateEstimator):
             X = np.ones((1, 1))
         return self._model_final.predict(X)
 
+    # need to override effect in case of discrete treatments
+    # TODO: should this logic be moved up to the LinearCateEstimator class and
+    #       removed from here and from the OrthoForest implementation?
+    def effect(self, T0, T1, X):
+        if self._discrete_treatment:
+            T0 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T0), (-1, 1)))[:, 1:]
+            T1 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T1), (-1, 1)))[:, 1:]
+        return super().effect(T0, T1, X)
+
 
 class _DMLCateEstimatorBase(_RLearner):
     """
@@ -136,6 +160,9 @@ class _DMLCateEstimatorBase(_RLearner):
     sparseLinear: bool
         Whether to use sparse linear model assumptions
 
+    discrete_treatment: bool
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
     n_splits: int
         The number of splits to use when fitting the first-stage models.
 
@@ -150,6 +177,7 @@ class _DMLCateEstimatorBase(_RLearner):
                  model_y, model_t, model_final,
                  featurizer,
                  sparseLinear,
+                 discrete_treatment,
                  n_splits,
                  random_state):
 
@@ -171,7 +199,10 @@ class _DMLCateEstimatorBase(_RLearner):
                 self._model.fit(self._combine(X, W), Target)
 
             def predict(self, X, W):
-                return self._model.predict(self._combine(X, W))
+                if (not self._is_Y) and discrete_treatment:
+                    return self._model.predict_proba(self._combine(X, W))
+                else:
+                    return self._model.predict(self._combine(X, W))
 
         class FinalWrapper:
             def __init__(self):
@@ -209,6 +240,7 @@ class _DMLCateEstimatorBase(_RLearner):
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
                          model_t=FirstStageWrapper(model_t, is_Y=False),
                          model_final=FinalWrapper(),
+                         discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -246,6 +278,9 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
+    discrete_treatment: bool, optional (default is False)
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
     n_splits: int, optional (default is 2)
         The number of splits to use when fitting the first-stage models.
 
@@ -259,6 +294,7 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
     def __init__(self,
                  model_y, model_t, model_final=LinearRegression(fit_intercept=False),
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                 discrete_treatment=False,
                  n_splits=2,
                  random_state=None):
         super().__init__(model_y=model_y,
@@ -266,6 +302,7 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
                          model_final=model_final,
                          featurizer=featurizer,
                          sparseLinear=False,
+                         discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -296,6 +333,9 @@ class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
+    discrete_treatment: bool, optional (default is False)
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
     n_splits: int, optional (default is 2)
         The number of splits to use when fitting the first-stage models.
 
@@ -309,6 +349,7 @@ class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
     def __init__(self,
                  linear_model_y=LassoCV(), linear_model_t=LassoCV(), model_final=LinearRegression(fit_intercept=False),
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                 discrete_treatment=False,
                  n_splits=2,
                  random_state=None):
         super().__init__(model_y=linear_model_y,
@@ -316,6 +357,7 @@ class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
                          model_final=model_final,
                          featurizer=featurizer,
                          sparseLinear=True,
+                         discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
 
