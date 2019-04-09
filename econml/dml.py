@@ -15,8 +15,9 @@ from .utilities import shape, reshape, ndim, hstack, cross_product, transpose
 from sklearn.model_selection import KFold
 from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
-from sklearn.base import clone
+from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
+from sklearn.utils import check_random_state
 from .cate_estimator import LinearCateEstimator
 
 
@@ -41,16 +42,23 @@ class _RLearner(LinearCateEstimator):
         take an extra second argument (the treatment residuals).  Predict, on the other hand,
         should just take the features and return the constant marginal effect.
 
-    n_splits: int, optional (default is 2)
+    n_splits: int
         The number of splits to use when fitting the first-stage models.
 
+    random_state: int, RandomState instance or None
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
     """
 
-    def __init__(self, model_y, model_t, model_final, n_splits=2):
+    def __init__(self, model_y, model_t, model_final,
+                 n_splits, random_state):
         self._models_y = [clone(model_y, safe=False) for _ in range(n_splits)]
         self._models_t = [clone(model_t, safe=False) for _ in range(n_splits)]
         self._model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
+        self._random_state = check_random_state(random_state)
 
     def fit(self, Y, T, X=None, W=None):
         if X is None:
@@ -59,9 +67,10 @@ class _RLearner(LinearCateEstimator):
             W = np.empty((shape(Y)[0], 0))
         assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0]
 
-        y_res = np.zeros(shape(Y))
-        t_res = np.zeros(shape(T))
-        for idx, (train_idxs, test_idxs) in enumerate(KFold(self._n_splits, shuffle=True).split(X)):
+        folds = KFold(self._n_splits, shuffle=True, random_state=self._random_state).split(X)
+        Y_res = np.zeros_like(Y)
+        T_res = np.zeros_like(T)
+        for idx, (train_idxs, test_idxs) in enumerate(folds):
             Y_train, Y_test = Y[train_idxs], Y[test_idxs]
             T_train, T_test = T[train_idxs], T[test_idxs]
             X_train, X_test = X[train_idxs], X[test_idxs]
@@ -70,11 +79,11 @@ class _RLearner(LinearCateEstimator):
             #       Do we want to reshape to an nx1, or just trust the user's choice of input?
             #       (Likewise for Y below)
             self._models_t[idx].fit(X_train, W_train, T_train)
-            t_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)
+            T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)
             self._models_y[idx].fit(X_train, W_train, Y_train)
-            y_res[test_idxs] = Y_test - self._models_y[idx].predict(X_test, W_test)
+            Y_res[test_idxs] = Y_test - self._models_y[idx].predict(X_test, W_test)
 
-        self._model_final.fit(X, t_res, y_res)
+        self._model_final.fit(X, T_res, Y_res)
 
     def const_marginal_effect(self, X=None):
         """
@@ -116,26 +125,33 @@ class _DMLCateEstimatorBase(_RLearner):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.  Must be a linear model for correctness when sparseLinear is `True`.
 
-    model_final: estimator, optional (default is `LinearRegression(fit_intercept=False)`)
+    model_final: estimator
         The estimator for fitting the response residuals to the treatment residuals. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
-    featurizer: transformer, optional (default is `PolynomialFeatures(degree=1, include_bias=True)`)
+    featurizer: transformer
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
     sparseLinear: bool
         Whether to use sparse linear model assumptions
 
-    n_splits: int, optional (default is 2)
+    n_splits: int
         The number of splits to use when fitting the first-stage models.
+
+    random_state: int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
     """
 
     def __init__(self,
                  model_y, model_t, model_final,
                  featurizer,
                  sparseLinear,
-                 n_splits):
+                 n_splits,
+                 random_state):
 
         class FirstStageWrapper:
             def __init__(self, model, is_Y):
@@ -193,7 +209,8 @@ class _DMLCateEstimatorBase(_RLearner):
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
                          model_t=FirstStageWrapper(model_t, is_Y=False),
                          model_final=FinalWrapper(),
-                         n_splits=n_splits)
+                         n_splits=n_splits,
+                         random_state=random_state)
 
     @property
     def coef_(self):
@@ -232,18 +249,25 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
     n_splits: int, optional (default is 2)
         The number of splits to use when fitting the first-stage models.
 
+    random_state: int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
     """
 
     def __init__(self,
                  model_y, model_t, model_final=LinearRegression(fit_intercept=False),
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
-                 n_splits=2):
+                 n_splits=2,
+                 random_state=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=model_final,
                          featurizer=featurizer,
                          sparseLinear=False,
-                         n_splits=n_splits)
+                         n_splits=n_splits,
+                         random_state=random_state)
 
 
 class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
@@ -274,18 +298,26 @@ class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
 
     n_splits: int, optional (default is 2)
         The number of splits to use when fitting the first-stage models.
+
+    random_state: int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
     """
 
     def __init__(self,
                  linear_model_y=LassoCV(), linear_model_t=LassoCV(), model_final=LinearRegression(fit_intercept=False),
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
-                 n_splits=2):
+                 n_splits=2,
+                 random_state=None):
         super().__init__(model_y=linear_model_y,
                          model_t=linear_model_t,
                          model_final=model_final,
                          featurizer=featurizer,
                          sparseLinear=True,
-                         n_splits=n_splits)
+                         n_splits=n_splits,
+                         random_state=random_state)
 
 
 class KernelDMLCateEstimator(DMLCateEstimator):
@@ -315,19 +347,23 @@ class KernelDMLCateEstimator(DMLCateEstimator):
     n_splits: int, optional (default is 2)
         The number of splits to use when fitting the first-stage models.
 
-    """
+     random_state: int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+   """
 
     def __init__(self, model_y, model_t, model_final=LinearRegression(fit_intercept=False),
                  dim=20, bw=1.0, n_splits=2, random_state=None):
-        class RandomFeatures:
-            def __init__(self):
-                self.omegas = {}
-                self.biases = np.random.uniform(0, 2 * np.pi, size=(1, dim))
+        class RandomFeatures(TransformerMixin):
+            def fit(innerself, X):
+                innerself.omegas = self._random_state.normal(0, 1 / bw, size=(shape(X)[1], dim))
+                innerself.biases = self._random_state.uniform(0, 2 * np.pi, size=(1, dim))
+                return innerself
 
-            def fit_transform(self, X):
-                d_x = shape(X)[1]
-                omegas = self.omegas.setdefault(d_x, np.random.normal(0, 1 / bw, size=(d_x, dim)))
-                return np.sqrt(2 / dim) * np.cos(np.matmul(X, omegas) + self.biases)
+            def transform(innerself, X):
+                return np.sqrt(2 / dim) * np.cos(np.matmul(X, innerself.omegas) + innerself.biases)
 
         super().__init__(model_y=model_y, model_t=model_t, model_final=model_final,
-                         featurizer=RandomFeatures(), n_splits=n_splits)
+                         featurizer=RandomFeatures(), n_splits=n_splits, random_state=random_state)
