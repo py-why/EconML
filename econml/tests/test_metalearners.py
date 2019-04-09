@@ -15,6 +15,8 @@ class TestMetalearners(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Set random seed
+        cls.random_state = np.random.RandomState(12345)
         # Generate data
         # DGP constants
         cls.d = 5
@@ -23,7 +25,7 @@ class TestMetalearners(unittest.TestCase):
         cls.beta = np.array([0.25, -0.38, 1.41, 0.50, -1.22])
         cls.heterogeneity_index = 1
         # Test data
-        cls.X_test = multivariate_normal(
+        cls.X_test = cls.random_state.multivariate_normal(
             np.zeros(cls.d),
             np.diag(np.ones(cls.d)),
             cls.n_test)
@@ -162,7 +164,7 @@ class TestMetalearners(unittest.TestCase):
 
     @classmethod
     def _untreated_outcome(cls, x):
-        return np.dot(x, cls.beta) + normal(0, 1)
+        return np.dot(x, cls.beta) + cls.random_state.normal(0, 1)
 
     @classmethod
     def _const_te(cls, x):
@@ -185,9 +187,9 @@ class TestMetalearners(unittest.TestCase):
             propensity (func): probability of treatment conditional on covariates
         """
         # Generate covariates
-        X = multivariate_normal(np.zeros(d), np.diag(np.ones(d)), n)
+        X = cls.random_state.multivariate_normal(np.zeros(d), np.diag(np.ones(d)), n)
         # Generate treatment
-        T = np.apply_along_axis(lambda x: binomial(1, propensity(x), 1)[0], 1, X)
+        T = np.apply_along_axis(lambda x: cls.random_state.binomial(1, propensity(x), 1)[0], 1, X)
         # Calculate outcome
         Y0 = np.apply_along_axis(lambda x: untreated_outcome(x), 1, X)
         treat_effect = np.apply_along_axis(lambda x: treatment_effect(x), 1, X)
