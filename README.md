@@ -158,7 +158,7 @@ To see more complex examples, go to the [notebooks](https://github.com/Microsoft
 
 # For Developers
 
-You can get starting by cloning this repository. We use 
+You can get started by cloning this repository. We use 
 [setuptools](https://setuptools.readthedocs.io/en/latest/index.html) for building and distributing our package.
 We rely on some recent features of setuptools, so make sure to upgrade to a recent version with
 `pip install setuptools --upgrade`.  Then from your local copy of the repository you can run `python setup.py develop` to get started.
