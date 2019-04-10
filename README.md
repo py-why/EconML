@@ -7,12 +7,17 @@
 
 <h1><img src="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/MSR-ALICE-HeaderGraphic-1920x720_1-800x550.jpg" width="130px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
 
-The [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research is 
-aimed at applying Artificial Intelligence concepts to economic decision making.  The Microsoft EconML 
-package is part of that project, providing a toolkit that combines state-of-the-art machine learning 
-techniques with econometrics in order to bring automation to complex causal inference problems.  This 
+**EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and build as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
+techniques with econometrics in order to bring automation to complex causal inference problems. The promise of EconML:
+
+* Implement recent techniques in the literature at the intersection of econometrics and machine learning
+* Maintain flexibility in modeling the effect heterogeneity (via techniques such as random forests, boosting, lasso and neural nets), while preserving the causal interpretation of the learned model and often offering valid confidence intervals
+* Unified API
+* Built on standard Python packages for Machine Learning and Data Analysis
+
+In a nutshell, this
 toolkit is designed to measure the causal effect of some treatment variable(s) `T` on an outcome 
-variable `Y`, controlling for a set of features `X`.  For more information about how to use this package, 
+variable `Y`, controlling for a set of features `X`. For detailed information about the package, 
 consult the documentation at https://econml.azurewebsites.net/.
 
 <details>
@@ -20,7 +25,7 @@ consult the documentation at https://econml.azurewebsites.net/.
 
 - [Introduction](#introduction)
   - [About Treatment Effect Estimation](#about-treatment-effect-estimation)
-  - [Real-world Use Cases](#real-world-use-cases)
+  - [Example Applications](#example-applications)
 - [News](#news)
 - [Getting Started](#getting-started)
   - [Installation](#installation)
@@ -38,16 +43,18 @@ consult the documentation at https://econml.azurewebsites.net/.
 
 ## About Treatment Effect Estimation
 
-One of the biggest promises of machine learning is the automation of decision making in a multitude of application domains. A core problem that arises in most data-driven personalized decision scenarios is the estimation of heterogeneous treatment effects: what is the effect of an intervention on an outcome of interest as a function of a set of observable characteristics of the treated sample? For instance, this problem arises in personalized pricing, where the goal is to estimate the effect of a price discount on the demand as a function of characteristics of the consumer. Similarly it arises in medical trials where the goal is to estimate the effect of a drug treatment on the clinical response of a patient as a function of patient characteristics. In many such settings we have an abundance of observational data, where the treatment was chosen via some unknown policy and the ability to run control A/B tests is limited.
+One of the biggest promises of machine learning is to automate decision making in a multitude of domains. At the core of many data-driven personalized decision scenarios is the estimation of heterogeneous treatment effects: what is the causal effect of an intervention on an outcome of interest for a sample with a particular set of features? 
 
-## Real-world Use Cases
+Such questions arise frequently in customer segmentation (what is the effect of placing a customer in a tier over another tier), dynamic pricing (what is the effect of a pricing policy on demand) and medical studies (what is the effect of a treatment on a patient). In many such settings we have an abundance of observational data, where the treatment was chosen via some unknown policy, but the ability to run control A/B tests is limited.
+
+## Example Applications
 
 <table style="width:80%">
   <tr align="left">
     <td width="25%"><img src="https://static1.squarespace.com/static/56ba9cf82fe131625b072839/t/56f3e3107c65e4c7444a7860/1458823972178/"/></td>
     <td width="75%">
         <h4>Customer Targeting</h4>
-        <p> Businesses offer personalized incentives to customers to increase sales and level of engagement. Any such personalized intervention corresponds to a monetary investment and the main question that business analytics are called to answer is: what is the return on investment? Analyzing the ROI is inherently a treatment effect question: what was the effect of any investment on a customer's spend?Understanding how ROI varies across customers can enable more targeted investment policies and increased ROI via better targeting. 
+        <p> Businesses offer personalized incentives to customers to increase sales and level of engagement. Any such personalized intervention corresponds to a monetary investment and the main question that business analytics are called to answer is: what is the return on investment? Analyzing the ROI is inherently a treatment effect question: what was the effect of any investment on a customer's spend? Understanding how ROI varies across customers can enable more targeted investment policies and increased ROI via better targeting. 
         </p>
     </td>
   </tr>
