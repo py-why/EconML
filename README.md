@@ -42,11 +42,19 @@ One of the biggest promises of machine learning is the automation of decision ma
 
 ## Real-world Use Cases
 
+Customer Targeting/ Segmentation 
+
+Personalized Pricing
+
+Clinical Trials
+
+Click-through Rates
+
 # News
 
-04/10/2019: Release v0.2, see release notes [here](release_notes_link).
+**04/10/2019:** Release v0.2, see release notes [here](release_notes_link).
 
-03/06/2019: Release v0.1, welcome to have a try and provide feedback.
+**03/06/2019:** Release v0.1, welcome to have a try and provide feedback.
 
 # Getting Started
 
@@ -60,7 +68,7 @@ To install from source, see [For Developers](#for-developers) section below.
 
 ## Usage Examples
 
-* Double Machine Learning
+* [Double Machine Learning](#references)
 
   ```Python
   from econml import DMLCateEstimator
@@ -71,11 +79,11 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effects = est.const_marginal_effect(X_test)
   ```
 
-* Orthogonal Random Forests
+* [Orthogonal Random Forests](#references)
 
   ```Python
   from econml import ContinuousTreatmentOrthoForest
-  # Using defaults
+  # Use defaults
   est = ContinuousTreatmentOrthoForest()
   # Or specify hyperparameters
   est = ContinuousTreatmentOrthoForest(n_trees=500, min_leaf_size=10, max_depth=10, 
@@ -86,7 +94,7 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effects = est.const_marginal_effect(X_test)
     ```
 
-* Deep Instrumental Variables
+* [Deep Instrumental Variables](#references)
   
   ```Python
   from econml import DeepIVEstimator
@@ -111,7 +119,7 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effect_interval = boot_est.const_marginal_effect_interval(X_test, lower=1, upper=99)
   ```
 
-To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository.
+To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
 
 # For Developers
 
@@ -135,6 +143,12 @@ The reStructuredText files that make up the documentation are stored in the [doc
 
 # Blogs and Publications
 
+* May 2019: [Open Data Science Conference Workshop](https://staging5.odsc.com/training/portfolio/machine-learning-estimation-of-heterogeneous-treatment-effect-the-microsoft-econml-library) 
+
+* 2018: [Orthogonal Random Forests paper](https://arxiv.org/abs/1806.03467)
+
+* 2017: [DeepIV paper](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf)
+
 # Contributing and Feedback
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
@@ -150,3 +164,11 @@ For more information see the [Code of Conduct FAQ](https://opensource.microsoft.
 contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
 
 # References
+
+M. Oprescu, V. Syrgkanis and Z. S. Wu.
+**Orthogonal Random Forest for Causal Inference.**
+[*ArXiv preprint arXiv:1806.03467*](http://arxiv.org/abs/1806.03467), 2018.
+
+Jason Hartford, Greg Lewis, Kevin Leyton-Brown, and Matt Taddy. **Deep IV: A flexible approach for counterfactual prediction.** [*Proceedings of the 34th International Conference on Machine Learning*](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf), 2017.
+
+V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newey. **Double Machine Learning for Treatment and Causal Parameters.** [*ArXiv preprint arXiv:1608.00060*](https://arxiv.org/abs/1608.00060), 2016.
