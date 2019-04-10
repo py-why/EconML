@@ -165,7 +165,7 @@ We rely on some recent features of setuptools, so make sure to upgrade to a rece
 
 ## Running the tests
 
-This project uses [pytest](https:docs.pytest.org/) for testing.  To run tests locally after installing the package, 
+This project uses [pytest](https://docs.pytest.org/) for testing.  To run tests locally after installing the package, 
 you can use `python setup.py pytest`.
 
 ## Generating the documentation
