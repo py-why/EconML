@@ -449,8 +449,9 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                     T_hat = _cross_fit(model_T, X_tilde, T, split_indices, sample_weight=sample_weight)
                     Y_hat = _cross_fit(model_Y, X_tilde, Y, split_indices, sample_weight=sample_weight)
                 else:
-                    T_hat = model_T.fit(X_tilde, T).predict(X_tilde)
-                    Y_hat = model_Y.fit(X_tilde, Y).predict(X_tilde)
+                    # need safe=False when cloning for WeightedModelWrapper
+                    T_hat = clone(model_T, safe=False).fit(X_tilde, T).predict(X_tilde)
+                    Y_hat = clone(model_Y, safe=False).fit(X_tilde, Y).predict(X_tilde)
             except ValueError as exc:
                 raise ValueError("The original error: {0}".format(str(exc)) +
                                  " This might be caused by too few sample in the tree leafs." +
