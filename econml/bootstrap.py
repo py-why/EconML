@@ -3,6 +3,7 @@
 
 """Bootstrap sampling."""
 import numpy as np
+from joblib import Parallel, delayed
 from sklearn.base import clone
 
 
@@ -31,11 +32,15 @@ class BootstrapEstimator(object):
 
     n_bootstrap_samples : int
         How many draws to perform.
+
+    n_jobs: int, default: None
+        The maximum number of concurrently running jobs, as in joblib.Parallel.
     """
 
-    def __init__(self, wrapped, n_bootstrap_samples=1000):
+    def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None):
         self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
+        self._n_jobs = n_jobs
 
     # TODO: Add a __dir__ implementation?
 
@@ -48,8 +53,10 @@ class BootstrapEstimator(object):
         """
         n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
         indices = np.random.choice(n_samples, size=(self._n_bootstrap_samples, n_samples), replace=True)
-        for obj, inds in zip(self._instances, indices):
-            obj.fit(*[arg[inds] for arg in args], **{arg: named_args[arg][inds] for arg in named_args})
+        Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
+            (obj.fit, [arg[inds] for arg in args], {arg: named_args[arg][inds] for arg in named_args})
+            for obj, inds in zip(self._instances, indices)
+        )
         return self
 
     def __getattr__(self, name):
@@ -60,7 +67,8 @@ class BootstrapEstimator(object):
         """
         def proxy(make_call, name, summary):
             def summarize_with(f):
-                return summary(np.array([f(obj, name) for obj in self._instances]))
+                return summary(np.array(Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
+                    (f, (obj, name), {}) for obj in self._instances)))
             if make_call:
                 def call(*args, **kwargs):
                     return summarize_with(lambda obj, name: getattr(obj, name)(*args, **kwargs))
