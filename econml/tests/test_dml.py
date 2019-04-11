@@ -4,10 +4,10 @@
 import unittest
 import pytest
 from sklearn.base import TransformerMixin
-from sklearn.linear_model import LinearRegression, Lasso
+from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from econml.dml import DMLCateEstimator, SparseLinearDMLCateEstimator
+from econml.dml import DMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 
@@ -30,24 +30,44 @@ class TestDML(unittest.TestCase):
             for d_y in [2, -1]:
                 for d_x in [2, None]:
                     for d_w in [2, None]:
-                        n = 20
-                        with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t):
-                            W, X, Y, T = [np.random.normal(size=(n, d)) if (d and d >= 0)
-                                          else np.random.normal(size=(n,)) if (d and d < 0)
-                                          else None
-                                          for d in [d_w, d_x, d_y, d_t]]
+                        for est in [DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression()),
+                                    SparseLinearDMLCateEstimator(linear_model_y=LinearRegression(),
+                                                                 linear_model_t=LinearRegression()),
+                                    KernelDMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())]:
+                            n = 20
+                            with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t):
+                                W, X, Y, T = [np.random.normal(size=(n, d)) if (d and d >= 0)
+                                              else np.random.normal(size=(n,)) if (d and d < 0)
+                                              else None
+                                              for d in [d_w, d_x, d_y, d_t]]
 
-                            dml = DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())
-                            dml.fit(Y, T, X, W)
-                            # just make sure we can call the marginal_effect and effect methods
-                            dml.marginal_effect(None, X)
-                            dml.effect(0, T, X)
+                                est.fit(Y, T, X, W)
+                                # just make sure we can call the marginal_effect and effect methods
+                                est.marginal_effect(None, X)
+                                est.effect(0, T, X)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
         dml = DMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
         self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
+
+    def test_discrete_treatments(self):
+        """Test that we can use discrete treatments"""
+        dml = DMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
+                               featurizer=FunctionTransformer(), discrete_treatment=True)
+        # create a simple artificial setup where effect of moving from treatment
+        #     1 -> 2 is 2,
+        #     1 -> 3 is 1, and
+        #     2 -> 3 is -1 (necessarily, by composing the previous two effects)
+        # Using an uneven number of examples from different classes,
+        # and having the treatments in non-lexicographic order,
+        # Should rule out some basic issues.
+        dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+        np.testing.assert_almost_equal(dml.effect(np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                                                  np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]),
+                                                  np.ones((9, 1))),
+                                       [0, 2, 1, -2, 0, -1, -1, 1, 0])
 
     @staticmethod
     def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer()):
