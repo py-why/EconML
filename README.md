@@ -7,8 +7,8 @@
 
 <h1><img src="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/MSR-ALICE-HeaderGraphic-1920x720_1-800x550.jpg" width="130px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
 
-**EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and build as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
-techniques with econometrics in order to bring automation to complex causal inference problems. The promise of EconML:
+**EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and built as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
+techniques with econometrics to bring automation to complex causal inference problems. The promise of EconML:
 
 * Implement recent techniques in the literature at the intersection of econometrics and machine learning
 * Maintain flexibility in modeling the effect heterogeneity (via techniques such as random forests, boosting, lasso and neural nets), while preserving the causal interpretation of the learned model and often offering valid confidence intervals
@@ -106,7 +106,7 @@ To install from source, see [For Developers](#for-developers) section below.
 * [Double Machine Learning](#references)
 
   ```Python
-  from econml import DMLCateEstimator
+  from econml.dml import DMLCateEstimator
   from sklearn.linear_model import LassoCV
   
   est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV)
@@ -117,7 +117,7 @@ To install from source, see [For Developers](#for-developers) section below.
 * [Orthogonal Random Forests](#references)
 
   ```Python
-  from econml import ContinuousTreatmentOrthoForest
+  from econml.ortho_forest import ContinuousTreatmentOrthoForest
   # Use defaults
   est = ContinuousTreatmentOrthoForest()
   # Or specify hyperparameters
@@ -132,8 +132,22 @@ To install from source, see [For Developers](#for-developers) section below.
 * [Deep Instrumental Variables](#references)
   
   ```Python
-  from econml import DeepIVEstimator
+  import keras
+  from econml.deepiv import DeepIVEstimator
 
+  treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
+                                     keras.layers.Dropout(0.17),
+                                     keras.layers.Dense(64, activation='relu'),
+                                     keras.layers.Dropout(0.17),
+                                     keras.layers.Dense(32, activation='relu'),
+                                     keras.layers.Dropout(0.17)])
+  response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
+                                    keras.layers.Dropout(0.17),
+                                    keras.layers.Dense(64, activation='relu'),
+                                    keras.layers.Dropout(0.17),
+                                    keras.layers.Dense(32, activation='relu'),
+                                    keras.layers.Dropout(0.17),
+                                    keras.layers.Dense(1)])
   est = DeepIVEstimator(n_components=10, # Number of gaussians in the mixture density networks)
                         m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])), # Treatment model
                         h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
