@@ -51,7 +51,7 @@ Such questions arise frequently in customer segmentation (what is the effect of 
 
 <table style="width:80%">
   <tr align="left">
-    <td width="25%"><img src="https://static1.squarespace.com/static/56ba9cf82fe131625b072839/t/56f3e3107c65e4c7444a7860/1458823972178/"/></td>
+    <td width="25%"><img src="https://openclipart.org/image/2400px/svg_to_png/314821/1549443337.png"/></td>
     <td width="75%">
         <h4>Customer Targeting</h4>
         <p> Businesses offer personalized incentives to customers to increase sales and level of engagement. Any such personalized intervention corresponds to a monetary investment and the main question that business analytics are called to answer is: what is the return on investment? Analyzing the ROI is inherently a treatment effect question: what was the effect of any investment on a customer's spend? Understanding how ROI varies across customers can enable more targeted investment policies and increased ROI via better targeting. 
@@ -59,14 +59,14 @@ Such questions arise frequently in customer segmentation (what is the effect of 
     </td>
   </tr>
   <tr align="left">
-    <td width="25%"><img src="https://pngimage.net/wp-content/uploads/2018/05/descuentos-png-5.png"/></td>
+    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c9/Online-shop_button.jpg"/></td>
     <td width="75%">
         <h4>Personalized Pricing</h4>
         <p>Personalized discounts have are widespread in the digital economy. To set the optimal personalized discount policy a business needs to understand what is the effect of a drop in price on the demand of a customer for a product as a function of customer characteristics. The estimation of such personalized demand elasticities can also be phrased in the language of heterogeneous treatment effects, where the treatment is the price on the demand as a function of observable features of the customer. </p>
     </td>
   </tr>
   <tr align="left">
-    <td><img src="https://evolvehealthsolutions.co.uk/wp-content/uploads/2016/10/polypharmacy.jpeg"/></td>
+    <td><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/VariousPills.jpg/640px-VariousPills.jpg"/></td>
     <td width="75%">
         <h4>Stratification in Clinical Trials</h4>
         <p>
@@ -75,7 +75,7 @@ Such questions arise frequently in customer segmentation (what is the effect of 
     </td>
   </tr>
   <tr align="left">
-    <td width="25%"><img src="https://cdn.pixabay.com/photo/2016/07/20/19/42/button-1531109_960_720.png" width="200" /></td>
+    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Mouse-cursor-hand-pointer.svg/1023px-Mouse-cursor-hand-pointer.svg.png" width="200" /></td>
     <td width="75%">
         <h4>Learning Click-Through-Rates</h4>
     <p>
