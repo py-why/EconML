@@ -51,7 +51,7 @@ Such questions arise frequently in customer segmentation (what is the effect of 
 
 <table style="width:80%">
   <tr align="left">
-    <td width="25%"><img src="https://openclipart.org/image/2400px/svg_to_png/314821/1549443337.png"/></td>
+    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Business_card_-_The_Noun_Project.svg/610px-Business_card_-_The_Noun_Project.svg.png"/></td>
     <td width="75%">
         <h4>Customer Targeting</h4>
         <p> Businesses offer personalized incentives to customers to increase sales and level of engagement. Any such personalized intervention corresponds to a monetary investment and the main question that business analytics are called to answer is: what is the return on investment? Analyzing the ROI is inherently a treatment effect question: what was the effect of any investment on a customer's spend? Understanding how ROI varies across customers can enable more targeted investment policies and increased ROI via better targeting. 
