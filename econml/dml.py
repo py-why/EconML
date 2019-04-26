@@ -84,7 +84,7 @@ class _RLearner(LinearCateEstimator):
         T_res = np.zeros(shape(T_out))
         for idx, (train_idxs, test_idxs) in enumerate(folds):
             Y_train, Y_test = Y[train_idxs], Y[test_idxs]
-            T_train, T_test = T[train_idxs], T_out[test_idxs]
+            T_train, T_test = T_out[train_idxs], T_out[test_idxs]
             X_train, X_test = X[train_idxs], X[test_idxs]
             W_train, W_test = W[train_idxs], W[test_idxs]
             # TODO: If T is a vector rather than a 2-D array, then the model's fit must accept a vector...
