@@ -84,7 +84,7 @@ class _RLearner(LinearCateEstimator):
         T_res = np.zeros(shape(T_out))
         for idx, (train_idxs, test_idxs) in enumerate(folds):
             Y_train, Y_test = Y[train_idxs], Y[test_idxs]
-            T_train, T_test = T_out[train_idxs], T_out[test_idxs]
+            T_train, T_test = T[train_idxs], T_out[test_idxs]
             X_train, X_test = X[train_idxs], X[test_idxs]
             W_train, W_test = W[train_idxs], W[test_idxs]
             # TODO: If T is a vector rather than a 2-D array, then the model's fit must accept a vector...
@@ -133,6 +133,26 @@ class _RLearner(LinearCateEstimator):
             T0 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T0), (-1, 1)))[:, 1:]
             T1 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T1), (-1, 1)))[:, 1:]
         return super().effect(T0, T1, X)
+
+    def score(self, Y, T, X, W=None):
+        if T.ndim == 1:
+            T = reshape(T, (-1, 1))
+        if Y.ndim == 1:
+            Y = reshape(Y, (-1, 1))
+        if W is None:
+            W = np.empty((shape(Y)[0], 0))
+        Y_test_pred = np.zeros(shape(Y) + (self._n_splits,))
+        T_test_pred = np.zeros(shape(T) + (self._n_splits,))
+        for ind in range(self._n_splits):
+            Y_test_pred[:, :, ind] = reshape(self._models_y[ind].predict(X, W), shape(Y))
+            T_test_pred[:, :, ind] = reshape(self._models_t[ind].predict(X, W), shape(T))
+        Y_test_pred = Y_test_pred.mean(axis=2)
+        T_test_pred = T_test_pred.mean(axis=2)
+        Y_test_res = Y - Y_test_pred
+        T_test_res = T - T_test_pred
+        Y_test_res_pred = reshape(self._model_final.predict(X, T_test_res), shape(Y))
+        mse = ((Y_test_res - Y_test_res_pred)**2).mean()
+        return mse
 
 
 class _DMLCateEstimatorBase(_RLearner):
@@ -216,21 +236,26 @@ class _DMLCateEstimatorBase(_RLearner):
 
                 self._model.fit(cross_product(self._featurizer.fit_transform(X), T_res), Y_res)
 
-            def predict(self, X):
+            def predict(self, X, T_res=None):
                 # create an identity matrix of size d_t (or just a 1-element array if T was a vector)
                 # the nth row will allow us to compute the marginal effect of the nth component of treatment
-                eye = np.eye(self._d_t[0]) if self._d_t else np.array([1])
+                if T_res is None:
+                    eye = np.eye(self._d_t[0]) if self._d_t else np.array([1])
                 # TODO: Doing this kronecker/reshaping/transposing stuff so that predict can be called
                 #       rather than just using coef_ seems silly, but one benefit is that we can use linear models
                 #       that don't expose a coef_ (e.g. a GridSearchCV over underlying linear models)
-                flat_eye = reshape(eye, (1, -1))
-                XT = reshape(np.kron(flat_eye, self._featurizer.fit_transform(X)),
-                             ((self._d_t[0] if self._d_t else 1) * shape(X)[0], -1))
-                effects = reshape(self._model.predict(XT), (-1,) + self._d_t + self._d_y)
-                if self._d_t and self._d_y:
-                    return transpose(effects, (0, 2, 1))  # need to return as m by d_y by d_t matrix
+                    flat_eye = reshape(eye, (1, -1))
+                    XT = reshape(np.kron(flat_eye, self._featurizer.fit_transform(X)),
+                                 ((self._d_t[0] if self._d_t else 1) * shape(X)[0], -1))
+                    effects = reshape(self._model.predict(XT), (-1,) + self._d_t + self._d_y)
+                    if self._d_t and self._d_y:
+                        return transpose(effects, (0, 2, 1))  # need to return as m by d_y by d_t matrix
+                    else:
+                        return effects
                 else:
-                    return effects
+                    XT = cross_product(self._featurizer.fit_transform(X), T_res)
+                    pred_y = self._model.predict(XT)
+                    return pred_y
 
             @property
             def coef_(self):
