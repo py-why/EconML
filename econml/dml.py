@@ -134,13 +134,15 @@ class _RLearner(LinearCateEstimator):
             T1 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T1), (-1, 1)))[:, 1:]
         return super().effect(T0, T1, X)
 
-    def score(self, Y, T, X, W=None):
+    def score(self, Y, T, X=None, W=None):
         if self._discrete_treatment:
             T = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]
         if T.ndim == 1:
             T = reshape(T, (-1, 1))
         if Y.ndim == 1:
             Y = reshape(Y, (-1, 1))
+        if X is None:
+            X = np.ones((shape(Y)[0], 1))
         if W is None:
             W = np.empty((shape(Y)[0], 0))
         Y_test_pred = np.zeros(shape(Y) + (self._n_splits,))
