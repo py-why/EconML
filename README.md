@@ -7,8 +7,8 @@
 
 <h1><img src="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/MSR-ALICE-HeaderGraphic-1920x720_1-800x550.jpg" width="130px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
 
-**EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and build as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
-techniques with econometrics in order to bring automation to complex causal inference problems. The promise of EconML:
+**EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and built as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
+techniques with econometrics to bring automation to complex causal inference problems. The promise of EconML:
 
 * Implement recent techniques in the literature at the intersection of econometrics and machine learning
 * Maintain flexibility in modeling the effect heterogeneity (via techniques such as random forests, boosting, lasso and neural nets), while preserving the causal interpretation of the learned model and often offering valid confidence intervals
@@ -51,7 +51,7 @@ Such questions arise frequently in customer segmentation (what is the effect of 
 
 <table style="width:80%">
   <tr align="left">
-    <td width="25%"><img src="https://static1.squarespace.com/static/56ba9cf82fe131625b072839/t/56f3e3107c65e4c7444a7860/1458823972178/"/></td>
+    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Business_card_-_The_Noun_Project.svg/610px-Business_card_-_The_Noun_Project.svg.png"/></td>
     <td width="75%">
         <h4>Customer Targeting</h4>
         <p> Businesses offer personalized incentives to customers to increase sales and level of engagement. Any such personalized intervention corresponds to a monetary investment and the main question that business analytics are called to answer is: what is the return on investment? Analyzing the ROI is inherently a treatment effect question: what was the effect of any investment on a customer's spend? Understanding how ROI varies across customers can enable more targeted investment policies and increased ROI via better targeting. 
@@ -59,14 +59,14 @@ Such questions arise frequently in customer segmentation (what is the effect of 
     </td>
   </tr>
   <tr align="left">
-    <td width="25%"><img src="https://pngimage.net/wp-content/uploads/2018/05/descuentos-png-5.png"/></td>
+    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c9/Online-shop_button.jpg"/></td>
     <td width="75%">
         <h4>Personalized Pricing</h4>
         <p>Personalized discounts have are widespread in the digital economy. To set the optimal personalized discount policy a business needs to understand what is the effect of a drop in price on the demand of a customer for a product as a function of customer characteristics. The estimation of such personalized demand elasticities can also be phrased in the language of heterogeneous treatment effects, where the treatment is the price on the demand as a function of observable features of the customer. </p>
     </td>
   </tr>
   <tr align="left">
-    <td><img src="https://evolvehealthsolutions.co.uk/wp-content/uploads/2016/10/polypharmacy.jpeg"/></td>
+    <td><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/VariousPills.jpg/640px-VariousPills.jpg"/></td>
     <td width="75%">
         <h4>Stratification in Clinical Trials</h4>
         <p>
@@ -75,7 +75,7 @@ Such questions arise frequently in customer segmentation (what is the effect of 
     </td>
   </tr>
   <tr align="left">
-    <td width="25%"><img src="https://cdn.pixabay.com/photo/2016/07/20/19/42/button-1531109_960_720.png" width="200" /></td>
+    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Mouse-cursor-hand-pointer.svg/1023px-Mouse-cursor-hand-pointer.svg.png" width="200" /></td>
     <td width="75%">
         <h4>Learning Click-Through-Rates</h4>
     <p>
@@ -106,7 +106,7 @@ To install from source, see [For Developers](#for-developers) section below.
 * [Double Machine Learning](#references)
 
   ```Python
-  from econml import DMLCateEstimator
+  from econml.dml import DMLCateEstimator
   from sklearn.linear_model import LassoCV
   
   est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV)
@@ -117,7 +117,7 @@ To install from source, see [For Developers](#for-developers) section below.
 * [Orthogonal Random Forests](#references)
 
   ```Python
-  from econml import ContinuousTreatmentOrthoForest
+  from econml.ortho_forest import ContinuousTreatmentOrthoForest
   # Use defaults
   est = ContinuousTreatmentOrthoForest()
   # Or specify hyperparameters
@@ -132,8 +132,22 @@ To install from source, see [For Developers](#for-developers) section below.
 * [Deep Instrumental Variables](#references)
   
   ```Python
-  from econml import DeepIVEstimator
+  import keras
+  from econml.deepiv import DeepIVEstimator
 
+  treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
+                                     keras.layers.Dropout(0.17),
+                                     keras.layers.Dense(64, activation='relu'),
+                                     keras.layers.Dropout(0.17),
+                                     keras.layers.Dense(32, activation='relu'),
+                                     keras.layers.Dropout(0.17)])
+  response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
+                                    keras.layers.Dropout(0.17),
+                                    keras.layers.Dense(64, activation='relu'),
+                                    keras.layers.Dropout(0.17),
+                                    keras.layers.Dense(32, activation='relu'),
+                                    keras.layers.Dropout(0.17),
+                                    keras.layers.Dense(1)])
   est = DeepIVEstimator(n_components=10, # Number of gaussians in the mixture density networks)
                         m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])), # Treatment model
                         h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
