@@ -679,7 +679,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         # Call `fit` from parent class
         return super(DiscreteTreatmentOrthoForest, self).fit(Y, T, X, W)
 
-    def effect(self, T0, T1, X=None):
+    def effect(self, X=None, T0=0, T1=1):
         """Calculate the heterogeneous linear CATE θ(·) between two treatment points.
 
         Parameters
@@ -701,6 +701,10 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         Theta : matrix , shape (n, d_y)
             CATE on each outcome for each sample.
         """
+        if ndim(T0) == 0:
+            T0 = np.repeat(T0, 1 if X is None else shape(X)[0])
+        if ndim(T1) == 0:
+            T1 = np.repeat(T1, 1 if X is None else shape(X)[0])
         T0 = self._check_treatment(T0)
         T1 = self._check_treatment(T1)
         T0_encoded = self._label_encoder.transform(T0)

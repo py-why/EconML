@@ -165,7 +165,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         self._model_Y.fit(_add_ones(cross_product(ft_T_hat, ft_X)), Y)
         return self
 
-    def effect(self, T0, T1, X=None):
+    def effect(self, X=None, T0=0, T1=1):
         """
         Calculate the heterogeneous treatment effect τ(·,·,·).
 
@@ -189,6 +189,10 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
             singleton dimension will be collapsed (so this method will return a vector)
 
         """
+        if ndim(T0) == 0:
+            T0 = np.repeat(T0, 1 if X is None else shape(X)[0])
+        if ndim(T1) == 0:
+            T1 = np.repeat(T1, 1 if X is None else shape(X)[0])
         if X is None:
             X = np.empty((shape(T0)[0], 0))
         assert shape(T0) == shape(T1)

@@ -480,7 +480,7 @@ def test_integration():
             y_test, T_test, X_test = econml.dgp.dgp_counterfactual_data_multiple_treatments(
                 n_samples, n_cov, beta, effect, 5. * np.ones(n_treatments))
             dml_r2score.append(dml_reg.score(np.concatenate((X_test, T_test), axis=1), y_test))
-            dml_te.append(dml_reg.effect(np.zeros((1, 0)), np.zeros((1, 1)), np.ones((1, 1))))
+            dml_te.append(dml_reg.effect(np.zeros((1, 1)), np.ones((1, 1)), np.zeros((1, 0))))
 
             # Estimation with other methods for comparison
             direct_reg1.fit(np.concatenate((X, T), axis=1), y)
