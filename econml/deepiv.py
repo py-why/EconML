@@ -21,11 +21,8 @@ from keras.models import Model
 
 
 def _zero_grad(e, vs):
-    if K.backend() == 'cntk':
-        return K.stop_gradient(e)
-    else:
-        z = 0 * K.sum(K.concatenate([K.batch_flatten(v) for v in vs]))
-        return K.stop_gradient(e) + z
+    z = 0 * K.sum(K.concatenate([K.batch_flatten(v) for v in vs]))
+    return K.stop_gradient(e) + z
 
 
 def mog_model(n_components, d_x, d_t):
@@ -97,7 +94,7 @@ def mog_loss_model(n_components, d_t):
     return m
 
 
-def mog_sample_model(n_components, d_t):
+def mog_sample_model(n_components, d_t, n_samples):
     """
     Create a model that generates samples from a mixture of Gaussians.
 
@@ -109,6 +106,9 @@ def mog_sample_model(n_components, d_t):
     d_t : int
         The number of dimensions in the output
 
+    n_samples : int
+        The number of samples to take
+
     Returns
     -------
     A Keras model that takes as inputs pi, mu, and sigma, and generates a single output containing a sample.
@@ -118,45 +118,44 @@ def mog_sample_model(n_components, d_t):
     mu = L.Input((n_components, d_t))
     sig = L.Input((n_components,))
 
-    # CNTK backend can't randomize across batches and doesn't implement cumsum (at least as of June 2018,
-    # see Known Issues on https://docs.microsoft.com/en-us/cognitive-toolkit/Using-CNTK-with-Keras)
     def sample(pi, mu, sig):
         batch_size = K.shape(pi)[0]
-        if K.backend() == 'cntk':
-            # generate cumulative sum via matrix multiplication
-            cumsum = K.dot(pi, K.constant(np.triu(np.ones((n_components, n_components)))))
-        else:
-            cumsum = K.cumsum(pi, 1)
+
+        cumsum = K.cumsum(pi, 1)
         cumsum_shift = K.concatenate([K.zeros_like(cumsum[:, 0:1]), cumsum])[:, :-1]
-        if K.backend() == 'cntk':
-            import cntk as C
-            # Generate standard uniform values in shape (batch_size,1)
-            #   (since we can't use the dynamic batch_size with random.uniform in CNTK,
-            #    we use uniform_like instead with an input of an appropriate shape)
-            rndSmp = C.random.uniform_like(pi[:, 0:1])
-        else:
-            rndSmp = K.random_uniform((batch_size, 1))
+
+        # add an extra sample dimension to get shapes b × 1 × n_c
+        cumsum = K.expand_dims(cumsum, 1)
+        cumsum_shift = K.expand_dims(cumsum_shift, 1)
+
+        rndSmp = K.random_uniform((batch_size, n_samples))
+        # add an extra sample dimension to get shape b × n_s × 1
+        rndSmp = K.expand_dims(rndSmp)
+
         cmp1 = K.less_equal(cumsum_shift, rndSmp)
         cmp2 = K.less(rndSmp, cumsum)
 
         # convert to floats and multiply to perform equivalent of logical AND
         rndIndex = K.cast(cmp1, K.floatx()) * K.cast(cmp2, K.floatx())
 
-        if K.backend() == 'cntk':
-            # Generate standard normal values in shape (batch_size,1,d_t)
-            #   (since we can't use the dynamic batch_size with random.normal in CNTK,
-            #    we use normal_like instead with an input of an appropriate shape)
-            rndNorms = C.random.normal_like(mu[:, 0:1, :])  # K.random_normal((1,d_t))
-        else:
-            rndNorms = K.random_normal((batch_size, 1, d_t))
+        # final shapes will be b × n_s × n_c × d_t
+        # we don't need a separate normal per component, since only one component will be chosen
+        rndNorms = K.random_normal((batch_size, n_samples, 1, d_t))
 
-        rndVec = mu + K.expand_dims(sig) * rndNorms
+        # mu and sigma don't vary per sample
+        mu = K.expand_dims(mu, 1)
+        sig = K.expand_dims(sig, 1)
 
-        # exactly one entry should be nonzero for each b,d combination; use sum to select it
-        return K.sum(K.expand_dims(rndIndex) * rndVec, 1)
+        # sigma additionally doesn't vary per treatment
+        sig = K.expand_dims(sig)
+
+        rndVec = mu + sig * rndNorms
+
+        # exactly one entry should be nonzero for each b,n_s,d combination; use sum to select it
+        return K.sum(K.expand_dims(rndIndex) * rndVec, 2)
 
     # prevent gradient from passing through sampling
-    samp = L.Lambda(lambda pms: _zero_grad(sample(*pms), pms), output_shape=(d_t,))
+    samp = L.Lambda(lambda pms: _zero_grad(sample(*pms), pms), output_shape=(n_samples, d_t))
     samp.trainable = False
 
     return Model([pi, mu, sig], samp([pi, mu, sig]))
@@ -164,7 +163,7 @@ def mog_sample_model(n_components, d_t):
 
 # three options: biased or upper-bound loss require a single number of samples;
 #                unbiased can take different numbers for the network and its gradient
-def response_loss_model(h, p, d_z, d_x, d_y, samples=1, use_upper_bound=False, gradient_samples=0):
+def response_loss_model(h, p, d_z, d_x, d_y, samples=50, use_upper_bound=False, gradient_samples=0):
     """
     Create a Keras model that computes the loss of a response model on data.
 
@@ -173,8 +172,8 @@ def response_loss_model(h, p, d_z, d_x, d_y, samples=1, use_upper_bound=False, g
     h : (tensor, tensor) -> Layer
         Method for building a model of y given p and x
 
-    p : (tensor, tensor) -> Layer
-        Method for building a model of p given z and x
+    p : int -> [tensor, tensor] -> Layer
+        Method for getting n samples of p given z and x
 
     d_z : int
         The number of dimensions in z
@@ -204,28 +203,30 @@ def response_loss_model(h, p, d_z, d_x, d_y, samples=1, use_upper_bound=False, g
     """
     assert not(use_upper_bound and gradient_samples)
 
-    # sample: (() -> Layer, int) -> Layer
-    def sample(f, n):
-        assert n > 0
-        if n == 1:
-            return f()
-        else:
-            return L.average([f() for _ in range(n)])
     z, x, y = [L.Input((d,)) for d in [d_z, d_x, d_y]]
+
+    # TODO: this appears to be broken; by contrast, the mog_sample_model seems to be
+    #       working fine...
+    def mean(f, n):
+        td = L.TimeDistributed(L.Lambda(lambda arrs: f(arrs[:, :d_x], arrs[:, d_x:])))
+        arrs = L.concatenate([L.RepeatVector(n)(x),
+                              p(n)([z, x])])
+        return L.Lambda(lambda x:
+                        K.mean(x, axis=1))(td(arrs))
     if gradient_samples:
         # we want to separately sample the gradient; we use stop_gradient to treat the sampled model as constant
         # the overall computation ensures that we have an interpretable loss (y-h̅(p,x))²,
         # but also that the gradient is -2(y-h̅(p,x))∇h̅(p,x) with *different* samples used for each average
-        diff = L.subtract([y, sample(lambda: h(p(z, x), x), samples)])
-        grad = sample(lambda: h(p(z, x), x), gradient_samples)
+        diff = L.subtract([y, mean(h, samples)])
+        grad = mean(h, gradient_samples)
 
         def make_expr(grad, diff):
             return K.stop_gradient(diff) * (K.stop_gradient(diff + 2 * grad) - 2 * grad)
         expr = L.Lambda(lambda args: make_expr(*args))([grad, diff])
     elif use_upper_bound:
-        expr = sample(lambda: L.Lambda(K.square)(L.subtract([y, h(p(z, x), x)])), samples)
+        expr = mean((lambda p, x: K.square(L.subtract([y, h(p, x)]))), samples)
     else:
-        expr = L.Lambda(K.square)(L.subtract([y, sample(lambda: h(p(z, x), x), samples)]))
+        expr = L.Lambda(K.square)(L.subtract([y, mean(h, samples)]))
     return Model([z, x, y], [expr])
 
 
@@ -331,10 +332,12 @@ class DeepIVEstimator(BaseCateEstimator):
         model.fit([Z, X, T], [], **self._first_stage_options)
 
         lm = response_loss_model(lambda t, x: self._h(t, x),
-                                 lambda z, x: Model([z_in, x_in],
-                                                    # subtle point: we need to build a new model each time,
-                                                    # because each model encapsulates its randomness
-                                                    [mog_sample_model(n_components, d_t)([pi, mu, sig])])([z, x]),
+                                 # subtle point: we need to build a new model each time the lambda is called,
+                                 # because each model encapsulates its randomness
+                                 lambda n: Model([z_in, x_in],
+                                                 [mog_sample_model(n_components,
+                                                                   d_t,
+                                                                   n)([pi, mu, sig])]),
                                  d_z, d_x, d_y,
                                  self._n_samples, self._use_upper_bound_loss, self._n_gradient_samples)
 
