@@ -261,18 +261,20 @@ class DeepIVEstimator(BaseCateEstimator):
     optimizer : string, optional
         The optimizer to use. Defaults to "adam"
 
-    s1 : int, optional
-        The number of epochs to train the first stage model.
-        Defaults to 100.
+    first_stage_options : dictionary, optional
+        The keyword arguments to pass to Keras's `fit` method when training the first stage model.
+        Defaults to `{"epochs": 100}`.
 
-    s2 : int, optional
-        The number of epochs to train the second stage model.
-        Defaults to 100.
+    second_stage_options : dictionary, optional
+        The keyword arguments to pass to Keras's `fit` method when training the second stage model.
+        Defaults to `{"epochs": 100}`.
     """
 
     def __init__(self, n_components, m, h,
                  n_samples, use_upper_bound_loss=False, n_gradient_samples=0,
-                 optimizer='adam', s1=100, s2=100):
+                 optimizer='adam',
+                 first_stage_options={"epochs": 100},
+                 second_stage_options={"epochs": 100}):
         self._n_components = n_components
         self._m = m
         self._h = h
@@ -280,8 +282,8 @@ class DeepIVEstimator(BaseCateEstimator):
         self._use_upper_bound_loss = use_upper_bound_loss
         self._n_gradient_samples = n_gradient_samples
         self._optimizer = optimizer
-        self._s1 = s1
-        self._s2 = s2
+        self._first_stage_options = first_stage_options
+        self._second_stage_options = second_stage_options
 
     def fit(self, Y, T, X, Z):
         """Estimate the counterfactual model from data.
@@ -326,7 +328,7 @@ class DeepIVEstimator(BaseCateEstimator):
         model.add_loss(L.Lambda(K.mean)(ll))
         model.compile(self._optimizer)
         # TODO: do we need to give the user more control over other arguments to fit?
-        model.fit([Z, X, T], [], epochs=self._s1)
+        model.fit([Z, X, T], [], **self._first_stage_options)
 
         lm = response_loss_model(lambda t, x: self._h(t, x),
                                  lambda z, x: Model([z_in, x_in],
@@ -341,7 +343,7 @@ class DeepIVEstimator(BaseCateEstimator):
         response_model.add_loss(L.Lambda(K.mean)(rl))
         response_model.compile(self._optimizer)
         # TODO: do we need to give the user more control over other arguments to fit?
-        response_model.fit([Z, X, Y], [], epochs=self._s2)
+        response_model.fit([Z, X, Y], [], **self._second_stage_options)
 
         self._effect_model = Model([t_in, x_in], [self._h(t_in, x_in)])
 

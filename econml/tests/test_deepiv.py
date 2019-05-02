@@ -88,9 +88,7 @@ class TestDeepIV(unittest.TestCase):
                                      # (to make loss estimate unbiased)
                                      n_gradient_samples=1,
                                      # Keras optimizer to use for training - see https://keras.io/optimizers/
-                                     optimizer='adam',
-                                     s1=1,  # number of epochs to train treatment model
-                                     s2=1)  # number of epochs to train response model
+                                     optimizer='adam')
 
             deepIv.fit(Y=y, T=t, X=x, Z=z)
             # do something with predictions...
@@ -101,8 +99,7 @@ class TestDeepIV(unittest.TestCase):
     @pytest.mark.slow
     def test_deepiv_models(self):
         n = 2000
-        s1 = 2
-        s2 = 2
+        epochs = 2
         e = np.random.uniform(low=-0.5, high=0.5, size=(n, 1))
         z = np.random.uniform(size=(n, 1))
         x = np.random.uniform(size=(n, 1)) + e
@@ -131,7 +128,7 @@ class TestDeepIV(unittest.TestCase):
                                      lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     s1=s1, s2=s2)
+                                     first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
             deepIv.fit(y, p, x, z)
 
             losses.append(np.mean(np.square(y_fresh - deepIv.predict(p_fresh, x_fresh))))
@@ -240,8 +237,7 @@ class TestDeepIV(unittest.TestCase):
             return demand(n=n, seed=s, ypcor=0.5, use_images=images, test=test)
 
         n = 1000
-        s1 = 50
-        s2 = 50
+        epochs = 50
         x, z, t, y, g_true = datafunction(n, 1)
 
         print("Data shapes:\n\
@@ -273,7 +269,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                      lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     s1=s1, s2=s2)
+                                     first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
             deepIv.fit(y, t, x, z)
 
             losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
@@ -372,8 +368,8 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
             return demand(n=n, seed=s, ypcor=0.5, use_images=images, test=test)
 
         n = 1000
-        s1 = 50
-        s2 = 50
+        epochs = 50
+
         x, z, t, y, g_true = datafunction(n, 1)
 
         print("Data shapes:\n\
@@ -399,7 +395,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                      lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     s1=s1, s2=s2)
+                                     first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
             deepIv.fit(y, t, x, z)
 
             losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
@@ -553,7 +549,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                      lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     s1=50, s2=50)
+                                     first_stage_options={'epochs': 50}, second_stage_options={'epochs': 50})
             deepIv.fit(y[:n // 2], t[:n // 2], x[:n // 2], z[:n // 2])
 
             results.append({'s': s, 'n1': n1, 'u': u, 'n2': n2,

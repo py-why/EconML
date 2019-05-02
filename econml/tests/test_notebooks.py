@@ -6,6 +6,7 @@ import html
 import os
 import nbformat
 import nbconvert
+import traitlets
 
 _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
 _notebooks = [path
@@ -19,7 +20,9 @@ def test_notebook(file):
     nb = nbformat.read(os.path.join(_nbdir, file), as_version=4)
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves
-    ep = nbconvert.preprocessors.ExecutePreprocessor(timeout=900, allow_errors=True)
+    ep = nbconvert.preprocessors.ExecutePreprocessor(
+        timeout=900, allow_errors=True, extra_arguments=["--HistoryManager.enabled=False"])
+
     ep.preprocess(nb, {'metadata': {'path': _nbdir}})
     errors = [nbconvert.preprocessors.CellExecutionError.from_cell_and_msg(cell, output)
               for cell in nb.cells if "outputs" in cell
