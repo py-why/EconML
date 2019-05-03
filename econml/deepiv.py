@@ -384,12 +384,12 @@ class DeepIVEstimator(BaseCateEstimator):
             Note that when Y is a vector rather than a 2-dimensional array, the corresponding
             singleton dimension will be collapsed (so this method will return a vector)
         """
-        if ndim(T0) == 0:
-            T0 = np.repeat(T0, 1 if X is None else shape(X)[0])
-        if ndim(T1) == 0:
-            T1 = np.repeat(T1, 1 if X is None else shape(X)[0])
+        if np.ndim(T0) == 0:
+            T0 = np.repeat(T0, 1 if X is None else np.shape(X)[0])
+        if np.ndim(T1) == 0:
+            T1 = np.repeat(T1, 1 if X is None else np.shape(X)[0])
         if X is None:
-            X = np.empty((shape(T0)[0], 0))
+            X = np.empty((np.shape(T0)[0], 0))
         return self._effect_model.predict([T1, X]) - self._effect_model.predict([T0, X])
 
     def marginal_effect(self, T, X=None):
