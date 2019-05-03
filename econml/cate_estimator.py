@@ -5,7 +5,7 @@
 
 import abc
 import numpy as np
-from .utilities import tensordot, ndim, reshape
+from .utilities import tensordot, ndim, reshape, shape
 
 
 class BaseCateEstimator:
@@ -40,7 +40,7 @@ class BaseCateEstimator:
         pass
 
     @abc.abstractmethod
-    def effect(self, T0, T1, X=None):
+    def effect(self, X=None, T0=0, T1=1):
         """
         Calculate the heterogeneous treatment effect τ(·,·,·).
 
@@ -117,7 +117,7 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         pass
 
-    def effect(self, T0, T1, X=None):
+    def effect(self, X=None, T0=0, T1=1):
         """
         Calculate the heterogeneous treatment effect τ(·,·,·).
 
@@ -144,8 +144,15 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         # TODO: what if input is sparse? - there's no equivalent to einsum,
         #       but tensordot can't be applied to this problem because we don't sum over m
-        dT = T1 - T0
+        # TODO: if T0 or T1 are scalars, we'll promote them to vectors;
+        #       should it be possible to promote them to 2D arrays if that's what we saw during training?
         eff = self.const_marginal_effect(X)
+        m = shape(eff)[0]
+        if ndim(T0) == 0:
+            T0 = np.repeat(T0, m)
+        if ndim(T1) == 0:
+            T1 = np.repeat(T1, m)
+        dT = T1 - T0
         einsum_str = 'myt,mt->my'
         if ndim(dT) == 1:
             einsum_str = einsum_str.replace('t', '')

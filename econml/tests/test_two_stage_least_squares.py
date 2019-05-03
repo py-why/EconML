@@ -80,7 +80,7 @@ class Test2SLS(unittest.TestCase):
             np2sls = NonparametricTwoStageLeastSquares(HermiteFeatures(
                 dt), HermiteFeatures(dx), HermiteFeatures(dz), HermiteFeatures(dt, shift=1))
             np2sls.fit(y, p, x, z)
-            effect = np2sls.effect(np.zeros(shape(p_fresh)), p_fresh, x_fresh)
+            effect = np2sls.effect(x_fresh, np.zeros(shape(p_fresh)), p_fresh)
             losses.append(np.mean(np.square(p_fresh * x_fresh - effect)))
             marg_effs.append(np2sls.marginal_effect(np.array([[0.3], [0.5], [0.7]]), np.array([[0.4], [0.6], [0.2]])))
         print("losses: {}".format(losses))
