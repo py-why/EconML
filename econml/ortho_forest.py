@@ -701,15 +701,15 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         Theta : matrix , shape (n, d_y)
             CATE on each outcome for each sample.
         """
-        if ndim(T0) == 0:
-            T0 = np.repeat(T0, 1 if X is None else shape(X)[0])
-        if ndim(T1) == 0:
-            T1 = np.repeat(T1, 1 if X is None else shape(X)[0])
+        if np.ndim(T0) == 0:
+            T0 = np.repeat(T0, 1 if X is None else np.shape(X)[0])
+        if np.ndim(T1) == 0:
+            T1 = np.repeat(T1, 1 if X is None else np.shape(X)[0])
         T0 = self._check_treatment(T0)
         T1 = self._check_treatment(T1)
         T0_encoded = self._label_encoder.transform(T0)
         T1_encoded = self._label_encoder.transform(T1)
-        return super(DiscreteTreatmentOrthoForest, self).effect(T0_encoded, T1_encoded, X)
+        return super(DiscreteTreatmentOrthoForest, self).effect(X, T0_encoded, T1_encoded)
 
     def _pointwise_effect(self, X_single):
         """
