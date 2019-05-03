@@ -35,6 +35,8 @@ class TestDeepIV(unittest.TestCase):
 
     @pytest.mark.slow
     def test_deepiv_shape(self):
+        fit_opts = {"epochs": 2}
+
         """Make sure that arbitrary sizes for t, z, x, and y don't break the basic operations."""
         for _ in range(5):
             d_t = np.random.choice(range(1, 4))  # number of treatments
@@ -88,7 +90,9 @@ class TestDeepIV(unittest.TestCase):
                                      # (to make loss estimate unbiased)
                                      n_gradient_samples=1,
                                      # Keras optimizer to use for training - see https://keras.io/optimizers/
-                                     optimizer='adam')
+                                     optimizer='adam',
+                                     first_stage_options=fit_opts,
+                                     second_stage_options=fit_opts)
 
             deepIv.fit(Y=y, T=t, X=x, Z=z)
             # do something with predictions...
@@ -96,7 +100,7 @@ class TestDeepIV(unittest.TestCase):
             deepIv.effect(x, np.zeros_like(t), t)
 
         # also test vector t and y
-        for _ in range(5):
+        for _ in range(3):
             d_z = np.random.choice(range(1, 4))  # number of instruments
             d_x = np.random.choice(range(1, 4))  # number of features
             n = 500
@@ -146,7 +150,9 @@ class TestDeepIV(unittest.TestCase):
                                      # (to make loss estimate unbiased)
                                      n_gradient_samples=1,
                                      # Keras optimizer to use for training - see https://keras.io/optimizers/
-                                     optimizer='adam')
+                                     optimizer='adam',
+                                     first_stage_options=fit_opts,
+                                     second_stage_options=fit_opts)
 
             deepIv.fit(Y=y, T=t, X=x, Z=z)
             # do something with predictions...
@@ -427,7 +433,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
             return demand(n=n, seed=s, ypcor=0.5, use_images=images, test=test)
 
         n = 1000
-        epochs = 50
+        epochs = 20
 
         x, z, t, y, g_true = datafunction(n, 1)
 
@@ -608,7 +614,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                      lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     first_stage_options={'epochs': 50}, second_stage_options={'epochs': 50})
+                                     first_stage_options={'epochs': 20}, second_stage_options={'epochs': 20})
             deepIv.fit(y[:n // 2], t[:n // 2], x[:n // 2], z[:n // 2])
 
             results.append({'s': s, 'n1': n1, 'u': u, 'n2': n2,
