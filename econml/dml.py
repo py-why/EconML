@@ -134,6 +134,34 @@ class _RLearner(LinearCateEstimator):
             T1 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T1), (-1, 1)))[:, 1:]
         return super().effect(T0, T1, X)
 
+    def score(self, Y, T, X=None, W=None):
+        if self._discrete_treatment:
+            T = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]
+        if T.ndim == 1:
+            T = reshape(T, (-1, 1))
+        if Y.ndim == 1:
+            Y = reshape(Y, (-1, 1))
+        if X is None:
+            X = np.ones((shape(Y)[0], 1))
+        if W is None:
+            W = np.empty((shape(Y)[0], 0))
+        Y_test_pred = np.zeros(shape(Y) + (self._n_splits,))
+        T_test_pred = np.zeros(shape(T) + (self._n_splits,))
+        for ind in range(self._n_splits):
+            if self._discrete_treatment:
+                T_test_pred[:, :, ind] = reshape(self._models_t[ind].predict(X, W)[:, 1:], shape(T))
+            else:
+                T_test_pred[:, :, ind] = reshape(self._models_t[ind].predict(X, W), shape(T))
+            Y_test_pred[:, :, ind] = reshape(self._models_y[ind].predict(X, W), shape(Y))
+        Y_test_pred = Y_test_pred.mean(axis=2)
+        T_test_pred = T_test_pred.mean(axis=2)
+        Y_test_res = Y - Y_test_pred
+        T_test_res = T - T_test_pred
+        effects = reshape(self._model_final.predict(X), (-1, shape(Y)[1], shape(T)[1]))
+        Y_test_res_pred = reshape(np.einsum('ijk,ik->ij', effects, T_test_res), shape(Y))
+        mse = ((Y_test_res - Y_test_res_pred)**2).mean()
+        return mse
+
 
 class _DMLCateEstimatorBase(_RLearner):
     """
@@ -216,7 +244,7 @@ class _DMLCateEstimatorBase(_RLearner):
 
                 self._model.fit(cross_product(self._featurizer.fit_transform(X), T_res), Y_res)
 
-            def predict(self, X):
+            def predict(self, X, T_res=None):
                 # create an identity matrix of size d_t (or just a 1-element array if T was a vector)
                 # the nth row will allow us to compute the marginal effect of the nth component of treatment
                 eye = np.eye(self._d_t[0]) if self._d_t else np.array([1])

@@ -45,6 +45,7 @@ class TestDML(unittest.TestCase):
                                 # just make sure we can call the marginal_effect and effect methods
                                 est.marginal_effect(None, X)
                                 est.effect(0, T, X)
+                                est.score(Y, T, X, W)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
@@ -68,6 +69,7 @@ class TestDML(unittest.TestCase):
                                                   np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]),
                                                   np.ones((9, 1))),
                                        [0, 2, 1, -2, 0, -1, -1, 1, 0])
+        dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
     @staticmethod
     def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer()):
