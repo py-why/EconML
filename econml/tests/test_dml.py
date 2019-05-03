@@ -44,8 +44,11 @@ class TestDML(unittest.TestCase):
                                 est.fit(Y, T, X, W)
                                 # just make sure we can call the marginal_effect and effect methods
                                 est.marginal_effect(None, X)
-                                est.effect(0, T, X)
+                                est.effect(X, np.zeros_like(T), T)
                                 est.score(Y, T, X, W)
+                                if d_t == -1:
+                                    # for vector-valued T, verify that default scalar T0 and T1 work
+                                    est.effect(X)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
@@ -65,9 +68,9 @@ class TestDML(unittest.TestCase):
         # and having the treatments in non-lexicographic order,
         # Should rule out some basic issues.
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
-        np.testing.assert_almost_equal(dml.effect(np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
-                                                  np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]),
-                                                  np.ones((9, 1))),
+        np.testing.assert_almost_equal(dml.effect(np.ones((9, 1)),
+                                                  np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                                                  np.array([1, 2, 3, 1, 2, 3, 1, 2, 3])),
                                        [0, 2, 1, -2, 0, -1, -1, 1, 0])
         dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
@@ -147,4 +150,4 @@ class TestDML(unittest.TestCase):
 
         np.testing.assert_allclose(a, dml.coef_.reshape(-1))
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
-        np.testing.assert_allclose(eff, dml.effect(0, t, x))
+        np.testing.assert_allclose(eff, dml.effect(x, 0, t))

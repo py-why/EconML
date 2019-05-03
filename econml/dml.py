@@ -128,11 +128,15 @@ class _RLearner(LinearCateEstimator):
     # need to override effect in case of discrete treatments
     # TODO: should this logic be moved up to the LinearCateEstimator class and
     #       removed from here and from the OrthoForest implementation?
-    def effect(self, T0, T1, X):
+    def effect(self, X, T0=0, T1=1):
+        if ndim(T0) == 0:
+            T0 = np.repeat(T0, 1 if X is None else shape(X)[0])
+        if ndim(T1) == 0:
+            T1 = np.repeat(T1, 1 if X is None else shape(X)[0])
         if self._discrete_treatment:
             T0 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T0), (-1, 1)))[:, 1:]
             T1 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T1), (-1, 1)))[:, 1:]
-        return super().effect(T0, T1, X)
+        return super().effect(X, T0, T1)
 
     def score(self, Y, T, X=None, W=None):
         if self._discrete_treatment:

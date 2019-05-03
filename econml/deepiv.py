@@ -361,7 +361,7 @@ class DeepIVEstimator(BaseCateEstimator):
 
         self._marginal_effect_model = Model([t_in, x_in], L.Lambda(lambda tx: calc_grad(*tx))([t_in, x_in]))
 
-    def effect(self, T0, T1, X=None):
+    def effect(self, X=None, T0=0, T1=1):
         """
         Calculate the heterogeneous treatment effect τ(·,·,·).
 
@@ -384,6 +384,12 @@ class DeepIVEstimator(BaseCateEstimator):
             Note that when Y is a vector rather than a 2-dimensional array, the corresponding
             singleton dimension will be collapsed (so this method will return a vector)
         """
+        if ndim(T0) == 0:
+            T0 = np.repeat(T0, 1 if X is None else shape(X)[0])
+        if ndim(T1) == 0:
+            T1 = np.repeat(T1, 1 if X is None else shape(X)[0])
+        if X is None:
+            X = np.empty((shape(T0)[0], 0))
         return self._effect_model.predict([T1, X]) - self._effect_model.predict([T0, X])
 
     def marginal_effect(self, T, X=None):
