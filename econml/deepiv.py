@@ -306,11 +306,17 @@ class DeepIVEstimator(BaseCateEstimator):
         self
 
         """
-        # TODO: allow 1D arguments for Y and T
-        assert np.ndim(X) == np.ndim(Y) == np.ndim(T) == np.ndim(Z) == 2
+        assert 1 <= np.ndim(X) <= 2
+        assert 1 <= np.ndim(Z) <= 2
+        assert 1 <= np.ndim(T) <= 2
+        assert 1 <= np.ndim(Y) <= 2
         assert np.shape(X)[0] == np.shape(Y)[0] == np.shape(T)[0] == np.shape(Z)[0]
 
-        d_x, d_y, d_z, d_t = [np.shape(a)[1] for a in [X, Y, Z, T]]
+        # in case vectors were passed for Y or T, keep track of trailing dims for reshaping effect output
+        self._d_y = np.shape(Y)[1:]
+        self._d_t = np.shape(T)[1:]
+
+        d_x, d_y, d_z, d_t = [np.shape(a)[1] if np.ndim(a) > 1 else 1 for a in [X, Y, Z, T]]
         x_in, y_in, z_in, t_in = [L.Input((d,)) for d in [d_x, d_y, d_z, d_t]]
         n_components = self._n_components
 
@@ -390,7 +396,7 @@ class DeepIVEstimator(BaseCateEstimator):
             T1 = np.repeat(T1, 1 if X is None else np.shape(X)[0])
         if X is None:
             X = np.empty((np.shape(T0)[0], 0))
-        return self._effect_model.predict([T1, X]) - self._effect_model.predict([T0, X])
+        return (self._effect_model.predict([T1, X]) - self._effect_model.predict([T0, X])).reshape((-1,) + self._d_y)
 
     def marginal_effect(self, T, X=None):
         """
@@ -407,10 +413,12 @@ class DeepIVEstimator(BaseCateEstimator):
         -------
         grad_tau: (m × d_y × dₜ) array
             Heterogeneous marginal effects on each outcome for each sample
-
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         # TODO: any way to get this to work on batches of arbitrary size?
-        return self._marginal_effect_model.predict([T, X], batch_size=1)
+        return self._marginal_effect_model.predict([T, X], batch_size=1).reshape((-1,) + self._d_y + self._d_t)
 
     def predict(self, T, X):
         """Predict outcomes given treatment assignments and features.
@@ -426,6 +434,7 @@ class DeepIVEstimator(BaseCateEstimator):
         -------
         Y: (m × d_y) matrix
             Outcomes for each sample
-
+            Note that when Y is a vector rather than a 2-dimensional array, the corresponding
+            singleton dimension will be collapsed (so this method will return a vector)
         """
-        return self._effect_model.predict([T, X])
+        return self._effect_model.predict([T, X]).reshape((-1,) + self._d_y)

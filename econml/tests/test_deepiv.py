@@ -95,6 +95,64 @@ class TestDeepIV(unittest.TestCase):
             deepIv.predict(T=t, X=x)
             deepIv.effect(x, np.zeros_like(t), t)
 
+        # also test vector t and y
+        for _ in range(5):
+            d_z = np.random.choice(range(1, 4))  # number of instruments
+            d_x = np.random.choice(range(1, 4))  # number of features
+            n = 500
+            # simple DGP only for illustration
+            x = np.random.uniform(size=(n, d_x))
+            z = np.random.uniform(size=(n, d_z))
+            p_x_t = np.random.uniform(size=(d_x,))
+            p_z_t = np.random.uniform(size=(d_z,))
+            t = x @ p_x_t + z @ p_z_t
+            p_xt_y = np.random.uniform(size=(d_x,))
+            y = (x * t.reshape(n, 1)) @ p_xt_y
+
+            # Define the treatment model neural network architecture
+            # This will take the concatenation of one-dimensional values z and x as input,
+            # so the input shape is (d_z + d_x,)
+            # The exact shape of the final layer is not critical because the Deep IV framework will
+            # add extra layers on top for the mixture density network
+            treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(d_z + d_x,)),
+                                                keras.layers.Dropout(0.17),
+                                                keras.layers.Dense(64, activation='relu'),
+                                                keras.layers.Dropout(0.17),
+                                                keras.layers.Dense(32, activation='relu'),
+                                                keras.layers.Dropout(0.17)])
+
+            # Define the response model neural network architecture
+            # This will take the concatenation of one-dimensional values t and x as input,
+            # so the input shape is (d_t + d_x,)
+            # The output should match the shape of y, so it must have shape (d_y,) in this case
+            # NOTE: For the response model, it is important to define the model *outside*
+            #       of the lambda passed to the DeepIvEstimator, as we do here,
+            #       so that the same weights will be reused in each instantiation
+            response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(1 + d_x,)),
+                                               keras.layers.Dropout(0.17),
+                                               keras.layers.Dense(64, activation='relu'),
+                                               keras.layers.Dropout(0.17),
+                                               keras.layers.Dense(32, activation='relu'),
+                                               keras.layers.Dropout(0.17),
+                                               keras.layers.Dense(1)])
+
+            deepIv = DeepIVEstimator(n_components=10,  # number of gaussians in our mixture density network
+                                     m=lambda z, x: treatment_model(
+                                         keras.layers.concatenate([z, x])),  # treatment model
+                                     h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
+                                     n_samples=1,  # number of samples to use to estimate the response
+                                     use_upper_bound_loss=False,  # whether to use an approximation to the true loss
+                                     # number of samples to use in second estimate of the response
+                                     # (to make loss estimate unbiased)
+                                     n_gradient_samples=1,
+                                     # Keras optimizer to use for training - see https://keras.io/optimizers/
+                                     optimizer='adam')
+
+            deepIv.fit(Y=y, T=t, X=x, Z=z)
+            # do something with predictions...
+            deepIv.predict(T=t, X=x)
+            assert (deepIv.effect(x).shape == (n,))
+
     # Doesn't work with CNTK backend as of 2018-07-17 - see https://github.com/keras-team/keras/issues/10715
 
     @pytest.mark.slow
