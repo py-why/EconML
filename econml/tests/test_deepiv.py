@@ -93,6 +93,7 @@ class TestDeepIV(unittest.TestCase):
             deepIv.fit(Y=y, T=t, X=x, Z=z)
             # do something with predictions...
             deepIv.predict(T=t, X=x)
+            deepIv.effect(x, np.zeros_like(t), t)
 
     # Doesn't work with CNTK backend as of 2018-07-17 - see https://github.com/keras-team/keras/issues/10715
 
