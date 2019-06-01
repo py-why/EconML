@@ -53,8 +53,12 @@ class BootstrapEstimator(object):
         """
         n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
         indices = np.random.choice(n_samples, size=(self._n_bootstrap_samples, n_samples), replace=True)
-        Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
-            (obj.fit, [arg[inds] for arg in args], {arg: named_args[arg][inds] for arg in named_args})
+
+        def fit(x, *args, **kwargs):
+            x.fit(*args, **kwargs)
+            return x  # Explicitly return x in case fit fails to return its target
+        self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
+            delayed(fit)(obj, *[arg[inds] for arg in args], **{arg: named_args[arg][inds] for arg in named_args})
             for obj, inds in zip(self._instances, indices)
         )
         return self
