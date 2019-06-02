@@ -1,3 +1,5 @@
+# About
+
 An orthogonal machine learning approach to estimation of heterogeneous
 treatment effects with an endogenous treatment and an instrument. It
 implements the algorithms presented in the paper:
