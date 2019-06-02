@@ -1,3 +1,11 @@
+An orthogonal machine learning approach to estimation of heterogeneous
+treatment effects with an endogenous treatment and an instrument. It
+implements the algorithms presented in the paper:
+
+Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments
+Vasilis Syrgkanis, Victor Lei, Miruna Oprescu, Maggie Hei, Keith Battocchi, Greg Lewis
+[https://arxiv.org/abs/1905.10176](https://arxiv.org/abs/1905.10176)
+
 # Guide to the Files
 
 - dml_iv.py : contains the classes that implement the DMLIV algorithm (and variants) 
