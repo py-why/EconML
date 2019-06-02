@@ -2,8 +2,10 @@ An orthogonal machine learning approach to estimation of heterogeneous
 treatment effects with an endogenous treatment and an instrument. It
 implements the algorithms presented in the paper:
 
-Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments
-Vasilis Syrgkanis, Victor Lei, Miruna Oprescu, Maggie Hei, Keith Battocchi, Greg Lewis
+**Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments**
+
+_Vasilis Syrgkanis, Victor Lei, Miruna Oprescu, Maggie Hei, Keith Battocchi, Greg Lewis_
+
 [https://arxiv.org/abs/1905.10176](https://arxiv.org/abs/1905.10176)
 
 # Guide to the Files
