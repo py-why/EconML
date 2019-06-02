@@ -114,7 +114,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
 
     dt_featurizer: transformer
         Featurizer used to transform the treatments for the computation of the marginal effect.
-        This should produce a 3 - dimensional array, containing the per - treatment derivative of
+        This should produce a 3-dimensional array, containing the per-treatment derivative of
         each transformed treatment. That is, given a treatment array of shape(n, dₜ),
         the output should have shape(n, dₜ, fₜ), where fₜ is the number of columns produced by `t_featurizer`.
     """
@@ -129,7 +129,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         self._model_T = LinearRegression(fit_intercept=False)
         self._model_Y = LinearRegression(fit_intercept=False)
 
-    def fit(self, Y, T, X, Z):
+    def fit(self, Y, T, X, W, Z):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·, ·, ·), ∂τ(·, ·).
 
@@ -141,6 +141,8 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
             Treatments for each sample
         X: optional(n × dₓ) matrix
             Features for each sample
+        W: optional(n × d_w) matrix
+            Controls for each sample
         Z: optional(n × d_z) matrix
             Instruments for each sample
 
@@ -151,18 +153,26 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         """
         if X is None:
             X = np.empty((shape(Y)[0], 0))
-        assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(Z)[0]
+        if W is None:
+            W = np.empty((shape(Y)[0], 0))
+        assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0] == shape(Z)[0]
+
+        # store number of columns of W so that we can create correctly shaped zero array in effect and marginal effect
+        self._d_w = shape(W)[1]
+        # store number of columns of T so that we can pass scalars to effect
+        self._d_t = shape(T)[1]
+
         # two stage approximation
         # first, get basis expansions of T, X, and Z
-        # regress T expansion on X,Z expansions
         ft_X = self._x_featurizer.fit_transform(X)
         ft_Z = self._z_featurizer.fit_transform(Z)
         ft_T = self._t_featurizer.fit_transform(T)
-        # predict ft_T from interacted ft_X, ft_Z
-        features = _add_ones(cross_product(ft_X, ft_Z))
+        # regress T expansion on X,Z expansions concatenated with W
+        features = _add_ones(np.hstack([W, cross_product(ft_X, ft_Z)]))
         self._model_T.fit(features, ft_T)
+        # predict ft_T from interacted ft_X, ft_Z
         ft_T_hat = self._model_T.predict(features)
-        self._model_Y.fit(_add_ones(cross_product(ft_T_hat, ft_X)), Y)
+        self._model_Y.fit(_add_ones(np.hstack([W, cross_product(ft_T_hat, ft_X)])), Y)
         return self
 
     def effect(self, X=None, T0=0, T1=1):
@@ -190,18 +200,20 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
 
         """
         if ndim(T0) == 0:
-            T0 = np.repeat(T0, 1 if X is None else shape(X)[0])
+            T0 = np.full((1 if X is None else shape(X)[0], self._d_t), T0)
         if ndim(T1) == 0:
-            T1 = np.repeat(T1, 1 if X is None else shape(X)[0])
+            T1 = np.full((1 if X is None else shape(X)[0], self._d_t), T1)
         if X is None:
             X = np.empty((shape(T0)[0], 0))
         assert shape(T0) == shape(T1)
         assert shape(T0)[0] == shape(X)[0]
+
+        W = np.zeros((shape(T0)[0], self._d_w))  # can set arbitrarily since values will cancel
         ft_X = self._x_featurizer.fit_transform(X)
         ft_T0 = self._t_featurizer.fit_transform(T0)
         ft_T1 = self._t_featurizer.fit_transform(T1)
-        Y0 = self._model_Y.predict(_add_ones(cross_product(ft_T0, ft_X)))
-        Y1 = self._model_Y.predict(_add_ones(cross_product(ft_T1, ft_X)))
+        Y0 = self._model_Y.predict(_add_ones(np.hstack([W, cross_product(ft_T0, ft_X)])))
+        Y1 = self._model_Y.predict(_add_ones(np.hstack([W, cross_product(ft_T1, ft_X)])))
         return Y1 - Y0
 
     def marginal_effect(self, T, X=None):
@@ -229,9 +241,11 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         if X is None:
             X = np.empty((shape(T)[0], 0))
         assert shape(T)[0] == shape(X)[0]
+
         ft_X = self._x_featurizer.fit_transform(X)
         n = shape(T)[0]
         dT = self._dt_featurizer.fit_transform(T)
+        W = np.zeros((n, self._d_w))
         # dT should be an n×dₜ×fₜ array (but if T was a vector, or if there is only one feature,
         # dT may be only 2-dimensional)
         # promote dT to 3D if necessary (e.g. if T was a vector)
@@ -240,7 +254,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
 
         # reshape ft_X and dT to allow cross product (result has shape n×dₜ×fₜ×f_x)
         features = reshape(ft_X, (n, 1, 1, -1)) * reshape(dT, shape(dT) + (1,))
-
+        features = transpose(features, [0, 1, 3, 2])  # swap last two dims to match cross_product
         features = reshape(features, (size(T), -1))
-        output = self._model_Y.predict(_add_zeros(features))
+        output = self._model_Y.predict(_add_zeros(np.hstack([W, features])))
         return reshape(output, shape(T) + (shape(output)[-1],))
