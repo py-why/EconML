@@ -34,7 +34,7 @@ class Test2SLS(unittest.TestCase):
 
         for j in [True, False]:
             hf = HermiteFeatures(1, shift=1, joint=j).fit_transform(inputs)
-            # first derivitaves are -x, -x^2+1 (since there's just one column, joint-ness doesn't matter)
+            # first derivatives are -x, -x^2+1 (since there's just one column, joint-ness doesn't matter)
             polys = np.hstack([-inputs, -inputs * inputs + ones])
             assert(np.allclose(hf, reshape(polys * np.exp(-inputs * inputs / 2), (5, 1, 2))))
 
@@ -62,24 +62,33 @@ class Test2SLS(unittest.TestCase):
     # TODO: this tests that we can run the method; how do we test that the results are reasonable?
     def test_2sls(self):
         n = 50000
-        e = np.random.uniform(low=-0.5, high=0.5, size=(n, 1))
+        d_w = 2
+        d_z = 1
+        d_x = 1
+        d_t = 1
+        d_y = 1
+        e = np.random.uniform(low=-0.5, high=0.5, size=(n, d_x))
         z = np.random.uniform(size=(n, 1))
-        x = np.random.uniform(size=(n, 1)) + e
-        p = x + z * e + np.random.uniform(size=(n, 1))
-        y = p * x + e
+        w = np.random.uniform(size=(n, d_w))
+        a = np.random.normal(size=(d_w, d_t))
+        b = np.random.normal(size=(d_w, d_y))
+        x = np.random.uniform(size=(n, d_x)) + e
+        p = x + z * e + w@a + np.random.uniform(size=(n, d_t))
+        y = p * x + e + w@b
 
         losses = []
         marg_effs = []
 
-        z_fresh = np.random.uniform(size=(n, 1))
-        e_fresh = np.random.uniform(low=-0.5, high=0.5, size=(n, 1))
-        x_fresh = np.random.uniform(size=(n, 1)) + e_fresh
-        p_fresh = x_fresh + z_fresh * e_fresh + np.random.uniform(size=(n, 1))
+        z_fresh = np.random.uniform(size=(n, d_z))
+        e_fresh = np.random.uniform(low=-0.5, high=0.5, size=(n, d_x))
+        x_fresh = np.random.uniform(size=(n, d_x)) + e_fresh
+        w_fresh = np.random.uniform(size=(n, d_w))
+        p_fresh = x_fresh + z_fresh * e_fresh + np.random.uniform(size=(n, d_t))
 
         for (dt, dx, dz) in [(0, 0, 0), (1, 1, 1), (5, 5, 5), (10, 10, 10), (3, 3, 10), (10, 10, 3)]:
             np2sls = NonparametricTwoStageLeastSquares(HermiteFeatures(
                 dt), HermiteFeatures(dx), HermiteFeatures(dz), HermiteFeatures(dt, shift=1))
-            np2sls.fit(y, p, x, z)
+            np2sls.fit(y, p, x, w, z)
             effect = np2sls.effect(x_fresh, np.zeros(shape(p_fresh)), p_fresh)
             losses.append(np.mean(np.square(p_fresh * x_fresh - effect)))
             marg_effs.append(np2sls.marginal_effect(np.array([[0.3], [0.5], [0.7]]), np.array([[0.4], [0.6], [0.2]])))
