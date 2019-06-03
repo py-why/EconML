@@ -503,7 +503,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                             clone(flexible_model_effect, safe=False),
                                             cov_clip=1e-7, n_splits=1, opt_reweighted=True)
         if final_model_effect is None:
-            final_model_effect = clone(flexible_model_effect)
+            final_model_effect = clone(flexible_model_effect, safe=False)
         super(IntentToTreatDRIV, self).__init__(model_Y_X, model_T_XZ, prel_model_effect,
                                                 final_model_effect,
                                                 cov_clip=cov_clip,

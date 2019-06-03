@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.model_selection import KFold
 from econml.utilities import hstack
-from dr_iv import DRIV, ProjectedDRIV
+from dr_iv import DRIV, ProjectedDRIV, IntentToTreatDRIV
 import keras
 import keras.layers as L
 from keras.models import Model, clone_model
@@ -27,12 +27,12 @@ class _KerasModel:
         self._optimizer = optimizer
         self._training_options = training_options
 
-    def fit(self, X, Y):
+    def fit(self, X, Y, sample_weight=None):
         d_x, d_y = [np.shape(arr)[1:] for arr in (X, Y)]
         # keep track in case we need to reshape output by dropping singleton dimensions
         self._d_y = d_y
         self._h.compile(self._optimizer, loss='mse')
-        self._h.fit([X], Y, **self._training_options)
+        self._h.fit([X], Y, sample_weight=sample_weight, **self._training_options)
 
     def predict(self, X):
         return self._h.predict([X]).reshape((-1,)+self._d_y)
@@ -139,4 +139,50 @@ class DeepProjectedDRIV(ProjectedDRIV):
                                             n_splits=n_splits,
                                             binary_instrument=binary_instrument, binary_treatment=binary_treatment,
                                             opt_reweighted=opt_reweighted)
+        return
+
+class DeepIntentToTreatDRIV(IntentToTreatDRIV):
+    """
+    Implements the DRIV algorithm for the intent-to-treat A/B test setting
+    """
+
+    def __init__(self, model_Y_X, model_T_XZ,
+                 h,
+                 optimizer='adam',
+                 training_options={ "epochs": 30,
+                                    "batch_size": 32,
+                                    "validation_split": 0.1,
+                                    "callbacks": [keras.callbacks.EarlyStopping(patience=2, restore_best_weights=True)]},
+                 final_model_effect=None,
+                 cov_clip=.1,
+                 n_splits=3,
+                 opt_reweighted=False):
+        """
+        Parameters
+        ----------
+        model_Y_X : model to predict E[Y | X]
+        model_T_XZ : model to predict E[T | X, Z]
+        h : Model
+            Keras model that takes X as an input and returns a layer of dimension d_y by d_t
+        optimizer : keras optimizer
+        training_options : dictionary of keras training options
+        final_model_effect : a final model for the CATE and projections. If None, then
+            flexible_model_effect is also used as a final model
+        cov_clip : clipping of the covariate for regions with low "overlap",
+            so as to reduce variance
+        n_splits : number of splits to use in cross-fitting
+        opt_reweighted : whether to reweight the samples to minimize variance. If True then
+            final_model_effect.fit must accept sample_weight as a kw argument (WeightWrapper from
+            utilities can be used for any linear model to enable sample_weights). If True then
+            assumes the final_model_effect is flexible enough to fit the true CATE model. Otherwise,
+            it method will return a biased projection to the model_effect space, biased
+            to give more weight on parts of the feature space where the instrument is strong.
+        """
+        flexible_model_effect = _KerasModel(h, optimizer=optimizer, training_options=training_options)
+        super(DeepIntentToTreatDRIV, self).__init__(model_Y_X, model_T_XZ,
+                                                    flexible_model_effect,
+                                                    final_model_effect=final_model_effect,
+                                                    cov_clip=cov_clip,
+                                                    n_splits=n_splits,
+                                                    opt_reweighted=opt_reweighted)
         return
