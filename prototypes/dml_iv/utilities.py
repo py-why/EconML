@@ -15,8 +15,9 @@ import statsmodels.api as sm
 # We can use statsmodel for all hypothesis testing capabilities
 class StatsModelLinearRegression:
 
-    def __init__(self, fit_intercept=True):
+    def __init__(self, fit_intercept=True, cov_type='nonrobust'):
         self.fit_intercept = fit_intercept
+        self.cov_type = cov_type
         return
 
     def fit(self, X, y, sample_weight=None):
@@ -25,7 +26,7 @@ class StatsModelLinearRegression:
         if sample_weight is not None:
             X = X * np.sqrt(sample_weight).reshape(-1, 1)
             y = y * np.sqrt(sample_weight)
-        self.model = sm.OLS(y, X).fit()
+        self.model = sm.OLS(y, X).fit(cov_type=self.cov_type)
         return self
 
     def predict(self, X):

@@ -132,16 +132,19 @@ class _BaseDRIV:
 
         return self
 
-    def refit_final(self, model_effect):
+    def refit_final(self, model_effect, opt_reweighted=None):
         """
         Change the final effect model and refit the final stage.
         Parameters
         ----------
         model_effect : an instance of the new effect model to be fitted in the final stage
+        opt_reweighted : whether to weight samples for variance reduction in the final model fitting
         """
         if not self.stored_final_data:
             raise AttributeError(
                 "Estimator is not yet fit with store_data=True")
+        if opt_reweighted is not None:
+            self.opt_reweighted = opt_reweighted
         self.model_effect = model_effect
         if self.opt_reweighted:
             self.model_effect.fit(self.X, self.theta_dr,

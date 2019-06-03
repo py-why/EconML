@@ -28,14 +28,18 @@ class _KerasModel:
         self._training_options = training_options
 
     def fit(self, X, Y, sample_weight=None):
-        d_x, d_y = [np.shape(arr)[1:] for arr in (X, Y)]
-        # keep track in case we need to reshape output by dropping singleton dimensions
-        self._d_y = d_y
+        if sample_weight is not None:
+            sample_weight = X.shape[0] * sample_weight / np.linalg.norm(sample_weight, ord=1)
         self._h.compile(self._optimizer, loss='mse')
         self._h.fit([X], Y, sample_weight=sample_weight, **self._training_options)
 
     def predict(self, X):
-        return self._h.predict([X]).reshape((-1,)+self._d_y)
+        return self._h.predict([X]).flatten()
+
+    def __deepcopy__(self, memo):
+        h_clone = clone_model(self._h)
+        h_clone.set_weights(self._h.get_weights())
+        return _KerasModel(h_clone, self._optimizer, self._training_options)
 
 class DeepDRIV(DRIV):
     """
