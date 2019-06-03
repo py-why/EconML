@@ -89,33 +89,3 @@ class DeepDMLIV(_BaseDMLIV):
                          binary_instrument=binary_instrument,
                          binary_treatment=binary_treatment)
 
-class KerasModel:
-    """
-    A model that fits data using a Keras model
-
-    Parameters
-    ----------
-    h: Model
-        The Keras model that takes input X and returns a prediction Y
-    """
-
-    def __init__(self, h,
-                 optimizer='adam',
-                 training_options={ "epochs": 30,
-                                    "batch_size": 32,
-                                    "validation_split": 0.1,
-                                    "callbacks": [keras.callbacks.EarlyStopping(patience=2, restore_best_weights=True)]}):
-        self._h = clone_model(h)
-        self._h.set_weights(h.get_weights())
-        self._optimizer = optimizer
-        self._training_options = training_options
-
-    def fit(self, X, Y):
-        d_x, d_y = [np.shape(arr)[1:] for arr in (X, Y)]
-        # keep track in case we need to reshape output by dropping singleton dimensions
-        self._d_y = d_y
-        self._h.compile(self._optimizer, loss='mse')
-        self._h.fit([X], Y, **self._training_options)
-
-    def predict(self, X):
-        return self._h.predict([X]).reshape((-1,)+self._d_y)

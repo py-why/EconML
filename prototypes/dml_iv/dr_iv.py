@@ -184,8 +184,7 @@ class _BaseDRIV:
 
 class DRIV(_BaseDRIV):
     """
-    Implements the doubly robust algorithm for estimating CATE,
-    i.e. the Algorithm in Section 3.1
+    Implements the DRIV algorithm
     """
 
     def __init__(self, model_Y_X, model_T_X, model_Z_X,
@@ -387,3 +386,127 @@ class ProjectedDRIV(_BaseDRIV):
                 X[train], T[train] * proj_t[train]).predict(X[test]) - pr_t_test**2
 
         return prel_theta, res_t, res_y, res_z, cov
+
+##############################################################################
+# Classes for the DRIV implementation for the special case of intent-to-treat
+# A/B test
+##############################################################################
+
+class _IntentToTreatDRIV(_BaseDRIV):
+    """
+    Helper class for the DRIV algorithm for the intent-to-treat A/B test setting
+    """
+
+    def __init__(self, model_Y_X, model_T_XZ,
+                 prel_model_effect,
+                 model_effect,
+                 cov_clip=.1,
+                 n_splits=3,
+                 opt_reweighted=False):
+        """
+        """
+        nuisance_models = {'model_Y_X': model_Y_X,
+                           'model_T_XZ': model_T_XZ,
+                           'prel_model_effect': prel_model_effect}
+        super(_IntentToTreatDRIV, self).__init__(nuisance_models, model_effect,
+                                   cov_clip=cov_clip,
+                                   n_splits=n_splits,
+                                   binary_instrument=True, binary_treatment=True,
+                                   opt_reweighted=opt_reweighted)
+        return
+
+    def _check_inputs(self, y, T, X, Z):
+        if len(Z.shape) > 1 and Z.shape[1] > 1:
+            raise AssertionError(
+                "Can only accept single dimensional instrument")
+        if len(T.shape) > 1 and T.shape[1] > 1:
+            raise AssertionError(
+                "Can only accept single dimensional treatment")
+        if len(y.shape) > 1 and y.shape[1] > 1:
+            raise AssertionError("Can only accept single dimensional outcome")
+        Z = Z.flatten()
+        T = T.flatten()
+        y = y.flatten()
+        return y, T, X, Z
+
+    def _nuisance_estimates(self, y, T, X, Z):
+        n_samples = y.shape[0]
+        prel_theta = np.zeros(n_samples)
+        res_t = np.zeros(n_samples)
+        res_y = np.zeros(n_samples)
+        delta = np.zeros(n_samples)
+
+        splits = self._get_split_enum(y, T, X, Z)
+        for idx, (train, test) in enumerate(splits):
+            # Estimate preliminary theta in cross fitting manner
+            prel_theta[test] = self.prel_model_effect[idx].fit(
+                y[train], T[train], X[train], Z[train]).effect(X[test]).flatten()
+            # Estimate p(X) = E[T | X] in cross fitting manner
+            self.model_T_XZ[idx].fit(hstack([X[train], Z[train].reshape(-1, 1)]), T[train])
+            Z_one = np.ones((Z[test].shape[0], 1))
+            Z_zero = np.zeros((Z[test].shape[0], 1))
+            pr_t_test_one = self.model_T_XZ[idx].predict(hstack([X[test], Z_one]))
+            pr_t_test_zero = self.model_T_XZ[idx].predict(hstack([X[test], Z_zero]))
+            delta[test] = (pr_t_test_one - pr_t_test_zero) / 2
+            pr_t_test = (pr_t_test_one + pr_t_test_zero) / 2
+            res_t[test] = T[test] - pr_t_test
+            # Estimate residual Y_res = Y - q(X) = Y - E[Y | X] in cross fitting manner
+            res_y[test] = y[test] - \
+                self.model_Y_X[idx].fit(X[train], y[train]).predict(X[test])
+
+        return prel_theta, res_t, res_y, 2*Z-1 , delta
+
+class _DummyCATE:
+    """
+    A dummy cate effect model that always returns zero effect
+    """
+    def __init__(self):
+        return
+    def fit(self, y, T, X, Z):
+        return self
+    def effect(self, X):
+        return np.zeros(X.shape[0])
+
+class IntentToTreatDRIV(_IntentToTreatDRIV):
+    """
+    Implements the DRIV algorithm for the intent-to-treat A/B test setting
+    """
+
+    def __init__(self, model_Y_X, model_T_XZ,
+                 flexible_model_effect,
+                 final_model_effect=None,
+                 cov_clip=.1,
+                 n_splits=3,
+                 opt_reweighted=False):
+        """
+        Parameters
+        ----------
+        model_Y_X : model to predict E[Y | X]
+        model_T_XZ : model to predict E[T | X, Z]
+        flexible_model_effect : a flexible model for a preliminary version of the CATE, must accept
+            sample_weight at fit time.
+        final_model_effect : a final model for the CATE and projections. If None, then
+            flexible_model_effect is also used as a final model
+        cov_clip : clipping of the covariate for regions with low "overlap",
+            so as to reduce variance
+        n_splits : number of splits to use in cross-fitting
+        opt_reweighted : whether to reweight the samples to minimize variance. If True then
+            final_model_effect.fit must accept sample_weight as a kw argument (WeightWrapper from
+            utilities can be used for any linear model to enable sample_weights). If True then
+            assumes the final_model_effect is flexible enough to fit the true CATE model. Otherwise,
+            it method will return a biased projection to the model_effect space, biased
+            to give more weight on parts of the feature space where the instrument is strong.
+        """
+        prel_model_effect = _IntentToTreatDRIV(clone(model_Y_X, safe=False),
+                                            clone(model_T_XZ, safe=False),
+                                            _DummyCATE(),
+                                            clone(flexible_model_effect, safe=False),
+                                            cov_clip=1e-7, n_splits=1, opt_reweighted=True)
+        if final_model_effect is None:
+            final_model_effect = clone(flexible_model_effect)
+        super(IntentToTreatDRIV, self).__init__(model_Y_X, model_T_XZ, prel_model_effect,
+                                                final_model_effect,
+                                                cov_clip=cov_clip,
+                                                n_splits=n_splits,
+                                                opt_reweighted=opt_reweighted)
+        return
