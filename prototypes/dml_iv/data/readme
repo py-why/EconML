@@ -1,0 +1,14 @@
+This directory contains 3 files (plus this readme file):
+-- a codebook
+-- a data set
+-- an example sas program to read the data and process it.
+
+The code book "code_bk.txt" gives the variables in the data set
+and their means and min/max values. It also gives a reference for the
+article by D. Card that the data is derived from.
+
+The data set is  nls.dat = ascii file of data, 3613 obs
+
+Finally, there a sas program,  read1.sas , a program that reads 
+the nls.dat file and runs an example regression.
+The varibles are named and explained in the file.
