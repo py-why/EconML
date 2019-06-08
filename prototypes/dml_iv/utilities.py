@@ -10,6 +10,13 @@ from sklearn.base import clone
 import numpy as np
 import copy
 import statsmodels.api as sm
+from sklearn.model_selection import train_test_split
+from joblib import Parallel, delayed
+from sklearn.linear_model import ElasticNet, Lasso
+from sklearn.dummy import DummyRegressor
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import RandomForestRegressor
+
 
 # A wrapper of statsmodel linear regression, wrapped in a sklearn interface.
 # We can use statsmodel for all hypothesis testing capabilities
@@ -209,9 +216,8 @@ class WeightWrapper:
         """
         self._model = clone(model, safe=False)
         self._fit_intercept = False
-        if hasattr(self._model, 'fit_intercept'):
-            self._fit_intercept = self._model.fit_intercept
-            self._model.fit_intercept = False
+        if hasattr(self._model, 'fit_intercept') and self._model.fit_intercept:
+            raise ValueError("Weight wrapper cannot wrap a linear model with an intercept!")
 
     def fit(self, X, y, sample_weight=None):
         """
@@ -221,8 +227,6 @@ class WeightWrapper:
         y : binary label
         sample_weight : sample weight
         """
-        if self._fit_intercept:
-            X = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
         if sample_weight is not None:
             self._model.fit(X * np.sqrt(sample_weight).reshape(X.shape[0], 1), y * np.sqrt(sample_weight))
         else:
@@ -235,8 +239,6 @@ class WeightWrapper:
         ----------
         X : subset of features that correspond to inds
         """
-        if self._fit_intercept:
-            X = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
         return self._model.predict(X)
     
     @property
@@ -310,3 +312,108 @@ class SelectiveLasso:
     @property
     def intercept_(self):
         return self.lasso_model.intercept_ + self.model_X2.intercept_
+
+
+class HonestForest(RandomForestRegressor):
+    """
+    A simple implementation of an honest locally-linear forest on top of a sklearn tree. We split
+    the data in half and fit an sklearn random forest. Then use the other half to
+    calculate the leaf estimates. We also fit an elasticnet locally at each
+    leaf node.
+    """
+    def __init__(self, forest, local_linear=False, alpha=0.1):
+        """
+        Parameters
+        ----------
+        forest : an sklearn forest model used to create the splits
+        alpha : l1/l2 regularization weight for local elasticnet fit at each leaf
+        """
+        self.forest = forest
+        self.alpha = alpha
+        self.local_linear = local_linear
+        self.mu_leafs = None
+        return
+
+    def fit(self, X, y, sample_weight=None):
+        """
+        Parameters
+        ----------
+        X : features
+        y : label
+        sample_weight : sample weights
+        """
+        if sample_weight is not None:
+            sample_weight = sample_weight
+            X_train, X_test, y_train, y_test, sample_weight_train, sample_weight_test = train_test_split(X, y, sample_weight, test_size=.5, shuffle=True)
+        else:
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5, shuffle=True)
+            sample_weight_train, sample_weight_test = None, None
+
+        self.forest.fit(X_train, y_train, sample_weight=sample_weight_train)
+        leaf_test = self.forest.apply(X_test)
+        
+        self.mu_leafs = []
+        for tree in range(leaf_test.shape[1]):                
+            leafs = np.unique(leaf_test[:, tree])
+            self.mu_leafs.append({})
+            for i in leafs:
+                if self.local_linear:
+                    if sample_weight is not None:
+                        lr = WeightWrapper(Pipeline([('bias', PolynomialFeatures(degree=1, include_bias=True)),
+                                        ('lasso',  SelectiveLasso(np.arange(1, X.shape[1]+1), ElasticNet(alpha=self.alpha)))]))
+                        lr.fit(X_test[leaf_test[:, tree]==i], y_test[leaf_test[:, tree]==i], sample_weight=sample_weight_test[leaf_test[:, tree]==i])
+                    else:
+                        lr = ElasticNet(alpha=self.alpha).fit(X_test[leaf_test[:, tree]==i], y_test[leaf_test[:, tree]==i])
+                    self.mu_leafs[tree][i] = lr
+                else:
+                    if sample_weight is not None:
+                        self.mu_leafs[tree][i] = np.average(y_test[leaf_test[:, tree]==i], weights=sample_weight_test[leaf_test[:, tree]==i])
+                    else:
+                        self.mu_leafs[tree][i] = np.mean(y_test[leaf_test[:, tree]==i])
+        return self
+
+    def predict(self, X):
+        """
+        X : features
+        """
+        leaf_pred = self.forest.apply(X)
+        if self.local_linear:
+            y_pred = [np.array([self.mu_leafs[tree][leaf].predict(X[[sample]])[0] if leaf in  self.mu_leafs[tree] else np.nan
+                            for sample, leaf in enumerate(leaf_pred[:, tree])])
+                    for tree in range(len(self.mu_leafs))]
+        else:
+            y_pred = [np.array([self.mu_leafs[tree][leaf] if leaf in  self.mu_leafs[tree] else np.nan
+                            for sample, leaf in enumerate(leaf_pred[:, tree])])
+                    for tree in range(len(self.mu_leafs))]
+        return np.nanmean(y_pred, axis=0)
+    
+    def predict_interval(self, X, lower=2.5, upper=97.5, little_bags=False):
+        """
+        X : features
+        """
+        leaf_pred = self.forest.apply(X)
+        if self.local_linear:
+            y_pred = [np.array([self.mu_leafs[tree][leaf].predict(X[[sample]])[0] if leaf in  self.mu_leafs[tree] else np.nan
+                            for sample, leaf in enumerate(leaf_pred[:, tree])])
+                    for tree in range(len(self.mu_leafs))]
+        else:
+            y_pred = [np.array([self.mu_leafs[tree][leaf] if leaf in  self.mu_leafs[tree] else np.nan
+                            for sample, leaf in enumerate(leaf_pred[:, tree])])
+                    for tree in range(len(self.mu_leafs))]
+        if little_bags:
+            subsets = [np.random.choice(leaf_pred.shape[1], int(np.ceil(np.sqrt(leaf_pred.shape[1]))))
+                        for _ in range(leaf_pred.shape[1])]
+            y_pred = [np.nanmean(np.array(y_pred)[s], axis=0) for s in subsets]
+        return np.nanpercentile(y_pred, lower, axis=0), np.nanpercentile(y_pred, upper, axis=0)
+
+    def __getattr__(self, name):
+        if name == 'get_params':
+            raise AttributeError("not sklearn")
+        return getattr(self.forest, name)
+
+    def __deepcopy__(self, memo):
+        new_forest = HonestForest(copy.deepcopy(self.forest, memo), local_linear=self.local_linear, alpha=self.alpha)
+        if self.mu_leafs is not None:
+                new_forest.mu_leafs = copy.deepcopy(self.mu_leafs, memo)
+        return new_forest
+    
