@@ -86,6 +86,10 @@ Such questions arise frequently in customer segmentation (what is the effect of 
 </table>
 
 # News
+ 
+ **06/03/2019:** Release v0.4, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.4). 
+
+**05/03/2019:** Release v0.3, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.3).
 
 **04/10/2019:** Release v0.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.2).
 
