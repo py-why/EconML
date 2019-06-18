@@ -459,19 +459,25 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
         return self
 
-    def predict_interval(self, X, lower=2.5, upper=97.5, little_bags=True):
+    def predict_interval(self, X, lower=2.5, upper=97.5, normal=True):
         """
         Parameters
         ----------
         X : features
         lower : lower percentile of confidence interval
         upper : upper percentile of confidence interval
-        little_bags : whether to use bootstrap of little bags, or simply the distribution
-            of predictions across trees
+        normal : whether to use normal approximation to construct CI or perform
+            a non-parametric bootstrap of little bags
         """
         y_pred = [tree.predict(X) for tree in self.estimators_]
-        if little_bags:
-            y_pred = [np.nanmean(np.array(y_pred)[np.arange(it*self.slice_len,
-                                                  min((it+1)*self.slice_len, self.n_estimators))], axis=0)
-                                                  for it in range(self.n_slices)]
-        return np.nanpercentile(y_pred, lower, axis=0), np.nanpercentile(y_pred, upper, axis=0)
+        y_bags_pred = [np.nanmean(np.array(y_pred)[np.arange(it*self.slice_len,
+                                                min((it+1)*self.slice_len, self.n_estimators))], axis=0)
+                                                for it in range(self.n_slices)]
+        if normal:
+            std_pred = np.std(y_bags_pred, axis=0)
+            y_point_pred = np.mean(y_bags_pred, axis=0)
+            upper_pred = scipy.stats.norm.ppf(upper/100, loc=y_point_pred, scale=std_pred)
+            lower_pred = scipy.stats.norm.ppf(lower/100, loc=y_point_pred, scale=std_pred)
+            return lower_pred, upper_pred
+        else:
+            return np.nanpercentile(y_bags_pred, lower, axis=0), np.nanpercentile(y_bags_pred, upper, axis=0)

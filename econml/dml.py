@@ -579,5 +579,5 @@ class ForestDMLCateEstimator(GenericDMLCateEstimator):
                          model_final=model_final, discrete_treatment=discrete_treatment,
                          n_splits=n_crossfit_splits, random_state=random_state)
         
-    def effect_interval(self, X, lower=5, upper=95):
-        return self._model_final._model.predict_interval(X, lower=lower, upper=upper)
+    def effect_interval(self, X, lower=5, upper=95, normal=True):
+        return self._model_final._model.predict_interval(X, lower=lower, upper=upper, normal=normal)
