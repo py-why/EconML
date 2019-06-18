@@ -7,7 +7,7 @@ from sklearn.base import TransformerMixin
 from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from econml.dml import DMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
+from econml.dml import LinearDMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 
@@ -30,7 +30,7 @@ class TestDML(unittest.TestCase):
             for d_y in [2, -1]:
                 for d_x in [2, None]:
                     for d_w in [2, None]:
-                        for est in [DMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression()),
+                        for est in [LinearDMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression()),
                                     SparseLinearDMLCateEstimator(linear_model_y=LinearRegression(),
                                                                  linear_model_t=LinearRegression()),
                                     KernelDMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())]:
@@ -52,14 +52,14 @@ class TestDML(unittest.TestCase):
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
-        dml = DMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
+        dml = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
         self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
 
     def test_discrete_treatments(self):
         """Test that we can use discrete treatments"""
-        dml = DMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
-                               featurizer=FunctionTransformer(), discrete_treatment=True)
+        dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
+                                     featurizer=FunctionTransformer(), discrete_treatment=True)
         # create a simple artificial setup where effect of moving from treatment
         #     1 -> 2 is 2,
         #     1 -> 3 is 1, and
@@ -146,7 +146,7 @@ class TestDML(unittest.TestCase):
             fit_intercept=False), featurizer=FunctionTransformer())
         dml.fit(y, t, x, w)
 
-        # note that this would fail for the non-sparse DMLCateEstimator
+        # note that this would fail for the non-sparse LinearDMLCateEstimator
 
         np.testing.assert_allclose(a, dml.coef_.reshape(-1))
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))

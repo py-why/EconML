@@ -73,6 +73,13 @@ class _RLearner(LinearCateEstimator):
             W = np.empty((shape(Y)[0], 0))
         assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0]
 
+        Y_res, T_res = self.fit_nuisances(Y, T, X, W)
+
+        self.fit_final(X, Y_res, T_res)
+
+        return self
+
+    def fit_nuisances(self, Y, T, X, W):
         if self._discrete_treatment:
             folds = StratifiedKFold(self._n_splits, shuffle=True,
                                     random_state=self._random_state).split(np.empty_like(X), T)
@@ -103,6 +110,9 @@ class _RLearner(LinearCateEstimator):
             self._models_y[idx].fit(X_train, W_train, Y_train)
             Y_res[test_idxs] = Y_test - self._models_y[idx].predict(X_test, W_test)
 
+        return Y_res, T_res
+
+    def fit_final(self, X, Y_res, T_res):
         self._model_final.fit(X, T_res, Y_res)
 
     def const_marginal_effect(self, X=None):
@@ -172,9 +182,9 @@ class _RLearner(LinearCateEstimator):
         return mse
 
 
-class _DMLCateEstimatorBase(_RLearner):
+class DMLCateEstimator(_RLearner):
     """
-    The base class for Double ML estimators.
+    The base class for parametric Double ML estimators.
 
     Parameters
     ----------
@@ -217,11 +227,11 @@ class _DMLCateEstimatorBase(_RLearner):
     def __init__(self,
                  model_y, model_t, model_final,
                  featurizer,
-                 sparseLinear,
-                 discrete_treatment,
-                 n_splits,
-                 random_state,
-                 inference):
+                 sparseLinear=False,
+                 discrete_treatment=False,
+                 n_splits=2,
+                 random_state=None,
+                 inference=None):
 
         class FirstStageWrapper:
             def __init__(self, model, is_Y):
@@ -230,12 +240,12 @@ class _DMLCateEstimatorBase(_RLearner):
                 self._is_Y = is_Y
 
             def _combine(self, X, W):
-                F = self._featurizer.fit_transform(X)
                 if self._is_Y and sparseLinear:
+                    F = self._featurizer.fit_transform(X)
                     XW = hstack([X, W])
                     return cross_product(XW, hstack([np.ones((shape(XW)[0], 1)), F, W]))
                 else:
-                    return hstack([F, W])
+                    return hstack([X, W])
 
             def fit(self, X, W, Target):
                 self._model.fit(self._combine(X, W), Target)
@@ -299,9 +309,9 @@ class _DMLCateEstimatorBase(_RLearner):
         return self._model_final.coef_
 
 
-class DMLCateEstimator(_DMLCateEstimatorBase):
+class LinearDMLCateEstimator(DMLCateEstimator):
     """
-    The Double ML Estimator.
+    The Double ML Estimator with a low-dimensional linear final stage.
 
     Parameters
     ----------
@@ -339,7 +349,7 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
     """
 
     def __init__(self,
-                 model_y, model_t, model_final=LinearRegression(fit_intercept=False),
+                 model_y=LassoCV(), model_t=LassoCV(), model_final=LinearRegression(fit_intercept=False),
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
                  discrete_treatment=False,
                  n_splits=2,
@@ -349,14 +359,14 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
                          model_t=model_t,
                          model_final=model_final,
                          featurizer=featurizer,
-                         sparseLinear=False,
+                         sparseLinear=True,
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state,
                          inference=inference)
 
 
-class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
+class SparseLinearDMLCateEstimator(DMLCateEstimator):
     """
     A specialized version of the Double ML estimator for the sparse linear case.
 
@@ -417,9 +427,9 @@ class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
                          inference=inference)
 
 
-class KernelDMLCateEstimator(DMLCateEstimator):
+class KernelDMLCateEstimator(LinearDMLCateEstimator):
     """
-    A specialized version of the Double ML Estimator that uses random fourier features.
+    A specialized version of the linear Double ML Estimator that uses random fourier features.
 
     Parameters
     ----------
