@@ -19,6 +19,7 @@ from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
 from .cate_estimator import LinearCateEstimator
+from .sklearn_extensions.honestforest import SubsampledHonestForest
 
 
 class _RLearner(LinearCateEstimator):
@@ -441,3 +442,139 @@ class KernelDMLCateEstimator(DMLCateEstimator):
 
         super().__init__(model_y=model_y, model_t=model_t, model_final=model_final,
                          featurizer=RandomFeatures(), n_splits=n_splits, random_state=random_state)
+
+
+class GenericDMLCateEstimator(_RLearner):
+    """
+    A dml cate estimator with a generic final model that can be an arbitrary
+    non-parametric model that accepts sample weights at fit time. 
+
+    Uses the equivalence of the square loss::
+
+        (Y - E[Y|X, W] - theta(x) \cdot (T - E[T|X, W]))^2
+
+    with the sample weighted square loss::
+
+        \left(\frac{Y - E[Y|X, W]}{T - E[T|X,W]} - theta(X)\right)^2 \cdot  (T - E[T|X,W])^2
+
+    For instance, one can use forest based estimators as a final model, or high dimensional
+    linear estimators (wrapped with a WeightModelWrapper), or SGD based estimators.
+
+    Parameters
+    ----------
+    model_y: estimator
+        The estimator for fitting the response to the features. Must implement
+        `fit` and `predict` methods.  Must be a linear model for correctness when sparseLinear is `True`.
+
+    model_t: estimator
+        The estimator for fitting the treatment to the features. Must implement
+        `fit` and `predict` methods.  Must be a linear model for correctness when sparseLinear is `True`.
+
+    model_final: estimator
+        The estimator for fitting the response residuals to the treatment residuals. Must implement
+        `fit` and `predict` methods, and must be a linear model for correctness.
+
+    discrete_treatment: bool
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
+    n_splits: int
+        The number of splits to use when fitting the first-stage models.
+
+    random_state: int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+    """
+
+    def __init__(self,
+                 model_y, model_t, model_final,
+                 discrete_treatment=False,
+                 n_splits=2,
+                 random_state=None):
+
+        class FirstStageWrapper:
+            def __init__(self, model, is_Y):
+                self._model = clone(model, safe=False)
+                self._is_Y = is_Y
+
+            def _combine(self, X, W):
+                return hstack([X, W])
+
+            def fit(self, X, W, Target):
+                self._model.fit(self._combine(X, W), Target)
+
+            def predict(self, X, W):
+                if (not self._is_Y) and discrete_treatment:
+                    return self._model.predict_proba(self._combine(X, W))
+                else:
+                    return self._model.predict(self._combine(X, W))
+
+        class FinalWrapper:
+            def __init__(self):
+                self._model = clone(model_final, safe=False)
+
+            def fit(self, X, T_res, Y_res):
+                # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
+                self._d_t = shape(T_res)[1:]
+                self._d_y = shape(Y_res)[1:]
+
+                sign_T_res = np.sign(T_res)
+                sign_T_res[sign_T_res == 0] = 1
+                clipped_T_res = np.sign(T_res) * np.clip(np.abs(T_res), 1e-5, np.inf)
+                self._model.fit(X, Y_res / clipped_T_res, sample_weight=T_res.flatten()**2)
+
+            def predict(self, X):
+                return self._model.predict(X)
+
+        super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
+                         model_t=FirstStageWrapper(model_t, is_Y=False),
+                         model_final=FinalWrapper(),
+                         discrete_treatment=discrete_treatment,
+                         n_splits=n_splits,
+                         random_state=random_state)
+
+
+class ForestDMLCateEstimator(GenericDMLCateEstimator):
+    """ Instance of GenericDMLCateEstimator with a subsampled honest forest
+    as a final model, so as to enable non-parametric inference.
+    See ``.sklearn_extensions.SubsampledHonestForest`` for a description of each of the input parameters.
+    """
+    def __init__(self,
+                 model_y, model_t,
+                 discrete_treatment=False,
+                 n_crossfit_splits=2,
+                 n_estimators=100,
+                 criterion="mse",
+                 max_depth=None,
+                 min_samples_split=2,
+                 min_samples_leaf=1,
+                 min_weight_fraction_leaf=0.,
+                 max_features="auto",
+                 max_leaf_nodes=None,
+                 min_impurity_decrease=0.,
+                 subsample_fr='auto',
+                 honest=True,
+                 n_jobs=None,
+                 verbose=0,
+                 random_state=None):
+        model_final = SubsampledHonestForest(n_estimators=n_estimators,
+                                             criterion="mse",
+                                             max_depth=max_depth,
+                                             min_samples_split=min_samples_split,
+                                             min_samples_leaf=min_samples_leaf,
+                                             min_weight_fraction_leaf=min_weight_fraction_leaf,
+                                             max_features=max_features,
+                                             max_leaf_nodes=max_leaf_nodes,
+                                             min_impurity_decrease=min_impurity_decrease,
+                                             subsample_fr=subsample_fr,
+                                             honest=honest,
+                                             n_jobs=n_jobs,
+                                             random_state=random_state,
+                                             verbose=verbose)
+        super().__init__(model_y=model_y, model_t=model_t,
+                         model_final=model_final, discrete_treatment=discrete_treatment,
+                         n_splits=n_crossfit_splits, random_state=random_state)
+        
+    def effect_interval(self, X, lower=5, upper=95):
+        return self._model_final._model.predict_interval(X, lower=lower, upper=upper)
