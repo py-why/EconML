@@ -450,11 +450,8 @@ class GenericDMLCateEstimator(_RLearner):
     non-parametric model that accepts sample weights at fit time. 
 
     Uses the equivalence of the square loss::
-
         (Y - E[Y|X, W] - theta(x) \cdot (T - E[T|X, W]))^2
-
     with the sample weighted square loss::
-
         \left(\frac{Y - E[Y|X, W]}{T - E[T|X,W]} - theta(X)\right)^2 \cdot  (T - E[T|X,W])^2
 
     For instance, one can use forest based estimators as a final model, or high dimensional
