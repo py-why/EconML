@@ -533,6 +533,12 @@ class GenericDMLCateEstimator(_RLearner):
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
+    
+    def fit(self, Y, T, X=None, W=None):
+        if len(T.shape) > 1 and T.shape[1] > 1:
+            raise AttributeError("This method works only with a scalar treatment!")
+
+        return super().fit(Y, T, X=X, W=W)
 
 
 class ForestDMLCateEstimator(GenericDMLCateEstimator):
