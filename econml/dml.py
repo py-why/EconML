@@ -562,7 +562,7 @@ class ForestDMLCateEstimator(GenericDMLCateEstimator):
                  verbose=0,
                  random_state=None):
         model_final = SubsampledHonestForest(n_estimators=n_estimators,
-                                             criterion="mse",
+                                             criterion=criterion,
                                              max_depth=max_depth,
                                              min_samples_split=min_samples_split,
                                              min_samples_leaf=min_samples_leaf,
