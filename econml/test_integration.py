@@ -81,7 +81,7 @@ def apply_group_test(n_products, n_stores, controls, treatments, features, const
         def coef_(self):
             return self._model.coef_
 
-    return econml.dml.DMLCateEstimator(
+    return econml.dml.LinearDMLCateEstimator(
         model_t=GroupRegression(t_model, constant_features=[], constant_controls=constant_controls,
                                 compute_gp_avgs=False, is_first_stage=True),
         model_y=GroupRegression(y_model, constant_features=features, constant_controls=constant_controls,
@@ -311,12 +311,12 @@ def test_compound_vs_simple_model(n_products=100, n_stores=2, n_weeks=10):
         def coef_(self):
             return self._model.coef_
 
-    compound = dml.DMLCateEstimator(model_t=FirstStageRegression(LinearRegression(), block_features),
-                                    model_y=FirstStageRegression(
-                                        LinearRegression(), scipy.sparse.identity(block_size)),
-                                    model_final=SecondStageRegression(RidgeCV())).fit(compound_treatments,
-                                                                                      compound_effects).coef_
-    simple = dml.DMLCateEstimator(model_final=RidgeCV()).fit(simple_results, simple_effects).coef_
+    compound = dml.LinearDMLCateEstimator(model_t=FirstStageRegression(LinearRegression(), block_features),
+                                          model_y=FirstStageRegression(
+        LinearRegression(), scipy.sparse.identity(block_size)),
+        model_final=SecondStageRegression(RidgeCV())).fit(compound_treatments,
+                                                          compound_effects).coef_
+    simple = dml.LinearDMLCateEstimator(model_final=RidgeCV()).fit(simple_results, simple_effects).coef_
 
     return alphas, simple, compound
 
@@ -388,7 +388,7 @@ def test_many_effects(n_exp=20, n_products=100, n_stores=2, n_weeks=10):
         lassos.append(LassoCV().fit(results, quantities).coef_[0:n_products + 1])
         ridges.append(RidgeCV().fit(results, quantities).coef_[0:n_products + 1])
         # use features starting at index 1+n_products to skip all prices
-        doubleMls.append(econml.dml.DMLCateEstimator(model_final=RidgeCV()).fit(results, quantities).coef_)
+        doubleMls.append(econml.dml.LinearDMLCateEstimator(model_final=RidgeCV()).fit(results, quantities).coef_)
         alphass.append(alphas)
 
     pickleFile = open('pickledSparse_{0}_{1}_{2}_{3}.pickle'.format(n_exp, n_products, n_stores, n_weeks), 'wb')

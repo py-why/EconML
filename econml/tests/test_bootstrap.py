@@ -3,7 +3,7 @@
 
 from econml.bootstrap import BootstrapEstimator
 from econml.inference import BootstrapOptions
-from econml.dml import DMLCateEstimator
+from econml.dml import LinearDMLCateEstimator
 from econml.two_stage_least_squares import NonparametricTwoStageLeastSquares
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
@@ -66,7 +66,7 @@ class TestBootstrap(unittest.TestCase):
         t2 = np.random.normal(size=(1000, 1))
         y = x[:, 0] * 0.5 + t + np.random.normal(size=(1000, 1))
 
-        est = DMLCateEstimator(LinearRegression(), LinearRegression())
+        est = LinearDMLCateEstimator(LinearRegression(), LinearRegression())
         est.fit(y, t, x)
 
         bs = BootstrapEstimator(est, 50)
@@ -155,7 +155,7 @@ class TestBootstrap(unittest.TestCase):
         t2 = np.random.normal(size=(1000, 1))
         y = x[:, 0] * 0.5 + t + np.random.normal(size=(1000, 1))
 
-        est = DMLCateEstimator(LinearRegression(), LinearRegression(), inference='bootstrap')
+        est = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), inference='bootstrap')
         est.fit(y, t, x)
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
