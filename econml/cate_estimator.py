@@ -5,14 +5,63 @@
 
 import abc
 import numpy as np
+from .bootstrap import BootstrapEstimator
+from .inference import BootstrapOptions
 from .utilities import tensordot, ndim, reshape, shape
 
 
-class BaseCateEstimator:
-    """Base class for all CATE estimators in this package."""
+class BaseCateEstimator(metaclass=abc.ABCMeta):
+    """
+    Base class for all CATE estimators in this package.
+
+    Parameters
+    ----------
+    inference: string, inference method, or None
+        Method for performing inference.  All estimators support 'bootstrap'
+        (or an instance of `BootstrapOptions`), some support other methods as well.
+
+    """
+
+    _inference_options = {'bootstrap': BootstrapOptions()}
+    _bootstrap_whitelist = {'effect', 'marginal_effect'}
 
     @abc.abstractmethod
-    def fit(self, Y, T, X=None, W=None, Z=None):
+    def __init__(self, inference):
+        """
+        Initialize the estimator.
+
+        All subclass overrides should complete with a call to this method on the super class,
+        since it enables bootstrapping.
+
+        """
+        if inference in self._inference_options:
+            inference = self._inference_options[inference]
+        if isinstance(inference, BootstrapOptions):
+            # Note that fit (and other methods) check for the presence of a _bootstrap attribute
+            # to determine whether to delegate to that object or not;
+            # The clones wrapped inside the BootstrapEstimator will not have that attribute since
+            # it's assigned *after* creating the estimator
+            self._bootstrap = BootstrapEstimator(self, inference.n_bootstrap_samples, inference.n_jobs)
+        self._inference = inference
+
+    def __getattr__(self, name):
+        suffix = '_interval'
+        if name.endswith(suffix) and name[: - len(suffix)] in self._bootstrap_whitelist:
+            if hasattr(self, '_bootstrap'):
+                return getattr(self._bootstrap, name)
+            else:
+                raise AttributeError('\'%s\' object does not support attribute \'%s\'; '
+                                     'consider passing inference=\'bootstrap\' when initializing'
+                                     % (type(self).__name__, name))
+        else:
+            raise AttributeError('\'%s\' object has no attribute \'%s\''
+                                 % (type(self).__name__, name))
+
+    @abc.abstractmethod
+    def _fit_impl(self, Y, T, X=None, W=None, Z=None):
+        pass
+
+    def fit(self, *args, **kwargs):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -37,7 +86,9 @@ class BaseCateEstimator:
         self
 
         """
-        pass
+        if hasattr(self, '_bootstrap'):
+            self._bootstrap.fit(*args, **kwargs)
+        return self._fit_impl(*args, **kwargs)
 
     @abc.abstractmethod
     def effect(self, X=None, T0=0, T1=1):
@@ -92,7 +143,20 @@ class BaseCateEstimator:
 
 
 class LinearCateEstimator(BaseCateEstimator):
-    """Base class for all CATE estimators with linear treatment effects in this package."""
+    """
+    Base class for all CATE estimators with linear treatment effects in this package.
+
+    Parameters
+    ----------
+    inference: string, inference method, or None
+        Method for performing inference.  All estimators support 'bootstrap'
+        (or an instance of `BootstrapOptions`), some support other methods as well.
+
+    """
+
+    @abc.abstractmethod
+    def __init__(self, inference):
+        super().__init__(inference=inference)
 
     @abc.abstractmethod
     def const_marginal_effect(self, X=None):

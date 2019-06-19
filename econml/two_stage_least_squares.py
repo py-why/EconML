@@ -117,9 +117,13 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         This should produce a 3-dimensional array, containing the per-treatment derivative of
         each transformed treatment. That is, given a treatment array of shape(n, dₜ),
         the output should have shape(n, dₜ, fₜ), where fₜ is the number of columns produced by `t_featurizer`.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
-    def __init__(self, t_featurizer, x_featurizer, z_featurizer, dt_featurizer):
+    def __init__(self, t_featurizer, x_featurizer, z_featurizer, dt_featurizer, inference=None):
         self._t_featurizer = clone(t_featurizer, safe=False)
         self._x_featurizer = clone(x_featurizer, safe=False)
         self._z_featurizer = clone(z_featurizer, safe=False)
@@ -128,8 +132,9 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         # this allows us to ignore the intercept when computing marginal effects
         self._model_T = LinearRegression(fit_intercept=False)
         self._model_Y = LinearRegression(fit_intercept=False)
+        super().__init__(inference=inference)
 
-    def fit(self, Y, T, X, W, Z):
+    def _fit_impl(self, Y, T, X, W, Z):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·, ·, ·), ∂τ(·, ·).
 

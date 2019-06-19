@@ -268,13 +268,19 @@ class DeepIVEstimator(BaseCateEstimator):
     second_stage_options : dictionary, optional
         The keyword arguments to pass to Keras's `fit` method when training the second stage model.
         Defaults to `{"epochs": 100}`.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
+
     """
 
     def __init__(self, n_components, m, h,
                  n_samples, use_upper_bound_loss=False, n_gradient_samples=0,
                  optimizer='adam',
                  first_stage_options={"epochs": 100},
-                 second_stage_options={"epochs": 100}):
+                 second_stage_options={"epochs": 100},
+                 inference=None):
         self._n_components = n_components
         self._m = m
         self._h = h
@@ -284,8 +290,9 @@ class DeepIVEstimator(BaseCateEstimator):
         self._optimizer = optimizer
         self._first_stage_options = first_stage_options
         self._second_stage_options = second_stage_options
+        super().__init__(inference=inference)
 
-    def fit(self, Y, T, X, Z):
+    def _fit_impl(self, Y, T, X, Z):
         """Estimate the counterfactual model from data.
 
         That is, estimate functions τ(·, ·, ·), ∂τ(·, ·).
