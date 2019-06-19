@@ -27,13 +27,17 @@ class TLearner(BaseCateEstimator):
 
     treated_model : outcome estimator for treated units
         Must implement `fit` and `predict` methods.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
-    def __init__(self, controls_model, treated_model):
+    def __init__(self, controls_model, treated_model, inference=None):
         self.controls_model = clone(controls_model, safe=False)
         self.treated_model = clone(treated_model, safe=False)
 
-    def fit(self, Y, T, X):
+    def _fit_impl(self, Y, T, X):
         """Build an instance of SLearner.
 
         Parameters
@@ -105,12 +109,17 @@ class SLearner(BaseCateEstimator):
     overall_model : outcome estimator for all units
         Model will be trained on X|T where '|' denotes concatenation.
         Must implement `fit` and `predict` methods.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
-    def __init__(self, overall_model):
+    def __init__(self, overall_model, inference=None):
         self.overall_model = clone(overall_model, safe=False)
+        super().__init__(inference=inference)
 
-    def fit(self, Y, T, X):
+    def _fit_impl(self, Y, T, X):
         """Build an instance of SLearner.
 
         Parameters
@@ -202,6 +211,10 @@ class XLearner(BaseCateEstimator):
         Must accept an array of feature vectors and return an array of
         probabilities.
         If provided, the value for `propensity_model` (if any) will be ignored.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self, controls_model,
@@ -209,7 +222,8 @@ class XLearner(BaseCateEstimator):
                  cate_controls_model=None,
                  cate_treated_model=None,
                  propensity_model=LogisticRegression(),
-                 propensity_func=None):
+                 propensity_func=None,
+                 inference=None):
         self.controls_model = clone(controls_model, safe=False)
         self.treated_model = clone(treated_model, safe=False)
         self.cate_controls_model = clone(cate_controls_model, safe=False)
@@ -223,8 +237,9 @@ class XLearner(BaseCateEstimator):
         self.propensity_func = clone(propensity_func, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
         self.has_propensity_func = self.propensity_func is not None
+        super().__init__(inference=inference)
 
-    def fit(self, Y, T, X):
+    def _fit_impl(self, Y, T, X):
         """Build an instance of XLearner.
 
         Parameters
@@ -322,13 +337,18 @@ class DomainAdaptationLearner(BaseCateEstimator):
     propensity_func : propensity function
         Must accept an array of feature vectors and return an array of probabilities.
         If provided, the value for `propensity_model` (if any) will be ignored.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self, controls_model,
                  treated_model,
                  overall_model,
                  propensity_model=LogisticRegression(),
-                 propensity_func=None):
+                 propensity_func=None,
+                 inference=None):
         self.controls_model = clone(controls_model, safe=False)
         self.treated_model = clone(treated_model, safe=False)
         self.overall_model = clone(overall_model, safe=False)
@@ -336,8 +356,9 @@ class DomainAdaptationLearner(BaseCateEstimator):
         self.propensity_model = clone(propensity_model, safe=False)
         self.propensity_func = clone(propensity_func, safe=False)
         self.has_propensity_func = self.propensity_func is not None
+        super().__init__(inference=inference)
 
-    def fit(self, Y, T, X):
+    def _fit_impl(self, Y, T, X):
         """Build an instance of DomainAdaptationLearner.
 
         Parameters
@@ -447,21 +468,27 @@ class DoublyRobustLearner(BaseCateEstimator):
         Must accept an array of feature vectors and return an array of
         probabilities.
         If provided, the value for `propensity_model` (if any) will be ignored.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self,
                  outcome_model,
                  pseudo_treatment_model,
                  propensity_model=LogisticRegression(),
-                 propensity_func=None):
+                 propensity_func=None,
+                 inference=None):
         self.outcome_model = clone(outcome_model, safe=False)
         self.pseudo_treatment_model = clone(pseudo_treatment_model, safe=False)
 
         self.propensity_func = clone(propensity_func, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
         self.has_propensity_func = self.propensity_func is not None
+        super().__init__(inference=inference)
 
-    def fit(self, Y, T, X, W=None):
+    def _fit_impl(self, Y, T, X, W=None):
         """Build an instance of DoublyRobustLearner.
 
         Parameters

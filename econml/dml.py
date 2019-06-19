@@ -50,18 +50,23 @@ class _RLearner(LinearCateEstimator):
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self, model_y, model_t, model_final,
-                 discrete_treatment, n_splits, random_state):
+                 discrete_treatment, n_splits, random_state, inference):
         self._models_y = [clone(model_y, safe=False) for _ in range(n_splits)]
         self._models_t = [clone(model_t, safe=False) for _ in range(n_splits)]
         self._model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
         self._random_state = check_random_state(random_state)
+        super().__init__(inference=inference)
 
-    def fit(self, Y, T, X=None, W=None):
+    def _fit_impl(self, Y, T, X=None, W=None):
         if X is None:
             X = np.ones((shape(Y)[0], 1))
         if W is None:
@@ -203,6 +208,10 @@ class _DMLCateEstimatorBase(_RLearner):
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`).
     """
 
     def __init__(self,
@@ -211,7 +220,8 @@ class _DMLCateEstimatorBase(_RLearner):
                  sparseLinear,
                  discrete_treatment,
                  n_splits,
-                 random_state):
+                 random_state,
+                 inference):
 
         class FirstStageWrapper:
             def __init__(self, model, is_Y):
@@ -274,7 +284,8 @@ class _DMLCateEstimatorBase(_RLearner):
                          model_final=FinalWrapper(),
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         random_state=random_state,
+                         inference=inference)
 
     @property
     def coef_(self):
@@ -321,6 +332,10 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self,
@@ -328,7 +343,8 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
                  discrete_treatment=False,
                  n_splits=2,
-                 random_state=None):
+                 random_state=None,
+                 inference=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=model_final,
@@ -336,7 +352,8 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
                          sparseLinear=False,
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         random_state=random_state,
+                         inference=inference)
 
 
 class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
@@ -376,6 +393,10 @@ class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self,
@@ -383,7 +404,8 @@ class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
                  discrete_treatment=False,
                  n_splits=2,
-                 random_state=None):
+                 random_state=None,
+                 inference=None):
         super().__init__(model_y=linear_model_y,
                          model_t=linear_model_t,
                          model_final=model_final,
@@ -391,7 +413,8 @@ class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
                          sparseLinear=True,
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         random_state=random_state,
+                         inference=inference)
 
 
 class KernelDMLCateEstimator(DMLCateEstimator):
@@ -421,15 +444,19 @@ class KernelDMLCateEstimator(DMLCateEstimator):
     n_splits: int, optional (default is 2)
         The number of splits to use when fitting the first-stage models.
 
-     random_state: int, RandomState instance or None, optional (default=None)
+    random_state: int, RandomState instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
-   """
+
+    inference: string, inference method, or None
+        Method for performing inference.  This estimator supports 'bootstrap'
+        (or an instance of `BootstrapOptions`)
+    """
 
     def __init__(self, model_y, model_t, model_final=LinearRegression(fit_intercept=False),
-                 dim=20, bw=1.0, n_splits=2, random_state=None):
+                 dim=20, bw=1.0, n_splits=2, random_state=None, inference=None):
         class RandomFeatures(TransformerMixin):
             def fit(innerself, X):
                 innerself.omegas = self._random_state.normal(0, 1 / bw, size=(shape(X)[1], dim))
@@ -440,4 +467,5 @@ class KernelDMLCateEstimator(DMLCateEstimator):
                 return np.sqrt(2 / dim) * np.cos(np.matmul(X, innerself.omegas) + innerself.biases)
 
         super().__init__(model_y=model_y, model_t=model_t, model_final=model_final,
-                         featurizer=RandomFeatures(), n_splits=n_splits, random_state=random_state)
+                         featurizer=RandomFeatures(), n_splits=n_splits, random_state=random_state,
+                         inference=inference)
