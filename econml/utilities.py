@@ -12,6 +12,8 @@ from collections import defaultdict, Counter
 from sklearn.base import TransformerMixin
 from functools import reduce
 from sklearn.utils import check_array, check_X_y
+from sklearn.preprocessing import PolynomialFeatures
+import statsmodels.api as sm
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -697,3 +699,42 @@ class MultiModelWrapper(object):
         t = Xt[:, -self.n_T:]
         predictions = [self.model_list[np.nonzero(t[i])[0][0]].predict(X[[i]]) for i in range(len(X))]
         return np.concatenate(predictions)
+
+
+# A wrapper of statsmodel linear regression, wrapped in a sklearn interface.
+# We can use statsmodel for all hypothesis testing capabilities
+class StatsModelLinearRegression:
+
+    def __init__(self, fit_intercept=True, cov_type='nonrobust'):
+        self.fit_intercept = fit_intercept
+        self.cov_type = cov_type
+        return
+
+    def fit(self, X, y, sample_weight=None):
+        if self.fit_intercept:
+            X = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+        if sample_weight is not None:
+            X = X * np.sqrt(sample_weight).reshape(-1, 1)
+            y = y * np.sqrt(sample_weight)
+        self.model = sm.OLS(y, X).fit(cov_type=self.cov_type)
+        return self
+
+    def predict(self, X):
+        if self.fit_intercept:
+            X = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+        return self.model.predict(exog=X)
+
+    def summary(self, *args, **kwargs):
+        return self.model.summary(*args, **kwargs)
+
+    @property
+    def coef_(self):
+        if self.fit_intercept:
+            return self.model._results.params[1:]
+        return self.model._results.params
+
+    @property
+    def intercept_(self):
+        if self.fit_intercept:
+            return self.model._results.params[0]
+        return 0

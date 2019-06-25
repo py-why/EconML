@@ -6,11 +6,11 @@
 
 import numpy as np
 import scipy.sparse
+import threading
 import sparse as sp
 import itertools
 from sklearn.utils import check_array, check_X_y, issparse
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.ensemble.forest import ForestRegressor
+from sklearn.ensemble.forest import ForestRegressor, _accumulate_prediction
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.base import RegressorMixin
@@ -20,6 +20,8 @@ from sklearn.tree._tree import DTYPE, DOUBLE
 from sklearn.utils import check_random_state, check_array, compute_sample_weight
 from sklearn.utils._joblib import Parallel, delayed
 from sklearn.utils.fixes import parallel_helper, _joblib_parallel_args
+from sklearn.utils.validation import check_is_fitted
+from sklearn.ensemble.base import _partition_estimators
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 MAX_INT = np.iinfo(np.int32).max
@@ -56,7 +58,8 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
         count_est = np.sum(path_est, axis=0)
         # Calculate the weighted average of responses on the estimation sample on each node
         value_est = scipy.sparse.csr_matrix((sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
-        value_est = value_est / weight_est
+        if not forest.global_averaging:
+            value_est = value_est / weight_est
         # Prune tree to remove leafs that don't satisfy the leaf requirements on the estimation sample
         children_left = tree.tree_.children_left
         children_right = tree.tree_.children_right
@@ -68,7 +71,10 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
                 tree.tree_.children_left[parent_id] = -1
                 tree.tree_.children_right[parent_id] = -1
             else:
-                tree.tree_.value[node_id] = value_est[:, node_id]
+                for i in range(tree.n_outputs_):
+                    tree.tree_.value[node_id, i] = value_est[i, node_id]
+                tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id]
+                tree.tree_.n_node_samples[node_id] = count_est[0, node_id]
                 if (children_left[node_id] != children_right[node_id]):                    
                     stack.append((children_left[node_id], node_id))
                     stack.append((children_right[node_id], node_id))
@@ -317,6 +323,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                  min_impurity_decrease=0.,
                  subsample_fr='auto',
                  honest=True,
+                 global_averaging=True,
                  n_jobs=None,
                  random_state=None,
                  verbose=0,
@@ -347,6 +354,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         self.min_impurity_decrease = min_impurity_decrease
         self.subsample_fr = subsample_fr
         self.honest = honest
+        self.global_averaging = global_averaging
         self.estimators_ = None
         
         return
@@ -459,6 +467,33 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
         return self
 
+    def _weight(self, X):
+        check_is_fitted(self, 'estimators_')
+        # Check data
+        X = self._validate_X_predict(X)
+        # Assign chunk of trees to jobs
+        n_jobs, _, _ = _partition_estimators(self.n_estimators, self.n_jobs)
+        # avoid storing the output of every estimator by summing them here
+        weight_hat = np.zeros((X.shape[0]), dtype=np.float64)
+        lock = threading.Lock()
+        Parallel(n_jobs=n_jobs, verbose=self.verbose,
+                **_joblib_parallel_args(require="sharedmem"))(
+            delayed(_accumulate_prediction)(lambda x, check_input: e.tree_.weighted_n_node_samples[e.apply(x)],
+            X, [weight_hat], lock)
+            for e in self.estimators_)
+        weight_hat /= len(self.estimators_)
+        return weight_hat
+
+    def predict(self, X):
+        if not self.global_averaging:
+            return super(SubsampledHonestForest, self).predict(X)
+        else:
+            y_pred = super(SubsampledHonestForest, self).predict(X)
+            weight_hat = self._weight(X)
+            if len(y_pred.shape) > 1:
+                weight_hat.reshape((y_pred.shape[0], 1))
+            return y_pred / weight_hat
+
     def predict_interval(self, X, lower=2.5, upper=97.5, normal=True):
         """
         Parameters
@@ -469,13 +504,24 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         normal : whether to use normal approximation to construct CI or perform
             a non-parametric bootstrap of little bags
         """
-        y_pred = [tree.predict(X) for tree in self.estimators_]
-        y_bags_pred = [np.nanmean(np.array(y_pred)[np.arange(it*self.slice_len,
-                                                min((it+1)*self.slice_len, self.n_estimators))], axis=0)
-                                                for it in range(self.n_slices)]
-        if normal:
+        y_pred = np.array([tree.predict(X) for tree in self.estimators_])
+        y_bags_pred = np.array([np.nanmean(y_pred[np.arange(it*self.slice_len,
+                                            min((it+1)*self.slice_len, self.n_estimators))], axis=0)
+                                            for it in range(self.n_slices)])
+        if self.global_averaging:
+            weight_hat = np.array([tree.tree_.weighted_n_node_samples[tree.apply(X)]  for tree in self.estimators_])
+            weight_hat_bags = np.array([np.nanmean(weight_hat[np.arange(it*self.slice_len,
+                                            min((it+1)*self.slice_len, self.n_estimators))], axis=0)
+                                            for it in range(self.n_slices)])
+            # TODO. The calculation below is wrong
+            std_pred = np.std(y_bags_pred)/np.sqrt(np.mean(weight_hat, axis=0))
+            y_point_pred = np.sum(y_pred, axis=0)/np.sum(weight_hat, axis=0)
+            y_bags_pred /= weight_hat_bags
+        else:
             std_pred = np.std(y_bags_pred, axis=0)
-            y_point_pred = np.mean(y_bags_pred, axis=0)
+            y_point_pred = np.mean(y_pred, axis=0)
+
+        if normal:
             upper_pred = scipy.stats.norm.ppf(upper/100, loc=y_point_pred, scale=std_pred)
             lower_pred = scipy.stats.norm.ppf(lower/100, loc=y_point_pred, scale=std_pred)
             return lower_pred, upper_pred
