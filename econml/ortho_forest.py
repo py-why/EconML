@@ -17,7 +17,7 @@ This file consists of classes that implement the following variants of the ORF m
 - The `DiscreteTreatmentOrthoForest`, a two-forest approach for learning discrete treatment effects
   using kernel two stage estimation.
 
-For more details on these methods, see our paper [Oprescu2018]_.
+For more details on these methods, see our paper [Oprescu2019]_.
 """
 
 import abc
