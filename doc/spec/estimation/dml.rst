@@ -311,7 +311,7 @@ matrix of cross price elasticities as:
     est.fit(Y, T, None, W)
 
     # a_hat[i,j] contains the elasticity of the demand of product i on the price of product j
-    a_hat = est.const_marginal_effect()
+    a_hat = est.effect()
 
 If we have too many products then the cross-price elasticity matrix contains many parameters and we need
 to regularize. Given that we want to estimate a matrix, it makes sense in this application to consider
@@ -335,7 +335,7 @@ lightning package implements such a class:
                         model_final=FistaRegressor(penalty='trace', C=0.0001),
                         featurizer=PolynomialFeatures(degree=1, include_bias=False))
     est.fit(Y, T, X, W)
-    te_pred = est.const_marginal_effect(np.array([[np.median(X)]]))
+    te_pred = est.effect(np.array([[np.median(X)]]))
     print(te_pred)
     print(np.linalg.svd(te_pred[0]))
 
@@ -350,9 +350,9 @@ Similarly we can get heterogeneous cross-price elasticities with respect to some
     est.fit(Y, T, X, W)
 
     # est.coef(1) contains the cross-price elasticities when X=1, i.e. during christmas. 
-    a_christmas = est.const_marginal_effect([[1]])
+    a_christmas = est.effect([[1]])
     # Similarly est.coef(0) contains the cross price elasticities when it is not christmas.
-    a_non_christmas = est.const_marginal_effect([[0]])
+    a_non_christmas = est.effect([[0]])
 
 We can create even more complex conditional statements, such as store specific elasticities during christmas:
 
@@ -365,7 +365,7 @@ We can create even more complex conditional statements, such as store specific e
     est.fit(Y, T, X, W)
 
     # est.coef(1, 1) contains the cross-price elasticities in the online store during christmas. 
-    a_christmas = est.const_marginal_effect([[1, 1]])
+    a_christmas = est.effect([[1, 1]])
     # est.coef(0, 1) contains the cross price elasticities in the online store
     # when it is not christmas, etc.
     a_non_christmas = est.const_marginal_effect([[0, 1]])

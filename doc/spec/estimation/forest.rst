@@ -6,7 +6,7 @@ Forest Based Estimators
 Orthogonal Random Forests
 -------------------------
 
-Orthogonal Random Forests [Oprescu2018]_ are a combination of causal forests and double machine learning that allow
+Orthogonal Random Forests [Oprescu2019]_ are a combination of causal forests and double machine learning that allow
 for controlling for a high-dimensional set of confounders :math:`W`, while at the same time estimating non-parametrically
 the heterogeneous treatment effect :math:`\theta(X)`, on a lower dimensional set of variables :math:`X`. 
 Moreover, the estimates are asymptotically normal and hence have theoretical properties
@@ -69,7 +69,7 @@ first approach is applicable.
 
 In the case of discrete treatments (see :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`) the
 method estimates :math:`\theta(x)` for some target :math:`x` by solving a slightly different
-set of equations (see [Oprescu2018]_ for a theoretical exposition of why a different set of
+set of equations (see [Oprescu2019]_ for a theoretical exposition of why a different set of
 estimating equations is used). In particular, suppose that the treatment :math:`T` takes
 values in :math:`\{0, 1, \ldots, k\}`, then to estimate the treatment effect :math:`\theta_t(x)` of
 treatment :math:`t` as compared to treatment :math:`0`, the method finds the solution to the
@@ -113,7 +113,7 @@ and what the returned values correspond to in a simple data generating process:
     ...                                      model_T=sklearn.linear_model.LinearRegression(),
     ...                                      model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, W, W)
-    >>> print(est.const_marginal_effect(W[:2]))
+    >>> print(est.effect(W[:2]))
     [[1. ]
      [1.2]]
 
@@ -126,7 +126,7 @@ Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoFor
     ...                                    propensity_model=sklearn.linear_model.LogisticRegression(),
     ...                                    model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, W, W)
-    >>> print(est.const_marginal_effect(W[:2]))
+    >>> print(est.effect(W[:2]))
     [[1. ]
      [1.2]]
 
@@ -143,7 +143,7 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     >>> est = ContinuousTreatmentOrthoForest()
     >>> est.fit(Y, T, X, W)
     >>> X_test = np.linspace(-1, 1, 30).reshape(-1, 1)
-    >>> treatment_effects = est.const_marginal_effect(X_test)
+    >>> treatment_effects = est.effect(X_test)
     >>> plt.plot(X_test, y, label='ORF estimate')
     >>> plt.plot(X_test[:, 0], np.exp(2*X_test[:, 0]), 'b--', label='True effect')
     >>> plt.legend()
