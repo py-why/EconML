@@ -57,8 +57,13 @@ class BootstrapEstimator(object):
         def fit(x, *args, **kwargs):
             x.fit(*args, **kwargs)
             return x  # Explicitly return x in case fit fails to return its target
+
+        def convertArg(arg, inds):
+            return arg[inds] if arg is not None else None
         self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
-            delayed(fit)(obj, *[arg[inds] for arg in args], **{arg: named_args[arg][inds] for arg in named_args})
+            delayed(fit)(obj,
+                         *[convertArg(arg, inds) for arg in args],
+                         **{arg: convertArg(named_args[arg], inds) for arg in named_args})
             for obj, inds in zip(self._instances, indices)
         )
         return self
