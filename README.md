@@ -23,19 +23,19 @@ consult the documentation at https://econml.azurewebsites.net/.
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
 
-- [Introduction](#introduction)
-  - [About Treatment Effect Estimation](#about-treatment-effect-estimation)
-  - [Example Applications](#example-applications)
-- [News](#news)
-- [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [Usage Examples](#usage-examples)
-- [For Developers](#for-developers)
-  - [Running the tests](#running-the-tests)
-  - [Generating the documentation](#generating-the-documentation)
-- [Blogs and Publications](#blogs-and-publications)
-- [Contributing and Feedback](#contributing-and-feedback)
-- [References](#references)
+- [Introduction](#Introduction)
+  - [About Treatment Effect Estimation](#About-Treatment-Effect-Estimation)
+  - [Example Applications](#Example-Applications)
+- [News](#News)
+- [Getting Started](#Getting-Started)
+  - [Installation](#Installation)
+  - [Usage Examples](#Usage-Examples)
+- [For Developers](#For-Developers)
+  - [Running the tests](#Running-the-tests)
+  - [Generating the documentation](#Generating-the-documentation)
+- [Blogs and Publications](#Blogs-and-Publications)
+- [Contributing and Feedback](#Contributing-and-Feedback)
+- [References](#References)
 
 </details>
 
@@ -113,7 +113,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from econml.dml import DMLCateEstimator
   from sklearn.linear_model import LassoCV
   
-  est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV)
+  est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
   est.fit(Y, T, X, W) # W -> high-dimensional confounders, X -> features
   treatment_effects = est.effect(X_test)
   ```
@@ -164,12 +164,11 @@ To install from source, see [For Developers](#for-developers) section below.
 
 * Bootstrap Confidence Intervals
   ```Python
-  from econml.bootstrap import BootstrapEstimator
-
-  # Bootstrap estimator wrapper
-  boot_est = BootstrapEstimator(est, n_bootstrap_samples=10)
-  boot_est.fit(Y, T, X, W)
-  treatment_effect_interval = boot_est.effect_interval(X_test, lower=1, upper=99)
+  from econml.dml import DMLCateEstimator
+  
+  est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV(), inference='bootstrap')
+  est.fit(Y, T, X, W)
+  treatment_effect_interval = est.effect_interval(X_test, lower=1, upper=99)
   ```
 
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
