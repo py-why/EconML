@@ -23,19 +23,19 @@ consult the documentation at https://econml.azurewebsites.net/.
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
 
-- [Introduction](#introduction)
-  - [About Treatment Effect Estimation](#about-treatment-effect-estimation)
-  - [Example Applications](#example-applications)
-- [News](#news)
-- [Getting Started](#getting-started)
-  - [Installation](#installation)
-  - [Usage Examples](#usage-examples)
-- [For Developers](#for-developers)
-  - [Running the tests](#running-the-tests)
-  - [Generating the documentation](#generating-the-documentation)
-- [Blogs and Publications](#blogs-and-publications)
-- [Contributing and Feedback](#contributing-and-feedback)
-- [References](#references)
+- [Introduction](#Introduction)
+  - [About Treatment Effect Estimation](#About-Treatment-Effect-Estimation)
+  - [Example Applications](#Example-Applications)
+- [News](#News)
+- [Getting Started](#Getting-Started)
+  - [Installation](#Installation)
+  - [Usage Examples](#Usage-Examples)
+- [For Developers](#For-Developers)
+  - [Running the tests](#Running-the-tests)
+  - [Generating the documentation](#Generating-the-documentation)
+- [Blogs and Publications](#Blogs-and-Publications)
+- [Contributing and Feedback](#Contributing-and-Feedback)
+- [References](#References)
 
 </details>
 
@@ -113,9 +113,9 @@ To install from source, see [For Developers](#for-developers) section below.
   from econml.dml import DMLCateEstimator
   from sklearn.linear_model import LassoCV
   
-  est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV)
+  est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
   est.fit(Y, T, X, W) # W -> high-dimensional confounders, X -> features
-  treatment_effects = est.const_marginal_effect(X_test)
+  treatment_effects = est.effect(X_test)
   ```
 
 * [Orthogonal Random Forests](#references)
@@ -130,7 +130,7 @@ To install from source, see [For Developers](#for-developers) section below.
                                        model_T=LassoCV(cv=3), model_Y=LassoCV(cv=3)
                                        )
   est.fit(Y, T, X, W)
-  treatment_effects = est.const_marginal_effect(X_test)
+  treatment_effects = est.effect(X_test)
     ```
 
 * [Deep Instrumental Variables](#references)
@@ -164,12 +164,11 @@ To install from source, see [For Developers](#for-developers) section below.
 
 * Bootstrap Confidence Intervals
   ```Python
-  from econml.bootstrap import BootstrapEstimator
-
-  # Bootstrap estimator wrapper
-  boot_est = BootstrapEstimator(est, n_bootstrap_samples=10)
-  boot_est.fit(Y, T, X, W)
-  treatment_effect_interval = boot_est.const_marginal_effect_interval(X_test, lower=1, upper=99)
+  from econml.dml import DMLCateEstimator
+  
+  est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV(), inference='bootstrap')
+  est.fit(Y, T, X, W)
+  treatment_effect_interval = est.effect_interval(X_test, lower=1, upper=99)
   ```
 
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
@@ -196,9 +195,11 @@ The reStructuredText files that make up the documentation are stored in the [doc
 
 # Blogs and Publications
 
+* June 2019: [Treatment Effects with Instruments paper](https://arxiv.org/pdf/1905.10176.pdf)
+
 * May 2019: [Open Data Science Conference Workshop](https://staging5.odsc.com/training/portfolio/machine-learning-estimation-of-heterogeneous-treatment-effect-the-microsoft-econml-library) 
 
-* 2018: [Orthogonal Random Forests paper](https://arxiv.org/abs/1806.03467)
+* 2018: [Orthogonal Random Forests paper](http://proceedings.mlr.press/v97/oprescu19a.html)
 
 * 2017: [DeepIV paper](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf)
 
@@ -218,9 +219,13 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 # References
 
+V. Syrgkanis, V. Lei, M. Oprescu, M. Hei, K. Battocchi, G. Lewis.
+**Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments**
+[*ArXiv preprint arXiv:1905.10176*](https://arxiv.org/abs/1905.10176)
+
 M. Oprescu, V. Syrgkanis and Z. S. Wu.
 **Orthogonal Random Forest for Causal Inference.**
-[*ArXiv preprint arXiv:1806.03467*](http://arxiv.org/abs/1806.03467), 2018.
+[*Proceedings of the 36th International Conference on Machine Learning*](http://proceedings.mlr.press/v97/oprescu19a.html), 2019.
 
 Jason Hartford, Greg Lewis, Kevin Leyton-Brown, and Matt Taddy. **Deep IV: A flexible approach for counterfactual prediction.** [*Proceedings of the 34th International Conference on Machine Learning*](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf), 2017.
 

@@ -62,11 +62,11 @@ References
     Generalized Random Forests.
     *Annals of Statistics*, 2019
 
-.. [Oprescu2018]
+.. [Oprescu2019]
     M. Oprescu, V. Syrgkanis and Z. S. Wu.
     Orthogonal Random Forest for Causal Inference.
-    *arXiv preprint arXiv:1806.03467*, 2018.
-    URL http://arxiv.org/abs/1806.03467.
+    *Proceedings of the 36th International Conference on Machine Learning*, 2019.
+    URL http://proceedings.mlr.press/v97/oprescu19a.html.
 
 .. [Nie2017]
     X. Nie and S. Wager.
