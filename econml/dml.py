@@ -66,20 +66,20 @@ class _RLearner(LinearCateEstimator):
         self._random_state = check_random_state(random_state)
         super().__init__(inference=inference)
 
-    def _fit_impl(self, Y, T, X=None, W=None):
+    def _fit_impl(self, Y, T, X=None, W=None, sample_weight=None):
         if X is None:
             X = np.ones((shape(Y)[0], 1))
         if W is None:
             W = np.empty((shape(Y)[0], 0))
         assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0]
 
-        Y_res, T_res = self.fit_nuisances(Y, T, X, W)
+        Y_res, T_res = self.fit_nuisances(Y, T, X, W, sample_weight=sample_weight)
 
-        self.fit_final(X, Y_res, T_res)
+        self.fit_final(X, Y_res, T_res, sample_weight=sample_weight)
 
         return self
 
-    def fit_nuisances(self, Y, T, X, W):
+    def fit_nuisances(self, Y, T, X, W, sample_weight=None):
         if self._discrete_treatment:
             folds = StratifiedKFold(self._n_splits, shuffle=True,
                                     random_state=self._random_state).split(np.empty_like(X), T)
@@ -102,18 +102,27 @@ class _RLearner(LinearCateEstimator):
             # TODO: If T is a vector rather than a 2-D array, then the model's fit must accept a vector...
             #       Do we want to reshape to an nx1, or just trust the user's choice of input?
             #       (Likewise for Y below)
-            self._models_t[idx].fit(X_train, W_train, T_train)
+            if sample_weight is not None:
+                self._models_t[idx].fit(X_train, W_train, T_train, sample_weight=sample_weight[train_idxs])
+            else:
+                self._models_t[idx].fit(X_train, W_train, T_train)
             if self._discrete_treatment:
                 T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)[:, 1:]
             else:
                 T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)
-            self._models_y[idx].fit(X_train, W_train, Y_train)
+            if sample_weight is not None:
+                self._models_y[idx].fit(X_train, W_train, Y_train, sample_weight=sample_weight[train_idxs])
+            else:
+                self._models_y[idx].fit(X_train, W_train, Y_train)
             Y_res[test_idxs] = Y_test - self._models_y[idx].predict(X_test, W_test)
 
         return Y_res, T_res
 
-    def fit_final(self, X, Y_res, T_res):
-        self._model_final.fit(X, T_res, Y_res)
+    def fit_final(self, X, Y_res, T_res, sample_weight=None):
+        if sample_weight is not None:
+            self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight)
+        else:
+            self._model_final.fit(X, T_res, Y_res)
 
     def const_marginal_effect(self, X=None):
         """
@@ -247,8 +256,11 @@ class DMLCateEstimator(_RLearner):
                 else:
                     return hstack([X, W])
 
-            def fit(self, X, W, Target):
-                self._model.fit(self._combine(X, W), Target)
+            def fit(self, X, W, Target, sample_weight=None):
+                if sample_weight is not None:
+                    self._model.fit(self._combine(X, W), Target, sample_weight=sample_weight)
+                else:
+                    self._model.fit(self._combine(X, W), Target)
 
             def predict(self, X, W):
                 if (not self._is_Y) and discrete_treatment:
@@ -261,12 +273,15 @@ class DMLCateEstimator(_RLearner):
                 self._model = clone(model_final, safe=False)
                 self._featurizer = clone(featurizer, safe=False)
 
-            def fit(self, X, T_res, Y_res):
+            def fit(self, X, T_res, Y_res, sample_weight=None):
                 # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
                 self._d_t = shape(T_res)[1:]
                 self._d_y = shape(Y_res)[1:]
-
-                self._model.fit(cross_product(self._featurizer.fit_transform(X), T_res), Y_res)
+                if sample_weight is not None:
+                    self._model.fit(cross_product(self._featurizer.fit_transform(X), T_res),
+                                    Y_res, sample_weight=sample_weight)
+                else:
+                    self._model.fit(cross_product(self._featurizer.fit_transform(X), T_res), Y_res)
 
             def predict(self, X, T_res=None):
                 # create an identity matrix of size d_t (or just a 1-element array if T was a vector)
