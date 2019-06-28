@@ -220,13 +220,22 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 # References
 
 V. Syrgkanis, V. Lei, M. Oprescu, M. Hei, K. Battocchi, G. Lewis.
-**Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments**
-[*ArXiv preprint arXiv:1905.10176*](https://arxiv.org/abs/1905.10176)
+**Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments.**
+[*ArXiv preprint arXiv:1905.10176*](https://arxiv.org/abs/1905.10176), 2019
+
+D. Foster, V. Syrgkanis.
+**Orthogonal Statistical Learning.**
+[*Proceedings of the 32nd Annual Conference on Learning Theory (COLT)*](https://arxiv.org/pdf/1901.09036.pdf), 2019
+**(Best Paper Award)**
 
 M. Oprescu, V. Syrgkanis and Z. S. Wu.
 **Orthogonal Random Forest for Causal Inference.**
-[*Proceedings of the 36th International Conference on Machine Learning*](http://proceedings.mlr.press/v97/oprescu19a.html), 2019.
+[*Proceedings of the 36th International Conference on Machine Learning, ICML'19*](http://proceedings.mlr.press/v97/oprescu19a.html), 2019.
 
-Jason Hartford, Greg Lewis, Kevin Leyton-Brown, and Matt Taddy. **Deep IV: A flexible approach for counterfactual prediction.** [*Proceedings of the 34th International Conference on Machine Learning*](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf), 2017.
+V. Chernozhukov, D. Nekipelov, V. Semenova, V. Syrgkanis.
+**Plug-in Regularized Estimation of High-Dimensional Parameters in Nonlinear Semiparametric Models.**
+[*Arxiv preprint arxiv:1806.04823*](https://arxiv.org/abs/1806.04823), 2018.
+
+Jason Hartford, Greg Lewis, Kevin Leyton-Brown, and Matt Taddy. **Deep IV: A flexible approach for counterfactual prediction.** [*Proceedings of the 34th International Conference on Machine Learning, ICML'17*](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf), 2017.
 
 V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newey. **Double Machine Learning for Treatment and Causal Parameters.** [*ArXiv preprint arXiv:1608.00060*](https://arxiv.org/abs/1608.00060), 2016.
