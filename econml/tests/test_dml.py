@@ -56,6 +56,13 @@ class TestDML(unittest.TestCase):
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
         self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
 
+    def test_can_use_sample_weights(self):
+        """Test that we can pass sample weights to an estimator."""
+        dml = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
+        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]),
+                np.ones((6, 1)), sample_weight=np.ones((6, )))
+        self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
+
     def test_discrete_treatments(self):
         """Test that we can use discrete treatments"""
         dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
