@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 
 from econml.bootstrap import BootstrapEstimator
-from econml.inference import BootstrapOptions
+from econml.inference import BootstrapInference
 from econml.dml import LinearDMLCateEstimator
 from econml.two_stage_least_squares import NonparametricTwoStageLeastSquares
 from sklearn.linear_model import LinearRegression
@@ -77,7 +77,7 @@ class TestBootstrap(unittest.TestCase):
         x = np.random.normal(size=(1000, 2))
         t = np.random.normal(size=(1000, 1))
         t2 = np.random.normal(size=(1000, 1))
-        y = x[:, 0] * 0.5 + t + np.random.normal(size=(1000, 1))
+        y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
         est = LinearDMLCateEstimator(LinearRegression(), LinearRegression())
         est.fit(y, t, x)
@@ -191,10 +191,10 @@ class TestBootstrap(unittest.TestCase):
         x = np.random.normal(size=(1000, 2))
         t = np.random.normal(size=(1000, 1))
         t2 = np.random.normal(size=(1000, 1))
-        y = x[:, 0] * 0.5 + t + np.random.normal(size=(1000, 1))
+        y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
-        est = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), inference='bootstrap')
-        est.fit(y, t, x)
+        est = LinearDMLCateEstimator(LinearRegression(), LinearRegression())
+        est.fit(y, t, x, inference='bootstrap')
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
         # with the same shape for the lower and upper bounds
@@ -211,8 +211,8 @@ class TestBootstrap(unittest.TestCase):
         # test that the estimated effect is usually within the bounds
         assert np.mean(np.logical_and(lower <= eff, eff <= upper)) >= 0.9
 
-        # test that we can do the same thing once we provide percentile bounds
-        lower, upper = est.effect_interval(x, t, t2, lower=10, upper=90)
+        # test that we can do the same thing once we provide alpha explicitly
+        lower, upper = est.effect_interval(x, T0=t, T1=t2, alpha=0.2)
         for bound in [lower, upper]:
             self.assertEqual(np.shape(eff), np.shape(bound))
 
@@ -231,14 +231,13 @@ class TestBootstrap(unittest.TestCase):
         t2 = np.random.normal(size=(1000, 1))
         y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
-        opts = BootstrapOptions(50, 2)
+        opts = BootstrapInference(50, 2)
 
         est = NonparametricTwoStageLeastSquares(PolynomialFeatures(2),
                                                 PolynomialFeatures(2),
                                                 PolynomialFeatures(2),
-                                                None,
-                                                inference=opts)
-        est.fit(y, t, x, None, z)
+                                                None)
+        est.fit(y, t, x, None, z, inference=opts)
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
         # with the same shape for the lower and upper bounds
@@ -256,7 +255,7 @@ class TestBootstrap(unittest.TestCase):
         assert np.mean(np.logical_and(lower <= eff, eff <= upper)) >= 0.7
 
         # test that we can do the same thing once we provide percentile bounds
-        lower, upper = est.effect_interval(x, t, t2, lower=10, upper=90)
+        lower, upper = est.effect_interval(x, T0=t, T1=t2, alpha=0.2)
         for bound in [lower, upper]:
             self.assertEqual(np.shape(eff), np.shape(bound))
 

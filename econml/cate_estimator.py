@@ -5,63 +5,28 @@
 
 import abc
 import numpy as np
+from functools import wraps
+from copy import deepcopy
 from .bootstrap import BootstrapEstimator
-from .inference import BootstrapOptions
+from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
     """
     Base class for all CATE estimators in this package.
-
-    Parameters
-    ----------
-    inference: string, inference method, or None
-        Method for performing inference.  All estimators support 'bootstrap'
-        (or an instance of `BootstrapOptions`), some support other methods as well.
-
     """
 
-    _inference_options = {'bootstrap': BootstrapOptions()}
-    _bootstrap_whitelist = {'effect', 'marginal_effect'}
+    def _get_inference_options(self):
+        """
+        Produce a dictionary mapping string names to `Inference` types.
+
+        This is used by the `fit` method when a string is passed rather than an `Inference` type.
+        """
+        return {'bootstrap': BootstrapInference}
 
     @abc.abstractmethod
-    def __init__(self, inference):
-        """
-        Initialize the estimator.
-
-        All subclass overrides should complete with a call to this method on the super class,
-        since it enables bootstrapping.
-
-        """
-        if inference in self._inference_options:
-            inference = self._inference_options[inference]
-        if isinstance(inference, BootstrapOptions):
-            # Note that fit (and other methods) check for the presence of a _bootstrap attribute
-            # to determine whether to delegate to that object or not;
-            # The clones wrapped inside the BootstrapEstimator will not have that attribute since
-            # it's assigned *after* creating the estimator
-            self._bootstrap = BootstrapEstimator(self, inference.n_bootstrap_samples, inference.n_jobs)
-        self._inference = inference
-
-    def __getattr__(self, name):
-        suffix = '_interval'
-        if name.endswith(suffix) and name[: - len(suffix)] in self._bootstrap_whitelist:
-            if hasattr(self, '_bootstrap'):
-                return getattr(self._bootstrap, name)
-            else:
-                raise AttributeError('\'%s\' object does not support attribute \'%s\'; '
-                                     'consider passing inference=\'bootstrap\' when initializing'
-                                     % (type(self).__name__, name))
-        else:
-            raise AttributeError('\'%s\' object has no attribute \'%s\''
-                                 % (type(self).__name__, name))
-
-    @abc.abstractmethod
-    def _fit_impl(self, Y, T, X=None, W=None, Z=None):
-        pass
-
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, inference=None, **kwargs):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -80,15 +45,31 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Controls for each sample
         Z: optional (n × d_z) matrix
             Instruments for each sample
-
+        inference: optional string, `Inference` instance, or None
+            Method for performing inference.  All estimators support 'bootstrap'
+            (or an instance of `BootstrapInference`), some support other methods as well.
         Returns
         -------
         self
 
         """
-        if hasattr(self, '_bootstrap'):
-            self._bootstrap.fit(*args, **kwargs)
-        return self._fit_impl(*args, **kwargs)
+        options = self._get_inference_options()
+        if isinstance(inference, str):
+            if inference in options:
+                inference = options[inference]()
+            else:
+                raise ArgumentError("Inference option '%s' not recognized; valid values are %s" %
+                                    (inference, [*options]))
+        # since inference objects can be stateful, copy it before fitting; otherwise this sequence wouldn't work:
+        #   est1.fit(..., inference=inf)
+        #   est2.fit(..., inference=inf)
+        #   est1.effect_interval(...)
+        # because inf now stores state from fitting est2
+        inference = deepcopy(inference)
+        if inference is not None:
+            inference.fit(self, *args, **kwargs)
+        self._inference = inference
+        return self
 
     @abc.abstractmethod
     def effect(self, X=None, T0=0, T1=1):
@@ -141,22 +122,29 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         pass
 
+    def _defer_to_inference(m):
+        @wraps(m)
+        def call(self, *args, **kwargs):
+            name = m.__name__
+            if self._inference is not None:
+                return getattr(self._inference, name)(*args, **kwargs)
+            else:
+                AttributeError("Can't call '%s' because 'inference' is None" % name)
+        return call
+
+    @_defer_to_inference
+    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        pass
+
+    @_defer_to_inference
+    def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        pass
+
 
 class LinearCateEstimator(BaseCateEstimator):
     """
     Base class for all CATE estimators with linear treatment effects in this package.
-
-    Parameters
-    ----------
-    inference: string, inference method, or None
-        Method for performing inference.  All estimators support 'bootstrap'
-        (or an instance of `BootstrapOptions`), some support other methods as well.
-
     """
-
-    @abc.abstractmethod
-    def __init__(self, inference):
-        super().__init__(inference=inference)
 
     @abc.abstractmethod
     def const_marginal_effect(self, X=None):
@@ -248,3 +236,10 @@ class LinearCateEstimator(BaseCateEstimator):
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         return self.const_marginal_effect(X)
+
+    def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        return self.const_marginal_effect_interval(X=X, alpha=alpha)
+
+    @BaseCateEstimator._defer_to_inference
+    def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+        pass

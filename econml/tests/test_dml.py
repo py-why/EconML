@@ -27,14 +27,18 @@ class TestDML(unittest.TestCase):
     def test_cate_api(self):
         """Test that we correctly implement the CATE API."""
         for d_t in [2, -1]:
-            for d_y in [2, -1]:
+            for d_y in [2, 1, -1]:
                 for d_x in [2, None]:
                     for d_w in [2, None]:
-                        for est in [LinearDMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression()),
-                                    SparseLinearDMLCateEstimator(linear_model_y=LinearRegression(),
-                                                                 linear_model_t=LinearRegression()),
-                                    KernelDMLCateEstimator(model_y=LinearRegression(), model_t=LinearRegression())]:
+                        for est, multi in [(LinearDMLCateEstimator(model_y=LinearRegression(),
+                                                                   model_t=LinearRegression()), False),
+                                           (SparseLinearDMLCateEstimator(model_y=LinearRegression(),
+                                                                         model_t=LinearRegression()), True),
+                                           (KernelDMLCateEstimator(model_y=LinearRegression(),
+                                                                   model_t=LinearRegression()), False)]:
                             n = 20
+                            if not(multi) and d_y > 1:
+                                continue
                             with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t):
                                 W, X, Y, T = [np.random.normal(size=(n, d)) if (d and d >= 0)
                                               else np.random.normal(size=(n,)) if (d and d < 0)
@@ -80,6 +84,41 @@ class TestDML(unittest.TestCase):
                                                   np.array([1, 2, 3, 1, 2, 3, 1, 2, 3])),
                                        [0, 2, 1, -2, 0, -1, -1, 1, 0])
         dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+
+    def test_can_use_statsmodel_inference(self):
+        """Test that we can use statsmodels to generate confidence intervals"""
+        dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
+                                     discrete_treatment=True)
+        dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
+            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)), inference='statsmodels')
+        interval = dml.effect_interval(np.ones((9, 1)),
+                                       T0=np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                                       T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]),
+                                       alpha=0.05)
+        point = dml.effect(np.ones((9, 1)),
+                           np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                           np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]))
+        self.assertEqual(interval.shape, (2,) + point.shape)
+        lo, hi = interval
+        assert (lo <= point).all()
+        assert (point <= hi).all()
+        assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
+
+        interval = dml.marginal_effect_interval(np.ones((9, 1)), alpha=0.05)
+        point = dml.marginal_effect(np.ones((9, 1)))
+        self.assertEqual(interval.shape, (2,) + point.shape)
+        lo, hi = interval
+        assert (lo <= point).all()
+        assert (point <= hi).all()
+        assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
+
+        interval = dml.coef__interval(alpha=0.05)
+        point = dml.coef_
+        self.assertEqual(interval.shape, (2,) + point.shape)
+        lo, hi = interval
+        assert (lo <= point).all()
+        assert (point <= hi).all()
+        assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
 
     @staticmethod
     def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer()):

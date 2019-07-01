@@ -269,18 +269,13 @@ class DeepIVEstimator(BaseCateEstimator):
         The keyword arguments to pass to Keras's `fit` method when training the second stage model.
         Defaults to `{"epochs": 100}`.
 
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
-
     """
 
     def __init__(self, n_components, m, h,
                  n_samples, use_upper_bound_loss=False, n_gradient_samples=0,
                  optimizer='adam',
                  first_stage_options={"epochs": 100},
-                 second_stage_options={"epochs": 100},
-                 inference=None):
+                 second_stage_options={"epochs": 100}):
         self._n_components = n_components
         self._m = m
         self._h = h
@@ -290,9 +285,9 @@ class DeepIVEstimator(BaseCateEstimator):
         self._optimizer = optimizer
         self._first_stage_options = first_stage_options
         self._second_stage_options = second_stage_options
-        super().__init__(inference=inference)
+        super().__init__()
 
-    def _fit_impl(self, Y, T, X, Z):
+    def fit(self, Y, T, X, Z, inference=None):
         """Estimate the counterfactual model from data.
 
         That is, estimate functions τ(·, ·, ·), ∂τ(·, ·).
@@ -303,10 +298,13 @@ class DeepIVEstimator(BaseCateEstimator):
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X: (n × dₓ) matrix
             Features for each sample
-        Z: optional (n × d_z) matrix
+        Z: (n × d_z) matrix
             Instruments for each sample
+        inference: string, `Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of `BootstrapInference`)
 
         Returns
         -------
@@ -373,6 +371,8 @@ class DeepIVEstimator(BaseCateEstimator):
             return K.reshape(all_grads, (-1, d_y, d_t))
 
         self._marginal_effect_model = Model([t_in, x_in], L.Lambda(lambda tx: calc_grad(*tx))([t_in, x_in]))
+
+        return super().fit(Y, T, X, Z, inference=inference)
 
     def effect(self, X=None, T0=0, T1=1):
         """

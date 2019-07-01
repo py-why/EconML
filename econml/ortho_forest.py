@@ -135,8 +135,7 @@ class BaseOrthoForest(LinearCateEstimator):
                  subsample_ratio=0.25,
                  bootstrap=False,
                  n_jobs=-1,
-                 random_state=None,
-                 inference=None):
+                 random_state=None):
         # Estimators
         self.nuisance_estimator = nuisance_estimator
         self.second_stage_nuisance_estimator = second_stage_nuisance_estimator
@@ -158,9 +157,9 @@ class BaseOrthoForest(LinearCateEstimator):
         self.forest_two_subsample_ind = None
         # Fit check
         self.model_is_fitted = False
-        super().__init__(inference=inference)
+        super().__init__()
 
-    def _fit_impl(self, Y, T, X, W=None):
+    def fit(self, Y, T, X, W=None, inference=None):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -176,6 +175,10 @@ class BaseOrthoForest(LinearCateEstimator):
 
         W : array-like, shape (n, d_w) or None (default=None)
             High-dimensional controls.
+
+        inference: string, `Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of `BootstrapInference`)
 
         Returns
         -------
@@ -208,7 +211,7 @@ class BaseOrthoForest(LinearCateEstimator):
                                                                                 X=self.X_two,
                                                                                 W=self.W_two)
         self.model_is_fitted = True
-        return self
+        return super().fit(Y, T, X, W=None, inference=inference)
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
@@ -370,9 +373,6 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         If None, the random number generator is the RandomState instance used
         by `np.random`.
 
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self,
@@ -386,8 +386,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  model_T_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
-                 random_state=None,
-                 inference=None):
+                 random_state=None):
         # Copy and/or define models
         self.lambda_reg = lambda_reg
         self.model_T = model_T
@@ -421,8 +420,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
-            random_state=random_state,
-            inference=inference)
+            random_state=random_state)
 
     def _pointwise_effect(self, X_single):
         """
@@ -600,9 +598,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         If None, the random number generator is the RandomState instance used
         by `np.random`.
 
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
+
     """
 
     def __init__(self,
@@ -617,8 +613,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  propensity_model_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
-                 random_state=None,
-                 inference=None):
+                 random_state=None):
         # Copy and/or define models
         self.propensity_model = clone(propensity_model, safe=False)
         self.model_Y = clone(model_Y, safe=False)
@@ -653,10 +648,9 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
-            random_state=random_state,
-            inference=inference)
+            random_state=random_state)
 
-    def _fit_impl(self, Y, T, X, W=None):
+    def fit(self, Y, T, X, W=None, inference=None):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -675,6 +669,10 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         W : array-like, shape (n, d_w) or None (default=None)
             High-dimensional controls.
 
+        inference: string, `Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of `BootstrapInference`)
+
         Returns
         -------
         self: an instance of self.
@@ -691,7 +689,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model_final, self.model_Y_final, self.n_T, self.random_state, second_stage=True)
         # Call `fit` from parent class
-        return super(DiscreteTreatmentOrthoForest, self)._fit_impl(Y, T, X, W)
+        return super().fit(Y, T, X, W=W, inference=inference)
 
     def effect(self, X=None, T0=0, T1=1):
         """Calculate the heterogeneous linear CATE θ(·) between two treatment points.

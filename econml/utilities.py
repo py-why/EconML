@@ -10,8 +10,11 @@ import itertools
 from operator import getitem
 from collections import defaultdict, Counter
 from sklearn.base import TransformerMixin
+from sklearn.linear_model import LassoCV, MultiTaskLassoCV
 from functools import reduce
 from sklearn.utils import check_array, check_X_y
+from statsmodels.regression.linear_model import WLS
+from statsmodels.tools.tools import add_constant
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -429,6 +432,57 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     return Y, T, X, W
 
 
+def broadcast_unit_treatments(X, d_t):
+    """
+    Generate `d_t` unit treatments for each row of `X`.
+
+    Parameters
+    ----------
+    d_t: int
+        Number of treatments
+    X : array
+        Features
+
+    Returns
+    -------
+    X, T : (array, array)
+        The updated `X` array (with each row repeated `d_t` times),
+        and the generated `T` array
+    """
+    d_x = shape(X)[0]
+    eye = np.eye(d_t)
+    # tile T and repeat X along axis 0 (so that the duplicated rows of X remain consecutive)
+    T = np.tile(eye, (d_x, 1))
+    Xs = np.repeat(X, d_t, axis=0)
+    return Xs, T
+
+
+def reshape_treatmentwise_effects(A, d_t, d_y):
+    """
+    Given an effects matrix ordered first by treatment, transform it to be ordered by outcome.
+
+    Parameters
+    ----------
+    A : array
+        The array of effects, of size n*d_y*d_t
+    d_t : tuple of int
+        Either () if T was a vector, or a 1-tuple of the number of columns of T if it was an array
+    d_y : tuple of int
+        Either () if Y was a vector, or a 1-tuple of the number of columns of Y if it was an array
+
+    Returns
+    -------
+    A : array (shape (m, d_y, d_t))
+        The transformed array.  Note that singleton dimensions will be dropped for any inputs which
+        were vectors, as in the specification of `BaseCateEstimator.marginal_effect`.
+    """
+    A = reshape(A, (-1,) + d_t + d_y)
+    if d_t and d_y:
+        return transpose(A, (0, 2, 1))  # need to return as m by d_y by d_t matrix
+    else:
+        return A
+
+
 def einsum_sparse(subscripts, *arrs):
     """
     Evaluate the Einstein summation convention on the operands.
@@ -697,3 +751,129 @@ class MultiModelWrapper(object):
         t = Xt[:, -self.n_T:]
         predictions = [self.model_list[np.nonzero(t[i])[0][0]].predict(X[[i]]) for i in range(len(X))]
         return np.concatenate(predictions)
+
+
+class StatsModelsWrapper:
+    """
+    Helper class to wrap a StatsModels OLS model to conform to the sklearn API.
+
+    Parameters
+    ----------
+    fit_intercept: bool (default False)
+        Whether to fit an intercept
+
+    Attributes
+    ----------
+    fit_args: dict of str: object
+        The arguments to pass to the `OLS` regression's `fit` method.  See the
+        statsmodels documentation for more information.
+    results: RegressionResults
+        After `fit` has been called, this attribute will store the regression results.
+    """
+
+    def __init__(self, fit_intercept=False):
+        self.fit_args = {}
+        self.fit_intercept = fit_intercept
+
+    def fit(self, X, y, sample_weight=None):
+        """
+        Fit the ordinary least squares model.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Training data
+        y : array_like, shape (n_samples, 1) or (n_samples,)
+            Target values
+        sample_weight : array_like, shape (n_samples,)
+            Individual weights for each sample
+
+        Returns
+        -------
+        self
+        """
+        assert ndim(y) == 1 or (ndim(y) == 2 and shape(y)[1] == 1)
+        y = reshape(y, (-1,))
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
+        if sample_weight is not None:
+            ols = WLS(y, X, weights=sample_weight, hasconst=self.fit_intercept)
+        else:
+            ols = WLS(y, X, hasconst=self.fit_intercept)
+        self.results = ols.fit(**self.fit_args)
+        return self
+
+    def predict(self, X):
+        """
+        Predict using the model.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        array, shape (n_samples,)
+            Predicted values
+        """
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
+        return self.results.predict(X)
+
+    def predict_interval(self, X, alpha):
+        """
+        Get a confidence interval for the prediction at `X`.
+
+        Parameters
+        ----------
+        X : array-like
+            The features at which to predict
+        alpha : float
+            The significance level to use for the interval
+
+        Returns
+        -------
+        array, shape (2, n_samples)
+            Lower and upper bounds for the confidence interval at each sample point
+        """
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
+        # NOTE: we use `obs = False` to get a confidence, rather than prediction, interval
+        preds = self.results.get_prediction(X).conf_int(alpha=alpha, obs=False)
+        # statsmodels uses the last dimension instead of the first to store the confidence intervals,
+        # so we need to transpose the result
+        return transpose(preds)
+
+    @property
+    def coef_(self):
+        return self.results.params
+
+    def coef__interval(self, alpha):
+        return transpose(self.results.conf_int(alpha=alpha))
+
+
+class LassoCVWrapper:
+    """Helper class to wrap either LassoCV or MultiTaskLassoCV depending on the shape of the target."""
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+
+    def fit(self, X, Y):
+        assert shape(X)[0] == shape(Y)[0]
+        assert ndim(Y) <= 2
+        self.needs_unravel = False
+        if ndim(Y) == 2 and shape(Y)[1] > 1:
+            self.model = MultiTaskLassoCV(*self.args, **self.kwargs)
+        else:
+            if ndim(Y) == 2 and shape(Y)[1] == 1:
+                Y = np.ravel(Y)
+                self.needs_unravel = True
+            self.model = LassoCV(*self.args, **self.kwargs)
+        self.model.fit(X, Y)
+        return self
+
+    def predict(self, X):
+        predictions = self.model.predict(X)
+        return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
