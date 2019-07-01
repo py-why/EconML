@@ -37,7 +37,8 @@ class BootstrapEstimator(object):
         The maximum number of concurrently running jobs, as in joblib.Parallel.
 
     compute_means : bool, default: True
-        Whether to pass calls through to the underlying collection and return the mean
+        Whether to pass calls through to the underlying collection and return the mean.  Setting this
+        to `False` can avoid ambiguities if the wrapped object itself has method names with an `_interval` suffix.
 
     prefer_wrapped: bool, default: False
         In case a method ending in '_interval' exists on the wrapped object, whether
@@ -54,7 +55,6 @@ class BootstrapEstimator(object):
 
     # TODO: Add a __dir__ implementation?
 
-    # TODO: what if some args can be None?
     def fit(self, *args, **named_args):
         """
         Fit the model.

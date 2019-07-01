@@ -118,12 +118,9 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         each transformed treatment. That is, given a treatment array of shape(n, dₜ),
         the output should have shape(n, dₜ, fₜ), where fₜ is the number of columns produced by `t_featurizer`.
 
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
     """
 
-    def __init__(self, t_featurizer, x_featurizer, z_featurizer, dt_featurizer, inference=None):
+    def __init__(self, t_featurizer, x_featurizer, z_featurizer, dt_featurizer):
         self._t_featurizer = clone(t_featurizer, safe=False)
         self._x_featurizer = clone(x_featurizer, safe=False)
         self._z_featurizer = clone(z_featurizer, safe=False)
@@ -132,9 +129,9 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         # this allows us to ignore the intercept when computing marginal effects
         self._model_T = LinearRegression(fit_intercept=False)
         self._model_Y = LinearRegression(fit_intercept=False)
-        super().__init__(inference=inference)
+        super().__init__()
 
-    def _fit_impl(self, Y, T, X, W, Z):
+    def fit(self, Y, T, X, W, Z, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·, ·, ·), ∂τ(·, ·).
 
@@ -150,6 +147,9 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
             Controls for each sample
         Z: optional(n × d_z) matrix
             Instruments for each sample
+        inference: string, `Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of `BootstrapInference`)
 
         Returns
         -------
@@ -178,7 +178,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         # predict ft_T from interacted ft_X, ft_Z
         ft_T_hat = self._model_T.predict(features)
         self._model_Y.fit(_add_ones(np.hstack([W, cross_product(ft_T_hat, ft_X)])), Y)
-        return self
+        return super().fit(Y, T, X, W, Z, inference=inference)
 
     def effect(self, X=None, T0=0, T1=1):
         """
