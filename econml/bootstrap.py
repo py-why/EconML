@@ -35,12 +35,22 @@ class BootstrapEstimator(object):
 
     n_jobs: int, default: None
         The maximum number of concurrently running jobs, as in joblib.Parallel.
+
+    compute_means : bool, default: True
+        Whether to pass calls through to the underlying collection and return the mean
+
+    prefer_wrapped: bool, default: False
+        In case a method ending in '_interval' exists on the wrapped object, whether
+        that should be preferred (meaning this wrapper will compute the mean of it).
+        This option only affects behavior if `compute_means` is set to `True`.
     """
 
-    def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None):
+    def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None, compute_means=True, prefer_wrapped=False):
         self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
+        self._compute_means = compute_means
+        self._prefer_wrapped = prefer_wrapped
 
     # TODO: Add a __dir__ implementation?
 
@@ -84,29 +94,48 @@ class BootstrapEstimator(object):
                 return call
             else:
                 return summarize_with(lambda obj, name: getattr(obj, name))
-        try:
+
+        def get_mean():
             # for attributes that exist on the wrapped object, just compute the mean of the wrapped calls
             return proxy(callable(getattr(self._instances[0], name)), name, lambda arr: np.mean(arr, axis=0))
-        except AttributeError as err:
-            if name.endswith("_interval"):
-                # if the attribute exists on the wrapped object once we remove the suffix,
-                # then we should be computing a confidence interval for the wrapped calls
-                name = name[: - len("_interval")]
 
-                def call_with_bounds(can_call, lower, upper):
-                    return proxy(can_call, name,
-                                 lambda arr: (np.percentile(arr, lower, axis=0), np.percentile(arr, upper, axis=0)))
+        def get_interval():
+            # if the attribute exists on the wrapped object once we remove the suffix,
+            # then we should be computing a confidence interval for the wrapped calls
+            prefix = name[: - len("_interval")]
 
-                can_call = callable(getattr(self._instances[0], name))
-                if can_call:
-                    # collect extra arguments and pass them through, if the wrapped attribute was callable
-                    def call(*args, lower=5, upper=95, **kwargs):
-                        return call_with_bounds(can_call, lower, upper)(*args, **kwargs)
-                    return call
-                else:
-                    # don't pass extra arguments if the wrapped attribute wasn't callable to begin with
-                    def call(lower=5, upper=95):
-                        return call_with_bounds(can_call, lower, upper)
-                    return call
+            def call_with_bounds(can_call, lower, upper):
+                return proxy(can_call, prefix,
+                             lambda arr: (np.percentile(arr, lower, axis=0), np.percentile(arr, upper, axis=0)))
+
+            can_call = callable(getattr(self._instances[0], prefix))
+            if can_call:
+                # collect extra arguments and pass them through, if the wrapped attribute was callable
+                def call(*args, lower=5, upper=95, **kwargs):
+                    return call_with_bounds(can_call, lower, upper)(*args, **kwargs)
+                return call
             else:
-                raise err
+                # don't pass extra arguments if the wrapped attribute wasn't callable to begin with
+                def call(lower=5, upper=95):
+                    return call_with_bounds(can_call, lower, upper)
+                return call
+
+        caught = None
+        if self._compute_means and self._prefer_wrapped:
+            try:
+                return get_mean()
+            except AttributeError as err:
+                caught = err
+            if name.endswith("_interval"):
+                return get_interval()
+        else:
+            # try to get interval first if appropriate, since we don't prefer a wrapped method with this name
+            if name.endswith("_interval"):
+                try:
+                    return get_interval()
+                except AttributeError as err:
+                    caught = err
+            if self._compute_means:
+                return get_mean()
+
+        raise (caught if caught else AttributeError(name))
