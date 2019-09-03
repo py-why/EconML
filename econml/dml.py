@@ -163,14 +163,22 @@ class _RLearner(LinearCateEstimator):
             else:
                 self._models_t[idx].fit(X_train, W_train, T_train)
             if self._discrete_treatment:
-                T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)[:, 1:]
+                # TODO: can we easily detect and flag if the number of classes in the training and test sets differ?
+                #       we'll eventually throw an unhelpful error below, but it would be better to detect eagerly
+                T_pred = self._models_t[idx].predict(X_test, W_test)[:, 1:]
             else:
-                T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)
+                T_pred = self._models_t[idx].predict(X_test, W_test)
+            if shape(T_pred) != shape(T_test):
+                T_pred = reshape(T_pred, shape(T_test))
+            T_res[test_idxs] = T_test - T_pred
             if sample_weight is not None:
                 self._models_y[idx].fit(X_train, W_train, Y_train, sample_weight=sample_weight[train_idxs])
             else:
                 self._models_y[idx].fit(X_train, W_train, Y_train)
-            Y_res[test_idxs] = Y_test - self._models_y[idx].predict(X_test, W_test)
+            Y_pred = self._models_y[idx].predict(X_test, W_test)
+            if shape(Y_pred) != shape(Y_test):
+                Y_pred = reshape(Y_pred, shape(Y_test))
+            Y_res[test_idxs] = Y_test - Y_pred
         return Y_res, T_res
 
     def fit_final(self, X, Y_res, T_res, sample_weight=None, sample_var=None):
