@@ -8,7 +8,7 @@ from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from sklearn.model_selection import KFold
-from econml.dml import LinearDMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
+from econml.dml import DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 
@@ -110,24 +110,27 @@ class TestDML(unittest.TestCase):
         point = dml.effect(np.ones((9, 1)),
                            np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
                            np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]))
-        self.assertEqual(interval.shape, (2,) + point.shape)
+        assert len(interval) == 2
         lo, hi = interval
+        assert lo.shape == hi.shape == point.shape
         assert (lo <= point).all()
         assert (point <= hi).all()
         assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
 
         interval = dml.marginal_effect_interval(np.ones((9, 1)), alpha=0.05)
         point = dml.marginal_effect(np.ones((9, 1)))
-        self.assertEqual(interval.shape, (2,) + point.shape)
+        assert len(interval) == 2
         lo, hi = interval
+        assert lo.shape == hi.shape == point.shape
         assert (lo <= point).all()
         assert (point <= hi).all()
         assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
 
         interval = dml.coef__interval(alpha=0.05)
         point = dml.coef_
-        self.assertEqual(interval.shape, (2,) + point.shape)
+        assert len(interval) == 2
         lo, hi = interval
+        assert lo.shape == hi.shape == point.shape
         assert (lo <= point).all()
         assert (point <= hi).all()
         assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width

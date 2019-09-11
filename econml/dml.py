@@ -13,41 +13,15 @@ import numpy as np
 import copy
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        StatsModelsWrapper, LassoCVWrapper)
+                        StatsModelsLinearRegression, LassoCVWrapper)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.preprocessing import PolynomialFeatures, LabelEncoder, OneHotEncoder
 from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
-from .cate_estimator import BaseCateEstimator, LinearCateEstimator
+from .cate_estimator import BaseCateEstimator, LinearCateEstimator, StatsModelsCateEstimatorMixin
 from .inference import StatsModelsInference
-
-
-class _EffectOperation:
-    def __init__(self, pre, d_t, d_y):
-        self._pre = pre
-        self._d_t = d_t
-        self._d_y = d_y
-
-    def apply(self, predict, input, interval, make_const_marginal_effect, *args, **kwargs):
-        if make_const_marginal_effect:
-            # for constant marginal effects, we first need to broadcast each possible treatment
-            # to each input row
-            input = broadcast_unit_treatments(input, self._d_t[0] if self._d_t else 1)
-        preds = predict(self._pre(input), *args, **kwargs)
-        if make_const_marginal_effect:
-            # for constant marginal effects, we need to reshape the results to ensure
-            # that effects are ordered first by outcome, then by treatment
-            if interval:
-                # we want to apply the transformation separately to each half of the interval
-                assert shape(preds)[0] == 2
-                return np.stack([reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
-                                 for pred in preds])
-            else:
-                return reshape_treatmentwise_effects(preds, self._d_t, self._d_y)
-        else:
-            return preds
 
 
 class _RLearner(LinearCateEstimator):
@@ -120,7 +94,8 @@ class _RLearner(LinearCateEstimator):
             W = np.empty((shape(Y)[0], 0))
         return X, W
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, inference=None):
+    @BaseCateEstimator._wrap_fit
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -151,9 +126,7 @@ class _RLearner(LinearCateEstimator):
 
         Y_res, T_res = self.fit_nuisances(Y, T, X, W, sample_weight=sample_weight)
 
-        self.fit_final(X, Y_res, T_res, sample_weight=sample_weight)
-
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, inference=inference)
+        self.fit_final(X, Y_res, T_res, sample_weight=sample_weight, sample_var=sample_var)
 
     def fit_nuisances(self, Y, T, X, W, sample_weight=None):
         # use a binary array to get stratified split in case of discrete treatment
@@ -169,6 +142,7 @@ class _RLearner(LinearCateEstimator):
             T = self._label_encoder.fit_transform(T)
             T_out = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
             T_out = T_out[:, 1:]  # drop first column since all columns sum to one
+            self._d_t = shape(T_out)[1:]
         else:
             T_out = T
 
@@ -199,9 +173,12 @@ class _RLearner(LinearCateEstimator):
             Y_res[test_idxs] = Y_test - self._models_y[idx].predict(X_test, W_test)
         return Y_res, T_res
 
-    def fit_final(self, X, Y_res, T_res, sample_weight=None):
+    def fit_final(self, X, Y_res, T_res, sample_weight=None, sample_var=None):
         if sample_weight is not None:
-            self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight)
+            if sample_var is None:
+                self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight)
+            else:
+                self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
         else:
             self._model_final.fit(X, T_res, Y_res)
 
@@ -374,26 +351,26 @@ class DMLCateEstimator(_RLearner):
                 self._model = clone(model_final, safe=False)
                 self._featurizer = clone(featurizer, safe=False)
 
-            def fit(self, X, T_res, Y_res, sample_weight=None):
+            def fit(self, X, T_res, Y_res, sample_weight=None, sample_var=None):
                 # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
                 self._d_t = shape(T_res)[1:]
                 self._d_y = shape(Y_res)[1:]
                 if sample_weight is not None:
-                    self._model.fit(self._combine(X, T_res),
-                                    Y_res, sample_weight=sample_weight)
+                    if sample_var is not None:
+                        self._model.fit(self._combine(X, T_res),
+                                        Y_res, sample_weight=sample_weight, sample_var=sample_var)
+                    else:
+                        self._model.fit(self._combine(X, T_res),
+                                        Y_res, sample_weight=sample_weight)
                 else:
                     self._model.fit(self._combine(X, T_res), Y_res)
 
             def _combine(self, X, T):
                 return cross_product(self._featurizer.fit_transform(X), T)
 
-            @property
-            def effect_op(self):
-                return _EffectOperation(lambda XT: self._combine(*XT), d_t=self._d_t, d_y=self._d_y)
-
             def predict(self, X):
-                return self.effect_op.apply(self._model.predict, X,
-                                            interval=False, make_const_marginal_effect=True)
+                X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
+                return reshape_treatmentwise_effects(self._model.predict(self._combine(X, T)), self._d_t, self._d_y)
 
             @property
             def coef_(self):
@@ -408,23 +385,11 @@ class DMLCateEstimator(_RLearner):
                          random_state=random_state)
 
     @property
-    def coef_(self):
-        """
-        Get the final model's coefficients.
-
-        Note that this relies on the final model having a `coef_` property of its own.
-        Most sklearn linear models support this, but there are cases that don't
-        (e.g. a :class:`~sklearn.pipeline.Pipeline` or :class:`~sklearn.model_selection.GridSearchCV`
-        which wraps a linear model)
-        """
-        return self._model_final.coef_
-
-    @BaseCateEstimator._defer_to_inference
-    def coef__interval(self, *, alpha=0.1):
-        pass
+    def featurizer(self):
+        return self._model_final._featurizer
 
 
-class LinearDMLCateEstimator(DMLCateEstimator):
+class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
     """
     The Double ML Estimator with a low-dimensional linear final stage implemented as a statsmodel regression.
 
@@ -483,16 +448,15 @@ class LinearDMLCateEstimator(DMLCateEstimator):
                  random_state=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
-                         model_final=StatsModelsWrapper(),
+                         model_final=StatsModelsLinearRegression(fit_intercept=False),
                          featurizer=featurizer,
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
 
-        self.statsmodelswrapper = self._model_final._model
-
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, inference=None):
+    # override only so that we can update the docstring to indicate support for `StatsModelsInference`
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -517,22 +481,11 @@ class LinearDMLCateEstimator(DMLCateEstimator):
         -------
         self
         """
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, inference=inference)
-
-    def _get_inference_options(self):
-        # add statsmodels to parent's options
-        options = super()._get_inference_options()
-        options.update(statsmodels=StatsModelsInference)
-        return options
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
 
     @property
-    def statsmodelsproperties(self):
-        return StatsModelsInference.StatsModelsProperties(self.statsmodelswrapper,
-                                                          self._model_final.effect_op)
-
-    @property
-    def coef_(self):
-        return self.statsmodelswrapper.coef_
+    def statsmodels(self):
+        return self._model_final._model
 
 
 class SparseLinearDMLCateEstimator(DMLCateEstimator):
