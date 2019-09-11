@@ -35,6 +35,7 @@ class TLearner(BaseCateEstimator):
         self.treated_model = clone(treated_model, safe=False)
         super().__init__()
 
+    @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, inference=None):
         """Build an instance of SLearner.
 
@@ -66,7 +67,6 @@ class TLearner(BaseCateEstimator):
                              "0 and 1.")
         self.controls_model.fit(X[T == 0], Y[T == 0])
         self.treated_model.fit(X[T == 1], Y[T == 1])
-        return super().fit(Y, T, X, inference=inference)
 
     def effect(self, X):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.
@@ -119,6 +119,7 @@ class SLearner(BaseCateEstimator):
         self.overall_model = clone(overall_model, safe=False)
         super().__init__()
 
+    @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, inference=None):
         """Build an instance of SLearner.
 
@@ -148,7 +149,6 @@ class SLearner(BaseCateEstimator):
             raise ValueError("The treatments array (T) can only contain 0 and 1.")
         feat_arr = np.concatenate((X, T.reshape(-1, 1)), axis=1)
         self.overall_model.fit(feat_arr, Y)
-        return super().fit(Y, T, X, inference=inference)
 
     def effect(self, X):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.
@@ -239,6 +239,7 @@ class XLearner(BaseCateEstimator):
         self.has_propensity_func = self.propensity_func is not None
         super().__init__()
 
+    @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, inference=None):
         """Build an instance of XLearner.
 
@@ -276,7 +277,6 @@ class XLearner(BaseCateEstimator):
         if not self.has_propensity_func:
             self.propensity_model.fit(X, T)
             self.propensity_func = lambda X_score: self.propensity_model.predict_proba(X_score)[:, 1]
-        return super().fit(Y, T, X, inference=inference)
 
     def effect(self, X):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.
@@ -358,6 +358,7 @@ class DomainAdaptationLearner(BaseCateEstimator):
         self.has_propensity_func = self.propensity_func is not None
         super().__init__()
 
+    @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, inference=None):
         """Build an instance of DomainAdaptationLearner.
 
@@ -404,7 +405,6 @@ class DomainAdaptationLearner(BaseCateEstimator):
         X_concat = np.concatenate((X[T == 0], X[T == 1]), axis=0)
         imputed_effects_concat = np.concatenate((imputed_effect_on_controls, imputed_effect_on_treated), axis=0)
         self.overall_model.fit(X_concat, imputed_effects_concat)
-        return super().fit(Y, T, X, inference=inference)
 
     def effect(self, X):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.
@@ -488,6 +488,7 @@ class DoublyRobustLearner(BaseCateEstimator):
         self.has_propensity_func = self.propensity_func is not None
         super().__init__()
 
+    @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, W=None, inference=None):
         """Build an instance of DoublyRobustLearner.
 
@@ -542,7 +543,6 @@ class DoublyRobustLearner(BaseCateEstimator):
         pseudo_te[T == 0] -= (Y - Y0)[T == 0] / (1 - propensities)[T == 0]
         pseudo_te[T == 1] += (Y - Y1)[T == 1] / propensities[T == 1]
         self.pseudo_treatment_model.fit(X, pseudo_te)
-        return super().fit(Y, T, X, W=W, inference=inference)
 
     def effect(self, X):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.

@@ -33,7 +33,7 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures
 from sklearn.utils import check_random_state, check_array, column_or_1d
-from .cate_estimator import LinearCateEstimator
+from .cate_estimator import BaseCateEstimator, LinearCateEstimator
 from .causal_tree import CausalTree
 from .utilities import reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
 
@@ -159,6 +159,7 @@ class BaseOrthoForest(LinearCateEstimator):
         self.model_is_fitted = False
         super().__init__()
 
+    @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, W=None, inference=None):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
@@ -211,7 +212,6 @@ class BaseOrthoForest(LinearCateEstimator):
                                                                                 X=self.X_two,
                                                                                 W=self.W_two)
         self.model_is_fitted = True
-        return super().fit(Y, T, X, W=None, inference=inference)
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.

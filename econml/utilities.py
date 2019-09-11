@@ -13,8 +13,9 @@ from sklearn.base import TransformerMixin
 from sklearn.linear_model import LassoCV, MultiTaskLassoCV
 from functools import reduce
 from sklearn.utils import check_array, check_X_y
-from statsmodels.regression.linear_model import WLS
 from statsmodels.tools.tools import add_constant
+import warnings
+from sklearn.model_selection import KFold
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -483,6 +484,34 @@ def reshape_treatmentwise_effects(A, d_t, d_y):
         return A
 
 
+def check_treatments(T0, T1, n, dt):
+    """
+    Extend scalar treatments to correct dimensionality (returning non-scalar treatments unmodified)
+
+    Parameters
+    ----------
+    T0 : scalar or array
+    T1 : scalar or array
+    n : number of rows to output
+    dt : tuple
+        Trailing dimensions of T (that is, ``()`` for a vector treatment, or ``(d_t,)`` for an array treatment)
+
+    Returns
+    -------
+    T0 : array of shape ``(n,) + dt``
+    T1 : array of shape ``(n,) + dt``
+    """
+    if (ndim(T0) == 0 or ndim(T1) == 0) and dt and shape(dt)[1] > 1:
+        warnings.warn("A scalar was specified but there are multiple treatments; "
+                      "the same value will be used for each treatment.  Consider specifying"
+                      "all treatments, or using the const_marginal_effect method.")
+    if ndim(T0) == 0:
+        T0 = np.repeat(T0, (n,) + dt)
+    if ndim(T1) == 0:
+        T1 = np.repeat(T1, (n,) + dt)
+    return T0, T1
+
+
 def einsum_sparse(subscripts, *arrs):
     """
     Evaluate the Einstein summation convention on the operands.
@@ -681,7 +710,7 @@ class WeightedModelWrapper(object):
         return self.model_instance.predict(X)
 
     def _weighted_inputs(self, X, y, sample_weight):
-        normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
+        normalized_weights = sample_weight * X.shape[0] / np.sum(sample_weight)
         sqrt_weights = np.sqrt(normalized_weights)
         weight_mat = np.diag(sqrt_weights)
         return np.matmul(weight_mat, X), np.matmul(weight_mat, y)
@@ -753,104 +782,349 @@ class MultiModelWrapper(object):
         return np.concatenate(predictions)
 
 
-class StatsModelsWrapper:
+def _safe_norm_ppf(q, loc=0, scale=1):
+    prelim = loc.copy()
+    if hasattr(prelim, "__len__"):
+        if np.any(scale > 0):
+            prelim[scale > 0] = scipy.stats.norm.ppf(q, loc=loc[scale > 0], scale=scale[scale > 0])
+    elif scale > 0:
+        prelim = scipy.stats.norm.ppf(q, loc=loc, scale=scale)
+    return prelim
+
+
+class StatsModelsLinearRegression:
     """
-    Helper class to wrap a StatsModels OLS model to conform to the sklearn API.
+    Class which mimics weighted linear regression from the statsmodels package.
+
+    However, unlike statsmodels WLS, this class also supports sample variances in addition to sample weights,
+    which enables more accurate inference when working with summarized data.
 
     Parameters
     ----------
-    fit_intercept: bool (default False)
-        Whether to fit an intercept
-
-    Attributes
-    ----------
-    fit_args: dict of str: object
-        The arguments to pass to the `OLS` regression's `fit` method.  See the
-        statsmodels documentation for more information.
-    results: RegressionResults
-        After `fit` has been called, this attribute will store the regression results.
+    fit_intercept : bool (optional, default=True)
+        Whether to fit an intercept in this model
+    fit_args : dict (optional, default=`{}`)
+        The statsmodels-style fit arguments; keys can include 'cov_type', 'cov_kwds', and 'use_t'.
     """
 
-    def __init__(self, fit_intercept=False):
-        self.fit_args = {}
-        self.fit_intercept = fit_intercept
+    def __init__(self, fit_intercept=True, fit_args={}):
+        self.fit_args = fit_args
+        self._fit_intercept = fit_intercept
+        return
 
-    def fit(self, X, y, sample_weight=None):
+    def _check_input(self, X, y, sample_weight, sample_var):
+        """Check dimensions and other assertions."""
+        if sample_weight is None:
+            sample_weight = np.ones(X.shape[0])
+        elif np.any(np.not_equal(np.mod(sample_weight, 1), 0)):
+            raise AttributeError("Sample weights must all be integers for inference to be valid!")
+
+        if sample_var is None:
+            if np.any(np.not_equal(sample_weight, 1)):
+                warnings.warn(
+                    """No variance information was given for samples with sample_weight not equal to 1,
+                       that represent summaries of multiple original samples. Inference will be invalid!""")
+            sample_var = np.zeros(y.shape)
+
+        if sample_var.ndim < 2:
+            if np.any(np.equal(sample_weight, 1) & np.not_equal(sample_var, 0)):
+                warnings.warn(
+                    """Variance was set to non-zero for an observation with sample_weight=1!
+                       sample_var represents the variance of the original observations that are
+                       summarized in this sample. Hence, cannot have a non-zero variance if only
+                       one observations was summarized. Inference will be invalid!""")
+        else:
+            if np.any(np.equal(sample_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
+                warnings.warn(
+                    """Variance was set to non-zero for an observation with sample_weight=1!
+                       sample_var represents the variance of the original observations that are
+                       summarized in this sample. Hence, cannot have a non-zero variance if only
+                       one observations was summarized. Inference will be invalid!""")
+
+        assert (X.shape[0] == y.shape[0] ==
+                sample_weight.shape[0] == sample_var.shape[0]), "Input lengths not compatible!"
+        if y.ndim >= 2:
+            assert (y.ndim == sample_var.ndim and
+                    y.shape[1] == sample_var.shape[1]), "Input shapes not compatible: {}, {}!".format(
+                y.shape, sample_var.shape)
+
+        return X, y, sample_weight, sample_var
+
+    def fit(self, X, y, sample_weight=None, sample_var=None):
         """
-        Fit the ordinary least squares model.
+        Fits the model.
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
-            Training data
-        y : array_like, shape (n_samples, 1) or (n_samples,)
-            Target values
-        sample_weight : array_like, shape (n_samples,)
-            Individual weights for each sample
+        X : (N, d) nd array like
+            co-variates
+        y : {(N,), (N, p)} nd array like
+            output variable(s)
+        sample_weight : (N,) nd array like of integers
+            Weight for the observation. Observation i is treated as the mean
+            outcome of sample_weight[i] independent observations
+        sample_var : {(N,), (N, p)} nd array like
+            Variance of the outcome(s) of the original sample_weight[i] observations
+            that were used to compute the mean outcome represented by observation i.
 
         Returns
         -------
-        self
+        self : StatsModelsLinearRegression
         """
-        assert ndim(y) == 1 or (ndim(y) == 2 and shape(y)[1] == 1)
-        y = reshape(y, (-1,))
-        if self.fit_intercept:
+
+        # TODO: Add other types of covariance estimation (e.g. Newey-West (HAC), HC2, HC3)
+        X, y, sample_weight, sample_var = self._check_input(X, y, sample_weight, sample_var)
+
+        if self._fit_intercept:
             X = add_constant(X, has_constant='add')
-        if sample_weight is not None:
-            ols = WLS(y, X, weights=sample_weight, hasconst=self.fit_intercept)
+        WX = X * np.sqrt(sample_weight).reshape(-1, 1)
+
+        if y.ndim < 2:
+            self._n_out = 0
+            wy = y * np.sqrt(sample_weight)
         else:
-            ols = WLS(y, X, hasconst=self.fit_intercept)
-        self.results = ols.fit(**self.fit_args)
+            self._n_out = y.shape[1]
+            wy = y * np.sqrt(sample_weight).reshape(-1, 1)
+
+        param, _, rank, _ = np.linalg.lstsq(WX, wy, rcond=None)
+
+        if rank < param.shape[0]:
+            warnings.warn("Co-variance matrix is undertermined. Inference will be invalid!")
+
+        sigma_inv = np.linalg.pinv(np.matmul(WX.T, WX))
+        self._param = param
+        var_i = sample_var + (y - np.matmul(X, param))**2
+        n_obs = np.sum(sample_weight)
+        df = len(param) if self._n_out == 0 else param.shape[0]
+
+        if n_obs <= df:
+            warnings.warn("Number of observations <= than number of parameters. Using biased variance calculation!")
+            correction = 1
+        else:
+            correction = (n_obs / (n_obs - df))
+
+        if ('cov_type' not in self.fit_args) or (self.fit_args['cov_type'] == 'nonrobust'):
+            if y.ndim < 2:
+                self._var = correction * np.average(var_i, weights=sample_weight) * sigma_inv
+            else:
+                vars = correction * np.average(var_i, weights=sample_weight, axis=0)
+                self._var = [v * sigma_inv for v in vars]
+        elif (self.fit_args['cov_type'] == 'HC0'):
+            if y.ndim < 2:
+                weighted_sigma = np.matmul(WX.T, WX * var_i.reshape(-1, 1))
+                self._var = np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv))
+            else:
+                self._var = []
+                for j in range(self._n_out):
+                    weighted_sigma = np.matmul(WX.T, WX * var_i[:, [j]])
+                    self._var.append(np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
+        elif (self.fit_args['cov_type'] == 'HC1'):
+            if y.ndim < 2:
+                weighted_sigma = np.matmul(WX.T, WX * var_i.reshape(-1, 1))
+                self._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv))
+            else:
+                self._var = []
+                for j in range(self._n_out):
+                    weighted_sigma = np.matmul(WX.T, WX * var_i[:, [j]])
+                    self._var.append(correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
         return self
 
     def predict(self, X):
         """
-        Predict using the model.
+        Predicts the output given an array of instances.
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
-            Samples.
+        X : (n, d) array like
+            The covariates on which to predict
 
         Returns
         -------
-        array, shape (n_samples,)
-            Predicted values
+        predictions : {(n,) array, (n,p) array}
+            The predicted mean outcomes
         """
-        if self.fit_intercept:
+        if self._fit_intercept:
             X = add_constant(X, has_constant='add')
-        return self.results.predict(X)
-
-    def predict_interval(self, X, alpha):
-        """
-        Get a confidence interval for the prediction at `X`.
-
-        Parameters
-        ----------
-        X : array-like
-            The features at which to predict
-        alpha : float
-            The significance level to use for the interval
-
-        Returns
-        -------
-        array, shape (2, n_samples)
-            Lower and upper bounds for the confidence interval at each sample point
-        """
-        if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
-        # NOTE: we use `obs = False` to get a confidence, rather than prediction, interval
-        preds = self.results.get_prediction(X).conf_int(alpha=alpha, obs=False)
-        # statsmodels uses the last dimension instead of the first to store the confidence intervals,
-        # so we need to transpose the result
-        return transpose(preds)
+        return np.matmul(X, self._param)
 
     @property
     def coef_(self):
-        return self.results.params
+        """
+        Gets the model's coefficients on the covariates.
 
-    def coef__interval(self, alpha):
-        return transpose(self.results.conf_int(alpha=alpha))
+        Returns
+        -------
+        coef_ : {(d,), (p, d)} nd array like
+            The coefficients of the variables in the linear regression. If label y
+            was p-dimensional, then the result is a matrix of coefficents, whose p-th
+            row containts the coefficients corresponding to the p-th coordinate of the label.
+        """
+        if self._fit_intercept:
+            if self._n_out == 0:
+                return self._param[1:]
+            else:
+                return self._param[1:].T
+        else:
+            if self._n_out == 0:
+                return self._param
+            else:
+                return self._param.T
+
+    @property
+    def intercept_(self):
+        """
+        Gets the intercept(s) (or 0 if no intercept was fit).
+
+        Returns
+        -------
+        intercept_ : float or (p,) nd array like
+            The intercept of the linear regresion. If label y was p-dimensional, then the result is a vector
+            whose p-th entry containts the intercept corresponding to the p-th coordinate of the label.
+        """
+        return self._param[0] if self._fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
+
+    @property
+    def _param_var(self):
+        """
+        Returns
+        -------
+        var : {(d (+1), d (+1)), (p, d (+1), d (+1))} nd array like
+            The covariance matrix of all the parameters in the regression (including the intercept
+            as the first parameter).  If intercept was set to False then this is the covariance matrix
+            of the coefficients; otherwise, the intercept is treated as the first parameter of the regression
+            and the coefficients as the remaining. If outcome y is p-dimensional, then this is a tensor whose
+            p-th entry contains the co-variance matrix for the parameters corresponding to the regression of
+            the p-th coordinate of the outcome.
+        """
+        return np.array(self._var)
+
+    @property
+    def _param_stderr(self):
+        """
+        Returns
+        -------
+        _param_stderr : {(d (+1),) (d (+1), p)} nd array like
+            The standard error of each parameter that was estimated.
+        """
+        if self._n_out == 0:
+            return np.sqrt(np.clip(np.diag(self._param_var), 0, np.inf))
+        else:
+            return np.array([np.sqrt(np.clip(np.diag(v), 0, np.inf)) for v in self._param_var]).T
+
+    @property
+    def coef_stderr_(self):
+        """
+        Gets the standard error of the fitted coefficients.
+
+        Returns
+        -------
+        coef_stderr_ : {(d,), (p, d)} nd array like
+            The standard error of the coefficients
+        """
+        return self._param_stderr[1:].T if self._fit_intercept else self._param_stderr.T
+
+    @property
+    def intercept_stderr_(self):
+        """
+        Gets the standard error of the intercept(s) (or 0 if no intercept was fit).
+
+        Returns
+        -------
+        intercept_stderr_ : float or (p,) nd array like
+            The standard error of the intercept(s)
+        """
+        return self._param_stderr[0] if self._fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
+
+    def prediction_stderr(self, X):
+        """
+        Gets the standard error of the predictions.
+
+        Parameters
+        ----------
+        X : (n, d) array like
+            The covariates at which to predict
+
+        Returns
+        -------
+        prediction_stderr : (n, p) array like
+            The standard error of each coordinate of the output at each point we predict
+        """
+        if self._fit_intercept:
+            X = add_constant(X, has_constant='add')
+        if self._n_out == 0:
+            return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1), 0, np.inf))
+        else:
+            return np.array([np.sqrt(np.clip(np.sum(np.matmul(X, v) * X, axis=1), 0, np.inf)) for v in self._var]).T
+
+    def coef__interval(self, alpha=.05):
+        """
+        Gets a confidence interval bounding the fitted coefficients.
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        coef__interval : {tuple ((p, d) array, (p,d) array), tuple ((d,) array, (d,) array)}
+            The lower and upper bounds of the confidence interval of the coefficients
+        """
+        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                         for p, err in zip(self.coef_, self.coef_stderr_)]),\
+            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                      for p, err in zip(self.coef_, self.coef_stderr_)])
+
+    def intercept__interval(self, alpha=.05):
+        """
+        Gets a confidence interval bounding the intercept(s) (or 0 if no intercept was fit).
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        intercept__interval : {tuple ((p,) array, (p,) array), tuple (float, float)}
+            The lower and upper bounds of the confidence interval of the intercept(s)
+        """
+        if not self._fit_intercept:
+            return (0 if self._n_out == 0 else np.zeros(self._n_out)),\
+                (0 if self._n_out == 0 else np.zeros(self._n_out))
+
+        if self._n_out == 0:
+            return _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),\
+                _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
+        else:
+            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                             for p, err in zip(self.intercept_, self.intercept_stderr_)]),\
+                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                          for p, err in zip(self.intercept_, self.intercept_stderr_)])
+
+    def predict_interval(self, X, alpha=.05):
+        """
+        Gets a confidence interval bounding the prediction.
+
+        Parameters
+        ----------
+        X : (n, d) array like
+            The covariates on which to predict
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        prediction_intervals : {tuple ((n,) array, (n,) array), tuple ((n,p) array, (n,p) array)}
+            The lower and upper bounds of the confidence intervals of the predicted mean outcomes
+        """
+        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                         for p, err in zip(self.predict(X), self.prediction_stderr(X))]),\
+            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                      for p, err in zip(self.predict(X), self.prediction_stderr(X))])
 
 
 class LassoCVWrapper:

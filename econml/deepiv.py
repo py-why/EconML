@@ -287,6 +287,7 @@ class DeepIVEstimator(BaseCateEstimator):
         self._second_stage_options = second_stage_options
         super().__init__()
 
+    @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, Z, inference=None):
         """Estimate the counterfactual model from data.
 
@@ -318,8 +319,6 @@ class DeepIVEstimator(BaseCateEstimator):
         assert np.shape(X)[0] == np.shape(Y)[0] == np.shape(T)[0] == np.shape(Z)[0]
 
         # in case vectors were passed for Y or T, keep track of trailing dims for reshaping effect output
-        self._d_y = np.shape(Y)[1:]
-        self._d_t = np.shape(T)[1:]
 
         d_x, d_y, d_z, d_t = [np.shape(a)[1] if np.ndim(a) > 1 else 1 for a in [X, Y, Z, T]]
         x_in, y_in, z_in, t_in = [L.Input((d,)) for d in [d_x, d_y, d_z, d_t]]
@@ -371,8 +370,6 @@ class DeepIVEstimator(BaseCateEstimator):
             return K.reshape(all_grads, (-1, d_y, d_t))
 
         self._marginal_effect_model = Model([t_in, x_in], L.Lambda(lambda tx: calc_grad(*tx))([t_in, x_in]))
-
-        return super().fit(Y, T, X, Z, inference=inference)
 
     def effect(self, X=None, T0=0, T1=1):
         """

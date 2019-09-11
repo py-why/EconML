@@ -131,6 +131,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         self._model_Y = LinearRegression(fit_intercept=False)
         super().__init__()
 
+    @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, W, Z, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·, ·, ·), ∂τ(·, ·).
@@ -178,7 +179,6 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         # predict ft_T from interacted ft_X, ft_Z
         ft_T_hat = self._model_T.predict(features)
         self._model_Y.fit(_add_ones(np.hstack([W, cross_product(ft_T_hat, ft_X)])), Y)
-        return super().fit(Y, T, X, W, Z, inference=inference)
 
     def effect(self, X=None, T0=0, T1=1):
         """
