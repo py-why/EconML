@@ -221,7 +221,8 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 V. Syrgkanis, V. Lei, M. Oprescu, M. Hei, K. Battocchi, G. Lewis.
 **Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments.**
-[*ArXiv preprint arXiv:1905.10176*](https://arxiv.org/abs/1905.10176), 2019
+[*Proceedings of the 33rd Conference on Neural Information Processing Systems (NeurIPS)*](https://arxiv.org/abs/1905.10176), 2019
+**(Spotlight Presentation)**
 
 D. Foster, V. Syrgkanis.
 **Orthogonal Statistical Learning.**
@@ -230,7 +231,7 @@ D. Foster, V. Syrgkanis.
 
 M. Oprescu, V. Syrgkanis and Z. S. Wu.
 **Orthogonal Random Forest for Causal Inference.**
-[*Proceedings of the 36th International Conference on Machine Learning, ICML'19*](http://proceedings.mlr.press/v97/oprescu19a.html), 2019.
+[*Proceedings of the 36th International Conference on Machine Learning (ICML)*](http://proceedings.mlr.press/v97/oprescu19a.html), 2019.
 
 V. Chernozhukov, D. Nekipelov, V. Semenova, V. Syrgkanis.
 **Plug-in Regularized Estimation of High-Dimensional Parameters in Nonlinear Semiparametric Models.**
