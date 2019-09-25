@@ -1,7 +1,7 @@
 import numpy as np
 from econml.dml import DMLCateEstimator, LinearDMLCateEstimator
 from econml.inference import StatsModelsInference
-from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
+from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedLasso, WeightedModelWrapper)
 from statsmodels.regression.linear_model import WLS
 from statsmodels.tools.tools import add_constant
 from sklearn.dummy import DummyClassifier
@@ -642,7 +642,7 @@ class TestStatsModels(unittest.TestCase):
         np.random.seed(123)
 
         def first_stage_model():
-            return Lasso(alpha=0.01, fit_intercept=False, tol=1e-12, random_state=123)
+            return WeightedLasso(alpha=0.01, fit_intercept=True, tol=1e-12, random_state=123)
         n = 100
         for d in [1, 5]:
             for p in [1, 5]:
@@ -681,8 +681,8 @@ class TestStatsModels(unittest.TestCase):
                                         (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
 
                         est = LinearDMLCateEstimator(
-                            model_y=WeightedModelWrapper(first_stage_model()),
-                            model_t=WeightedModelWrapper(first_stage_model()),
+                            model_y=first_stage_model(),
+                            model_t=first_stage_model(),
                             n_splits=SplitterSum(),
                             linear_first_stages=False,
                             discrete_treatment=False).fit(y_sum, X_final[:, -1], X_final[:, :-1], None,
@@ -699,8 +699,8 @@ class TestStatsModels(unittest.TestCase):
                                         (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
 
                         lr = LinearDMLCateEstimator(
-                            model_y=WeightedModelWrapper(first_stage_model()),
-                            model_t=WeightedModelWrapper(first_stage_model()),
+                            model_y=first_stage_model(),
+                            model_t=first_stage_model(),
                             n_splits=Splitter(),
                             linear_first_stages=False,
                             discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None,
