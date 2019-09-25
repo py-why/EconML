@@ -14,7 +14,7 @@ import copy
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
                         StatsModelsWrapper, LassoCVWrapper)
-from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.preprocessing import PolynomialFeatures, LabelEncoder, OneHotEncoder
 from sklearn.base import clone, TransformerMixin
@@ -71,20 +71,38 @@ class _RLearner(LinearCateEstimator):
         take an extra second argument (the treatment residuals).  Predict, on the other hand,
         should just take the features and return the constant marginal effect.
 
-    n_splits: int
-        The number of splits to use when fitting the first-stage models.
+    discrete_treatment: bool
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    random_state: int, RandomState instance or None
+    n_splits: int, cross-validation generator or an iterable, optional
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by `np.random`.
     """
 
     def __init__(self, model_y, model_t, model_final,
                  discrete_treatment, n_splits, random_state):
-        self._models_y = [clone(model_y, safe=False) for _ in range(n_splits)]
-        self._models_t = [clone(model_t, safe=False) for _ in range(n_splits)]
+        self._model_y = clone(model_y, safe=False)
+        self._model_t = clone(model_t, safe=False)
+        self._models_y = []
+        self._models_t = []
         self._model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
@@ -138,19 +156,27 @@ class _RLearner(LinearCateEstimator):
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, inference=inference)
 
     def fit_nuisances(self, Y, T, X, W, sample_weight=None):
+        # use a binary array to get stratified split in case of discrete treatment
+        splitter = check_cv(self._n_splits, [0], classifier=self._discrete_treatment)
+        # if check_cv produced a new KFold or StratifiedKFold object, we need to set shuffle and random_state
+        if splitter != self._n_splits and isinstance(splitter, (KFold, StratifiedKFold)):
+            splitter.shuffle = True
+            splitter.random_state = self._random_state
+
+        folds = splitter.split(X, T)
+
         if self._discrete_treatment:
-            folds = StratifiedKFold(self._n_splits, shuffle=True,
-                                    random_state=self._random_state).split(np.empty_like(X), T)
             T = self._label_encoder.fit_transform(T)
             T_out = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
             T_out = T_out[:, 1:]  # drop first column since all columns sum to one
         else:
-            folds = KFold(self._n_splits, shuffle=True, random_state=self._random_state).split(X)
             T_out = T
 
         Y_res = np.zeros(shape(Y))
         T_res = np.zeros(shape(T_out))
         for idx, (train_idxs, test_idxs) in enumerate(folds):
+            self._models_y.append(clone(self._model_y, safe=False))
+            self._models_t.append(clone(self._model_t, safe=False))
             Y_train, Y_test = Y[train_idxs], Y[test_idxs]
             T_train, T_test = T[train_idxs], T_out[test_idxs]
             X_train, X_test = X[train_idxs], X[test_idxs]
@@ -265,11 +291,11 @@ class DMLCateEstimator(_RLearner):
     ----------
     model_y: estimator
         The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is `True`.
+        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
 
     model_t: estimator
         The estimator for fitting the treatment to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is `True`.
+        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
 
     model_final: estimator
         The estimator for fitting the response residuals to the treatment residuals. Must implement
@@ -283,16 +309,29 @@ class DMLCateEstimator(_RLearner):
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool
+    discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int
-        The number of splits to use when fitting the first-stage models.
+    n_splits: int, cross-validation generator or an iterable, optional
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
 
-    random_state: int, RandomState instance or None, optional (default=None)
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by `np.random`.
     """
 
@@ -375,7 +414,8 @@ class DMLCateEstimator(_RLearner):
 
         Note that this relies on the final model having a `coef_` property of its own.
         Most sklearn linear models support this, but there are cases that don't
-        (e.g. a `Pipeline` or `GridSearchCV` which wraps a linear model)
+        (e.g. a :class:`~sklearn.pipeline.Pipeline` or :class:`~sklearn.model_selection.GridSearchCV`
+        which wraps a linear model)
         """
         return self._model_final.coef_
 
@@ -388,8 +428,6 @@ class LinearDMLCateEstimator(DMLCateEstimator):
     """
     The Double ML Estimator with a low-dimensional linear final stage implemented as a statsmodel regression.
 
-    Note that only a single outcome is supported (because of the dependency on statsmodel's weighted least squares)
-
     Parameters
     ----------
     model_y: estimator
@@ -400,7 +438,8 @@ class LinearDMLCateEstimator(DMLCateEstimator):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.
 
-    featurizer: transformer, optional (default is `PolynomialFeatures(degree=1, include_bias=True)`)
+    featurizer: transformer, optional
+    (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
@@ -408,16 +447,29 @@ class LinearDMLCateEstimator(DMLCateEstimator):
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional (default is False)
+    discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, optional (default is 2)
-        The number of splits to use when fitting the first-stage models.
+    n_splits: int, cross-validation generator or an iterable, optional
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
 
-    random_state: int, RandomState instance or None, optional (default=None)
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by `np.random`.
 
     """
@@ -458,7 +510,8 @@ class LinearDMLCateEstimator(DMLCateEstimator):
             Weights for each row
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of `BootstrapInference`) and 'statsmodels' (or an instance of 'StatsModelsInference`)
+            (or an instance of :class:`.BootstrapInference`) and 'statsmodels'
+            (or an instance of :class:`.StatsModelsInference`)
 
         Returns
         -------
@@ -499,11 +552,12 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
-    model_final: estimator, optional (default is `LassoCV(fit_intercept=False)`)
+    model_final: estimator, optional (default is :class:`LassoCV(fit_intercept=False)  <sklearn.linear_model.LassoCV>`)
         The estimator for fitting the response residuals to the treatment residuals. Must implement
         `fit` and `predict` methods, and must be a linear model with no intercept for correctness.
 
-    featurizer: transformer, optional (default is `PolynomialFeatures(degree=1, include_bias=True)`)
+    featurizer: transformer, optional
+    (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
@@ -511,16 +565,29 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional (default is False)
+    discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, optional (default is 2)
-        The number of splits to use when fitting the first-stage models.
+    n_splits: int, cross-validation generator or an iterable, optional
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
 
-    random_state: int, RandomState instance or None, optional (default=None)
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by `np.random`.
     """
 
@@ -547,11 +614,11 @@ class KernelDMLCateEstimator(LinearDMLCateEstimator):
 
     Parameters
     ----------
-    model_y: estimator, optional (default is `LassoCV()`)
+    model_y: estimator, optional (default is :class:`LassoCV() <sklearn.linear_model.LassoCV>`)
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
-    model_t: estimator, optional (default is `LassoCV()`)
+    model_t: estimator, optional (default is :class:`LassoCV() <sklearn.linear_model.LassoCV>`)
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.
 
@@ -561,13 +628,26 @@ class KernelDMLCateEstimator(LinearDMLCateEstimator):
     bw: float, optional (default is 1.0)
         The bandwidth of the Gaussian used to generate features
 
-    n_splits: int, optional (default is 2)
-        The number of splits to use when fitting the first-stage models.
+    n_splits: int, cross-validation generator or an iterable, optional
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
 
-    random_state: int, RandomState instance or None, optional (default=None)
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by `np.random`.
     """
 

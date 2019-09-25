@@ -7,6 +7,7 @@ from sklearn.base import TransformerMixin
 from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
+from sklearn.model_selection import KFold
 from econml.dml import LinearDMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
@@ -84,6 +85,17 @@ class TestDML(unittest.TestCase):
                                                   np.array([1, 2, 3, 1, 2, 3, 1, 2, 3])),
                                        [0, 2, 1, -2, 0, -1, -1, 1, 0])
         dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+
+    def test_can_custom_splitter(self):
+        # test that we can fit with a KFold instance
+        dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
+                                     discrete_treatment=True, n_splits=KFold())
+        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+
+        # test that we can fit with a train/test iterable
+        dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
+                                     discrete_treatment=True, n_splits=[([0, 1, 2], [3, 4, 5])])
+        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
     def test_can_use_statsmodel_inference(self):
         """Test that we can use statsmodels to generate confidence intervals"""
