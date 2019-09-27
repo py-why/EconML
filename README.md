@@ -34,6 +34,7 @@ consult the documentation at https://econml.azurewebsites.net/.
   - [Running the tests](#Running-the-tests)
   - [Generating the documentation](#Generating-the-documentation)
 - [Blogs and Publications](#Blogs-and-Publications)
+- [Citation](#Citation)
 - [Contributing and Feedback](#Contributing-and-Feedback)
 - [References](#References)
 
@@ -202,6 +203,24 @@ The reStructuredText files that make up the documentation are stored in the [doc
 * 2018: [Orthogonal Random Forests paper](http://proceedings.mlr.press/v97/oprescu19a.html)
 
 * 2017: [DeepIV paper](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf)
+
+# Citation
+
+If you use EconML in your research, please cite us as follows:
+
+   Microsoft Research. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/microsoft/EconML, 2019. Version 0.x.
+
+BibTex:
+
+```
+@misc{econml,
+  author={Microsoft Research},
+  title={{EconML}: {A Python Package for ML-Based Heterogeneous Treatment Effects Estimation}},
+  howpublished={https://github.com/microsoft/EconML},
+  note={Version 0.x},
+  year={2019}
+}
+```
 
 # Contributing and Feedback
 
