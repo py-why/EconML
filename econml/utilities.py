@@ -488,34 +488,6 @@ def reshape_treatmentwise_effects(A, d_t, d_y):
         return A
 
 
-def check_treatments(T0, T1, n, dt):
-    """
-    Extend scalar treatments to correct dimensionality (returning non-scalar treatments unmodified)
-
-    Parameters
-    ----------
-    T0 : scalar or array
-    T1 : scalar or array
-    n : number of rows to output
-    dt : tuple
-        Trailing dimensions of T (that is, ``()`` for a vector treatment, or ``(d_t,)`` for an array treatment)
-
-    Returns
-    -------
-    T0 : array of shape ``(n,) + dt``
-    T1 : array of shape ``(n,) + dt``
-    """
-    if (ndim(T0) == 0 or ndim(T1) == 0) and dt and shape(dt)[1] > 1:
-        warnings.warn("A scalar was specified but there are multiple treatments; "
-                      "the same value will be used for each treatment.  Consider specifying"
-                      "all treatments, or using the const_marginal_effect method.")
-    if ndim(T0) == 0:
-        T0 = np.repeat(T0, (n,) + dt)
-    if ndim(T1) == 0:
-        T1 = np.repeat(T1, (n,) + dt)
-    return T0, T1
-
-
 def einsum_sparse(subscripts, *arrs):
     """
     Evaluate the Einstein summation convention on the operands.
