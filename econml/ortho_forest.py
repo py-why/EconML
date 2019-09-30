@@ -31,9 +31,9 @@ from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegre
     LogisticRegressionCV, ElasticNet
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures, FunctionTransformer
 from sklearn.utils import check_random_state, check_array, column_or_1d
-from .cate_estimator import BaseCateEstimator, LinearCateEstimator
+from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
 from .utilities import reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
 
@@ -121,7 +121,7 @@ def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None,
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
 
 
-class BaseOrthoForest(LinearCateEstimator):
+class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
     """Base class for the `ContinuousTreatmentOrthoForest` and `DiscreteTreatmentOrthoForest`."""
 
     def __init__(self,
@@ -688,40 +688,11 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             self.propensity_model, self.model_Y, self.n_T, self.random_state, second_stage=False)
         self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model_final, self.model_Y_final, self.n_T, self.random_state, second_stage=True)
+        self.transformer = FunctionTransformer(func=(lambda T:
+                                                     self._label_encoder.transform(self._check_treatment(T))),
+                                               validate=False)
         # Call `fit` from parent class
         return super().fit(Y, T, X, W=W, inference=inference)
-
-    def effect(self, X=None, T0=0, T1=1):
-        """Calculate the heterogeneous linear CATE θ(·) between two treatment points.
-
-        Parameters
-        ----------
-        T0 : array-like, shape (n, )
-            The first discrete treatment policy. Encoding must be consistent with the `T` input
-            to the `fit` function.
-
-        T1 : array-like, shape (n, )
-            The second discrete treatment policy. Encoding must be consistent with the `T` input
-            to the `fit` function. The treatment effect will be calculated between the `T1` and `T0`
-            treatment points.
-
-        X : array-like, shape (n, d_x)
-            Feature vector that captures heterogeneity.
-
-        Returns
-        -------
-        Theta : matrix , shape (n, d_y)
-            CATE on each outcome for each sample.
-        """
-        if np.ndim(T0) == 0:
-            T0 = np.repeat(T0, 1 if X is None else np.shape(X)[0])
-        if np.ndim(T1) == 0:
-            T1 = np.repeat(T1, 1 if X is None else np.shape(X)[0])
-        T0 = self._check_treatment(T0)
-        T1 = self._check_treatment(T1)
-        T0_encoded = self._label_encoder.transform(T0)
-        T1_encoded = self._label_encoder.transform(T1)
-        return super(DiscreteTreatmentOrthoForest, self).effect(X, T0_encoded, T1_encoded)
 
     def _pointwise_effect(self, X_single):
         """

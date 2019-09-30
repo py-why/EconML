@@ -16,15 +16,17 @@ from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
                         StatsModelsLinearRegression, LassoCVWrapper)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.linear_model import LinearRegression, LassoCV
-from sklearn.preprocessing import PolynomialFeatures, LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
+                                   FunctionTransformer)
 from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
-from .cate_estimator import BaseCateEstimator, LinearCateEstimator, StatsModelsCateEstimatorMixin
+from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
+                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin)
 from .inference import StatsModelsInference
 
 
-class _RLearner(LinearCateEstimator):
+class _RLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
     Base class for orthogonal learners.
 
@@ -143,6 +145,11 @@ class _RLearner(LinearCateEstimator):
             T_out = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
             T_out = T_out[:, 1:]  # drop first column since all columns sum to one
             self._d_t = shape(T_out)[1:]
+            self.transformer = FunctionTransformer(
+                func=(lambda T:
+                      self._one_hot_encoder.transform(
+                          reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]),
+                validate=False)
         else:
             T_out = T
 
@@ -222,30 +229,16 @@ class _RLearner(LinearCateEstimator):
             X = np.ones((1, 1))
         return super().const_marginal_effect_interval(X, alpha=alpha)
 
-    # if T is scalar, expand to match number of rows of X
-    # if T is a discrete treatment, transform it to one-hot representation
-    def _expand_treatment(self, T, X):
-        if ndim(T) == 0:
-            T = np.repeat(T, 1 if X is None else shape(X)[0])
-        if self._discrete_treatment:
-            T = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]
-        return T
-
-    # need to override super's effect to handle discrete treatments
-    # TODO: should this logic be moved up to the LinearCateEstimator class and
-    #       removed from here and from the OrthoForest implementation?
-    def effect(self, X, T0=0, T1=1):
-        return super().effect(X, self._expand_treatment(T0, X), self._expand_treatment(T1, X))
-
-    def effect_interval(self, X, *, T0=0, T1=1, alpha=0.1):
-        # for effect_interval, perform the same discrete treatment transformation as done in effect
-        return super().effect_interval(X,
-                                       T0=self._expand_treatment(T0, X), T1=self._expand_treatment(T1, X),
-                                       alpha=alpha)
+    def effect_interval(self, X=None, T0=0, T1=1, *, alpha=0.1):
+        if X is None:
+            n_rows = shape(T0)[0] if ndim(T0) > 0 else 1
+            assert self._d_x == (1,), "X was not None when fitting, so can't be none for effect"
+            X = np.ones((n_rows, 1))
+        return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
 
     def score(self, Y, T, X=None, W=None):
         X, W = self._check_X_W(X, W, Y)
-        T = self._expand_treatment(T, X)
+        X, T = self._expand_treatments(X, T)
         if T.ndim == 1:
             T = reshape(T, (-1, 1))
         if Y.ndim == 1:
@@ -328,15 +321,18 @@ class DMLCateEstimator(_RLearner):
                  n_splits=2,
                  random_state=None):
 
+        # TODO: consider whether we need more care around stateful featurizers,
+        #       since we clone it and fit separate copies
+
         class FirstStageWrapper:
             def __init__(self, model, is_Y):
                 self._model = clone(model, safe=False)
                 self._featurizer = clone(featurizer, safe=False)
                 self._is_Y = is_Y
 
-            def _combine(self, X, W):
+            def _combine(self, X, W, fitting=True):
                 if self._is_Y and linear_first_stages:
-                    F = self._featurizer.fit_transform(X)
+                    F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
                     XW = hstack([X, W])
                     return cross_product(XW, hstack([np.ones((shape(XW)[0], 1)), F, W]))
                 else:
@@ -350,9 +346,9 @@ class DMLCateEstimator(_RLearner):
 
             def predict(self, X, W):
                 if (not self._is_Y) and discrete_treatment:
-                    return self._model.predict_proba(self._combine(X, W))
+                    return self._model.predict_proba(self._combine(X, W, fitting=False))
                 else:
-                    return self._model.predict(self._combine(X, W))
+                    return self._model.predict(self._combine(X, W, fitting=False))
 
         class FinalWrapper:
             def __init__(self):
@@ -373,12 +369,14 @@ class DMLCateEstimator(_RLearner):
                 else:
                     self._model.fit(self._combine(X, T_res), Y_res)
 
-            def _combine(self, X, T):
-                return cross_product(self._featurizer.fit_transform(X), T)
+            def _combine(self, X, T, fitting=True):
+                F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
+                return cross_product(F, T)
 
             def predict(self, X):
                 X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
-                return reshape_treatmentwise_effects(self._model.predict(self._combine(X, T)), self._d_t, self._d_y)
+                return reshape_treatmentwise_effects(self._model.predict(self._combine(X, T, fitting=False)),
+                                                     self._d_t, self._d_y)
 
             @property
             def coef_(self):
@@ -589,6 +587,9 @@ class KernelDMLCateEstimator(LinearDMLCateEstimator):
     bw: float, optional (default is 1.0)
         The bandwidth of the Gaussian used to generate features
 
+    discrete_treatment: bool, optional (default is ``False``)
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
     n_splits: int, cross-validation generator or an iterable, optional
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -613,15 +614,19 @@ class KernelDMLCateEstimator(LinearDMLCateEstimator):
     """
 
     def __init__(self, model_y=LassoCV(), model_t=LassoCV(),
-                 dim=20, bw=1.0, n_splits=2, random_state=None):
+                 dim=20, bw=1.0, discrete_treatment=False, n_splits=2, random_state=None):
         class RandomFeatures(TransformerMixin):
-            def fit(innerself, X):
-                innerself.omegas = self._random_state.normal(0, 1 / bw, size=(shape(X)[1], dim))
-                innerself.biases = self._random_state.uniform(0, 2 * np.pi, size=(1, dim))
-                return innerself
+            def __init__(self, random_state):
+                self._random_state = check_random_state(random_state)
 
-            def transform(innerself, X):
-                return np.sqrt(2 / dim) * np.cos(np.matmul(X, innerself.omegas) + innerself.biases)
+            def fit(self, X):
+                self.omegas = self._random_state.normal(0, 1 / bw, size=(shape(X)[1], dim))
+                self.biases = self._random_state.uniform(0, 2 * np.pi, size=(1, dim))
+                return self
+
+            def transform(self, X):
+                return np.sqrt(2 / dim) * np.cos(np.matmul(X, self.omegas) + self.biases)
 
         super().__init__(model_y=model_y, model_t=model_t,
-                         featurizer=RandomFeatures(), n_splits=n_splits, random_state=random_state)
+                         featurizer=RandomFeatures(random_state),
+                         discrete_treatment=discrete_treatment, n_splits=n_splits, random_state=random_state)

@@ -10,7 +10,7 @@ from copy import deepcopy
 from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
-from .utilities import tensordot, ndim, reshape, shape, check_treatments
+from .utilities import tensordot, ndim, reshape, shape
 from .inference import StatsModelsInference
 
 
@@ -93,7 +93,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         return call
 
     @abc.abstractmethod
-    def effect(self, X=None, T0=0, T1=1):
+    def effect(self, X=None, *, T0, T1):
         """
         Calculate the heterogeneous treatment effect τ(·,·,·).
 
@@ -143,6 +143,23 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         pass
 
+    def _expand_treatments(self, X=None, *Ts):
+        """
+        Given a set of features and treatments, return possibly modified features and treatments.
+
+        Parameters
+        ----------
+        X : optional (m × dₓ) matrix
+            Features for each sample, or None
+        Ts: sequence of (m × dₜ) matrices
+            Base treatments for each sample
+
+        Returns
+        -------
+        output : tuple (X',T0',T1',...)
+        """
+        return (X,) + Ts
+
     def _defer_to_inference(m):
         @wraps(m)
         def call(self, *args, **kwargs):
@@ -188,7 +205,7 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         pass
 
-    def effect(self, X=None, T0=0, T1=1):
+    def effect(self, X=None, *, T0, T1):
         """
         Calculate the heterogeneous treatment effect τ(·,·,·).
 
@@ -213,11 +230,15 @@ class LinearCateEstimator(BaseCateEstimator):
             Note that when Y is a vector rather than a 2-dimensional array, the corresponding
             singleton dimension will be collapsed (so this method will return a vector)
         """
+        X, T0, T1 = self._expand_treatments(X, T0, T1)
         # TODO: what if input is sparse? - there's no equivalent to einsum,
         #       but tensordot can't be applied to this problem because we don't sum over m
         eff = self.const_marginal_effect(X)
+        # if X is None then the shape of const_marginal_effect will be wrong because the number
+        # of rows of T was not taken into account
+        if X is None:
+            eff = np.repeat(eff, shape(T0)[0], axis=0)
         m = shape(eff)[0]
-        T0, T1 = check_treatments(T0, T1, m, self._d_t)
         dT = T1 - T0
         einsum_str = 'myt,mt->my'
         if ndim(dT) == 1:
@@ -249,14 +270,52 @@ class LinearCateEstimator(BaseCateEstimator):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        return self.const_marginal_effect(X)
+        X, T = self._expand_treatments(X, T)
+        eff = self.const_marginal_effect(X)
+        return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
-        return self.const_marginal_effect_interval(X=X, alpha=alpha)
+        effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
+        return tuple(np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
+                     for eff in effs)
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         pass
+
+
+class TreatmentExpansionMixin(BaseCateEstimator):
+    """Mixin which automatically handles promotions of scalar treatments to the appropriate shape."""
+
+    transformer = None
+
+    def _prefit(self, Y, T, *args, **kwargs):
+        super()._prefit(Y, T, *args, **kwargs)
+        # need to store the *original* dimensions of T so that we can expand scalar inputs to match;
+        # subclasses should overwrite self._d_t with post-transformed dimensions of T for generating treatments
+        self._d_t_in = self._d_t
+
+    def _expand_treatments(self, X=None, *Ts):
+        n_rows = 1 if X is None else shape(X)[0]
+        outTs = []
+        for T in Ts:
+            if (ndim(T) == 0) and self._d_t_in and self._d_t_in[0] > 1:
+                warn("A scalar was specified but there are multiple treatments; "
+                     "the same value will be used for each treatment.  Consider specifying"
+                     "all treatments, or using the const_marginal_effect method.")
+            if ndim(T) == 0:
+                T = np.full((n_rows,) + self._d_t_in, T)
+
+            if self.transformer:
+                T = self.transformer.transform(T)
+            outTs.append(T)
+
+        return (X,) + tuple(outTs)
+
+    # override effect to set defaults, which works with the new definition of _expand_treatments
+    def effect(self, X=None, T0=0, T1=1):
+        # NOTE: don't explicitly expand treatments here, because it's done in the super call
+        return super().effect(X, T0=T0, T1=T1)
 
 
 class StatsModelsCateEstimatorMixin(BaseCateEstimator):

@@ -4,7 +4,7 @@
 import abc
 import numpy as np
 from .bootstrap import BootstrapEstimator
-from .utilities import cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, ndim, check_treatments
+from .utilities import cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, ndim
 
 """Options for performing inference in estimators."""
 
@@ -104,11 +104,12 @@ class StatsModelsInference(Inference):
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to access its effect_op and store it here
         # (which needs to have seen the expanded d_t if there's a discrete treatment, etc.)
+        self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
 
-    def effect_interval(self, X, *, T0=0, T1=1, alpha=0.1):
-        T0, T1 = check_treatments(T0, T1, X.shape, self._d_t)
+    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if self.featurizer is not None:
             X = self.featurizer.fit_transform(X)
         return self.statsmodels.predict_interval(cross_product(X, T1 - T0), alpha=alpha)
