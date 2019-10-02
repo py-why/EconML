@@ -214,6 +214,26 @@ class TestDML(unittest.TestCase):
         assert (point <= hi).all()
         assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
 
+    def test_ignores_final_intercept(self):
+        """Test that final model intercepts are ignored (with a warning)"""
+        class InterceptModel:
+            def fit(Y, X):
+                pass
+
+            def predict(X):
+                return X + 1
+
+        # (incorrectly) use a final model with an intercept
+        dml = DMLCateEstimator(LinearRegression(), LinearRegression(),
+                               model_final=InterceptModel,
+                               featurizer=FunctionTransformer())
+        # Because final model is fixed, actual values of T and Y don't matter
+        t = np.random.normal(size=100)
+        y = np.random.normal(size=100)
+        with self.assertWarns(Warning):  # we should warn whenever there's an intercept
+            dml.fit(y, t)
+        assert dml.const_marginal_effect() == 1  # coefficient on X in InterceptModel is 1
+
     @staticmethod
     def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer()):
         """Return error vectors e_t and e_y such that OLS can recover the true coefficients from both stages."""
