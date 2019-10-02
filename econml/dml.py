@@ -11,6 +11,7 @@ from the treatment residuals.
 
 import numpy as np
 import copy
+from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
                         StatsModelsLinearRegression, LassoCVWrapper)
@@ -359,15 +360,24 @@ class DMLCateEstimator(_RLearner):
                 # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
                 self._d_t = shape(T_res)[1:]
                 self._d_y = shape(Y_res)[1:]
+                fts = self._combine(X, T_res)
                 if sample_weight is not None:
                     if sample_var is not None:
-                        self._model.fit(self._combine(X, T_res),
+                        self._model.fit(fts,
                                         Y_res, sample_weight=sample_weight, sample_var=sample_var)
                     else:
-                        self._model.fit(self._combine(X, T_res),
+                        self._model.fit(fts,
                                         Y_res, sample_weight=sample_weight)
                 else:
-                    self._model.fit(self._combine(X, T_res), Y_res)
+                    self._model.fit(fts, Y_res)
+
+                self._intercept = None
+                intercept = self._model.predict(np.zeros_like(fts[0:1]))
+                if (np.count_nonzero(intercept) > 0):
+                    warn("The final model has a nonzero intercept for at least one outcome; "
+                         "it will be subtracted, but consider fitting a model without an intercept if possible.",
+                         UserWarning)
+                    self._intercept = intercept
 
             def _combine(self, X, T, fitting=True):
                 F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
@@ -375,7 +385,8 @@ class DMLCateEstimator(_RLearner):
 
             def predict(self, X):
                 X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
-                return reshape_treatmentwise_effects(self._model.predict(self._combine(X, T, fitting=False)),
+                prediction = self._model.predict(self._combine(X, T, fitting=False))
+                return reshape_treatmentwise_effects(prediction - self._intercept if self._intercept else prediction,
                                                      self._d_t, self._d_y)
 
             @property
