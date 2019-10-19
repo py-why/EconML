@@ -8,7 +8,7 @@ of the treated sample? For instance, this problem arises in personalized pricing
 price discount on the demand as a function of characteristics of the consumer. Similarly it arises in medical trials where the 
 goal is to estimate the effect of a drug treatment on the clinical response of a patient as a function of patient 
 characteristics. In many such settings we have an abundance of observational data, where the treatment was chosen via 
-some unknown policy and the ability to run control A/B tests is limited. 
+some unknown policy and the ability to run A/B tests is limited. 
 
 The EconML package implements recent techniques in the literature at the intersection of econometrics and machine
 learning that tackle the problem of heterogeneous treatment effect estimation via machine learning based approaches.
@@ -35,7 +35,7 @@ Customer Targeting
 ------------------
 
 An important problem in modern business analytics is building automated tools to prioritize customer
-acquisition and personalize customer interactions for increase in sales and revenue. Typically businesses
+acquisition and personalize customer interactions to increase sales and revenue. Typically businesses
 will offer personalize incentives to customers to increase spend or increase the level of
 engagement via more human resources. Any such personalized intervention corresponds to a monetary
 investment and the main question that business analytics are called to answer is: what is the return
@@ -65,7 +65,7 @@ Stratification in Clinical Trials
 ----------------------------------------
 
 Which patients should be selected for a clinical trial? If we want to demonstrate
-that a clinical treatment has an effect on at least some subset of a population then
+that a clinical treatment has an effect on at least some subset of a population, then
 fully randomized clinical trials are inappropriate as they will solely estimate
 average effects. Using heterogeneous treatment effect techniques, we can use
 observational data to come up with estimates of these effects and identify
@@ -75,10 +75,10 @@ treatment effects.
 Learning Click-Through-Rates
 ----------------------------
 
-In the design of a page layouts and more importantly in ad placement, it is important
+In the design of a page layout and more importantly in ad placement, it is important
 to understand the click-through-rate of page components (e.g. ads) on different positions
 of a page. Even though the modern approach is to run multiple A/B tests, when such
-page component involve revenue considerations (such as ad placement), then observational
+page components involve revenue considerations (such as ad placement), then observational
 data can help guide correct A/B tests to run. Heterogeneous treatment effect estimation
 can provide estimates of the click-through-rate of page components from
 observational data. In this setting, the treatment is simply whether the component is
