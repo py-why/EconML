@@ -132,7 +132,7 @@ One particular prevalent assumption is that the outcome :math:`y` is linear in t
 
     T =~& f(X, W, Z, \eta)
 
-where :math:`\epsilon, \eta` are exogenous noise terms. Under such a linear response assumption we observe that the CATE and marginal CATE takes a special form of:
+where :math:`\epsilon, \eta` are exogenous noise terms. Under such a linear response assumption we observe that the CATE and marginal CATE take a special form of:
 
 .. math ::
 
@@ -176,7 +176,7 @@ Example Use of API
 Let us walk through a simple example of what one can achieve via the latter API
 even irrespective of the actual estimation method that is being used.
 
-Let us consider a hypothetical data generating process governed by the 
+Let us consider a hypothetical data generating process (DGP) governed by the 
 following equations:
 
 .. math ::
@@ -187,7 +187,7 @@ following equations:
     \end{align}
 
 
-Suppose that we have :math:`n` samples from this dgp. For instance, we could create these
+Suppose that we have :math:`n` samples from this DGP. For instance, we could create these
 samples with the following code:
 
 .. code-block:: python3
