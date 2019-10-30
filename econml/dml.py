@@ -244,9 +244,10 @@ class _RLearner(TreatmentExpansionMixin, LinearCateEstimator):
             T = reshape(T, (-1, 1))
         if Y.ndim == 1:
             Y = reshape(Y, (-1, 1))
-        Y_test_pred = np.zeros(shape(Y) + (self._n_splits,))
-        T_test_pred = np.zeros(shape(T) + (self._n_splits,))
-        for ind in range(self._n_splits):
+        n = len(self._models_t)
+        Y_test_pred = np.zeros(shape(Y) + (n,))
+        T_test_pred = np.zeros(shape(T) + (n,))
+        for ind in range(n):
             if self._discrete_treatment:
                 T_test_pred[:, :, ind] = reshape(self._models_t[ind].predict(X, W)[:, 1:], shape(T))
             else:
@@ -254,7 +255,11 @@ class _RLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Y_test_pred[:, :, ind] = reshape(self._models_y[ind].predict(X, W), shape(Y))
         Y_test_pred = Y_test_pred.mean(axis=2)
         T_test_pred = T_test_pred.mean(axis=2)
+        if shape(Y) != shape(Y_test_pred):
+            Y_test_pred = reshape(Y_test_pred, shape(Y))
         Y_test_res = Y - Y_test_pred
+        if shape(T) != shape(T_test_pred):
+            T_test_pred = reshape(T_test_pred, shape(T))
         T_test_res = T - T_test_pred
         effects = reshape(self._model_final.predict(X), (-1, shape(Y)[1], shape(T)[1]))
         Y_test_res_pred = reshape(np.einsum('ijk,ik->ij', effects, T_test_res), shape(Y))

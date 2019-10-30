@@ -139,6 +139,8 @@ class TestDML(unittest.TestCase):
         dml = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
         self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
+        score = dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        self.assertAlmostEqual(score, 0)
 
     def test_can_use_sample_weights(self):
         """Test that we can pass sample weights to an estimator."""
@@ -170,11 +172,13 @@ class TestDML(unittest.TestCase):
         dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
                                      discrete_treatment=True, n_splits=KFold())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
         # test that we can fit with a train/test iterable
         dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
                                      discrete_treatment=True, n_splits=[([0, 1, 2], [3, 4, 5])])
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
     def test_can_use_statsmodel_inference(self):
         """Test that we can use statsmodels to generate confidence intervals"""
