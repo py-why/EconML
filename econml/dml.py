@@ -78,8 +78,6 @@ class _RLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  discrete_treatment, n_splits, random_state):
         self._model_y = clone(model_y, safe=False)
         self._model_t = clone(model_t, safe=False)
-        self._models_y = []
-        self._models_t = []
         self._model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
@@ -132,6 +130,8 @@ class _RLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.fit_final(X, Y_res, T_res, sample_weight=sample_weight, sample_var=sample_var)
 
     def fit_nuisances(self, Y, T, X, W, sample_weight=None):
+        self._models_y = []
+        self._models_t = []
         # use a binary array to get stratified split in case of discrete treatment
         splitter = check_cv(self._n_splits, [0], classifier=self._discrete_treatment)
         # if check_cv produced a new KFold or StratifiedKFold object, we need to set shuffle and random_state
