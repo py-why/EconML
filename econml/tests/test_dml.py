@@ -68,7 +68,7 @@ class TestDML(unittest.TestCase):
                                                            ((d_y,) if d_y > 0 else ()) +
                                                            ((d_t_final,) if d_t_final > 0 else()))
 
-                            model_t = LogisticRegression() if is_discrete else LinearRegression()
+                            model_t = LogisticRegression() if is_discrete else Lasso()
 
                             # TODO: add stratification to bootstrap so that we can use it even with discrete treatments
                             all_infs = [None, 'statsmodels']
