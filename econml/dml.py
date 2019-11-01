@@ -161,18 +161,17 @@ class DMLCateEstimator(_RLearner):
             def coef_(self):
                 # TODO: handle case where final model doesn't directly expose coef_?
                 return reshape(self._model.coef_, self._d_y + self._d_t + (-1,))
-        
-        self._dml_model_final_wrapper = FinalWrapper()
+
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
                          model_t=FirstStageWrapper(model_t, is_Y=False),
-                         model_final=self._dml_model_final_wrapper,
+                         model_final=FinalWrapper(),
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
 
     @property
     def featurizer(self):
-        return self._dml_model_final_wrapper._featurizer
+        return super().model_final._featurizer
 
 
 class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):

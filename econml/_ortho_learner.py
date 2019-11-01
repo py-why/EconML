@@ -218,6 +218,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             nuisances[it] = np.mean(nuisances[it], axis=2)
         
         return self._model_final.score(Y, T, X=X, W=W, Z=Z, nuisances=nuisances)
+    
+    @property
+    def model_final(self):
+        return self._model_final
 
 
 class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
@@ -329,3 +333,7 @@ class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
 
         super().__init__(ModelNuisance(model_y, model_t, discrete_treatment),
                          ModelFinal(model_final), discrete_treatment, n_splits, random_state)
+    
+    @property
+    def model_final(self):
+        super().model_final
