@@ -27,7 +27,7 @@ from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
 from .inference import StatsModelsInference
 
 
-class _OrthoLearner(LinearCateEstimator):
+class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
     Base class for all orthogonal learners.
 
@@ -75,6 +75,9 @@ class _OrthoLearner(LinearCateEstimator):
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
         self._random_state = check_random_state(random_state)
+        if discrete_treatment:
+            self._label_encoder = LabelEncoder()
+            self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
         super().__init__()
 
     @BaseCateEstimator._wrap_fit
@@ -125,6 +128,16 @@ class _OrthoLearner(LinearCateEstimator):
         else:
             folds = splitter.split(np.ones((T.shape[0], 1)), T)
 
+        if self._discrete_treatment:
+            T = self._label_encoder.fit_transform(T)
+            T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))[:, 1:] # drop first column since all columns sum to one
+            self._d_t = shape(T)[1:]
+            self.transformer = FunctionTransformer(
+                func=(lambda T:
+                      self._one_hot_encoder.transform(
+                          reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]),
+                validate=False)
+
         for idx, (train_idxs, test_idxs) in enumerate(folds):
             self._models_nuisance.append(clone(self._model_nuisance, safe=False))
             Y_train, Y_test = Y[train_idxs], Y[test_idxs]
@@ -132,10 +145,7 @@ class _OrthoLearner(LinearCateEstimator):
             X_train, X_test = X[train_idxs], X[test_idxs] if X is not None else None, None
             W_train, W_test = W[train_idxs], W[test_idxs] if W is not None else None, None
             Z_train, Z_test = Z[train_idxs], Z[test_idxs] if Z is not None else None, None
-            
-            # TODO: If T is a vector rather than a 2-D array, then the model's fit must accept a vector...
-            #       Do we want to reshape to an nx1, or just trust the user's choice of input?
-            #       (Likewise for Y below)
+
             if sample_weight is not None:
                 self._models_nuisance[idx].fit(Y_train, T_train, X=X_train, W=W_train, Z=Z_train, sample_weight=sample_weight[train_idxs])
             else:
@@ -207,7 +217,7 @@ class _OrthoLearner(LinearCateEstimator):
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=2)
         
-        return self._model_final.score(Y, T, X, W, Z, nuisances)
+        return self._model_final.score(Y, T, X=X, W=W, Z=Z, nuisances=nuisances)
 
 
 class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
@@ -274,9 +284,6 @@ class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
                 self._model_t = clone(model_t, safe=False)
                 self._discrete_treatment = discrete_treatment
                 self._random_state = check_random_state(random_state)
-                if discrete_treatment:
-                    self._label_encoder = LabelEncoder()
-                    self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
 
             @staticmethod
             def _check_X_W(X, W, Y):
@@ -288,41 +295,27 @@ class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
 
             def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
                 X, W = self._check_X_W(X, W, Y)
-                assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0]
+                assert Z is None, "Cannot accept instrument!"
+                assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0], "Dimension mis-match!"
                 self._d_x = shape(X)[1:]
-
-                if self._discrete_treatment:
-                    T = self._label_encoder.fit_transform(T)
-                    T_out = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
-                    T_out = T_out[:, 1:]  # drop first column since all columns sum to one
-                    self._d_t = shape(T_out)[1:]
-                    self.transformer = FunctionTransformer(
-                        func=(lambda T:
-                            self._one_hot_encoder.transform(
-                                reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]),
-                        validate=False)
-
-                self._model_t.fit(X, W, T, sample_weight=sample_weight)
+                self._model_t.fit(X, W, T_label, sample_weight=sample_weight)
                 self._model_y.fit(X, W, Y, sample_weight=sample_weight)
                 return self
             
             def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
                 Y_res = Y - self._model_y.predict(X, W).reshape(Y.shape)
-                if self._discrete_treatment:
-                    T_res = self.transformer.transform(T) - self._model_t.predict(X, W)[:, 1:]
-                else:
-                    T_res = T - self._model_t.predict(X, W).reshape(T.shape)
+                T_res = T - self._model_t.predict(X, W)
                 return Y_res, T_res
 
         class ModelFinal:
             def __init__(self, model_final):
                 self._model_final = clone(model_final, safe=False)
-            
+
             def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
                 Y_res, T_res = nuisances
                 self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
                 return self
-            
+
             def predict(self, X):
                 if X is None:
                     X = np.ones((1, 1))
@@ -330,7 +323,7 @@ class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
 
             def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
                 Y_res, T_res = nuisances
-                effects = reshape(self._model_final.predict(X), (-1, shape(Y)[1], shape(T)[1]))
+                effects = reshape(self._model_final.predict(X), (-1, shape(Y)[1], shape(T_res)[1]))
                 Y_res_pred = reshape(np.einsum('ijk,ik->ij', effects, T_res), shape(Y))
                 return ((Y_res - Y_res_pred)**2).mean()
 

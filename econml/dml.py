@@ -340,6 +340,9 @@ class DMLCateEstimator(_RLearner):
                     return hstack([X, W])
 
             def fit(self, X, W, Target, sample_weight=None):
+                if (not self._is_Y) and discrete_treatment:
+                    Target = np.matmul(Target, np.arange(1, Target.shape[1] + 1)).flatten()
+
                 if sample_weight is not None:
                     self._model.fit(self._combine(X, W), Target, sample_weight=sample_weight)
                 else:
@@ -347,7 +350,7 @@ class DMLCateEstimator(_RLearner):
 
             def predict(self, X, W):
                 if (not self._is_Y) and discrete_treatment:
-                    return self._model.predict_proba(self._combine(X, W, fitting=False))
+                    return self._model.predict_proba(self._combine(X, W, fitting=False))[:, 1:]
                 else:
                     return self._model.predict(self._combine(X, W, fitting=False))
 
