@@ -298,7 +298,7 @@ class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
                 assert Z is None, "Cannot accept instrument!"
                 assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0], "Dimension mis-match!"
                 self._d_x = shape(X)[1:]
-                self._model_t.fit(X, W, T_label, sample_weight=sample_weight)
+                self._model_t.fit(X, W, T, sample_weight=sample_weight)
                 self._model_y.fit(X, W, Y, sample_weight=sample_weight)
                 return self
             
