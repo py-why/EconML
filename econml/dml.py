@@ -128,6 +128,8 @@ class DMLCateEstimator(_RLearner):
                 # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
                 self._d_t = shape(T_res)[1:]
                 self._d_y = shape(Y_res)[1:]
+                if X is None:
+                    X = np.ones((T_res.shape[0], 1))
                 fts = self._combine(X, T_res)
                 if sample_weight is not None:
                     if sample_var is not None:
@@ -152,6 +154,8 @@ class DMLCateEstimator(_RLearner):
                 return cross_product(F, T)
 
             def predict(self, X):
+                if X is None:
+                    X = np.ones((1, 1))
                 X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
                 prediction = self._model.predict(self._combine(X, T, fitting=False))
                 return reshape_treatmentwise_effects(prediction - self._intercept if self._intercept else prediction,
@@ -172,6 +176,10 @@ class DMLCateEstimator(_RLearner):
     @property
     def featurizer(self):
         return super().model_final._featurizer
+    
+    @property
+    def model_final(self):
+        return super().model_final._model
 
 
 class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
@@ -270,7 +278,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
 
     @property
     def statsmodels(self):
-        return self._model_final._model
+        return self.model_final
 
 
 class SparseLinearDMLCateEstimator(DMLCateEstimator):

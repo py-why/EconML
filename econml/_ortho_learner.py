@@ -27,6 +27,39 @@ from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
 from .inference import StatsModelsInference
 
 
+def _crossfit(model, folds, *args, **kwargs):
+    model_list = []
+    for idx, (train_idxs, test_idxs) in enumerate(folds):
+        model_list.append(clone(model, safe=False))
+
+        args_train = ()
+        args_test = ()
+        for var in args:
+            args_train += (var[train_idxs],)
+            args_test += (var[test_idxs],)
+
+        kwargs_train = {}
+        kwargs_test = {}
+        for key, var in kwargs.items():
+            if var is not None:
+                kwargs_train[key] = var[train_idxs]
+                kwargs_test[key] = var[test_idxs]
+
+        model_list[idx].fit(*args_train, **kwargs_train)
+
+        nuisance_temp = model_list[idx].predict(*args_test, **kwargs_test)
+
+        if not isinstance(nuisance_temp, tuple):
+            nuisance_temp = (nuisance_temp,)
+
+        if idx == 0:
+            nuisances = tuple([np.zeros((args[0].shape[0],) + nuis.shape[1:]) for nuis in nuisance_temp])
+
+        for it, nuis in enumerate(nuisance_temp):
+            nuisances[it][test_idxs] = nuis
+
+    return nuisances, model_list
+
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
     Base class for all orthogonal learners.
@@ -112,6 +145,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._X_is_None = (X is None)
         nuisances = self.fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
         self.fit_final(Y, T, X, W, Z, nuisances, sample_weight=sample_weight, sample_var=sample_var)
+        return self
 
     def fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         # use a binary array to get stratified split in case of discrete treatment
@@ -121,7 +155,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             splitter.shuffle = True
             splitter.random_state = self._random_state
 
-        all_vars = [var if ndim(x)==2 else var.reshape(-1, 1) for var in [Z, W, X] if var is not None]
+        all_vars = [var if np.ndim(var)==2 else var.reshape(-1, 1) for var in [Z, W, X] if var is not None]
         if all_vars:
             all_vars = np.hstack(all_vars)
             folds = splitter.split(all_vars, T)
@@ -138,33 +172,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                           reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]),
                 validate=False)
 
-        for idx, (train_idxs, test_idxs) in enumerate(folds):
-            self._models_nuisance.append(clone(self._model_nuisance, safe=False))
-            Y_train, Y_test = Y[train_idxs], Y[test_idxs]
-            T_train, T_test = T[train_idxs], T[test_idxs]
-            X_train, X_test = X[train_idxs], X[test_idxs] if X is not None else None, None
-            W_train, W_test = W[train_idxs], W[test_idxs] if W is not None else None, None
-            Z_train, Z_test = Z[train_idxs], Z[test_idxs] if Z is not None else None, None
-
-            if sample_weight is not None:
-                self._models_nuisance[idx].fit(Y_train, T_train, X=X_train, W=W_train, Z=Z_train, sample_weight=sample_weight[train_idxs])
-            else:
-                self._models_nuisance[idx].fit(Y_train, T_train, X=X_train, W=W_train, Z=Z_train)
-            
-            nuisance_temp = self._models_nuisance[idx].predict(Y_test, T_test, X=X_test, W=W_test, Z=Z_test)
-            if not isinstance(nuisance_temp, tuple):
-                nuisance_temp = (nuisance_temp,)
-            
-            if idx == 0:
-                    nuisances = tuple([np.array((Y.shape[0], nuis.shape[1]) for nuis in nuisance_temp])
-            
-            for it, nuis in enumerate(nuisance_temp):    
-                nuisances[it][test_idxs] = nuis
-
+        nuisances, fitted_models = _crossfit(self._model_nuisance, folds,
+                                             Y, T, X=X, W=W, Z=Z,sample_weight=sample_weight)
+        self._models_nuisance = fitted_models
         return nuisances
 
     def fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        self._model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, sample_var=sample_var))
+        self._model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, sample_var=sample_var)
 
     def const_marginal_effect(self, X=None):
         """
@@ -209,13 +223,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 nuisance_temp = (nuisance_temp,)
 
             if idx == 0:
-                    nuisances = tuple([np.array((Y.shape[0], nuis.shape[1], n_splits) for nuis in nuisance_temp])
+                nuisances = tuple([np.zeros((n_splits,) + nuis.shape) for nuis in nuisance_temp])
 
-            for it, nuis in enumerate(nuisance_temp):    
-                nuisances[it][:, idx] = nuis
+            for it, nuis in enumerate(nuisance_temp):
+                nuisances[it][idx] = nuis
 
         for it in range(len(nuisances)):
-            nuisances[it] = np.mean(nuisances[it], axis=2)
+            nuisances[it] = np.mean(nuisances[it], axis=0)
         
         return self._model_final.score(Y, T, X=X, W=W, Z=Z, nuisances=nuisances)
     
@@ -224,7 +238,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return self._model_final
 
 
-class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
+class _RLearner(_OrthoLearner):
     """
     Base class for orthogonal learners.
 
@@ -307,6 +321,7 @@ class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
                 return self
             
             def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+                X, W = self._check_X_W(X, W, Y)
                 Y_res = Y - self._model_y.predict(X, W).reshape(Y.shape)
                 T_res = T - self._model_t.predict(X, W)
                 return Y_res, T_res
@@ -321,8 +336,6 @@ class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
                 return self
 
             def predict(self, X):
-                if X is None:
-                    X = np.ones((1, 1))
                 return self._model_final.predict(X)
 
             def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
@@ -336,4 +349,4 @@ class _RLearner(TreatmentExpansionMixin, _OrthoLearner):
     
     @property
     def model_final(self):
-        super().model_final
+        return super().model_final._model_final
