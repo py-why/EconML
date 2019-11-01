@@ -75,7 +75,7 @@ class TestDML(unittest.TestCase):
                             if not is_discrete:
                                 all_infs.append(BootstrapInference(1))
 
-                            for est, multi, infs in [(LinearDMLCateEstimator(model_y=LinearRegression(),
+                            for est, multi, infs in [(LinearDMLCateEstimator(model_y=Lasso(),
                                                                              model_t=model_t,
                                                                              discrete_treatment=is_discrete),
                                                       False,

@@ -255,11 +255,7 @@ class _RLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Y_test_pred[:, :, ind] = reshape(self._models_y[ind].predict(X, W), shape(Y))
         Y_test_pred = Y_test_pred.mean(axis=2)
         T_test_pred = T_test_pred.mean(axis=2)
-        if shape(Y) != shape(Y_test_pred):
-            Y_test_pred = reshape(Y_test_pred, shape(Y))
         Y_test_res = Y - Y_test_pred
-        if shape(T) != shape(T_test_pred):
-            T_test_pred = reshape(T_test_pred, shape(T))
         T_test_res = T - T_test_pred
         effects = reshape(self._model_final.predict(X), (-1, shape(Y)[1], shape(T)[1]))
         Y_test_res_pred = reshape(np.einsum('ijk,ik->ij', effects, T_test_res), shape(Y))
