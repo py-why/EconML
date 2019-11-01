@@ -251,8 +251,8 @@ class TestBootstrap(unittest.TestCase):
         assert (lower <= upper).all()
         assert (lower < upper).any()
 
-        # test that the estimated effect is usually within the bounds
-        assert np.mean(np.logical_and(lower <= eff, eff <= upper)) >= 0.7
+        # TODO: test that the estimated effect is usually within the bounds
+        #       and that the true effect is also usually within the bounds
 
         # test that we can do the same thing once we provide percentile bounds
         lower, upper = est.effect_interval(x, T0=t, T1=t2, alpha=0.2)
@@ -263,5 +263,5 @@ class TestBootstrap(unittest.TestCase):
         assert (lower <= upper).all()
         assert (lower < upper).any()
 
-        # test that the estimated effect is usually within the bounds
-        assert np.mean(np.logical_and(lower <= eff, eff <= upper)) >= 0.65
+        # TODO: test that the estimated effect is usually within the bounds
+        #       and that the true effect is also usually within the bounds
