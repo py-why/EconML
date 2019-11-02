@@ -88,12 +88,15 @@ def _crossfit(model, folds, *args, **kwargs):
     >>> y = X[:, 0] + np.random.normal(size=(5000,))
     >>> folds = list(KFold(2).split(X, y))
     >>> model = Lasso(alpha=0.01)
-    >>> nuisance, model_list = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
+    >>> nuisance, model_list, fitted_inds = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
     >>> nuisance
     (array([-1.1057289 , -1.53756637, -2.4518278 , ...,  1.10628792,
        -1.82966233, -1.78227335]),)
     >>> model_list
     [<__main__.Wrapper object at 0x12f41e518>, <__main__.Wrapper object at 0x12f41e6d8>]
+    >>> fitted_inds
+    array([   0,    1,    2, ..., 4997, 4998, 4999])
+
     """
     model_list = []
     fitted_inds = []
