@@ -65,7 +65,11 @@ def _crossfit(model, folds, *args, **kwargs):
     model_list : list of objects of same type as input model
         The cloned and fitted models for each fold. Can be used for inspection of the
         variability of the fitted models across folds.
-    
+    fitted_inds : np array1d
+        The indices of the arrays for which the nuisance value was calculated. This
+        corresponds to the union of the indices of the test part of each fold in
+        the input fold list.
+
     Examples
     --------
     >>> import numpy as np
@@ -92,8 +96,10 @@ def _crossfit(model, folds, *args, **kwargs):
     [<__main__.Wrapper object at 0x12f41e518>, <__main__.Wrapper object at 0x12f41e6d8>]
     """
     model_list = []
+    fitted_inds = []
     for idx, (train_idxs, test_idxs) in enumerate(folds):
         model_list.append(clone(model, safe=False))
+        fitted_inds = np.concatenate((fitted_inds, test_idxs))
 
         args_train = ()
         args_test = ()
@@ -121,7 +127,7 @@ def _crossfit(model, folds, *args, **kwargs):
         for it, nuis in enumerate(nuisance_temp):
             nuisances[it][test_idxs] = nuis
 
-    return nuisances, model_list
+    return nuisances, model_list, np.sort(fitted_inds.astype(int))
 
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -192,6 +198,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             assert self._d_x == X.shape[1:], "Dimension mis-match of X with fitted X"
 
+    def _subinds_check_none(self, var, inds):
+        return var[inds] if var is not None else None
+
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, inference=None):
         """
@@ -222,8 +231,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self
         """
         self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var)
-        nuisances = self.fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
-        self.fit_final(Y, T, X, W, Z, nuisances, sample_weight=sample_weight, sample_var=sample_var)
+        nuisances, fitted_inds = self.fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
+        self.fit_final(self._subinds_check_none(Y, fitted_inds),
+                       self._subinds_check_none(T, fitted_inds),
+                       self._subinds_check_none(X, fitted_inds),
+                       self._subinds_check_none(W, fitted_inds),
+                       self._subinds_check_none(Z, fitted_inds),
+                       tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances]),
+                       sample_weight=self._subinds_check_none(sample_weight, fitted_inds),
+                       sample_var=self._subinds_check_none(sample_var, fitted_inds))
         return self
 
     def fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
@@ -252,10 +268,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                           reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]),
                 validate=False)
 
-        nuisances, fitted_models = _crossfit(self._model_nuisance, folds,
-                                             Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
+        nuisances, fitted_models, fitted_inds = _crossfit(self._model_nuisance, folds,
+                                                          Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
         self._models_nuisance = fitted_models
-        return nuisances
+        return nuisances, fitted_inds
 
     def fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
         self._model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
