@@ -35,8 +35,8 @@ def _crossfit(model, folds, *args, **kwargs):
         args_train = ()
         args_test = ()
         for var in args:
-            args_train += (var[train_idxs],)
-            args_test += (var[test_idxs],)
+            args_train += (var[train_idxs],) if var is not None else (None,)
+            args_test += (var[test_idxs],) if var is not None else (None,)
 
         kwargs_train = {}
         kwargs_test = {}
