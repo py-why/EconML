@@ -27,6 +27,7 @@ from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
 from .inference import StatsModelsInference
 from ._ortho_learner import _OrthoLearner
 
+
 class _RLearner(_OrthoLearner):
     """
     Base class for orthogonal learners.
@@ -83,7 +84,6 @@ class _RLearner(_OrthoLearner):
         self._model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
-        
 
         class ModelNuisance:
             def __init__(self, model_y, model_t):
@@ -95,7 +95,7 @@ class _RLearner(_OrthoLearner):
                 self._model_t.fit(X, W, T, sample_weight=sample_weight)
                 self._model_y.fit(X, W, Y, sample_weight=sample_weight)
                 return self
-            
+
             def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
                 Y_res = Y - self._model_y.predict(X, W).reshape(Y.shape)
                 T_res = T - self._model_t.predict(X, W)
@@ -121,7 +121,7 @@ class _RLearner(_OrthoLearner):
 
         super().__init__(ModelNuisance(model_y, model_t),
                          ModelFinal(model_final), discrete_treatment, n_splits, random_state)
-    
+
     @property
     def model_final(self):
         return super().model_final._model_final
