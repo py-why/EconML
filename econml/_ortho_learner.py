@@ -135,17 +135,44 @@ def _crossfit(model, folds, *args, **kwargs):
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
-    Base class for all orthogonal learners.
+    Base class for all orthogonal learners. This class is a parent class to any method that has
+    the following architecture:
+    1) The CATE $\theta(X)$ is either the minimizer of some expected loss function $E[L(V; \theta(X), h(V))]
+    where V are all the random variables and h is a vector of nuisance functions.
+    2) To estimate $\theta(X)$ we first fit the h functions can calculate $h(V_i)$ for each sample $i$
+    in a crossfit manner:
+        - Estimate a model $\hat{h}$ for h using half of the data
+        - Evaluate the learned $\hat{h}$ model on the other half
+    Or more generally in a KFold fit/predict approach with more folds
+    3) Estimate the model for theta(X) by minimizing the empirical (regularized) plugin loss:
+    $E_n[L(V; \theta(X), \hat{h}(V))]$
+
+    The method is a bit more general in that the final step does not need to be a loss minimization step.
+    The class takes as input a model for fitting an estimate of the nuisance h given a set of samples
+    and predicting the value of the learned nuisance model on any other set of samples. It also
+    takes as input a model for the final estimation, that takes as input the data and their associated
+    estimated nuisance values from the first stage and fits a model for the CATE $\theta(X)$. Then
+    at predict time, the final model given any set of samples of the X variable, returns the estimated
+    $\theta(X)$.
+
+    The method essentially implements all the crossfit and plugin logic, so that any child classes need
+    to only implement the appropriate `model_nuisance` and `model_final` and essentially nothing more.
+    It also implements the basic preprocessing logic behind the expansion of discrete treatments into
+    one-hot encodings.
 
     Parameters
     ----------
     model_nuisance: estimator
         The estimator for fitting the nuisance function. Must implement
-        `fit` and `predict` methods that both take as input Y, T, X, W, Z.
+        `fit` and `predict` methods that both have signatures:
+        `model_nuisance.fit(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, sample_var=sample_var)`
+        `model_nuisance.predict(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, sample_var=sample_var)`
 
     model_final: estimator for fitting the response residuals to the features and treatment residuals
-        Must implement `fit` and `predict` methods. The fit method takes as input, Y, T, X, W, Z, nuisances.
-        Predict, on the other hand, should just take the features X and return the constant marginal effect.
+        Must implement `fit` and `predict` methods that must have signatures:
+        `model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, sample_var=sample_var)`
+        `model_nuisance.predict(X)`
+        Predict, should just take the features X and return the constant marginal effect.
 
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
