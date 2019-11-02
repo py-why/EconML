@@ -27,6 +27,7 @@ from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
 from .inference import StatsModelsInference
 from ._rlearner import _RLearner
 
+
 class DMLCateEstimator(_RLearner):
     """
     The base class for parametric Double ML estimators.
@@ -181,7 +182,7 @@ class DMLCateEstimator(_RLearner):
     @property
     def featurizer(self):
         return super().model_final._featurizer
-    
+
     @property
     def model_final(self):
         return super().model_final._model
