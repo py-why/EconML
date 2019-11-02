@@ -28,6 +28,69 @@ from .inference import StatsModelsInference
 
 
 def _crossfit(model, folds, *args, **kwargs):
+    """
+    General crossfit based calculation of nuisance parameters.
+
+    Parameters
+    ----------
+    model : object
+        An object that supports fit and predict. Fit must accept all the args
+        and the keyword arguments kwargs. Similarly predict must all accept
+        all the args as arguments and kwards as keyword arguments. The fit
+        function estimates a model of the nuisance function, based on the input
+        data to fit. Predict evaluates the fitted nuisance function on the input
+        data to predict.
+    folds : list of tuples
+        The crossfitting fold structure. Every entry in the list is a tuple whose
+        first element are the training indices of the args and kwargs data and
+        the second entry are the test indices. If the union of the test indices
+        is not the full set of all indices, then the remaining nuisance parameters
+        for the missing indices have value NaN.
+    args : a sequence of (numpy matrices or None)
+        Each matrix is a data variable whose first index corresponds to a sample
+    kwargs : a sequence of key-value args, with values being (numpy matrices or None)
+        Each keyword argument is of the form Var=x, with x a numpy array. Each
+        of these arrays are data variables. The model fit and predict will be
+        called with signature: `model.fit(*args, **kwargs)` and
+        `model.predict(*args, **kwargs)`. Key-value arguments that have value
+        None, are ommitted from the two calls. So all the args and the non None
+        kwargs variables must be part of the models signature.
+
+    Returns
+    -------
+    nuisances : tuple of numpy matrices
+        Each entry in the tuple is a nuisance parameter matrix. Each row i-th in the
+        matric corresponds to the value of the nuisancee parameter for the i-th input
+        sample.
+    model_list : list of objects of same type as input model
+        The cloned and fitted models for each fold. Can be used for inspection of the
+        variability of the fitted models across folds.
+    
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import KFold
+    >>> from sklearn.linear_model import Lasso
+    >>> class Wrapper:
+    >>>     def __init__(self, model):
+    >>>         self._model = model
+    >>>     def fit(self, X, y, W=None):
+    >>>         self._model.fit(X, y)
+    >>>         return self
+    >>>     def predict(self, X, y, W=None):
+    >>>         return self._model.predict(X)
+    >>> np.random.seed(123)
+    >>> X = np.random.normal(size=(5000, 3))
+    >>> y = X[:, 0] + np.random.normal(size=(5000,))
+    >>> folds = list(KFold(2).split(X, y))
+    >>> model = Lasso(alpha=0.01)
+    >>> nuisance, model_list = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
+    >>> nuisance
+    (array([-1.1057289 , -1.53756637, -2.4518278 , ...,  1.10628792,
+       -1.82966233, -1.78227335]),)
+    >>> model_list
+    [<__main__.Wrapper object at 0x12f41e518>, <__main__.Wrapper object at 0x12f41e6d8>]
+    """
     model_list = []
     for idx, (train_idxs, test_idxs) in enumerate(folds):
         model_list.append(clone(model, safe=False))
@@ -53,7 +116,7 @@ def _crossfit(model, folds, *args, **kwargs):
             nuisance_temp = (nuisance_temp,)
 
         if idx == 0:
-            nuisances = tuple([np.zeros((args[0].shape[0],) + nuis.shape[1:]) for nuis in nuisance_temp])
+            nuisances = tuple([np.full((args[0].shape[0],) + nuis.shape[1:], np.nan) for nuis in nuisance_temp])
 
         for it, nuis in enumerate(nuisance_temp):
             nuisances[it][test_idxs] = nuis
