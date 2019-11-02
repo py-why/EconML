@@ -167,11 +167,6 @@ class DMLCateEstimator(_RLearner):
                 return reshape_treatmentwise_effects(prediction - self._intercept if self._intercept else prediction,
                                                      self._d_t, self._d_y)
 
-            @property
-            def coef_(self):
-                # TODO: handle case where final model doesn't directly expose coef_?
-                return reshape(self._model.coef_, self._d_y + self._d_t + (-1,))
-
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
                          model_t=FirstStageWrapper(model_t, is_Y=False),
                          model_final=FinalWrapper(),
@@ -358,6 +353,10 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
+
+    @property
+    def coef_(self):
+        return reshape(self.model_final.coef_, self._d_y + self._d_t + (-1,))
 
 
 class KernelDMLCateEstimator(LinearDMLCateEstimator):
