@@ -112,6 +112,21 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             self._label_encoder = LabelEncoder()
             self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
         super().__init__()
+    
+    def _check_input_dims(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None):
+        assert shape(Y)[0] == shape(T)[0], "Dimension mis-match!"
+        assert (X is None) or (X.shape[0] == Y.shape[0]), "Dimension mis-match!"
+        assert (W is None) or (W.shape[0] == Y.shape[0]), "Dimension mis-match!"
+        assert (Z is None) or (Z.shape[0] == Y.shape[0]), "Dimension mis-match!"
+        assert (sample_weight is None) or (sample_weight.shape[0] == Y.shape[0]), "Dimension mis-match!"
+        assert (sample_var is None) or (sample_var.shape[0] == Y.shape[0]), "Dimension mis-match!"
+        self._d_x = X.shape[1:] if X is not None else None
+
+    def _check_fitted_dims(self, X):
+        if X is None:
+            assert self._d_x is None, "X was not None when fitting, so can't be none for effect"
+        else:
+            assert self._d_x == X.shape[1:], "Dimension mis-match of X with fitted X"
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, inference=None):
@@ -142,7 +157,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self
         """
-        self._X_is_None = (X is None)
+        self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var)
         nuisances = self.fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
         self.fit_final(Y, T, X, W, Z, nuisances, sample_weight=sample_weight, sample_var=sample_var)
         return self
@@ -201,18 +216,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        if X is None:
-            assert self._X_is_None, "X was not None when fitting, so can't be none for effect"
+        self._check_fitted_dims(X)
         return self._model_final.predict(X)
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
-        if X is None:
-            assert self._X_is_None, "X was not None when fitting, so can't be none for effect"
+        self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
 
     def effect_interval(self, X=None, T0=0, T1=1, *, alpha=0.1):
-        if X is None:
-            assert self._X_is_None, "X was not None when fitting, so can't be none for effect"
+        self._check_fitted_dims(X)
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
 
     def score(self, Y, T, X=None, W=None, Z=None):
@@ -223,7 +235,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 nuisance_temp = (nuisance_temp,)
 
             if idx == 0:
-                nuisances = tuple([np.zeros((n_splits,) + nuis.shape) for nuis in nuisance_temp])
+                nuisances = [np.zeros((n_splits,) + nuis.shape) for nuis in nuisance_temp]
 
             for it, nuis in enumerate(nuisance_temp):
                 nuisances[it][idx] = nuis
@@ -231,122 +243,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
         
-        return self._model_final.score(Y, T, X=X, W=W, Z=Z, nuisances=nuisances)
+        return self._model_final.score(Y, T, X=X, W=W, Z=Z, nuisances=tuple(nuisances))
     
     @property
     def model_final(self):
         return self._model_final
-
-
-class _RLearner(_OrthoLearner):
-    """
-    Base class for orthogonal learners.
-
-    Parameters
-    ----------
-    model_y: estimator
-        The estimator for fitting the response to the features and controls. Must implement
-        `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls).
-
-    model_t: estimator
-        The estimator for fitting the treatment to the features and controls. Must implement
-        `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls).
-
-    model_final: estimator for fitting the response residuals to the features and treatment residuals
-        Must implement `fit` and `predict` methods. Unlike sklearn estimators the fit methods must
-        take an extra second argument (the treatment residuals).  Predict, on the other hand,
-        should just take the features and return the constant marginal effect.
-
-    discrete_treatment: bool
-        Whether the treatment values should be treated as categorical, rather than continuous, quantities
-
-    n_splits: int, cross-validation generator or an iterable, optional
-        Determines the cross-validation splitting strategy.
-        Possible inputs for cv are:
-
-        - None, to use the default 3-fold cross-validation,
-        - integer, to specify the number of folds.
-        - :term:`CV splitter`
-        - An iterable yielding (train, test) splits as arrays of indices.
-
-        For integer/None inputs, if the treatment is discrete
-        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
-        :class:`~sklearn.model_selection.KFold` is used
-        (with a random shuffle in either case).
-
-        Unless an iterable is used, we call `split(X,T)` to generate the splits.
-
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None
-        If int, random_state is the seed used by the random number generator;
-        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
-        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-        by `np.random`.
-    """
-
-    def __init__(self, model_y, model_t, model_final,
-                 discrete_treatment, n_splits, random_state):
-        self._model_y = clone(model_y, safe=False)
-        self._model_t = clone(model_t, safe=False)
-        self._models_y = []
-        self._models_t = []
-        self._model_final = clone(model_final, safe=False)
-        self._n_splits = n_splits
-        self._discrete_treatment = discrete_treatment
-        
-
-        class ModelNuisance:
-            def __init__(self, model_y, model_t, discrete_treatment):
-                self._model_y = clone(model_y, safe=False)
-                self._model_t = clone(model_t, safe=False)
-                self._discrete_treatment = discrete_treatment
-                self._random_state = check_random_state(random_state)
-
-            @staticmethod
-            def _check_X_W(X, W, Y):
-                if X is None:
-                    X = np.ones((shape(Y)[0], 1))
-                if W is None:
-                    W = np.empty((shape(Y)[0], 0))
-                return X, W
-
-            def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                X, W = self._check_X_W(X, W, Y)
-                assert Z is None, "Cannot accept instrument!"
-                assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0], "Dimension mis-match!"
-                self._d_x = shape(X)[1:]
-                self._model_t.fit(X, W, T, sample_weight=sample_weight)
-                self._model_y.fit(X, W, Y, sample_weight=sample_weight)
-                return self
-            
-            def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                X, W = self._check_X_W(X, W, Y)
-                Y_res = Y - self._model_y.predict(X, W).reshape(Y.shape)
-                T_res = T - self._model_t.predict(X, W)
-                return Y_res, T_res
-
-        class ModelFinal:
-            def __init__(self, model_final):
-                self._model_final = clone(model_final, safe=False)
-
-            def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                Y_res, T_res = nuisances
-                self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
-                return self
-
-            def predict(self, X):
-                return self._model_final.predict(X)
-
-            def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                Y_res, T_res = nuisances
-                effects = reshape(self._model_final.predict(X), (-1, shape(Y)[1], shape(T_res)[1]))
-                Y_res_pred = reshape(np.einsum('ijk,ik->ij', effects, T_res), shape(Y))
-                return ((Y_res - Y_res_pred)**2).mean()
-
-        super().__init__(ModelNuisance(model_y, model_t, discrete_treatment),
-                         ModelFinal(model_final), discrete_treatment, n_splits, random_state)
-    
-    @property
-    def model_final(self):
-        return super().model_final._model_final

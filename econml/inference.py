@@ -112,16 +112,16 @@ class StatsModelsInference(Inference):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if X is None:
             X = np.ones((T0.shape[0], 1))
-        if self.featurizer is not None:
+        elif self.featurizer is not None:
             X = self.featurizer.transform(X)
         return self.statsmodels.predict_interval(cross_product(X, T1 - T0), alpha=alpha)
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if X is None:
             X = np.ones((1, 1))
-        X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
-        if self.featurizer is not None:
+        elif self.featurizer is not None:
             X = self.featurizer.fit_transform(X)
+        X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
         preds = self.statsmodels.predict_interval(cross_product(X, T), alpha=alpha)
         return tuple(reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
                      for pred in preds)

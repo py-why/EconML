@@ -25,7 +25,7 @@ from sklearn.utils import check_random_state
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                              TreatmentExpansionMixin, StatsModelsCateEstimatorMixin)
 from .inference import StatsModelsInference
-from ._ortho_learner import _RLearner
+from ._rlearner import _RLearner
 
 class DMLCateEstimator(_RLearner):
     """
@@ -96,12 +96,22 @@ class DMLCateEstimator(_RLearner):
                 self._featurizer = clone(featurizer, safe=False)
                 self._is_Y = is_Y
 
-            def _combine(self, X, W, fitting=True):
+            def _combine(self, X, W, n_samples, fitting=True):
                 if self._is_Y and linear_first_stages:
-                    F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
+                    if X is not None:
+                        F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
+                    else:
+                        X = np.ones((n_samples, 1))
+                        F = np.ones((n_samples, 1))
+                    if W is None:
+                        W = np.empty((n_samples, 0))
                     XW = hstack([X, W])
                     return cross_product(XW, hstack([np.ones((shape(XW)[0], 1)), F, W]))
                 else:
+                    if X is None:
+                        X = np.ones((n_samples, 1))
+                    if W is None:
+                        W = np.empty((n_samples, 0))
                     return hstack([X, W])
 
             def fit(self, X, W, Target, sample_weight=None):
@@ -109,15 +119,16 @@ class DMLCateEstimator(_RLearner):
                     Target = np.matmul(Target, np.arange(1, Target.shape[1] + 1)).flatten()
 
                 if sample_weight is not None:
-                    self._model.fit(self._combine(X, W), Target, sample_weight=sample_weight)
+                    self._model.fit(self._combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
                 else:
-                    self._model.fit(self._combine(X, W), Target)
+                    self._model.fit(self._combine(X, W, Target.shape[0]), Target)
 
             def predict(self, X, W):
+                n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
                 if (not self._is_Y) and discrete_treatment:
-                    return self._model.predict_proba(self._combine(X, W, fitting=False))[:, 1:]
+                    return self._model.predict_proba(self._combine(X, W, n_samples, fitting=False))[:, 1:]
                 else:
-                    return self._model.predict(self._combine(X, W, fitting=False))
+                    return self._model.predict(self._combine(X, W, n_samples, fitting=False))
 
         class FinalWrapper:
             def __init__(self):
@@ -128,9 +139,8 @@ class DMLCateEstimator(_RLearner):
                 # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
                 self._d_t = shape(T_res)[1:]
                 self._d_y = shape(Y_res)[1:]
-                if X is None:
-                    X = np.ones((T_res.shape[0], 1))
-                fts = self._combine(X, T_res)
+                F = self._featurizer.fit_transform(X) if X is not None else np.ones((T_res.shape[0], 1))
+                fts = cross_product(F, T_res)
                 if sample_weight is not None:
                     if sample_var is not None:
                         self._model.fit(fts,
@@ -149,15 +159,10 @@ class DMLCateEstimator(_RLearner):
                          UserWarning)
                     self._intercept = intercept
 
-            def _combine(self, X, T, fitting=True):
-                F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
-                return cross_product(F, T)
-
             def predict(self, X):
-                if X is None:
-                    X = np.ones((1, 1))
-                X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
-                prediction = self._model.predict(self._combine(X, T, fitting=False))
+                F = self._featurizer.transform(X) if X is not None else np.ones((1, 1))
+                F, T = broadcast_unit_treatments(F, self._d_t[0] if self._d_t else 1)
+                prediction = self._model.predict(cross_product(F, T))
                 return reshape_treatmentwise_effects(prediction - self._intercept if self._intercept else prediction,
                                                      self._d_t, self._d_y)
 
