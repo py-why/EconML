@@ -164,7 +164,8 @@ class DMLCateEstimator(_RLearner):
                 F = self._featurizer.transform(X) if X is not None else np.ones((1, 1))
                 F, T = broadcast_unit_treatments(F, self._d_t[0] if self._d_t else 1)
                 prediction = self._model.predict(cross_product(F, T))
-                return reshape_treatmentwise_effects(prediction - self._intercept if self._intercept is not None else prediction,
+                prediction -= self._intercept if self._intercept is not None else 0
+                return reshape_treatmentwise_effects(prediction,
                                                      self._d_t, self._d_y)
 
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
