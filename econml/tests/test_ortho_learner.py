@@ -27,8 +27,9 @@ class TestOrthoLearner(unittest.TestCase):
             def predict(self, X, y, W=None):
                 return self._model.predict(X), y - self._model.predict(X), X
 
-        X = np.random.normal(size=(1000, 3))
-        y = X[:, 0] + np.random.normal(size=(1000,))
+        np.random.seed(123)
+        X = np.random.normal(size=(5000, 3))
+        y = X[:, 0] + np.random.normal(size=(5000,))
         folds = list(KFold(2).split(X, y))
         model = Lasso(alpha=0.01)
         nuisance, model_list = _crossfit(Wrapper(model),
