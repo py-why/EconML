@@ -31,7 +31,7 @@ class TestOrthoLearner(unittest.TestCase):
         y = X[:, 0] + np.random.normal(size=(1000,))
         folds = list(KFold(2).split(X, y))
         model = Lasso(alpha=0.01)
-        nuisance, model_list= _crossfit(Wrapper(model),
+        nuisance, model_list = _crossfit(Wrapper(model),
                                         folds,
                                         X, y, W=y, Z=None)
         np.testing.assert_allclose(nuisance[0][folds[0][1]],
