@@ -60,6 +60,7 @@ def _crossfit(model, folds, *args, **kwargs):
 
     return nuisances, model_list
 
+
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
     Base class for all orthogonal learners.
@@ -112,7 +113,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             self._label_encoder = LabelEncoder()
             self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
         super().__init__()
-    
+
     def _check_input_dims(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None):
         assert shape(Y)[0] == shape(T)[0], "Dimension mis-match!"
         assert (X is None) or (X.shape[0] == Y.shape[0]), "Dimension mis-match!"
@@ -148,7 +149,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         sample_weight: optional (n,) vector
             Weights for each row
         sample_var: optional (n,) vector
-            Sample variance 
+            Sample variance
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of `BootstrapInference`).
@@ -170,7 +171,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             splitter.shuffle = True
             splitter.random_state = self._random_state
 
-        all_vars = [var if np.ndim(var)==2 else var.reshape(-1, 1) for var in [Z, W, X] if var is not None]
+        all_vars = [var if np.ndim(var) == 2 else var.reshape(-1, 1) for var in [Z, W, X] if var is not None]
         if all_vars:
             all_vars = np.hstack(all_vars)
             folds = splitter.split(all_vars, T)
@@ -179,7 +180,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         if self._discrete_treatment:
             T = self._label_encoder.fit_transform(T)
-            T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))[:, 1:] # drop first column since all columns sum to one
+            # drop first column since all columns sum to one
+            T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))[:, 1:]
             self._d_t = shape(T)[1:]
             self.transformer = FunctionTransformer(
                 func=(lambda T:
@@ -188,12 +190,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 validate=False)
 
         nuisances, fitted_models = _crossfit(self._model_nuisance, folds,
-                                             Y, T, X=X, W=W, Z=Z,sample_weight=sample_weight)
+                                             Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
         self._models_nuisance = fitted_models
         return nuisances
 
     def fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        self._model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, sample_var=sample_var)
+        self._model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
+                              sample_weight=sample_weight, sample_var=sample_var)
 
     def const_marginal_effect(self, X=None):
         """
@@ -242,9 +245,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
-        
+
         return self._model_final.score(Y, T, X=X, W=W, Z=Z, nuisances=tuple(nuisances))
-    
+
     @property
     def model_final(self):
         return self._model_final
