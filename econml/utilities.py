@@ -1801,7 +1801,3 @@ class LassoCVWrapper:
     def predict(self, X):
         predictions = self.model.predict(X)
         return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
-
-    @property
-    def coef_(self):
-        return self.model.coef_

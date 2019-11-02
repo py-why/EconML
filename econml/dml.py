@@ -354,10 +354,6 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
                          n_splits=n_splits,
                          random_state=random_state)
 
-    @property
-    def coef_(self):
-        return reshape(self.model_final.coef_, self._d_y + self._d_t + (-1,))
-
 
 class KernelDMLCateEstimator(LinearDMLCateEstimator):
     """
