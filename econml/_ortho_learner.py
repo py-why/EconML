@@ -231,6 +231,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
 
     def score(self, Y, T, X=None, W=None, Z=None):
+        X, T = self._expand_treatments(X, T)
         n_splits = len(self._models_nuisance)
         for idx, mdl in enumerate(self._models_nuisance):
             nuisance_temp = mdl.predict(Y, T, X, W, Z)
