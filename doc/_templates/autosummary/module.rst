@@ -3,3 +3,4 @@
 
 .. automodule:: {{ fullname }}
     :members:
+    :private-members:

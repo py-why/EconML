@@ -137,23 +137,34 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
     Base class for all orthogonal learners. This class is a parent class to any method that has
     the following architecture:
-    1) The CATE $\theta(X)$ is either the minimizer of some expected loss function $E[L(V; \theta(X), h(V))]
-    where V are all the random variables and h is a vector of nuisance functions.
-    2) To estimate $\theta(X)$ we first fit the h functions can calculate $h(V_i)$ for each sample $i$
-    in a crossfit manner:
-        - Estimate a model $\hat{h}$ for h using half of the data
-        - Evaluate the learned $\hat{h}$ model on the other half
+
+    1. The CATE :math:`\\theta(X)` is either the minimizer of some expected loss function
+
+    .. math ::    
+        \\mathbb{E}[\\ell(V; \\theta(X), h(V))]
+
+    where :math:`V` are all the random variables and h is a vector of nuisance functions.
+
+    2. To estimate :math:`\\theta(X)` we first fit the h functions can calculate :math:`h(V_i)` for each sample 
+    :math:`i` in a crossfit manner:
+
+        - Estimate a model :math:`\\hat{h}` for h using half of the data
+        - Evaluate the learned :math:`\\hat{h}` model on the other half
+
     Or more generally in a KFold fit/predict approach with more folds
-    3) Estimate the model for theta(X) by minimizing the empirical (regularized) plugin loss:
-    $E_n[L(V; \theta(X), \hat{h}(V))]$
+
+    3. Estimate the model for :math:`\\theta(X)` by minimizing the empirical (regularized) plugin loss:
+
+    .. math ::
+        \\mathbb{E}_n[\\ell(V; \\theta(X), \\hat{h}(V))]
 
     The method is a bit more general in that the final step does not need to be a loss minimization step.
     The class takes as input a model for fitting an estimate of the nuisance h given a set of samples
     and predicting the value of the learned nuisance model on any other set of samples. It also
     takes as input a model for the final estimation, that takes as input the data and their associated
-    estimated nuisance values from the first stage and fits a model for the CATE $\theta(X)$. Then
+    estimated nuisance values from the first stage and fits a model for the CATE :math:`\\theta(X)`. Then
     at predict time, the final model given any set of samples of the X variable, returns the estimated
-    $\theta(X)$.
+    :math:`\\theta(X)`.
 
     The method essentially implements all the crossfit and plugin logic, so that any child classes need
     to only implement the appropriate `model_nuisance` and `model_final` and essentially nothing more.
@@ -198,6 +209,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by `np.random`.
+
     """
 
     def __init__(self, model_nuisance, model_final,
@@ -309,7 +321,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def const_marginal_effect(self, X=None):
         """
-        Calculate the constant marginal CATE θ(·).
+        Calculate the constant marginal CATE :math:`\\theta(·)`.
 
         The marginal effect is conditional on a vector of
         features on a set of m test samples {Xᵢ}.

@@ -8,6 +8,8 @@ Module reference
     econml.cate_estimator
     econml.deepiv
     econml.dgp
+    econml._ortho_learner
+    econml._rlearner
     econml.dml
     econml.inference
     econml.ortho_forest
