@@ -185,20 +185,20 @@ class LinearCateEstimator(BaseCateEstimator):
     @abc.abstractmethod
     def const_marginal_effect(self, X=None):
         """
-        Calculate the constant marginal CATE θ(·).
+        Calculate the constant marginal CATE :math:`\\theta(·)`.
 
         The marginal effect is conditional on a vector of
-        features on a set of m test samples {Xᵢ}.
+        features on a set of m test samples X[i].
 
         Parameters
         ----------
-        X: optional (m × dₓ) matrix
-            Features for each sample
+        X: optional :math:`(m \\times d_x)` matrix or None (Default=None)
+            Features for each sample.
 
         Returns
         -------
-        theta: (m × d_y × dₜ) matrix
-            Constant marginal CATE of each treatment on each outcome for each sample.
+        theta: :math:`(m \\times d_y \\times d_t)` matrix or :math:`(d_y \\times d_t)` matrix if X is None
+            Constant marginal CATE of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
@@ -316,6 +316,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     def effect(self, X=None, T0=0, T1=1):
         # NOTE: don't explicitly expand treatments here, because it's done in the super call
         return super().effect(X, T0=T0, T1=T1)
+    effect.__doc__ = BaseCateEstimator.effect.__doc__
 
 
 class StatsModelsCateEstimatorMixin(BaseCateEstimator):

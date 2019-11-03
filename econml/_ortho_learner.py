@@ -158,33 +158,35 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     Base class for all orthogonal learners. This class is a parent class to any method that has
     the following architecture:
 
-    1. The CATE :math:`\\theta(X)` is the minimizer of some expected loss function
+    1.  The CATE :math:`\\theta(X)` is the minimizer of some expected loss function
 
-    .. math ::
-        \\mathbb{E}[\\ell(V; \\theta(X), h(V))]
+        .. math ::
+            \\mathbb{E}[\\ell(V; \\theta(X), h(V))]
 
-    where :math:`V` are all the random variables and h is a vector of nuisance functions.
+        where :math:`V` are all the random variables and h is a vector of nuisance functions. Alternatively,
+        the class would also work if :math:`\\theta(X)` is the solution to a set of moment equations that
+        also depend on nuisance functions :math:`h`.
 
-    2. To estimate :math:`\\theta(X)` we first fit the h functions can calculate :math:`h(V_i)` for each sample
-    :math:`i` in a crossfit manner:
+    2.  To estimate :math:`\\theta(X)` we first fit the h functions can calculate :math:`h(V_i)` for each sample
+        :math:`i` in a crossfit manner:
 
-        - Estimate a model :math:`\\hat{h}` for h using half of the data
-        - Evaluate the learned :math:`\\hat{h}` model on the other half
+            - Estimate a model :math:`\\hat{h}` for h using half of the data
+            - Evaluate the learned :math:`\\hat{h}` model on the other half
 
-    Or more generally in a KFold fit/predict approach with more folds
+        Or more generally in a KFold fit/predict approach with more folds
 
-    3. Estimate the model for :math:`\\theta(X)` by minimizing the empirical (regularized) plugin loss:
+    3.  Estimate the model for :math:`\\theta(X)` by minimizing the empirical (regularized) plugin loss:
 
-    .. math ::
-        \\mathbb{E}_n[\\ell(V; \\theta(X), \\hat{h}(V))]
+        .. math ::
+            \\mathbb{E}_n[\\ell(V; \\theta(X), \\hat{h}(V))]
 
-    The method is a bit more general in that the final step does not need to be a loss minimization step.
-    The class takes as input a model for fitting an estimate of the nuisance h given a set of samples
-    and predicting the value of the learned nuisance model on any other set of samples. It also
-    takes as input a model for the final estimation, that takes as input the data and their associated
-    estimated nuisance values from the first stage and fits a model for the CATE :math:`\\theta(X)`. Then
-    at predict time, the final model given any set of samples of the X variable, returns the estimated
-    :math:`\\theta(X)`.
+        The method is a bit more general in that the final step does not need to be a loss minimization step.
+        The class takes as input a model for fitting an estimate of the nuisance h given a set of samples
+        and predicting the value of the learned nuisance model on any other set of samples. It also
+        takes as input a model for the final estimation, that takes as input the data and their associated
+        estimated nuisance values from the first stage and fits a model for the CATE :math:`\\theta(X)`. Then
+        at predict time, the final model given any set of samples of the X variable, returns the estimated
+        :math:`\\theta(X)`.
 
     The method essentially implements all the crossfit and plugin logic, so that any child classes need
     to only implement the appropriate `model_nuisance` and `model_final` and essentially nothing more.
@@ -208,7 +210,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         In fact we allow for the model method signatures to skip any of the keyword arguments
         as long as the class is always called with the omitted keyword argument set to `None`.
         This can be enforced in child classes by re-implementing the fit and the various effect
-        methods.
+        methods. If `discrete_treatment=True`, then the input `T` to both above calls will be the
+        one-hot encoding of the original input `T`, excluding the first column of the one-hot.
 
     model_final: estimator for fitting the response residuals to the features and treatment residuals
         Must implement `fit` and `predict` methods that must have signatures:
@@ -224,7 +227,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         model method signatures to skip any of the keyword arguments as long as the class is always called with the
         omitted keyword argument set to `None`. Moreover, the predict function of the final model can take no argument
         if the class is always called with `X=None`. This can be enforced in child classes by re-implementing the fit
-        and the various effect methods.
+        and the various effect methods. If `discrete_treatment=True`, then the input `T` to both above calls will be the
+        one-hot encoding of the original input `T`, excluding the first column of the one-hot.
 
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
@@ -281,13 +285,14 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 return
             def fit(self, Y, T, W=None, nuisances=None):
                 Y_res, T_res = nuisances
-                self.model = LinearRegression().fit(T_res.reshape(-1, 1), Y_res)
+                self.model = LinearRegression(fit_intercept=False).fit(T_res.reshape(-1, 1), Y_res)
+                self.score_ = self.score(Y, T, W=W, nuisances=nuisances)
                 return self
-            def predict(self):
+            def predict(self, X=None):
                 return self.model.coef_[0]
             def score(self, Y, T, W=None, nuisances=None):
                 Y_res, T_res = nuisances
-                return np.mean(Y_res - self.model.coef_[0]*T_res)**2
+                return np.mean(Y_res - self.model.predict(T_res.reshape(-1, 1)))**2
         np.random.seed(123)
         X = np.random.normal(size=(100, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(size=(100,))
@@ -295,10 +300,88 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                             n_splits=2, discrete_treatment=False, random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
+    >>> est.score_
+    0.0015439892272404935
+    >>> est.const_marginal_effect()
+    1.2344017222060417
     >>> est.effect()
     array([1.23440172])
+    >>> est.effect(T0=0, T1=10)
+    array([12.34401722])
     >>> est.score(y, X[:, 0], W=X[:, 1:])
     0.0003880489502537651
+    >>> est.model_final.model
+    LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
+         normalize=False)
+    >>> est.model_final.model.coef_
+    array([1.23440172])
+
+    The following example shows how to do double machine learning with discrete treatments, using
+    the _OrthoLearner.
+
+    .. highlight:: python
+    .. code-block:: python
+
+        class ModelNuisance:
+            def __init__(self, model_t, model_y):
+                self._model_t = model_t
+                self._model_y = model_y
+
+            def fit(self, Y, T, W=None):
+                self._model_t.fit(W, np.matmul(T, np.arange(1, T.shape[1]+1)))
+                self._model_y.fit(W, Y)
+                return self
+
+            def predict(self, Y, T, W=None):
+                return Y - self._model_y.predict(W), T - self._model_t.predict_proba(W)[:, 1:]
+
+        class ModelFinal:
+
+            def __init__(self):
+                return
+
+            def fit(self, Y, T, W=None, nuisances=None):
+                Y_res, T_res = nuisances
+                self.model = LinearRegression(fit_intercept=False).fit(T_res.reshape(-1, 1), Y_res)
+                return self
+
+            def predict(self):
+                # theta needs to be of dimension (1, d_t) if T is (n, d_t)
+                return np.array([[self.model.coef_[0]]])
+
+            def score(self, Y, T, W=None, nuisances=None):
+                Y_res, T_res = nuisances
+                return np.mean((Y_res - self.model.predict(T_res.reshape(-1, 1)))**2)
+
+        np.random.seed(123)
+        X = np.random.normal(size=(100, 3))
+        import scipy.special
+        from sklearn.linear_model import LogisticRegression
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = T + X[:, 0] + np.random.normal(0, 0.01, size=(100,))
+        est = _OrthoLearner(ModelNuisance(LogisticRegression(solver='lbfgs'), LinearRegression()),
+                            ModelFinal(), n_splits=2, discrete_treatment=True, random_state=None)
+        est.fit(y, T, W=X)
+
+    >>> est.score_
+    0.0031604059708364245
+    >>> est.const_marginal_effect()
+    array([[1.00123159]])
+    >>> est.effect()
+    array([1.00123159])
+    >>> est.score(y, T, W=X)
+    0.002569588332146612
+    >>> est.model_final.model.coef_[0]
+    1.0012315874866917
+
+    Attributes
+    ----------
+    model_final : object of type(model_final)
+        An instance of the model_final object that was fitted after calling fit.
+    score_ : float or array of floats
+        If the model_final has a score method, then `score_` contains the outcome of the final model
+        score when evaluated on the fitted nuisances from the first stage. Represents goodness of fit,
+        of the final CATE model.
     """
 
     def __init__(self, model_nuisance, model_final,
@@ -340,47 +423,47 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return non_none_kwargs
 
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, inference=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, *, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         Parameters
         ----------
-        Y: (n × d_y) matrix or vector of length n
+        Y: :math:`(n \\times d_y)` matrix or vector of length n
             Outcomes for each sample
-        T: (n × dₜ) matrix or vector of length n
+        T: :math:`(n \\times d_t)` matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X: optional :math:`(n \\times d_x)` matrix or None (Default=None)
             Features for each sample
-        W: optional (n × d_w) matrix
+        W: optional :math:`(n \\times d_w)` matrix or None (Default=None)
             Controls for each sample
-        Z: optional (n × d_z) matrix
+        Z: optional :math:`(n \\times d_z)` matrix or None (Default=None)
             Instruments for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
-        sample_var: optional (n,) vector
-            Sample variance
+        sample_weight: optional (n,) vector or None (Default=None)
+            Weights for each samples
+        sample_var: optional (n,) vector or None (Default=None)
+            Sample variance for each sample
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of `BootstrapInference`).
 
         Returns
         -------
-        self
+        self : _OrthoLearner instance
         """
         self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var)
-        nuisances, fitted_inds = self.fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
-        self.fit_final(self._subinds_check_none(Y, fitted_inds),
-                       self._subinds_check_none(T, fitted_inds),
-                       X=self._subinds_check_none(X, fitted_inds),
-                       W=self._subinds_check_none(W, fitted_inds),
-                       Z=self._subinds_check_none(Z, fitted_inds),
-                       nuisances=tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances]),
-                       sample_weight=self._subinds_check_none(sample_weight, fitted_inds),
-                       sample_var=self._subinds_check_none(sample_var, fitted_inds))
+        nuisances, fitted_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
+        self._fit_final(self._subinds_check_none(Y, fitted_inds),
+                        self._subinds_check_none(T, fitted_inds),
+                        X=self._subinds_check_none(X, fitted_inds),
+                        W=self._subinds_check_none(W, fitted_inds),
+                        Z=self._subinds_check_none(Z, fitted_inds),
+                        nuisances=tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances]),
+                        sample_weight=self._subinds_check_none(sample_weight, fitted_inds),
+                        sample_var=self._subinds_check_none(sample_var, fitted_inds))
         return self
 
-    def fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         # use a binary array to get stratified split in case of discrete treatment
         splitter = check_cv(self._n_splits, [0], classifier=self._discrete_treatment)
         # if check_cv produced a new KFold or StratifiedKFold object, we need to set shuffle and random_state
@@ -411,47 +494,66 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._models_nuisance = fitted_models
         return nuisances, fitted_inds
 
-    def fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
         self._model_final.fit(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z,
                                                                nuisances=nuisances, sample_weight=sample_weight,
                                                                sample_var=sample_var))
+        self.score_ = None
+        if hasattr(self._model_final, 'score'):
+            self.score_ = self._model_final.score(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z,
+                                                                                   nuisances=nuisances,
+                                                                                   sample_weight=sample_weight,
+                                                                                   sample_var=sample_var))
 
     def const_marginal_effect(self, X=None):
-        """
-        Calculate the constant marginal CATE :math:`\\theta(·)`.
-
-        The marginal effect is conditional on a vector of
-        features on a set of m test samples {Xᵢ}.
-
-        Parameters
-        ----------
-        X: optional (m × dₓ) matrix
-            Features for each sample.
-            If X is None, it will be treated as a column of ones with a single row
-
-        Returns
-        -------
-        theta: (m × d_y × dₜ) matrix
-            Constant marginal CATE of each treatment on each outcome for each sample.
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will also be a vector)
-        """
         self._check_fitted_dims(X)
         if X is None:
             return self._model_final.predict()
         else:
             return self._model_final.predict(X)
+    const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
+    const_marginal_effect_interval.__doc__ = LinearCateEstimator.const_marginal_effect_interval.__doc__
 
     def effect_interval(self, X=None, T0=0, T1=1, *, alpha=0.1):
         self._check_fitted_dims(X)
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
+    effect_interval.__doc__ = LinearCateEstimator.effect_interval.__doc__
 
     def score(self, Y, T, X=None, W=None, Z=None):
+        """
+        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        for the new data set based on the fitted nuisance models created at fit time.
+        It uses the mean prediction of the models fitted by the different crossfit folds.
+        Then calls the score function of the model_final and returns the calculated score.
+        The model_final model must have a score method.
+
+        If model_final does not have a score method, then it raises an `AttributeError`
+
+        Parameters
+        ----------
+        Y: :math:`(n \\times d_y)` matrix or vector of length n
+            Outcomes for each sample
+        T: :math:`(n \\times d_t)` matrix or vector of length n
+            Treatments for each sample
+        X: optional :math:`(n \\times d_x)` matrix or None (Default=None)
+            Features for each sample
+        W: optional :math:`(n \\times d_w)` matrix or None (Default=None)
+            Controls for each sample
+        Z: optional :math:`(n \\times d_z)` matrix or None (Default=None)
+            Instruments for each sample
+
+        Returns
+        -------
+        score : float or (array of float)
+            The score of the final CATE model on the new data. Same type as the return
+            type of the model_final.score method.
+        """
+        if not hasattr(self._model_final, 'score'):
+            raise AttributeError("Final model does not have a score method!")
         X, T = self._expand_treatments(X, T)
         n_splits = len(self._models_nuisance)
         for idx, mdl in enumerate(self._models_nuisance):

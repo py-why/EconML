@@ -126,7 +126,10 @@ class _RLearner(_OrthoLearner):
                     T_res = T_res.reshape((-1, 1))
                 effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
                 Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
-                return ((Y_res - Y_res_pred)**2).mean()
+                if sample_weight is not None:
+                    return np.average((Y_res - Y_res_pred)**2, weights=sample_weight)
+                else:
+                    return np.mean((Y_res - Y_res_pred)**2)
 
         super().__init__(ModelNuisance(model_y, model_t),
                          ModelFinal(model_final), discrete_treatment, n_splits, random_state)
