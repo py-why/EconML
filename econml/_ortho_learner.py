@@ -143,7 +143,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     Base class for all orthogonal learners. This class is a parent class to any method that has
     the following architecture:
 
-    1. The CATE :math:`\\theta(X)` is either the minimizer of some expected loss function
+    1. The CATE :math:`\\theta(X)` is the minimizer of some expected loss function
 
     .. math ::
         \\mathbb{E}[\\ell(V; \\theta(X), h(V))]
