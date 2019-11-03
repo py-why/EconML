@@ -127,7 +127,7 @@ class _RLearner(_OrthoLearner):
                 effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
                 Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
                 if sample_weight is not None:
-                    return np.average((Y_res - Y_res_pred)**2, weights=sample_weight)
+                    return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
                 else:
                     return np.mean((Y_res - Y_res_pred)**2)
 
