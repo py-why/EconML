@@ -1,11 +1,26 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-"""Double ML.
+"""
 
-"Double Machine Learning" is an algorithm that applies arbitrary machine learning methods
-to fit the treatment and response, then uses a linear model to predict the response residuals
-from the treatment residuals.
+Orthogonal Machine Learning is a general approach to estimating causal models
+by formulating them as minimizers of some loss function that depends on
+auxiliary regression models that also need to be estimated from data. The
+class in this module implements the general logic in a very versatile way
+so that various child classes can simply instantiate the appropriate models
+and save a lot of code repetition.
+
+References
+----------
+
+Dylan Foster, Vasilis Syrgkanis (2019). Orthogonal Statistical Learning.
+    ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
+
+Xinkun Nie, Stefan Wager (2017). Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
+    https://arxiv.org/abs/1712.04912
+
+Chernozhukov et al. (2017). Double/debiased machine learning for treatment and structural parameters.
+    The Econometrics Journal. https://arxiv.org/abs/1608.00060
 
 """
 
