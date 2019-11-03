@@ -181,21 +181,35 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     model_nuisance: estimator
         The estimator for fitting the nuisance function. Must implement
         `fit` and `predict` methods that both have signatures:
-        `model_nuisance.fit(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, sample_var=sample_var)`
-        `model_nuisance.predict(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, sample_var=sample_var)`
+
+        .. highlight:: python
+        .. code-block:: python
+
+            model_nuisance.fit(Y, T, X=X, W=W, Z=Z,
+                               sample_weight=sample_weight, sample_var=sample_var)
+            model_nuisance.predict(Y, T, X=X, W=W, Z=Z,
+                                   sample_weight=sample_weight, sample_var=sample_var)
+
         In fact we allow for the model method signatures to skip any of the keyword arguments
-        as long as the class is always called with the omitted keyword argument set to `None`. This can be enforced
-        in child classes by re-implementing the fit and the various effect methods.
+        as long as the class is always called with the omitted keyword argument set to `None`.
+        This can be enforced in child classes by re-implementing the fit and the various effect
+        methods.
 
     model_final: estimator for fitting the response residuals to the features and treatment residuals
         Must implement `fit` and `predict` methods that must have signatures:
-        `model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, sample_var=sample_var)`
-        `model_nuisance.predict(X=X)`
-        Predict, should just take the features X and return the constant marginal effect. In fact we allow for the model
-        method signatures to skip any of the keyword arguments as long as the class is always called with the omitted keyword
-        argument set to `None`. Moreover, the predict function of the final model can take no argument if the class
-        is always called with `X=None`. This can be enforced in child classes by re-implementing the fit and
-        the various effect methods.
+
+        .. highlight:: python
+        .. code-block:: python
+
+            model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
+                            sample_weight=sample_weight, sample_var=sample_var)
+            model_nuisance.predict(X=X)
+
+        Predict, should just take the features X and return the constant marginal effect. In fact we allow for the
+        model method signatures to skip any of the keyword arguments as long as the class is always called with the
+        omitted keyword argument set to `None`. Moreover, the predict function of the final model can take no argument
+        if the class is always called with `X=None`. This can be enforced in child classes by re-implementing the fit
+        and the various effect methods.
 
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
