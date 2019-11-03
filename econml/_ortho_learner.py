@@ -218,7 +218,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
                             sample_weight=sample_weight, sample_var=sample_var)
-            model_nuisance.predict(X=X)
+            model_final.predict(X=X)
 
         Predict, should just take the features X and return the constant marginal effect. In fact we allow for the
         model method signatures to skip any of the keyword arguments as long as the class is always called with the
