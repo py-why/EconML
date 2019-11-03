@@ -72,23 +72,28 @@ def _crossfit(model, folds, *args, **kwargs):
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import KFold
-    >>> from sklearn.linear_model import Lasso
-    >>> class Wrapper:
-    >>>     def __init__(self, model):
-    >>>         self._model = model
-    >>>     def fit(self, X, y, W=None):
-    >>>         self._model.fit(X, y)
-    >>>         return self
-    >>>     def predict(self, X, y, W=None):
-    >>>         return self._model.predict(X)
-    >>> np.random.seed(123)
-    >>> X = np.random.normal(size=(5000, 3))
-    >>> y = X[:, 0] + np.random.normal(size=(5000,))
-    >>> folds = list(KFold(2).split(X, y))
-    >>> model = Lasso(alpha=0.01)
-    >>> nuisance, model_list, fitted_inds = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
+
+    .. highlight:: python
+    .. code-block:: python
+
+        import numpy as np
+        from sklearn.model_selection import KFold
+        from sklearn.linear_model import Lasso
+        class Wrapper:
+            def __init__(self, model):
+                self._model = model
+            def fit(self, X, y, W=None):
+                self._model.fit(X, y)
+                return self
+            def predict(self, X, y, W=None):
+                return self._model.predict(X)
+        np.random.seed(123)
+        X = np.random.normal(size=(5000, 3))
+        y = X[:, 0] + np.random.normal(size=(5000,))
+        folds = list(KFold(2).split(X, y))
+        model = Lasso(alpha=0.01)
+        nuisance, model_list, fitted_inds = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
+
     >>> nuisance
     (array([-1.1057289 , -1.53756637, -2.4518278 , ...,  1.10628792,
        -1.82966233, -1.78227335]),)
@@ -140,12 +145,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     1. The CATE :math:`\\theta(X)` is either the minimizer of some expected loss function
 
-    .. math ::    
+    .. math ::
         \\mathbb{E}[\\ell(V; \\theta(X), h(V))]
 
     where :math:`V` are all the random variables and h is a vector of nuisance functions.
 
-    2. To estimate :math:`\\theta(X)` we first fit the h functions can calculate :math:`h(V_i)` for each sample 
+    2. To estimate :math:`\\theta(X)` we first fit the h functions can calculate :math:`h(V_i)` for each sample
     :math:`i` in a crossfit manner:
 
         - Estimate a model :math:`\\hat{h}` for h using half of the data
@@ -178,12 +183,19 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         `fit` and `predict` methods that both have signatures:
         `model_nuisance.fit(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, sample_var=sample_var)`
         `model_nuisance.predict(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, sample_var=sample_var)`
+        In fact we allow for the model method signatures to skip any of the keyword arguments
+        as long as the class is always called with the omitted keyword argument set to `None`. This can be enforced
+        in child classes by re-implementing the fit and the various effect methods.
 
     model_final: estimator for fitting the response residuals to the features and treatment residuals
         Must implement `fit` and `predict` methods that must have signatures:
         `model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, sample_var=sample_var)`
-        `model_nuisance.predict(X)`
-        Predict, should just take the features X and return the constant marginal effect.
+        `model_nuisance.predict(X=X)`
+        Predict, should just take the features X and return the constant marginal effect. In fact we allow for the model
+        method signatures to skip any of the keyword arguments as long as the class is always called with the omitted keyword
+        argument set to `None`. Moreover, the predict function of the final model can take no argument if the class
+        is always called with `X=None`. This can be enforced in child classes by re-implementing the fit and
+        the various effect methods.
 
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
@@ -210,6 +222,54 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by `np.random`.
 
+    Examples
+    --------
+
+    The example code below implements a very simple version of the double machine learning
+    method on top of the :py:class:`~econml._ortho_learner._OrthoLearner` class, for expository purposes.
+    For a more elaborate implementation of a Double Machine Learning child class of the class
+    :py:class:`~econml._ortho_learner._OrthoLearner` checkout :py:class:`~econml.dml.DMLCateEstimator`
+    and its child classes.
+
+    .. highlight:: python
+    .. code-block:: python
+
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        from econml._ortho_learner import _OrthoLearner
+        class ModelNuisance:
+            def __init__(self, model_t, model_y):
+                self._model_t = model_t
+                self._model_y = model_y
+            def fit(self, Y, T, W=None):
+                self._model_t.fit(W, T)
+                self._model_y.fit(W, Y)
+                return self
+            def predict(self, Y, T, W=None):
+                return Y - self._model_y.predict(W), T - self._model_t.predict(W)
+        class ModelFinal:
+            def __init__(self):
+                return
+            def fit(self, Y, T, W=None, nuisances=None):
+                Y_res, T_res = nuisances
+                self.model = LinearRegression().fit(T_res.reshape(-1, 1), Y_res)
+                return self
+            def predict(self):
+                return self.model.coef_[0]
+            def score(self, Y, T, W=None, nuisances=None):
+                Y_res, T_res = nuisances
+                return np.mean(Y_res - self.model.coef_[0]*T_res)**2
+        np.random.seed(123)
+        X = np.random.normal(size=(100, 3))
+        y = X[:, 0] + X[:, 1] + np.random.normal(size=(100,))
+        est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
+                            n_splits=2, discrete_treatment=False, random_state=None)
+        est.fit(y, X[:, 0], W=X[:, 1:])
+
+    >>> est.effect()
+    array([1.23440172])
+    >>> est.score(y, X[:, 0], W=X[:, 1:])
+    0.0003880489502537651
     """
 
     def __init__(self, model_nuisance, model_final,
@@ -242,6 +302,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def _subinds_check_none(self, var, inds):
         return var[inds] if var is not None else None
+
+    def _filter_none_kwargs(self, **kwargs):
+        non_none_kwargs = {}
+        for key, value in kwargs.items():
+            if value is not None:
+                non_none_kwargs[key] = value
+        return non_none_kwargs
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, inference=None):
@@ -276,10 +343,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         nuisances, fitted_inds = self.fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
         self.fit_final(self._subinds_check_none(Y, fitted_inds),
                        self._subinds_check_none(T, fitted_inds),
-                       self._subinds_check_none(X, fitted_inds),
-                       self._subinds_check_none(W, fitted_inds),
-                       self._subinds_check_none(Z, fitted_inds),
-                       tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances]),
+                       X=self._subinds_check_none(X, fitted_inds),
+                       W=self._subinds_check_none(W, fitted_inds),
+                       Z=self._subinds_check_none(Z, fitted_inds),
+                       nuisances=tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances]),
                        sample_weight=self._subinds_check_none(sample_weight, fitted_inds),
                        sample_var=self._subinds_check_none(sample_var, fitted_inds))
         return self
@@ -316,8 +383,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return nuisances, fitted_inds
 
     def fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        self._model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
-                              sample_weight=sample_weight, sample_var=sample_var)
+        self._model_final.fit(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z,
+                                                               nuisances=nuisances, sample_weight=sample_weight,
+                                                               sample_var=sample_var))
 
     def const_marginal_effect(self, X=None):
         """
@@ -341,7 +409,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         self._check_fitted_dims(X)
-        return self._model_final.predict(X)
+        if X is None:
+            return self._model_final.predict()
+        else:
+            return self._model_final.predict(X)
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         self._check_fitted_dims(X)
@@ -355,7 +426,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X, T = self._expand_treatments(X, T)
         n_splits = len(self._models_nuisance)
         for idx, mdl in enumerate(self._models_nuisance):
-            nuisance_temp = mdl.predict(Y, T, X, W, Z)
+            nuisance_temp = mdl.predict(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z))
             if not isinstance(nuisance_temp, tuple):
                 nuisance_temp = (nuisance_temp,)
 
@@ -368,7 +439,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
 
-        return self._model_final.score(Y, T, X=X, W=W, Z=Z, nuisances=tuple(nuisances))
+        return self._model_final.score(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z, nuisances=nuisances))
 
     @property
     def model_final(self):
