@@ -376,7 +376,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     Attributes
     ----------
-    model_final : object of type(model_final)
+    models_nuisance: list of objects of type(model_nuisance)
+        A list of instances of the model_nuisance object. Each element corresponds to a crossfitting
+        fold and is the model instance that was fitted for that training fold.
+    model_final: object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float or array of floats
         If the model_final has a score method, then `score_` contains the outcome of the final model
@@ -387,7 +390,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def __init__(self, model_nuisance, model_final,
                  discrete_treatment, n_splits, random_state):
         self._model_nuisance = clone(model_nuisance, safe=False)
-        self._models_nuisance = []
+        self._models_nuisance = None
         self._model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
@@ -575,3 +578,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     @property
     def model_final(self):
         return self._model_final
+
+    @property
+    def models_nuisance(self):
+        return self._models_nuisance
