@@ -123,7 +123,8 @@ class _RLearner(_OrthoLearner):
         The MSE in the final residual on residual regression, i.e.
 
         .. math::
-            \\frac{1}{n} \\sum_{i=1}^n (Y_i - \\hat{E}[Y|X_i, W_i] - \\hat{\\theta}(X_i)\\cdot (T_i - \\hat{E}[T|X_i, W_i]))^2
+            \\frac{1}{n} \\sum_{i=1}^n (Y_i - \\hat{E}[Y|X_i, W_i]\
+                                        - \\hat{\\theta}(X_i)\\cdot (T_i - \\hat{E}[T|X_i, W_i]))^2
 
         If `sample_weight` is not None at fit time, then a weighted average is returned. If the outcome Y
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
