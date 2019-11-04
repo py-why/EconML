@@ -286,35 +286,35 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             def fit(self, Y, T, W=None, nuisances=None):
                 Y_res, T_res = nuisances
                 self.model = LinearRegression(fit_intercept=False).fit(T_res.reshape(-1, 1), Y_res)
-                self.score_ = self.score(Y, T, W=W, nuisances=nuisances)
                 return self
             def predict(self, X=None):
                 return self.model.coef_[0]
             def score(self, Y, T, W=None, nuisances=None):
                 Y_res, T_res = nuisances
-                return np.mean(Y_res - self.model.predict(T_res.reshape(-1, 1)))**2
+                return np.mean((Y_res - self.model.predict(T_res.reshape(-1, 1)))**2)
         np.random.seed(123)
         X = np.random.normal(size=(100, 3))
-        y = X[:, 0] + X[:, 1] + np.random.normal(size=(100,))
-        est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
+        y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
+        est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()),
+                            ModelFinal(),
                             n_splits=2, discrete_treatment=False, random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
-    0.0015439892272404935
+    0.007568302109999707
     >>> est.const_marginal_effect()
-    1.2344017222060417
+    1.0236499258047582
     >>> est.effect()
-    array([1.23440172])
+    array([1.02364993])
     >>> est.effect(T0=0, T1=10)
     array([12.34401722])
     >>> est.score(y, X[:, 0], W=X[:, 1:])
-    0.0003880489502537651
+    0.00727995424098179
     >>> est.model_final.model
     LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
          normalize=False)
     >>> est.model_final.model.coef_
-    array([1.23440172])
+    array([1.02364993])
 
     The following example shows how to do double machine learning with discrete treatments, using
     the _OrthoLearner.

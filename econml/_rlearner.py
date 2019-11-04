@@ -109,6 +109,68 @@ class _RLearner(_OrthoLearner):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by `np.random`.
 
+    Examples
+    --------
+    The example code below implements a very simple version of the double machine learning
+    method on top of the :py:class:`~econml._ortho_learner._RLearner` class, for expository purposes.
+    For a more elaborate implementation of a Double Machine Learning child class of the class
+    checkout :py:class:`~econml.dml.DMLCateEstimator` and its child classes.
+
+    .. highlight:: python
+    .. code-block:: python
+
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        from econml._rlearner import _RLearner
+        from sklearn.base import clone
+        class ModelFirst:
+            def __init__(self, model):
+                self._model = clone(model, safe=False)
+            def fit(self, X, W, Y, sample_weight=None):
+                self._model.fit(np.hstack([X, W]), Y)
+                return self
+            def predict(self, X, W):
+                return self._model.predict(np.hstack([X, W]))
+        class ModelFinal:
+            def fit(self, X, T_res, Y_res, sample_weight=None, sample_var=None):
+                self.model = LinearRegression(fit_intercept=False).fit(X * T_res.reshape(-1, 1),
+                                                                       Y_res)
+                return self
+            def predict(self, X):
+                return self.model.predict(X)
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 3))
+        y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
+        est = _RLearner(ModelFirst(LinearRegression()),
+                        ModelFirst(LinearRegression()),
+                        ModelFinal(),
+                        n_splits=2, discrete_treatment=False, random_state=None)
+        est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
+
+    >>> est.const_marginal_effect(np.ones((1,1)))
+    array([0.99963147])
+    >>> est.effect(np.ones((1,1)), T0=0, T1=10)
+    array([9.99631472])
+    >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
+    9.736380060274913e-05
+    >>> est.model_final.model
+    LinearRegression(copy_X=True, fit_intercept=False, n_jobs=None,
+         normalize=False)
+    >>> est.model_final.model.coef_
+    array([0.99963147])
+    >>> est.score_
+    9.826232040878233e-05
+    >>> [mdl._model for mdl in est.models_y]
+    [LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
+          normalize=False),
+     LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
+          normalize=False)]
+    >>> [mdl._model for mdl in est.models_t]
+    [LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
+          normalize=False),
+     LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
+          normalize=False)]
+
     Attributes
     ----------
     models_y: list of objects of type(model_y)
