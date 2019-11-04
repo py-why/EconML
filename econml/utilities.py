@@ -1636,6 +1636,7 @@ class StatsModelsLinearRegression:
     @property
     def _param_var(self):
         """
+
         Returns
         -------
         var : {(d (+1), d (+1)), (p, d (+1), d (+1))} nd array like
@@ -1651,6 +1652,7 @@ class StatsModelsLinearRegression:
     @property
     def _param_stderr(self):
         """
+
         Returns
         -------
         _param_stderr : {(d (+1),) (d (+1), p)} nd array like
