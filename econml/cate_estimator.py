@@ -48,22 +48,23 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def fit(self, *args, inference=None, **kwargs):
         """
-        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+        Estimate the counterfactual model from data, i.e. estimates functions
+        tau(X, T0, T1), marginal_tau(T, X).
 
         Note that the signature of this method may vary in subclasses (e.g. classes that don't
         support instruments will not allow a `Z` argument)
 
         Parameters
         ----------
-        Y: (n × d_y) matrix or vector of length n
+        Y: (n, d_y) matrix or vector of length n
             Outcomes for each sample
-        T: (n × dₜ) matrix or vector of length n
+        T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X: optional (n, d_x) matrix
             Features for each sample
-        W: optional (n × d_w) matrix
+        W: optional (n, d_w) matrix
             Controls for each sample
-        Z: optional (n × d_z) matrix
+        Z: optional (n, d_z) matrix
             Instruments for each sample
         inference: optional string, `Inference` instance, or None
             Method for performing inference.  All estimators support 'bootstrap'
@@ -95,23 +96,23 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def effect(self, X=None, *, T0, T1):
         """
-        Calculate the heterogeneous treatment effect τ(·,·,·).
+        Calculate the heterogeneous treatment effect tau(X, T0, T1).
 
         The effect is calculated between the two treatment points
         conditional on a vector of features on a set of m test samples {T0ᵢ, T1ᵢ, Xᵢ}.
 
         Parameters
         ----------
-        T0: (m × dₜ) matrix or vector of length m
+        T0: (m, d_t) matrix or vector of length m
             Base treatments for each sample
-        T1: (m × dₜ) matrix or vector of length m
+        T1: (m, d_t) matrix or vector of length m
             Target treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample
 
         Returns
         -------
-        τ: (m × d_y) matrix
+        τ: (m, d_y) matrix
             Heterogeneous treatment effects on each outcome for each sample
             Note that when Y is a vector rather than a 2-dimensional array, the corresponding
             singleton dimension will be collapsed (so this method will return a vector)
@@ -121,21 +122,21 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def marginal_effect(self, T, X=None):
         """
-        Calculate the heterogeneous marginal effect ∂τ(·,·).
+        Calculate the heterogeneous marginal effect marginal(T, X).
 
         The marginal effect is calculated around a base treatment
         point conditional on a vector of features on a set of m test samples {Tᵢ, Xᵢ}.
 
         Parameters
         ----------
-        T: (m × dₜ) matrix
+        T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample
 
         Returns
         -------
-        grad_tau: (m × d_y × dₜ) array
+        grad_tau: (m, d_y, d_t) array
             Heterogeneous marginal effects on each outcome for each sample
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -149,9 +150,9 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        X : optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample, or None
-        Ts: sequence of (m × dₜ) matrices
+        Ts: sequence of (m, d_t) matrices
             Base treatments for each sample
 
         Returns
@@ -192,12 +193,12 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        X: optional :math:`(m \\times d_x)` matrix or None (Default=None)
+        X: optional (m, d_x) matrix or None (Default=None)
             Features for each sample.
 
         Returns
         -------
-        theta: :math:`(m \\times d_y \\times d_t)` matrix or :math:`(d_y \\times d_t)` matrix if X is None
+        theta: (m, d_y, d_t) matrix or (d_y, d_t) matrix if X is None
             Constant marginal CATE of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -216,16 +217,16 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        T0: (m × dₜ) matrix
+        T0: (m, d_t) matrix
             Base treatments for each sample
-        T1: (m × dₜ) matrix
+        T1: (m, d_t) matrix
             Target treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample
 
         Returns
         -------
-        τ: (m × d_y) matrix (or length m vector if Y was a vector)
+        effect: (m, d_y) matrix (or length m vector if Y was a vector)
             Heterogeneous treatment effects on each outcome for each sample.
             Note that when Y is a vector rather than a 2-dimensional array, the corresponding
             singleton dimension will be collapsed (so this method will return a vector)
@@ -257,14 +258,14 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        T: (m × dₜ) matrix
+        T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample
 
         Returns
         -------
-        grad_tau: (m × d_y × dₜ) array
+        grad_tau: (m, d_y, d_t) array
             Heterogeneous marginal effects on each outcome for each sample
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed

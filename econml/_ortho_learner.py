@@ -429,15 +429,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         Parameters
         ----------
-        Y: :math:`(n \\times d_y)` matrix or vector of length n
+        Y: (n, d_y) matrix or vector of length n
             Outcomes for each sample
-        T: :math:`(n \\times d_t)` matrix or vector of length n
+        T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional :math:`(n \\times d_x)` matrix or None (Default=None)
+        X: optional (n, d_x) matrix or None (Default=None)
             Features for each sample
-        W: optional :math:`(n \\times d_w)` matrix or None (Default=None)
+        W: optional (n, d_w) matrix or None (Default=None)
             Controls for each sample
-        Z: optional :math:`(n \\times d_z)` matrix or None (Default=None)
+        Z: optional (n, d_z) matrix or None (Default=None)
             Instruments for each sample
         sample_weight: optional (n,) vector or None (Default=None)
             Weights for each samples
@@ -535,15 +535,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         Parameters
         ----------
-        Y: :math:`(n \\times d_y)` matrix or vector of length n
+        Y: (n, d_y) matrix or vector of length n
             Outcomes for each sample
-        T: :math:`(n \\times d_t)` matrix or vector of length n
+        T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional :math:`(n \\times d_x)` matrix or None (Default=None)
+        X: optional (n, d_x) matrix or None (Default=None)
             Features for each sample
-        W: optional :math:`(n \\times d_w)` matrix or None (Default=None)
+        W: optional (n, d_w) matrix or None (Default=None)
             Controls for each sample
-        Z: optional :math:`(n \\times d_z)` matrix or None (Default=None)
+        Z: optional (n, d_z) matrix or None (Default=None)
             Instruments for each sample
 
         Returns
