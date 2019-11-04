@@ -183,6 +183,14 @@ class DMLCateEstimator(_RLearner):
     def model_final(self):
         return super().model_final._model
 
+    @property
+    def models_y(self):
+        return [mdl._model for mdl in super().models_y]
+
+    @property
+    def models_t(self):
+        return [mdl._model for mdl in super().models_t]
+
 
 class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
     """
