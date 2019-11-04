@@ -123,7 +123,7 @@ class _RLearner(_OrthoLearner):
         The MSE in the final residual on residual regression, i.e.
 
         .. math::
-            \\frac{1}{n} \\sum_{i=1}^n (Y_i - \\hat{E}[Y|X_i, W_i] - \\hat{\\theta}(X_i)\cdot (T_i - \\hat{E}[T|X_i, W_i]))^2
+            \\frac{1}{n} \\sum_{i=1}^n (Y_i - \\hat{E}[Y|X_i, W_i] - \\hat{\\theta}(X_i)\\cdot (T_i - \\hat{E}[T|X_i, W_i]))^2
 
         If `sample_weight` is not None at fit time, then a weighted average is returned. If the outcome Y
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
@@ -132,6 +132,12 @@ class _RLearner(_OrthoLearner):
     def __init__(self, model_y, model_t, model_final,
                  discrete_treatment, n_splits, random_state):
         class ModelNuisance:
+            """
+            Nuisance model fits the model_y and model_t at fit time and at predict time
+            calculates the residual Y and residual T based on the fitted models and returns
+            the residuals as two nuisance parameters.
+            """
+
             def __init__(self, model_y, model_t):
                 self._model_y = clone(model_y, safe=False)
                 self._model_t = clone(model_t, safe=False)
@@ -153,6 +159,17 @@ class _RLearner(_OrthoLearner):
                 return Y_res, T_res
 
         class ModelFinal:
+            """
+            Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
+            that depends on X, i.e.
+
+                .. math ::
+                    Y - E[Y | X, W] = \\theta(X) \\cdot (T - E[T | X, W]) + \\epsilon
+
+            and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
+            residual on residual regression.
+            """
+
             def __init__(self, model_final):
                 self._model_final = clone(model_final, safe=False)
 
@@ -182,7 +199,7 @@ class _RLearner(_OrthoLearner):
 
     def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, *, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
+        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
 
         Parameters
         ----------
@@ -190,13 +207,13 @@ class _RLearner(_OrthoLearner):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional (n, d_x) matrix or None (Default=None)
+        X: optional(n, d_x) matrix or None (Default=None)
             Features for each sample
-        W: optional (n, d_w) matrix or None (Default=None)
+        W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
-        sample_weight: optional (n,) vector or None (Default=None)
+        sample_weight: optional(n,) vector or None (Default=None)
             Weights for each samples
-        sample_var: optional (n,) vector or None (Default=None)
+        sample_var: optional(n,) vector or None (Default=None)
             Sample variance for each sample
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
@@ -204,7 +221,7 @@ class _RLearner(_OrthoLearner):
 
         Returns
         -------
-        self : _RLearner instance
+        self: _RLearner instance
         """
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
@@ -224,14 +241,14 @@ class _RLearner(_OrthoLearner):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional (n, d_x) matrix or None (Default=None)
+        X: optional(n, d_x) matrix or None (Default=None)
             Features for each sample
-        W: optional (n, d_w) matrix or None (Default=None)
+        W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
 
         Returns
         -------
-        score : float
+        score: float
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
