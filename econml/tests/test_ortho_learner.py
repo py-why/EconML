@@ -9,6 +9,7 @@ from sklearn.model_selection import KFold
 import numpy as np
 import unittest
 import joblib
+import pytest
 
 
 class TestOrthoLearner(unittest.TestCase):
@@ -44,6 +45,27 @@ class TestOrthoLearner(unittest.TestCase):
         coef_[0] = 1
         [np.testing.assert_allclose(coef_, mdl._model.coef_, rtol=0, atol=0.08) for mdl in model_list]
         np.testing.assert_array_equal(fitted_inds, np.arange(X.shape[0]))
+
+        np.random.seed(123)
+        X = np.random.normal(size=(5000, 3))
+        y = X[:, 0] + np.random.normal(size=(5000,))
+        folds = [(np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0])),
+                 (np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
+        model = Lasso(alpha=0.01)
+        with pytest.raises(AttributeError) as e_info:
+            nuisance, model_list, fitted_inds = _crossfit(Wrapper(model),
+                                                          folds,
+                                                          X, y, W=y, Z=None)
+
+        np.random.seed(123)
+        X = np.random.normal(size=(5000, 3))
+        y = X[:, 0] + np.random.normal(size=(5000,))
+        folds = [(np.arange(X.shape[0]), np.arange(X.shape[0]))]
+        model = Lasso(alpha=0.01)
+        with pytest.raises(AttributeError) as e_info:
+            nuisance, model_list, fitted_inds = _crossfit(Wrapper(model),
+                                                          folds,
+                                                          X, y, W=y, Z=None)
 
     def test_ol(self):
 

@@ -122,6 +122,11 @@ def _crossfit(model, folds, *args, **kwargs):
     fitted_inds = []
     for idx, (train_idxs, test_idxs) in enumerate(folds):
         model_list.append(clone(model, safe=False))
+        if len(np.intersect1d(train_idxs, test_idxs)) > 0:
+            raise AttributeError("Invalid crossfitting fold structure." +
+                                 "Train and test indices of each fold must be disjoint.")
+        if len(np.intersect1d(fitted_inds, test_idxs)) > 0:
+            raise AttributeError("Invalid crossfitting fold structure. The same index appears in two test folds.")
         fitted_inds = np.concatenate((fitted_inds, test_idxs))
 
         args_train = ()
@@ -179,7 +184,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
               even allow the F1_test to not be disjoint. In that case, the model trained on the last fold whose
               Ft_test contains index i will be used to calculate the nuisance. Typically, Ft_test will be created
               by a KFold split, i.e. if S1, ..., Sk is any partition of the data, then Ft_train is the set of
-              all indices except St and Ft_test = St.
+              all indices except St and Ft_test = St. If the union of the Ft_test is not all the data, then only the
+              subset of the data in the union of the Ft_test sets will be used in the final stage calculation for
+              :math:`\\theta(X)`.
             - Then for each t in [1, ..., k]
                 - Estimate a model :math:`\\hat{h}` for h using Ft_train
                 - Evaluate the learned :math:`\\hat{h}` model on the data in Ft_test and use that value
