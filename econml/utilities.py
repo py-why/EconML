@@ -1635,7 +1635,8 @@ class StatsModelsLinearRegression:
 
     @property
     def _param_var(self):
-        """
+        """The covariance matrix of all the parameters in the regression (including the intercept
+        as the first parameter).
 
         Returns
         -------
