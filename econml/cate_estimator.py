@@ -11,7 +11,7 @@ from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
-from .inference import StatsModelsInference, StatsModelsInferenceDiscrete
+from .inference import StatsModelsInference
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
