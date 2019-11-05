@@ -117,6 +117,9 @@ class DMLCateEstimator(_RLearner):
 
             def fit(self, X, W, Target, sample_weight=None):
                 if (not self._is_Y) and discrete_treatment:
+                    # In this case, the Target is the one-hot-encoding of the treatment variable
+                    # We need to go back to the label representation of the one-hot so as to call
+                    # the classifier.
                     Target = np.matmul(Target, np.arange(1, Target.shape[1] + 1)).flatten()
 
                 if sample_weight is not None:
