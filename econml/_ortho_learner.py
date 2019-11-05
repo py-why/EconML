@@ -359,14 +359,14 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 return np.mean((Y_res - self.model.predict(T_res.reshape(-1, 1)))**2)
 
         np.random.seed(123)
-        X = np.random.normal(size=(100, 3))
+        W = np.random.normal(size=(100, 3))
         import scipy.special
         from sklearn.linear_model import LogisticRegression
-        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
-        y = T + X[:, 0] + np.random.normal(0, 0.01, size=(100,))
+        T = np.random.binomial(1, scipy.special.expit(W[:, 0]))
+        y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
         est = _OrthoLearner(ModelNuisance(LogisticRegression(solver='lbfgs'), LinearRegression()),
                             ModelFinal(), n_splits=2, discrete_treatment=True, random_state=None)
-        est.fit(y, T, W=X)
+        est.fit(y, T, W=W)
 
     >>> est.score_
     0.0031604059708364245
@@ -374,7 +374,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     array([[1.00123159]])
     >>> est.effect()
     array([1.00123159])
-    >>> est.score(y, T, W=X)
+    >>> est.score(y, T, W=W)
     0.002569588332146612
     >>> est.model_final.model.coef_[0]
     1.0012315874866917
