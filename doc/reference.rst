@@ -1,5 +1,5 @@
-Module reference
-================
+Public Module Reference
+=======================
 
 .. autosummary::
     :toctree: _autosummary
@@ -15,3 +15,12 @@ Module reference
     econml.metalearners
     econml.two_stage_least_squares
     econml.utilities
+
+Private Module Reference
+========================
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    econml._ortho_learner
+    econml._rlearner
