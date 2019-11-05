@@ -170,15 +170,26 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     2.  To estimate :math:`\\theta(X)` we first fit the h functions and calculate :math:`h(V_i)` for each sample
         :math:`i` in a crossfit manner:
 
-            - Estimate a model :math:`\\hat{h}` for h using half of the data
-            - Evaluate the learned :math:`\\hat{h}` model on the other half
-
-        Or more generally in a KFold fit/predict approach with more folds
+            - Let (F1_train, F1_test), ..., (Fk_train, Fk_test) be any KFold partition
+              of the data, where Ft_train, Ft_test are subsets of indices of the input samples and such that
+              F1_train is disjoint from F1_test. Typically, the sets F1_test, ..., Fk_test will form a partition
+              of all the data-sets (i.e. they will be disjoint and their union will be the set of all input indices).
+              However, this is not enforced and does not need to be the case. For instance, in a time series split
+              F0_train could be a prefix of the data and F0_test the suffix. Moreover, for simplicity of code we
+              even allow the F1_test to not be disjoint. In that case, the model trained on the last fold whose
+              Ft_test contains index i will be used to calculate the nuisance. Typically, Ft_test will be created
+              by a KFold split, i.e. if S1, ..., Sk is any partition of the data, then Ft_train is the set of
+              all indices except St and Ft_test = St.
+            - Then for each t in [1, ..., k]
+                - Estimate a model :math:`\\hat{h}` for h using Ft_train
+                - Evaluate the learned :math:`\\hat{h}` model on the data in Ft_test and use that value
+                  as the nuisance value :math:`\\hat{h}(V_i)` for the indices i in Ft_test
 
     3.  Estimate the model for :math:`\\theta(X)` by minimizing the empirical (regularized) plugin loss:
 
         .. math ::
-            \\mathbb{E}_n[\\ell(V; \\theta(X), \\hat{h}(V))]
+            \\mathbb{E}_n[\\ell(V; \\theta(X), \\hat{h}(V))]\
+            = \\frac{1}{n} \\sum_{i=1}^n \\sum_i \\ell(V_i; \\theta(X_i), \\hat{h}(V_i))
 
         The method is a bit more general in that the final step does not need to be a loss minimization step.
         The class takes as input a model for fitting an estimate of the nuisance h given a set of samples
