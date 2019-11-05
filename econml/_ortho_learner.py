@@ -407,11 +407,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def _check_input_dims(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None):
         assert shape(Y)[0] == shape(T)[0], "Dimension mis-match!"
-        assert (X is None) or (X.shape[0] == Y.shape[0]), "Dimension mis-match!"
-        assert (W is None) or (W.shape[0] == Y.shape[0]), "Dimension mis-match!"
-        assert (Z is None) or (Z.shape[0] == Y.shape[0]), "Dimension mis-match!"
-        assert (sample_weight is None) or (sample_weight.shape[0] == Y.shape[0]), "Dimension mis-match!"
-        assert (sample_var is None) or (sample_var.shape[0] == Y.shape[0]), "Dimension mis-match!"
+        for arr in [X, W, Z, sample_weight, sample_var]:
+            assert (arr is None) or (arr.shape[0] == Y.shape[0]), "Dimension mismatch"
         self._d_x = X.shape[1:] if X is not None else None
 
     def _check_fitted_dims(self, X):
