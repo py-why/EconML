@@ -53,10 +53,7 @@ class _RLearner(_OrthoLearner):
     model_y: estimator of E[Y | X, W]
         The estimator for fitting the response to the features and controls. Must implement
         `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls), i.e. :
-
-        .. highlight:: python
-        .. code-block:: python
+        take an extra second argument (the controls), i.e. ::
 
             model_y.fit(X, W, Y, sample_weight=sample_weight)
             model_y.predict(X, W)
@@ -64,10 +61,7 @@ class _RLearner(_OrthoLearner):
     model_t: estimator of E[T | X, W]
         The estimator for fitting the treatment to the features and controls. Must implement
         `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls), i.e. :
-
-        .. highlight:: python
-        .. code-block:: python
+        take an extra second argument (the controls), i.e. ::
 
             model_t.fit(X, W, T, sample_weight=sample_weight)
             model_t.predict(X, W)
@@ -75,10 +69,7 @@ class _RLearner(_OrthoLearner):
     model_final: estimator for fitting the response residuals to the features and treatment residuals
         Must implement `fit` and `predict` methods. Unlike sklearn estimators the fit methods must
         take an extra second argument (the treatment residuals). Predict, on the other hand,
-        should just take the features and return the constant marginal effect. More, concretely:
-
-        .. highlight:: python
-        .. code-block:: python
+        should just take the features and return the constant marginal effect. More, concretely::
 
             model_final.fit(X, T_res, Y_res,
                             sample_weight=sample_weight, sample_var=sample_var)
@@ -114,10 +105,7 @@ class _RLearner(_OrthoLearner):
     The example code below implements a very simple version of the double machine learning
     method on top of the :py:class:`~econml._ortho_learner._RLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
-    checkout :py:class:`~econml.dml.DMLCateEstimator` and its child classes.
-
-    .. highlight:: python
-    .. code-block:: python
+    checkout :py:class:`~econml.dml.DMLCateEstimator` and its child classes::
 
         import numpy as np
         from sklearn.linear_model import LinearRegression

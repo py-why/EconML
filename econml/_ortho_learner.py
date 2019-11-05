@@ -197,10 +197,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     ----------
     model_nuisance: estimator
         The estimator for fitting the nuisance function. Must implement
-        `fit` and `predict` methods that both have signatures:
-
-        .. highlight:: python
-        .. code-block:: python
+        `fit` and `predict` methods that both have signatures::
 
             model_nuisance.fit(Y, T, X=X, W=W, Z=Z,
                                sample_weight=sample_weight, sample_var=sample_var)
@@ -214,10 +211,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         one-hot encoding of the original input `T`, excluding the first column of the one-hot.
 
     model_final: estimator for fitting the response residuals to the features and treatment residuals
-        Must implement `fit` and `predict` methods that must have signatures:
-
-        .. highlight:: python
-        .. code-block:: python
+        Must implement `fit` and `predict` methods that must have signatures::
 
             model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
                             sample_weight=sample_weight, sample_var=sample_var)
@@ -262,10 +256,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     method on top of the :py:class:`~econml._ortho_learner._OrthoLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
     :py:class:`~econml._ortho_learner._OrthoLearner` checkout :py:class:`~econml.dml.DMLCateEstimator`
-    and its child classes.
-
-    .. highlight:: python
-    .. code-block:: python
+    and its child classes::
 
         import numpy as np
         from sklearn.linear_model import LinearRegression
@@ -317,10 +308,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     array([1.02364993])
 
     The following example shows how to do double machine learning with discrete treatments, using
-    the _OrthoLearner.
-
-    .. highlight:: python
-    .. code-block:: python
+    the _OrthoLearner::
 
         class ModelNuisance:
             def __init__(self, model_t, model_y):
