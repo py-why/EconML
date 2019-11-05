@@ -49,7 +49,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     def fit(self, *args, inference=None, **kwargs):
         """
         Estimate the counterfactual model from data, i.e. estimates functions
-        tau(X, T0, T1), marginal_tau(T, X).
+        :math:`\\tau(X, T0, T1)`, :math:`\\partial \\tau(T, X)`.
 
         Note that the signature of this method may vary in subclasses (e.g. classes that don't
         support instruments will not allow a `Z` argument)
