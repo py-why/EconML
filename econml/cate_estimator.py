@@ -11,7 +11,7 @@ from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
-from .inference import StatsModelsInference
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -96,10 +96,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def effect(self, X=None, *, T0, T1):
         """
-        Calculate the heterogeneous treatment effect tau(X, T0, T1).
+        Calculate the heterogeneous treatment effect :mat:`\\tau(X, T0, T1)`.
 
         The effect is calculated between the two treatment points
-        conditional on a vector of features on a set of m test samples {T0ᵢ, T1ᵢ, Xᵢ}.
+        conditional on a vector of features on a set of m test samples :math:`{T0_i, T1_i, X_i}`.
 
         Parameters
         ----------
@@ -122,10 +122,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def marginal_effect(self, T, X=None):
         """
-        Calculate the heterogeneous marginal effect marginal_tau(T, X).
+        Calculate the heterogeneous marginal effect :math:`\\partial\\tau(T, X)`.
 
         The marginal effect is calculated around a base treatment
-        point conditional on a vector of features on a set of m test samples {Tᵢ, Xᵢ}.
+        point conditional on a vector of features on a set of m test samples :math:`\{T_i, X_i\}`.
 
         Parameters
         ----------
@@ -208,10 +208,10 @@ class LinearCateEstimator(BaseCateEstimator):
 
     def effect(self, X=None, *, T0, T1):
         """
-        Calculate the heterogeneous treatment effect tau(X, T0, T1).
+        Calculate the heterogeneous treatment effect :mat:`\\tau(X, T0, T1)`.
 
         The effect is calculatred between the two treatment points
-        conditional on a vector of features on a set of m test samples {T0ᵢ, T1ᵢ, Xᵢ}.
+        conditional on a vector of features on a set of m test samples :math:`{T0_i, T1_i, X_i}`.
         Since this class assumes a linear effect, only the difference between T0ᵢ and T1ᵢ
         matters for this computation.
 
@@ -250,10 +250,10 @@ class LinearCateEstimator(BaseCateEstimator):
 
     def marginal_effect(self, T, X=None):
         """
-        Calculate the heterogeneous marginal effect marginal_tau(T, X).
+        Calculate the heterogeneous marginal effect :math:`\\partial\\tau(T, X)`.
 
         The marginal effect is calculated around a base treatment
-        point conditional on a vector of features on a set of m test samples {Tᵢ, Xᵢ}.
+        point conditional on a vector of features on a set of m test samples :math:`\{T_i, X_i\}`.
         Since this class assumes a linear model, the base treatment is ignored in this calculation.
 
         Parameters
