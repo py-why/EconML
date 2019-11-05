@@ -88,7 +88,6 @@ def _crossfit(model, folds, *args, **kwargs):
     Examples
     --------
 
-    .. highlight:: python
     .. code-block:: python
 
         import numpy as np
@@ -273,7 +272,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     The example code below implements a very simple version of the double machine learning
     method on top of the :py:class:`~econml._ortho_learner._OrthoLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
-    :py:class:`~econml._ortho_learner._OrthoLearner` checkout :py:class:`~econml.dml.DMLCateEstimator`
+    :py:class:`~econml._ortho_learner._OrthoLearner` check out :py:class:`~econml.dml.DMLCateEstimator`
     and its child classes::
 
         import numpy as np
