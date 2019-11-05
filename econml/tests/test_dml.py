@@ -68,14 +68,14 @@ class TestDML(unittest.TestCase):
                                                            ((d_y,) if d_y > 0 else ()) +
                                                            ((d_t_final,) if d_t_final > 0 else()))
 
-                            model_t = LogisticRegression() if is_discrete else LinearRegression()
+                            model_t = LogisticRegression() if is_discrete else Lasso()
 
                             # TODO: add stratification to bootstrap so that we can use it even with discrete treatments
                             all_infs = [None, 'statsmodels']
                             if not is_discrete:
                                 all_infs.append(BootstrapInference(1))
 
-                            for est, multi, infs in [(LinearDMLCateEstimator(model_y=LinearRegression(),
+                            for est, multi, infs in [(LinearDMLCateEstimator(model_y=Lasso(),
                                                                              model_t=model_t,
                                                                              discrete_treatment=is_discrete),
                                                       False,
@@ -139,6 +139,8 @@ class TestDML(unittest.TestCase):
         dml = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
         self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
+        score = dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        self.assertAlmostEqual(score, 0)
 
     def test_can_use_sample_weights(self):
         """Test that we can pass sample weights to an estimator."""
@@ -170,11 +172,13 @@ class TestDML(unittest.TestCase):
         dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
                                      discrete_treatment=True, n_splits=KFold())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
         # test that we can fit with a train/test iterable
         dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
                                      discrete_treatment=True, n_splits=[([0, 1, 2], [3, 4, 5])])
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
     def test_can_use_statsmodel_inference(self):
         """Test that we can use statsmodels to generate confidence intervals"""
