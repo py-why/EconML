@@ -122,7 +122,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def marginal_effect(self, T, X=None):
         """
-        Calculate the heterogeneous marginal effect marginal(T, X).
+        Calculate the heterogeneous marginal effect marginal_tau(T, X).
 
         The marginal effect is calculated around a base treatment
         point conditional on a vector of features on a set of m test samples {Tᵢ, Xᵢ}.
@@ -208,7 +208,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
     def effect(self, X=None, *, T0, T1):
         """
-        Calculate the heterogeneous treatment effect τ(·,·,·).
+        Calculate the heterogeneous treatment effect tau(X, T0, T1).
 
         The effect is calculatred between the two treatment points
         conditional on a vector of features on a set of m test samples {T0ᵢ, T1ᵢ, Xᵢ}.
@@ -250,7 +250,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
     def marginal_effect(self, T, X=None):
         """
-        Calculate the heterogeneous marginal effect ∂τ(·,·).
+        Calculate the heterogeneous marginal effect marginal_tau(T, X).
 
         The marginal effect is calculated around a base treatment
         point conditional on a vector of features on a set of m test samples {Tᵢ, Xᵢ}.
