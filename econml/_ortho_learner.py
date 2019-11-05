@@ -167,7 +167,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         the class would also work if :math:`\\theta(X)` is the solution to a set of moment equations that
         also depend on nuisance functions :math:`h`.
 
-    2.  To estimate :math:`\\theta(X)` we first fit the h functions can calculate :math:`h(V_i)` for each sample
+    2.  To estimate :math:`\\theta(X)` we first fit the h functions and calculate :math:`h(V_i)` for each sample
         :math:`i` in a crossfit manner:
 
             - Estimate a model :math:`\\hat{h}` for h using half of the data
