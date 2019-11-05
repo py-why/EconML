@@ -248,7 +248,7 @@ class _RLearner(_OrthoLearner):
         super().__init__(ModelNuisance(model_y, model_t),
                          ModelFinal(model_final), discrete_treatment, n_splits, random_state)
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, *, inference=None):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
 
