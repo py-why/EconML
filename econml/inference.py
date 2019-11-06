@@ -185,17 +185,13 @@ class StatsModelsInferenceDiscrete(Inference):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if np.any(T0 > 0):
             raise AttributeError("Can only calculate intervals of effects with respect to baseline treatment!")
-        if X is None:
-            X = np.ones((T0.shape[0], 1))
-        elif self.featurizer is not None:
+        if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.transform(X)
         ind = (T1 @ np.arange(1, T1.shape[1] + 1)).astype(int)[0] - 1
         return self._est.statsmodels_fitted[ind].predict_interval(X, alpha=alpha)
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
-        if X is None:
-            X = np.ones((1, 1))
-        elif self.featurizer is not None:
+        if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.fit_transform(X)
         preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self._est.statsmodels_fitted])
         return tuple([preds[:, 0, :].T, preds[:, 1, :].T])

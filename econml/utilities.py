@@ -1468,31 +1468,34 @@ class StatsModelsLinearRegression:
     def _check_input(self, X, y, sample_weight, sample_var):
         """Check dimensions and other assertions."""
         if sample_weight is None:
-            sample_weight = np.ones(X.shape[0])
+            sample_weight = np.ones(y.shape[0])
         elif np.any(np.not_equal(np.mod(sample_weight, 1), 0)):
             raise AttributeError("Sample weights must all be integers for inference to be valid!")
 
         if sample_var is None:
             if np.any(np.not_equal(sample_weight, 1)):
                 warnings.warn(
-                    """No variance information was given for samples with sample_weight not equal to 1,
-                       that represent summaries of multiple original samples. Inference will be invalid!""")
+                    "No variance information was given for samples with sample_weight not equal to 1, " +
+                    "that represent summaries of multiple original samples. Inference will be invalid!")
             sample_var = np.zeros(y.shape)
 
         if sample_var.ndim < 2:
             if np.any(np.equal(sample_weight, 1) & np.not_equal(sample_var, 0)):
                 warnings.warn(
-                    """Variance was set to non-zero for an observation with sample_weight=1!
-                       sample_var represents the variance of the original observations that are
-                       summarized in this sample. Hence, cannot have a non-zero variance if only
-                       one observations was summarized. Inference will be invalid!""")
+                    "Variance was set to non-zero for an observation with sample_weight=1! " +
+                    "sample_var represents the variance of the original observations that are " +
+                    "summarized in this sample. Hence, cannot have a non-zero variance if only " +
+                    "one observations was summarized. Inference will be invalid!")
         else:
             if np.any(np.equal(sample_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
                 warnings.warn(
-                    """Variance was set to non-zero for an observation with sample_weight=1!
-                       sample_var represents the variance of the original observations that are
-                       summarized in this sample. Hence, cannot have a non-zero variance if only
-                       one observations was summarized. Inference will be invalid!""")
+                    "Variance was set to non-zero for an observation with sample_weight=1! " +
+                    "sample_var represents the variance of the original observations that are " +
+                    "summarized in this sample. Hence, cannot have a non-zero variance if only " +
+                    "one observations was summarized. Inference will be invalid!")
+
+        if X is None:
+            X = np.empty((y.shape[0], 0))
 
         assert (X.shape[0] == y.shape[0] ==
                 sample_weight.shape[0] == sample_var.shape[0]), "Input lengths not compatible!"
@@ -1595,6 +1598,8 @@ class StatsModelsLinearRegression:
         predictions : {(n,) array, (n,p) array}
             The predicted mean outcomes
         """
+        if X is None:
+            X = np.empty((1, 0))
         if self._fit_intercept:
             X = add_constant(X, has_constant='add')
         return np.matmul(X, self._param)
@@ -1706,6 +1711,8 @@ class StatsModelsLinearRegression:
         prediction_stderr : (n, p) array like
             The standard error of each coordinate of the output at each point we predict
         """
+        if X is None:
+            X = np.empty((1, 0))
         if self._fit_intercept:
             X = add_constant(X, has_constant='add')
         if self._n_out == 0:

@@ -28,7 +28,7 @@ Tsiatis AA (2006).
 """
 
 import numpy as np
-from sklearn.linear_model import LogisticRegression, LinearRegression, LassoCV
+from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
 from econml.utilities import WeightedLassoCV
 from sklearn.base import clone
 from econml._ortho_learner import _OrthoLearner
@@ -37,15 +37,58 @@ from econml.utilities import StatsModelsLinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
 
+def _filter_none_kwargs(**kwargs):
+    out_kwargs = {}
+    for key, value in kwargs.items():
+        if value is not None:
+            out_kwargs[key] = value
+    return out_kwargs
+
+
 class DRLearner(_OrthoLearner):
     """
     CATE estimator that uses doubly-robust correction techniques to account for
-    covariate shift (selection bias) between the treatment arms.
+    covariate shift (selection bias) between the treatment arms. The estimator is a special
+    case of an :class:`~econml._ortho_learner._OrthoLearner` estimator, so it follows the two
+    stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
+    manner and a final stage estimates the CATE model. See the documentation of
+    :class:`~econml._ortho_learner._OrthoLearner` for a description of this two stage process.
+
+    In this estimator, the CATE is estimated by using the following estimating equations. If we let:
+
+    .. math ::
+        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i]\
+            + \\sum_{t=0}^{n_t} \\frac{Y_i - E[Y | X_i, W_i, T_i]}{Pr[T=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
+
+    Then the following estimating equation holds:
+
+    .. math ::
+        E\\left[Y_{i, t}^{DR} - Y_{i, 0}^{DR} | X_i\\right] = \\theta_t(X_i)
+
+    Thus if we estimate the nuisance functions :math:`h(X, W, T) = E[Y | X, W, T]` and
+    :math:`p_t(X, W)=Pr[T=t | X, W]` in the first stage, we can estimate the final stage cate for each
+    treatment t, by running a regression, regressing :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}` on :math:`X_i`.
+
+    The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
+    problem of predicting the label :math:`T` from :math:`X, W`. The :class:`~econml.drlearner.DRLearner`
+    class takes as input the parameter :code:`model_propensity`, which is an arbitrary scikit-learn
+    classifier, that is internally used to solve this classification problem.
+
+    The second nuisance function :math:`h` is a simple regression problem and the :class:`~econml.drlearner.DRLearner`
+    class takes as input the parameter :code:`model_regressor`, which is an arbitrary scikit-learn regressor that
+    is internally used to solve this regression problem.
+
+    The final stage is multi-task regression problem with outcomes the labels :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}`
+    for each non-baseline treatment t. The :class:`~econml.drlearner.DRLearner` takes as input parameter
+    :code:`model_final`, which is any scikit-learn regressor that is internally used to solve this multi-task
+    regresion problem. If the parameter :code:`multitask_model_final` is False, then this model is assumed
+    to be a mono-task regressor, and separate clones of it are used to solve each regression target
+    separately.
 
     Parameters
     ----------
     model_propensity : scikit-learn classifier
-        Estimator for E[T | X, W]. Trained by regressing treatments on (features, controls) concatenated.
+        Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
         Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
         where T is a shape (n, ) array.
 
@@ -57,25 +100,21 @@ class DRLearner(_OrthoLearner):
 
     model_final :
         estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
-        on (features X). If featurizer is not None, then it is trained on the outcome of
+        on (features X). If featurizer is not None and X is not None, then it is trained on the outcome of
         featurizer.fit_transform(X). If multitask_model_final is True, then this model must support multitasking
         and it is trained by regressing all doubly robust target outcomes on (featurized) features simultanteously.
         The output of the predict(X) of the trained model will contain the CATEs for each treatment compared to
-        baseline. If multitask_model_final is False, it is assumed to be a mono-task model and a separate clone of
-        the model is trained for each outcome. Then predict(X) of the t-th clone will be the CATE of the t-th
-        lexicographically ordered treatment compared to the baseline.
+        baseline treatment (lexicographically smallest). If multitask_model_final is False, it is assumed to be a
+        mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
+        clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
 
     multitask_model_final : optional bool (default=False)
         Whether the model_final should be treated as a multi-task model. See description of model_final.
 
     featurizer : sklearn featurizer or None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
-        The final CATE will be trained on the outcome of featurizer.fit_transform(X). If None, then CATE is
-        trained on X.
-
-    input_feature_names : optional (d_x,) array-like of str or None (default=None)
-        Feature names for the columns of the X variable passed at fit time. Used for better reporting of the final
-        fitted coefficients and models.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
 
     n_splits: int, cross-validation generator or an iterable, optional
         Determines the cross-validation splitting strategy.
@@ -195,8 +234,8 @@ class DRLearner(_OrthoLearner):
         Available only when multitask_model_final=False.
     featurizer : object of type(featurizer)
         An instance of the fitted featurizer that was used to preprocess X in the final CATE model training.
-        Available only when featurizer is not None.
-    cate_feature_names : list of feature names or None
+        Available only when featurizer is not None and X is not None.
+    cate_feature_names(input_feature_names=None) : list of feature names or None
         A list of feature names that correspond to the input features in the final CATE model. If
         input_feature_names is not None and featurizer is None, then the input_feature_names are returned.
         If the featurizer is not None, then this attribute is available only when the featurizer has
@@ -214,12 +253,11 @@ class DRLearner(_OrthoLearner):
 
     """
 
-    def __init__(self, model_propensity=LogisticRegression(solver='lbfgs', multi_class='auto'),
+    def __init__(self, model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
                  model_regression=WeightedLassoCV(cv=3),
-                 model_final=LinearRegression(fit_intercept=False),
+                 model_final=StatsModelsLinearRegression(),
                  multitask_model_final=False,
-                 featurizer=PolynomialFeatures(degree=1, include_bias=True),
-                 input_feature_names=None,
+                 featurizer=None,
                  n_splits=2,
                  random_state=None):
         class ModelNuisance:
@@ -230,19 +268,12 @@ class DRLearner(_OrthoLearner):
             def _combine(self, X, W):
                 return np.hstack([arr for arr in [X, W] if arr is not None])
 
-            def _filter_none_kwargs(self, **kwargs):
-                out_kwargs = {}
-                for key, value in kwargs.items():
-                    if value is not None:
-                        out_kwargs[key] = value
-                return out_kwargs
-
             def fit(self, Y, T, X=None, W=None, *, sample_weight=None):
                 assert np.ndim(Y) == 1, "Can only accept single dimensional outcomes Y! Use Y.ravel()."
                 if (X is None) and (W is None):
                     raise AttributeError("At least one of X or W has to not be None!")
                 XW = self._combine(X, W)
-                filtered_kwargs = self._filter_none_kwargs(sample_weight=sample_weight)
+                filtered_kwargs = _filter_none_kwargs(sample_weight=sample_weight)
                 self._model_propensity.fit(XW, np.matmul(T, np.arange(1, T.shape[1] + 1)), **filtered_kwargs)
                 self._model_regression.fit(np.hstack([XW, T]), Y, **filtered_kwargs)
                 return self
@@ -277,23 +308,20 @@ class DRLearner(_OrthoLearner):
 
             def fit(self, Y, T, X=None, W=None, nuisances=None, *, sample_weight=None, sample_var=None):
                 Y_pred, = nuisances
-                if X is None:
-                    X = np.ones((Y.shape[0], 1))
-                elif self._featurizer is not None:
+                if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.fit_transform(X)
-                filtered_kwargs = self._filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var)
+                filtered_kwargs = _filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var)
                 if self._multitask_model_final:
                     self.model_cate = clone(self._model_final, safe=False).fit(
                         X, Y_pred[:, 1:] - Y_pred[:, [0]], **filtered_kwargs)
                 else:
-                    self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[:, t] - Y_pred[:, 0], **filtered_kwargs)
+                    self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[:, t] - Y_pred[:, 0],
+                                                                                 **filtered_kwargs)
                                         for t in np.arange(1, Y_pred.shape[1])]
                 return self
 
             def predict(self, X=None):
-                if X is None:
-                    X = np.ones((1, 1))
-                elif self._featurizer is not None:
+                if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.transform(X)
                 if self._multitask_model_final:
                     return self.model_cate.predict(X)
@@ -301,27 +329,26 @@ class DRLearner(_OrthoLearner):
                     return np.array([mdl.predict(X) for mdl in self.models_cate]).T
 
             def score(self, Y, T, X=None, W=None, nuisances=None, *, sample_weight=None, sample_var=None):
-                if X is None:
-                    X = np.ones((Y.shape[0], 1))
-                elif self._featurizer is not None:
+                if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.transform(X)
                 Y_pred, = nuisances
                 if sample_weight is None:
                     sample_weight = np.ones(Y.shape[0])
                 if self._multitask_model_final:
-                    return np.mean(np.average((Y_pred[:, 1:] - Y_pred[:, [0]] - self.model_cate.predict(X))**2, weights=sample_weight, axis=0))
+                    return np.mean(np.average((Y_pred[:, 1:] - Y_pred[:, [0]] - self.model_cate.predict(X))**2,
+                                              weights=sample_weight, axis=0))
                 else:
-                    return np.mean([np.average((Y_pred[:, t] - Y_pred[:, 0] - self.models_cate[t - 1].predict(X))**2, weights=sample_weight, axis=0)
+                    return np.mean([np.average((Y_pred[:, t] - Y_pred[:, 0] - self.models_cate[t - 1].predict(X))**2,
+                                               weights=sample_weight, axis=0)
                                     for t in np.arange(1, Y_pred.shape[1])])
 
         self._multitask_model_final = multitask_model_final
-        self._input_feature_names = input_feature_names
         super().__init__(ModelNuisance(model_propensity, model_regression),
                          ModelFinal(model_final, featurizer, multitask_model_final),
                          n_splits=n_splits, discrete_treatment=True,
                          random_state=random_state)
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, *, inference=None):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
 
@@ -403,50 +430,133 @@ class DRLearner(_OrthoLearner):
     def featurizer(self):
         return super().model_final._featurizer
 
-    @property
-    def cate_feature_names(self):
+    def cate_feature_names(self, input_feature_names=None):
         if self.featurizer is None:
-            return self._input_feature_names
+            return input_feature_names
         elif hasattr(self.featurizer, 'get_feature_names'):
-            return self.featurizer.get_feature_names(self._input_feature_names)
+            return self.featurizer.get_feature_names(input_feature_names)
         else:
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
-    """Meta-algorithm that uses doubly-robust correction techniques to account for
-       covariate shift (selection bias) between the treatment arms.
+    """Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
+    is a Linear Regression on a low dimensional set of features. In this case, inference
+    can be performed via the asymptotic normal characterization of the estimated parameters.
+    This is computationally faster than bootstrap inference. Set :code:`inference='statsmodels'`
+    at fit time, to enable inference via asymptotic normality.
 
     Parameters
     ----------
-    outcome_model : outcome estimator for all data points
-        Will be trained on features, controls and treatments (concatenated).
-        If different models per treatment arm are desired, see the <econml.ortho_forest.MultiModelWrapper>
-        helper class. The model(s) must implement `fit` and `predict` methods.
+    model_propensity : scikit-learn classifier
+        Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
+        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
+        where T is a shape (n, ) array.
 
-    pseudo_treatment_model : estimator for pseudo-treatment effects on the entire dataset
-        Must implement `fit` and `predict` methods.
+    model_regression : scikit-learn regressor
+        Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
+        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
+        `predict` methods. If different models per treatment arm are desired, see the
+        :class:`~econml.utilities.MultiModelWrapper` helper class.
 
-    propensity_model : estimator for the propensity function
-        Must implement `fit` and `predict_proba` methods. The `fit` method must
-        be able to accept X and T, where T is a shape (n, ) array.
-        Ignored when `propensity_func` is provided.
+    featurizer : sklearn featurizer or None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
 
-    propensity_func : propensity function
-        Must accept an array of feature vectors and return an array of
-        probabilities.
-        If provided, the value for `propensity_model` (if any) will be ignored.
+    n_splits: int, cross-validation generator or an iterable, optional
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by `np.random`.
+
+    Examples
+    --------
+    A simple example with the default models::
+
+        import numpy as np
+        import scipy.special
+        from econml.drlearner import DRLearner, LinearDRLearner
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 3))
+        T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = LinearDRLearner()
+        est.fit(y, T, X=X, W=None, inference='statsmodels')
+
+    >>> est.effect(X[:3])
+    array([ 0.45450782,  0.32446905, -0.07040134])
+    >>> est.effect_interval(X[:3])
+    (array([ 0.18655358, -0.11752159, -0.58922191]),
+     array([0.72246206, 0.76645968, 0.44841923]))
+    >>> est.model_cate(T=1).coef_
+    array([0.4097647 , 0.01972211, 0.05364835])
+    >>> est.model_cate(T=1).coef__interval()
+    (array([ 0.14622515, -0.2045328 , -0.17625388]),
+    array([0.67330426, 0.24397702, 0.28355057]))
+    >>> est.model_cate(T=1).intercept_
+    0.8645098360137696
+    >>> est.model_cate(T=1).intercept__interval()
+    (0.641858878564784, 1.0871607934627552)
+
+    Attributes
+    ----------
+    models_propensity: list of objects of type(model_propensity)
+        A list of instances of the model_propensity object. Each element corresponds to a crossfitting
+        fold and is the model instance that was fitted for that training fold.
+    models_regression: list of objects of type(model_regression)
+        A list of instances of the model_regression object. Each element corresponds to a crossfitting
+        fold and is the model instance that was fitted for that training fold.
+    model_cate(T=t) : object of type(model_final)
+        An instance of the model_final object that was fitted after calling fit which corresponds
+        to the CATE model for treatment T=t, compared to baseline. Available only when multitask_model_final=False.
+    featurizer : object of type(featurizer)
+        An instance of the fitted featurizer that was used to preprocess X in the final CATE model training.
+        Available only when featurizer is not None and X is not None.
+    cate_feature_names(input_feature_names=None) : list of feature names or None
+        A list of feature names that correspond to the input features in the final CATE model. If
+        input_feature_names is not None and featurizer is None, then the input_feature_names are returned.
+        If the featurizer is not None, then this attribute is available only when the featurizer has
+        a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+    score_ : float
+        The MSE in the final doubly robust potential outcome regressions, i.e.
+
+        .. math::
+            \\frac{1}{n_t} \\sum_{t=1}^{n_t} \\frac{1}{n} \\sum_{i=1}^n (Y_{i, t}^{DR} - \\hat{\\theta}_t(X_i))^2
+
+        where n_t is the number of treatments (excluding control).
+
+        If `sample_weight` is not None at fit time, then a weighted average across samples is returned.
 
     """
 
-    def __init__(self, model_propensity, model_regression,
-                 input_feature_names=None, n_splits=2, random_state=None):
+    def __init__(self,
+                 model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
+                 model_regression=WeightedLassoCV(cv=3),
+                 featurizer=None,
+                 n_splits=2, random_state=None):
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
-                         model_final=StatsModelsLinearRegression(fit_intercept=False),
+                         model_final=StatsModelsLinearRegression(),
+                         featurizer=featurizer,
                          multitask_model_final=False,
-                         featurizer=PolynomialFeatures(degree=1, include_bias=True),
-                         input_feature_names=input_feature_names,
                          n_splits=n_splits,
                          random_state=random_state)
 
