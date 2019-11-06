@@ -320,6 +320,8 @@ class DRLearner(_OrthoLearner):
                 if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.transform(X)
                 Y_pred, = nuisances
+                if sample_weight is None:
+                    sample_weight = np.ones(Y.shape[0])
                 if self._multitask_model_final:
                     return np.mean(np.average((Y_pred[:, 1:] - Y_pred[:, [0]] - self.model_cate.predict(X))**2,
                                               weights=sample_weight, axis=0))
@@ -620,6 +622,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          model_final=StatsModelsLinearRegression(fit_intercept=fit_cate_intercept),
                          featurizer=featurizer,
                          multitask_model_final=False,
+                         featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                         input_feature_names=input_feature_names,
                          n_splits=n_splits,
                          random_state=random_state)
 
