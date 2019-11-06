@@ -131,3 +131,81 @@ class StatsModelsInference(Inference):
 
     def intercept__interval(self, *, alpha=0.1):
         return self.statsmodels.intercept__interval(alpha)
+
+
+class StatsModelsInferenceDiscrete(Inference):
+    """
+    Stores statsmodels covariance options.
+
+    This class can be used for inference by the LinearDMLCateEstimator.
+
+    Any estimator that supports this method of inference must implement a `statsmodels`
+    property that returns a `StatsModelsLinearRegression` instance and a `featurizer` property that returns an
+    preprocessing featurizer for the X variable.
+
+    Parameters
+    ----------
+    cov_type : string, optional (default 'HC1')
+        The type of covariance estimation method to use.  Supported values are 'nonrobust',
+        'fixed scale', 'HC0', 'HC1', 'HC2', and 'HC3'.  See the statsmodels documentation for
+        further information.
+
+    cov_kwds : optional additional keywords supported by the chosen method
+        Of the supported types, only 'fixed scale' has any keywords:
+        the optional keyword 'scale' which defaults to 1 if not specified.  See the statsmodels
+        documentation for further information.
+    """
+
+    def __init__(self, cov_type='HC1', use_t=False, **cov_kwds):
+        if cov_kwds and cov_type != 'fixed scale':
+            raise ValueError("Keyword arguments are only supported by the 'fixed scale' cov_type")
+        if cov_type not in ['nonrobust', 'fixed scale', 'HC0', 'HC1', 'HC2', 'HC3']:
+            raise ValueError("Unsupported cov_type; "
+                             "must be one of 'nonrobust', "
+                             "'fixed scale', 'HC0', 'HC1', 'HC2', or 'HC3'")
+
+        self.cov_type = cov_type
+        self.use_t = use_t
+        self.cov_kwds = cov_kwds
+
+    def prefit(self, estimator, *args, **kwargs):
+        self.statsmodels = estimator.statsmodels
+        # need to set the fit args before the estimator is fit
+        self.statsmodels.fit_args = {'cov_type': self.cov_type, 'use_t': self.use_t, 'cov_kwds': self.cov_kwds}
+        self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
+
+    def fit(self, estimator, *args, **kwargs):
+        # once the estimator has been fit, it's kosher to access its effect_op and store it here
+        # (which needs to have seen the expanded d_t if there's a discrete treatment, etc.)
+        self._est = estimator
+        self._d_t = estimator._d_t
+        self._d_y = estimator._d_y
+
+    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        if np.any(T0 > 0):
+            raise AttributeError("Can only calculate intervals of effects with respect to baseline treatment!")
+        if X is None:
+            X = np.ones((T0.shape[0], 1))
+        elif self.featurizer is not None:
+            X = self.featurizer.transform(X)
+        ind = (T1 @ np.arange(1, T1.shape[1] + 1)).astype(int)[0] - 1
+        return self._est.statsmodels_fitted[ind].predict_interval(X, alpha=alpha)
+
+    def const_marginal_effect_interval(self, X, *, alpha=0.1):
+        if X is None:
+            X = np.ones((1, 1))
+        elif self.featurizer is not None:
+            X = self.featurizer.fit_transform(X)
+        preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self._est.statsmodels_fitted])
+        return tuple([preds[:, 0, :].T, preds[:, 1, :].T])
+
+    def coef__interval(self, T, *, alpha=0.1):
+        _, T = self._est._expand_treatments(None, T)
+        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        return self._est.statsmodels_fitted[ind].coef__interval(alpha)
+
+    def intercept__interval(self, T, *, alpha=0.1):
+        _, T = self._est._expand_treatments(None, T)
+        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        return self._est.statsmodels_fitted[ind].intercept__interval(alpha)

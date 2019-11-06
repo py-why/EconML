@@ -11,7 +11,7 @@ from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
-from .inference import StatsModelsInference
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -347,4 +347,37 @@ class StatsModelsCateEstimatorMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, *, alpha=0.1):
+        pass
+
+
+class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(statsmodels=StatsModelsInferenceDiscrete)
+        return options
+
+    @property
+    @abc.abstractmethod
+    def statsmodels(self):
+        pass
+
+    def coef_(self, T):
+        _, T = self._expand_treatments(None, T)
+        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        return self.statsmodels[ind].coef_
+
+    @property
+    def intercept_(self, T):
+        _, T = self._expand_treatments(None, T)
+        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        return self.statsmodels[ind].intercept_
+
+    @BaseCateEstimator._defer_to_inference
+    def coef__interval(self, T, *, alpha=0.1):
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def intercept__interval(self, T, *, alpha=0.1):
         pass
