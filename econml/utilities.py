@@ -924,7 +924,8 @@ class StatsModelsLinearRegression:
 
     @property
     def coef_(self):
-        """Get the model's coefficients on the covariates.
+        """
+        Get the model's coefficients on the covariates.
 
         Returns
         -------
@@ -946,7 +947,8 @@ class StatsModelsLinearRegression:
 
     @property
     def intercept_(self):
-        """Get the intercept(s) (or 0 if no intercept was fit).
+        """
+        Get the intercept(s) (or 0 if no intercept was fit).
 
         Returns
         -------
@@ -959,6 +961,9 @@ class StatsModelsLinearRegression:
     @property
     def _param_var(self):
         """
+        The covariance matrix of all the parameters in the regression (including the intercept
+        as the first parameter).
+
         Returns
         -------
         var : {(d (+1), d (+1)), (p, d (+1), d (+1))} nd array like
@@ -974,6 +979,8 @@ class StatsModelsLinearRegression:
     @property
     def _param_stderr(self):
         """
+        The standard error of each parameter that was estimated.
+
         Returns
         -------
         _param_stderr : {(d (+1),) (d (+1), p)} nd array like
