@@ -100,68 +100,6 @@ class TestMetalearners(unittest.TestCase):
         # Test heterogeneous treatment effect
         self._test_te(DA_learner, tol=0.5, te_type="heterogeneous")
 
-    def test_DRLearner(self):
-        """Tests whether the DoublyRobustLearner can accurately estimate constant and
-           heterogeneous treatment effects.
-        """
-        # Instantiate DomainAdaptationLearner
-        DR_learner = DoublyRobustLearner(outcome_model=LinearRegression(),
-                                         pseudo_treatment_model=LinearRegression())
-        # Test inputs
-        self._test_inputs(DR_learner)
-        # Test constant treatment effect
-        self._test_te(DR_learner, tol=0.5, te_type="const")
-        # Test heterogeneous treatment effect
-        outcome_model = Pipeline([('poly', PolynomialFeatures()), ('model', LinearRegression())])
-        DR_learner = DoublyRobustLearner(outcome_model=outcome_model,
-                                         pseudo_treatment_model=LinearRegression())
-        self._test_te(DR_learner, tol=0.5, te_type="heterogeneous")
-        # Test heterogenous treatment effect for W =/= None
-        self._test_with_W(DR_learner, tol=0.5)
-
-    def _test_te(self, learner_instance, tol, te_type="const"):
-        if te_type not in ["const", "heterogeneous"]:
-            raise ValueError("Type of treatment effect must be 'const' or 'heterogeneous'.")
-        X, T, Y = getattr(TestMetalearners, "{te_type}_te_data".format(te_type=te_type))
-        te_func = getattr(TestMetalearners, "_{te_type}_te".format(te_type=te_type))
-        # Fit learner and get the effect
-        learner_instance.fit(Y, T, X)
-        te_hat = learner_instance.effect(TestMetalearners.X_test)
-        # Get the true treatment effect
-        te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test)
-        # Compute treatment effect residuals (absolute)
-        te_res = np.abs(te - te_hat)
-        # Check that at least 90% of predictions are within tolerance interval
-        self.assertGreaterEqual(np.mean(te_res < tol), 0.90)
-
-    def _test_with_W(self, learner_instance, tol):
-        # Only for heterogeneous TE
-        X, T, Y = TestMetalearners.heterogeneous_te_data
-        # Fit learner on X and W and get the effect
-        learner_instance.fit(Y, T, X=X[:, [TestMetalearners.heterogeneity_index]], W=X)
-        te_hat = learner_instance.effect(TestMetalearners.X_test[:, [TestMetalearners.heterogeneity_index]])
-        # Get the true treatment effect
-        te = np.apply_along_axis(TestMetalearners._heterogeneous_te, 1, TestMetalearners.X_test)
-        # Compute treatment effect residuals (absolute)
-        te_res = np.abs(te - te_hat)
-        # Check that at least 90% of predictions are within tolerance interval
-        self.assertGreaterEqual(np.mean(te_res < tol), 0.90)
-
-    def _test_inputs(self, learner_instance):
-        X, T, Y = TestMetalearners.const_te_data
-        # Check that one can pass in regular lists
-        learner_instance.fit(list(Y), list(T), list(X))
-        learner_instance.effect(list(TestMetalearners.X_test))
-        # Check that it fails correctly if lists of different shape are passed in
-        self.assertRaises(ValueError, learner_instance.fit, Y, T, X[:TestMetalearners.n // 2])
-        self.assertRaises(ValueError, learner_instance.fit, Y[:TestMetalearners.n // 2], T, X)
-        # Check that it fails when T contains values other than 0 and 1
-        self.assertRaises(ValueError, learner_instance.fit, Y, T + 1, X)
-        # Check that it works when T, Y have shape (n, 1)
-        self.assertWarns(DataConversionWarning,
-                         learner_instance.fit, Y.reshape(-1, 1), T.reshape(-1, 1), X
-                         )
-
     @classmethod
     def _untreated_outcome(cls, x):
         return np.dot(x, cls.beta) + cls.random_state.normal(0, 1)
