@@ -29,6 +29,7 @@ Tsiatis AA (2006).
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression, LinearRegression, LassoCV
+from econml.utilities import WeightedLassoCV
 from sklearn.base import clone
 from econml._ortho_learner import _OrthoLearner
 from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin
@@ -37,8 +38,9 @@ from sklearn.preprocessing import PolynomialFeatures
 
 
 class DRLearner(_OrthoLearner):
-    """Meta-algorithm that uses doubly-robust correction techniques to account for
-       covariate shift (selection bias) between the treatment arms.
+    """
+    CATE estimator that uses doubly-robust correction techniques to account for
+    covariate shift (selection bias) between the treatment arms.
 
     Parameters
     ----------
@@ -53,7 +55,7 @@ class DRLearner(_OrthoLearner):
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`~econml.utilities.MultiModelWrapper` helper class.
 
-    model_final : 
+    model_final :
         estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
         on (features X). If featurizer is not None, then it is trained on the outcome of
         featurizer.fit_transform(X). If multitask_model_final is True, then this model must support multitasking
@@ -103,6 +105,7 @@ class DRLearner(_OrthoLearner):
 
         import numpy as np
         import scipy.special
+        from econml.drlearner import DRLearner
 
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
@@ -113,32 +116,67 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.const_marginal_effect(X[:2])
-    array([[0.52446994, 0.8672687 ],
-           [0.37952909, 0.27316111]])
+    array([[ 0.5215622 ,  0.82215814],
+           [ 0.37704938,  0.21466424],
+           [-0.07505456, -0.77963048]])
     >>> est.effect(X[:2], T0=0, T1=1)
-    array([0.52446994, 0.37952909])
+    array([0.5215622 , 0.37704938])
     >>> est.score_
-    9.29702483700037
+    10.243375492811202
     >>> est.score(y, T, X=X)
-    7.776002714350083
+    8.489141208026698
     >>> est.model_cate(T=1).coef_
-    array([ 1.93280373,  1.06295052,  0.08980031, -0.00397677])
+    array([1.00761575, 0.47127132, 0.01092897, 0.05185222])
     >>> est.model_cate(T=2).coef_
-    array([ 1.93280373,  1.06295052,  0.08980031, -0.00397677])
+    array([ 1.92481336,  1.09654124,  0.08919048, -0.00413531])
     >>> est.cate_feature_names
     ['1', 'x0', 'x1', 'x2']
     >>> [mdl.coef_ for mdl in est.models_regression]
-    [array([ 1.43597301e+00,  3.34210655e-04, -7.10298447e-03,  6.70792219e-01,
-             1.98425625e+00]),
-     array([ 1.49463372e+00, -2.46327311e-03,  2.00974603e-03,  6.82820433e-01,
-             2.03497798e+00])]
+    [array([ 1.43608627e+00,  9.16715532e-04, -7.66401138e-03,  6.73985763e-01,
+             1.98864974e+00]),
+     array([ 1.49529047e+00, -2.43886553e-03,  1.74824661e-03,  6.81810603e-01,
+             2.03340844e+00])]
     >>> [mdl.coef_ for mdl in est.models_propensity]
-    [array([[-1.03943214,  0.09104269,  0.112561  ],
-            [ 0.08914442,  0.03477572, -0.09003806],
-            [ 0.95028772, -0.12581841, -0.02252295]]),
-     array([[-0.96593071,  0.09075624, -0.11942558],
-            [ 0.04603771, -0.03461148, -0.07898284],
-            [ 0.919893  , -0.05614476,  0.19840842]])]
+    [array([[-1.05971312,  0.09307097,  0.11409781],
+            [ 0.09002839,  0.03464788, -0.09079638],
+            [ 0.96968473, -0.12771885, -0.02330143]]),
+     array([[-0.98251905,  0.09248893, -0.12248101],
+            [ 0.04591711, -0.03486403, -0.07891743],
+            [ 0.93660195, -0.05762491,  0.20139844]])]
+
+    Beyond default models::
+
+        import scipy.special
+        import numpy as np
+        from sklearn.linear_model import LassoCV
+        from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+        from econml.drlearner import DRLearner
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 3))
+        T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
+        sigma = 0.01
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
+        est = DRLearner(model_propensity=GradientBoostingClassifier(),
+                        model_regression=GradientBoostingRegressor(),
+                        model_final=LassoCV(cv=3),
+                        featurizer=None)
+        est.fit(y, T, X=X, W=None)
+
+    >>> est.score_
+    3.172135302455655
+    >>> est.const_marginal_effect(X[:3])
+    array([[ 0.55038338,  1.14558174],
+           [ 0.32065866,  0.75638221],
+           [-0.07514842, -0.03658315]])
+    >>> est.model_cate(T=2).coef_
+    array([ 0.86420672,  0.01628151, -0.        ])
+    >>> est.model_cate(T=2).intercept_
+    2.067552713536296
+    >>> est.model_cate(T=1).coef_
+    array([0.43487391, 0.02968939, 0.        ])
+    >>> est.model_cate(T=1).intercept_
+    0.9928852195090293
 
     Attributes
     ----------
@@ -177,7 +215,7 @@ class DRLearner(_OrthoLearner):
     """
 
     def __init__(self, model_propensity=LogisticRegression(solver='lbfgs', multi_class='auto'),
-                 model_regression=LassoCV(cv=3),
+                 model_regression=WeightedLassoCV(cv=3),
                  model_final=LinearRegression(fit_intercept=False),
                  multitask_model_final=False,
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
@@ -192,16 +230,24 @@ class DRLearner(_OrthoLearner):
             def _combine(self, X, W):
                 return np.hstack([arr for arr in [X, W] if arr is not None])
 
-            def fit(self, Y, T, X=None, W=None):
+            def _filter_none_kwargs(self, **kwargs):
+                out_kwargs = {}
+                for key, value in kwargs.items():
+                    if value is not None:
+                        out_kwargs[key] = value
+                return out_kwargs
+
+            def fit(self, Y, T, X=None, W=None, *, sample_weight=None):
                 assert np.ndim(Y) == 1, "Can only accept single dimensional outcomes Y! Use Y.ravel()."
                 if (X is None) and (W is None):
                     raise AttributeError("At least one of X or W has to not be None!")
                 XW = self._combine(X, W)
-                self._model_propensity.fit(XW, np.matmul(T, np.arange(1, T.shape[1] + 1)))
-                self._model_regression.fit(np.hstack([XW, T]), Y)
+                filtered_kwargs = self._filter_none_kwargs(sample_weight=sample_weight)
+                self._model_propensity.fit(XW, np.matmul(T, np.arange(1, T.shape[1] + 1)), **filtered_kwargs)
+                self._model_regression.fit(np.hstack([XW, T]), Y, **filtered_kwargs)
                 return self
 
-            def predict(self, Y, T, X=None, W=None):
+            def predict(self, Y, T, X=None, W=None, *, sample_weight=None):
                 XW = self._combine(X, W)
                 propensities = self._model_propensity.predict_proba(XW)
                 Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
@@ -222,16 +268,25 @@ class DRLearner(_OrthoLearner):
                 self._multitask_model_final = multitask_model_final
                 return
 
-            def fit(self, Y, T, X=None, W=None, nuisances=None):
+            def _filter_none_kwargs(self, **kwargs):
+                out_kwargs = {}
+                for key, value in kwargs.items():
+                    if value is not None:
+                        out_kwargs[key] = value
+                return out_kwargs
+
+            def fit(self, Y, T, X=None, W=None, nuisances=None, *, sample_weight=None, sample_var=None):
                 Y_pred, = nuisances
                 if X is None:
                     X = np.ones((Y.shape[0], 1))
                 elif self._featurizer is not None:
                     X = self._featurizer.fit_transform(X)
+                filtered_kwargs = self._filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var)
                 if self._multitask_model_final:
-                    self.model_cate = clone(self._model_final, safe=False).fit(X, Y_pred[:, 1:] - Y_pred[:, [0]])
+                    self.model_cate = clone(self._model_final, safe=False).fit(
+                        X, Y_pred[:, 1:] - Y_pred[:, [0]], **filtered_kwargs)
                 else:
-                    self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[:, t] - Y_pred[:, 0])
+                    self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[:, t] - Y_pred[:, 0], **filtered_kwargs)
                                         for t in np.arange(1, Y_pred.shape[1])]
                 return self
 
@@ -245,16 +300,18 @@ class DRLearner(_OrthoLearner):
                 else:
                     return np.array([mdl.predict(X) for mdl in self.models_cate]).T
 
-            def score(self, Y, T, X=None, W=None, nuisances=None):
+            def score(self, Y, T, X=None, W=None, nuisances=None, *, sample_weight=None, sample_var=None):
                 if X is None:
                     X = np.ones((Y.shape[0], 1))
                 elif self._featurizer is not None:
                     X = self._featurizer.transform(X)
                 Y_pred, = nuisances
+                if sample_weight is None:
+                    sample_weight = np.ones(Y.shape[0])
                 if self._multitask_model_final:
-                    return np.mean((Y_pred[:, 1:] - Y_pred[:, [0]] - self.model_cate.predict(X))**2)
+                    return np.mean(np.average((Y_pred[:, 1:] - Y_pred[:, [0]] - self.model_cate.predict(X))**2, weights=sample_weight, axis=0))
                 else:
-                    return np.mean([(Y_pred[:, t] - Y_pred[:, 0] - self.models_cate[t - 1].predict(X))**2
+                    return np.mean([np.average((Y_pred[:, t] - Y_pred[:, 0] - self.models_cate[t - 1].predict(X))**2, weights=sample_weight, axis=0)
                                     for t in np.arange(1, Y_pred.shape[1])])
 
         self._multitask_model_final = multitask_model_final
@@ -383,11 +440,13 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     """
 
     def __init__(self, model_propensity, model_regression,
-                 n_splits=2, random_state=None):
-        super().__init__(model_propensity, model_regression,
-                         StatsModelsLinearRegression(fit_intercept=False),
-                         featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                 input_feature_names=None, n_splits=2, random_state=None):
+        super().__init__(model_propensity=model_propensity,
+                         model_regression=model_regression,
+                         model_final=StatsModelsLinearRegression(fit_intercept=False),
                          multitask_model_final=False,
+                         featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                         input_feature_names=input_feature_names,
                          n_splits=n_splits,
                          random_state=random_state)
 
