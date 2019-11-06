@@ -30,14 +30,14 @@ class TestDRLearner(unittest.TestCase):
             np.diag(np.ones(cls.d)),
             cls.n_test)
         # Constant treatment effect and propensity
-        cls.const_te_data = TestMetalearners._generate_data(
+        cls.const_te_data = TestDRLearner._generate_data(
             cls.n, cls.d, cls._untreated_outcome,
-            treatment_effect=TestMetalearners._const_te,
+            treatment_effect=TestDRLearner._const_te,
             propensity=lambda x: 0.3)
         # Heterogeneous treatment and propensity
-        cls.heterogeneous_te_data = TestMetalearners._generate_data(
+        cls.heterogeneous_te_data = TestDRLearner._generate_data(
             cls.n, cls.d, cls._untreated_outcome,
-            treatment_effect=TestMetalearners._heterogeneous_te,
+            treatment_effect=TestDRLearner._heterogeneous_te,
             propensity=lambda x: (0.8 if (x[2] > -0.5 and x[2] < 0.5) else 0.2))
 
     def test_DRLearner(self):
@@ -62,13 +62,13 @@ class TestDRLearner(unittest.TestCase):
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:
             raise ValueError("Type of treatment effect must be 'const' or 'heterogeneous'.")
-        X, T, Y = getattr(TestMetalearners, "{te_type}_te_data".format(te_type=te_type))
-        te_func = getattr(TestMetalearners, "_{te_type}_te".format(te_type=te_type))
+        X, T, Y = getattr(TestDRLearner, "{te_type}_te_data".format(te_type=te_type))
+        te_func = getattr(TestDRLearner, "_{te_type}_te".format(te_type=te_type))
         # Fit learner and get the effect
         learner_instance.fit(Y, T, X)
-        te_hat = learner_instance.effect(TestMetalearners.X_test)
+        te_hat = learner_instance.effect(TestDRLearner.X_test)
         # Get the true treatment effect
-        te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test)
+        te = np.apply_along_axis(te_func, 1, TestDRLearner.X_test)
         # Compute treatment effect residuals (absolute)
         te_res = np.abs(te - te_hat)
         # Check that at least 90% of predictions are within tolerance interval
@@ -76,25 +76,25 @@ class TestDRLearner(unittest.TestCase):
 
     def _test_with_W(self, learner_instance, tol):
         # Only for heterogeneous TE
-        X, T, Y = TestMetalearners.heterogeneous_te_data
+        X, T, Y = TestDRLearner.heterogeneous_te_data
         # Fit learner on X and W and get the effect
-        learner_instance.fit(Y, T, X=X[:, [TestMetalearners.heterogeneity_index]], W=X)
-        te_hat = learner_instance.effect(TestMetalearners.X_test[:, [TestMetalearners.heterogeneity_index]])
+        learner_instance.fit(Y, T, X=X[:, [TestDRLearner.heterogeneity_index]], W=X)
+        te_hat = learner_instance.effect(TestDRLearner.X_test[:, [TestDRLearner.heterogeneity_index]])
         # Get the true treatment effect
-        te = np.apply_along_axis(TestMetalearners._heterogeneous_te, 1, TestMetalearners.X_test)
+        te = np.apply_along_axis(TestDRLearner._heterogeneous_te, 1, TestDRLearner.X_test)
         # Compute treatment effect residuals (absolute)
         te_res = np.abs(te - te_hat)
         # Check that at least 90% of predictions are within tolerance interval
         self.assertGreaterEqual(np.mean(te_res < tol), 0.90)
 
     def _test_inputs(self, learner_instance):
-        X, T, Y = TestMetalearners.const_te_data
+        X, T, Y = TestDRLearner.const_te_data
         # Check that one can pass in regular lists
         learner_instance.fit(list(Y), list(T), list(X))
-        learner_instance.effect(list(TestMetalearners.X_test))
+        learner_instance.effect(list(TestDRLearner.X_test))
         # Check that it fails correctly if lists of different shape are passed in
-        self.assertRaises(ValueError, learner_instance.fit, Y, T, X[:TestMetalearners.n // 2])
-        self.assertRaises(ValueError, learner_instance.fit, Y[:TestMetalearners.n // 2], T, X)
+        self.assertRaises(ValueError, learner_instance.fit, Y, T, X[:TestDRLearner.n // 2])
+        self.assertRaises(ValueError, learner_instance.fit, Y[:TestDRLearner.n // 2], T, X)
         # Check that it fails when T contains values other than 0 and 1
         self.assertRaises(ValueError, learner_instance.fit, Y, T + 1, X)
         # Check that it works when T, Y have shape (n, 1)
