@@ -622,8 +622,6 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          model_final=StatsModelsLinearRegression(fit_intercept=fit_cate_intercept),
                          featurizer=featurizer,
                          multitask_model_final=False,
-                         featurizer=PolynomialFeatures(degree=1, include_bias=True),
-                         input_feature_names=input_feature_names,
                          n_splits=n_splits,
                          random_state=random_state)
 
