@@ -251,13 +251,16 @@ class TestDRLearner(unittest.TestCase):
                     for sample_var in [None, 1 + np.random.randint(10, size=X.shape[0])]:
                         for featurizer in [None, PolynomialFeatures(degree=2, include_bias=False)]:
                             for models in [(GradientBoostingClassifier(), GradientBoostingRegressor(),
-                                            RandomForestRegressor(n_estimators=100, max_depth=5, min_samples_leaf=50)),
+                                            RandomForestRegressor(n_estimators=100,
+                                                                  max_depth=5,min_samples_leaf=50)),
                                            (GradientBoostingClassifier(), GradientBoostingRegressor(),
-                                            RandomForestRegressor(n_estimators=100, max_depth=5, min_samples_leaf=50)),
+                                            RandomForestRegressor(n_estimators=100,
+                                                                  max_depth=5, min_samples_leaf=50)),
                                            (LogisticRegression(solver='lbfgs', multi_class='auto'),
                                             LinearRegression(), StatsModelsLinearRegression())]:
                                 for multitask_model_final in [False, True]:
-                                    if (not isinstance(models, StatsModelsLinearRegression)) and (sample_var is not None):
+                                    if (not isinstance(models, StatsModelsLinearRegression))
+                                        and (sample_var is not None):
                                         continue
                                     print(X, W, sample_weight, sample_var, featurizer, models, multitask_model_final)
                                     est = DRLearner(model_propensity=models[0],
@@ -267,7 +270,8 @@ class TestDRLearner(unittest.TestCase):
                                                     multitask_model_final=multitask_model_final)
                                     if (X is None) and (W is None):
                                         with pytest.raises(AttributeError) as e_info:
-                                            est.fit(y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
+                                            est.fit(y, T, X=X, W=W,
+                                                    sample_weight=sample_weight, sample_var=sample_var)
                                         continue
                                     est.fit(y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
                                     np.testing.assert_allclose(est.effect(X[:3], T0=0, T1=1), 1 + .5 * X[:3, 0],
@@ -292,15 +296,27 @@ class TestDRLearner(unittest.TestCase):
                                     np.testing.assert_array_equal(est.cate_feature_names(feat_names), out_feat_names)
 
                                     if isinstance(models[0], GradientBoostingClassifier):
-                                        np.testing.assert_array_equal(np.array([mdl.feature_importances_ for mdl in est.models_regression]).shape,
-                                                                      [2, 2 + X.shape[1] + (W.shape[1] if W is not None else 0)])
-                                        np.testing.assert_array_equal(np.array([mdl.feature_importances_ for mdl in est.models_propensity]).shape,
-                                                                      [2, X.shape[1] + (W.shape[1] if W is not None else 0)])
+                                        np.testing.assert_array_equal(np.array([mdl.feature_importances_ 
+                                                                                for mdl
+                                                                                in est.models_regression]).shape,
+                                                                      [2, 2 + X.shape[1]\
+                                                                            + (W.shape[1] if W is not None else 0)])
+                                        np.testing.assert_array_equal(np.array([mdl.feature_importances_
+                                                                                for mdl
+                                                                                in est.models_propensity]).shape,
+                                                                      [2, X.shape[1]\
+                                                                           + (W.shape[1] if W is not None else 0)])
                                     else:
-                                        np.testing.assert_array_equal(np.array([mdl.coef_ for mdl in est.models_regression]).shape,
-                                                                      [2, 2 + X.shape[1] + (W.shape[1] if W is not None else 0)])
-                                        np.testing.assert_array_equal(np.array([mdl.coef_ for mdl in est.models_propensity]).shape,
-                                                                      [2, 3, X.shape[1] + (W.shape[1] if W is not None else 0)])
+                                        np.testing.assert_array_equal(np.array([mdl.coef_
+                                                                                for mdl
+                                                                                in est.models_regression]).shape,
+                                                                      [2, 2 + X.shape[1]\
+                                                                            + (W.shape[1] if W is not None else 0)])
+                                        np.testing.assert_array_equal(np.array([mdl.coef_
+                                                                                for mdl
+                                                                                in est.models_propensity]).shape,
+                                                                      [2, 3, X.shape[1]\
+                                                                            + (W.shape[1] if W is not None else 0)])
                                     if multitask_model_final:
                                         if isinstance(models[2], RandomForestRegressor):
                                             np.testing.assert_equal(np.argsort(
@@ -397,15 +413,23 @@ class TestDRLearner(unittest.TestCase):
                                 np.testing.assert_array_equal(est.cate_feature_names(feat_names), out_feat_names)
 
                             if isinstance(models[0], GradientBoostingClassifier):
-                                np.testing.assert_array_equal(np.array([mdl.feature_importances_ for mdl in est.models_regression]).shape,
-                                                              [2, 2 + len(feat_names) + (W.shape[1] if W is not None else 0)])
-                                np.testing.assert_array_equal(np.array([mdl.feature_importances_ for mdl in est.models_propensity]).shape,
-                                                              [2, len(feat_names) + (W.shape[1] if W is not None else 0)])
+                                np.testing.assert_array_equal(np.array([mdl.feature_importances_
+                                                                        for mdl in est.models_regression]).shape,
+                                                              [2, 2 + len(feat_names)\
+                                                                    + (W.shape[1] if W is not None else 0)])
+                                np.testing.assert_array_equal(np.array([mdl.feature_importances_
+                                                                        for mdl in est.models_propensity]).shape,
+                                                              [2, len(feat_names)\
+                                                                   + (W.shape[1] if W is not None else 0)])
                             else:
-                                np.testing.assert_array_equal(np.array([mdl.coef_ for mdl in est.models_regression]).shape,
-                                                              [2, 2 + len(feat_names) + (W.shape[1] if W is not None else 0)])
-                                np.testing.assert_array_equal(np.array([mdl.coef_ for mdl in est.models_propensity]).shape,
-                                                              [2, 3, len(feat_names) + (W.shape[1] if W is not None else 0)])
+                                np.testing.assert_array_equal(np.array([mdl.coef_
+                                                                        for mdl in est.models_regression]).shape,
+                                                              [2, 2 + len(feat_names)\
+                                                                    + (W.shape[1] if W is not None else 0)])
+                                np.testing.assert_array_equal(np.array([mdl.coef_
+                                                                        for mdl in est.models_propensity]).shape,
+                                                              [2, 3, len(feat_names)\
+                                                                    + (W.shape[1] if W is not None else 0)])
 
                             if X is not None:
                                 for t in [1, 2]:
