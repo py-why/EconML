@@ -411,12 +411,25 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for arr in [X, W, Z, sample_weight, sample_var]:
             assert (arr is None) or (arr.shape[0] == Y.shape[0]), "Dimension mismatch"
         self._d_x = X.shape[1:] if X is not None else None
+        self._d_w = W.shape[1:] if W is not None else None
+        self._d_z = Z.shape[1:] if Z is not None else None
 
     def _check_fitted_dims(self, X):
         if X is None:
             assert self._d_x is None, "X was not None when fitting, so can't be none for effect"
         else:
             assert self._d_x == X.shape[1:], "Dimension mis-match of X with fitted X"
+
+    def _check_fitted_dims_w_z(self, W, Z):
+        if W is None:
+            assert self._d_w is None, "W was not None when fitting, so can't be none for effect"
+        else:
+            assert self._d_w == W.shape[1:], "Dimension mis-match of W with fitted W"
+
+        if Z is None:
+            assert self._d_z is None, "Z was not None when fitting, so can't be none for effect"
+        else:
+            assert self._d_z == Z.shape[1:], "Dimension mis-match of Z with fitted Z"
 
     def _subinds_check_none(self, var, inds):
         return var[inds] if var is not None else None
@@ -560,6 +573,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         if not hasattr(self._model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
+        self._check_fitted_dims(X)
+        self._check_fitted_dims_w_z(W, Z)
         X, T = self._expand_treatments(X, T)
         n_splits = len(self._models_nuisance)
         for idx, mdl in enumerate(self._models_nuisance):

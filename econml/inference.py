@@ -126,10 +126,10 @@ class StatsModelsInference(Inference):
         return tuple(reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
                      for pred in preds)
 
-    def coef_interval(self, *, alpha=0.1):
+    def coef__interval(self, *, alpha=0.1):
         return self.statsmodels.coef__interval(alpha)
 
-    def intercept_interval(self, *, alpha=0.1):
+    def intercept__interval(self, *, alpha=0.1):
         return self.statsmodels.intercept__interval(alpha)
 
 
