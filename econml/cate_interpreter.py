@@ -5,19 +5,21 @@ from sklearn.utils.validation import check_is_fitted
 from sklearn.externals import six
 from .dot_exporter import _CATETreeDOTExporter, _CATETreeMPLExporter, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
 
+
 class CateInterpreter(metaclass=abc.ABCMeta):
-    
+
     @abc.abstractmethod
     def interpret(self, cate_estimator, X):
         pass
-    
+
     @abc.abstractmethod
     def summary(self):
         pass
-    
+
     @abc.abstractmethod
     def export(self):
         pass
+
 
 class SingleTreeCateInterpreter:
     """
@@ -92,8 +94,9 @@ class SingleTreeCateInterpreter:
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
     """
+
     def __init__(self,
-                 include_uncertainty=False,
+                 include_model_uncertainty=False,
                  uncertainty_level=.05,
                  splitter="best",
                  max_depth=None,
@@ -104,7 +107,7 @@ class SingleTreeCateInterpreter:
                  random_state=None,
                  max_leaf_nodes=None,
                  min_impurity_decrease=0.):
-        self.include_uncertainty = include_uncertainty
+        self.include_uncertainty = include_model_uncertainty
         self.uncertainty_level = uncertainty_level
         self.criterion = "mse"
         self.splitter = splitter
@@ -116,7 +119,7 @@ class SingleTreeCateInterpreter:
         self.random_state = random_state
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-    
+
     def interpret(self, cate_estimator, X):
         self.tree_model = DecisionTreeRegressor(criterion=self.criterion,
                                                 splitter=self.splitter,
@@ -129,22 +132,23 @@ class SingleTreeCateInterpreter:
                                                 max_leaf_nodes=self.max_leaf_nodes,
                                                 min_impurity_decrease=self.min_impurity_decrease)
         y_pred = cate_estimator.effect(X)
-        
-        assert (y_pred.ndim==1) or (y_pred.shape[1]==1), "Only single-dimensional treatment interpretation available!"
 
-        if y_pred.ndim==1:
+        assert (y_pred.ndim == 1) or (y_pred.shape[1] ==
+                                      1), "Only single-dimensional treatment interpretation available!"
+
+        if y_pred.ndim == 1:
             y_pred = y_pred.reshape(-1, 1)
 
         if self.include_uncertainty:
             y_lower, y_upper = cate_estimator.effect_interval(X, alpha=self.uncertainty_level)
-            if y_lower.ndim==1:
+            if y_lower.ndim == 1:
                 y_lower = y_lower.reshape(-1, 1)
                 y_upper = y_upper.reshape(-1, 1)
             y_pred = np.hstack([y_pred, y_lower, y_upper])
         self.tree_model.fit(X, y_pred)
 
         return self
-    
+
     def export_graphviz(self, out_file=None, feature_names=None,
                         filled=True, leaves_parallel=False,
                         rotate=False, rounded=False, special_characters=False, precision=3):
@@ -211,10 +215,10 @@ class SingleTreeCateInterpreter:
         finally:
             if own_file:
                 out_file.close()
-    
+
     def render(self, out_file, format='pdf', view=True, feature_names=None,
-                    filled=True, leaves_parallel=False,
-                    rotate=False, rounded=False, special_characters=False, precision=3):
+               filled=True, leaves_parallel=False,
+               rotate=False, rounded=False, special_characters=False, precision=3):
         import graphviz
         graphviz.Source(self.export_graphviz(feature_names=feature_names, filled=filled, rotate=rotate,
                                              leaves_parallel=leaves_parallel, rounded=rounded,
@@ -222,13 +226,14 @@ class SingleTreeCateInterpreter:
                                              precision=precision)).render(out_file, format=format, view=view)
 
     def plot(self, ax=None, title=None, feature_names=None,
-                    filled=True,
-                    rounded=False, precision=3, fontsize=None):
+             filled=True,
+             rounded=False, precision=3, fontsize=None):
         exporter = _CATETreeMPLExporter(self.include_uncertainty, self.uncertainty_level,
-                                            title=title, feature_names=feature_names, filled=filled,
-                                            rounded=rounded,
-                                            precision=precision, fontsize=fontsize)
+                                        title=title, feature_names=feature_names, filled=filled,
+                                        rounded=rounded,
+                                        precision=precision, fontsize=fontsize)
         exporter.export(self.tree_model, ax=ax)
+
 
 class SingleTreePolicyInterpreter:
     """
@@ -302,6 +307,7 @@ class SingleTreePolicyInterpreter:
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
     """
+
     def __init__(self,
                  risk_level=None,
                  risk_seeking=False,
@@ -326,19 +332,19 @@ class SingleTreePolicyInterpreter:
         self.random_state = random_state
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
-    
+
     def interpret(self, cate_estimator, X, sample_treatment_costs=None):
         self.tree_model = DecisionTreeClassifier(criterion=self.criterion,
-                                                splitter=self.splitter,
-                                                max_depth=self.max_depth,
-                                                min_samples_split=self.min_samples_split,
-                                                min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                                max_features=self.max_features,
-                                                random_state=self.random_state,
-                                                max_leaf_nodes=self.max_leaf_nodes,
-                                                min_impurity_decrease=self.min_impurity_decrease)
+                                                 splitter=self.splitter,
+                                                 max_depth=self.max_depth,
+                                                 min_samples_split=self.min_samples_split,
+                                                 min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+                                                 max_features=self.max_features,
+                                                 random_state=self.random_state,
+                                                 max_leaf_nodes=self.max_leaf_nodes,
+                                                 min_impurity_decrease=self.min_impurity_decrease)
         if self.risk_level is None:
-            y_pred = cate_estimator.effect(X) 
+            y_pred = cate_estimator.effect(X)
         elif not self.risk_seeking:
             y_pred, _ = cate_estimator.effect_interval(X, alpha=self.risk_level)
         else:
@@ -346,8 +352,8 @@ class SingleTreePolicyInterpreter:
 
         if sample_treatment_costs is not None:
             y_pred -= sample_treatment_costs
-        
-        assert (y_pred.ndim==1) or (y_pred.shape[1]==1), "Only binary treatment interpretation available!"
+
+        assert (y_pred.ndim == 1) or (y_pred.shape[1] == 1), "Only binary treatment interpretation available!"
 
         self.tree_model.fit(X, np.sign(y_pred).flatten(), sample_weight=np.abs(y_pred))
         self.policy_value = np.mean(y_pred * (self.tree_model.predict(X) == 1))
@@ -409,7 +415,8 @@ class SingleTreePolicyInterpreter:
                 out_file = six.StringIO()
 
             title = "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
-            title += "Average policy gains over always treating: {}".format(np.around(self.policy_value - self.always_treat_value, precision))
+            title += "Average policy gains over always treating: {}".format(
+                np.around(self.policy_value - self.always_treat_value, precision))
             exporter = _PolicyTreeDOTExporter(out_file=out_file, title=title,
                                               treatment_names=treatment_names, feature_names=feature_names, filled=filled,
                                               leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
@@ -422,10 +429,10 @@ class SingleTreePolicyInterpreter:
         finally:
             if own_file:
                 out_file.close()
-    
+
     def render(self, out_file, format='pdf', view=True, feature_names=None, treatment_names=None,
-                    filled=True, leaves_parallel=False,
-                    rotate=False, rounded=False, special_characters=False, precision=3):
+               filled=True, leaves_parallel=False,
+               rotate=False, rounded=False, special_characters=False, precision=3):
         import graphviz
         graphviz.Source(self.export_graphviz(treatment_names=treatment_names, feature_names=feature_names, filled=filled, rotate=rotate,
                                              leaves_parallel=leaves_parallel, rounded=rounded,
@@ -433,13 +440,13 @@ class SingleTreePolicyInterpreter:
                                              precision=precision)).render(out_file, format=format, view=view)
 
     def plot(self, ax=None, title=None, treatment_names=None, feature_names=None,
-                    filled=True,
-                    rounded=False, precision=3, fontsize=None):
+             filled=True,
+             rounded=False, precision=3, fontsize=None):
         title = "" if title is None else title
         title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
-        title += "Average policy gains over always treating: {}".format(np.around(self.policy_value - self.always_treat_value, precision))
+        title += "Average policy gains over always treating: {}".format(
+            np.around(self.policy_value - self.always_treat_value, precision))
         exporter = _PolicyTreeMPLExporter(treatment_names=treatment_names, title=title, feature_names=feature_names, filled=filled,
-                                            rounded=rounded,
-                                            precision=precision, fontsize=fontsize)
+                                          rounded=rounded,
+                                          precision=precision, fontsize=fontsize)
         exporter.export(self.tree_model, ax=ax)
-
