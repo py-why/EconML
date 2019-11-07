@@ -538,14 +538,14 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     >>> est.effect_interval(X[:3])
     (array([ 0.18655358, -0.11752159, -0.58922191]),
      array([0.72246206, 0.76645968, 0.44841923]))
-    >>> est.model_cate(T=1).coef_
+    >>> est.coef_(T=1).
     array([0.4097647 , 0.01972211, 0.05364835])
-    >>> est.model_cate(T=1).coef__interval()
+    >>> est.coef__interval(T=1)
     (array([ 0.14622515, -0.2045328 , -0.17625388]),
     array([0.67330426, 0.24397702, 0.28355057]))
-    >>> est.model_cate(T=1).intercept_
+    >>> est.intercept_(T=1)
     0.8645098360137696
-    >>> est.model_cate(T=1).intercept__interval()
+    >>> est.intercept__interval(T=1)
     (0.641858878564784, 1.0871607934627552)
 
     Attributes
