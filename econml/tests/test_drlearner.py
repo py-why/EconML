@@ -459,8 +459,8 @@ class TestDRLearner(unittest.TestCase):
     @staticmethod
     def _check_with_interval(truth, point, lower, upper):
         np.testing.assert_allclose(point, truth, rtol=0, atol=.15)
-        np.testing.assert_array_less(lower - 3e-2, truth)
-        np.testing.assert_array_less(truth, upper + 3e-2)
+        np.testing.assert_array_less(lower - 0.05, truth)
+        np.testing.assert_array_less(truth, upper + 0.05)
 
     @staticmethod
     def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer(validate=True)):
