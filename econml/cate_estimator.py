@@ -392,19 +392,19 @@ class StatsModelsCateEstimatorMixin(BaseCateEstimator):
         pass
 
     @property
-    def coef_(self):
+    def coef(self):
         return self.statsmodels.coef_
 
     @property
-    def intercept_(self):
+    def intercept(self):
         return self.statsmodels.intercept_
 
     @BaseCateEstimator._defer_to_inference
-    def coef__interval(self, *, alpha=0.1):
+    def coef_interval(self, *, alpha=0.1):
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def intercept__interval(self, *, alpha=0.1):
+    def intercept_interval(self, *, alpha=0.1):
         pass
 
 
@@ -421,7 +421,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
     def statsmodels(self):
         pass
 
-    def coef_(self, T):
+    def coef(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -441,7 +441,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
         return self.statsmodels_fitted[ind].coef_
 
-    def intercept_(self, T):
+    def intercept(self, T):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -459,7 +459,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
         return self.statsmodels_fitted[ind].intercept_
 
     @BaseCateEstimator._defer_to_inference
-    def coef__interval(self, T, *, alpha=0.1):
+    def coef_interval(self, T, *, alpha=0.1):
         """ The confidence interval for the coefficients in the linear model of the
         constant marginal treatment effect associated with treatment T.
 
@@ -473,13 +473,13 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        lower, upper: tuple(type of coef_, type of coef_)
+        lower, upper: tuple(type of coef(T), type of coef(T))
             The lower and upper bounds of the confidence interval for each quantity.
         """
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def intercept__interval(self, T, *, alpha=0.1):
+    def intercept_interval(self, T, *, alpha=0.1):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -493,7 +493,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        lower, upper: tuple(type of intercept_, type of intercept_)
+        lower, upper: tuple(type of intercept(T), type of intercept(T))
             The lower and upper bounds of the confidence interval.
         """
         pass
