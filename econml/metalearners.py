@@ -14,7 +14,8 @@ from sklearn import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array, check_X_y
-from .utilities import check_inputs
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder
+from .utilities import check_inputs, check_models
 
 
 class TLearner(BaseCateEstimator):
@@ -30,14 +31,15 @@ class TLearner(BaseCateEstimator):
 
     """
 
-    def __init__(self, controls_model, treated_model):
-        self.controls_model = clone(controls_model, safe=False)
-        self.treated_model = clone(treated_model, safe=False)
+    def __init__(self, models):
+        self.models = clone(models, safe=False)
+        self._label_encoder = LabelEncoder()
+
         super().__init__()
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, inference=None):
-        """Build an instance of SLearner.
+        """Build an instance of TLearner.
 
         Parameters
         ----------
@@ -62,19 +64,23 @@ class TLearner(BaseCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        if not np.array_equal(np.unique(T), [0, 1]):
-            raise ValueError("The treatments array (T) can only contain" +
-                             "0 and 1.")
-        self.controls_model.fit(X[T == 0], Y[T == 0])
-        self.treated_model.fit(X[T == 1], Y[T == 1])
+        T = self._label_encoder.fit_transform(T)
+        self.unique_T = self._label_encoder.classes_
+        n_T = len(self.unique_T)
+        self.models = check_models(self.models, n_T)
 
-    def effect(self, X):
+        for ind in range(n_T):
+            self.models[ind].fit(X[T == ind], Y[T == ind])
+
+    def effect(self, X, T0, T1):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.
 
         Parameters
         ----------
         X : matrix, shape (m × dₓ)
             Matrix of features for each sample.
+        T0: scaler
+        T1: scaler
 
         Returns
         -------
@@ -83,10 +89,16 @@ class TLearner(BaseCateEstimator):
         """
         # Check inputs
         X = check_array(X)
-        tau_hat = self.treated_model.predict(X) - self.controls_model.predict(X)
+        # Check treatment
+        if T0 not in self.unique_T or T1 not in self.unique_T:
+            raise ValueError(
+                "T0 and T1 must be scalers in T you passed in at fitting time, please pass in values from {}".format(self.unique_T))
+        ind1, = np.where(self.unique_T == T1)[0]
+        ind0, = np.where(self.unique_T == T0)[0]
+        tau_hat = self.models[ind1].predict(X) - self.models[ind0].predict(X)
         return tau_hat
 
-    def marginal_effect(self, X):
+    def marginal_effect(self, X, T1):
         """Calculate the heterogeneous marginal treatment effect.
 
         For binary treatments, it returns the same as `effect`.
@@ -95,13 +107,14 @@ class TLearner(BaseCateEstimator):
         ----------
         X : matrix, shape (m × dₓ)
             Matrix of features for each sample.
+        T1: scaler
 
         Returns
         -------
         τ_hat : array-like, shape (m, )
             Matrix of heterogeneous treatment effects for each sample.
         """
-        return self.effect(X)
+        return self.effect(X, T0=self.unique_T[0], T1=T1)
 
 
 class SLearner(BaseCateEstimator):
@@ -117,6 +130,7 @@ class SLearner(BaseCateEstimator):
 
     def __init__(self, overall_model):
         self.overall_model = clone(overall_model, safe=False)
+        self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
         super().__init__()
 
     @BaseCateEstimator._wrap_fit
@@ -145,12 +159,11 @@ class SLearner(BaseCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        if not np.array_equal(np.unique(T), [0, 1]):
-            raise ValueError("The treatments array (T) can only contain 0 and 1.")
-        feat_arr = np.concatenate((X, T.reshape(-1, 1)), axis=1)
+        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))[:, 1:]
+        feat_arr = np.concatenate((X, T), axis=1)
         self.overall_model.fit(feat_arr, Y)
 
-    def effect(self, X):
+    def effect(self, X, T0, T1):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.
 
         Parameters
@@ -165,12 +178,13 @@ class SLearner(BaseCateEstimator):
         """
         # Check inputs
         X = check_array(X)
-        X_controls = np.concatenate((X, np.zeros((X.shape[0], 1))), axis=1)
-        X_treated = np.concatenate((X, np.ones((X.shape[0], 1))), axis=1)
+        m = X.shape[0]
+        X_controls = np.concatenate((X, self._one_hot_encoder.transform(np.ones((m, 1)) * T0)[:, 1:]), axis=1)
+        X_treated = np.concatenate((X, self._one_hot_encoder.transform(np.ones((m, 1)) * T1)[:, 1:]), axis=1)
         tau_hat = self.overall_model.predict(X_treated) - self.overall_model.predict(X_controls)
         return tau_hat
 
-    def marginal_effect(self, X):
+    def marginal_effect(self, X, T1):
         """Calculate the heterogeneous marginal treatment effect.
 
         For binary treatments, it returns the same as `effect`.
@@ -185,7 +199,8 @@ class SLearner(BaseCateEstimator):
         τ_hat : array-like, shape (m, )
             Matrix of heterogeneous treatment effects for each sample.
         """
-        return self.effect(X)
+        T0 = self._one_hot_encoder.categories_[0][0]
+        return self.effect(X, T0=T0, T1=T1)
 
 
 class XLearner(BaseCateEstimator):
@@ -211,32 +226,15 @@ class XLearner(BaseCateEstimator):
         be able to accept X and T, where T is a shape (n, ) array.
         Ignored when `propensity_func` is provided.
 
-    propensity_func : propensity function
-        Must accept an array of feature vectors and return an array of
-        probabilities.
-        If provided, the value for `propensity_model` (if any) will be ignored.
-
     """
 
-    def __init__(self, controls_model,
-                 treated_model,
-                 cate_controls_model=None,
-                 cate_treated_model=None,
-                 propensity_model=LogisticRegression(),
-                 propensity_func=None):
-        self.controls_model = clone(controls_model, safe=False)
-        self.treated_model = clone(treated_model, safe=False)
-        self.cate_controls_model = clone(cate_controls_model, safe=False)
-        self.cate_treated_model = clone(cate_treated_model, safe=False)
-
-        if self.cate_controls_model is None:
-            self.cate_controls_model = clone(self.controls_model, safe=False)
-        if self.cate_treated_model is None:
-            self.cate_treated_model = clone(self.treated_model, safe=False)
-
-        self.propensity_func = clone(propensity_func, safe=False)
+    def __init__(self, models,
+                 cate_models=None,
+                 propensity_model=LogisticRegression()):
+        self.models = clone(models, safe=False)
+        self.cate_models = clone(cate_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
-        self.has_propensity_func = self.propensity_func is not None
+        self._label_encoder = LabelEncoder()
         super().__init__()
 
     @BaseCateEstimator._wrap_fit
@@ -265,20 +263,34 @@ class XLearner(BaseCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        if not np.array_equal(np.unique(T), [0, 1]):
-            raise ValueError("The treatments array (T) can only contain 0 and 1.")
+        T = self._label_encoder.fit_transform(T)
+        self.unique_T = self._label_encoder.classes_
+        n_T = len(self.unique_T)
+        self.models = check_models(self.models, n_T)
+        if self.cate_models is None:
+            self.cate_models = self.models
+        else:
+            self.cate_models = check_models(self.cate_models, n_T)
+        self.propensity_models = []
+        self.cate_treated_models = []
+        self.cate_controls_models = []
 
-        self.controls_model.fit(X[T == 0], Y[T == 0])
-        self.treated_model.fit(X[T == 1], Y[T == 1])
-        imputed_effect_on_controls = self.treated_model.predict(X[T == 0]) - Y[T == 0]
-        imputed_effect_on_treated = Y[T == 1] - self.controls_model.predict(X[T == 1])
-        self.cate_controls_model.fit(X[T == 0], imputed_effect_on_controls)
-        self.cate_treated_model.fit(X[T == 1], imputed_effect_on_treated)
-        if not self.has_propensity_func:
-            self.propensity_model.fit(X, T)
-            self.propensity_func = lambda X_score: self.propensity_model.predict_proba(X_score)[:, 1]
+        # Estimate response function
+        for ind in range(n_T):
+            self.models[ind].fit(X[T == ind], Y[T == ind])
+        for ind in range(1, n_T):
+            self.cate_treated_models.append(clone(self.cate_models[ind], safe=False))
+            self.cate_controls_models.append(clone(self.cate_models[0], safe=False))
+            self.propensity_models.append(clone(self.propensity_model, safe=False))
+            imputed_effect_on_controls = self.models[ind].predict(X[T == 0]) - Y[T == 0]
+            imputed_effect_on_treated = Y[T == ind] - self.models[0].predict(X[T == ind])
+            self.cate_controls_models[ind - 1].fit(X[T == 0], imputed_effect_on_controls)
+            self.cate_treated_models[ind - 1].fit(X[T == ind], imputed_effect_on_treated)
+            X_concat = np.concatenate((X[T == 0], X[T == ind]), axis=0)
+            T_concat = np.concatenate((T[T == 0], T[T == ind]), axis=0)
+            self.propensity_models[ind - 1].fit(X_concat, T_concat)
 
-    def effect(self, X):
+    def effect(self, X, T0, T1):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.
 
         Parameters
@@ -292,13 +304,12 @@ class XLearner(BaseCateEstimator):
             Matrix of heterogeneous treatment effects for each sample.
         """
         # Check inputs
-        X = check_array(X)
-        propensity_scores = self.propensity_func(X)
-        tau_hat = propensity_scores * self.cate_controls_model.predict(X) \
-            + (1 - propensity_scores) * self.cate_treated_model.predict(X)
+        if T0 == self.unique_T[0]:
+            return self.marginal_effect(X, T1)
+        tau_hat = self.marginal_effect(X, T1) - self.marginal_effect(X, T0)
         return tau_hat
 
-    def marginal_effect(self, X):
+    def marginal_effect(self, X, T1):
         """Calculate the heterogeneous marginal treatment effect.
 
         For binary treatments, it returns the same as `effect`.
@@ -313,7 +324,12 @@ class XLearner(BaseCateEstimator):
         τ_hat : array-like, shape (m, )
             Matrix of heterogeneous treatment effects for each sample.
         """
-        return self.effect(X)
+        X = check_array(X)
+        ind, = np.where(self.unique_T == T1)[0]
+        propensity_scores = self.propensity_models[ind - 1].predict_proba(X)[:, 1]
+        tau_hat = propensity_scores * self.cate_controls_models[ind - 1].predict(X) \
+            + (1 - propensity_scores) * self.cate_treated_models[ind - 1].predict(X)
+        return tau_hat
 
 
 class DomainAdaptationLearner(BaseCateEstimator):
@@ -338,24 +354,15 @@ class DomainAdaptationLearner(BaseCateEstimator):
         be able to accept X and T, where T is a shape (n, 1) array.
         Ignored when `propensity_func` is provided.
 
-    propensity_func : propensity function
-        Must accept an array of feature vectors and return an array of probabilities.
-        If provided, the value for `propensity_model` (if any) will be ignored.
-
     """
 
-    def __init__(self, controls_model,
-                 treated_model,
-                 overall_model,
-                 propensity_model=LogisticRegression(),
-                 propensity_func=None):
-        self.controls_model = clone(controls_model, safe=False)
-        self.treated_model = clone(treated_model, safe=False)
-        self.overall_model = clone(overall_model, safe=False)
-
+    def __init__(self, models,
+                 final_models,
+                 propensity_model=LogisticRegression()):
+        self.models = clone(models, safe=False)
+        self.final_models = clone(final_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
-        self.propensity_func = clone(propensity_func, safe=False)
-        self.has_propensity_func = self.propensity_func is not None
+        self._label_encoder = LabelEncoder()
         super().__init__()
 
     @BaseCateEstimator._wrap_fit
@@ -384,29 +391,39 @@ class DomainAdaptationLearner(BaseCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        if not np.array_equal(np.unique(T), [0, 1]):
-            raise ValueError("The treatments array (T) can only contain 0 and 1.")
+        T = self._label_encoder.fit_transform(T)
+        self.unique_T = self._label_encoder.classes_
+        n_T = len(self.unique_T)
+        self.models = check_models(self.models, n_T)
+        self.final_models = check_models(self.final_models, n_T - 1)
+        self.propensity_models = []
+        self.models_control = []
+        self.models_treated = []
+        for ind in range(1, n_T):
+            self.models_control.append(clone(self.models[0], safe=False))
+            self.models_treated.append(clone(self.models[ind], safe=False))
+            self.propensity_models.append(clone(self.propensity_model, safe=False))
 
-        if not self.has_propensity_func:
-            self.propensity_model.fit(X, T)
-            self.propensity_func = lambda X_score: self.propensity_model.predict_proba(X_score)[:, 1]
-        propensity_scores = self.propensity_func(X)
-        # Train model on controls. Assign higher weight to units resembling
-        # treated units.
-        self._fit_weighted_pipeline(self.controls_model, X[T == 0], Y[T == 0],
-                                    sample_weight=propensity_scores[T == 0] / (1 - propensity_scores[T == 0]))
-        # Train model on the treated. Assign higher weight to units resembling
-        # control units.
-        self._fit_weighted_pipeline(self.treated_model, X[T == 1], Y[T == 1],
-                                    sample_weight=(1 - propensity_scores[T == 1]) / propensity_scores[T == 1])
-        imputed_effect_on_controls = self.treated_model.predict(X[T == 0]) - Y[T == 0]
-        imputed_effect_on_treated = Y[T == 1] - self.controls_model.predict(X[T == 1])
+            X_concat = np.concatenate((X[T == 0], X[T == ind]), axis=0)
+            T_concat = np.concatenate((T[T == 0], T[T == ind]), axis=0)
+            self.propensity_models[ind - 1].fit(X_concat, T_concat)
+            propensity_scores = self.propensity_models[ind - 1].predict_proba(X_concat)[:, 1]
 
-        X_concat = np.concatenate((X[T == 0], X[T == 1]), axis=0)
-        imputed_effects_concat = np.concatenate((imputed_effect_on_controls, imputed_effect_on_treated), axis=0)
-        self.overall_model.fit(X_concat, imputed_effects_concat)
+            # Train model on controls. Assign higher weight to units resembling
+            # treated units.
+            self._fit_weighted_pipeline(self.models_control[ind - 1], X[T == 0], Y[T == 0],
+                                        sample_weight=propensity_scores[T_concat == 0] / (1 - propensity_scores[T_concat == 0]))
+            # Train model on the treated. Assign higher weight to units resembling
+            # control units.
+            self._fit_weighted_pipeline(self.models_treated[ind - 1], X[T == ind], Y[T == ind],
+                                        sample_weight=(1 - propensity_scores[T_concat == ind]) / propensity_scores[T_concat == ind])
+            imputed_effect_on_controls = self.models_treated[ind - 1].predict(X[T == 0]) - Y[T == 0]
+            imputed_effect_on_treated = Y[T == ind] - self.models_control[ind - 1].predict(X[T == ind])
 
-    def effect(self, X):
+            imputed_effects_concat = np.concatenate((imputed_effect_on_controls, imputed_effect_on_treated), axis=0)
+            self.final_models[ind - 1].fit(X_concat, imputed_effects_concat)
+
+    def effect(self, X, T0, T1):
         """Calculate the heterogeneous treatment effect on a vector of features for each sample.
 
         Parameters
@@ -419,12 +436,13 @@ class DomainAdaptationLearner(BaseCateEstimator):
         τ_hat : array-like, shape (m, )
             Matrix of heterogeneous treatment effects for each sample.
         """
-        # Check inputs
-        X = check_array(X)
-        tau_hat = self.overall_model.predict(X)
+        if T0 == self.unique_T[0]:
+            return self.marginal_effect(X, T1)
+
+        tau_hat = self.marginal_effect(X, T1) - self.marginal_effect(X, T0)
         return tau_hat
 
-    def marginal_effect(self, X):
+    def marginal_effect(self, X, T1):
         """Calculate the heterogeneous marginal treatment effect.
 
         For binary treatments, it returns the same as `effect`.
@@ -439,7 +457,10 @@ class DomainAdaptationLearner(BaseCateEstimator):
         τ_hat : array-like, shape (m, )
             Matrix of heterogeneous treatment effects for each sample.
         """
-        return self.effect(X)
+        X = check_array(X)
+        ind, = np.where(self.unique_T == T1)[0]
+        tau_hat = self.final_models[ind - 1].predict(X)
+        return tau_hat
 
     def _fit_weighted_pipeline(self, model_instance, X, y, sample_weight):
         if not isinstance(model_instance, Pipeline):
@@ -447,133 +468,3 @@ class DomainAdaptationLearner(BaseCateEstimator):
         else:
             last_step_name = model_instance.steps[-1][0]
             model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
-
-
-class DoublyRobustLearner(BaseCateEstimator):
-    """Meta-algorithm that uses doubly-robust correction techniques to account for
-       covariate shift (selection bias) between the treatment arms.
-
-    Parameters
-    ----------
-    outcome_model : outcome estimator for all data points
-        Will be trained on features, controls and treatments (concatenated).
-        If different models per treatment arm are desired, see the <econml.ortho_forest.MultiModelWrapper>
-        helper class. The model(s) must implement `fit` and `predict` methods.
-
-    pseudo_treatment_model : estimator for pseudo-treatment effects on the entire dataset
-        Must implement `fit` and `predict` methods.
-
-    propensity_model : estimator for the propensity function
-        Must implement `fit` and `predict_proba` methods. The `fit` method must
-        be able to accept X and T, where T is a shape (n, ) array.
-        Ignored when `propensity_func` is provided.
-
-    propensity_func : propensity function
-        Must accept an array of feature vectors and return an array of
-        probabilities.
-        If provided, the value for `propensity_model` (if any) will be ignored.
-
-    """
-
-    def __init__(self,
-                 outcome_model,
-                 pseudo_treatment_model,
-                 propensity_model=LogisticRegression(),
-                 propensity_func=None):
-        self.outcome_model = clone(outcome_model, safe=False)
-        self.pseudo_treatment_model = clone(pseudo_treatment_model, safe=False)
-
-        self.propensity_func = clone(propensity_func, safe=False)
-        self.propensity_model = clone(propensity_model, safe=False)
-        self.has_propensity_func = self.propensity_func is not None
-        super().__init__()
-
-    @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, W=None, inference=None):
-        """Build an instance of DoublyRobustLearner.
-
-        Parameters
-        ----------
-        Y : array-like, shape (n, ) or (n, d_y)
-            Outcome(s) for the treatment policy.
-
-        T : array-like, shape (n, ) or (n, 1)
-            Treatment policy. Only binary treatments are accepted as input.
-            T will be flattened if shape is (n, 1).
-
-        X : array-like, shape (n, d_x)
-            Feature vector that captures heterogeneity.
-
-        W : array-like, shape (n, d_w) or None (default=None)
-            Controls (possibly high-dimensional).
-
-        inference: string, `Inference` instance, or None
-            Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of `BootstrapInference`)
-
-        Returns
-        -------
-        self: an instance of self.
-        """
-        # Check inputs
-        Y, T, X, W = check_inputs(Y, T, X, W, multi_output_T=False)
-        Y = Y.flatten()
-        if not np.array_equal(np.unique(T), [0, 1]):
-            raise ValueError("The treatments array (T) can only contain 0 and 1.")
-        if W is not None:
-            XW = np.concatenate((X, W), axis=1)
-        else:
-            XW = X
-        n = X.shape[0]
-        # Fit outcome model on X||W||T (concatenated)
-        self.outcome_model.fit(
-            np.concatenate((XW, T.reshape(-1, 1)), axis=1),
-            Y)
-        if not self.has_propensity_func:
-            self.propensity_model.fit(XW, T)
-            self.propensity_func = lambda XW_score: self.propensity_model.predict_proba(XW_score)[:, 1]
-        Y0 = self.outcome_model.predict(
-            np.concatenate((XW, np.zeros((n, 1))), axis=1)
-        )
-        Y1 = self.outcome_model.predict(
-            np.concatenate((XW, np.ones((n, 1))), axis=1)
-        )
-        propensities = self.propensity_func(XW)
-        pseudo_te = Y1 - Y0
-        pseudo_te[T == 0] -= (Y - Y0)[T == 0] / (1 - propensities)[T == 0]
-        pseudo_te[T == 1] += (Y - Y1)[T == 1] / propensities[T == 1]
-        self.pseudo_treatment_model.fit(X, pseudo_te)
-
-    def effect(self, X):
-        """Calculate the heterogeneous treatment effect on a vector of features for each sample.
-
-        Parameters
-        ----------
-        X : matrix, shape (m × dₓ)
-            Matrix of features for each sample.
-
-        Returns
-        -------
-        τ_hat : array-like, shape (m, )
-            Matrix of heterogeneous treatment effects for each sample.
-        """
-        # Check inputs
-        X = check_array(X)
-        return self.pseudo_treatment_model.predict(X)
-
-    def marginal_effect(self, X):
-        """Calculate the heterogeneous marginal treatment effect.
-
-        For binary treatments, it returns the same as `effect`.
-
-        Parameters
-        ----------
-        X : matrix, shape (m × dₓ)
-            Matrix of features for each sample.
-
-        Returns
-        -------
-        τ_hat : array-like, shape (m, )
-            Matrix of heterogeneous treatment effects for each sample.
-        """
-        return self.effect(X)
