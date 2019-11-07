@@ -203,8 +203,8 @@ class _RLearner(_OrthoLearner):
                 Y_pred = self._model_y.predict(X, W)
                 T_pred = self._model_t.predict(X, W)
                 if (X is None) and (W is None):  # In this case predict above returns a single row
-                    Y_pred = np.tile(Y_pred, Y.shape[0])
-                    T_pred = np.tile(T_pred, T.shape[0])
+                    Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
+                    T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
                 Y_res = Y - Y_pred.reshape(Y.shape)
                 T_res = T - T_pred.reshape(T.shape)
                 return Y_res, T_res

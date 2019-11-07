@@ -120,6 +120,9 @@ class DMLCateEstimator(_RLearner):
                     # In this case, the Target is the one-hot-encoding of the treatment variable
                     # We need to go back to the label representation of the one-hot so as to call
                     # the classifier.
+                    if np.any(np.all(Target == 0, axis=0)) or (not np.any(np.all(Target == 0, axis=1))):
+                        raise AttributeError("Provided crossfit folds contain training splits that " +
+                                             "don't contain all treatments")
                     Target = np.matmul(Target, np.arange(1, Target.shape[1] + 1)).flatten()
 
                 if sample_weight is not None:

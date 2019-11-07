@@ -439,9 +439,8 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         _, T = self._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
-        return self.statsmodels[ind].coef_
-
-    @property
+        return self.statsmodels_fitted[ind].coef_
+ 
     def intercept_(self, T):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
@@ -457,7 +456,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         _, T = self._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
-        return self.statsmodels[ind].intercept_
+        return self.statsmodels_fitted[ind].intercept_
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, T, *, alpha=0.1):

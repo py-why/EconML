@@ -272,9 +272,13 @@ class DRLearner(_OrthoLearner):
                 assert np.ndim(Y) == 1, "Can only accept single dimensional outcomes Y! Use Y.ravel()."
                 if (X is None) and (W is None):
                     raise AttributeError("At least one of X or W has to not be None!")
+                if np.any(np.all(T == 0, axis=0)) or (not np.any(np.all(T == 0, axis=1))):
+                    raise AttributeError("Provided crossfit folds contain training splits that " +
+                                         "don't contain all treatments")
                 XW = self._combine(X, W)
                 filtered_kwargs = _filter_none_kwargs(sample_weight=sample_weight)
-                self._model_propensity.fit(XW, np.matmul(T, np.arange(1, T.shape[1] + 1)), **filtered_kwargs)
+                self._model_propensity.fit(XW, np.matmul(T, np.arange(1, T.shape[1] + 1)).astype(int),
+                                           **filtered_kwargs)
                 self._model_regression.fit(np.hstack([XW, T]), Y, **filtered_kwargs)
                 return self
 
@@ -551,10 +555,11 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
                  model_regression=WeightedLassoCV(cv=3),
                  featurizer=None,
+                 fit_cate_intercept=True,
                  n_splits=2, random_state=None):
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
-                         model_final=StatsModelsLinearRegression(),
+                         model_final=StatsModelsLinearRegression(fit_intercept=fit_cate_intercept),
                          featurizer=featurizer,
                          multitask_model_final=False,
                          n_splits=n_splits,

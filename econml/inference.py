@@ -181,20 +181,25 @@ class StatsModelsInferenceDiscrete(Inference):
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
 
-    def effect_interval(self, X, *, T0, T1, alpha=0.1):
-        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
-        if np.any(T0 > 0):
-            raise AttributeError("Can only calculate intervals of effects with respect to baseline treatment!")
-        if (X is not None) and (self.featurizer is not None):
-            X = self.featurizer.transform(X)
-        ind = (T1 @ np.arange(1, T1.shape[1] + 1)).astype(int)[0] - 1
-        return self._est.statsmodels_fitted[ind].predict_interval(X, alpha=alpha)
-
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.fit_transform(X)
         preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self._est.statsmodels_fitted])
         return tuple([preds[:, 0, :].T, preds[:, 1, :].T])
+
+    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        if np.any(np.any(T0 > 0, axis=1)):
+            raise AttributeError("Can only calculate intervals of effects with respect to baseline treatment!")
+        if (X is not None) and (self.featurizer is not None):
+            X = self.featurizer.transform(X)
+        ind = (T1 @ np.arange(1, T1.shape[1] + 1)).astype(int)
+        lower, upper = self.const_marginal_effect_interval(X, alpha=alpha)
+        lower = np.hstack([np.zeros((lower.shape[0], 1)), lower])
+        upper = np.hstack([np.zeros((upper.shape[0], 1)), upper])
+        if X is None:  # Then statsmodels will return a single row
+            lower, upper = np.tile(lower, (T0.shape[0], 1)), np.tile(upper, (T0.shape[0], 1))
+        return lower[np.arange(T0.shape[0]), ind], upper[np.arange(T0.shape[0]), ind]
 
     def coef__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
