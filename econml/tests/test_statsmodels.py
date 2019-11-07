@@ -526,13 +526,13 @@ class TestStatsModels(unittest.TestCase):
                                          cov_type=cov_type).fit(X, y),
                                      OLS(fit_intercept=fit_intercept,
                                          cov_type=cov_type).fit(X_final, y_sum,
-                                                                              sample_weight=n_sum, sample_var=var_sum),
+                                                                sample_weight=n_sum, sample_var=var_sum),
                                      X_test, alpha=alpha)
                     _compare_classes(StatsModelsOLS(fit_intercept=fit_intercept,
                                                     fit_args={'cov_type': cov_type, 'use_t': False}).fit(X, y),
                                      OLS(fit_intercept=fit_intercept,
                                          cov_type=cov_type).fit(X_final, y_sum,
-                                                                              sample_weight=n_sum, sample_var=var_sum),
+                                                                sample_weight=n_sum, sample_var=var_sum),
                                      X_test, alpha=alpha)
 
         # multi-d y
@@ -558,9 +558,10 @@ class TestStatsModels(unittest.TestCase):
                     for fit_intercept in [True, False]:
                         for alpha in [.01, .05, .2]:
                             _compare_classes(OLS(fit_intercept=fit_intercept, cov_type=cov_type).fit(X, y),
-                                             OLS(fit_intercept=fit_intercept, cov_type=cov_type).fit(X_final, y_sum,
-                                                                                      sample_weight=n_sum,
-                                                                                      sample_var=var_sum),
+                                             OLS(fit_intercept=fit_intercept,
+                                                 cov_type=cov_type).fit(X_final, y_sum,
+                                                                        sample_weight=n_sum,
+                                                                        sample_var=var_sum),
                                              X_test, alpha=alpha)
 
     def test_dml_sum_vs_original(self):
