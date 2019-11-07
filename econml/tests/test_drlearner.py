@@ -359,7 +359,7 @@ class TestDRLearner(unittest.TestCase):
                                        (LogisticRegression(solver='lbfgs', multi_class='auto'),
                                         LinearRegression())]:
                             for inference in ['statsmodels', StatsModelsInferenceDiscrete(cov_type='nonrobust')]:
-                                print(X, W, sample_weight, sample_var, featurizer, models)
+                                print(X, W, sample_weight, sample_var, featurizer, models, inference)
                                 est = LinearDRLearner(model_propensity=models[0],
                                                     model_regression=models[1],
                                                     featurizer=featurizer)
