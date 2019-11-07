@@ -485,14 +485,14 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             folds = splitter.split(np.ones((T.shape[0], 1)), T)
 
         if self._discrete_treatment:
-            T = self._label_encoder.fit_transform(T)
+            T = self._label_encoder.fit_transform(T.ravel())
             # drop first column since all columns sum to one
             T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))[:, 1:]
             self._d_t = shape(T)[1:]
             self.transformer = FunctionTransformer(
                 func=(lambda T:
                       self._one_hot_encoder.transform(
-                          reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]),
+                          reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
                 validate=False)
 
         nuisances, fitted_models, fitted_inds = _crossfit(self._model_nuisance, folds,

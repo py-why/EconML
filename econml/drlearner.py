@@ -100,13 +100,17 @@ class DRLearner(_OrthoLearner):
 
     model_final :
         estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
-        on (features X). If featurizer is not None and X is not None, then it is trained on the outcome of
-        featurizer.fit_transform(X). If multitask_model_final is True, then this model must support multitasking
-        and it is trained by regressing all doubly robust target outcomes on (featurized) features simultanteously.
-        The output of the predict(X) of the trained model will contain the CATEs for each treatment compared to
-        baseline treatment (lexicographically smallest). If multitask_model_final is False, it is assumed to be a
-        mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
-        clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
+        on (features X).
+
+        - If X is None, then the fit method of model_final should be able to handle X=None.
+        - If featurizer is not None and X is not None, then it is trained on the outcome of
+          featurizer.fit_transform(X).
+        - If multitask_model_final is True, then this model must support multitasking
+          and it is trained by regressing all doubly robust target outcomes on (featurized) features simultanteously.
+        - The output of the predict(X) of the trained model will contain the CATEs for each treatment compared to
+          baseline treatment (lexicographically smallest). If multitask_model_final is False, it is assumed to be a
+          mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
+          clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
 
     multitask_model_final : optional bool (default=False)
         Whether the model_final should be treated as a multi-task model. See description of model_final.
@@ -278,7 +282,7 @@ class DRLearner(_OrthoLearner):
                                          "don't contain all treatments")
                 XW = self._combine(X, W)
                 filtered_kwargs = _filter_none_kwargs(sample_weight=sample_weight)
-                self._model_propensity.fit(XW, np.matmul(T, np.arange(1, T.shape[1] + 1)).astype(int),
+                self._model_propensity.fit(XW, np.matmul(T, np.arange(1, T.shape[1] + 1)).ravel().astype(int),
                                            **filtered_kwargs)
                 self._model_regression.fit(np.hstack([XW, T]), Y, **filtered_kwargs)
                 return self

@@ -316,7 +316,9 @@ class LinearCateEstimator(BaseCateEstimator):
         return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        X, T = self._expand_treatments(X, T)
         effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
+        print(effs)
         return tuple(np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
                      for eff in effs)
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
@@ -392,19 +394,19 @@ class StatsModelsCateEstimatorMixin(BaseCateEstimator):
         pass
 
     @property
-    def coef(self):
+    def coef_(self):
         return self.statsmodels.coef_
 
     @property
-    def intercept(self):
+    def intercept_(self):
         return self.statsmodels.intercept_
 
     @BaseCateEstimator._defer_to_inference
-    def coef_interval(self, *, alpha=0.1):
+    def coef__interval(self, *, alpha=0.1):
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def intercept_interval(self, *, alpha=0.1):
+    def intercept__interval(self, *, alpha=0.1):
         pass
 
 
@@ -421,7 +423,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
     def statsmodels(self):
         pass
 
-    def coef(self, T):
+    def coef_(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -432,7 +434,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        coef_: (n_x,) or (n_y, n_x) array like
+        coef: (n_x,) or (n_y, n_x) array like
             Where n_x is the number of features that enter the final model (either the
             dimension of X or the dimension of featurizer.fit_transform(X) if the CATE
             estimator has a featurizer.)
@@ -441,7 +443,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
         return self.statsmodels_fitted[ind].coef_
 
-    def intercept(self, T):
+    def intercept_(self, T):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -452,14 +454,14 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        intercept_: float or (n_y,) array like
+        intercept: float or (n_y,) array like
         """
         _, T = self._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
         return self.statsmodels_fitted[ind].intercept_
 
     @BaseCateEstimator._defer_to_inference
-    def coef_interval(self, T, *, alpha=0.1):
+    def coef__interval(self, T, *, alpha=0.1):
         """ The confidence interval for the coefficients in the linear model of the
         constant marginal treatment effect associated with treatment T.
 
@@ -473,13 +475,13 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        lower, upper: tuple(type of coef(T), type of coef(T))
+        lower, upper: tuple(type of :attr:`coef_(T)`, type of :attr:`coef_(T)`)
             The lower and upper bounds of the confidence interval for each quantity.
         """
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def intercept_interval(self, T, *, alpha=0.1):
+    def intercept__interval(self, T, *, alpha=0.1):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -493,7 +495,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        lower, upper: tuple(type of intercept(T), type of intercept(T))
+        lower, upper: tuple(type of :attr:`intercept_(T)`, type of :attr:`intercept_(T)`)
             The lower and upper bounds of the confidence interval.
         """
         pass
