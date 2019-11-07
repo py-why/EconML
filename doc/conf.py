@@ -45,7 +45,10 @@ extensions = [
 ]
 napoleon_use_param = False
 autosummary_generate = True
-autodoc_default_options = {'show-inheritance': True}
+autodoc_default_options = {'members': None,
+                           'show-inheritance': None,
+                           'inherited-members': None,
+                           'member-order': 'groupwise'}
 
 mathjax_config = {
     'TeX': {
@@ -200,10 +203,23 @@ epub_exclude_files = ['search.html']
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+                       'numpy': ('https://docs.scipy.org/doc/numpy/', None),
                        'sklearn': ('http://scikit-learn.org/stable', None)}
 
 # -- Options for todo extension ----------------------------------------------
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
+
+
+def exclude_entity(app, what, name, obj, skip, opts):
+    # we can document otherwise excluded entities here by returning False
+    # or skip otherwise included entities by returning True
+    if name in ["_RLearner", "_OrthoLearner", "_crossfit"]:
+        return False
+    return None
+
+
+def setup(app):
+    app.connect('autodoc-skip-member', exclude_entity)
+    ()
