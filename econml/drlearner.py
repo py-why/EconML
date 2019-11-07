@@ -449,7 +449,8 @@ class DRLearner(_OrthoLearner):
 
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
-    """Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
+    """
+    Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
     is a Linear Regression on a low dimensional set of features. In this case, inference
     can be performed via the asymptotic normal characterization of the estimated parameters.
     This is computationally faster than bootstrap inference. Set :code:`inference='statsmodels'`
@@ -458,21 +459,23 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     More concretely, this estimator assumes that the final cate model for each treatment takes a linear form:
 
     .. math ::
-        \theta_t(X_i) = \left\langle \theta_t, \phi(X) \right\rangle + \beta_t
+        \\theta_t(X) = \\left\\langle \\theta_t, \\phi(X) \\right\\rangle + \\beta_t
 
-    where :math:`\phi(X)` is the outcome features of the featurizers, or `X` if featurizer is None. :math:`\beta_t`
+    where :math:`\\phi(X)` is the outcome features of the featurizers, or `X` if featurizer is None. :math:`\\beta_t`
     is a an intercept of the CATE, which is included if :code:`fit_cate_intercept=True` (Default). It fits this by
     running a standard ordinary linear regression (OLS), regressing the doubly robust outcome differences on X:
 
     .. math ::
-        \min_{\theta_t, \beta_t}\
-        E_n\\left[\left(Y_{i, t}^{DR} - Y_{i, 0}^{DR}\
-            - \left\langle \theta_t, \phi(X) \right\rangle - \beta_t\right)^2\right]
+        \\min_{\\theta_t, \\beta_t}\
+        E_n\\left[\\left(Y_{i, t}^{DR} - Y_{i, 0}^{DR}\
+            - \\left\\langle \\theta_t, \\phi(X_i) \\right\\rangle - \\beta_t\\right)^2\\right]
 
     Then inference can be performed via standard approaches for inference of OLS, via asympotic normal approximations
-    of the estimated parameters.
+    of the estimated parameters. The default covariance estimator used is heteroskedasticity robust (HC1).
+    For other methods see :class:`~econml.inference.StatsModelsInferenceDiscrete`. Use can invoke them by setting:
+    :code:`inference=StatsModelsInferenceDiscrete(cov_type=...)`.
 
-    This approach is valid even if the CATE model is not linear in :math:`\phi(X)`. In this case it performs
+    This approach is valid even if the CATE model is not linear in :math:`\\phi(X)`. In this case it performs
     inference on the best linear approximation of the CATE model.
 
     Parameters
