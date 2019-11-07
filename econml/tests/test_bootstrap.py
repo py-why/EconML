@@ -198,7 +198,7 @@ class TestBootstrap(unittest.TestCase):
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
         # with the same shape for the lower and upper bounds
-        eff = est.effect(x, t, t2)
+        eff = est.effect(x, T0=t, T1=t2)
 
         lower, upper = est.effect_interval(x, T0=t, T1=t2)
         for bound in [lower, upper]:
