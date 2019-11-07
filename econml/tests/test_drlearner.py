@@ -259,7 +259,7 @@ class TestDRLearner(unittest.TestCase):
                                            (LogisticRegression(solver='lbfgs', multi_class='auto'),
                                             LinearRegression(), StatsModelsLinearRegression())]:
                                 for multitask_model_final in [False, True]:
-                                    if (not isinstance(models, StatsModelsLinearRegression))
+                                    if (not isinstance(models, StatsModelsLinearRegression))\
                                         and (sample_var is not None):
                                         continue
                                     print(X, W, sample_weight, sample_var, featurizer, models, multitask_model_final)

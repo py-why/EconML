@@ -244,7 +244,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, cross-validation generator or an iterable, optional
+    n_splits: int, cross-validation generator or an iterable
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
