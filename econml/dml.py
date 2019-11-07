@@ -71,7 +71,8 @@ class DMLCateEstimator(_RLearner):
         :class:`~sklearn.model_selection.KFold` is used
         (with a random shuffle in either case).
 
-        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
