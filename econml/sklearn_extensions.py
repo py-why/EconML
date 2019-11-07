@@ -170,9 +170,9 @@ class WeightedLasso(Lasso):
     ----------
     alpha : float, optional
         Constant that multiplies the L1 term. Defaults to 1.0.
-        ``alpha = 0`` is equivalent to an ordinary least square, solved
+        ``alpha = 0`` is equivalent to ordinary least squares, solved
         by the :class:`LinearRegression` object. For numerical
-        reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
+        reasons, using ``alpha = 0`` with Lasso is not advised.
         Given this, you should use the :class:`LinearRegression` object.
 
     fit_intercept : boolean, optional, default True
@@ -240,7 +240,7 @@ class WeightedLasso(Lasso):
                  precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False, positive=False,
                  random_state=None, selection='cyclic'):
-        super(WeightedLasso, self).__init__(
+        super().__init__(
             alpha=alpha, fit_intercept=fit_intercept,
             normalize=False, precompute=precompute, copy_X=copy_X,
             max_iter=max_iter, tol=tol, warm_start=warm_start,
@@ -334,7 +334,7 @@ class WeightedMultiTaskLasso(MultiTaskLasso):
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
                  copy_X=True, max_iter=1000, tol=1e-4, warm_start=False,
                  random_state=None, selection='cyclic'):
-        super(WeightedMultiTaskLasso, self).__init__(
+        super().__init__(
             alpha=alpha, fit_intercept=fit_intercept, normalize=False,
             copy_X=copy_X, max_iter=max_iter, tol=tol, warm_start=warm_start,
             random_state=random_state, selection=selection)
@@ -358,7 +358,7 @@ class WeightedMultiTaskLasso(MultiTaskLasso):
         return self
 
 
-class WeightedKFold(object):
+class WeightedKFold:
     """K-Folds cross-validator for weighted data.
 
     Provides train/test indices to split data in train/test sets.
@@ -392,7 +392,6 @@ class WeightedKFold(object):
         self.shuffle = shuffle
         self.n_trials = n_trials
         self.random_state = random_state
-        return
 
     def split(self, X, y, sample_weight=None):
         """Generate indices to split data into training and test set.
@@ -788,7 +787,7 @@ class DebiasedLasso(WeightedLasso):
                  precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False, positive=False,
                  random_state=None, selection='cyclic'):
-        super(DebiasedLasso, self).__init__(
+        super().__init__(
             alpha=alpha, fit_intercept=fit_intercept,
             precompute=precompute, copy_X=copy_X,
             max_iter=max_iter, tol=tol, warm_start=warm_start,
@@ -829,7 +828,7 @@ class DebiasedLasso(WeightedLasso):
         # Convert X, y into numpy arrays
         X, y = check_X_y(X, y, y_numeric=True, multi_output=False)
         # Fit weighted lasso with user input
-        super(DebiasedLasso, self).fit(X, y, sample_weight, check_input)
+        super().fit(X, y, sample_weight, check_input)
         # Center X, y
         X, y, X_offset, y_offset, X_scale = self._preprocess_data(
             X, y, fit_intercept=self.fit_intercept, normalize=False,
@@ -841,7 +840,7 @@ class DebiasedLasso(WeightedLasso):
         self._X_offset = X_offset
 
         # Calculate coefficient and error variance
-        num_nonzero_coefs = np.sum(self.coef_ != 0)
+        num_nonzero_coefs = np.count_nonzero(self.coef_)
         self._error_variance = np.average((y - y_pred)**2, weights=sample_weight) / \
             (1 - num_nonzero_coefs / X.shape[0])
         self._mean_error_variance = self._error_variance / X.shape[0]
@@ -857,7 +856,7 @@ class DebiasedLasso(WeightedLasso):
         self.coef_std_err_ = np.sqrt(np.diag(self._coef_variance))
         if self.fit_intercept:
             self.intercept_std_err_ = np.sqrt(
-                np.matmul(np.matmul(self._X_offset, self._coef_variance), self._X_offset) +
+                self._X_offset @ self._coef_variance @ self._X_offset +
                 self._mean_error_variance
             )
         else:
@@ -895,7 +894,8 @@ class DebiasedLasso(WeightedLasso):
         y_lower = np.empty(y_pred.shape)
         y_upper = np.empty(y_pred.shape)
         # Note that in the case of no intercept, X_offset is 0
-        X = X - self._X_offset
+        if self.fit_intercept:
+            X = X - self._X_offset
         # Calculate the variance of the predictions
         var_pred = np.sum(np.matmul(X, self._coef_variance) * X, axis=1)
         if self.fit_intercept:
@@ -956,10 +956,10 @@ class DebiasedLasso(WeightedLasso):
             tausq[i] = np.dot(y - local_wlasso.predict(X_reduced), y_weighted)
         # Compute C_hat
         C_hat = np.diag(np.ones(n_features))
-        C_hat[0][1:] = - coefs[0]
+        C_hat[0][1:] = -coefs[0]
         for i in range(1, n_features):
-            C_hat[i][:i] = - coefs[i][:i]
-            C_hat[i][i + 1:] = - coefs[i][i:]
+            C_hat[i][:i] = -coefs[i][:i]
+            C_hat[i][i + 1:] = -coefs[i][i:]
         # Compute theta_hat
         theta_hat = np.matmul(np.diag(1 / tausq), C_hat)
         return theta_hat
@@ -967,7 +967,7 @@ class DebiasedLasso(WeightedLasso):
     def _get_unscaled_coef_var(self, X, theta_hat, sample_weight):
         if sample_weight is not None:
             weights_mat = np.diag(sample_weight / np.sum(sample_weight))
-            sigma = np.matmul(X.T, np.matmul(weights_mat, X))
+            sigma = X.T @ weights_mat @ X
         else:
             sigma = np.matmul(X.T, X) / X.shape[0]
         _unscaled_coef_var = np.matmul(
