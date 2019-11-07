@@ -320,6 +320,7 @@ class LinearCateEstimator(BaseCateEstimator):
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
         X, T = self._expand_treatments(X, T)
         effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
+        print(effs)
         return tuple(np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
                      for eff in effs)
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
@@ -480,7 +481,7 @@ class DebiasedLassoCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
 class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     # TODO Share some logic with non-discrete version
 
-    def coef(self, T):
+    def coef_(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -500,7 +501,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         ind = (T @ np.arange(T.shape[1])).astype(int)[0]
         return self.fitted_models_final[ind].coef_
 
-    def intercept(self, T):
+    def intercept_(self, T):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -518,7 +519,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         return self.fitted_models_final[ind].intercept_
 
     @BaseCateEstimator._defer_to_inference
-    def coef_interval(self, T, *, alpha=0.1):
+    def coef__interval(self, T, *, alpha=0.1):
         """ The confidence interval for the coefficients in the linear model of the
         constant marginal treatment effect associated with treatment T.
 
@@ -538,7 +539,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def intercept_interval(self, T, *, alpha=0.1):
+    def intercept__interval(self, T, *, alpha=0.1):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
