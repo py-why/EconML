@@ -105,22 +105,22 @@ class TestBootstrap(unittest.TestCase):
             self.assertEqual(np.shape(est.coef_), np.shape(bound))
 
         # test that we can do the same thing with the results of a method, rather than an attribute
-        self.assertEqual(np.shape(est.effect(x, t, t2)), np.shape(bs.effect(x, t, t2)))
+        self.assertEqual(np.shape(est.effect(x, T0=t, T1=t2)), np.shape(bs.effect(x, T0=t, T1=t2)))
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
         # with the same shape for the lower and upper bounds
-        lower, upper = bs.effect_interval(x, t, t2)
+        lower, upper = bs.effect_interval(x, T0=t, T1=t2)
         for bound in [lower, upper]:
-            self.assertEqual(np.shape(est.effect(x, t, t2)), np.shape(bound))
+            self.assertEqual(np.shape(est.effect(x, T0=t, T1=t2)), np.shape(bound))
 
         # test that the lower and upper bounds differ
         assert (lower <= upper).all()
         assert (lower < upper).any()
 
         # test that we can do the same thing once we provide percentile bounds
-        lower, upper = bs.effect_interval(x, t, t2, lower=10, upper=90)
+        lower, upper = bs.effect_interval(x, T0=t, T1=t2, lower=10, upper=90)
         for bound in [lower, upper]:
-            self.assertEqual(np.shape(est.effect(x, t, t2)), np.shape(bound))
+            self.assertEqual(np.shape(est.effect(x, T0=t, T1=t2)), np.shape(bound))
 
         # test that the lower and upper bounds differ
         assert (lower <= upper).all()
