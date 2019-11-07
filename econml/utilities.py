@@ -1457,11 +1457,11 @@ class StatsModelsLinearRegression:
     fit_intercept : bool (optional, default=True)
         Whether to fit an intercept in this model
     fit_args : dict (optional, default=`{}`)
-        The statsmodels-style fit arguments; keys can include 'cov_type', 'cov_kwds', and 'use_t'.
+        The statsmodels-style fit arguments; keys can include 'cov_type'
     """
 
-    def __init__(self, fit_intercept=True, fit_args={}):
-        self.fit_args = fit_args
+    def __init__(self, fit_intercept=True, cov_type=None):
+        self._cov_type = cov_type
         self._fit_intercept = fit_intercept
         return
 
@@ -1558,13 +1558,13 @@ class StatsModelsLinearRegression:
         else:
             correction = (n_obs / (n_obs - df))
 
-        if ('cov_type' not in self.fit_args) or (self.fit_args['cov_type'] == 'nonrobust'):
+        if (self._cov_type is None) or (self._cov_type == 'nonrobust'):
             if y.ndim < 2:
                 self._var = correction * np.average(var_i, weights=sample_weight) * sigma_inv
             else:
                 vars = correction * np.average(var_i, weights=sample_weight, axis=0)
                 self._var = [v * sigma_inv for v in vars]
-        elif (self.fit_args['cov_type'] == 'HC0'):
+        elif (self._cov_type == 'HC0'):
             if y.ndim < 2:
                 weighted_sigma = np.matmul(WX.T, WX * var_i.reshape(-1, 1))
                 self._var = np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv))
@@ -1573,7 +1573,7 @@ class StatsModelsLinearRegression:
                 for j in range(self._n_out):
                     weighted_sigma = np.matmul(WX.T, WX * var_i[:, [j]])
                     self._var.append(np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
-        elif (self.fit_args['cov_type'] == 'HC1'):
+        elif (self._cov_type == 'HC1'):
             if y.ndim < 2:
                 weighted_sigma = np.matmul(WX.T, WX * var_i.reshape(-1, 1))
                 self._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv))
@@ -1582,6 +1582,8 @@ class StatsModelsLinearRegression:
                 for j in range(self._n_out):
                     weighted_sigma = np.matmul(WX.T, WX * var_i[:, [j]])
                     self._var.append(correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
+        else:
+            raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
         return self
 
     def predict(self, X):

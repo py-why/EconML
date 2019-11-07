@@ -74,31 +74,22 @@ class StatsModelsInference(Inference):
     ----------
     cov_type : string, optional (default 'HC1')
         The type of covariance estimation method to use.  Supported values are 'nonrobust',
-        'fixed scale', 'HC0', 'HC1', 'HC2', and 'HC3'.  See the statsmodels documentation for
-        further information.
+        'HC0', 'HC1'.
 
-    cov_kwds : optional additional keywords supported by the chosen method
-        Of the supported types, only 'fixed scale' has any keywords:
-        the optional keyword 'scale' which defaults to 1 if not specified.  See the statsmodels
-        documentation for further information.
     """
 
-    def __init__(self, cov_type='HC1', use_t=False, **cov_kwds):
-        if cov_kwds and cov_type != 'fixed scale':
-            raise ValueError("Keyword arguments are only supported by the 'fixed scale' cov_type")
-        if cov_type not in ['nonrobust', 'fixed scale', 'HC0', 'HC1', 'HC2', 'HC3']:
+    def __init__(self, cov_type='HC1'):
+        if cov_type not in ['nonrobust', 'HC0', 'HC1']:
             raise ValueError("Unsupported cov_type; "
                              "must be one of 'nonrobust', "
-                             "'fixed scale', 'HC0', 'HC1', 'HC2', or 'HC3'")
+                             "'HC0', 'HC1'")
 
         self.cov_type = cov_type
-        self.use_t = use_t
-        self.cov_kwds = cov_kwds
 
     def prefit(self, estimator, *args, **kwargs):
         self.statsmodels = estimator.statsmodels
         # need to set the fit args before the estimator is fit
-        self.statsmodels.fit_args = {'cov_type': self.cov_type, 'use_t': self.use_t, 'cov_kwds': self.cov_kwds}
+        self.statsmodels.cov_type = self.cov_type
         self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
 
     def fit(self, estimator, *args, **kwargs):
@@ -137,41 +128,33 @@ class StatsModelsInferenceDiscrete(Inference):
     """
     Stores statsmodels covariance options.
 
-    This class can be used for inference by the LinearDMLCateEstimator.
+    This class can be used for inference by the LinearDRLearner.
 
     Any estimator that supports this method of inference must implement a `statsmodels`
-    property that returns a `StatsModelsLinearRegression` instance and a `featurizer` property that returns an
+    property that returns a `StatsModelsLinearRegression` instance, a `statsmodels_fitted` property
+    which is a list of the fitted `StatsModelsLinearRegression` instances, fitted by the estimator for each
+    discrete treatment target and a `featurizer` property that returns an
     preprocessing featurizer for the X variable.
 
     Parameters
     ----------
     cov_type : string, optional (default 'HC1')
         The type of covariance estimation method to use.  Supported values are 'nonrobust',
-        'fixed scale', 'HC0', 'HC1', 'HC2', and 'HC3'.  See the statsmodels documentation for
-        further information.
-
-    cov_kwds : optional additional keywords supported by the chosen method
-        Of the supported types, only 'fixed scale' has any keywords:
-        the optional keyword 'scale' which defaults to 1 if not specified.  See the statsmodels
-        documentation for further information.
+        'HC0', 'HC1'.
     """
 
-    def __init__(self, cov_type='HC1', use_t=False, **cov_kwds):
-        if cov_kwds and cov_type != 'fixed scale':
-            raise ValueError("Keyword arguments are only supported by the 'fixed scale' cov_type")
-        if cov_type not in ['nonrobust', 'fixed scale', 'HC0', 'HC1', 'HC2', 'HC3']:
+    def __init__(self, cov_type='HC1'):
+        if cov_type not in ['nonrobust', 'HC0', 'HC1']:
             raise ValueError("Unsupported cov_type; "
                              "must be one of 'nonrobust', "
-                             "'fixed scale', 'HC0', 'HC1', 'HC2', or 'HC3'")
+                             "'HC0', 'HC1'")
 
         self.cov_type = cov_type
-        self.use_t = use_t
-        self.cov_kwds = cov_kwds
 
     def prefit(self, estimator, *args, **kwargs):
         self.statsmodels = estimator.statsmodels
         # need to set the fit args before the estimator is fit
-        self.statsmodels.fit_args = {'cov_type': self.cov_type, 'use_t': self.use_t, 'cov_kwds': self.cov_kwds}
+        self.statsmodels.cov_type = self.cov_type
         self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
 
     def fit(self, estimator, *args, **kwargs):

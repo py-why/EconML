@@ -455,6 +455,26 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     This is computationally faster than bootstrap inference. Set :code:`inference='statsmodels'`
     at fit time, to enable inference via asymptotic normality.
 
+    More concretely, this estimator assumes that the final cate model for each treatment takes a linear form:
+
+    .. math ::
+        \theta_t(X_i) = \left\langle \theta_t, \phi(X) \right\rangle + \beta_t
+
+    where :math:`\phi(X)` is the outcome features of the featurizers, or `X` if featurizer is None. :math:`\beta_t`
+    is a an intercept of the CATE, which is included if :code:`fit_cate_intercept=True` (Default). It fits this by
+    running a standard ordinary linear regression (OLS), regressing the doubly robust outcome differences on X:
+
+    .. math ::
+        \min_{\theta_t, \beta_t}\
+        E_n\\left[\left(Y_{i, t}^{DR} - Y_{i, 0}^{DR}\
+            - \left\langle \theta_t, \phi(X) \right\rangle - \beta_t\right)^2\right]
+
+    Then inference can be performed via standard approaches for inference of OLS, via asympotic normal approximations
+    of the estimated parameters.
+
+    This approach is valid even if the CATE model is not linear in :math:`\phi(X)`. In this case it performs
+    inference on the best linear approximation of the CATE model.
+
     Parameters
     ----------
     model_propensity : scikit-learn classifier
@@ -569,6 +589,36 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          multitask_model_final=False,
                          n_splits=n_splits,
                          random_state=random_state)
+
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
+        """
+        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+
+        Parameters
+        ----------
+        Y: (n,) vector of length n
+            Outcomes for each sample
+        T: (n,) vector of length n
+            Treatments for each sample
+        X: optional(n, d_x) matrix or None (Default=None)
+            Features for each sample
+        W: optional(n, d_w) matrix or None (Default=None)
+            Controls for each sample
+        sample_weight: optional(n,) vector or None (Default=None)
+            Weights for each samples
+        sample_var: optional(n,) vector or None (Default=None)
+            Sample variance for each sample
+        inference: string, `Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of `BootstrapInference`) and 'statsmodels'
+            (or an instance of `StatsModelsInferenceDiscrete`).
+
+        Returns
+        -------
+        self: DRLearner instance
+        """
+        # Replacing fit from DRLearner, to add statsmodels inference in docstring
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
 
     @property
     def statsmodels(self):
