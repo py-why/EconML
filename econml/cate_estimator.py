@@ -480,7 +480,7 @@ class DebiasedLassoCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
 class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     # TODO Share some logic with non-discrete version
 
-    def coef_(self, T):
+    def coef(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -500,7 +500,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         ind = (T @ np.arange(T.shape[1])).astype(int)[0]
         return self.fitted_models_final[ind].coef_
 
-    def intercept_(self, T):
+    def intercept(self, T):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -518,7 +518,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         return self.fitted_models_final[ind].intercept_
 
     @BaseCateEstimator._defer_to_inference
-    def coef__interval(self, T, *, alpha=0.1):
+    def coef_interval(self, T, *, alpha=0.1):
         """ The confidence interval for the coefficients in the linear model of the
         constant marginal treatment effect associated with treatment T.
 
@@ -538,7 +538,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def intercept__interval(self, T, *, alpha=0.1):
+    def intercept_interval(self, T, *, alpha=0.1):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 

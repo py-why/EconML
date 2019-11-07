@@ -151,7 +151,7 @@ class TestDRLearner(unittest.TestCase):
                               fit_cate_intercept=False,
                               featurizer=FunctionTransformer(validate=True))
         dml.fit(np.array([1, 2, 1, 2]), np.array([1, 2, 1, 2]), X=np.ones((4, 1)))
-        self.assertAlmostEqual(dml.coef_(T=2).reshape(())[()], 1)
+        self.assertAlmostEqual(dml.coef(T=2).reshape(())[()], 1)
 
     def test_can_use_sample_weights(self):
         """
@@ -163,7 +163,7 @@ class TestDRLearner(unittest.TestCase):
                               featurizer=FunctionTransformer(validate=True))
         dml.fit(np.array([1, 2, 1, 2]), np.array([1, 2, 1, 2]), W=np.ones((4, 1)),
                 sample_weight=np.ones((4, )))
-        self.assertAlmostEqual(dml.intercept_(T=2), 1)
+        self.assertAlmostEqual(dml.intercept(T=2), 1)
 
     def test_discrete_treatments(self):
         """
@@ -237,8 +237,8 @@ class TestDRLearner(unittest.TestCase):
         assert (point <= hi).all()
         assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
 
-        interval = dml.coef__interval(T=2, alpha=0.05)
-        point = dml.coef_(T=2)
+        interval = dml.coef_interval(T=2, alpha=0.05)
+        point = dml.coef(T=2)
         assert len(interval) == 2
         lo, hi = interval
         assert lo.shape == hi.shape == point.shape

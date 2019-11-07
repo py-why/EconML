@@ -171,12 +171,12 @@ class LinearModelFinalInferenceDiscrete(Inference):
             lower, upper = np.tile(lower, (T0.shape[0], 1)), np.tile(upper, (T0.shape[0], 1))
         return lower[np.arange(T0.shape[0]), ind], upper[np.arange(T0.shape[0]), ind]
 
-    def coef__interval(self, T, *, alpha=0.1):
+    def coef_interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
         return self.fitted_models_final[ind].coef__interval(alpha)
 
-    def intercept__interval(self, T, *, alpha=0.1):
+    def intercept_interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
         return self.fitted_models_final[ind].intercept__interval(alpha)
