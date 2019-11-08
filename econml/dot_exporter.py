@@ -11,48 +11,6 @@ import warnings
 import seaborn as sns
 
 
-def _color_brew(n):
-    """Generate n colors with equally spaced hues.
-
-    Parameters
-    ----------
-    n : int
-        The number of colors required.
-
-    Returns
-    -------
-    color_list : list, length n
-        List of n tuples of form (R, G, B) being the components of each color.
-    """
-    color_list = []
-
-    # Initialize saturation & value; calculate chroma & value shift
-    s, v = 0.75, 0.9
-    c = s * v
-    m = v - c
-
-    sns.color_palette()
-
-    for h in np.arange(25, 385, 360. / n).astype(int):
-        # Calculate some intermediate values
-        h_bar = h / 60.
-        x = c * (1 - abs((h_bar % 2) - 1))
-        # Initialize RGB with same hue & chroma as our color
-        rgb = [(c, x, 0),
-               (x, c, 0),
-               (0, c, x),
-               (0, x, c),
-               (x, 0, c),
-               (c, 0, x),
-               (c, x, 0)]
-        r, g, b = rgb[int(h_bar)]
-        # Shift the initial RGB values to match value and store
-        rgb = [(int(255 * (r + m))),
-               (int(255 * (g + m))),
-               (int(255 * (b + m)))]
-        color_list.append(rgb)
-
-    return color_list
 
 class _BaseExporter(metaclass=abc.ABCMeta):
 
@@ -128,8 +86,8 @@ class _BaseExporter(metaclass=abc.ABCMeta):
         # Find the appropriate color & intensity for a node
         if self.colors['bounds'] is None:
             # Classification tree
-            colors = np.array([sns.color_palette("ch:1,-.01,dark=.7", n_colors=100),
-                               sns.color_palette("ch:2.5,-.2,dark=.5", n_colors=100)])
+            colors = np.array([sns.cubehelix_palette(100, start=1, rot=0, dark=.5, light=1),
+                               sns.cubehelix_palette(100, start=2, rot=0, dark=.5, light=1)])
             color = colors[np.argmax(value)]
             sorted_values = sorted(value, reverse=True)
             if len(sorted_values) == 1:
@@ -143,16 +101,16 @@ class _BaseExporter(metaclass=abc.ABCMeta):
             # Regression tree or multi-output
             if value > 0:
                 v_grid = np.linspace(max(self.colors['bounds'][0], 0), self.colors['bounds'][1], 100)
-                rgb_color = np.round(np.array(sns.color_palette("ch:2.5,-.2,dark=.5",
-                                                                n_colors=100))[np.searchsorted(v_grid, value)] * 255)
+                rgb_color = np.round(np.array(sns.cubehelix_palette(100, start=2,
+                                                                    rot=0, dark=.5, light=1))[np.searchsorted(v_grid, value)] * 255)
                 return '#{:02x}{:02x}{:02x}'.format(*rgb_color.astype(int))
             else:
                 v_grid = np.linspace(self.colors['bounds'][0], min(self.colors['bounds'][1], 0), 100)
-                rgb_color = np.round(np.array(sns.color_palette("ch:1,-.01,dark=.7",
-                                                                n_colors=100))[-(1 + np.searchsorted(v_grid,
-                                                                                                     value))] * 255)
+                rgb_color = np.round(np.array(sns.cubehelix_palette(100, start=1,
+                                                                    rot=0, dark=.5, light=1,
+                                                                    reverse=True))[np.searchsorted(v_grid, value)] * 255)
                 return '#{:02x}{:02x}{:02x}'.format(*rgb_color.astype(int))
-    
+
     @abc.abstractmethod
     def get_fill_color(self, tree, node_id):
         pass
@@ -160,25 +118,25 @@ class _BaseExporter(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def node_to_str(self, tree, node_id, criterion):
         pass
-    
+
     @abc.abstractmethod
     def export(self, decision_tree):
         pass
 
 class _DOTExporterMixin(_BaseExporter):
 
-    def recurse(self, tree, node_id, criterion, parent=None, depth=0):
+    def recurse(self, tree, node_id, criterion, parent = None, depth = 0):
         if node_id == _tree.TREE_LEAF:
             raise ValueError("Invalid node_id %s" % _tree.TREE_LEAF)
 
-        left_child = tree.children_left[node_id]
-        right_child = tree.children_right[node_id]
+        left_child=tree.children_left[node_id]
+        right_child=tree.children_right[node_id]
 
         # Collect ranks for 'leaf' option in plot_options
         if left_child == _tree.TREE_LEAF:
             self.ranks['leaves'].append(str(node_id))
         elif str(depth) not in self.ranks:
-            self.ranks[str(depth)] = [str(node_id)]
+            self.ranks[str(depth)]=[str(node_id)]
         else:
             self.ranks[str(depth)].append(str(node_id))
 
@@ -195,7 +153,7 @@ class _DOTExporterMixin(_BaseExporter):
             self.out_file.write('%d -> %d' % (parent, node_id))
             if parent == 0:
                 # Draw True/False labels if parent is root node
-                angles = np.array([45, -45]) * ((self.rotate - .5) * -2)
+                angles=np.array([45, -45]) * ((self.rotate - .5) * -2)
                 self.out_file.write(' [labeldistance=2.5, labelangle=')
                 if node_id == 1:
                     self.out_file.write('%d, headlabel="True"]' % angles[0])
@@ -204,11 +162,11 @@ class _DOTExporterMixin(_BaseExporter):
             self.out_file.write(' ;\n')
 
         if left_child != _tree.TREE_LEAF:
-            self.recurse(tree, left_child, criterion=criterion, parent=node_id,
-                    depth=depth + 1)
-            self.recurse(tree, right_child, criterion=criterion, parent=node_id,
-                    depth=depth + 1)
-    
+            self.recurse(tree, left_child, criterion = criterion, parent = node_id,
+                    depth = depth + 1)
+            self.recurse(tree, right_child, criterion = criterion, parent = node_id,
+                    depth = depth + 1)
+
     def export(self, decision_tree):
         # Check length of feature_names before getting into the tree node
         # Raise error if length of feature_names does not match
@@ -219,12 +177,12 @@ class _DOTExporterMixin(_BaseExporter):
                                 "does not match number of features, %d"
                                 % (len(self.feature_names),
                                     decision_tree.n_features_))
-        
+
         self.out_file.write('digraph Tree {\n')
 
         # Specify node aesthetics
         self.out_file.write('node [shape=box')
-        rounded_filled = []
+        rounded_filled=[]
         if self.filled:
             rounded_filled.append('filled')
         if self.rounded:
@@ -448,7 +406,6 @@ class _CATETreeExporterMixin(_BaseExporter):
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
             # Initialize colors and bounds if required
-            self.colors['rgb'] = _color_brew(tree.n_classes[0] + 1)
             # Find max and min values in leaf nodes for regression
             if tree.value.ndim > 1: # in multi-target use first target
                 self.colors['bounds'] = (np.min([v[0, 0] for v in tree.value]),
@@ -639,11 +596,8 @@ class _PolicyTreeExporterMixin(_BaseExporter):
         self.treatment_names = treatment_names
     
     def get_fill_color(self, tree, node_id):
-        # Fetch appropriate color for node
-        if 'rgb' not in self.colors:
-            # Initialize colors and bounds if required
-            self.colors['rgb'] = _color_brew(tree.n_classes[0])
-        return self.get_color(tree.value[node_id])
+        node_value = tree.value[node_id][0, :]/tree.weighted_n_node_samples[node_id]
+        return self.get_color(node_value)
 
     def node_to_str(self, tree, node_id, criterion):
         # Generate the node content string
