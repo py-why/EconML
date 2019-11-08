@@ -92,7 +92,8 @@ class TLearner(BaseCateEstimator):
         # Check treatment
         if T0 not in self.unique_T or T1 not in self.unique_T:
             raise ValueError(
-                "T0 and T1 must be scalers in T you passed in at fitting time, please pass in values from {}".format(self.unique_T))
+                "T0 and T1 must be scalers in T you passed in at fitting time, "
+                "please pass in values from {}".format(self.unique_T))
         ind1, = np.where(self.unique_T == T1)[0]
         ind0, = np.where(self.unique_T == T0)[0]
         tau_hat = self.models[ind1].predict(X) - self.models[ind0].predict(X)
@@ -407,16 +408,16 @@ class DomainAdaptationLearner(BaseCateEstimator):
             X_concat = np.concatenate((X[T == 0], X[T == ind]), axis=0)
             T_concat = np.concatenate((T[T == 0], T[T == ind]), axis=0)
             self.propensity_models[ind - 1].fit(X_concat, T_concat)
-            propensity_scores = self.propensity_models[ind - 1].predict_proba(X_concat)[:, 1]
+            pro_scores = self.propensity_models[ind - 1].predict_proba(X_concat)[:, 1]
 
             # Train model on controls. Assign higher weight to units resembling
             # treated units.
             self._fit_weighted_pipeline(self.models_control[ind - 1], X[T == 0], Y[T == 0],
-                                        sample_weight=propensity_scores[T_concat == 0] / (1 - propensity_scores[T_concat == 0]))
+                                        sample_weight=pro_scores[T_concat == 0] / (1 - pro_scores[T_concat == 0]))
             # Train model on the treated. Assign higher weight to units resembling
             # control units.
             self._fit_weighted_pipeline(self.models_treated[ind - 1], X[T == ind], Y[T == ind],
-                                        sample_weight=(1 - propensity_scores[T_concat == ind]) / propensity_scores[T_concat == ind])
+                                        sample_weight=(1 - pro_scores[T_concat == ind]) / pro_scores[T_concat == ind])
             imputed_effect_on_controls = self.models_treated[ind - 1].predict(X[T == 0]) - Y[T == 0]
             imputed_effect_on_treated = Y[T == ind] - self.models_control[ind - 1].predict(X[T == ind])
 

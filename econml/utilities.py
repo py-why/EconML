@@ -441,7 +441,8 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
 def check_models(models, n):
     if isinstance(models, (tuple, list)):
         if n != len(models):
-            raise ValueError("The number of estimators doesn't equal to the number of treatments. please provide either a tuple of estimators "
+            raise ValueError("The number of estimators doesn't equal to the number of treatments. "
+                             "Please provide either a tuple of estimators "
                              "with same number of treatments or an unified estimator.")
     elif hasattr(models, 'fit'):
         models = [clone(models, safe=False) for i in range(n)]
