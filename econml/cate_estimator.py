@@ -441,7 +441,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
             estimator has a featurizer.)
         """
         _, T = self._expand_treatments(None, T)
-        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        ind = (T @ np.arange(T.shape[1])).astype(int)[0]
         return self.statsmodels_fitted[ind].coef_
 
     def intercept_(self, T):
