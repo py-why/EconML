@@ -2,7 +2,7 @@ import abc
 import numpy as np
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.utils.validation import check_is_fitted
-from sklearn.externals import six
+import six
 from .dot_exporter import _CATETreeDOTExporter, _CATETreeMPLExporter, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
 
 
