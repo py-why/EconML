@@ -8,6 +8,7 @@ from sklearn.tree import _criterion
 from sklearn.tree import _tree
 from sklearn.tree._reingold_tilford import buchheim, Tree
 import warnings
+import seaborn as sns
 
 
 def _color_brew(n):
@@ -29,6 +30,8 @@ def _color_brew(n):
     s, v = 0.75, 0.9
     c = s * v
     m = v - c
+
+    sns.color_palette()
 
     for h in np.arange(25, 385, 360. / n).astype(int):
         # Calculate some intermediate values
@@ -125,28 +128,30 @@ class _BaseExporter(metaclass=abc.ABCMeta):
         # Find the appropriate color & intensity for a node
         if self.colors['bounds'] is None:
             # Classification tree
-            color = list(self.colors['rgb'][np.argmax(value)])
+            colors = np.array([sns.color_palette("ch:1,-.01,dark=.7", n_colors=100),
+                               sns.color_palette("ch:2.5,-.2,dark=.5", n_colors=100)])
+            color = colors[np.argmax(value)]
             sorted_values = sorted(value, reverse=True)
             if len(sorted_values) == 1:
                 alpha = 0
             else:
-                alpha = int(np.round(255 * (sorted_values[0] -
-                                            sorted_values[1]) /
-                                        (1 - sorted_values[1]), 0))
+                alpha = (sorted_values[0] - sorted_values[1]) / (1 - sorted_values[1])
+            v_grid = np.linspace(0, 1, 100)
+            rgb_color = np.round(color[np.searchsorted(v_grid, alpha)] * 255)
+            return '#{:02x}{:02x}{:02x}'.format(*rgb_color.astype(int))
         else:
             # Regression tree or multi-output
-            color = list(self.colors['rgb'][0])
-            div = self.colors['bounds'][1] - self.colors['bounds'][0]
-            div = div if (div != 0) else 1
-            alpha = int(np.round(255 * ((value - self.colors['bounds'][0]) / div), 0))
-
-        # Return html color code in #RRGGBBAA format
-        color.append(alpha)
-        hex_codes = [str(i) for i in range(10)]
-        hex_codes.extend(['a', 'b', 'c', 'd', 'e', 'f'])
-        color = [hex_codes[c // 16] + hex_codes[c % 16] for c in color]
-
-        return '#' + ''.join(color)
+            if value > 0:
+                v_grid = np.linspace(max(self.colors['bounds'][0], 0), self.colors['bounds'][1], 100)
+                rgb_color = np.round(np.array(sns.color_palette("ch:2.5,-.2,dark=.5",
+                                                                n_colors=100))[np.searchsorted(v_grid, value)] * 255)
+                return '#{:02x}{:02x}{:02x}'.format(*rgb_color.astype(int))
+            else:
+                v_grid = np.linspace(self.colors['bounds'][0], min(self.colors['bounds'][1], 0), 100)
+                rgb_color = np.round(np.array(sns.color_palette("ch:1,-.01,dark=.7",
+                                                                n_colors=100))[-(1 + np.searchsorted(v_grid,
+                                                                                                     value))] * 255)
+                return '#{:02x}{:02x}{:02x}'.format(*rgb_color.astype(int))
     
     @abc.abstractmethod
     def get_fill_color(self, tree, node_id):
@@ -443,9 +448,9 @@ class _CATETreeExporterMixin(_BaseExporter):
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
             # Initialize colors and bounds if required
-            self.colors['rgb'] = _color_brew(tree.n_classes[0])
+            self.colors['rgb'] = _color_brew(tree.n_classes[0] + 1)
             # Find max and min values in leaf nodes for regression
-            if tree.value.ndim>1: # in multi-target use first target
+            if tree.value.ndim > 1: # in multi-target use first target
                 self.colors['bounds'] = (np.min([v[0, 0] for v in tree.value]),
                                     np.max([v[0, 0] for v in tree.value]))
             else:
@@ -507,7 +512,7 @@ class _CATETreeExporterMixin(_BaseExporter):
 
         # Write confidence interval information if at leaf node
         if (tree.children_left[node_id] == _tree.TREE_LEAF) and self.include_uncertainty:
-            ci_text = "Mean Endpoints of {}\% CI: ({}, {})".format(int((1-self.uncertainty_level)*100),
+            ci_text = "Mean Endpoints of {}% CI: ({}, {})".format(int((1-self.uncertainty_level)*100),
                                                         np.around(value[1, 0], self.precision),
                                                         np.around(value[2, 0], self.precision))
             node_string += ci_text + self.characters[4]
@@ -638,11 +643,7 @@ class _PolicyTreeExporterMixin(_BaseExporter):
         if 'rgb' not in self.colors:
             # Initialize colors and bounds if required
             self.colors['rgb'] = _color_brew(tree.n_classes[0])
-            self.colors['bounds'] = (np.min([v[0, 1]/(v[0, 0] + v[0, 1]) for v in tree.value]),
-                                        np.max([v[0, 1]/(v[0, 0] + v[0, 1]) for v in tree.value]))
-        node_val = (tree.value[node_id][0, 1] /
-                    tree.weighted_n_node_samples[node_id])
-        return self.get_color(node_val)
+        return self.get_color(tree.value[node_id])
 
     def node_to_str(self, tree, node_id, criterion):
         # Generate the node content string

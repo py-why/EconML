@@ -150,8 +150,8 @@ class SingleTreeCateInterpreter:
         return self
 
     def export_graphviz(self, out_file=None, feature_names=None,
-                        filled=True, leaves_parallel=False,
-                        rotate=False, rounded=False, special_characters=False, precision=3):
+                        filled=True, leaves_parallel=True,
+                        rotate=False, rounded=True, special_characters=False, precision=3):
         """
         Parameters
         ----------
@@ -217,8 +217,8 @@ class SingleTreeCateInterpreter:
                 out_file.close()
 
     def render(self, out_file, format='pdf', view=True, feature_names=None,
-               filled=True, leaves_parallel=False,
-               rotate=False, rounded=False, special_characters=False, precision=3):
+               filled=True, leaves_parallel=True,
+               rotate=False, rounded=True, special_characters=False, precision=3):
         import graphviz
         graphviz.Source(self.export_graphviz(feature_names=feature_names, filled=filled, rotate=rotate,
                                              leaves_parallel=leaves_parallel, rounded=rounded,
@@ -227,7 +227,7 @@ class SingleTreeCateInterpreter:
 
     def plot(self, ax=None, title=None, feature_names=None,
              filled=True,
-             rounded=False, precision=3, fontsize=None):
+             rounded=True, precision=3, fontsize=None):
         exporter = _CATETreeMPLExporter(self.include_uncertainty, self.uncertainty_level,
                                         title=title, feature_names=feature_names, filled=filled,
                                         rounded=rounded,
@@ -355,14 +355,22 @@ class SingleTreePolicyInterpreter:
 
         assert (y_pred.ndim == 1) or (y_pred.shape[1] == 1), "Only binary treatment interpretation available!"
 
+        if np.all(y_pred > 0):
+            raise AttributeError("All samples should be treated with the given treatment costs. " +
+                                 "Consider increasing the cost!")
+
+        if np.all(y_pred < 0):
+            raise AttributeError("All samples should not be treated with the given treatment costs. " +
+                                 "Consider decreasing the cost!")
+
         self.tree_model.fit(X, np.sign(y_pred).flatten(), sample_weight=np.abs(y_pred))
         self.policy_value = np.mean(y_pred * (self.tree_model.predict(X) == 1))
         self.always_treat_value = np.mean(y_pred)
         return self
 
     def export_graphviz(self, out_file=None, treatment_names=None, feature_names=None,
-                        filled=True, leaves_parallel=False,
-                        rotate=False, rounded=False, special_characters=False, precision=3):
+                        filled=True, leaves_parallel=True,
+                        rotate=False, rounded=True, special_characters=False, precision=3):
         """
         Parameters
         ----------
@@ -431,8 +439,8 @@ class SingleTreePolicyInterpreter:
                 out_file.close()
 
     def render(self, out_file, format='pdf', view=True, feature_names=None, treatment_names=None,
-               filled=True, leaves_parallel=False,
-               rotate=False, rounded=False, special_characters=False, precision=3):
+               filled=True, leaves_parallel=True,
+               rotate=False, rounded=True, special_characters=False, precision=3):
         import graphviz
         graphviz.Source(self.export_graphviz(treatment_names=treatment_names, feature_names=feature_names, filled=filled, rotate=rotate,
                                              leaves_parallel=leaves_parallel, rounded=rounded,
@@ -441,7 +449,7 @@ class SingleTreePolicyInterpreter:
 
     def plot(self, ax=None, title=None, treatment_names=None, feature_names=None,
              filled=True,
-             rounded=False, precision=3, fontsize=None):
+             rounded=True, precision=3, fontsize=None):
         title = "" if title is None else title
         title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
         title += "Average policy gains over always treating: {}".format(
