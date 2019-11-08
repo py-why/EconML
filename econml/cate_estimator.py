@@ -191,7 +191,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        lower, upper : tuple(type of effect(X, T0, T1), type of effect(X, T0, T1))
+        lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>`
             The lower and the upper bounds of the confidence interval for each quantity.
         """
         pass
@@ -214,7 +214,8 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        lower, upper : tuple(type of marginal_effect(T, X), type of marginal_effect(T, X))
+        lower, upper : tuple(type of :meth:`marginal_effect(T, X)<marginal_effect>`,
+                             type of :meth:`marginal_effect(T, X)<marginal_effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
         pass
