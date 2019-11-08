@@ -146,7 +146,10 @@ class TestDRLearner(unittest.TestCase):
                             self.assertEqual(shape(eff), effect_shape2)
 
     def test_can_use_vectors(self):
-        """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
+        """
+        TODO Almost identical to DML test, so consider merging
+        Test that we can pass vectors for T and Y (not only 2-dimensional arrays).
+        """
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
                               fit_cate_intercept=False,
@@ -155,7 +158,10 @@ class TestDRLearner(unittest.TestCase):
         self.assertAlmostEqual(dml.coef_(T=2).reshape(())[()], 1)
 
     def test_can_use_sample_weights(self):
-        """Test that we can pass sample weights to an estimator."""
+        """
+        TODO Almost identical to DML test, so consider merging
+        Test that we can pass sample weights to an estimator.
+        """
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
                               featurizer=FunctionTransformer(validate=True))
@@ -164,7 +170,10 @@ class TestDRLearner(unittest.TestCase):
         self.assertAlmostEqual(dml.intercept_(T=2), 1)
 
     def test_discrete_treatments(self):
-        """Test that we can use discrete treatments"""
+        """
+        TODO Almost identical to DML test, so consider merging
+        Test that we can use discrete treatments
+        """
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
                               featurizer=FunctionTransformer(validate=True))
@@ -183,6 +192,9 @@ class TestDRLearner(unittest.TestCase):
         dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
     def test_can_custom_splitter(self):
+        """
+        TODO Almost identical to DML test, so consider merging
+        """
         # test that we can fit with a KFold instance
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
@@ -198,7 +210,10 @@ class TestDRLearner(unittest.TestCase):
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
     def test_can_use_statsmodel_inference(self):
-        """Test that we can use statsmodels to generate confidence intervals"""
+        """
+        TODO Almost identical to DML test, so consider merging
+        Test that we can use statsmodels to generate confidence intervals
+        """
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'))
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
