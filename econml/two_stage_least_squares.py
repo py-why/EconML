@@ -148,9 +148,9 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
             Controls for each sample
         Z: optional(n × d_z) matrix
             Instruments for each sample
-        inference: string, `Inference` instance, or None
+        inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of `BootstrapInference`)
+            (or an instance of :class:`.BootstrapInference`)
 
         Returns
         -------
