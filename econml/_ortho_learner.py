@@ -416,18 +416,18 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def _check_fitted_dims(self, X):
         if X is None:
-            assert self._d_x is None, "X was not None when fitting, so can't be none for effect"
+            assert self._d_x is None, "X was not None when fitting, so can't be none for score or effect"
         else:
             assert self._d_x == X.shape[1:], "Dimension mis-match of X with fitted X"
 
     def _check_fitted_dims_w_z(self, W, Z):
         if W is None:
-            assert self._d_w is None, "W was not None when fitting, so can't be none for effect"
+            assert self._d_w is None, "W was not None when fitting, so can't be none for score"
         else:
             assert self._d_w == W.shape[1:], "Dimension mis-match of W with fitted W"
 
         if Z is None:
-            assert self._d_z is None, "Z was not None when fitting, so can't be none for effect"
+            assert self._d_z is None, "Z was not None when fitting, so can't be none for score"
         else:
             assert self._d_z == Z.shape[1:], "Dimension mis-match of Z with fitted Z"
 
