@@ -476,7 +476,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        lower, upper: tuple(type of :attr:`coef_(T)`, type of :attr:`coef_(T)`)
+        lower, upper: tuple(type of :meth:`coef_(T)<coef_>`, type of :meth:`coef_(T)<coef_`)
             The lower and upper bounds of the confidence interval for each quantity.
         """
         pass
@@ -496,7 +496,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        lower, upper: tuple(type of :attr:`intercept_(T)`, type of :attr:`intercept_(T)`)
+        lower, upper: tuple(type of :meth:`intercept_(T)<intercept_>`, type of :meth:`intercept_(T)<intercept_>`)
             The lower and upper bounds of the confidence interval.
         """
         pass
