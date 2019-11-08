@@ -1475,23 +1475,23 @@ class StatsModelsLinearRegression:
         if sample_var is None:
             if np.any(np.not_equal(sample_weight, 1)):
                 warnings.warn(
-                    "No variance information was given for samples with sample_weight not equal to 1, " +
+                    "No variance information was given for samples with sample_weight not equal to 1, "
                     "that represent summaries of multiple original samples. Inference will be invalid!")
             sample_var = np.zeros(y.shape)
 
         if sample_var.ndim < 2:
             if np.any(np.equal(sample_weight, 1) & np.not_equal(sample_var, 0)):
                 warnings.warn(
-                    "Variance was set to non-zero for an observation with sample_weight=1! " +
-                    "sample_var represents the variance of the original observations that are " +
-                    "summarized in this sample. Hence, cannot have a non-zero variance if only " +
+                    "Variance was set to non-zero for an observation with sample_weight=1! "
+                    "sample_var represents the variance of the original observations that are "
+                    "summarized in this sample. Hence, cannot have a non-zero variance if only "
                     "one observations was summarized. Inference will be invalid!")
         else:
             if np.any(np.equal(sample_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
                 warnings.warn(
-                    "Variance was set to non-zero for an observation with sample_weight=1! " +
-                    "sample_var represents the variance of the original observations that are " +
-                    "summarized in this sample. Hence, cannot have a non-zero variance if only " +
+                    "Variance was set to non-zero for an observation with sample_weight=1! "
+                    "sample_var represents the variance of the original observations that are "
+                    "summarized in this sample. Hence, cannot have a non-zero variance if only "
                     "one observations was summarized. Inference will be invalid!")
 
         if X is None:
