@@ -412,6 +412,7 @@ class StatsModelsCateEstimatorMixin(BaseCateEstimator):
 
 
 class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
+    # TODO Create parent StatsModelsCateEstimatorMixin class so that some functionalities can be shared
 
     def _get_inference_options(self):
         # add statsmodels to parent's options

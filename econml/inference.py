@@ -76,6 +76,7 @@ class StatsModelsInference(Inference):
         The type of covariance estimation method to use.  Supported values are 'nonrobust',
         'HC0', 'HC1'.
 
+    TODO Create parent StatsModelsInference class so that some functionalities can be shared
     """
 
     def __init__(self, cov_type='HC1'):
@@ -141,6 +142,8 @@ class StatsModelsInferenceDiscrete(Inference):
     cov_type : string, optional (default 'HC1')
         The type of covariance estimation method to use.  Supported values are 'nonrobust',
         'HC0', 'HC1'.
+
+    TODO Create parent StatsModelsInference class so that some functionalities can be shared
     """
 
     def __init__(self, cov_type='HC1'):
