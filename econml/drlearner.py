@@ -577,6 +577,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
         If `sample_weight` is not None at fit time, then a weighted average across samples is returned.
 
+    TODO Allow for non-vector y, i.e. of shape (n, 1)
     """
 
     def __init__(self,

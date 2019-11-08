@@ -67,73 +67,73 @@ class TestDRLearner(unittest.TestCase):
 
         d_y = 0
         is_discrete = True
-        d_t = 1
-        for d_x in [2, None]:
-            for d_w in [2, None]:
-                W, X, Y, T = [make_random(is_discrete, d)
-                              for is_discrete, d in [(False, d_w),
-                                                     (False, d_x),
-                                                     (False, d_y),
-                                                     (is_discrete, d_t)]]
+        for d_t in [0, 1]:
+            for d_x in [2, None]:
+                for d_w in [2, None]:
+                    W, X, Y, T = [make_random(is_discrete, d)
+                                for is_discrete, d in [(False, d_w),
+                                                        (False, d_x),
+                                                        (False, d_y),
+                                                        (is_discrete, d_t)]]
 
-                if (X is None) and (W is None):
-                    continue
-                d_t_final = 2 if is_discrete else d_t
+                    if (X is None) and (W is None):
+                        continue
+                    d_t_final = 2 if is_discrete else d_t
 
-                effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
-                marginal_effect_shape = ((n,) +
-                                         ((d_y,) if d_y > 0 else ()) +
-                                         ((d_t_final,) if d_t_final > 0 else ()))
+                    effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
+                    marginal_effect_shape = ((n,) +
+                                            ((d_y,) if d_y > 0 else ()) +
+                                            ((d_t_final,) if d_t_final > 0 else ()))
 
-                # since T isn't passed to const_marginal_effect, defaults to one row if X is None
-                const_marginal_effect_shape = ((n if d_x else 1,) +
-                                               ((d_y,) if d_y > 0 else ()) +
-                                               ((d_t_final,) if d_t_final > 0 else()))
+                    # since T isn't passed to const_marginal_effect, defaults to one row if X is None
+                    const_marginal_effect_shape = ((n if d_x else 1,) +
+                                                ((d_y,) if d_y > 0 else ()) +
+                                                ((d_t_final,) if d_t_final > 0 else()))
 
-                # TODO: add stratification to bootstrap so that we can use it even with discrete treatments
-                infs = [None, 'statsmodels']
+                    # TODO: add stratification to bootstrap so that we can use it even with discrete treatments
+                    infs = [None, 'statsmodels']
 
-                est = LinearDRLearner(model_regression=Lasso(),
-                                      model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'))
+                    est = LinearDRLearner(model_regression=Lasso(),
+                                        model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'))
 
-                for inf in infs:
-                    with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
-                                      is_discrete=is_discrete, est=est, inf=inf):
-                        est.fit(Y, T, X, W, inference=inf)
-                        # make sure we can call the marginal_effect and effect methods
-                        const_marg_eff = est.const_marginal_effect(X)
-                        marg_eff = est.marginal_effect(T, X)
-                        self.assertEqual(shape(marg_eff), marginal_effect_shape)
-                        self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
+                    for inf in infs:
+                        with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
+                                        is_discrete=is_discrete, est=est, inf=inf):
+                            est.fit(Y, T, X, W, inference=inf)
+                            # make sure we can call the marginal_effect and effect methods
+                            const_marg_eff = est.const_marginal_effect(X)
+                            marg_eff = est.marginal_effect(T, X)
+                            self.assertEqual(shape(marg_eff), marginal_effect_shape)
+                            self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
 
-                        np.testing.assert_array_equal(
-                            marg_eff if d_x else marg_eff[0:1], const_marg_eff)
+                            np.testing.assert_array_equal(
+                                marg_eff if d_x else marg_eff[0:1], const_marg_eff)
 
-                        T0 = np.full_like(T, 'a')
-                        eff = est.effect(X, T0=T0, T1=T)
-                        self.assertEqual(shape(eff), effect_shape)
-                        if inf is not None:
-                            const_marg_eff_int = est.const_marginal_effect_interval(X)
-                            marg_eff_int = est.marginal_effect_interval(T, X)
-                            self.assertEqual(shape(marg_eff_int),
-                                             (2,) + marginal_effect_shape)
-                            self.assertEqual(shape(const_marg_eff_int),
-                                             (2,) + const_marginal_effect_shape)
-                            self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
-                                             (2,) + effect_shape)
+                            T0 = np.full_like(T, 'a')
+                            eff = est.effect(X, T0=T0, T1=T)
+                            self.assertEqual(shape(eff), effect_shape)
+                            if inf is not None:
+                                const_marg_eff_int = est.const_marginal_effect_interval(X)
+                                marg_eff_int = est.marginal_effect_interval(T, X)
+                                self.assertEqual(shape(marg_eff_int),
+                                                (2,) + marginal_effect_shape)
+                                self.assertEqual(shape(const_marg_eff_int),
+                                                (2,) + const_marginal_effect_shape)
+                                self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
+                                                (2,) + effect_shape)
 
-                        est.score(Y, T, X, W)
+                            est.score(Y, T, X, W)
 
-                        # make sure we can call effect with implied scalar treatments, no matter the
-                        # dimensions of T, and also that we warn when there are multiple treatments
-                        if d_t > 1:
-                            cm = self.assertWarns(Warning)
-                        else:
-                            cm = ExitStack()  # ExitStack can be used as a "do nothing" ContextManager
-                        with cm:
-                            effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
-                            eff = est.effect(X, T0='a', T1='b')
-                            self.assertEqual(shape(eff), effect_shape2)
+                            # make sure we can call effect with implied scalar treatments, no matter the
+                            # dimensions of T, and also that we warn when there are multiple treatments
+                            if d_t > 1:
+                                cm = self.assertWarns(Warning)
+                            else:
+                                cm = ExitStack()  # ExitStack can be used as a "do nothing" ContextManager
+                            with cm:
+                                effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
+                                eff = est.effect(X, T0='a', T1='b')
+                                self.assertEqual(shape(eff), effect_shape2)
 
     def test_can_use_vectors(self):
         """
