@@ -222,10 +222,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                    sample_weight=sample_weight, sample_var=sample_var)
 
         In fact we allow for the model method signatures to skip any of the keyword arguments
-        as long as the class is always called with the omitted keyword argument set to `None`.
+        as long as the class is always called with the omitted keyword argument set to ``None``.
         This can be enforced in child classes by re-implementing the fit and the various effect
-        methods. If `discrete_treatment=True`, then the input `T` to both above calls will be the
-        one-hot encoding of the original input `T`, excluding the first column of the one-hot.
+        methods. If ``discrete_treatment=True``, then the input ``T`` to both above calls will be the
+        one-hot encoding of the original input ``T``, excluding the first column of the one-hot.
 
     model_final: estimator for fitting the response residuals to the features and treatment residuals
         Must implement `fit` and `predict` methods that must have signatures::
@@ -236,10 +236,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         Predict, should just take the features X and return the constant marginal effect. In fact we allow for the
         model method signatures to skip any of the keyword arguments as long as the class is always called with the
-        omitted keyword argument set to `None`. Moreover, the predict function of the final model can take no argument
-        if the class is always called with `X=None`. This can be enforced in child classes by re-implementing the fit
-        and the various effect methods. If `discrete_treatment=True`, then the input `T` to both above calls will be
-        the one-hot encoding of the original input `T`, excluding the first column of the one-hot.
+        omitted keyword argument set to ``None``. Moreover, the predict function of the final model can take no
+        argument if the class is always called with ``X=None``. This can be enforced in child classes by
+        re-implementing the fit and the various effect methods. If ``discrete_treatment=True``, then the input ``T``
+        to both above calls will be the one-hot encoding of the original input ``T``, excluding the first column of
+        the one-hot.
 
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
@@ -265,7 +266,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-        by `np.random`.
+        by :mod:`np.random<numpy.random>`.
 
     Examples
     --------
@@ -462,9 +463,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Weights for each samples
         sample_var: optional (n,) vector or None (Default=None)
             Sample variance for each sample
-        inference: string, `Inference` instance, or None
+        inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of `BootstrapInference`).
+            (or an instance of :class:`.BootstrapInference`).
 
         Returns
         -------
@@ -550,7 +551,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Then calls the score function of the model_final and returns the calculated score.
         The model_final model must have a score method.
 
-        If model_final does not have a score method, then it raises an `AttributeError`
+        If model_final does not have a score method, then it raises an :exc:`.AttributeError`
 
         Parameters
         ----------

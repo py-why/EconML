@@ -10,7 +10,7 @@ import scipy.sparse as sp
 from itertools import product
 
 
-class SelectiveElasticNet(object):
+class SelectiveElasticNet:
     """
     Estimator that allows L1 and L2 penalties on a subset of the features of a linear model.
 
