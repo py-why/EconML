@@ -318,7 +318,6 @@ class LinearCateEstimator(BaseCateEstimator):
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
         X, T = self._expand_treatments(X, T)
         effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
-        print(effs)
         return tuple(np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
                      for eff in effs)
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
