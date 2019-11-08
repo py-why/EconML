@@ -18,16 +18,6 @@ from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
 from contextlib import ExitStack
 
 
-# all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
-# note that if Ax=b is overdetermined, this will raise an assertion error
-def rand_sol(A, b):
-    """Generate a random solution to the equation Ax=b."""
-    assert np.linalg.matrix_rank(A) <= len(b)
-    A_plus = np.linalg.pinv(A)
-    x = A_plus @ b
-    return x + (np.eye(x.shape[0]) - A_plus @ A) @ np.random.normal(size=x.shape)
-
-
 class TestDRLearner(unittest.TestCase):
 
     @classmethod
