@@ -647,7 +647,7 @@ class WeightedModelWrapper(object):
         if sample_type == "weighted":
             self.data_transform = self._weighted_inputs
         else:
-            warnings.warn("The model provided does not support sample weights. " +
+            warnings.warn("The model provided does not support sample weights. "
                           "Manual weighted sampling may icrease the variance in the results.", UserWarning)
             self.data_transform = self._sampled_inputs
 
@@ -780,7 +780,7 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
         kfold_model.random_state = None
 
     # If KFold fails after n_trials, we try the next best thing: stratifying by weight groups
-    warnings.warn("The KFold algorithm failed to find a weight-balanced partition after {n_trials} trials." +
+    warnings.warn("The KFold algorithm failed to find a weight-balanced partition after {n_trials} trials."
                   " Falling back on a weight stratification algorithm.".format(n_trials=self.n_trials), UserWarning)
     if is_stratified:
         stratified_weight_splits = [[]] * self.n_splits
