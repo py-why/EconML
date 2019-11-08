@@ -462,31 +462,6 @@ class TestDRLearner(unittest.TestCase):
         np.testing.assert_array_less(lower - 0.05, truth)
         np.testing.assert_array_less(truth, upper + 0.05)
 
-    @staticmethod
-    def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer(validate=True)):
-        """Return error vectors e_t and e_y such that OLS can recover the true coefficients from both stages."""
-        if W is None:
-            W = np.empty((shape(X)[0], 0))
-        if a_W is None:
-            a_W = np.zeros((shape(W)[1],))
-        # to correctly recover coefficients for T via OLS, we need e_t to be orthogonal to [W;X]
-        WX = hstack([W, X])
-        e_t = rand_sol(WX.T, np.zeros((shape(WX)[1],)))
-
-        # to correctly recover coefficients for Y via OLS, we need ([X; W]⊗[1; ϕ(X); W])⁺ e_y =
-        #                                                          -([X; W]⊗[1; ϕ(X); W])⁺ ((ϕ(X)⊗e_t)a_X+(W⊗e_t)a_W)
-        # then, to correctly recover a in the third stage, we additionally need (ϕ(X)⊗e_t)ᵀ e_y = 0
-
-        ϕ = featurizer.fit_transform(X)
-
-        v_X = cross_product(ϕ, e_t)
-        v_W = cross_product(W, e_t)
-
-        M = np.linalg.pinv(cross_product(WX, hstack([np.ones((shape(WX)[0], 1)), ϕ, W])))
-        e_y = rand_sol(vstack([M, v_X.T]), vstack([-M @ (v_X @ a_X + v_W @ a_W), np.zeros((shape(v_X)[1],))]))
-
-        return e_t, e_y
-
     def test_DRLearner(self):
         """Tests whether the DRLearner can accurately estimate constant and
            heterogeneous treatment effects.
