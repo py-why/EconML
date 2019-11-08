@@ -71,17 +71,17 @@ class DRLearner(_OrthoLearner):
 
     The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
     problem of predicting the label :math:`T` from :math:`X, W`. The :class:`~econml.drlearner.DRLearner`
-    class takes as input the parameter :code:`model_propensity`, which is an arbitrary scikit-learn
+    class takes as input the parameter ``model_propensity``, which is an arbitrary scikit-learn
     classifier, that is internally used to solve this classification problem.
 
     The second nuisance function :math:`h` is a simple regression problem and the :class:`~econml.drlearner.DRLearner`
-    class takes as input the parameter :code:`model_regressor`, which is an arbitrary scikit-learn regressor that
+    class takes as input the parameter `model_regressor``, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem.
 
     The final stage is multi-task regression problem with outcomes the labels :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}`
     for each non-baseline treatment t. The :class:`~econml.drlearner.DRLearner` takes as input parameter
-    :code:`model_final`, which is any scikit-learn regressor that is internally used to solve this multi-task
-    regresion problem. If the parameter :code:`multitask_model_final` is False, then this model is assumed
+    ``model_final``, which is any scikit-learn regressor that is internally used to solve this multi-task
+    regresion problem. If the parameter ``multitask_model_final`` is False, then this model is assumed
     to be a mono-task regressor, and separate clones of it are used to solve each regression target
     separately.
 
@@ -453,7 +453,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
     is a Linear Regression on a low dimensional set of features. In this case, inference
     can be performed via the asymptotic normal characterization of the estimated parameters.
-    This is computationally faster than bootstrap inference. Set :code:`inference='statsmodels'`
+    This is computationally faster than bootstrap inference. Set ``inference='statsmodels'``
     at fit time, to enable inference via asymptotic normality.
 
     More concretely, this estimator assumes that the final cate model for each treatment takes a linear form:
@@ -462,7 +462,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         \\theta_t(X) = \\left\\langle \\theta_t, \\phi(X) \\right\\rangle + \\beta_t
 
     where :math:`\\phi(X)` is the outcome features of the featurizers, or `X` if featurizer is None. :math:`\\beta_t`
-    is a an intercept of the CATE, which is included if :code:`fit_cate_intercept=True` (Default). It fits this by
+    is a an intercept of the CATE, which is included if ``fit_cate_intercept=True`` (Default). It fits this by
     running a standard ordinary linear regression (OLS), regressing the doubly robust outcome differences on X:
 
     .. math ::
@@ -473,7 +473,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     Then inference can be performed via standard approaches for inference of OLS, via asympotic normal approximations
     of the estimated parameters. The default covariance estimator used is heteroskedasticity robust (HC1).
     For other methods see :class:`~econml.inference.StatsModelsInferenceDiscrete`. Use can invoke them by setting:
-    :code:`inference=StatsModelsInferenceDiscrete(cov_type=...)`.
+    ``inference=StatsModelsInferenceDiscrete(cov_type=...)``.
 
     This approach is valid even if the CATE model is not linear in :math:`\\phi(X)`. In this case it performs
     inference on the best linear approximation of the CATE model.
