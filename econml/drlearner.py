@@ -29,7 +29,7 @@ Tsiatis AA (2006).
 
 import numpy as np
 from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
-from econml.utilities import WeightedLassoCV
+from econml.utilities import WeightedLassoCV, inverse_onehot
 from sklearn.base import clone
 from econml._ortho_learner import _OrthoLearner
 from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin
@@ -282,8 +282,7 @@ class DRLearner(_OrthoLearner):
                                          "don't contain all treatments")
                 XW = self._combine(X, W)
                 filtered_kwargs = _filter_none_kwargs(sample_weight=sample_weight)
-                self._model_propensity.fit(XW, np.matmul(T, np.arange(1, T.shape[1] + 1)).ravel().astype(int),
-                                           **filtered_kwargs)
+                self._model_propensity.fit(XW, inverse_onehot(T), **filtered_kwargs)
                 self._model_regression.fit(np.hstack([XW, T]), Y, **filtered_kwargs)
                 return self
 
@@ -308,14 +307,7 @@ class DRLearner(_OrthoLearner):
                 self._multitask_model_final = multitask_model_final
                 return
 
-            def _filter_none_kwargs(self, **kwargs):
-                out_kwargs = {}
-                for key, value in kwargs.items():
-                    if value is not None:
-                        out_kwargs[key] = value
-                return out_kwargs
-
-            def fit(self, Y, T, X=None, W=None, nuisances=None, *, sample_weight=None, sample_var=None):
+            def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
                 Y_pred, = nuisances
                 if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.fit_transform(X)
@@ -337,7 +329,7 @@ class DRLearner(_OrthoLearner):
                 else:
                     return np.array([mdl.predict(X) for mdl in self.models_cate]).T
 
-            def score(self, Y, T, X=None, W=None, nuisances=None, *, sample_weight=None, sample_var=None):
+            def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
                 if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.transform(X)
                 Y_pred, = nuisances

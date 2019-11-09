@@ -12,7 +12,7 @@ from the treatment residuals.
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
+from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
                         StatsModelsLinearRegression, LassoCVWrapper)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
@@ -124,7 +124,7 @@ class DMLCateEstimator(_RLearner):
                     if np.any(np.all(Target == 0, axis=0)) or (not np.any(np.all(Target == 0, axis=1))):
                         raise AttributeError("Provided crossfit folds contain training splits that " +
                                              "don't contain all treatments")
-                    Target = np.matmul(Target, np.arange(1, Target.shape[1] + 1)).flatten()
+                    Target = inverse_onehot(Target)
 
                 if sample_weight is not None:
                     self._model.fit(self._combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
@@ -214,8 +214,8 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.
 
-    featurizer: transformer, optional
-    (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
+    featurizer: transformer, optional (default is \
+        :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 

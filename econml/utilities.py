@@ -36,6 +36,12 @@ class IdentityFeatures(TransformerMixin):
         return X
 
 
+def inverse_onehot(X):
+    """Take a one-hot-encoding where zero label is mapped to all zeros and
+    transform it back to the label vector"""
+    return np.matmul(X, np.arange(1, X.shape[1] + 1)).ravel().astype(int)
+
+
 def issparse(X):
     """Determine whether an input is sparse.
 
