@@ -224,27 +224,6 @@ class DRLearner(_OrthoLearner):
 
     Attributes
     ----------
-    models_propensity: list of objects of type(model_propensity)
-        A list of instances of the model_propensity object. Each element corresponds to a crossfitting
-        fold and is the model instance that was fitted for that training fold.
-    models_regression: list of objects of type(model_regression)
-        A list of instances of the model_regression object. Each element corresponds to a crossfitting
-        fold and is the model instance that was fitted for that training fold.
-    model_cate(T=t) : object of type(model_final)
-        An instance of the model_final object that was fitted after calling fit which corresponds
-        to the CATE model for treatment T=t, compared to baseline. Available only when multitask_model_final=False.
-    multitask_model_cate : object of type(model_final)
-        An instance of the model_final object that was fitted after calling fit which corresponds whose
-        vector of outcomes correspond to the CATE model for each treatment, compared to baseline.
-        Available only when multitask_model_final=False.
-    featurizer : object of type(featurizer)
-        An instance of the fitted featurizer that was used to preprocess X in the final CATE model training.
-        Available only when featurizer is not None and X is not None.
-    cate_feature_names(input_feature_names=None) : list of feature names or None
-        A list of feature names that correspond to the input features in the final CATE model. If
-        input_feature_names is not None and featurizer is None, then the input_feature_names are returned.
-        If the featurizer is not None, then this attribute is available only when the featurizer has
-        a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
     score_ : float
         The MSE in the final doubly robust potential outcome regressions, i.e.
 
@@ -274,6 +253,7 @@ class DRLearner(_OrthoLearner):
                 return np.hstack([arr for arr in [X, W] if arr is not None])
 
             def fit(self, Y, T, X=None, W=None, *, sample_weight=None):
+                # TODO Allow for non-vector y, i.e. of shape (n, 1)
                 assert np.ndim(Y) == 1, "Can only accept single dimensional outcomes Y! Use Y.ravel()."
                 if (X is None) and (W is None):
                     raise AttributeError("At least one of X or W has to not be None!")
@@ -411,11 +391,35 @@ class DRLearner(_OrthoLearner):
 
     @property
     def multitask_model_cate(self):
+        """
+        Get the fitted final CATE model.
+
+        Returns
+        -------
+        multitask_model_cate: object of type(model_final)
+            An instance of the model_final object that was fitted after calling fit which corresponds whose
+            vector of outcomes correspond to the CATE model for each treatment, compared to baseline.
+            Available only when multitask_model_final=True.
+        """
         if not self._multitask_model_final:
             raise AttributeError("Separate CATE models were fitted for each treatment! Use model_cate.")
         return super().model_final.model_cate
 
     def model_cate(self, T=1):
+        """
+        Get the fitted final CATE model.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The treatment with respect to which we want the fitted CATE model.
+
+        Returns
+        -------
+        model_cate: object of type(model_final)
+            An instance of the model_final object that was fitted after calling fit which corresponds
+            to the CATE model for treatment T=t, compared to baseline. Available when multitask_model_final=False.
+        """
         if self._multitask_model_final:
             raise AttributeError("A single multitask model was fitted for all treatments! Use multitask_model_cate.")
         _, T = self._expand_treatments(None, T)
@@ -424,17 +428,60 @@ class DRLearner(_OrthoLearner):
 
     @property
     def models_propensity(self):
+        """
+        Get the fitted propensity models.
+
+        Returns
+        -------
+        models_propensity: list of objects of type(`model_propensity`)
+            A list of instances of the `model_propensity` object. Each element corresponds to a crossfitting
+            fold and is the model instance that was fitted for that training fold.
+        """
         return [mdl._model_propensity for mdl in super().models_nuisance]
 
     @property
     def models_regression(self):
+        """
+        Get the fitted regression models.
+
+        Returns
+        -------
+        model_regression: list of objects of type(`model_regression`)
+            A list of instances of the model_regression object. Each element corresponds to a crossfitting
+            fold and is the model instance that was fitted for that training fold.
+        """
         return [mdl._model_regression for mdl in super().models_nuisance]
 
     @property
     def featurizer(self):
+        """
+        Get the fitted featurizer.
+
+        Returns
+        -------
+        featurizer: object of type(featurizer)
+            An instance of the fitted featurizer that was used to preprocess X in the final CATE model training.
+            Available only when featurizer is not None and X is not None.
+        """
         return super().model_final._featurizer
 
     def cate_feature_names(self, input_feature_names=None):
+        """
+        Get the output feature names.
+
+        Parameters
+        ----------
+        input_feature_names: list of strings of length X.shape[1] or None
+            The names of the input features
+
+        Returns
+        -------
+        out_feature_names: list of strings or None
+            The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
+            final CATE model for each treatment is linear. It is the names of the features that are associated
+            with each entry of the :meth:`coef_` parameter. Available only when the featurizer is not None and has
+            a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+        """
         if self.featurizer is None:
             return input_feature_names
         elif hasattr(self.featurizer, 'get_feature_names'):
@@ -545,23 +592,6 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     Attributes
     ----------
-    models_propensity: list of objects of type(model_propensity)
-        A list of instances of the model_propensity object. Each element corresponds to a crossfitting
-        fold and is the model instance that was fitted for that training fold.
-    models_regression: list of objects of type(model_regression)
-        A list of instances of the model_regression object. Each element corresponds to a crossfitting
-        fold and is the model instance that was fitted for that training fold.
-    model_cate(T=t) : object of type(model_final)
-        An instance of the model_final object that was fitted after calling fit which corresponds
-        to the CATE model for treatment T=t, compared to baseline. Available only when multitask_model_final=False.
-    featurizer : object of type(featurizer)
-        An instance of the fitted featurizer that was used to preprocess X in the final CATE model training.
-        Available only when featurizer is not None and X is not None.
-    cate_feature_names(input_feature_names=None) : list of feature names or None
-        A list of feature names that correspond to the input features in the final CATE model. If
-        input_feature_names is not None and featurizer is None, then the input_feature_names are returned.
-        If the featurizer is not None, then this attribute is available only when the featurizer has
-        a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
     score_ : float
         The MSE in the final doubly robust potential outcome regressions, i.e.
 
@@ -572,7 +602,6 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
         If `sample_weight` is not None at fit time, then a weighted average across samples is returned.
 
-    TODO Allow for non-vector y, i.e. of shape (n, 1)
     """
 
     def __init__(self,
@@ -618,6 +647,12 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         """
         # Replacing fit from DRLearner, to add statsmodels inference in docstring
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+
+    @property
+    def multitask_model_cate(self):
+        # Replacing this method which is invalid for this class, so that we make the
+        # dosctring empty and not appear in the docs.
+        return super().multitask_model_cate
 
     @property
     def statsmodels(self):
