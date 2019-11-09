@@ -301,6 +301,11 @@ class DRLearner(_OrthoLearner):
                 return Y_pred
 
         class ModelFinal:
+            # Coding Remark: The reasoning around the multitask_model_final could have been simplified if
+            # we simply wrapped the model_final with a MultiOutputRegressor. However, because we also want
+            # to allow even for model_final objects whose fit(X, y) can accept X=None
+            # (e.g. the StatsModelsLinearRegression), we cannot take that route, because the MultiOutputRegressor
+            # checks that X is 2D array.
             def __init__(self, model_final, featurizer, multitask_model_final):
                 self._model_final = clone(model_final, safe=False)
                 self._featurizer = clone(featurizer, safe=False)
