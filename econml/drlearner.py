@@ -407,7 +407,7 @@ class DRLearner(_OrthoLearner):
     @property
     def multitask_model_cate(self):
         if not self._multitask_model_final:
-            raise AttributeError("Separte CATE models were fitted for each treatment! Use model_cate.")
+            raise AttributeError("Separate CATE models were fitted for each treatment! Use model_cate.")
         return super().model_final.model_cate
 
     def model_cate(self, T=1):
