@@ -11,48 +11,47 @@ import warnings
 import seaborn as sns
 
 
-
 class _BaseExporter(metaclass=abc.ABCMeta):
+    """
+    Parameters
+    ----------
+    out_file : file object or string, optional (default=None)
+        Handle or name of the output file. If ``None``, the result is
+        returned as a string.
+
+    title : string, optional (default=None)
+        A title for the final figure to be printed at the top of the page.
+
+    feature_names : list of strings, optional (default=None)
+        Names of each of the features.
+
+    filled : bool, optional (default=False)
+        When set to ``True``, paint nodes to indicate majority class for
+        classification, extremity of values for regression, or purity of node
+        for multi-output.
+
+    leaves_parallel : bool, optional (default=False)
+        When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+    rotate : bool, optional (default=False)
+        When set to ``True``, orient tree left to right rather than top-down.
+
+    rounded : bool, optional (default=False)
+        When set to ``True``, draw node boxes with rounded corners and use
+        Helvetica fonts instead of Times-Roman.
+
+    special_characters : bool, optional (default=False)
+        When set to ``False``, ignore special characters for PostScript
+        compatibility.
+
+    precision : int, optional (default=3)
+        Number of digits of precision for floating point in the values of
+        impurity, threshold and value attributes of each node.
+    """
 
     def __init__(self, out_file=None, title=None, feature_names=None,
-                        filled=True, leaves_parallel=False,
-                        rotate=False, rounded=False, special_characters=False, precision=3):
-        """
-        Parameters
-        ----------
-        out_file : file object or string, optional (default=None)
-            Handle or name of the output file. If ``None``, the result is
-            returned as a string.
-
-        title : string, optional (default=None)
-            A title for the final figure to be printed at the top of the page.
-
-        feature_names : list of strings, optional (default=None)
-            Names of each of the features.
-
-        filled : bool, optional (default=False)
-            When set to ``True``, paint nodes to indicate majority class for
-            classification, extremity of values for regression, or purity of node
-            for multi-output.
-
-        leaves_parallel : bool, optional (default=False)
-            When set to ``True``, draw all leaf nodes at the bottom of the tree.
-
-        rotate : bool, optional (default=False)
-            When set to ``True``, orient tree left to right rather than top-down.
-
-        rounded : bool, optional (default=False)
-            When set to ``True``, draw node boxes with rounded corners and use
-            Helvetica fonts instead of Times-Roman.
-
-        special_characters : bool, optional (default=False)
-            When set to ``False``, ignore special characters for PostScript
-            compatibility.
-
-        precision : int, optional (default=3)
-            Number of digits of precision for floating point in the values of
-            impurity, threshold and value attributes of each node.
-        """
+                 filled=True, leaves_parallel=False,
+                 rotate=False, rounded=False, special_characters=False, precision=3):
         self.feature_names = feature_names
         self.filled = filled
         self.leaves_parallel = leaves_parallel
@@ -65,10 +64,10 @@ class _BaseExporter(metaclass=abc.ABCMeta):
         if isinstance(precision, Integral):
             if precision < 0:
                 raise ValueError("'precision' should be greater or equal to 0."
-                                " Got {} instead.".format(precision))
+                                 " Got {} instead.".format(precision))
         else:
             raise ValueError("'precision' should be an integer. Got {}"
-                            " instead.".format(type(precision)))
+                             " instead.".format(type(precision)))
         self.precision = precision
 
         # The depth of each node for plotting with 'leaf' option
@@ -102,13 +101,16 @@ class _BaseExporter(metaclass=abc.ABCMeta):
             if value > 0:
                 v_grid = np.linspace(max(self.colors['bounds'][0], 0), self.colors['bounds'][1], 100)
                 rgb_color = np.round(np.array(sns.cubehelix_palette(100, start=2,
-                                                                    rot=0, dark=.5, light=1))[np.searchsorted(v_grid, value)] * 255)
+                                                                    rot=0,
+                                                                    dark=.5,
+                                                                    light=1))[np.searchsorted(v_grid, value)] * 255)
                 return '#{:02x}{:02x}{:02x}'.format(*rgb_color.astype(int))
             else:
                 v_grid = np.linspace(self.colors['bounds'][0], min(self.colors['bounds'][1], 0), 100)
                 rgb_color = np.round(np.array(sns.cubehelix_palette(100, start=1,
                                                                     rot=0, dark=.5, light=1,
-                                                                    reverse=True))[np.searchsorted(v_grid, value)] * 255)
+                                                                    reverse=True))[np.searchsorted(v_grid,
+                                                                                                   value)] * 255)
                 return '#{:02x}{:02x}{:02x}'.format(*rgb_color.astype(int))
 
     @abc.abstractmethod
@@ -123,26 +125,27 @@ class _BaseExporter(metaclass=abc.ABCMeta):
     def export(self, decision_tree):
         pass
 
+
 class _DOTExporterMixin(_BaseExporter):
 
-    def recurse(self, tree, node_id, criterion, parent = None, depth = 0):
+    def recurse(self, tree, node_id, criterion, parent=None, depth=0):
         if node_id == _tree.TREE_LEAF:
             raise ValueError("Invalid node_id %s" % _tree.TREE_LEAF)
 
-        left_child=tree.children_left[node_id]
-        right_child=tree.children_right[node_id]
+        left_child = tree.children_left[node_id]
+        right_child = tree.children_right[node_id]
 
         # Collect ranks for 'leaf' option in plot_options
         if left_child == _tree.TREE_LEAF:
             self.ranks['leaves'].append(str(node_id))
         elif str(depth) not in self.ranks:
-            self.ranks[str(depth)]=[str(node_id)]
+            self.ranks[str(depth)] = [str(node_id)]
         else:
             self.ranks[str(depth)].append(str(node_id))
 
         self.out_file.write('%d [label=%s'
-                    % (node_id,
-                        self.node_to_str(tree, node_id, criterion)))
+                            % (node_id,
+                               self.node_to_str(tree, node_id, criterion)))
 
         if self.filled:
             self.out_file.write(', fillcolor="%s"' % self.get_fill_color(tree, node_id))
@@ -153,7 +156,7 @@ class _DOTExporterMixin(_BaseExporter):
             self.out_file.write('%d -> %d' % (parent, node_id))
             if parent == 0:
                 # Draw True/False labels if parent is root node
-                angles=np.array([45, -45]) * ((self.rotate - .5) * -2)
+                angles = np.array([45, -45]) * ((self.rotate - .5) * -2)
                 self.out_file.write(' [labeldistance=2.5, labelangle=')
                 if node_id == 1:
                     self.out_file.write('%d, headlabel="True"]' % angles[0])
@@ -162,10 +165,10 @@ class _DOTExporterMixin(_BaseExporter):
             self.out_file.write(' ;\n')
 
         if left_child != _tree.TREE_LEAF:
-            self.recurse(tree, left_child, criterion = criterion, parent = node_id,
-                    depth = depth + 1)
-            self.recurse(tree, right_child, criterion = criterion, parent = node_id,
-                    depth = depth + 1)
+            self.recurse(tree, left_child, criterion=criterion, parent=node_id,
+                         depth=depth + 1)
+            self.recurse(tree, right_child, criterion=criterion, parent=node_id,
+                         depth=depth + 1)
 
     def export(self, decision_tree):
         # Check length of feature_names before getting into the tree node
@@ -174,22 +177,22 @@ class _DOTExporterMixin(_BaseExporter):
         if self.feature_names is not None:
             if len(self.feature_names) != decision_tree.n_features_:
                 raise ValueError("Length of feature_names, %d "
-                                "does not match number of features, %d"
-                                % (len(self.feature_names),
+                                 "does not match number of features, %d"
+                                 % (len(self.feature_names),
                                     decision_tree.n_features_))
 
         self.out_file.write('digraph Tree {\n')
 
         # Specify node aesthetics
         self.out_file.write('node [shape=box')
-        rounded_filled=[]
+        rounded_filled = []
         if self.filled:
             rounded_filled.append('filled')
         if self.rounded:
             rounded_filled.append('rounded')
         if len(rounded_filled) > 0:
             self.out_file.write(', style="%s", color="black"'
-                        % ", ".join(rounded_filled))
+                                % ", ".join(rounded_filled))
         if self.rounded:
             self.out_file.write(', fontname=helvetica')
         self.out_file.write('] ;\n')
@@ -209,24 +212,24 @@ class _DOTExporterMixin(_BaseExporter):
         if self.leaves_parallel:
             for rank in sorted(self.ranks):
                 self.out_file.write("{rank=same ; " +
-                            "; ".join(r for r in self.ranks[rank]) + "} ;\n")
-        
+                                    "; ".join(r for r in self.ranks[rank]) + "} ;\n")
+
         if self.title is not None:
             self.out_file.write("labelloc=\"t\"; \n")
             self.out_file.write("label=\"{}\"; \n".format(self.title))
 
         self.out_file.write("}")
 
+
 class _MPLExporterMixin(_BaseExporter):
 
     def __init__(self, title=None, feature_names=None,
-                        filled=True,
-                        rounded=False, precision=3, fontsize=None):
+                 filled=True, rounded=False, precision=3, fontsize=None):
 
         _BaseExporter.__init__(self,
-            out_file=None, title=title, feature_names=feature_names,
-            filled=filled, leaves_parallel=False,
-            rotate=False, rounded=rounded, precision=precision)
+                               out_file=None, title=title, feature_names=feature_names,
+                               filled=filled, leaves_parallel=False,
+                               rotate=False, rounded=rounded, precision=precision)
 
         self.fontsize = fontsize
 
@@ -337,83 +340,82 @@ class _MPLExporterMixin(_BaseExporter):
         # offset things by .5 to center them in plot
         xy = ((node.x + .5) * scale_x, height - (node.y + .5) * scale_y)
 
-    
         if self.filled:
             kwargs['bbox']['fc'] = self.get_fill_color(tree,
-                                                        node.tree.node_id)
+                                                       node.tree.node_id)
         if node.parent is None:
             # root
             ax.annotate(node.tree.label, xy, **kwargs)
         else:
             xy_parent = ((node.parent.x + .5) * scale_x,
-                            height - (node.parent.y + .5) * scale_y)
+                         height - (node.parent.y + .5) * scale_y)
             kwargs["arrowprops"] = self.arrow_args
             ax.annotate(node.tree.label, xy_parent, xy, **kwargs)
         for child in node.children:
             self.recurse(child, tree, ax, scale_x, scale_y, height,
-                            depth=depth + 1)
+                         depth=depth + 1)
 
 
 class _CATETreeExporterMixin(_BaseExporter):
-    
+    """
+    Parameters
+    ----------
+    include_uncertainty: bool
+        whether the tree includes uncertainty information
+
+    uncertainty_level: float
+        the confidence level of the confidence interval included in the tree
+
+    out_file : file object or string, optional (default=None)
+        Handle or name of the output file. If ``None``, the result is
+        returned as a string.
+
+    title : string, optional (default=None)
+        A title for the final figure to be printed at the top of the page.
+
+    feature_names : list of strings, optional (default=None)
+        Names of each of the features.
+
+    filled : bool, optional (default=False)
+        When set to ``True``, paint nodes to indicate majority class for
+        classification, extremity of values for regression, or purity of node
+        for multi-output.
+
+    leaves_parallel : bool, optional (default=False)
+        When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+    rotate : bool, optional (default=False)
+        When set to ``True``, orient tree left to right rather than top-down.
+
+    rounded : bool, optional (default=False)
+        When set to ``True``, draw node boxes with rounded corners and use
+        Helvetica fonts instead of Times-Roman.
+
+    special_characters : bool, optional (default=False)
+        When set to ``False``, ignore special characters for PostScript
+        compatibility.
+
+    precision : int, optional (default=3)
+        Number of digits of precision for floating point in the values of
+        impurity, threshold and value attributes of each node.
+    """
+
     def __init__(self, include_uncertainty, uncertainty_level):
-        """
-        Parameters
-        ----------
-        include_uncertainty: bool
-            whether the tree includes uncertainty information
-
-        uncertainty_level: float
-            the confidence level of the confidence interval included in the tree
-
-        out_file : file object or string, optional (default=None)
-            Handle or name of the output file. If ``None``, the result is
-            returned as a string.
-
-        title : string, optional (default=None)
-            A title for the final figure to be printed at the top of the page.
-
-        feature_names : list of strings, optional (default=None)
-            Names of each of the features.
-
-        filled : bool, optional (default=False)
-            When set to ``True``, paint nodes to indicate majority class for
-            classification, extremity of values for regression, or purity of node
-            for multi-output.
-
-        leaves_parallel : bool, optional (default=False)
-            When set to ``True``, draw all leaf nodes at the bottom of the tree.
-
-        rotate : bool, optional (default=False)
-            When set to ``True``, orient tree left to right rather than top-down.
-
-        rounded : bool, optional (default=False)
-            When set to ``True``, draw node boxes with rounded corners and use
-            Helvetica fonts instead of Times-Roman.
-
-        special_characters : bool, optional (default=False)
-            When set to ``False``, ignore special characters for PostScript
-            compatibility.
-
-        precision : int, optional (default=3)
-            Number of digits of precision for floating point in the values of
-            impurity, threshold and value attributes of each node.
-        """
         self.include_uncertainty = include_uncertainty
         self.uncertainty_level = uncertainty_level
-    
+
     def get_fill_color(self, tree, node_id):
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
             # Initialize colors and bounds if required
             # Find max and min values in leaf nodes for regression
-            if tree.value.ndim > 1: # in multi-target use first target
+            if tree.value.ndim > 1:  # in multi-target use first target
                 self.colors['bounds'] = (np.min([v[0, 0] for v in tree.value]),
-                                    np.max([v[0, 0] for v in tree.value]))
+                                         np.max([v[0, 0] for v in tree.value]))
             else:
                 self.colors['bounds'] = (np.min(tree.value),
-                                    np.max(tree.value))
-    
+                                         np.max(tree.value))
+
         # Use first target label of the regression
         if tree.value.ndim > 2:
             node_val = tree.value[node_id][0, 0]
@@ -437,13 +439,13 @@ class _CATETreeExporterMixin(_BaseExporter):
                 feature = self.feature_names[tree.feature[node_id]]
             else:
                 feature = "X%s%s%s" % (self.characters[1],
-                                    tree.feature[node_id],
-                                    self.characters[2])
+                                       tree.feature[node_id],
+                                       self.characters[2])
             node_string += '%s %s %s%s' % (feature,
-                                        self.characters[3],
-                                        round(tree.threshold[node_id],
-                                                self.precision),
-                                        self.characters[4])
+                                           self.characters[3],
+                                           round(tree.threshold[node_id],
+                                                 self.precision),
+                                           self.characters[4])
 
         # Write node sample count
         node_string += 'samples = '
@@ -469,9 +471,9 @@ class _CATETreeExporterMixin(_BaseExporter):
 
         # Write confidence interval information if at leaf node
         if (tree.children_left[node_id] == _tree.TREE_LEAF) and self.include_uncertainty:
-            ci_text = "Mean Endpoints of {}% CI: ({}, {})".format(int((1-self.uncertainty_level)*100),
-                                                        np.around(value[1, 0], self.precision),
-                                                        np.around(value[2, 0], self.precision))
+            ci_text = "Mean Endpoints of {}% CI: ({}, {})".format(int((1 - self.uncertainty_level) * 100),
+                                                                  np.around(value[1, 0], self.precision),
+                                                                  np.around(value[2, 0], self.precision))
             node_string += ci_text + self.characters[4]
 
         # Clean up any trailing newlines
@@ -483,12 +485,11 @@ class _CATETreeExporterMixin(_BaseExporter):
         return node_string + self.characters[5]
 
 
-
 class _CATETreeDOTExporter(_CATETreeExporterMixin, _DOTExporterMixin):
-    
+
     def __init__(self, include_uncertainty, uncertainty_level, out_file=None, title=None, feature_names=None,
-                    filled=True, leaves_parallel=False,
-                    rotate=False, rounded=False, special_characters=False, precision=3):
+                 filled=True, leaves_parallel=False,
+                 rotate=False, rounded=False, special_characters=False, precision=3):
         """
         Parameters
         ----------
@@ -533,15 +534,16 @@ class _CATETreeDOTExporter(_CATETreeExporterMixin, _DOTExporterMixin):
         """
         _CATETreeExporterMixin.__init__(self, include_uncertainty, uncertainty_level)
         _DOTExporterMixin.__init__(self, out_file=out_file, title=title, feature_names=feature_names,
-                        filled=filled, leaves_parallel=leaves_parallel,
-                        rotate=rotate, rounded=rounded, special_characters=special_characters, precision=precision)
+                                   filled=filled, leaves_parallel=leaves_parallel,
+                                   rotate=rotate, rounded=rounded, special_characters=special_characters,
+                                   precision=precision)
 
 
 class _CATETreeMPLExporter(_CATETreeExporterMixin, _MPLExporterMixin):
-    
+
     def __init__(self, include_uncertainty, uncertainty_level, title=None, feature_names=None,
-                    filled=True,
-                    rounded=False, precision=3, fontsize=None):
+                 filled=True,
+                 rounded=False, precision=3, fontsize=None):
         """
         Parameters
         ----------
@@ -573,15 +575,15 @@ class _CATETreeMPLExporter(_CATETreeExporterMixin, _MPLExporterMixin):
         precision : int, optional (default=3)
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
-        
+
         fontsize : int, optional (default=None)
             Fontsize for text
         """
         _CATETreeExporterMixin.__init__(self, include_uncertainty, uncertainty_level)
         _MPLExporterMixin.__init__(self, title=title, feature_names=feature_names,
-                        filled=filled,
-                        rounded=rounded, precision=precision,
-                        fontsize=fontsize)
+                                   filled=filled,
+                                   rounded=rounded, precision=precision,
+                                   fontsize=fontsize)
 
 
 class _PolicyTreeExporterMixin(_BaseExporter):
@@ -594,15 +596,15 @@ class _PolicyTreeExporterMixin(_BaseExporter):
             The names of the two treatments
         """
         self.treatment_names = treatment_names
-    
+
     def get_fill_color(self, tree, node_id):
-        node_value = tree.value[node_id][0, :]/tree.weighted_n_node_samples[node_id]
+        node_value = tree.value[node_id][0, :] / tree.weighted_n_node_samples[node_id]
         return self.get_color(node_value)
 
     def node_to_str(self, tree, node_id, criterion):
         # Generate the node content string
         value = tree.value[node_id][0, :]
-        
+
         node_string = self.characters[-1]
 
         # Write decision criteria
@@ -612,20 +614,22 @@ class _PolicyTreeExporterMixin(_BaseExporter):
                 feature = self.feature_names[tree.feature[node_id]]
             else:
                 feature = "X%s%s%s" % (self.characters[1],
-                                    tree.feature[node_id],
-                                    self.characters[2])
+                                       tree.feature[node_id],
+                                       self.characters[2])
             node_string += '%s %s %s%s' % (feature,
-                                        self.characters[3],
-                                        round(tree.threshold[node_id],
-                                                self.precision),
-                                        self.characters[4])
+                                           self.characters[3],
+                                           round(tree.threshold[node_id],
+                                                 self.precision),
+                                           self.characters[4])
 
         # Write node sample count
         node_string += 'samples = '
         node_string += (str(tree.n_node_samples[node_id]) +
                         self.characters[4])
 
-        node_string += '(effect - cost) mean = %s' % np.round((value[1] - value[0])/tree.n_node_samples[node_id], self.precision)
+        node_string += '(effect - cost) mean = %s' % np.round((value[1] -
+                                                               value[0]) / tree.n_node_samples[node_id],
+                                                              self.precision)
         node_string += self.characters[4]
 
         if tree.children_left[node_id] == _tree.TREE_LEAF:
@@ -635,11 +639,9 @@ class _PolicyTreeExporterMixin(_BaseExporter):
                 class_name = self.treatment_names[np.argmax(value)]
             else:
                 class_name = "T%s%s%s" % (self.characters[1],
-                                            np.argmax(value),
-                                            self.characters[2])
+                                          np.argmax(value),
+                                          self.characters[2])
             node_string += class_name + self.characters[4]
-
-        
 
         # Clean up any trailing newlines
         if node_string[-2:] == '\\n':
@@ -650,12 +652,11 @@ class _PolicyTreeExporterMixin(_BaseExporter):
         return node_string + self.characters[5]
 
 
-
 class _PolicyTreeDOTExporter(_PolicyTreeExporterMixin, _DOTExporterMixin):
-    
+
     def __init__(self, out_file=None, title=None, treatment_names=None, feature_names=None,
-                    filled=True, leaves_parallel=False,
-                    rotate=False, rounded=False, special_characters=False, precision=3):
+                 filled=True, leaves_parallel=False,
+                 rotate=False, rounded=False, special_characters=False, precision=3):
         """
         Parameters
         ----------
@@ -706,16 +707,17 @@ class _PolicyTreeDOTExporter(_PolicyTreeExporterMixin, _DOTExporterMixin):
             impurity, threshold and value attributes of each node.
         """
         _DOTExporterMixin.__init__(self, title=title, out_file=out_file, feature_names=feature_names,
-                        filled=filled, leaves_parallel=leaves_parallel,
-                        rotate=rotate, rounded=rounded, special_characters=special_characters, precision=precision)
+                                   filled=filled, leaves_parallel=leaves_parallel,
+                                   rotate=rotate, rounded=rounded, special_characters=special_characters,
+                                   precision=precision)
         _PolicyTreeExporterMixin.__init__(self, treatment_names=treatment_names)
 
 
 class _PolicyTreeMPLExporter(_PolicyTreeExporterMixin, _MPLExporterMixin):
-    
+
     def __init__(self, treatment_names=None, title=None, feature_names=None,
-                    filled=True,
-                    rounded=False, precision=3, fontsize=None):
+                 filled=True,
+                 rounded=False, precision=3, fontsize=None):
         """
         Parameters
         ----------
@@ -740,12 +742,12 @@ class _PolicyTreeMPLExporter(_PolicyTreeExporterMixin, _MPLExporterMixin):
         precision : int, optional (default=3)
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
-        
+
         fontsize : int, optional (default=None)
             Fontsize for text
         """
         _MPLExporterMixin.__init__(self, title=title, feature_names=feature_names,
-                        filled=filled,
-                        rounded=rounded, precision=precision,
-                        fontsize=fontsize)
+                                   filled=filled,
+                                   rounded=rounded, precision=precision,
+                                   fontsize=fontsize)
         _PolicyTreeExporterMixin.__init__(self, treatment_names=treatment_names)
