@@ -153,6 +153,31 @@ class TestOrthoForest(unittest.TestCase):
         expected_te = np.array([TestOrthoForest.expected_exp_te, TestOrthoForest.expected_const_te]).T
         self._test_te(est, expected_te, tol=0.5, treatment_type='multi')
 
+    def test_effect_shape(self):
+        import scipy.special
+        np.random.seed(123)
+        n = 40  # number of raw samples
+        d = 4  # number of binary features + 1
+
+        # Generating random segments aka binary features. We will use features 0,...,3 for heterogeneity.
+        # The rest for controls. Just as an example.
+        X = np.random.binomial(1, .5, size=(n, d))
+        # Generating A/B test data
+        T = np.random.binomial(2, .5, size=(n,))
+        # Generating an outcome with treatment effect heterogeneity. The first binary feature creates heterogeneity
+        # We also have confounding on the first variable. We also have heteroskedastic errors.
+        y = (-1 + 2 * X[:, 0]) * T + X[:, 0] + (1 * X[:, 0] + 1) * np.random.normal(0, 1, size=(n,))
+        from sklearn.dummy import DummyClassifier, DummyRegressor
+        est = DiscreteTreatmentOrthoForest(n_trees=200,
+                                           model_Y=DummyRegressor(strategy='mean'),
+                                           propensity_model=DummyClassifier(strategy='prior'))
+        est.fit(y, T, X)
+        assert est.const_marginal_effect(X[:3]).shape == (3, 2), "Const Marginal Effect dimension incorrect"
+        assert est.marginal_effect(1, X[:3]).shape == (3, 2), "Marginal Effect dimension incorrect"
+        assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
+        assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
+        assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
+
     def _test_te(self, learner_instance, expected_te, tol, treatment_type='continuous'):
         # Compute the treatment effect on test points
         te_hat = learner_instance.const_marginal_effect(
