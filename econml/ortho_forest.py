@@ -690,10 +690,10 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model_final, self.model_Y_final, self.n_T, self.random_state, second_stage=True)
         self.transformer = FunctionTransformer(
-                func=(lambda T:
-                      self._one_hot_encoder.transform(
-                          reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
-                validate=False)
+            func=(lambda T:
+                  self._one_hot_encoder.transform(
+                      reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
+            validate=False)
         # Call `fit` from parent class
         return super().fit(Y, T, X, W=W, inference=inference)
 
