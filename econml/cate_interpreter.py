@@ -426,9 +426,10 @@ class SingleTreePolicyInterpreter:
             title += "Average policy gains over always treating: {}".format(
                 np.around(self.policy_value - self.always_treat_value, precision))
             exporter = _PolicyTreeDOTExporter(out_file=out_file, title=title,
-                                              treatment_names=treatment_names, feature_names=feature_names, filled=filled,
-                                              leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
-                                              special_characters=special_characters, precision=precision)
+                                              treatment_names=treatment_names, feature_names=feature_names,
+                                              filled=filled, leaves_parallel=leaves_parallel, rotate=rotate,
+                                              rounded=rounded, special_characters=special_characters,
+                                              precision=precision)
             exporter.export(self.tree_model)
 
             if return_string:
@@ -442,7 +443,8 @@ class SingleTreePolicyInterpreter:
                filled=True, leaves_parallel=True,
                rotate=False, rounded=True, special_characters=False, precision=3):
         import graphviz
-        graphviz.Source(self.export_graphviz(treatment_names=treatment_names, feature_names=feature_names, filled=filled, rotate=rotate,
+        graphviz.Source(self.export_graphviz(treatment_names=treatment_names, feature_names=feature_names,
+                                             filled=filled, rotate=rotate,
                                              leaves_parallel=leaves_parallel, rounded=rounded,
                                              special_characters=special_characters,
                                              precision=precision)).render(out_file, format=format, view=view)
@@ -454,7 +456,8 @@ class SingleTreePolicyInterpreter:
         title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
         title += "Average policy gains over always treating: {}".format(
             np.around(self.policy_value - self.always_treat_value, precision))
-        exporter = _PolicyTreeMPLExporter(treatment_names=treatment_names, title=title, feature_names=feature_names, filled=filled,
+        exporter = _PolicyTreeMPLExporter(treatment_names=treatment_names, title=title,
+                                          feature_names=feature_names, filled=filled,
                                           rounded=rounded,
                                           precision=precision, fontsize=fontsize)
         exporter.export(self.tree_model, ax=ax)
