@@ -131,7 +131,7 @@ class SingleTreeCateInterpreter:
                                                 random_state=self.random_state,
                                                 max_leaf_nodes=self.max_leaf_nodes,
                                                 min_impurity_decrease=self.min_impurity_decrease)
-        y_pred = cate_estimator.effect(X)
+        y_pred = cate_estimator.const_marginal_effect(X)
 
         assert (y_pred.ndim == 1) or (y_pred.shape[1] ==
                                       1), "Only single-dimensional treatment interpretation available!"
@@ -140,7 +140,7 @@ class SingleTreeCateInterpreter:
             y_pred = y_pred.reshape(-1, 1)
 
         if self.include_uncertainty:
-            y_lower, y_upper = cate_estimator.effect_interval(X, alpha=self.uncertainty_level)
+            y_lower, y_upper = cate_estimator.const_marginal_effect_interval(X, alpha=self.uncertainty_level)
             if y_lower.ndim == 1:
                 y_lower = y_lower.reshape(-1, 1)
                 y_upper = y_upper.reshape(-1, 1)
@@ -344,16 +344,17 @@ class SingleTreePolicyInterpreter:
                                                  max_leaf_nodes=self.max_leaf_nodes,
                                                  min_impurity_decrease=self.min_impurity_decrease)
         if self.risk_level is None:
-            y_pred = cate_estimator.effect(X)
+            y_pred = cate_estimator.const_marginal_effect(X)
         elif not self.risk_seeking:
-            y_pred, _ = cate_estimator.effect_interval(X, alpha=self.risk_level)
+            y_pred, _ = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
         else:
-            _, y_pred = cate_estimator.effect_interval(X, alpha=self.risk_level)
+            _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
+
+        assert (y_pred.ndim == 1) or (y_pred.shape[1] == 1), "Only binary treatment interpretation available!"
+        y_pred = y_pred.ravel()
 
         if sample_treatment_costs is not None:
             y_pred -= sample_treatment_costs
-
-        assert (y_pred.ndim == 1) or (y_pred.shape[1] == 1), "Only binary treatment interpretation available!"
 
         if np.all(y_pred > 0):
             raise AttributeError("All samples should be treated with the given treatment costs. " +
