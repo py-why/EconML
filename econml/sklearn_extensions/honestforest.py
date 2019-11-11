@@ -26,6 +26,7 @@ from sklearn.ensemble.base import _partition_estimators
 MAX_RAND_SEED = np.iinfo(np.int32).max
 MAX_INT = np.iinfo(np.int32).max
 
+
 def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_trees, verbose=0):
     """Private function used to fit a single subsampled honest tree in parallel."""
     if verbose > 1:
@@ -40,13 +41,14 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
 
     # Split into estimation and splitting sample set
     if forest.honest:
-        X_split, X_est, y_split, y_est, sample_weight_split, sample_weight_est = train_test_split(X, y, sample_weight, test_size=.5, shuffle=True)
+        X_split, X_est, y_split, y_est, sample_weight_split, sample_weight_est = train_test_split(
+            X, y, sample_weight, test_size=.5, shuffle=True)
     else:
         X_split, X_est, y_split, y_est, sample_weight_split, sample_weight_est = X, X, y, y, sample_weight, sample_weight
 
     # Fit the tree on the splitting sample
     tree.fit(X_split, y_split, sample_weight=sample_weight_split, check_input=False)
-    
+
     # Set the estimation values based on the estimation split
     total_weight_est = np.sum(sample_weight_est)
     if forest.honest:
@@ -66,8 +68,8 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
         stack = [(0, -1)]  # seed is the root node id and its parent depth
         while len(stack) > 0:
             node_id, parent_id = stack.pop()
-            if weight_est[0, node_id]/total_weight_est < forest.min_weight_fraction_leaf\
-                or count_est[0, node_id] < forest.min_samples_leaf:
+            if weight_est[0, node_id] / total_weight_est < forest.min_weight_fraction_leaf\
+                    or count_est[0, node_id] < forest.min_samples_leaf:
                 tree.tree_.children_left[parent_id] = -1
                 tree.tree_.children_right[parent_id] = -1
             else:
@@ -75,17 +77,18 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
                     tree.tree_.value[node_id, i] = value_est[i, node_id]
                 tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id]
                 tree.tree_.n_node_samples[node_id] = count_est[0, node_id]
-                if (children_left[node_id] != children_right[node_id]):                    
+                if (children_left[node_id] != children_right[node_id]):
                     stack.append((children_left[node_id], node_id))
                     stack.append((children_right[node_id], node_id))
     return tree
+
 
 class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     """
     An implementation of a subsampled honest random forest regressor on top of an sklearn
     regression tree. Implements subsampling and honesty as described in [3],
     but uses a scikit-learn regression tree as a base.
-    
+
     A random forest is a meta estimator that fits a number of classifying
     decision trees on various sub-samples of the dataset and uses averaging
     to improve the predictive accuracy and control over-fitting.
@@ -107,7 +110,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     min_impurity_decrease. These techniques that date back to the work of [1],
     should lead to finite sample performance improvements, especially for
     high dimensional features.
-    
+
     The implementation also provides confidence intervals
     for each prediction using a bootstrap of little bags approach described in [3]:
     subsampling is performed at hierarchical level by first drawing a set of half-samples
@@ -204,11 +207,11 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     subsample_fr : float or 'auto', optional (default='auto')
         The fraction of the half-samples that are used on each tree. Each tree
         will be built on subsample_fr * n_samples/2. 
-        
+
         If 'auto', then the subsampling fraction is set to::
 
             (n_samples/2)**(1-1/(2*n_features+2))/(n_samples/2)
-        
+
         which is sufficient to guarantee asympotitcally valid inference.
 
     honest : boolean, optional (default=True)
@@ -306,11 +309,12 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     .. [2] P. Geurts, D. Ernst., and L. Wehenkel, "Extremely randomized 
            trees", Machine Learning, 63(1), 3-42, 2006.
-    
+
     .. [3] S. Athey, S. Wager, "Estimation and Inference of Heterogeneous Treatment Effects using Random Forests",
     Journal of the American Statistical Association 113.523 (2018): 1228-1242.
 
     """
+
     def __init__(self,
                  n_estimators=100,
                  criterion="mse",
@@ -356,7 +360,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         self.honest = honest
         self.global_averaging = global_averaging
         self.estimators_ = None
-        
+
         return
 
     def fit(self, X, y, sample_weight=None):
@@ -407,7 +411,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                 sample_weight = expanded_class_weight
 
         if self.subsample_fr == 'auto':
-            self.subsample_fr = (X.shape[0]/2)**(1-1/(2*X.shape[1]+2))/(X.shape[0]/2)
+            self.subsample_fr = (X.shape[0] / 2)**(1 - 1 / (2 * X.shape[1] + 2)) / (X.shape[0] / 2)
 
         # Check parameters
         self._validate_estimator()
@@ -444,23 +448,24 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             # that case. However, for joblib 0.12+ we respect any
             # parallel_backend contexts set at a higher level,
             # since correctness does not rely on using threads.
-            self.n_slices = int(np.ceil((self.n_estimators)**(1/2)))
+            self.n_slices = int(np.ceil((self.n_estimators)**(1 / 2)))
             self.slice_len = int(np.ceil(self.n_estimators / self.n_slices))
             s_inds = []
             # TODO. This slicing should ultimately be done inside the parallel function
             # so that we don't need to create a matrix of size roughly n_samples * n_estimators
             for it in range(self.n_slices):
-                half_sample_inds = np.random.choice(X.shape[0], X.shape[0]//2, replace=False)
-                for _ in np.arange(it*self.slice_len, min((it+1)*self.slice_len, self.n_estimators)):
-                    s_inds.append(half_sample_inds[np.random.choice(X.shape[0]//2,
-                                                                int(np.ceil(self.subsample_fr*(X.shape[0]//2))),
-                                                                replace=False)])
+                half_sample_inds = np.random.choice(X.shape[0], X.shape[0] // 2, replace=False)
+                for _ in np.arange(it * self.slice_len, min((it + 1) * self.slice_len, self.n_estimators)):
+                    s_inds.append(half_sample_inds[np.random.choice(X.shape[0] // 2,
+                                                                    int(np.ceil(self.subsample_fr *
+                                                                                (X.shape[0] // 2))),
+                                                                    replace=False)])
             trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
-                            **_joblib_parallel_args(prefer='threads'))(
-                    delayed(_parallel_add_trees)(
-                        t, self, X, y, sample_weight, s_inds[i], i, len(trees),
-                        verbose=self.verbose)
-                        for i, t in enumerate(trees))
+                             **_joblib_parallel_args(prefer='threads'))(
+                delayed(_parallel_add_trees)(
+                    t, self, X, y, sample_weight, s_inds[i], i, len(trees),
+                    verbose=self.verbose)
+                for i, t in enumerate(trees))
 
             # Collect newly grown trees
             self.estimators_.extend(trees)
@@ -477,9 +482,9 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         weight_hat = np.zeros((X.shape[0]), dtype=np.float64)
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose,
-                **_joblib_parallel_args(require="sharedmem"))(
+                 **_joblib_parallel_args(require="sharedmem"))(
             delayed(_accumulate_prediction)(lambda x, check_input: e.tree_.weighted_n_node_samples[e.apply(x)],
-            X, [weight_hat], lock)
+                                            X, [weight_hat], lock)
             for e in self.estimators_)
         weight_hat /= len(self.estimators_)
         return weight_hat
@@ -505,25 +510,24 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             a non-parametric bootstrap of little bags
         """
         y_pred = np.array([tree.predict(X) for tree in self.estimators_])
-        y_bags_pred = np.array([np.nanmean(y_pred[np.arange(it*self.slice_len,
-                                            min((it+1)*self.slice_len, self.n_estimators))], axis=0)
-                                            for it in range(self.n_slices)])
+        y_bags_pred = np.array([np.nanmean(y_pred[np.arange(it * self.slice_len,
+                                                            min((it + 1) * self.slice_len, self.n_estimators))], axis=0)
+                                for it in range(self.n_slices)])
         if self.global_averaging:
-            weight_hat = np.array([tree.tree_.weighted_n_node_samples[tree.apply(X)]  for tree in self.estimators_])
-            weight_hat_bags = np.array([np.nanmean(weight_hat[np.arange(it*self.slice_len,
-                                            min((it+1)*self.slice_len, self.n_estimators))], axis=0)
-                                            for it in range(self.n_slices)])
-            # TODO. The calculation below is wrong
-            std_pred = np.std(y_bags_pred)/np.sqrt(np.mean(weight_hat, axis=0))
-            y_point_pred = np.sum(y_pred, axis=0)/np.sum(weight_hat, axis=0)
+            weight_hat = np.array([tree.tree_.weighted_n_node_samples[tree.apply(X)] for tree in self.estimators_])
+            weight_hat_bags = np.array([np.nanmean(weight_hat[np.arange(it * self.slice_len,
+                                                                        min((it + 1) * self.slice_len, self.n_estimators))], axis=0)
+                                        for it in range(self.n_slices)])
             y_bags_pred /= weight_hat_bags
+            y_point_pred = np.sum(y_pred, axis=0) / np.sum(weight_hat, axis=0)
+            std_pred = np.sqrt(np.mean((y_bags_pred - y_point_pred.reshape(1, -1))**2, axis=0))
         else:
             std_pred = np.std(y_bags_pred, axis=0)
             y_point_pred = np.mean(y_pred, axis=0)
 
         if normal:
-            upper_pred = scipy.stats.norm.ppf(upper/100, loc=y_point_pred, scale=std_pred)
-            lower_pred = scipy.stats.norm.ppf(lower/100, loc=y_point_pred, scale=std_pred)
+            upper_pred = scipy.stats.norm.ppf(upper / 100, loc=y_point_pred, scale=std_pred)
+            lower_pred = scipy.stats.norm.ppf(lower / 100, loc=y_point_pred, scale=std_pred)
             return lower_pred, upper_pred
         else:
             return np.nanpercentile(y_bags_pred, lower, axis=0), np.nanpercentile(y_bags_pred, upper, axis=0)
