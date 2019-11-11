@@ -105,10 +105,10 @@ class TestMetalearners(unittest.TestCase):
         # Fit learner and get the effect and marginal effect
         learner_instance.fit(Y, T, X)
         te_hat = learner_instance.effect(TestMetalearners.X_test, T0, T1)
-        marginal_te_hat = learner_instance.marginal_effect(TestMetalearners.X_test, T1)
+        marginal_te_hat = learner_instance.marginal_effect(T1, TestMetalearners.X_test)
         # Get the true treatment effect
         te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test) * (T1 - T0)
-        marginal_te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test) * (T1 - T.min())
+        marginal_te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test).reshape(-1, 1) * np.array([2, 4])
         # Compute treatment effect residuals (absolute)
         te_res = np.abs(te - te_hat)
         marginal_te_res = np.abs(marginal_te - marginal_te_hat)
