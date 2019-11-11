@@ -35,7 +35,7 @@ from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeature
 from sklearn.utils import check_random_state, check_array, column_or_1d
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
-from .utilities import reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
+from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -682,15 +682,18 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         T = self._check_treatment(T)
         # Train label encoder
         T = self._label_encoder.fit_transform(T)
+        self._one_hot_encoder = OneHotEncoder(sparse=False, categories='auto').fit(T.reshape(-1, 1))
         # Define number of classes
         self.n_T = self._label_encoder.classes_.shape[0]
         self.nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model, self.model_Y, self.n_T, self.random_state, second_stage=False)
         self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model_final, self.model_Y_final, self.n_T, self.random_state, second_stage=True)
-        self.transformer = FunctionTransformer(func=(lambda T:
-                                                     self._label_encoder.transform(self._check_treatment(T))),
-                                               validate=False)
+        self.transformer = FunctionTransformer(
+            func=(lambda T:
+                  self._one_hot_encoder.transform(
+                      reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
+            validate=False)
         # Call `fit` from parent class
         return super().fit(Y, T, X, W=W, inference=inference)
 
