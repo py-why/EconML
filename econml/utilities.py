@@ -9,7 +9,7 @@ import sparse as sp
 import itertools
 from operator import getitem
 from collections import defaultdict, Counter
-from sklearn.base import TransformerMixin
+from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from functools import reduce
 from sklearn.utils import check_array, check_X_y
@@ -34,6 +34,12 @@ class IdentityFeatures(TransformerMixin):
     def transform(self, X):
         """Perform the identity transform, which returns the input unmodified."""
         return X
+
+
+def inverse_onehot(X):
+    """Take a one-hot-encoding where zero label is mapped to all zeros and
+    transform it back to the label vector"""
+    return np.matmul(X, np.arange(1, X.shape[1] + 1)).ravel().astype(int)
 
 
 def issparse(X):
@@ -647,7 +653,7 @@ class WeightedModelWrapper(object):
         if sample_type == "weighted":
             self.data_transform = self._weighted_inputs
         else:
-            warnings.warn("The model provided does not support sample weights. " +
+            warnings.warn("The model provided does not support sample weights. "
                           "Manual weighted sampling may icrease the variance in the results.", UserWarning)
             self.data_transform = self._sampled_inputs
 
@@ -780,7 +786,7 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
         kfold_model.random_state = None
 
     # If KFold fails after n_trials, we try the next best thing: stratifying by weight groups
-    warnings.warn("The KFold algorithm failed to find a weight-balanced partition after {n_trials} trials." +
+    warnings.warn("The KFold algorithm failed to find a weight-balanced partition after {n_trials} trials."
                   " Falling back on a weight stratification algorithm.".format(n_trials=self.n_trials), UserWarning)
     if is_stratified:
         stratified_weight_splits = [[]] * self.n_splits
@@ -1445,7 +1451,7 @@ def _safe_norm_ppf(q, loc=0, scale=1):
     return prelim
 
 
-class StatsModelsLinearRegression:
+class StatsModelsLinearRegression(BaseEstimator):
     """
     Class which mimics weighted linear regression from the statsmodels package.
 
@@ -1457,42 +1463,45 @@ class StatsModelsLinearRegression:
     fit_intercept : bool (optional, default=True)
         Whether to fit an intercept in this model
     fit_args : dict (optional, default=`{}`)
-        The statsmodels-style fit arguments; keys can include 'cov_type', 'cov_kwds', and 'use_t'.
+        The statsmodels-style fit arguments; keys can include 'cov_type'
     """
 
-    def __init__(self, fit_intercept=True, fit_args={}):
-        self.fit_args = fit_args
-        self._fit_intercept = fit_intercept
+    def __init__(self, fit_intercept=True, cov_type=None):
+        self.cov_type = cov_type
+        self.fit_intercept = fit_intercept
         return
 
     def _check_input(self, X, y, sample_weight, sample_var):
         """Check dimensions and other assertions."""
         if sample_weight is None:
-            sample_weight = np.ones(X.shape[0])
+            sample_weight = np.ones(y.shape[0])
         elif np.any(np.not_equal(np.mod(sample_weight, 1), 0)):
             raise AttributeError("Sample weights must all be integers for inference to be valid!")
 
         if sample_var is None:
             if np.any(np.not_equal(sample_weight, 1)):
                 warnings.warn(
-                    """No variance information was given for samples with sample_weight not equal to 1,
-                       that represent summaries of multiple original samples. Inference will be invalid!""")
+                    "No variance information was given for samples with sample_weight not equal to 1, "
+                    "that represent summaries of multiple original samples. Inference will be invalid!")
             sample_var = np.zeros(y.shape)
 
         if sample_var.ndim < 2:
             if np.any(np.equal(sample_weight, 1) & np.not_equal(sample_var, 0)):
                 warnings.warn(
-                    """Variance was set to non-zero for an observation with sample_weight=1!
-                       sample_var represents the variance of the original observations that are
-                       summarized in this sample. Hence, cannot have a non-zero variance if only
-                       one observations was summarized. Inference will be invalid!""")
+                    "Variance was set to non-zero for an observation with sample_weight=1! "
+                    "sample_var represents the variance of the original observations that are "
+                    "summarized in this sample. Hence, cannot have a non-zero variance if only "
+                    "one observations was summarized. Inference will be invalid!")
         else:
             if np.any(np.equal(sample_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
                 warnings.warn(
-                    """Variance was set to non-zero for an observation with sample_weight=1!
-                       sample_var represents the variance of the original observations that are
-                       summarized in this sample. Hence, cannot have a non-zero variance if only
-                       one observations was summarized. Inference will be invalid!""")
+                    "Variance was set to non-zero for an observation with sample_weight=1! "
+                    "sample_var represents the variance of the original observations that are "
+                    "summarized in this sample. Hence, cannot have a non-zero variance if only "
+                    "one observations was summarized. Inference will be invalid!")
+
+        if X is None:
+            X = np.empty((y.shape[0], 0))
 
         assert (X.shape[0] == y.shape[0] ==
                 sample_weight.shape[0] == sample_var.shape[0]), "Input lengths not compatible!"
@@ -1527,7 +1536,7 @@ class StatsModelsLinearRegression:
         # TODO: Add other types of covariance estimation (e.g. Newey-West (HAC), HC2, HC3)
         X, y, sample_weight, sample_var = self._check_input(X, y, sample_weight, sample_var)
 
-        if self._fit_intercept:
+        if self.fit_intercept:
             X = add_constant(X, has_constant='add')
         WX = X * np.sqrt(sample_weight).reshape(-1, 1)
 
@@ -1555,13 +1564,13 @@ class StatsModelsLinearRegression:
         else:
             correction = (n_obs / (n_obs - df))
 
-        if ('cov_type' not in self.fit_args) or (self.fit_args['cov_type'] == 'nonrobust'):
+        if (self.cov_type is None) or (self.cov_type == 'nonrobust'):
             if y.ndim < 2:
                 self._var = correction * np.average(var_i, weights=sample_weight) * sigma_inv
             else:
                 vars = correction * np.average(var_i, weights=sample_weight, axis=0)
                 self._var = [v * sigma_inv for v in vars]
-        elif (self.fit_args['cov_type'] == 'HC0'):
+        elif (self.cov_type == 'HC0'):
             if y.ndim < 2:
                 weighted_sigma = np.matmul(WX.T, WX * var_i.reshape(-1, 1))
                 self._var = np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv))
@@ -1570,7 +1579,7 @@ class StatsModelsLinearRegression:
                 for j in range(self._n_out):
                     weighted_sigma = np.matmul(WX.T, WX * var_i[:, [j]])
                     self._var.append(np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
-        elif (self.fit_args['cov_type'] == 'HC1'):
+        elif (self.cov_type == 'HC1'):
             if y.ndim < 2:
                 weighted_sigma = np.matmul(WX.T, WX * var_i.reshape(-1, 1))
                 self._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv))
@@ -1579,6 +1588,8 @@ class StatsModelsLinearRegression:
                 for j in range(self._n_out):
                     weighted_sigma = np.matmul(WX.T, WX * var_i[:, [j]])
                     self._var.append(correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
+        else:
+            raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
         return self
 
     def predict(self, X):
@@ -1595,7 +1606,9 @@ class StatsModelsLinearRegression:
         predictions : {(n,) array, (n,p) array}
             The predicted mean outcomes
         """
-        if self._fit_intercept:
+        if X is None:
+            X = np.empty((1, 0))
+        if self.fit_intercept:
             X = add_constant(X, has_constant='add')
         return np.matmul(X, self._param)
 
@@ -1611,7 +1624,7 @@ class StatsModelsLinearRegression:
             was p-dimensional, then the result is a matrix of coefficents, whose p-th
             row containts the coefficients corresponding to the p-th coordinate of the label.
         """
-        if self._fit_intercept:
+        if self.fit_intercept:
             if self._n_out == 0:
                 return self._param[1:]
             else:
@@ -1633,7 +1646,7 @@ class StatsModelsLinearRegression:
             The intercept of the linear regresion. If label y was p-dimensional, then the result is a vector
             whose p-th entry containts the intercept corresponding to the p-th coordinate of the label.
         """
-        return self._param[0] if self._fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
+        return self._param[0] if self.fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
 
     @property
     def _param_var(self):
@@ -1678,7 +1691,7 @@ class StatsModelsLinearRegression:
         coef_stderr_ : {(d,), (p, d)} nd array like
             The standard error of the coefficients
         """
-        return self._param_stderr[1:].T if self._fit_intercept else self._param_stderr.T
+        return self._param_stderr[1:].T if self.fit_intercept else self._param_stderr.T
 
     @property
     def intercept_stderr_(self):
@@ -1690,7 +1703,7 @@ class StatsModelsLinearRegression:
         intercept_stderr_ : float or (p,) nd array like
             The standard error of the intercept(s)
         """
-        return self._param_stderr[0] if self._fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
+        return self._param_stderr[0] if self.fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
 
     def prediction_stderr(self, X):
         """
@@ -1706,7 +1719,9 @@ class StatsModelsLinearRegression:
         prediction_stderr : (n, p) array like
             The standard error of each coordinate of the output at each point we predict
         """
-        if self._fit_intercept:
+        if X is None:
+            X = np.empty((1, 0))
+        if self.fit_intercept:
             X = add_constant(X, has_constant='add')
         if self._n_out == 0:
             return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1), 0, np.inf))
@@ -1748,7 +1763,7 @@ class StatsModelsLinearRegression:
         intercept__interval : {tuple ((p,) array, (p,) array), tuple (float, float)}
             The lower and upper bounds of the confidence interval of the intercept(s)
         """
-        if not self._fit_intercept:
+        if not self.fit_intercept:
             return (0 if self._n_out == 0 else np.zeros(self._n_out)),\
                 (0 if self._n_out == 0 else np.zeros(self._n_out))
 

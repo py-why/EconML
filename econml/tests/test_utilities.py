@@ -8,7 +8,8 @@ import random
 import numpy as np
 import sparse as sp
 import pytest
-from econml.utilities import einsum_sparse, todense, tocoo, transpose
+from econml.utilities import einsum_sparse, todense, tocoo, transpose, inverse_onehot
+from sklearn.preprocessing import OneHotEncoder
 
 
 class TestUtilities(unittest.TestCase):
@@ -74,6 +75,12 @@ class TestUtilities(unittest.TestCase):
             out1 = todense(transpose(arr, axes))
             out2 = transpose(todense(arr), axes)
             np.testing.assert_allclose(out1, out2, verbose=True)
+
+    def test_inverse_onehot(self):
+        T = np.random.randint(4, size=100)
+        T_oh = OneHotEncoder(categories='auto', sparse=False).fit_transform(T.reshape(-1, 1))[:, 1:]
+        T_inv = inverse_onehot(T_oh)
+        np.testing.assert_array_equal(T, T_inv)
 
     # TODO: set up proper flag for this
     @pytest.mark.slow

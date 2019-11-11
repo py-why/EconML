@@ -108,7 +108,7 @@ class TestDML(unittest.TestCase):
                                             marg_eff if d_x else marg_eff[0:1], const_marg_eff)
 
                                         T0 = np.full_like(T, 'a') if is_discrete else np.zeros_like(T)
-                                        eff = est.effect(X, T0, T)
+                                        eff = est.effect(X, T0=T0, T1=T)
                                         self.assertEqual(shape(eff), effect_shape)
 
                                         if inf is not None:
@@ -118,7 +118,7 @@ class TestDML(unittest.TestCase):
                                                              (2,) + marginal_effect_shape)
                                             self.assertEqual(shape(const_marg_eff_int),
                                                              (2,) + const_marginal_effect_shape)
-                                            self.assertEqual(shape(est.effect_interval(X, T0, T)),
+                                            self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                              (2,) + effect_shape)
 
                                         est.score(Y, T, X, W)
@@ -131,7 +131,7 @@ class TestDML(unittest.TestCase):
                                             cm = ExitStack()  # ExitStack can be used as a "do nothing" ContextManager
                                         with cm:
                                             effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
-                                            eff = est.effect(X) if not is_discrete else est.effect(X, 'a', 'b')
+                                            eff = est.effect(X) if not is_discrete else est.effect(X, T0='a', T1='b')
                                             self.assertEqual(shape(eff), effect_shape2)
 
     def test_can_use_vectors(self):
@@ -162,8 +162,8 @@ class TestDML(unittest.TestCase):
         # Should rule out some basic issues.
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
         np.testing.assert_almost_equal(dml.effect(np.ones((9, 1)),
-                                                  np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
-                                                  np.array([1, 2, 3, 1, 2, 3, 1, 2, 3])),
+                                                  T0=np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                                                  T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3])),
                                        [0, 2, 1, -2, 0, -1, -1, 1, 0])
         dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
@@ -191,8 +191,8 @@ class TestDML(unittest.TestCase):
                                        T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]),
                                        alpha=0.05)
         point = dml.effect(np.ones((9, 1)),
-                           np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
-                           np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]))
+                           T0=np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                           T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]))
         assert len(interval) == 2
         lo, hi = interval
         assert lo.shape == hi.shape == point.shape
@@ -314,4 +314,4 @@ class TestDML(unittest.TestCase):
 
         np.testing.assert_allclose(a, dml.coef_.reshape(-1))
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
-        np.testing.assert_allclose(eff, dml.effect(x, 0, t))
+        np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t))

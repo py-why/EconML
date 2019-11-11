@@ -12,7 +12,7 @@ from the treatment residuals.
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
+from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
                         StatsModelsLinearRegression, LassoCVWrapper)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
@@ -57,7 +57,7 @@ class DMLCateEstimator(_RLearner):
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, cross-validation generator or an iterable, optional
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -71,7 +71,8 @@ class DMLCateEstimator(_RLearner):
         :class:`~sklearn.model_selection.KFold` is used
         (with a random shuffle in either case).
 
-        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
@@ -120,7 +121,10 @@ class DMLCateEstimator(_RLearner):
                     # In this case, the Target is the one-hot-encoding of the treatment variable
                     # We need to go back to the label representation of the one-hot so as to call
                     # the classifier.
-                    Target = np.matmul(Target, np.arange(1, Target.shape[1] + 1)).flatten()
+                    if np.any(np.all(Target == 0, axis=0)) or (not np.any(np.all(Target == 0, axis=1))):
+                        raise AttributeError("Provided crossfit folds contain training splits that " +
+                                             "don't contain all treatments")
+                    Target = inverse_onehot(Target)
 
                 if sample_weight is not None:
                     self._model.fit(self._combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
@@ -210,8 +214,8 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.
 
-    featurizer: transformer, optional
-    (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
+    featurizer: transformer, optional (default is \
+        :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
@@ -222,7 +226,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, cross-validation generator or an iterable, optional
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -328,7 +332,7 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, cross-validation generator or an iterable, optional
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -391,7 +395,7 @@ class KernelDMLCateEstimator(LinearDMLCateEstimator):
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, cross-validation generator or an iterable, optional
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
