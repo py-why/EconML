@@ -106,7 +106,6 @@ class TestMetalearners(unittest.TestCase):
             for multi_y in [False, True]:
                 self._test_te(DA_learner, T0=3, T1=5, tol=0.5, te_type=te_type, multi_y=multi_y)
 
-
     def _test_te(self, learner_instance, T0, T1, tol, te_type="const", multi_y=False):
         if te_type not in ["const", "heterogeneous"]:
             raise ValueError("Type of treatment effect must be 'const' or 'heterogeneous'.")
@@ -114,8 +113,8 @@ class TestMetalearners(unittest.TestCase):
         if multi_y:
             X, T, Y = getattr(TestMetalearners, "{te_type}_te_multiy_data".format(te_type=te_type))
             # Get the true treatment effect
-            te = np.repeat((np.apply_along_axis(te_func, 1, TestMetalearners.X_test)
-                            * (T1 - T0)).reshape(-1, 1), 2, axis=1)
+            te = np.repeat((np.apply_along_axis(te_func, 1, TestMetalearners.X_test) *
+                            (T1 - T0)).reshape(-1, 1), 2, axis=1)
             marginal_te = np.repeat(np.apply_along_axis(
                 te_func, 1, TestMetalearners.X_test).reshape(-1, 1) * np.array([2, 4]), 2, axis=0).reshape((-1, 2, 2))
         else:
@@ -125,7 +124,7 @@ class TestMetalearners(unittest.TestCase):
             marginal_te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test).reshape(-1, 1) * np.array([2, 4])
         # Fit learner and get the effect and marginal effect
         learner_instance.fit(Y, T, X)
-        te_hat = learner_instance.effect(TestMetalearners.X_test, T0, T1)
+        te_hat = learner_instance.effect(TestMetalearners.X_test, T0=T0, T1=T1)
         marginal_te_hat = learner_instance.marginal_effect(T1, TestMetalearners.X_test)
         # Compute treatment effect residuals (absolute)
         te_res = np.abs(te - te_hat)
@@ -144,7 +143,7 @@ class TestMetalearners(unittest.TestCase):
         X, T, Y = TestMetalearners.const_te_data
         # Check that one can pass in regular lists
         learner_instance.fit(list(Y), list(T), list(X))
-        learner_instance.effect(list(TestMetalearners.X_test), T0, T1)
+        learner_instance.effect(list(TestMetalearners.X_test), T0=T0, T1=T1)
         # Check that it fails correctly if lists of different shape are passed in
         self.assertRaises(ValueError, learner_instance.fit, Y, T, X[:TestMetalearners.n // 2])
         self.assertRaises(ValueError, learner_instance.fit, Y[:TestMetalearners.n // 2], T, X)

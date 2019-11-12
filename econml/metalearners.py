@@ -396,7 +396,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             # Train model on the treated. Assign higher weight to units resembling
             # control units.
             self._fit_weighted_pipeline(self.models_treated[ind], X[T == ind + 1], Y[T == ind + 1],
-                                        sample_weight=(1 - pro_scores[T_concat == ind + 1]) / pro_scores[T_concat == ind + 1])
+                                        sample_weight=(1 - pro_scores[T_concat == ind + 1]) /
+                                        pro_scores[T_concat == ind + 1])
             imputed_effect_on_controls = self.models_treated[ind].predict(X[T == 0]) - Y[T == 0]
             imputed_effect_on_treated = Y[T == ind + 1] - self.models_control[ind].predict(X[T == ind + 1])
 
