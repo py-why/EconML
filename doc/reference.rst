@@ -9,6 +9,7 @@ Public Module Reference
     econml.deepiv
     econml.dgp
     econml.dml
+    econml.drlearner
     econml.inference
     econml.ortho_forest
     econml.selective_regularization

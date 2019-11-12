@@ -106,6 +106,7 @@ class TestMetalearners(unittest.TestCase):
             for multi_y in [False, True]:
                 self._test_te(DA_learner, T0=3, T1=5, tol=0.5, te_type=te_type, multi_y=multi_y)
 
+
     def _test_te(self, learner_instance, T0, T1, tol, te_type="const", multi_y=False):
         if te_type not in ["const", "heterogeneous"]:
             raise ValueError("Type of treatment effect must be 'const' or 'heterogeneous'.")
