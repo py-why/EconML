@@ -9,16 +9,17 @@ from econml.sklearn_extensions.honestforest import SubsampledHonestForest
 
 
 def monte_carlo_normal():
-    n = 1000
-    d = 10
+    n = 100
+    d = 5
     x_grid = np.linspace(-1, 1, 100)
     X_test = np.hstack([x_grid.reshape(-1, 1), np.zeros((100, d - 1))])
     coverage = []
     exp_dict = {'point': [], 'low': [], 'up': []}
-    for _ in range(1000):
+    for it in range(1000):
+        print(it)
         X = np.random.normal(0, 1, size=(n, d))
         y = X[:, 0] + np.random.normal(size=(n,))
-        est = SubsampledHonestForest(n_estimators=10000, global_averaging=True, verbose=0)
+        est = SubsampledHonestForest(n_estimators=10000, global_averaging=True, verbose=1)
         est.fit(X, y)
         point = est.predict(X_test)
         low, up = est.predict_interval(X_test, 5, 95, normal=True)
@@ -46,16 +47,17 @@ def monte_carlo_normal():
 
 
 def monte_carlo_ss():
-    n = 1000
-    d = 10
+    n = 100
+    d = 5
     x_grid = np.linspace(-1, 1, 100)
     X_test = np.hstack([x_grid.reshape(-1, 1), np.zeros((100, d - 1))])
     coverage = []
     exp_dict = {'point': [], 'low': [], 'up': []}
-    for _ in range(1000):
+    for it in range(1000):
+        print(it)
         X = np.random.normal(0, 1, size=(n, d))
         y = X[:, 0] + np.random.normal(size=(n,))
-        est = SubsampledHonestForest(n_estimators=10000, global_averaging=True, verbose=0)
+        est = SubsampledHonestForest(n_estimators=10000, global_averaging=True, verbose=1)
         est.fit(X, y)
         point = est.predict(X_test)
         low, up = est.predict_interval(X_test, 5, 95, normal=False)

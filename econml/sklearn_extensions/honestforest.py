@@ -206,7 +206,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     subsample_fr : float or 'auto', optional (default='auto')
         The fraction of the half-samples that are used on each tree. Each tree
-        will be built on subsample_fr * n_samples/2. 
+        will be built on subsample_fr * n_samples/2.
 
         If 'auto', then the subsampling fraction is set to::
 
@@ -298,7 +298,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     search of the best split. To obtain a deterministic behaviour during
     fitting, ``random_state`` has to be fixed.
 
-    The default value ``max_features="auto"`` uses ``n_features`` 
+    The default value ``max_features="auto"`` uses ``n_features``
     rather than ``n_features / 3``. The latter was originally suggested in
     [1], whereas the former was more recently justified empirically in [2].
 
@@ -307,7 +307,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     .. [1] L. Breiman, "Random Forests", Machine Learning, 45(1), 5-32, 2001.
 
-    .. [2] P. Geurts, D. Ernst., and L. Wehenkel, "Extremely randomized 
+    .. [2] P. Geurts, D. Ernst., and L. Wehenkel, "Extremely randomized
            trees", Machine Learning, 63(1), 3-42, 2006.
 
     .. [3] S. Athey, S. Wager, "Estimation and Inference of Heterogeneous Treatment Effects using Random Forests",
@@ -518,9 +518,32 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             weight_hat_bags = np.array([np.nanmean(weight_hat[np.arange(it * self.slice_len,
                                                                         min((it + 1) * self.slice_len, self.n_estimators))], axis=0)
                                         for it in range(self.n_slices)])
-            y_bags_pred /= weight_hat_bags
+            """
+            Approach 1: We know that thet(X) is the solution to:
+            
+            .. math ::
+                \\theta(X) = \\frac{\sum_b w_b(x) Y_i}{\sum_b w_b(x)}
+            
+            The variance of \\theta(X) is the variance of this quantity. We calculate the variance
+            of this via half-sampling:
+
+            .. math ::
+                Var(\\theta(X)) = Var_{random half-samples S}[ \\frac{\sum_{b \in S} w_b(x) Y_i}{\\sum_{b\in S} w_b(x)} ]
+            """
+            #y_bags_pred /= weight_hat_bags
+            #y_point_pred = np.sum(y_pred, axis=0) / np.sum(weight_hat, axis=0)
+            #std_pred = np.sqrt(np.mean((y_bags_pred - y_point_pred.reshape(1, -1))**2, axis=0))
+
+            """
+            Approach 2: The recommended approach in the GRF paper, specialized to this setup.
+
+            .. math ::
+                Var(\\theta(X)) ~ Var_{random half-samples S}[ \\sum_{b\in S} w_b(x) (Y_i - \\theta(X)) ] / (\\sum_{b} w_b(x))^2
+            """
             y_point_pred = np.sum(y_pred, axis=0) / np.sum(weight_hat, axis=0)
-            std_pred = np.sqrt(np.mean((y_bags_pred - y_point_pred.reshape(1, -1))**2, axis=0))
+            bag_res = y_bags_pred - weight_hat_bags * y_point_pred.reshape(1, -1)
+            std_pred = np.nanstd(bag_res, axis=0) / np.nanmean(weight_hat, axis=0)
+            y_bags_pred /= weight_hat_bags
         else:
             std_pred = np.std(y_bags_pred, axis=0)
             y_point_pred = np.mean(y_pred, axis=0)
