@@ -53,7 +53,13 @@ class TestLassoExtensions(unittest.TestCase):
     # WeightedLasso #
     #################
     def test_one_DGP(self):
-        """Test WeightedLasso with one set of coefficients."""
+        """Test WeightedLasso with one set of coefficients.
+        
+        To test the correctness of the weighted lasso, we compare the weight lasso with integer weights
+        with the standard lasso where the data entries have been replicated a number of times given by the
+        integer weights. 
+        """
+
         # Define weights
         sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
                                         np.ones(TestLassoExtensions.n_samples // 2) * 2))

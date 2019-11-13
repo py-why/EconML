@@ -17,60 +17,6 @@ from sklearn.utils import check_array, check_X_y
 from sklearn.utils.multiclass import type_of_target
 
 
-def _fit_weighted_linear_model(self, class_name, X, y, sample_weight, check_input=None):
-    # Convert X, y into numpy arrays
-    X, y = check_X_y(X, y, y_numeric=True, multi_output=True)
-    # Define fit parameters
-    fit_params = {'X': X, 'y': y}
-    # Some algorithms doen't have a check_input option
-    if check_input is not None:
-        fit_params['check_input'] = check_input
-
-    if sample_weight is not None:
-        # Check weights array
-        if np.atleast_1d(sample_weight).ndim > 1:
-            # Check that weights are size-compatible
-            raise ValueError("Sample weights must be 1D array or scalar")
-        if np.ndim(sample_weight) == 0:
-            sample_weight = np.repeat(sample_weight, X.shape[0])
-        else:
-            sample_weight = check_array(sample_weight, ensure_2d=False, allow_nd=False)
-            if sample_weight.shape[0] != X.shape[0]:
-                raise ValueError(
-                    "Found array with {0} sample(s) while {1} samples were expected.".format(
-                        sample_weight.shape[0], X.shape[0])
-                )
-
-        # Normalize inputs
-        X, y, X_offset, y_offset, X_scale = self._preprocess_data(
-            X, y, fit_intercept=self.fit_intercept, normalize=False,
-            copy=self.copy_X, check_input=check_input if check_input is not None else True,
-            sample_weight=sample_weight, return_mean=True)
-        # Weight inputs
-        normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
-        sqrt_weights = np.sqrt(normalized_weights)
-        weight_mat = np.diag(sqrt_weights)
-        X_weighted = np.matmul(weight_mat, X)
-        y_weighted = np.matmul(weight_mat, y)
-        fit_params['X'] = X_weighted
-        fit_params['y'] = y_weighted
-        if self.fit_intercept:
-            # Fit base class without intercept
-            self.fit_intercept = False
-            # Fit Lasso
-            super(class_name, self).fit(**fit_params)
-            # Reset intercept
-            self.fit_intercept = True
-            # The intercept is not calculated properly due the sqrt(weights) factor
-            # so it must be recomputed
-            self._set_intercept(X_offset, y_offset, X_scale)
-        else:
-            super(class_name, self).fit(**fit_params)
-    else:
-        # Fit lasso without weights
-        super(class_name, self).fit(**fit_params)
-
-
 def _weighted_check_cv(cv='warn', y=None, classifier=False):
     if cv is None or cv == 'warn':
         warnings.warn(CV_WARNING, FutureWarning)
@@ -104,7 +50,66 @@ class _WeightedCVIterableWrapper(_CVIterableWrapper):
         return super().split(X, y, groups)
 
 
-class WeightedLasso(Lasso):
+class WeightedModelMixin:
+    """Mixin class for weighted models.
+    
+    For linear models, weights are applied as reweighting of the data matrix X and targets y."""
+    
+    def _fit_weighted_linear_model(self, X, y, sample_weight, check_input=None):
+        # Convert X, y into numpy arrays
+        X, y = check_X_y(X, y, y_numeric=True, multi_output=True)
+        # Define fit parameters
+        fit_params = {'X': X, 'y': y}
+        # Some algorithms don't have a check_input option
+        if check_input is not None:
+            fit_params['check_input'] = check_input
+
+        if sample_weight is not None:
+            # Check weights array
+            if np.atleast_1d(sample_weight).ndim > 1:
+                # Check that weights are size-compatible
+                raise ValueError("Sample weights must be 1D array or scalar")
+            if np.ndim(sample_weight) == 0:
+                sample_weight = np.repeat(sample_weight, X.shape[0])
+            else:
+                sample_weight = check_array(sample_weight, ensure_2d=False, allow_nd=False)
+                if sample_weight.shape[0] != X.shape[0]:
+                    raise ValueError(
+                        "Found array with {0} sample(s) while {1} samples were expected.".format(
+                            sample_weight.shape[0], X.shape[0])
+                    )
+
+            # Normalize inputs
+            X, y, X_offset, y_offset, X_scale = self._preprocess_data(
+                X, y, fit_intercept=self.fit_intercept, normalize=False,
+                copy=self.copy_X, check_input=check_input if check_input is not None else True,
+                sample_weight=sample_weight, return_mean=True)
+            # Weight inputs
+            normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
+            sqrt_weights = np.sqrt(normalized_weights)
+            weight_mat = np.diag(sqrt_weights)
+            X_weighted = np.matmul(weight_mat, X)
+            y_weighted = np.matmul(weight_mat, y)
+            fit_params['X'] = X_weighted
+            fit_params['y'] = y_weighted
+            if self.fit_intercept:
+                # Fit base class without intercept
+                self.fit_intercept = False
+                # Fit Lasso
+                super().fit(**fit_params)
+                # Reset intercept
+                self.fit_intercept = True
+                # The intercept is not calculated properly due the sqrt(weights) factor
+                # so it must be recomputed
+                self._set_intercept(X_offset, y_offset, X_scale)
+            else:
+                super().fit(**fit_params)
+        else:
+            # Fit lasso without weights
+            super().fit(**fit_params)
+
+
+class WeightedLasso(WeightedModelMixin, Lasso):
     """Version of sklearn Lasso that accepts weights.
 
     Parameters
@@ -207,11 +212,11 @@ class WeightedLasso(Lasso):
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
         """
-        _fit_weighted_linear_model(self, WeightedLasso, X, y, sample_weight, check_input)
+        self._fit_weighted_linear_model(X, y, sample_weight, check_input)
         return self
 
 
-class WeightedMultiTaskLasso(MultiTaskLasso):
+class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
     """Version of sklearn MultiTaskLasso that accepts weights.
 
     Parameters
@@ -295,11 +300,11 @@ class WeightedMultiTaskLasso(MultiTaskLasso):
                         Individual weights for each sample.
                         The weights will be normalized internally.
         """
-        _fit_weighted_linear_model(self, WeightedMultiTaskLasso, X, y, sample_weight)
+        self._fit_weighted_linear_model(X, y, sample_weight)
         return self
 
 
-class WeightedLassoCV(LassoCV):
+class WeightedLassoCV(WeightedModelMixin, LassoCV):
     """Version of sklearn LassoCV that accepts weights.
 
     Parameters
@@ -404,12 +409,12 @@ class WeightedLassoCV(LassoCV):
         cv_temp = self.cv
         self.cv = _weighted_check_cv(self.cv).split(X, y, sample_weight=sample_weight)
         # Fit weighted model
-        _fit_weighted_linear_model(self, WeightedLassoCV, X, y, sample_weight)
+        self._fit_weighted_linear_model(X, y, sample_weight)
         self.cv = cv_temp
         return self
 
 
-class WeightedMultiTaskLassoCV(MultiTaskLassoCV):
+class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
     """Version of sklearn MultiTaskLassoCV that accepts weights.
 
     Parameters
@@ -507,7 +512,7 @@ class WeightedMultiTaskLassoCV(MultiTaskLassoCV):
         cv_temp = self.cv
         self.cv = _weighted_check_cv(self.cv).split(X, y, sample_weight=sample_weight)
         # Fit weighted model
-        _fit_weighted_linear_model(self, WeightedMultiTaskLassoCV, X, y, sample_weight)
+        self._fit_weighted_linear_model(X, y, sample_weight)
         self.cv = cv_temp
         return self
 
