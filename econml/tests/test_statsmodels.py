@@ -2,7 +2,7 @@ import numpy as np
 from econml.dml import DMLCateEstimator, LinearDMLCateEstimator
 from econml.inference import StatsModelsInference
 from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
-from econml.sklearn_extensions import WeightedLasso
+from econml.sklearn_extensions.linear_model import WeightedLasso
 from statsmodels.regression.linear_model import WLS
 from statsmodels.tools.tools import add_constant
 from sklearn.dummy import DummyClassifier

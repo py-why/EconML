@@ -7,8 +7,9 @@ import numpy as np
 import pytest
 import unittest
 import warnings
-from econml.sklearn_extensions import WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV, \
-    WeightedKFold, DebiasedLasso
+from econml.sklearn_extensions.linear_model import WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV, \
+    DebiasedLasso, MultiOutputDebiasedLasso
+from econml.sklearn_extensions.model_selection import WeightedKFold
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV
 from sklearn.model_selection import KFold
 
@@ -44,6 +45,9 @@ class TestLassoExtensions(unittest.TestCase):
         cls.y_simple = np.dot(cls.X, cls.coefs1) + np.random.normal(scale=cls.error_sd, size=cls.n_samples)
         cls.y_2D = np.concatenate((TestLassoExtensions.y_simple.reshape(-1, 1),
                                    TestLassoExtensions.y.reshape(-1, 1)), axis=1)
+        cls.y2_full = np.dot(cls.X, cls.coefs2) + np.random.normal(scale=cls.error_sd, size=cls.n_samples)
+        cls.y_2D_consistent = np.concatenate((TestLassoExtensions.y_simple.reshape(-1, 1),
+                                              TestLassoExtensions.y2_full.reshape(-1, 1)), axis=1)
 
     #################
     # WeightedLasso #
@@ -266,16 +270,20 @@ class TestLassoExtensions(unittest.TestCase):
         # --> Check debiased coeffcients without intercept
         params = {'fit_intercept': False}
         self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_simple, sample_weight=None,
-                                   expected_coefs=TestLassoExtensions.coefs1, expected_intercept=TestLassoExtensions.intercept,
+                                   expected_coefs=TestLassoExtensions.coefs1,
+                                   expected_intercept=TestLassoExtensions.intercept,
                                    params=params)
         # --> Check debiased coeffcients with intercept
-        self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_simple + TestLassoExtensions.intercept,
+        self._check_debiased_coefs(TestLassoExtensions.X,
+                                   TestLassoExtensions.y_simple + TestLassoExtensions.intercept,
                                    sample_weight=None,
-                                   expected_coefs=TestLassoExtensions.coefs1, expected_intercept=TestLassoExtensions.intercept)
+                                   expected_coefs=TestLassoExtensions.coefs1,
+                                   expected_intercept=TestLassoExtensions.intercept)
         # --> Check 5-95 CI coverage for unit vectors
         self._check_debiased_CI(TestLassoExtensions.X, TestLassoExtensions.y_simple + TestLassoExtensions.intercept,
                                 sample_weight=None,
-                                expected_coefs=TestLassoExtensions.coefs1, expected_intercept=TestLassoExtensions.intercept)
+                                expected_coefs=TestLassoExtensions.coefs1,
+                                expected_intercept=TestLassoExtensions.intercept)
         # Test DebiasedLasso with weights for one DGP
         # Define weights
         sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
@@ -286,7 +294,8 @@ class TestLassoExtensions(unittest.TestCase):
         y_expanded = np.concatenate(
             (TestLassoExtensions.y_simple, TestLassoExtensions.y_simple[TestLassoExtensions.n_samples // 2:]))
         # --> Check debiased coefficients
-        weighted_debiased_coefs = self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_simple, sample_weight=sample_weight,
+        weighted_debiased_coefs = self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_simple,
+                                                             sample_weight=sample_weight,
                                                              expected_coefs=TestLassoExtensions.coefs1)
         expanded_debiased_coefs = self._check_debiased_coefs(X_expanded, y_expanded, sample_weight=None,
                                                              expected_coefs=TestLassoExtensions.coefs1)
@@ -303,6 +312,52 @@ class TestLassoExtensions(unittest.TestCase):
                                    sample_weight=sample_weight,
                                    expected_coefs=TestLassoExtensions.coefs1,
                                    expected_intercept=TestLassoExtensions.intercept1)
+
+    def test_multi_output_debiased_lasso(self):
+        """Test MultiOutputDebiasedLasso."""
+        # Test that attributes propagate correctly
+        est = MultiOutputDebiasedLasso()
+        multioutput_attrs = est.get_params()
+        debiased_attrs = DebiasedLasso().get_params()
+        for attr in debiased_attrs:
+            self.assertTrue(attr in multioutput_attrs)
+        # Test MultiOutputDebiasedLasso without weights
+        # --> Check debiased coeffcients without intercept
+        params = {'fit_intercept': False}
+        self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_2D_consistent,
+                                   sample_weight=None,
+                                   expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2],
+                                   params=params)
+        # --> Check debiased coeffcients with intercept
+        intercept_2D = np.array([TestLassoExtensions.intercept1, TestLassoExtensions.intercept2])
+        self._check_debiased_coefs(TestLassoExtensions.X,
+                                   TestLassoExtensions.y_2D_consistent + intercept_2D,
+                                   sample_weight=None,
+                                   expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2],
+                                   expected_intercept=intercept_2D)
+        # --> Check CI coverage
+        self._check_debiased_CI_2D(TestLassoExtensions.X,
+                                   TestLassoExtensions.y_2D_consistent + intercept_2D, 
+                                   sample_weight=None,
+                                   expected_coefs=np.array([TestLassoExtensions.coefs1, TestLassoExtensions.coefs2]),
+                                   expected_intercept=intercept_2D)
+        # Test MultiOutputDebiasedLasso with weights
+        # Define weights
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.ones(TestLassoExtensions.n_samples // 2) * 2))
+        # Define extended datasets
+        X_expanded = np.concatenate(
+            (TestLassoExtensions.X, TestLassoExtensions.X[TestLassoExtensions.n_samples // 2:]))
+        y_expanded = np.concatenate(
+            (TestLassoExtensions.y_2D_consistent, TestLassoExtensions.y_2D_consistent[TestLassoExtensions.n_samples // 2:]))
+        # --> Check debiased coefficients
+        weighted_debiased_coefs = self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_2D_consistent,
+                                                             sample_weight=sample_weight,
+                                                             expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2])
+        expanded_debiased_coefs = self._check_debiased_coefs(X_expanded, y_expanded, sample_weight=None,
+                                                             expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2])
+        for i in range(2):
+            self.assertTrue(np.allclose(weighted_debiased_coefs[i], expanded_debiased_coefs[i]))
 
     def _check_debiased_CI(self, X, y, sample_weight, expected_coefs, expected_intercept=0, n_experiments=200, params={}):
         # Unit vectors
@@ -323,13 +378,41 @@ class TestLassoExtensions(unittest.TestCase):
         self.assertTrue(all(CI_coverage >= 0.85))
         self.assertTrue(all(CI_coverage <= 0.95))
 
+    def _check_debiased_CI_2D(self, X, y, sample_weight, expected_coefs, expected_intercept=0, n_experiments=200, params={}):
+        # Unit vectors
+        X_test = np.eye(TestLassoExtensions.n_dim)
+        y_test_mean = expected_intercept + expected_coefs.T
+        is_in_interval = np.zeros((y.shape[1], n_experiments, TestLassoExtensions.n_dim))
+        for i in range(n_experiments):
+            np.random.seed(i)
+            X_exp = np.random.normal(size=X.shape)
+            err = np.random.normal(scale=TestLassoExtensions.error_sd, size=(X.shape[0], y.shape[1]))
+            y_exp = expected_intercept + np.dot(X_exp, expected_coefs.T) + err
+            debiased_lasso = MultiOutputDebiasedLasso()
+            debiased_lasso.set_params(**params)
+            debiased_lasso.fit(X_exp, y_exp, sample_weight)
+            y_lower, y_upper = debiased_lasso.predict_interval(X_test, 5, 95)
+            for j in range(y.shape[1]):
+                is_in_interval[j, i, :] = ((y_test_mean[:, j] >= y_lower[:, j]) & (y_test_mean[:, j] <= y_upper[:, j]))
+        for i in range(y.shape[1]):
+            CI_coverage = np.mean(is_in_interval[i], axis=0)
+            self.assertTrue(all(CI_coverage >= 0.85))
+
     def _check_debiased_coefs(self, X, y, sample_weight, expected_coefs, expected_intercept=0, params={}):
-        debiased_lasso = DebiasedLasso()
+        debiased_lasso = MultiOutputDebiasedLasso() if np.ndim(y) > 1 else DebiasedLasso()
         debiased_lasso.set_params(**params)
         debiased_lasso.fit(X, y, sample_weight)
-        self.assertTrue(np.allclose(debiased_lasso.coef_, expected_coefs, atol=5e-2))
-        if debiased_lasso.get_params()["fit_intercept"]:
-            self.assertAlmostEqual(debiased_lasso.intercept_, expected_intercept, delta=1e-2)
+        all_params = debiased_lasso.get_params()
+        # Check coeffcients and intercept are the same within tolerance
+        if np.ndim(y) > 1:
+            for i in range(y.shape[1]):
+                self.assertTrue(np.allclose(debiased_lasso.coef_[i], expected_coefs[i], atol=5e-2))
+                if all_params["fit_intercept"]:
+                    self.assertAlmostEqual(debiased_lasso.intercept_[i], expected_intercept[i], delta=1e-2)
+        else:
+            self.assertTrue(np.allclose(debiased_lasso.coef_, expected_coefs, atol=5e-2))
+            if all_params["fit_intercept"]:
+                self.assertAlmostEqual(debiased_lasso.intercept_, expected_intercept, delta=1e-2)
         return debiased_lasso.coef_
 
     def _compare_with_lasso(self, lasso_X, lasso_y, wlasso_X, wlasso_y, sample_weight, alpha_range=[0.01], params={}):
