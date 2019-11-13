@@ -52,9 +52,10 @@ class _WeightedCVIterableWrapper(_CVIterableWrapper):
 
 class WeightedModelMixin:
     """Mixin class for weighted models.
-    
-    For linear models, weights are applied as reweighting of the data matrix X and targets y."""
-    
+
+    For linear models, weights are applied as reweighting of the data matrix X and targets y.
+    """
+
     def _fit_weighted_linear_model(self, X, y, sample_weight, check_input=None):
         # Convert X, y into numpy arrays
         X, y = check_X_y(X, y, y_numeric=True, multi_output=True)
@@ -957,7 +958,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
     def _inverse_transform_param(self, param):
         param_mapping = super().get_params()
-        inverse_transformed_param = f"estimator__{param}"
+        inverse_transformed_param = "estimator__{}".format(param)
         if inverse_transformed_param in param_mapping:
             return inverse_transformed_param
         return param

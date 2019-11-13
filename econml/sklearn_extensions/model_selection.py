@@ -38,7 +38,8 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
 
     # If KFold fails after n_trials, we try the next best thing: stratifying by weight groups
     warnings.warn("The KFold algorithm failed to find a weight-balanced partition after " +
-                  "{n_trials} trials. Falling back on a weight stratification algorithm.".format(n_trials=self.n_trials), UserWarning)
+                  "{n_trials} trials. Falling back on a weight stratification algorithm.".format(
+                      n_trials=self.n_trials), UserWarning)
     if is_stratified:
         stratified_weight_splits = [[]] * self.n_splits
         for y_unique in np.unique(y.flatten()):
