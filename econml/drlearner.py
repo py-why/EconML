@@ -29,7 +29,8 @@ Tsiatis AA (2006).
 
 import numpy as np
 from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
-from econml.utilities import WeightedLassoCV, inverse_onehot
+from econml.utilities import inverse_onehot
+from econml.sklearn_extensions.linear_model import WeightedLassoCV
 from sklearn.base import clone
 from econml._ortho_learner import _OrthoLearner
 from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin
