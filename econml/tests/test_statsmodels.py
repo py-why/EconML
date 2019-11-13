@@ -412,7 +412,7 @@ class TestStatsModels(unittest.TestCase):
         X_test = np.unique(np.random.binomial(1, .5, size=(n, d)), axis=0)
         for fit_intercept in [True, False]:
             for cov_type in ['nonrobust', 'HC0', 'HC1']:
-                est = OLS(fit_intercept=fit_intercept, fit_args={'cov_type': cov_type}).fit(X, y)
+                est = OLS(fit_intercept=fit_intercept, cov_type=cov_type).fit(X, y)
                 lr = StatsModelsOLS(fit_intercept=fit_intercept, fit_args={
                                     'cov_type': cov_type, 'use_t': False}).fit(X, y)
                 _compare_classes(est, lr, X_test)
@@ -424,7 +424,7 @@ class TestStatsModels(unittest.TestCase):
         X_test = np.unique(np.random.binomial(1, .5, size=(n, d)), axis=0)
         for fit_intercept in [True, False]:
             for cov_type in ['nonrobust', 'HC0', 'HC1']:
-                est = OLS(fit_intercept=fit_intercept, fit_args={'cov_type': cov_type}).fit(X, y)
+                est = OLS(fit_intercept=fit_intercept, cov_type=cov_type).fit(X, y)
                 lr = StatsModelsOLS(fit_intercept=fit_intercept, fit_args={
                                     'cov_type': cov_type, 'use_t': False}).fit(X, y)
                 _compare_classes(est, lr, X_test)
@@ -437,7 +437,7 @@ class TestStatsModels(unittest.TestCase):
 
         for cov_type in ['nonrobust', 'HC0', 'HC1']:
             for alpha in [.01, .05, .1]:
-                _compare_classes(OLS(fit_intercept=False, fit_args={'cov_type': cov_type}).fit(X, y),
+                _compare_classes(OLS(fit_intercept=False, cov_type=cov_type).fit(X, y),
                                  StatsModelsOLS(fit_intercept=False, fit_args={
                                                 'cov_type': cov_type, 'use_t': False}).fit(X, y),
                                  X_test, alpha=alpha)
@@ -448,7 +448,7 @@ class TestStatsModels(unittest.TestCase):
         X = np.vstack([X, X])
         X_test = np.unique(np.random.binomial(1, .5, size=(n, d)), axis=0)
         for cov_type in ['nonrobust', 'HC0', 'HC1']:
-            _compare_classes(OLS(fit_intercept=True, fit_args={'cov_type': cov_type}).fit(X, y),
+            _compare_classes(OLS(fit_intercept=True, cov_type=cov_type).fit(X, y),
                              StatsModelsOLS(fit_intercept=True,
                                             fit_args={'cov_type': cov_type, 'use_t': False}).fit(X, y), X_test)
 
@@ -468,7 +468,7 @@ class TestStatsModels(unittest.TestCase):
             for cov_type in ['nonrobust', 'HC0', 'HC1']:
                 for fit_intercept in [True, False]:
                     for alpha in [.01, .05, .2]:
-                        est = OLS(fit_intercept=fit_intercept, fit_args={'cov_type': cov_type}).fit(X, y)
+                        est = OLS(fit_intercept=fit_intercept, cov_type=cov_type).fit(X, y)
                         lr = [StatsModelsOLS(fit_intercept=fit_intercept, fit_args={
                                              'cov_type': cov_type, 'use_t': False}).fit(X, y[:, t]) for t in range(p)]
                         for t in range(p):
@@ -524,16 +524,16 @@ class TestStatsModels(unittest.TestCase):
             for fit_intercept in [True, False]:
                 for alpha in [.01, .05, .2]:
                     _compare_classes(OLS(fit_intercept=fit_intercept,
-                                         fit_args={'cov_type': cov_type}).fit(X, y),
+                                         cov_type=cov_type).fit(X, y),
                                      OLS(fit_intercept=fit_intercept,
-                                         fit_args={'cov_type': cov_type}).fit(X_final, y_sum,
-                                                                              sample_weight=n_sum, sample_var=var_sum),
+                                         cov_type=cov_type).fit(X_final, y_sum,
+                                                                sample_weight=n_sum, sample_var=var_sum),
                                      X_test, alpha=alpha)
                     _compare_classes(StatsModelsOLS(fit_intercept=fit_intercept,
                                                     fit_args={'cov_type': cov_type, 'use_t': False}).fit(X, y),
                                      OLS(fit_intercept=fit_intercept,
-                                         fit_args={'cov_type': cov_type}).fit(X_final, y_sum,
-                                                                              sample_weight=n_sum, sample_var=var_sum),
+                                         cov_type=cov_type).fit(X_final, y_sum,
+                                                                sample_weight=n_sum, sample_var=var_sum),
                                      X_test, alpha=alpha)
 
         # multi-d y
@@ -558,12 +558,11 @@ class TestStatsModels(unittest.TestCase):
                 for cov_type in ['nonrobust', 'HC0', 'HC1']:
                     for fit_intercept in [True, False]:
                         for alpha in [.01, .05, .2]:
-                            _compare_classes(OLS(fit_intercept=fit_intercept,
-                                                 fit_args={'cov_type': cov_type}).fit(X, y),
+                            _compare_classes(OLS(fit_intercept=fit_intercept, cov_type=cov_type).fit(X, y),
                                              OLS(fit_intercept=fit_intercept,
-                                                 fit_args={'cov_type': cov_type}).fit(X_final, y_sum,
-                                                                                      sample_weight=n_sum,
-                                                                                      sample_var=var_sum),
+                                                 cov_type=cov_type).fit(X_final, y_sum,
+                                                                        sample_weight=n_sum,
+                                                                        sample_var=var_sum),
                                              X_test, alpha=alpha)
 
     def test_dml_sum_vs_original(self):

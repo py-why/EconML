@@ -100,25 +100,6 @@ class TestMetalearners(unittest.TestCase):
         # Test heterogeneous treatment effect
         self._test_te(DA_learner, tol=0.5, te_type="heterogeneous")
 
-    def test_DRLearner(self):
-        """Tests whether the DoublyRobustLearner can accurately estimate constant and
-           heterogeneous treatment effects.
-        """
-        # Instantiate DomainAdaptationLearner
-        DR_learner = DoublyRobustLearner(outcome_model=LinearRegression(),
-                                         pseudo_treatment_model=LinearRegression())
-        # Test inputs
-        self._test_inputs(DR_learner)
-        # Test constant treatment effect
-        self._test_te(DR_learner, tol=0.5, te_type="const")
-        # Test heterogeneous treatment effect
-        outcome_model = Pipeline([('poly', PolynomialFeatures()), ('model', LinearRegression())])
-        DR_learner = DoublyRobustLearner(outcome_model=outcome_model,
-                                         pseudo_treatment_model=LinearRegression())
-        self._test_te(DR_learner, tol=0.5, te_type="heterogeneous")
-        # Test heterogenous treatment effect for W =/= None
-        self._test_with_W(DR_learner, tol=0.5)
-
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:
             raise ValueError("Type of treatment effect must be 'const' or 'heterogeneous'.")

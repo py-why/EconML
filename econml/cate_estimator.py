@@ -11,7 +11,7 @@ from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
-from .inference import StatsModelsInference
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -173,10 +173,51 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
         pass
 
     @_defer_to_inference
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\partial \\tau(T, X)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`marginal_effect(T, X)<marginal_effect>`, \
+                             type of :meth:`marginal_effect(T, X)<marginal_effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
         pass
 
 
@@ -276,12 +317,32 @@ class LinearCateEstimator(BaseCateEstimator):
         return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        X, T = self._expand_treatments(X, T)
         effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
         return tuple(np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
                      for eff in effs)
+    marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\theta(X)` produced
+        by the model. Available only when `inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`const_marginal_effect(X)<const_marginal_effect>` ,\
+                             type of :meth:`const_marginal_effect(X)<const_marginal_effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
         pass
 
 
@@ -314,7 +375,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         return (X,) + tuple(outTs)
 
     # override effect to set defaults, which works with the new definition of _expand_treatments
-    def effect(self, X=None, T0=0, T1=1):
+    def effect(self, X=None, *, T0=0, T1=1):
         # NOTE: don't explicitly expand treatments here, because it's done in the super call
         return super().effect(X, T0=T0, T1=T1)
     effect.__doc__ = BaseCateEstimator.effect.__doc__
@@ -347,4 +408,96 @@ class StatsModelsCateEstimatorMixin(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, *, alpha=0.1):
+        pass
+
+
+class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
+    # TODO Create parent StatsModelsCateEstimatorMixin class so that some functionalities can be shared
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(statsmodels=StatsModelsInferenceDiscrete)
+        return options
+
+    @property
+    @abc.abstractmethod
+    def statsmodels(self):
+        pass
+
+    def coef_(self, T):
+        """ The coefficients in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+
+        Returns
+        -------
+        coef: (n_x,) or (n_y, n_x) array like
+            Where n_x is the number of features that enter the final model (either the
+            dimension of X or the dimension of featurizer.fit_transform(X) if the CATE
+            estimator has a featurizer.)
+        """
+        _, T = self._expand_treatments(None, T)
+        ind = (T @ np.arange(T.shape[1])).astype(int)[0]
+        return self.statsmodels_fitted[ind].coef_
+
+    def intercept_(self, T):
+        """ The intercept in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+
+        Returns
+        -------
+        intercept: float or (n_y,) array like
+        """
+        _, T = self._expand_treatments(None, T)
+        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        return self.statsmodels_fitted[ind].intercept_
+
+    @BaseCateEstimator._defer_to_inference
+    def coef__interval(self, T, *, alpha=0.1):
+        """ The confidence interval for the coefficients in the linear model of the
+        constant marginal treatment effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple(type of :meth:`coef_(T)<coef_>`, type of :meth:`coef_(T)<coef_`)
+            The lower and upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def intercept__interval(self, T, *, alpha=0.1):
+        """ The intercept in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple(type of :meth:`intercept_(T)<intercept_>`, type of :meth:`intercept_(T)<intercept_>`)
+            The lower and upper bounds of the confidence interval.
+        """
         pass

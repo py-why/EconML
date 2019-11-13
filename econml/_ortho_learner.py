@@ -176,26 +176,26 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             - Let (F1_train, F1_test), ..., (Fk_train, Fk_test) be any KFold partition
               of the data, where Ft_train, Ft_test are subsets of indices of the input samples and such that
-              F1_train is disjoint from F1_test. Typically, the sets F1_test, ..., Fk_test will form a partition
-              of all the data-sets (i.e. they will be disjoint and their union will be the set of all input indices).
-              However, this is not enforced and does not need to be the case. For instance, in a time series split
-              F0_train could be a prefix of the data and F0_test the suffix. Moreover, for simplicity of code we
-              even allow the F1_test to not be disjoint. In that case, the model trained on the last fold whose
-              Ft_test contains index i will be used to calculate the nuisance. Typically, Ft_test will be created
+              F1_train is disjoint from F1_test. The sets F1_test, ..., Fk_test form an incomplete partition
+              of all the input indices, i.e. they are be disjoint and their union could potentially be a subset of
+              all input indices. For instance, in a time series split F0_train could be a prefix of the data and
+              F0_test the suffix. Typically, these folds will be created
               by a KFold split, i.e. if S1, ..., Sk is any partition of the data, then Ft_train is the set of
               all indices except St and Ft_test = St. If the union of the Ft_test is not all the data, then only the
-              subset of the data in the union of the Ft_test sets will be used in the final stage calculation for
-              :math:`\\theta(X)`.
-            - Then for each t in [1, ..., k]
-                - Estimate a model :math:`\\hat{h}` for h using Ft_train
-                - Evaluate the learned :math:`\\hat{h}` model on the data in Ft_test and use that value
-                  as the nuisance value :math:`\\hat{h}(V_i)` for the indices i in Ft_test
+              subset of the data in the union of the Ft_test sets will be used in the final stage.
 
-    3.  Estimate the model for :math:`\\theta(X)` by minimizing the empirical (regularized) plugin loss:
+            - Then for each t in [1, ..., k]
+
+                - Estimate a model :math:`\\hat{h}_t` for :math:`h` using Ft_train
+                - Evaluate the learned :math:`\\hat{h}_t` model on the data in Ft_test and use that value
+                  as the nuisance value/vector :math:`\\hat{U}_i=\\hat{h}(V_i)` for the indices i in Ft_test
+
+    3.  Estimate the model for :math:`\\theta(X)` by minimizing the empirical (regularized) plugin loss on
+        the subset of indices for which we have a nuisance value, i.e. the union of {F1_test, ..., Fk_test}:
 
         .. math ::
             \\mathbb{E}_n[\\ell(V; \\theta(X), \\hat{h}(V))]\
-            = \\frac{1}{n} \\sum_{i=1}^n \\sum_i \\ell(V_i; \\theta(X_i), \\hat{h}(V_i))
+            = \\frac{1}{n} \\sum_{i=1}^n \\sum_i \\ell(V_i; \\theta(X_i), \\hat{U}_i)
 
         The method is a bit more general in that the final step does not need to be a loss minimization step.
         The class takes as input a model for fitting an estimate of the nuisance h given a set of samples
@@ -244,7 +244,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, cross-validation generator or an iterable, optional
+    n_splits: int, cross-validation generator or an iterable
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -411,12 +411,25 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for arr in [X, W, Z, sample_weight, sample_var]:
             assert (arr is None) or (arr.shape[0] == Y.shape[0]), "Dimension mismatch"
         self._d_x = X.shape[1:] if X is not None else None
+        self._d_w = W.shape[1:] if W is not None else None
+        self._d_z = Z.shape[1:] if Z is not None else None
 
     def _check_fitted_dims(self, X):
         if X is None:
-            assert self._d_x is None, "X was not None when fitting, so can't be none for effect"
+            assert self._d_x is None, "X was not None when fitting, so can't be none for score or effect"
         else:
             assert self._d_x == X.shape[1:], "Dimension mis-match of X with fitted X"
+
+    def _check_fitted_dims_w_z(self, W, Z):
+        if W is None:
+            assert self._d_w is None, "W was not None when fitting, so can't be none for score"
+        else:
+            assert self._d_w == W.shape[1:], "Dimension mis-match of W with fitted W"
+
+        if Z is None:
+            assert self._d_z is None, "Z was not None when fitting, so can't be none for score"
+        else:
+            assert self._d_z == Z.shape[1:], "Dimension mis-match of Z with fitted Z"
 
     def _subinds_check_none(self, var, inds):
         return var[inds] if var is not None else None
@@ -485,14 +498,14 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             folds = splitter.split(np.ones((T.shape[0], 1)), T)
 
         if self._discrete_treatment:
-            T = self._label_encoder.fit_transform(T)
+            T = self._label_encoder.fit_transform(T.ravel())
             # drop first column since all columns sum to one
             T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))[:, 1:]
             self._d_t = shape(T)[1:]
             self.transformer = FunctionTransformer(
                 func=(lambda T:
                       self._one_hot_encoder.transform(
-                          reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]),
+                          reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
                 validate=False)
 
         nuisances, fitted_models, fitted_inds = _crossfit(self._model_nuisance, folds,
@@ -524,7 +537,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return super().const_marginal_effect_interval(X, alpha=alpha)
     const_marginal_effect_interval.__doc__ = LinearCateEstimator.const_marginal_effect_interval.__doc__
 
-    def effect_interval(self, X=None, T0=0, T1=1, *, alpha=0.1):
+    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
         self._check_fitted_dims(X)
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
     effect_interval.__doc__ = LinearCateEstimator.effect_interval.__doc__
@@ -560,6 +573,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         if not hasattr(self._model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
+        self._check_fitted_dims(X)
+        self._check_fitted_dims_w_z(W, Z)
         X, T = self._expand_treatments(X, T)
         n_splits = len(self._models_nuisance)
         for idx, mdl in enumerate(self._models_nuisance):
