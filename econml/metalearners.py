@@ -70,10 +70,10 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         T = self._label_encoder.fit_transform(T)
         self._one_hot_encoder.fit(T.reshape(-1, 1))
-        self._d_t = len(self._label_encoder.classes_) - 1
-        self.models = check_models(self.models, self._d_t + 1)
+        self._d_t = (len(self._label_encoder.classes_) - 1,)
+        self.models = check_models(self.models, self._d_t[0] + 1)
 
-        for ind in range(self._d_t + 1):
+        for ind in range(self._d_t[0] + 1):
             self.models[ind].fit(X[T == ind], Y[T == ind])
 
     def const_marginal_effect(self, X):
@@ -94,9 +94,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         # Check inputs
         X = check_array(X)
         taus = []
-        for ind in range(self._d_t):
+        for ind in range(self._d_t[0]):
             taus.append(self.models[ind + 1].predict(X) - self.models[0].predict(X))
-        taus = np.column_stack(taus).reshape((-1, self._d_t,) + self._d_y)  # shape as of m*d_t*d_y
+        taus = np.column_stack(taus).reshape((-1,) + self._d_t + self._d_y)  # shape as of m*d_t*d_y
         if self._d_y:
             taus = transpose(taus, (0, 2, 1))  # shape as of m*d_y*d_t
         return taus
@@ -150,11 +150,11 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         if X is None:
-            X = np.ones((Y.shape[0], 1))
+            X = np.zeros((Y.shape[0], 1))
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         T = self._label_encoder.fit_transform(T)
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
-        self._d_t = T.shape[1] - 1
+        self._d_t = (T.shape[1] - 1,)
         feat_arr = np.concatenate((X, T), axis=1)
         self.overall_model.fit(feat_arr, Y)
 
@@ -175,16 +175,16 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         if X is None:
-            X = np.ones((1, 1))
+            X = np.zeros((1, 1))
         X = check_array(X)
-        Xs, Ts = broadcast_unit_treatments(X, self._d_t + 1)
+        Xs, Ts = broadcast_unit_treatments(X, self._d_t[0] + 1)
         feat_arr = np.concatenate((Xs, Ts), axis=1)
-        prediction = self.overall_model.predict(feat_arr).reshape((-1, self._d_t + 1,) + self._d_y)
+        prediction = self.overall_model.predict(feat_arr).reshape((-1, self._d_t[0] + 1,) + self._d_y)
         if self._d_y:
             prediction = transpose(prediction, (0, 2, 1))
-            taus = (prediction - np.repeat(prediction[:, :, 0], self._d_t + 1).reshape(prediction.shape))[:, :, 1:]
+            taus = (prediction - np.repeat(prediction[:, :, 0], self._d_t[0] + 1).reshape(prediction.shape))[:, :, 1:]
         else:
-            taus = (prediction - np.repeat(prediction[:, 0], self._d_t + 1).reshape(prediction.shape))[:, 1:]
+            taus = (prediction - np.repeat(prediction[:, 0], self._d_t[0] + 1).reshape(prediction.shape))[:, 1:]
         return taus
 
 
@@ -253,20 +253,20 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         T = self._label_encoder.fit_transform(T)
         self._one_hot_encoder.fit(T.reshape(-1, 1))
-        self._d_t = len(self._label_encoder.classes_) - 1
-        self.models = check_models(self.models, self._d_t + 1)
+        self._d_t = (len(self._label_encoder.classes_) - 1,)
+        self.models = check_models(self.models, self._d_t[0] + 1)
         if self.cate_models is None:
             self.cate_models = self.models
         else:
-            self.cate_models = check_models(self.cate_models, self._d_t + 1)
+            self.cate_models = check_models(self.cate_models, self._d_t[0] + 1)
         self.propensity_models = []
         self.cate_treated_models = []
         self.cate_controls_models = []
 
         # Estimate response function
-        for ind in range(self._d_t + 1):
+        for ind in range(self._d_t[0] + 1):
             self.models[ind].fit(X[T == ind], Y[T == ind])
-        for ind in range(self._d_t):
+        for ind in range(self._d_t[0]):
             self.cate_treated_models.append(clone(self.cate_models[ind + 1], safe=False))
             self.cate_controls_models.append(clone(self.cate_models[0], safe=False))
             self.propensity_models.append(clone(self.propensity_model, safe=False))
@@ -296,12 +296,12 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X = check_array(X)
         m = X.shape[0]
         taus = []
-        for ind in range(self._d_t):
+        for ind in range(self._d_t[0]):
             propensity_scores = self.propensity_models[ind].predict_proba(X)[:, 1:]
             tau_hat = propensity_scores * self.cate_controls_models[ind].predict(X).reshape(m, -1) \
                 + (1 - propensity_scores) * self.cate_treated_models[ind].predict(X).reshape(m, -1)
             taus.append(tau_hat)
-        taus = np.column_stack(taus).reshape((-1, self._d_t,) + self._d_y)  # shape as of m*d_t*d_y
+        taus = np.column_stack(taus).reshape((-1,) + self._d_t + self._d_y)  # shape as of m*d_t*d_y
         if self._d_y:
             taus = transpose(taus, (0, 2, 1))  # shape as of m*d_y*d_t
         return taus
@@ -373,13 +373,13 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         T = self._label_encoder.fit_transform(T)
         self._one_hot_encoder.fit(T.reshape(-1, 1))
-        self._d_t = len(self._label_encoder.classes_) - 1
-        self.models = check_models(self.models, self._d_t + 1)
-        self.final_models = check_models(self.final_models, self._d_t)
+        self._d_t = (len(self._label_encoder.classes_) - 1,)
+        self.models = check_models(self.models, self._d_t[0] + 1)
+        self.final_models = check_models(self.final_models, self._d_t[0])
         self.propensity_models = []
         self.models_control = []
         self.models_treated = []
-        for ind in range(self._d_t):
+        for ind in range(self._d_t[0]):
             self.models_control.append(clone(self.models[0], safe=False))
             self.models_treated.append(clone(self.models[ind + 1], safe=False))
             self.propensity_models.append(clone(self.propensity_model, safe=False))
@@ -423,7 +423,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         taus = []
         for model in self.final_models:
             taus.append(model.predict(X))
-        taus = np.column_stack(taus).reshape((-1, self._d_t,) + self._d_y)  # shape as of m*d_t*d_y
+        taus = np.column_stack(taus).reshape((-1,) + self._d_t + self._d_y)  # shape as of m*d_t*d_y
         if self._d_y:
             taus = transpose(taus, (0, 2, 1))  # shape as of m*d_y*d_t
         return taus
