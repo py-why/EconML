@@ -9,6 +9,7 @@ import sparse as sp
 import itertools
 from operator import getitem
 from collections import defaultdict, Counter
+from sklearn import clone
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from functools import reduce
@@ -441,6 +442,37 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     if W is not None:
         W, _ = check_X_y(W, Y)
     return Y, T, X, W
+
+
+def check_models(models, n):
+    """
+    Input validation for metalearner models.
+
+    Check whether the input models satisfy the criteria below.
+
+    Parameters
+    ----------
+    models ： estimator or a list/tuple of estimators
+    n : int
+        Number of models needed
+
+    Returns
+    ----------
+    models : a list/tuple of estimators
+
+    """
+    if isinstance(models, (tuple, list)):
+        if n != len(models):
+            raise ValueError("The number of estimators doesn't equal to the number of treatments. "
+                             "Please provide either a tuple/list of estimators "
+                             "with same number of treatments or an unified estimator.")
+    elif hasattr(models, 'fit'):
+        models = [clone(models, safe=False) for i in range(n)]
+    else:
+        raise ValueError(
+            "models must be either a tuple/list of estimators with same number of treatments "
+            "or an unified estimator.")
+    return models
 
 
 def broadcast_unit_treatments(X, d_t):
