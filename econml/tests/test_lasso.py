@@ -7,12 +7,14 @@ import numpy as np
 import pytest
 import unittest
 import warnings
-from econml.utilities import WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV, WeightedKFold
+from econml.sklearn_extensions.linear_model import WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV, \
+    DebiasedLasso, MultiOutputDebiasedLasso
+from econml.sklearn_extensions.model_selection import WeightedKFold
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV
 from sklearn.model_selection import KFold
 
 
-class TestWeightedLasso(unittest.TestCase):
+class TestLassoExtensions(unittest.TestCase):
     """Test WeightedLasso."""
 
     @classmethod
@@ -41,73 +43,84 @@ class TestWeightedLasso(unittest.TestCase):
             np.random.normal(scale=cls.error_sd, size=cls.n_samples // 2)
         cls.y = np.concatenate((cls.y1, cls.y2))
         cls.y_simple = np.dot(cls.X, cls.coefs1) + np.random.normal(scale=cls.error_sd, size=cls.n_samples)
-        cls.y_2D = np.concatenate((TestWeightedLasso.y_simple.reshape(-1, 1),
-                                   TestWeightedLasso.y.reshape(-1, 1)), axis=1)
+        cls.y_2D = np.concatenate((TestLassoExtensions.y_simple.reshape(-1, 1),
+                                   TestLassoExtensions.y.reshape(-1, 1)), axis=1)
+        cls.y2_full = np.dot(cls.X, cls.coefs2) + np.random.normal(scale=cls.error_sd, size=cls.n_samples)
+        cls.y_2D_consistent = np.concatenate((TestLassoExtensions.y_simple.reshape(-1, 1),
+                                              TestLassoExtensions.y2_full.reshape(-1, 1)), axis=1)
 
     #################
     # WeightedLasso #
     #################
     def test_one_DGP(self):
-        """Test WeightedLasso with one set of coefficients."""
+        """Test WeightedLasso with one set of coefficients.
+
+        To test the correctness of the weighted lasso, we compare the weight lasso with integer weights
+        with the standard lasso where the data entries have been replicated a number of times given by the
+        integer weights.
+        """
+
         # Define weights
-        sample_weight = np.concatenate((np.ones(TestWeightedLasso.n_samples // 2),
-                                        np.ones(TestWeightedLasso.n_samples // 2) * 2))
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.ones(TestLassoExtensions.n_samples // 2) * 2))
         # Define extended datasets
-        X_expanded = np.concatenate((TestWeightedLasso.X, TestWeightedLasso.X[TestWeightedLasso.n_samples // 2:]))
+        X_expanded = np.concatenate(
+            (TestLassoExtensions.X, TestLassoExtensions.X[TestLassoExtensions.n_samples // 2:]))
         y_expanded = np.concatenate(
-            (TestWeightedLasso.y_simple, TestWeightedLasso.y_simple[TestWeightedLasso.n_samples // 2:]))
+            (TestLassoExtensions.y_simple, TestLassoExtensions.y_simple[TestLassoExtensions.n_samples // 2:]))
         # Range of alphas
         alpha_range = [0.001, 0.01, 0.1]
         # Compare with Lasso
         # --> No intercept
         params = {'fit_intercept': False}
-        self._compare_with_lasso(X_expanded, y_expanded, TestWeightedLasso.X,
-                                 TestWeightedLasso.y_simple, sample_weight, alpha_range, params)
+        self._compare_with_lasso(X_expanded, y_expanded, TestLassoExtensions.X,
+                                 TestLassoExtensions.y_simple, sample_weight, alpha_range, params)
         # --> With intercept
         params = {'fit_intercept': True}
         # When DGP has no intercept
-        self._compare_with_lasso(X_expanded, y_expanded, TestWeightedLasso.X,
-                                 TestWeightedLasso.y_simple, sample_weight, alpha_range, params)
+        self._compare_with_lasso(X_expanded, y_expanded, TestLassoExtensions.X,
+                                 TestLassoExtensions.y_simple, sample_weight, alpha_range, params)
         # When DGP has intercept
-        self._compare_with_lasso(X_expanded, y_expanded + TestWeightedLasso.intercept, TestWeightedLasso.X,
-                                 TestWeightedLasso.y_simple + TestWeightedLasso.intercept,
+        self._compare_with_lasso(X_expanded, y_expanded + TestLassoExtensions.intercept, TestLassoExtensions.X,
+                                 TestLassoExtensions.y_simple + TestLassoExtensions.intercept,
                                  sample_weight, alpha_range, params)
         # --> Coerce coefficients to be positive
         params = {'positive': True}
-        self._compare_with_lasso(X_expanded, y_expanded, TestWeightedLasso.X,
-                                 TestWeightedLasso.y_simple, sample_weight, alpha_range, params)
+        self._compare_with_lasso(X_expanded, y_expanded, TestLassoExtensions.X,
+                                 TestLassoExtensions.y_simple, sample_weight, alpha_range, params)
         # --> Toggle max_iter & tol
         params = {'max_iter': 100, 'tol': 1e-3}
-        self._compare_with_lasso(X_expanded, y_expanded, TestWeightedLasso.X,
-                                 TestWeightedLasso.y_simple, sample_weight, alpha_range, params)
+        self._compare_with_lasso(X_expanded, y_expanded, TestLassoExtensions.X,
+                                 TestLassoExtensions.y_simple, sample_weight, alpha_range, params)
 
     def test_mixed_DGP(self):
         """Test WeightedLasso with two sets of coefficients."""
         # Define weights
-        sample_weight = np.concatenate((np.ones(TestWeightedLasso.n_samples // 2),
-                                        np.zeros(TestWeightedLasso.n_samples // 2)))
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.zeros(TestLassoExtensions.n_samples // 2)))
         # Data from one DGP has weight 0. Check that we recover correct coefficients
-        self._compare_with_lasso(TestWeightedLasso.X[:TestWeightedLasso.n_samples // 2], TestWeightedLasso.y1,
-                                 TestWeightedLasso.X, TestWeightedLasso.y, sample_weight)
+        self._compare_with_lasso(TestLassoExtensions.X[:TestLassoExtensions.n_samples // 2], TestLassoExtensions.y1,
+                                 TestLassoExtensions.X, TestLassoExtensions.y, sample_weight)
         # Mixed DGP scenario.
-        sample_weight = np.concatenate((np.ones(TestWeightedLasso.n_samples // 2),
-                                        np.ones(TestWeightedLasso.n_samples // 2) * 2))
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.ones(TestLassoExtensions.n_samples // 2) * 2))
         # Define extended datasets
-        X_expanded = np.concatenate((TestWeightedLasso.X, TestWeightedLasso.X[TestWeightedLasso.n_samples // 2:]))
+        X_expanded = np.concatenate(
+            (TestLassoExtensions.X, TestLassoExtensions.X[TestLassoExtensions.n_samples // 2:]))
         y_expanded = np.concatenate(
-            (TestWeightedLasso.y1, TestWeightedLasso.y2, TestWeightedLasso.y2))
+            (TestLassoExtensions.y1, TestLassoExtensions.y2, TestLassoExtensions.y2))
         self._compare_with_lasso(X_expanded, y_expanded,
-                                 TestWeightedLasso.X, TestWeightedLasso.y, sample_weight)
+                                 TestLassoExtensions.X, TestLassoExtensions.y, sample_weight)
 
     def test_multiple_outputs(self):
         """Test multiple outputs."""
         # Define weights
-        sample_weight = np.concatenate((np.ones(TestWeightedLasso.n_samples // 2),
-                                        np.zeros(TestWeightedLasso.n_samples // 2)))
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.zeros(TestLassoExtensions.n_samples // 2)))
         # Define multioutput
-        self._compare_with_lasso(TestWeightedLasso.X[:TestWeightedLasso.n_samples // 2],
-                                 TestWeightedLasso.y_2D[:TestWeightedLasso.n_samples // 2],
-                                 TestWeightedLasso.X, TestWeightedLasso.y_2D, sample_weight)
+        self._compare_with_lasso(TestLassoExtensions.X[:TestLassoExtensions.n_samples // 2],
+                                 TestLassoExtensions.y_2D[:TestLassoExtensions.n_samples // 2],
+                                 TestLassoExtensions.X, TestLassoExtensions.y_2D, sample_weight)
 
     ###################
     # WeightedLassoCV #
@@ -119,16 +132,16 @@ class TestWeightedLasso(unittest.TestCase):
         # Compare with LassoCV
         # --> No intercept
         params = {'fit_intercept': False}
-        self._compare_with_lasso_cv(TestWeightedLasso.X, TestWeightedLasso.y_simple, TestWeightedLasso.X,
-                                    TestWeightedLasso.y_simple, sample_weight=None, alphas=alphas, params=params)
+        self._compare_with_lasso_cv(TestLassoExtensions.X, TestLassoExtensions.y_simple, TestLassoExtensions.X,
+                                    TestLassoExtensions.y_simple, sample_weight=None, alphas=alphas, params=params)
         # --> With intercept
         params = {'fit_intercept': True}
-        y_intercept = TestWeightedLasso.y_simple + TestWeightedLasso.intercept
-        self._compare_with_lasso_cv(TestWeightedLasso.X, y_intercept, TestWeightedLasso.X,
+        y_intercept = TestLassoExtensions.y_simple + TestLassoExtensions.intercept
+        self._compare_with_lasso_cv(TestLassoExtensions.X, y_intercept, TestLassoExtensions.X,
                                     y_intercept, sample_weight=None, alphas=alphas, params=params)
         # --> Force parameters to be positive
         params = {'positive': True}
-        self._compare_with_lasso_cv(TestWeightedLasso.X, y_intercept, TestWeightedLasso.X,
+        self._compare_with_lasso_cv(TestLassoExtensions.X, y_intercept, TestLassoExtensions.X,
                                     y_intercept, sample_weight=None, alphas=alphas, params=params)
 
     def test_weighted_KFold(self):
@@ -139,8 +152,8 @@ class TestWeightedLasso(unittest.TestCase):
         n_splits = 3
         wkf = WeightedKFold(n_splits=n_splits)
         total_weight = np.sum(sample_weight)
-        for _, test_index in wkf.split(TestWeightedLasso.X[:n],
-                                       TestWeightedLasso.y_simple[:n], sample_weight=sample_weight):
+        for _, test_index in wkf.split(TestLassoExtensions.X[:n],
+                                       TestLassoExtensions.y_simple[:n], sample_weight=sample_weight):
             # Compare fold weights
             self.assertAlmostEqual(
                 np.sum(sample_weight[test_index]) / total_weight, 1 / n_splits,
@@ -149,45 +162,46 @@ class TestWeightedLasso(unittest.TestCase):
     def test_balanced_weights_cv(self):
         """Test whether WeightedLassoCV with balanced weights."""
         # Define weights
-        sample_weight = np.concatenate((np.ones(TestWeightedLasso.n_samples // 2),
-                                        np.ones(TestWeightedLasso.n_samples // 2) * 2))
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.ones(TestLassoExtensions.n_samples // 2) * 2))
         # Define extended datasets
-        X_expanded = np.concatenate((TestWeightedLasso.X, TestWeightedLasso.X[TestWeightedLasso.n_samples // 2:]))
+        X_expanded = np.concatenate(
+            (TestLassoExtensions.X, TestLassoExtensions.X[TestLassoExtensions.n_samples // 2:]))
         y_expanded = np.concatenate(
-            (TestWeightedLasso.y_simple, TestWeightedLasso.y_simple[TestWeightedLasso.n_samples // 2:]))
+            (TestLassoExtensions.y_simple, TestLassoExtensions.y_simple[TestLassoExtensions.n_samples // 2:]))
         # Define splitters
         # WeightedKFold splitter
         cv_splitter = WeightedKFold(n_splits=3)
-        wlasso_cv = list(cv_splitter.split(TestWeightedLasso.X, TestWeightedLasso.y_simple,
+        wlasso_cv = list(cv_splitter.split(TestLassoExtensions.X, TestLassoExtensions.y_simple,
                                            sample_weight=sample_weight))
         # Map weighted splitter to an extended splitter
         index_mapper = {}
-        for i in range(TestWeightedLasso.n_samples):
-            if i < TestWeightedLasso.n_samples // 2:
+        for i in range(TestLassoExtensions.n_samples):
+            if i < TestLassoExtensions.n_samples // 2:
                 index_mapper[i] = [i]
             else:
-                index_mapper[i] = [i, i + TestWeightedLasso.n_samples // 2]
-        lasso_cv = self._map_splitter(wlasso_cv, TestWeightedLasso.n_samples +
-                                      TestWeightedLasso.n_samples // 2, index_mapper)
+                index_mapper[i] = [i, i + TestLassoExtensions.n_samples // 2]
+        lasso_cv = self._map_splitter(wlasso_cv, TestLassoExtensions.n_samples +
+                                      TestLassoExtensions.n_samples // 2, index_mapper)
         # Define alphas to test
         alphas = np.logspace(-4, -1, num=10)
         # Compare with LassoCV
         # --> No intercept
         params = {'fit_intercept': False}
-        self._compare_with_lasso_cv(X_expanded, y_expanded, TestWeightedLasso.X, TestWeightedLasso.y_simple,
+        self._compare_with_lasso_cv(X_expanded, y_expanded, TestLassoExtensions.X, TestLassoExtensions.y_simple,
                                     sample_weight=sample_weight, alphas=alphas,
                                     lasso_cv=lasso_cv, wlasso_cv=wlasso_cv, params=params)
         # --> With intercept
         params = {'fit_intercept': True}
-        y_intercept = TestWeightedLasso.y_simple + TestWeightedLasso.intercept
-        self._compare_with_lasso_cv(X_expanded, y_expanded + TestWeightedLasso.intercept,
-                                    TestWeightedLasso.X, y_intercept,
+        y_intercept = TestLassoExtensions.y_simple + TestLassoExtensions.intercept
+        self._compare_with_lasso_cv(X_expanded, y_expanded + TestLassoExtensions.intercept,
+                                    TestLassoExtensions.X, y_intercept,
                                     sample_weight=sample_weight, alphas=alphas,
                                     lasso_cv=lasso_cv, wlasso_cv=wlasso_cv, params=params)
         # --> Force parameters to be positive
         params = {'positive': True}
-        self._compare_with_lasso_cv(X_expanded, y_expanded + TestWeightedLasso.intercept,
-                                    TestWeightedLasso.X, y_intercept,
+        self._compare_with_lasso_cv(X_expanded, y_expanded + TestLassoExtensions.intercept,
+                                    TestLassoExtensions.X, y_intercept,
                                     sample_weight=sample_weight, alphas=alphas,
                                     lasso_cv=lasso_cv, wlasso_cv=wlasso_cv, params=params)
 
@@ -203,55 +217,217 @@ class TestWeightedLasso(unittest.TestCase):
         # Compare with MultiTaskLassoCV
         # --> No intercept
         params = {'fit_intercept': False}
-        self._compare_with_lasso_cv(TestWeightedLasso.X, TestWeightedLasso.y_2D,
-                                    TestWeightedLasso.X, TestWeightedLasso.y_2D,
+        self._compare_with_lasso_cv(TestLassoExtensions.X, TestLassoExtensions.y_2D,
+                                    TestLassoExtensions.X, TestLassoExtensions.y_2D,
                                     sample_weight=None, alphas=alphas,
                                     lasso_cv=cv, wlasso_cv=cv, params=params)
         # --> With intercept
         params = {'fit_intercept': True}
-        self._compare_with_lasso_cv(TestWeightedLasso.X, TestWeightedLasso.y_2D,
-                                    TestWeightedLasso.X, TestWeightedLasso.y_2D,
+        self._compare_with_lasso_cv(TestLassoExtensions.X, TestLassoExtensions.y_2D,
+                                    TestLassoExtensions.X, TestLassoExtensions.y_2D,
                                     sample_weight=None, alphas=alphas,
                                     lasso_cv=cv, wlasso_cv=cv, params=params)
 
-    # @unittest.skip("Failing")
     def test_multiple_outputs_balanced_weights_cv(self):
         """Test MultiTaskWeightedLassoCV with weights."""
         # Define weights
-        sample_weight = np.concatenate((np.ones(TestWeightedLasso.n_samples // 2),
-                                        np.ones(TestWeightedLasso.n_samples // 2) * 2))
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.ones(TestLassoExtensions.n_samples // 2) * 2))
         # Define extended datasets
-        X_expanded = np.concatenate((TestWeightedLasso.X, TestWeightedLasso.X[TestWeightedLasso.n_samples // 2:]))
+        X_expanded = np.concatenate(
+            (TestLassoExtensions.X, TestLassoExtensions.X[TestLassoExtensions.n_samples // 2:]))
         y_expanded = np.concatenate(
-            (TestWeightedLasso.y_2D, TestWeightedLasso.y_2D[TestWeightedLasso.n_samples // 2:]))
+            (TestLassoExtensions.y_2D, TestLassoExtensions.y_2D[TestLassoExtensions.n_samples // 2:]))
         # Define splitters
         # WeightedKFold splitter
         cv_splitter = WeightedKFold(n_splits=3)
-        wlasso_cv = list(cv_splitter.split(TestWeightedLasso.X, TestWeightedLasso.y_2D,
+        wlasso_cv = list(cv_splitter.split(TestLassoExtensions.X, TestLassoExtensions.y_2D,
                                            sample_weight=sample_weight))
         # Map weighted splitter to an extended splitter
         index_mapper = {}
-        for i in range(TestWeightedLasso.n_samples):
-            if i < TestWeightedLasso.n_samples // 2:
+        for i in range(TestLassoExtensions.n_samples):
+            if i < TestLassoExtensions.n_samples // 2:
                 index_mapper[i] = [i]
             else:
-                index_mapper[i] = [i, i + TestWeightedLasso.n_samples // 2]
-        lasso_cv = self._map_splitter(wlasso_cv, TestWeightedLasso.n_samples +
-                                      TestWeightedLasso.n_samples // 2, index_mapper)
+                index_mapper[i] = [i, i + TestLassoExtensions.n_samples // 2]
+        lasso_cv = self._map_splitter(wlasso_cv, TestLassoExtensions.n_samples +
+                                      TestLassoExtensions.n_samples // 2, index_mapper)
         # Define alphas to test
         alphas = np.logspace(-4, -1, num=10)
         # Compare with LassoCV
         # --> No intercept
         params = {'fit_intercept': False}
-        self._compare_with_lasso_cv(X_expanded, y_expanded, TestWeightedLasso.X, TestWeightedLasso.y_2D,
+        self._compare_with_lasso_cv(X_expanded, y_expanded, TestLassoExtensions.X, TestLassoExtensions.y_2D,
                                     sample_weight=sample_weight, alphas=alphas,
                                     lasso_cv=lasso_cv, wlasso_cv=wlasso_cv, params=params)
         # --> With intercept
         params = {'fit_intercept': True}
         self._compare_with_lasso_cv(X_expanded, y_expanded,
-                                    TestWeightedLasso.X, TestWeightedLasso.y_2D,
+                                    TestLassoExtensions.X, TestLassoExtensions.y_2D,
                                     sample_weight=sample_weight, alphas=alphas,
                                     lasso_cv=lasso_cv, wlasso_cv=wlasso_cv, params=params)
+
+    #################
+    # DebiasedLasso #
+    #################
+    def test_debiased_lasso_one_DGP(self):
+        """Test DebiasedLasso with one set of coefficients."""
+        # Test DebiasedLasso without weights
+        # --> Check debiased coeffcients without intercept
+        params = {'fit_intercept': False}
+        self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_simple, sample_weight=None,
+                                   expected_coefs=TestLassoExtensions.coefs1,
+                                   expected_intercept=TestLassoExtensions.intercept,
+                                   params=params)
+        # --> Check debiased coeffcients with intercept
+        self._check_debiased_coefs(TestLassoExtensions.X,
+                                   TestLassoExtensions.y_simple + TestLassoExtensions.intercept,
+                                   sample_weight=None,
+                                   expected_coefs=TestLassoExtensions.coefs1,
+                                   expected_intercept=TestLassoExtensions.intercept)
+        # --> Check 5-95 CI coverage for unit vectors
+        self._check_debiased_CI(TestLassoExtensions.X, TestLassoExtensions.y_simple + TestLassoExtensions.intercept,
+                                sample_weight=None,
+                                expected_coefs=TestLassoExtensions.coefs1,
+                                expected_intercept=TestLassoExtensions.intercept)
+        # Test DebiasedLasso with weights for one DGP
+        # Define weights
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.ones(TestLassoExtensions.n_samples // 2) * 2))
+        # Define extended datasets
+        X_expanded = np.concatenate(
+            (TestLassoExtensions.X, TestLassoExtensions.X[TestLassoExtensions.n_samples // 2:]))
+        y_expanded = np.concatenate(
+            (TestLassoExtensions.y_simple, TestLassoExtensions.y_simple[TestLassoExtensions.n_samples // 2:]))
+        # --> Check debiased coefficients
+        weighted_debiased_coefs = self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_simple,
+                                                             sample_weight=sample_weight,
+                                                             expected_coefs=TestLassoExtensions.coefs1)
+        expanded_debiased_coefs = self._check_debiased_coefs(X_expanded, y_expanded, sample_weight=None,
+                                                             expected_coefs=TestLassoExtensions.coefs1)
+        self.assertTrue(np.allclose(weighted_debiased_coefs, expanded_debiased_coefs))
+
+    def test_debiased_lasso_mixed_DGP(self):
+        """Test WeightedLasso with two sets of coefficients."""
+        # Define weights
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.zeros(TestLassoExtensions.n_samples // 2)))
+        # Data from one DGP has weight 0. Check that we recover correct coefficients
+        # --> Check debiased coeffcients
+        self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y,
+                                   sample_weight=sample_weight,
+                                   expected_coefs=TestLassoExtensions.coefs1,
+                                   expected_intercept=TestLassoExtensions.intercept1)
+
+    def test_multi_output_debiased_lasso(self):
+        """Test MultiOutputDebiasedLasso."""
+        # Test that attributes propagate correctly
+        est = MultiOutputDebiasedLasso()
+        multioutput_attrs = est.get_params()
+        debiased_attrs = DebiasedLasso().get_params()
+        for attr in debiased_attrs:
+            self.assertTrue(attr in multioutput_attrs)
+        # Test MultiOutputDebiasedLasso without weights
+        # --> Check debiased coeffcients without intercept
+        params = {'fit_intercept': False}
+        self._check_debiased_coefs(TestLassoExtensions.X, TestLassoExtensions.y_2D_consistent,
+                                   sample_weight=None,
+                                   expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2],
+                                   params=params)
+        # --> Check debiased coeffcients with intercept
+        intercept_2D = np.array([TestLassoExtensions.intercept1, TestLassoExtensions.intercept2])
+        self._check_debiased_coefs(TestLassoExtensions.X,
+                                   TestLassoExtensions.y_2D_consistent + intercept_2D,
+                                   sample_weight=None,
+                                   expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2],
+                                   expected_intercept=intercept_2D)
+        # --> Check CI coverage
+        self._check_debiased_CI_2D(TestLassoExtensions.X,
+                                   TestLassoExtensions.y_2D_consistent + intercept_2D,
+                                   sample_weight=None,
+                                   expected_coefs=np.array([TestLassoExtensions.coefs1, TestLassoExtensions.coefs2]),
+                                   expected_intercept=intercept_2D)
+        # Test MultiOutputDebiasedLasso with weights
+        # Define weights
+        sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
+                                        np.ones(TestLassoExtensions.n_samples // 2) * 2))
+        # Define extended datasets
+        X_expanded = np.concatenate(
+            (TestLassoExtensions.X, TestLassoExtensions.X[TestLassoExtensions.n_samples // 2:]))
+        y_expanded = np.concatenate(
+            (TestLassoExtensions.y_2D_consistent,
+             TestLassoExtensions.y_2D_consistent[TestLassoExtensions.n_samples // 2:]))
+        # --> Check debiased coefficients
+        weighted_debiased_coefs = self._check_debiased_coefs(
+            TestLassoExtensions.X,
+            TestLassoExtensions.y_2D_consistent,
+            sample_weight=sample_weight,
+            expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2])
+        expanded_debiased_coefs = self._check_debiased_coefs(
+            X_expanded, y_expanded, sample_weight=None,
+            expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2])
+        for i in range(2):
+            self.assertTrue(np.allclose(weighted_debiased_coefs[i], expanded_debiased_coefs[i]))
+
+    def _check_debiased_CI(self,
+                           X, y, sample_weight, expected_coefs,
+                           expected_intercept=0, n_experiments=200, params={}):
+        # Unit vectors
+        X_test = np.eye(TestLassoExtensions.n_dim)
+        y_test_mean = expected_intercept + expected_coefs
+        is_in_interval = np.zeros((n_experiments, TestLassoExtensions.n_dim))
+        for i in range(n_experiments):
+            np.random.seed(i)
+            X_exp = np.random.normal(size=X.shape)
+            err = np.random.normal(scale=TestLassoExtensions.error_sd, size=X.shape[0])
+            y_exp = expected_intercept + np.dot(X_exp, expected_coefs) + err
+            debiased_lasso = DebiasedLasso()
+            debiased_lasso.set_params(**params)
+            debiased_lasso.fit(X_exp, y_exp, sample_weight)
+            y_lower, y_upper = debiased_lasso.predict_interval(X_test, 5, 95)
+            is_in_interval[i] = ((y_test_mean >= y_lower) & (y_test_mean <= y_upper))
+        CI_coverage = np.mean(is_in_interval, axis=0)
+        self.assertTrue(all(CI_coverage >= 0.85))
+        self.assertTrue(all(CI_coverage <= 0.95))
+
+    def _check_debiased_CI_2D(self,
+                              X, y, sample_weight, expected_coefs,
+                              expected_intercept=0, n_experiments=200, params={}):
+        # Unit vectors
+        X_test = np.eye(TestLassoExtensions.n_dim)
+        y_test_mean = expected_intercept + expected_coefs.T
+        is_in_interval = np.zeros((y.shape[1], n_experiments, TestLassoExtensions.n_dim))
+        for i in range(n_experiments):
+            np.random.seed(i)
+            X_exp = np.random.normal(size=X.shape)
+            err = np.random.normal(scale=TestLassoExtensions.error_sd, size=(X.shape[0], y.shape[1]))
+            y_exp = expected_intercept + np.dot(X_exp, expected_coefs.T) + err
+            debiased_lasso = MultiOutputDebiasedLasso()
+            debiased_lasso.set_params(**params)
+            debiased_lasso.fit(X_exp, y_exp, sample_weight)
+            y_lower, y_upper = debiased_lasso.predict_interval(X_test, 5, 95)
+            for j in range(y.shape[1]):
+                is_in_interval[j, i, :] = ((y_test_mean[:, j] >= y_lower[:, j]) & (y_test_mean[:, j] <= y_upper[:, j]))
+        for i in range(y.shape[1]):
+            CI_coverage = np.mean(is_in_interval[i], axis=0)
+            self.assertTrue(all(CI_coverage >= 0.85))
+
+    def _check_debiased_coefs(self, X, y, sample_weight, expected_coefs, expected_intercept=0, params={}):
+        debiased_lasso = MultiOutputDebiasedLasso() if np.ndim(y) > 1 else DebiasedLasso()
+        debiased_lasso.set_params(**params)
+        debiased_lasso.fit(X, y, sample_weight)
+        all_params = debiased_lasso.get_params()
+        # Check coeffcients and intercept are the same within tolerance
+        if np.ndim(y) > 1:
+            for i in range(y.shape[1]):
+                self.assertTrue(np.allclose(debiased_lasso.coef_[i], expected_coefs[i], atol=5e-2))
+                if all_params["fit_intercept"]:
+                    self.assertAlmostEqual(debiased_lasso.intercept_[i], expected_intercept[i], delta=1e-2)
+        else:
+            self.assertTrue(np.allclose(debiased_lasso.coef_, expected_coefs, atol=5e-2))
+            if all_params["fit_intercept"]:
+                self.assertAlmostEqual(debiased_lasso.intercept_, expected_intercept, delta=1e-2)
+        return debiased_lasso.coef_
 
     def _compare_with_lasso(self, lasso_X, lasso_y, wlasso_X, wlasso_y, sample_weight, alpha_range=[0.01], params={}):
         for alpha in alpha_range:
