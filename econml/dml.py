@@ -15,6 +15,7 @@ from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
                         StatsModelsLinearRegression, LassoCVWrapper)
+from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
@@ -23,7 +24,8 @@ from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin)
+                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin,
+                             DebiasedLassoCateEstimatorMixin)
 from .inference import StatsModelsInference
 from ._rlearner import _RLearner
 
@@ -299,12 +301,15 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
         return self.model_final
 
 
-class SparseLinearDMLCateEstimator(DMLCateEstimator):
+class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstimator):
     """
     A specialized version of the Double ML estimator for the sparse linear case.
 
-    Specifically, this estimator can be used when the controls are high-dimensional
+    This estimator can be used when the controls are high-dimensional
     and the coefficients of the nuisance functions are sparse.
+
+    The last stage is an instance of the 
+    :class:`MultiOutputDebiasedLasso <econml.sklearn_extensions.linear_model.MultiOutputDebiasedLasso>` 
 
     Parameters
     ----------
@@ -316,9 +321,26 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
-    model_final: estimator, optional (default is :class:`LassoCV(fit_intercept=False)  <sklearn.linear_model.LassoCV>`)
-        The estimator for fitting the response residuals to the treatment residuals. Must implement
-        `fit` and `predict` methods, and must be a linear model with no intercept for correctness.
+    alpha: string | float, optional. Default='auto'.
+        CATE L1 regularization applied through the debiased lasso in the final model.
+        'auto' corresponds to a CV form of the :class:`MultiOutputDebiasedLasso`.
+
+    fit_intercept: boolean, optional, default False
+        Whether to fit CATE intercept in the final model. If set
+        to False, no intercept will be used in calculations.
+        Correcsponds to `fit_intercept` parameter in :class:`MultiOutputDebiasedLasso`.
+
+    max_iter : int, optional, default=1000
+        The maximum number of iterations in the Debiased Lasso
+
+    tol : float, optional, default=1e-4
+        The tolerance for the optimization: if the updates are
+        smaller than ``tol``, the optimization code checks the
+        dual gap for optimality and continues until it is smaller
+        than ``tol``.
+
+    positive : bool, optional, default=False
+        When set to ``True``, forces the coefficients of teh DebiasedLasso to be positive.
 
     featurizer: transformer, optional
     (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
@@ -356,12 +378,23 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
     """
 
     def __init__(self,
-                 model_y=LassoCV(), model_t=LassoCV(), model_final=LassoCVWrapper(fit_intercept=False),
+                 model_y=LassoCV(), model_t=LassoCV(),
+                 alpha='auto',
+                 fit_intercept=False,
+                 max_iter=1000,
+                 tol=1e-4,
+                 positive=False,
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
                  linear_first_stages=True,
                  discrete_treatment=False,
                  n_splits=2,
                  random_state=None):
+        model_final = MultiOutputDebiasedLasso(
+            alpha=alpha,
+            fit_intercept=fit_intercept,
+            max_iter=max_iter,
+            tol=tol,
+            positive=positive)
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=model_final,
@@ -370,6 +403,49 @@ class SparseLinearDMLCateEstimator(DMLCateEstimator):
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
+
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, inference=None):
+        """
+        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+
+        Parameters
+        ----------
+        Y: (n × d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n × dₜ) matrix or vector of length n
+            Treatments for each sample
+        X: optional (n × dₓ) matrix
+            Features for each sample
+        W: optional (n × d_w) matrix
+            Controls for each sample
+        sample_weight: optional (n,) vector
+            Weights for each row
+        inference: string, `Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'debiasedlasso'
+            (or an instance of :class:`.LinearCateInference`)
+
+        Returns
+        -------
+        self
+        """
+        # TODO: support sample_var
+        self._check_sparsity(X, T)
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
+
+    def _check_sparsity(self, X, T):
+        # Check if model is sparse enough for this model
+        if X is None:
+            d_x = 1
+        else:
+            d_x = clone(self.featurizer, safe=False).fit_transform(X[[0], :]).shape[1]
+        if self._discrete_treatment:
+            d_t = len(set(T.flatten())) - 1
+        else:
+            d_t = 1 if np.ndim(T) < 2 else T.shape[1]
+        if d_x * d_t < 5:
+            warn("The number of features in the final model (< 5) is too small for a sparse model. "
+                 "We recommend using the LinearDMLCateEstimator for this low-dimensional setting.", UserWarning)
 
 
 class KernelDMLCateEstimator(LinearDMLCateEstimator):

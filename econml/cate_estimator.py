@@ -11,7 +11,7 @@ from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
-from .inference import StatsModelsInference, StatsModelsInferenceDiscrete
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearCateInference
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -381,26 +381,20 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     effect.__doc__ = BaseCateEstimator.effect.__doc__
 
 
-class StatsModelsCateEstimatorMixin(BaseCateEstimator):
+class LinearCateEstimatorMixin(BaseCateEstimator):
 
     def _get_inference_options(self):
         # add statsmodels to parent's options
         options = super()._get_inference_options()
-        options.update(statsmodels=StatsModelsInference)
         return options
 
     @property
-    @abc.abstractmethod
-    def statsmodels(self):
-        pass
-
-    @property
     def coef_(self):
-        return self.statsmodels.coef_
+        return self.model_final.coef_
 
     @property
     def intercept_(self):
-        return self.statsmodels.intercept_
+        return self.model_final.intercept_
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, *, alpha=0.1):
@@ -409,6 +403,24 @@ class StatsModelsCateEstimatorMixin(BaseCateEstimator):
     @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, *, alpha=0.1):
         pass
+
+
+class StatsModelsCateEstimatorMixin(LinearCateEstimatorMixin):
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(statsmodels=StatsModelsInference)
+        return options
+
+
+class DebiasedLassoCateEstimatorMixin(LinearCateEstimatorMixin):
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(debiasedlasso=LinearCateInference)
+        return options
 
 
 class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
