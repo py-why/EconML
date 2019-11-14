@@ -40,7 +40,7 @@ class Test2SLS(unittest.TestCase):
 
     @pytest.mark.slow
     def test_hermite_approx(self):
-        n = 500000
+        n = 50000
         x = np.random.uniform(low=-0.5, high=1.5, size=(n, 2))
         y = (x[:, 1] > x[:, 0]) * \
             (0 <= x[:, 0]) * \

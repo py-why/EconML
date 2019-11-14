@@ -25,10 +25,10 @@ approach since we essentially perform a residual outcome on residual treatment r
 of running an arbitrary regression we perform a non-parametric local weighted regression. The kernel :math:`K(X_i, x)`
 is a similarity metric that is calculated by building a random forest with a causal criterion. This 
 criterion is a slight modification of the criterion used in generalized random forests [Athey2019]_ and 
-causal forests [Wager2018]_, so as to incorporated residualization when calculating the score of each candidate
+causal forests [Wager2018]_, so as to incorporate residualization when calculating the score of each candidate
 split.
 
-The method splits the data and performs cross-fitting: i.e. fit the
+The method splits the data and performs cross-fitting: i.e. fits the
 conditional expectation models on the first half and predicts the quantities on the second half and vice versa. 
 Subsequently estimates :math:`\theta(x)` on all the data. 
 
@@ -131,7 +131,7 @@ Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoFor
      [1.2]]
 
 Let's now look at a more involved example with a high-dimensional set of confounders :math:`W`
-and with more realistic noisy data. In this case we can just use the default Parameters
+and with more realistic noisy data. In this case we can just use the default parameters
 of the class, which specify the use of the :py:class:`~sklearn.linear_model.LassoCV` for 
 both the treatment and the outcome regressions, in the case of continuous treatments.
 

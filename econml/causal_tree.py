@@ -3,8 +3,8 @@
 
 """Basic tree utilities and methods.
 
-Class `CausalTree` is the base estimator for the Orthogonal Random Forest, whereas
-class `Node` represents the core unit of the `CausalTree` class.
+Class :class:`CausalTree` is the base estimator for the Orthogonal Random Forest, whereas
+class :class:`Node` represents the core unit of the :class:`CausalTree` class.
 """
 
 import numpy as np
@@ -15,7 +15,7 @@ import scipy.special
 
 
 class Node:
-    """Building block of `CausalTree` class.
+    """Building block of :class:`CausalTree` class.
 
     Parameters
     ----------
@@ -54,7 +54,7 @@ class Node:
 
 
 class CausalTree:
-    """Base class for growing an `OrthoTree`.
+    """Base class for growing an OrthoForest.
 
     Parameters
     ----------
@@ -88,11 +88,11 @@ class CausalTree:
         With the default value we guarantee that each child of a split contains
         at least 20% and at most 80% of the data of the parent node.
 
-    random_state : int, RandomState instance or None, optional (default=None)
+    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self,

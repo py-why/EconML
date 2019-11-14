@@ -11,10 +11,10 @@ effect heterogeneity.
 
 This file consists of classes that implement the following variants of the ORF method:
 
-- The `ContinuousTreatmentOrthoForest`, a two-forest approach for learning continuous treatment effects
+- The :class:`ContinuousTreatmentOrthoForest`, a two-forest approach for learning continuous treatment effects
   using kernel two stage estimation.
 
-- The `DiscreteTreatmentOrthoForest`, a two-forest approach for learning discrete treatment effects
+- The :class:`DiscreteTreatmentOrthoForest`, a two-forest approach for learning discrete treatment effects
   using kernel two stage estimation.
 
 For more details on these methods, see our paper [Oprescu2019]_.
@@ -31,11 +31,11 @@ from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegre
     LogisticRegressionCV, ElasticNet
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures
+from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures, FunctionTransformer
 from sklearn.utils import check_random_state, check_array, column_or_1d
-from .cate_estimator import LinearCateEstimator
+from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
-from .utilities import reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
+from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -121,8 +121,8 @@ def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None,
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
 
 
-class BaseOrthoForest(LinearCateEstimator):
-    """Base class for the `ContinuousTreatmentOrthoForest` and `DiscreteTreatmentOrthoForest`."""
+class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
+    """Base class for the :class:`ContinuousTreatmentOrthoForest` and :class:`DiscreteTreatmentOrthoForest`."""
 
     def __init__(self,
                  nuisance_estimator,
@@ -135,8 +135,7 @@ class BaseOrthoForest(LinearCateEstimator):
                  subsample_ratio=0.25,
                  bootstrap=False,
                  n_jobs=-1,
-                 random_state=None,
-                 inference=None):
+                 random_state=None):
         # Estimators
         self.nuisance_estimator = nuisance_estimator
         self.second_stage_nuisance_estimator = second_stage_nuisance_estimator
@@ -158,9 +157,10 @@ class BaseOrthoForest(LinearCateEstimator):
         self.forest_two_subsample_ind = None
         # Fit check
         self.model_is_fitted = False
-        super().__init__(inference=inference)
+        super().__init__()
 
-    def _fit_impl(self, Y, T, X, W=None):
+    @BaseCateEstimator._wrap_fit
+    def fit(self, Y, T, X, W=None, inference=None):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -176,6 +176,10 @@ class BaseOrthoForest(LinearCateEstimator):
 
         W : array-like, shape (n, d_w) or None (default=None)
             High-dimensional controls.
+
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`)
 
         Returns
         -------
@@ -208,7 +212,6 @@ class BaseOrthoForest(LinearCateEstimator):
                                                                                 X=self.X_two,
                                                                                 W=self.W_two)
         self.model_is_fitted = True
-        return self
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
@@ -351,28 +354,25 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
 
     model_T_final : estimator, optional (default=None)
         The estimator for residualizing the treatment at prediction time. Must implement
-        `fit` and `predict` methods. If parameter is set to `None`, it defaults to the
+        `fit` and `predict` methods. If parameter is set to ``None``, it defaults to the
         value of `model_T` parameter.
 
     model_Y_final : estimator, optional (default=None)
         The estimator for residualizing the outcome at prediction time. Must implement
-        `fit` and `predict` methods. If parameter is set to `None`, it defaults to the
+        `fit` and `predict` methods. If parameter is set to ``None``, it defaults to the
         value of `model_Y` parameter.
 
     n_jobs : int, optional (default=-1)
-        The number of jobs to run in parallel for both `fit` and `predict`.
-        ``-1`` means using all processors. Since `OrthoForest` methods are
+        The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
+        ``-1`` means using all processors. Since OrthoForest methods are
         computationally heavy, it is recommended to set `n_jobs` to -1.
 
-    random_state : int, RandomState instance or None, optional (default=None)
+    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
 
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self,
@@ -386,8 +386,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  model_T_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
-                 random_state=None,
-                 inference=None):
+                 random_state=None):
         # Copy and/or define models
         self.lambda_reg = lambda_reg
         self.model_T = model_T
@@ -421,8 +420,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
-            random_state=random_state,
-            inference=inference)
+            random_state=random_state)
 
     def _pointwise_effect(self, X_single):
         """
@@ -580,29 +578,27 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     propensity_model_final : estimator, optional (default=None)
         Model for estimating propensity of treatment at at prediction time.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
-        If parameter is set to `None`, it defaults to the value of `propensity_model` parameter.
+        If parameter is set to ``None``, it defaults to the value of `propensity_model` parameter.
 
     model_Y_final : estimator, optional (default=None)
         Estimator for learning potential outcomes at prediction time.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
         If different models per treatment arm are desired, see the :py:class:`~econml.utilities.MultiModelWrapper`
         helper class. The model(s) must implement `fit` and `predict` methods.
-        If parameter is set to `None`, it defaults to the value of `model_Y` parameter.
+        If parameter is set to ``None``, it defaults to the value of `model_Y` parameter.
 
     n_jobs : int, optional (default=-1)
-        The number of jobs to run in parallel for both `fit` and `predict`.
-        ``-1`` means using all processors. Since `OrthoForest` methods are
+        The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
+        ``-1`` means using all processors. Since OrthoForest methods are
         computationally heavy, it is recommended to set `n_jobs` to -1.
 
-    random_state : int, RandomState instance or None, optional (default=None)
+    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
 
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
+
     """
 
     def __init__(self,
@@ -617,8 +613,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  propensity_model_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
-                 random_state=None,
-                 inference=None):
+                 random_state=None):
         # Copy and/or define models
         self.propensity_model = clone(propensity_model, safe=False)
         self.model_Y = clone(model_Y, safe=False)
@@ -653,10 +648,9 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
-            random_state=random_state,
-            inference=inference)
+            random_state=random_state)
 
-    def _fit_impl(self, Y, T, X, W=None):
+    def fit(self, Y, T, X, W=None, inference=None):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -675,6 +669,10 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         W : array-like, shape (n, d_w) or None (default=None)
             High-dimensional controls.
 
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`)
+
         Returns
         -------
         self: an instance of self.
@@ -684,46 +682,20 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         T = self._check_treatment(T)
         # Train label encoder
         T = self._label_encoder.fit_transform(T)
+        self._one_hot_encoder = OneHotEncoder(sparse=False, categories='auto').fit(T.reshape(-1, 1))
         # Define number of classes
         self.n_T = self._label_encoder.classes_.shape[0]
         self.nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model, self.model_Y, self.n_T, self.random_state, second_stage=False)
         self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model_final, self.model_Y_final, self.n_T, self.random_state, second_stage=True)
+        self.transformer = FunctionTransformer(
+            func=(lambda T:
+                  self._one_hot_encoder.transform(
+                      reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
+            validate=False)
         # Call `fit` from parent class
-        return super(DiscreteTreatmentOrthoForest, self)._fit_impl(Y, T, X, W)
-
-    def effect(self, X=None, T0=0, T1=1):
-        """Calculate the heterogeneous linear CATE θ(·) between two treatment points.
-
-        Parameters
-        ----------
-        T0 : array-like, shape (n, )
-            The first discrete treatment policy. Encoding must be consistent with the `T` input
-            to the `fit` function.
-
-        T1 : array-like, shape (n, )
-            The second discrete treatment policy. Encoding must be consistent with the `T` input
-            to the `fit` function. The treatment effect will be calculated between the `T1` and `T0`
-            treatment points.
-
-        X : array-like, shape (n, d_x)
-            Feature vector that captures heterogeneity.
-
-        Returns
-        -------
-        Theta : matrix , shape (n, d_y)
-            CATE on each outcome for each sample.
-        """
-        if np.ndim(T0) == 0:
-            T0 = np.repeat(T0, 1 if X is None else np.shape(X)[0])
-        if np.ndim(T1) == 0:
-            T1 = np.repeat(T1, 1 if X is None else np.shape(X)[0])
-        T0 = self._check_treatment(T0)
-        T1 = self._check_treatment(T1)
-        T0_encoded = self._label_encoder.transform(T0)
-        T1_encoded = self._label_encoder.transform(T1)
-        return super(DiscreteTreatmentOrthoForest, self).effect(X, T0_encoded, T1_encoded)
+        return super().fit(Y, T, X, W=W, inference=inference)
 
     def _pointwise_effect(self, X_single):
         """

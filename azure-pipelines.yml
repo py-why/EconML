@@ -71,13 +71,10 @@ jobs:
   - template: azure-pipelines-steps.yml
     parameters:
       body:
-        # Set mark to test only notebooks
-        - powershell: |
-            Write-Host '##vso[task.setvariable variable=PYTEST_ADDOPTS]-m "notebook"'
-          displayName: 'Define marker for notebook tests'
-
         - script: 'python setup.py pytest'
           displayName: 'Unit tests'
+          env:
+            PYTEST_ADDOPTS: '-m "notebook"'
 
         - task: PublishTestResults@2
           displayName: 'Publish Test Results **/test-results.xml'
@@ -96,7 +93,7 @@ jobs:
         imageName: 'ubuntu-16.04'
         python.version: '3.5'
       macOS, Python 3.5:
-        imageName: 'macOS-10.13'
+        imageName: 'macOS-10.14'
         python.version: '3.5'
       Windows, Python 3.5:
         imageName: 'vs2017-win2016'
@@ -105,7 +102,7 @@ jobs:
         imageName: 'ubuntu-16.04'
         python.version: '3.6'
       macOS, Python 3.6:
-        imageName: 'macOS-10.13'
+        imageName: 'macOS-10.14'
         python.version: '3.6'
       Windows, Python 3.6:
         imageName: 'vs2017-win2016'
@@ -114,7 +111,7 @@ jobs:
         imageName: 'ubuntu-16.04'
         python.version: '3.7'
       macOS, Python 3.7:
-        imageName: 'macOS-10.13'
+        imageName: 'macOS-10.14'
         python.version: '3.7'
       Windows, Python 3.7:
         imageName: 'vs2017-win2016'
@@ -133,13 +130,12 @@ jobs:
           failOnStderr: true
           displayName: Linting
 
-        # Set mark to exclude notebook tests
-        - powershell: |
-            Write-Host '##vso[task.setvariable variable=PYTEST_ADDOPTS]-m "not notebook"'
-          displayName: 'Define marker to skip notebook tests'
-
         - script: 'python setup.py pytest'
           displayName: 'Unit tests'
+          condition: succeededOrFailed()
+          env:
+            PYTEST_ADDOPTS: '-m "not notebook"'
+            COVERAGE_PROCESS_START: 'setup.cfg'
 
         - task: PublishTestResults@2
           displayName: 'Publish Test Results **/test-results.xml'
@@ -147,3 +143,9 @@ jobs:
             testResultsFiles: '**/test-results.xml'
             testRunTitle: 'Python $(python.version), image $(imageName)'
           condition: succeededOrFailed()
+
+        - task: PublishCodeCoverageResults@1
+          displayName: 'Publish Code Coverage Results'
+          inputs:
+            codeCoverageTool: Cobertura
+            summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'

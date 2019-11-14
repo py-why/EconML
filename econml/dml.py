@@ -11,180 +11,36 @@ from the treatment residuals.
 
 import numpy as np
 import copy
-from .utilities import shape, reshape, ndim, hstack, cross_product, transpose
-from sklearn.model_selection import KFold, StratifiedKFold
+from warnings import warn
+from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
+                        broadcast_unit_treatments, reshape_treatmentwise_effects,
+                        StatsModelsLinearRegression, LassoCVWrapper)
+from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.linear_model import LinearRegression, LassoCV
-from sklearn.preprocessing import PolynomialFeatures, LabelEncoder, OneHotEncoder
+from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
+                                   FunctionTransformer)
 from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
-from .cate_estimator import LinearCateEstimator
+from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
+                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin)
+from .inference import StatsModelsInference
+from ._rlearner import _RLearner
 
 
-class _RLearner(LinearCateEstimator):
+class DMLCateEstimator(_RLearner):
     """
-    Base class for orthogonal learners.
-
-    Parameters
-    ----------
-    model_y: estimator
-        The estimator for fitting the response to the features and controls. Must implement
-        `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls).
-
-    model_t: estimator
-        The estimator for fitting the treatment to the features and controls. Must implement
-        `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls).
-
-    model_final: estimator for fitting the response residuals to the features and treatment residuals
-        Must implement `fit` and `predict` methods. Unlike sklearn estimators the fit methods must
-        take an extra second argument (the treatment residuals).  Predict, on the other hand,
-        should just take the features and return the constant marginal effect.
-
-    n_splits: int
-        The number of splits to use when fitting the first-stage models.
-
-    random_state: int, RandomState instance or None
-        If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
-    """
-
-    def __init__(self, model_y, model_t, model_final,
-                 discrete_treatment, n_splits, random_state, inference):
-        self._models_y = [clone(model_y, safe=False) for _ in range(n_splits)]
-        self._models_t = [clone(model_t, safe=False) for _ in range(n_splits)]
-        self._model_final = clone(model_final, safe=False)
-        self._n_splits = n_splits
-        self._discrete_treatment = discrete_treatment
-        self._random_state = check_random_state(random_state)
-        super().__init__(inference=inference)
-
-    def _fit_impl(self, Y, T, X=None, W=None):
-        if X is None:
-            X = np.ones((shape(Y)[0], 1))
-        if W is None:
-            W = np.empty((shape(Y)[0], 0))
-        assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0]
-
-        if self._discrete_treatment:
-            folds = StratifiedKFold(self._n_splits, shuffle=True,
-                                    random_state=self._random_state).split(np.empty_like(X), T)
-            self._label_encoder = LabelEncoder()
-            self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
-            T = self._label_encoder.fit_transform(T)
-            T_out = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
-            T_out = T_out[:, 1:]  # drop first column since all columns sum to one
-        else:
-            folds = KFold(self._n_splits, shuffle=True, random_state=self._random_state).split(X)
-            T_out = T
-
-        Y_res = np.zeros(shape(Y))
-        T_res = np.zeros(shape(T_out))
-        for idx, (train_idxs, test_idxs) in enumerate(folds):
-            Y_train, Y_test = Y[train_idxs], Y[test_idxs]
-            T_train, T_test = T[train_idxs], T_out[test_idxs]
-            X_train, X_test = X[train_idxs], X[test_idxs]
-            W_train, W_test = W[train_idxs], W[test_idxs]
-            # TODO: If T is a vector rather than a 2-D array, then the model's fit must accept a vector...
-            #       Do we want to reshape to an nx1, or just trust the user's choice of input?
-            #       (Likewise for Y below)
-            self._models_t[idx].fit(X_train, W_train, T_train)
-            if self._discrete_treatment:
-                T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)[:, 1:]
-            else:
-                T_res[test_idxs] = T_test - self._models_t[idx].predict(X_test, W_test)
-            self._models_y[idx].fit(X_train, W_train, Y_train)
-            Y_res[test_idxs] = Y_test - self._models_y[idx].predict(X_test, W_test)
-
-        self._model_final.fit(X, T_res, Y_res)
-
-    def const_marginal_effect(self, X=None):
-        """
-        Calculate the constant marginal CATE θ(·).
-
-        The marginal effect is conditional on a vector of
-        features on a set of m test samples {Xᵢ}.
-
-        Parameters
-        ----------
-        X: optional (m × dₓ) matrix
-            Features for each sample.
-            If X is None, it will be treated as a column of ones with a single row
-
-        Returns
-        -------
-        theta: (m × d_y × dₜ) matrix
-            Constant marginal CATE of each treatment on each outcome for each sample.
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will also be a vector)
-        """
-        if X is None:
-            X = np.ones((1, 1))
-        return self._model_final.predict(X)
-
-    # need to override effect in case of discrete treatments
-    # TODO: should this logic be moved up to the LinearCateEstimator class and
-    #       removed from here and from the OrthoForest implementation?
-    def effect(self, X, T0=0, T1=1):
-        if ndim(T0) == 0:
-            T0 = np.repeat(T0, 1 if X is None else shape(X)[0])
-        if ndim(T1) == 0:
-            T1 = np.repeat(T1, 1 if X is None else shape(X)[0])
-        if self._discrete_treatment:
-            T0 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T0), (-1, 1)))[:, 1:]
-            T1 = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T1), (-1, 1)))[:, 1:]
-        return super().effect(X, T0, T1)
-
-    def score(self, Y, T, X=None, W=None):
-        if self._discrete_treatment:
-            T = self._one_hot_encoder.transform(reshape(self._label_encoder.transform(T), (-1, 1)))[:, 1:]
-        if T.ndim == 1:
-            T = reshape(T, (-1, 1))
-        if Y.ndim == 1:
-            Y = reshape(Y, (-1, 1))
-        if X is None:
-            X = np.ones((shape(Y)[0], 1))
-        if W is None:
-            W = np.empty((shape(Y)[0], 0))
-        Y_test_pred = np.zeros(shape(Y) + (self._n_splits,))
-        T_test_pred = np.zeros(shape(T) + (self._n_splits,))
-        for ind in range(self._n_splits):
-            if self._discrete_treatment:
-                T_test_pred[:, :, ind] = reshape(self._models_t[ind].predict(X, W)[:, 1:], shape(T))
-            else:
-                T_test_pred[:, :, ind] = reshape(self._models_t[ind].predict(X, W), shape(T))
-            Y_test_pred[:, :, ind] = reshape(self._models_y[ind].predict(X, W), shape(Y))
-        Y_test_pred = Y_test_pred.mean(axis=2)
-        T_test_pred = T_test_pred.mean(axis=2)
-        Y_test_res = Y - Y_test_pred
-        T_test_res = T - T_test_pred
-        effects = reshape(self._model_final.predict(X), (-1, shape(Y)[1], shape(T)[1]))
-        Y_test_res_pred = reshape(np.einsum('ijk,ik->ij', effects, T_test_res), shape(Y))
-        mse = ((Y_test_res - Y_test_res_pred)**2).mean()
-        return mse
-
-
-class _DMLCateEstimatorBase(_RLearner):
-    """
-    The base class for Double ML estimators.
+    The base class for parametric Double ML estimators.
 
     Parameters
     ----------
     model_y: estimator
         The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when sparseLinear is `True`.
+        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
 
     model_t: estimator
         The estimator for fitting the treatment to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when sparseLinear is `True`.
+        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
 
     model_final: estimator
         The estimator for fitting the response residuals to the treatment residuals. Must implement
@@ -194,34 +50,47 @@ class _DMLCateEstimatorBase(_RLearner):
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
-    sparseLinear: bool
-        Whether to use sparse linear model assumptions
+    linear_first_stages: bool
+        Whether the first stage models are linear (in which case we will expand the features passed to
+        `model_y` accordingly)
 
-    discrete_treatment: bool
+    discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int
-        The number of splits to use when fitting the first-stage models.
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
 
-    random_state: int, RandomState instance or None, optional (default=None)
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`).
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self,
                  model_y, model_t, model_final,
                  featurizer,
-                 sparseLinear,
-                 discrete_treatment,
-                 n_splits,
-                 random_state,
-                 inference):
+                 linear_first_stages=False,
+                 discrete_treatment=False,
+                 n_splits=2,
+                 random_state=None):
+
+        # TODO: consider whether we need more care around stateful featurizers,
+        #       since we clone it and fit separate copies
 
         class FirstStageWrapper:
             def __init__(self, model, is_Y):
@@ -229,79 +98,111 @@ class _DMLCateEstimatorBase(_RLearner):
                 self._featurizer = clone(featurizer, safe=False)
                 self._is_Y = is_Y
 
-            def _combine(self, X, W):
-                F = self._featurizer.fit_transform(X)
-                if self._is_Y and sparseLinear:
+            def _combine(self, X, W, n_samples, fitting=True):
+                if self._is_Y and linear_first_stages:
+                    if X is not None:
+                        F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
+                    else:
+                        X = np.ones((n_samples, 1))
+                        F = np.ones((n_samples, 1))
+                    if W is None:
+                        W = np.empty((n_samples, 0))
                     XW = hstack([X, W])
                     return cross_product(XW, hstack([np.ones((shape(XW)[0], 1)), F, W]))
                 else:
-                    return hstack([F, W])
+                    if X is None:
+                        X = np.ones((n_samples, 1))
+                    if W is None:
+                        W = np.empty((n_samples, 0))
+                    return hstack([X, W])
 
-            def fit(self, X, W, Target):
-                self._model.fit(self._combine(X, W), Target)
+            def fit(self, X, W, Target, sample_weight=None):
+                if (not self._is_Y) and discrete_treatment:
+                    # In this case, the Target is the one-hot-encoding of the treatment variable
+                    # We need to go back to the label representation of the one-hot so as to call
+                    # the classifier.
+                    if np.any(np.all(Target == 0, axis=0)) or (not np.any(np.all(Target == 0, axis=1))):
+                        raise AttributeError("Provided crossfit folds contain training splits that " +
+                                             "don't contain all treatments")
+                    Target = inverse_onehot(Target)
+
+                if sample_weight is not None:
+                    self._model.fit(self._combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
+                else:
+                    self._model.fit(self._combine(X, W, Target.shape[0]), Target)
 
             def predict(self, X, W):
+                n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
                 if (not self._is_Y) and discrete_treatment:
-                    return self._model.predict_proba(self._combine(X, W))
+                    return self._model.predict_proba(self._combine(X, W, n_samples, fitting=False))[:, 1:]
                 else:
-                    return self._model.predict(self._combine(X, W))
+                    return self._model.predict(self._combine(X, W, n_samples, fitting=False))
 
         class FinalWrapper:
             def __init__(self):
                 self._model = clone(model_final, safe=False)
                 self._featurizer = clone(featurizer, safe=False)
 
-            def fit(self, X, T_res, Y_res):
+            def fit(self, X, T_res, Y_res, sample_weight=None, sample_var=None):
                 # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
                 self._d_t = shape(T_res)[1:]
                 self._d_y = shape(Y_res)[1:]
-
-                self._model.fit(cross_product(self._featurizer.fit_transform(X), T_res), Y_res)
-
-            def predict(self, X, T_res=None):
-                # create an identity matrix of size d_t (or just a 1-element array if T was a vector)
-                # the nth row will allow us to compute the marginal effect of the nth component of treatment
-                eye = np.eye(self._d_t[0]) if self._d_t else np.array([1])
-                # TODO: Doing this kronecker/reshaping/transposing stuff so that predict can be called
-                #       rather than just using coef_ seems silly, but one benefit is that we can use linear models
-                #       that don't expose a coef_ (e.g. a GridSearchCV over underlying linear models)
-                flat_eye = reshape(eye, (1, -1))
-                XT = reshape(np.kron(flat_eye, self._featurizer.fit_transform(X)),
-                             ((self._d_t[0] if self._d_t else 1) * shape(X)[0], -1))
-                effects = reshape(self._model.predict(XT), (-1,) + self._d_t + self._d_y)
-                if self._d_t and self._d_y:
-                    return transpose(effects, (0, 2, 1))  # need to return as m by d_y by d_t matrix
+                F = self._featurizer.fit_transform(X) if X is not None else np.ones((T_res.shape[0], 1))
+                fts = cross_product(F, T_res)
+                if sample_weight is not None:
+                    if sample_var is not None:
+                        self._model.fit(fts,
+                                        Y_res, sample_weight=sample_weight, sample_var=sample_var)
+                    else:
+                        self._model.fit(fts,
+                                        Y_res, sample_weight=sample_weight)
                 else:
-                    return effects
+                    self._model.fit(fts, Y_res)
 
-            @property
-            def coef_(self):
-                # TODO: handle case where final model doesn't directly expose coef_?
-                return reshape(self._model.coef_, self._d_y + self._d_t + (-1,))
+                self._intercept = None
+                intercept = self._model.predict(np.zeros_like(fts[0:1]))
+                if (np.count_nonzero(intercept) > 0):
+                    warn("The final model has a nonzero intercept for at least one outcome; "
+                         "it will be subtracted, but consider fitting a model without an intercept if possible.",
+                         UserWarning)
+                    self._intercept = intercept
+
+            def predict(self, X):
+                F = self._featurizer.transform(X) if X is not None else np.ones((1, 1))
+                F, T = broadcast_unit_treatments(F, self._d_t[0] if self._d_t else 1)
+                prediction = self._model.predict(cross_product(F, T))
+                if self._intercept is not None:
+                    prediction -= self._intercept
+                return reshape_treatmentwise_effects(prediction,
+                                                     self._d_t, self._d_y)
 
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
                          model_t=FirstStageWrapper(model_t, is_Y=False),
                          model_final=FinalWrapper(),
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
-                         random_state=random_state,
-                         inference=inference)
+                         random_state=random_state)
 
     @property
-    def coef_(self):
-        """
-        Get the final model's coefficients.
+    def featurizer(self):
+        return super().model_final._featurizer
 
-        Note that this relies on the final model having a `coef_` property of its own.
-        Most sklearn linear models support this, but there are cases that don't
-        (e.g. a `Pipeline` or `GridSearchCV` which wraps a linear model)
-        """
-        return self._model_final.coef_
+    @property
+    def model_final(self):
+        return super().model_final._model
+
+    @property
+    def models_y(self):
+        return [mdl._model for mdl in super().models_y]
+
+    @property
+    def models_t(self):
+        return [mdl._model for mdl in super().models_t]
 
 
-class DMLCateEstimator(_DMLCateEstimatorBase):
+class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
     """
-    The Double ML Estimator.
+    The Double ML Estimator with a low-dimensional linear final stage implemented as a statsmodel regression.
 
     Parameters
     ----------
@@ -313,127 +214,177 @@ class DMLCateEstimator(_DMLCateEstimatorBase):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.
 
-    model_final: estimator, optional (default is `LinearRegression(fit_intercept=False)`)
-        The estimator for fitting the response residuals to the treatment residuals. Must implement
-        `fit` and `predict` methods, and must be a linear model for correctness.
-
-    featurizer: transformer, optional (default is `PolynomialFeatures(degree=1, include_bias=True)`)
+    featurizer: transformer, optional (default is \
+        :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
-    discrete_treatment: bool, optional (default is False)
+    linear_first_stages: bool
+        Whether the first stage models are linear (in which case we will expand the features passed to
+        `model_y` accordingly)
+
+    discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, optional (default is 2)
-        The number of splits to use when fitting the first-stage models.
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
 
-    random_state: int, RandomState instance or None, optional (default=None)
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
 
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
     """
 
     def __init__(self,
-                 model_y, model_t, model_final=LinearRegression(fit_intercept=False),
+                 model_y=LassoCV(), model_t=LassoCV(),
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                 linear_first_stages=True,
                  discrete_treatment=False,
                  n_splits=2,
-                 random_state=None,
-                 inference=None):
+                 random_state=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
-                         model_final=model_final,
+                         model_final=StatsModelsLinearRegression(fit_intercept=False),
                          featurizer=featurizer,
-                         sparseLinear=False,
+                         linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
-                         random_state=random_state,
-                         inference=inference)
+                         random_state=random_state)
+
+    # override only so that we can update the docstring to indicate support for `StatsModelsInference`
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
+        """
+        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+
+        Parameters
+        ----------
+        Y: (n × d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n × dₜ) matrix or vector of length n
+            Treatments for each sample
+        X: optional (n × dₓ) matrix
+            Features for each sample
+        W: optional (n × d_w) matrix
+            Controls for each sample
+        sample_weight: optional (n,) vector
+            Weights for each row
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'statsmodels'
+            (or an instance of :class:`.StatsModelsInference`)
+
+        Returns
+        -------
+        self
+        """
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+
+    @property
+    def statsmodels(self):
+        return self.model_final
 
 
-class SparseLinearDMLCateEstimator(_DMLCateEstimatorBase):
+class SparseLinearDMLCateEstimator(DMLCateEstimator):
     """
     A specialized version of the Double ML estimator for the sparse linear case.
 
-    Specifically, this estimator can be used when the controls are high-dimensional,
-    the treatment and response are linear functions of the features and controls,
+    Specifically, this estimator can be used when the controls are high-dimensional
     and the coefficients of the nuisance functions are sparse.
 
     Parameters
     ----------
-    linear_model_y: estimator
-        The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods, and must be a linear model for correctness.
-
-    linear_model_t: estimator
-        The estimator for fitting the treatment to the features. Must implement
-        `fit` and `predict` methods, and must be a linear model for correctness.
-
-    model_final: estimator, optional (default is `LinearRegression(fit_intercept=False)`)
-        The estimator for fitting the response residuals to the treatment residuals. Must implement
-        `fit` and `predict` methods, and must be a linear model for correctness.
-
-    featurizer: transformer, optional (default is `PolynomialFeatures(degree=1, include_bias=True)`)
-        The transformer used to featurize the raw features when fitting the final model.  Must implement
-        a `fit_transform` method.
-
-    discrete_treatment: bool, optional (default is False)
-        Whether the treatment values should be treated as categorical, rather than continuous, quantities
-
-    n_splits: int, optional (default is 2)
-        The number of splits to use when fitting the first-stage models.
-
-    random_state: int, RandomState instance or None, optional (default=None)
-        If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
-    """
-
-    def __init__(self,
-                 linear_model_y=LassoCV(), linear_model_t=LassoCV(), model_final=LinearRegression(fit_intercept=False),
-                 featurizer=PolynomialFeatures(degree=1, include_bias=True),
-                 discrete_treatment=False,
-                 n_splits=2,
-                 random_state=None,
-                 inference=None):
-        super().__init__(model_y=linear_model_y,
-                         model_t=linear_model_t,
-                         model_final=model_final,
-                         featurizer=featurizer,
-                         sparseLinear=True,
-                         discrete_treatment=discrete_treatment,
-                         n_splits=n_splits,
-                         random_state=random_state,
-                         inference=inference)
-
-
-class KernelDMLCateEstimator(DMLCateEstimator):
-    """
-    A specialized version of the Double ML Estimator that uses random fourier features.
-
-    Parameters
-    ----------
     model_y: estimator
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
     model_t: estimator
         The estimator for fitting the treatment to the features. Must implement
+        `fit` and `predict` methods, and must be a linear model for correctness.
+
+    model_final: estimator, optional (default is :class:`LassoCV(fit_intercept=False)  <sklearn.linear_model.LassoCV>`)
+        The estimator for fitting the response residuals to the treatment residuals. Must implement
+        `fit` and `predict` methods, and must be a linear model with no intercept for correctness.
+
+    featurizer: transformer, optional
+    (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
+        The transformer used to featurize the raw features when fitting the final model.  Must implement
+        a `fit_transform` method.
+
+    linear_first_stages: bool
+        Whether the first stage models are linear (in which case we will expand the features passed to
+        `model_y` accordingly)
+
+    discrete_treatment: bool, optional (default is ``False``)
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
+    """
+
+    def __init__(self,
+                 model_y=LassoCV(), model_t=LassoCV(), model_final=LassoCVWrapper(fit_intercept=False),
+                 featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                 linear_first_stages=True,
+                 discrete_treatment=False,
+                 n_splits=2,
+                 random_state=None):
+        super().__init__(model_y=model_y,
+                         model_t=model_t,
+                         model_final=model_final,
+                         featurizer=featurizer,
+                         linear_first_stages=linear_first_stages,
+                         discrete_treatment=discrete_treatment,
+                         n_splits=n_splits,
+                         random_state=random_state)
+
+
+class KernelDMLCateEstimator(LinearDMLCateEstimator):
+    """
+    A specialized version of the linear Double ML Estimator that uses random fourier features.
+
+    Parameters
+    ----------
+    model_y: estimator, optional (default is :class:`LassoCV() <sklearn.linear_model.LassoCV>`)
+        The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
-    model_final: estimator, optional (default is `LinearRegression(fit_intercept=False)`)
-        The estimator for fitting the response residuals to the treatment residuals. Must implement
-        `fit` and `predict` methods, and must be a linear model for correctness.
+    model_t: estimator, optional (default is :class:`LassoCV() <sklearn.linear_model.LassoCV>`)
+        The estimator for fitting the treatment to the features. Must implement
+        `fit` and `predict` methods.
 
     dim: int, optional (default is 20)
         The number of random Fourier features to generate
@@ -441,31 +392,46 @@ class KernelDMLCateEstimator(DMLCateEstimator):
     bw: float, optional (default is 1.0)
         The bandwidth of the Gaussian used to generate features
 
-    n_splits: int, optional (default is 2)
-        The number of splits to use when fitting the first-stage models.
+    discrete_treatment: bool, optional (default is ``False``)
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    random_state: int, RandomState instance or None, optional (default=None)
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_y, model_t, model_final=LinearRegression(fit_intercept=False),
-                 dim=20, bw=1.0, n_splits=2, random_state=None, inference=None):
+    def __init__(self, model_y=LassoCV(), model_t=LassoCV(),
+                 dim=20, bw=1.0, discrete_treatment=False, n_splits=2, random_state=None):
         class RandomFeatures(TransformerMixin):
-            def fit(innerself, X):
-                innerself.omegas = self._random_state.normal(0, 1 / bw, size=(shape(X)[1], dim))
-                innerself.biases = self._random_state.uniform(0, 2 * np.pi, size=(1, dim))
-                return innerself
+            def __init__(self, random_state):
+                self._random_state = check_random_state(random_state)
 
-            def transform(innerself, X):
-                return np.sqrt(2 / dim) * np.cos(np.matmul(X, innerself.omegas) + innerself.biases)
+            def fit(self, X):
+                self.omegas = self._random_state.normal(0, 1 / bw, size=(shape(X)[1], dim))
+                self.biases = self._random_state.uniform(0, 2 * np.pi, size=(1, dim))
+                return self
 
-        super().__init__(model_y=model_y, model_t=model_t, model_final=model_final,
-                         featurizer=RandomFeatures(), n_splits=n_splits, random_state=random_state,
-                         inference=inference)
+            def transform(self, X):
+                return np.sqrt(2 / dim) * np.cos(np.matmul(X, self.omegas) + self.biases)
+
+        super().__init__(model_y=model_y, model_t=model_t,
+                         featurizer=RandomFeatures(random_state),
+                         discrete_treatment=discrete_treatment, n_splits=n_splits, random_state=random_state)

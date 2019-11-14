@@ -197,14 +197,14 @@ One can also define a custom featurizer, as long as it supports the fit\_transfo
 .. code-block:: python3
     :caption: Custom Featurizer
 
-    class LogFeatures(object):
+    class LogFeatures:
         ''' Augments the features with logarithmic features and returns the augmented structure'''
         def fit_transform(self, X):
             return np.concatenate((X, np.log(X)), axis=1)
             
     est = DMLCateEstimator(model_y=sklearn.ensemble.RandomForestRegressor(), 
                             model_t=sklearn.ensemble.RandomForestRegressor(),
-                            featurizer=sklearn.preprocessing.LogFeatures())
+                            featurizer=LogFeatures())
     est.fit(y, T, X, W)
     a_hat = est.coef_
 
@@ -215,7 +215,7 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
 
     est = DMLCateEstimator(model_y=sklearn.ensemble.RandomForestRegressor(), 
                             model_t=sklearn.ensemble.RandomForestRegressor(),
-                            featurizer=Pipeline([('log', sklearn.preprocessing.LogFeatures()), 
+                            featurizer=Pipeline([('log', LogFeatures()), 
                                             ('poly', sklearn.preprocessing.PolynomialFeatures(degree=3))]))
     est.fit(y, T, X, W)
     a_hat = est.coef_
@@ -223,7 +223,7 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
 
 .. rubric:: Sparse Linear Models
 
-If we also want to assume that the nuisance models are sparse linear and use the elasticNet instead of the LassoCV, then we can simply call:
+If we also want to assume that the nuisance models are sparse linear and use the ElasticNet instead of the LassoCV, then we can simply call:
 
 .. code-block:: python3
     :caption: Sparse Linear Nuisance Models
@@ -254,7 +254,7 @@ Suppose that we believed our DGP looks as in the example used in the general sec
     Y =~& \gamma T^2 + \delta X T + \ldot{\zeta}{W} + \kappa + \epsilon \\
     T =~& \ldot{\alpha}{W}  + \eta
 
-Then we could fit such a model by. using polynomial features for :math:`Z` and expanding the treatment vector to contain also polynomial features:
+Then we could fit such a model by using polynomial features for :math:`Z` and expanding the treatment vector to contain also polynomial features:
 
 .. code-block:: python3
     :caption: Polynomial Treatments
@@ -268,7 +268,7 @@ Then we could fit such a model by. using polynomial features for :math:`Z` and e
     a_hat = est.sparse_coef_
     # entry j*d_T+i = j*2 + i of this vector contains the coefficient α_ij
 
-The latter would fit a slightly more general model effect model of the form:
+The latter would fit a slightly more general model of the form:
 
 .. math::
 
@@ -286,7 +286,7 @@ If one wants to enforce sparsity of the :math:`\alpha_{ij}` coefficients, then a
     est.fit(y, np.concatenate((T, T**2), axis=1), X, W)
 
 
-Alternatively, we can estimate the more constraint model by building augmented features :math:`XT` and not using any :math:`X` for heterogeneity:
+Alternatively, we can estimate the more constrained model by building augmented features :math:`XT` and not using any :math:`X` for heterogeneity:
 
 .. code-block:: python3
     :caption: Direct Composite Treatments
@@ -300,7 +300,7 @@ However, the latter would also orthogonalize :math:`X` on :math:`W`, which could
 Example Use Cases: Multiple Outcome, Multiple Treatments
 --------------------------------------------------------
 
-In settings like demand estimation, we might want to fit the demand of multiple products as a function of the price of each one of them, i.e. fit the matrix of cross price elasticities. The latter can be done, by simply setting as :math:`Y` to be the vector of demands and :math:`T` to be the vector of prices. Then we can recover the 
+In settings like demand estimation, we might want to fit the demand of multiple products as a function of the price of each one of them, i.e. fit the matrix of cross price elasticities. The latter can be done, by simply setting :math:`Y` to be the vector of demands and :math:`T` to be the vector of prices. Then we can recover the 
 matrix of cross price elasticities as:
 
 .. code-block:: python3

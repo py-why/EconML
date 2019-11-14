@@ -5,111 +5,114 @@
 
 import abc
 import numpy as np
+from functools import wraps
+from copy import deepcopy
+from warnings import warn
 from .bootstrap import BootstrapEstimator
-from .inference import BootstrapOptions
+from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
-    """
-    Base class for all CATE estimators in this package.
+    """Base class for all CATE estimators in this package."""
 
-    Parameters
-    ----------
-    inference: string, inference method, or None
-        Method for performing inference.  All estimators support 'bootstrap'
-        (or an instance of `BootstrapOptions`), some support other methods as well.
-
-    """
-
-    _inference_options = {'bootstrap': BootstrapOptions()}
-    _bootstrap_whitelist = {'effect', 'marginal_effect'}
-
-    @abc.abstractmethod
-    def __init__(self, inference):
+    def _get_inference_options(self):
         """
-        Initialize the estimator.
+        Produce a dictionary mapping string names to :class:`.Inference` types.
 
-        All subclass overrides should complete with a call to this method on the super class,
-        since it enables bootstrapping.
-
+        This is used by the :meth:`fit` method when a string is passed rather than an :class:`.Inference` type.
         """
-        if inference in self._inference_options:
-            inference = self._inference_options[inference]
-        if isinstance(inference, BootstrapOptions):
-            # Note that fit (and other methods) check for the presence of a _bootstrap attribute
-            # to determine whether to delegate to that object or not;
-            # The clones wrapped inside the BootstrapEstimator will not have that attribute since
-            # it's assigned *after* creating the estimator
-            self._bootstrap = BootstrapEstimator(self, inference.n_bootstrap_samples, inference.n_jobs)
-        self._inference = inference
+        return {'bootstrap': BootstrapInference}
 
-    def __getattr__(self, name):
-        suffix = '_interval'
-        if name.endswith(suffix) and name[: - len(suffix)] in self._bootstrap_whitelist:
-            if hasattr(self, '_bootstrap'):
-                return getattr(self._bootstrap, name)
+    def _get_inference(self, inference):
+        options = self._get_inference_options()
+        if isinstance(inference, str):
+            if inference in options:
+                inference = options[inference]()
             else:
-                raise AttributeError('\'%s\' object does not support attribute \'%s\'; '
-                                     'consider passing inference=\'bootstrap\' when initializing'
-                                     % (type(self).__name__, name))
-        else:
-            raise AttributeError('\'%s\' object has no attribute \'%s\''
-                                 % (type(self).__name__, name))
+                raise ValueError("Inference option '%s' not recognized; valid values are %s" %
+                                 (inference, [*options]))
+        # since inference objects can be stateful, we must copy it before fitting;
+        # otherwise this sequence wouldn't work:
+        #   est1.fit(..., inference=inf)
+        #   est2.fit(..., inference=inf)
+        #   est1.effect_interval(...)
+        # because inf now stores state from fitting est2
+        return deepcopy(inference)
+
+    def _prefit(self, Y, T, *args, **kwargs):
+        self._d_y = np.shape(Y)[1:]
+        self._d_t = np.shape(T)[1:]
 
     @abc.abstractmethod
-    def _fit_impl(self, Y, T, X=None, W=None, Z=None):
-        pass
-
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, inference=None, **kwargs):
         """
-        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+        Estimate the counterfactual model from data, i.e. estimates functions
+        :math:`\\tau(X, T0, T1)`, :math:`\\partial \\tau(T, X)`.
 
         Note that the signature of this method may vary in subclasses (e.g. classes that don't
         support instruments will not allow a `Z` argument)
 
         Parameters
         ----------
-        Y: (n × d_y) matrix or vector of length n
+        Y: (n, d_y) matrix or vector of length n
             Outcomes for each sample
-        T: (n × dₜ) matrix or vector of length n
+        T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X: optional (n, d_x) matrix
             Features for each sample
-        W: optional (n × d_w) matrix
+        W: optional (n, d_w) matrix
             Controls for each sample
-        Z: optional (n × d_z) matrix
+        Z: optional (n, d_z) matrix
             Instruments for each sample
+        inference: optional string, :class:`.Inference` instance, or None
+            Method for performing inference.  All estimators support ``'bootstrap'``
+            (or an instance of :class:`.BootstrapInference`), some support other methods as well.
 
         Returns
         -------
         self
 
         """
-        if hasattr(self, '_bootstrap'):
-            self._bootstrap.fit(*args, **kwargs)
-        return self._fit_impl(*args, **kwargs)
+        pass
+
+    def _wrap_fit(m):
+        @wraps(m)
+        def call(self, Y, T, *args, inference=None, **kwargs):
+            inference = self._get_inference(inference)
+            self._prefit(Y, T, *args, **kwargs)
+            if inference is not None:
+                inference.prefit(self, Y, T, *args, **kwargs)
+            # call the wrapped fit method
+            m(self, Y, T, *args, **kwargs)
+            if inference is not None:
+                # NOTE: we call inference fit *after* calling the main fit method
+                inference.fit(self, Y, T, *args, **kwargs)
+            self._inference = inference
+            return self
+        return call
 
     @abc.abstractmethod
-    def effect(self, X=None, T0=0, T1=1):
+    def effect(self, X=None, *, T0, T1):
         """
-        Calculate the heterogeneous treatment effect τ(·,·,·).
+        Calculate the heterogeneous treatment effect :math:`\\tau(X, T0, T1)`.
 
         The effect is calculated between the two treatment points
-        conditional on a vector of features on a set of m test samples {T0ᵢ, T1ᵢ, Xᵢ}.
+        conditional on a vector of features on a set of m test samples :math:`\\{T0_i, T1_i, X_i\\}`.
 
         Parameters
         ----------
-        T0: (m × dₜ) matrix or vector of length m
+        T0: (m, d_t) matrix or vector of length m
             Base treatments for each sample
-        T1: (m × dₜ) matrix or vector of length m
+        T1: (m, d_t) matrix or vector of length m
             Target treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample
 
         Returns
         -------
-        τ: (m × d_y) matrix
+        τ: (m, d_y) matrix
             Heterogeneous treatment effects on each outcome for each sample
             Note that when Y is a vector rather than a 2-dimensional array, the corresponding
             singleton dimension will be collapsed (so this method will return a vector)
@@ -119,21 +122,21 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def marginal_effect(self, T, X=None):
         """
-        Calculate the heterogeneous marginal effect ∂τ(·,·).
+        Calculate the heterogeneous marginal effect :math:`\\partial\\tau(T, X)`.
 
         The marginal effect is calculated around a base treatment
-        point conditional on a vector of features on a set of m test samples {Tᵢ, Xᵢ}.
+        point conditional on a vector of features on a set of m test samples :math:`\\{T_i, X_i\\}`.
 
         Parameters
         ----------
-        T: (m × dₜ) matrix
+        T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample
 
         Returns
         -------
-        grad_tau: (m × d_y × dₜ) array
+        grad_tau: (m, d_y, d_t) array
             Heterogeneous marginal effects on each outcome for each sample
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -141,81 +144,143 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         pass
 
+    def _expand_treatments(self, X=None, *Ts):
+        """
+        Given a set of features and treatments, return possibly modified features and treatments.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample, or None
+        Ts: sequence of (m, d_t) matrices
+            Base treatments for each sample
+
+        Returns
+        -------
+        output : tuple (X',T0',T1',...)
+        """
+        return (X,) + Ts
+
+    def _defer_to_inference(m):
+        @wraps(m)
+        def call(self, *args, **kwargs):
+            name = m.__name__
+            if self._inference is not None:
+                return getattr(self._inference, name)(*args, **kwargs)
+            else:
+                raise AttributeError("Can't call '%s' because 'inference' is None" % name)
+        return call
+
+    @_defer_to_inference
+    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @_defer_to_inference
+    def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\partial \\tau(T, X)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`marginal_effect(T, X)<marginal_effect>`, \
+                             type of :meth:`marginal_effect(T, X)<marginal_effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
 
 class LinearCateEstimator(BaseCateEstimator):
-    """
-    Base class for all CATE estimators with linear treatment effects in this package.
-
-    Parameters
-    ----------
-    inference: string, inference method, or None
-        Method for performing inference.  All estimators support 'bootstrap'
-        (or an instance of `BootstrapOptions`), some support other methods as well.
-
-    """
-
-    @abc.abstractmethod
-    def __init__(self, inference):
-        super().__init__(inference=inference)
+    """Base class for all CATE estimators with linear treatment effects in this package."""
 
     @abc.abstractmethod
     def const_marginal_effect(self, X=None):
         """
-        Calculate the constant marginal CATE θ(·).
+        Calculate the constant marginal CATE :math:`\\theta(·)`.
 
         The marginal effect is conditional on a vector of
-        features on a set of m test samples {Xᵢ}.
+        features on a set of m test samples X[i].
 
         Parameters
         ----------
-        X: optional (m × dₓ) matrix
-            Features for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
 
         Returns
         -------
-        theta: (m × d_y × dₜ) matrix
-            Constant marginal CATE of each treatment on each outcome for each sample.
+        theta: (m, d_y, d_t) matrix or (d_y, d_t) matrix if X is None
+            Constant marginal CATE of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         pass
 
-    def effect(self, X=None, T0=0, T1=1):
+    def effect(self, X=None, *, T0, T1):
         """
-        Calculate the heterogeneous treatment effect τ(·,·,·).
+        Calculate the heterogeneous treatment effect :math:`\\tau(X, T0, T1)`.
 
         The effect is calculatred between the two treatment points
-        conditional on a vector of features on a set of m test samples {T0ᵢ, T1ᵢ, Xᵢ}.
+        conditional on a vector of features on a set of m test samples :math:`\\{T0_i, T1_i, X_i\\}`.
         Since this class assumes a linear effect, only the difference between T0ᵢ and T1ᵢ
         matters for this computation.
 
         Parameters
         ----------
-        T0: (m × dₜ) matrix
+        T0: (m, d_t) matrix
             Base treatments for each sample
-        T1: (m × dₜ) matrix
+        T1: (m, d_t) matrix
             Target treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample
 
         Returns
         -------
-        τ: (m × d_y) matrix (or length m vector if Y was a vector)
+        effect: (m, d_y) matrix (or length m vector if Y was a vector)
             Heterogeneous treatment effects on each outcome for each sample.
             Note that when Y is a vector rather than a 2-dimensional array, the corresponding
             singleton dimension will be collapsed (so this method will return a vector)
         """
+        X, T0, T1 = self._expand_treatments(X, T0, T1)
         # TODO: what if input is sparse? - there's no equivalent to einsum,
         #       but tensordot can't be applied to this problem because we don't sum over m
-        # TODO: if T0 or T1 are scalars, we'll promote them to vectors;
-        #       should it be possible to promote them to 2D arrays if that's what we saw during training?
         eff = self.const_marginal_effect(X)
+        # if X is None then the shape of const_marginal_effect will be wrong because the number
+        # of rows of T was not taken into account
+        if X is None:
+            eff = np.repeat(eff, shape(T0)[0], axis=0)
         m = shape(eff)[0]
-        if ndim(T0) == 0:
-            T0 = np.repeat(T0, m)
-        if ndim(T1) == 0:
-            T1 = np.repeat(T1, m)
         dT = T1 - T0
         einsum_str = 'myt,mt->my'
         if ndim(dT) == 1:
@@ -226,25 +291,213 @@ class LinearCateEstimator(BaseCateEstimator):
 
     def marginal_effect(self, T, X=None):
         """
-        Calculate the heterogeneous marginal effect ∂τ(·,·).
+        Calculate the heterogeneous marginal effect :math:`\\partial\\tau(T, X)`.
 
         The marginal effect is calculated around a base treatment
-        point conditional on a vector of features on a set of m test samples {Tᵢ, Xᵢ}.
+        point conditional on a vector of features on a set of m test samples :math:`\\{T_i, X_i\\}`.
         Since this class assumes a linear model, the base treatment is ignored in this calculation.
 
         Parameters
         ----------
-        T: (m × dₜ) matrix
+        T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional (m, d_x) matrix
             Features for each sample
 
         Returns
         -------
-        grad_tau: (m × d_y × dₜ) array
+        grad_tau: (m, d_y, d_t) array
             Heterogeneous marginal effects on each outcome for each sample
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        return self.const_marginal_effect(X)
+        X, T = self._expand_treatments(X, T)
+        eff = self.const_marginal_effect(X)
+        return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
+
+    def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        X, T = self._expand_treatments(X, T)
+        effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
+        return tuple(np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
+                     for eff in effs)
+    marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
+
+    @BaseCateEstimator._defer_to_inference
+    def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\theta(X)` produced
+        by the model. Available only when `inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`const_marginal_effect(X)<const_marginal_effect>` ,\
+                             type of :meth:`const_marginal_effect(X)<const_marginal_effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+
+class TreatmentExpansionMixin(BaseCateEstimator):
+    """Mixin which automatically handles promotions of scalar treatments to the appropriate shape."""
+
+    transformer = None
+
+    def _prefit(self, Y, T, *args, **kwargs):
+        super()._prefit(Y, T, *args, **kwargs)
+        # need to store the *original* dimensions of T so that we can expand scalar inputs to match;
+        # subclasses should overwrite self._d_t with post-transformed dimensions of T for generating treatments
+        self._d_t_in = self._d_t
+
+    def _expand_treatments(self, X=None, *Ts):
+        n_rows = 1 if X is None else shape(X)[0]
+        outTs = []
+        for T in Ts:
+            if (ndim(T) == 0) and self._d_t_in and self._d_t_in[0] > 1:
+                warn("A scalar was specified but there are multiple treatments; "
+                     "the same value will be used for each treatment.  Consider specifying"
+                     "all treatments, or using the const_marginal_effect method.")
+            if ndim(T) == 0:
+                T = np.full((n_rows,) + self._d_t_in, T)
+
+            if self.transformer:
+                T = self.transformer.transform(T)
+            outTs.append(T)
+
+        return (X,) + tuple(outTs)
+
+    # override effect to set defaults, which works with the new definition of _expand_treatments
+    def effect(self, X=None, *, T0=0, T1=1):
+        # NOTE: don't explicitly expand treatments here, because it's done in the super call
+        return super().effect(X, T0=T0, T1=T1)
+    effect.__doc__ = BaseCateEstimator.effect.__doc__
+
+
+class StatsModelsCateEstimatorMixin(BaseCateEstimator):
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(statsmodels=StatsModelsInference)
+        return options
+
+    @property
+    @abc.abstractmethod
+    def statsmodels(self):
+        pass
+
+    @property
+    def coef_(self):
+        return self.statsmodels.coef_
+
+    @property
+    def intercept_(self):
+        return self.statsmodels.intercept_
+
+    @BaseCateEstimator._defer_to_inference
+    def coef__interval(self, *, alpha=0.1):
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def intercept__interval(self, *, alpha=0.1):
+        pass
+
+
+class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
+    # TODO Create parent StatsModelsCateEstimatorMixin class so that some functionalities can be shared
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(statsmodels=StatsModelsInferenceDiscrete)
+        return options
+
+    @property
+    @abc.abstractmethod
+    def statsmodels(self):
+        pass
+
+    def coef_(self, T):
+        """ The coefficients in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+
+        Returns
+        -------
+        coef: (n_x,) or (n_y, n_x) array like
+            Where n_x is the number of features that enter the final model (either the
+            dimension of X or the dimension of featurizer.fit_transform(X) if the CATE
+            estimator has a featurizer.)
+        """
+        _, T = self._expand_treatments(None, T)
+        ind = (T @ np.arange(T.shape[1])).astype(int)[0]
+        return self.statsmodels_fitted[ind].coef_
+
+    def intercept_(self, T):
+        """ The intercept in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+
+        Returns
+        -------
+        intercept: float or (n_y,) array like
+        """
+        _, T = self._expand_treatments(None, T)
+        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        return self.statsmodels_fitted[ind].intercept_
+
+    @BaseCateEstimator._defer_to_inference
+    def coef__interval(self, T, *, alpha=0.1):
+        """ The confidence interval for the coefficients in the linear model of the
+        constant marginal treatment effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple(type of :meth:`coef_(T)<coef_>`, type of :meth:`coef_(T)<coef_`)
+            The lower and upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def intercept__interval(self, T, *, alpha=0.1):
+        """ The intercept in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple(type of :meth:`intercept_(T)<intercept_>`, type of :meth:`intercept_(T)<intercept_>`)
+            The lower and upper bounds of the confidence interval.
+        """
+        pass

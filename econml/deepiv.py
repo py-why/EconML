@@ -269,18 +269,13 @@ class DeepIVEstimator(BaseCateEstimator):
         The keyword arguments to pass to Keras's `fit` method when training the second stage model.
         Defaults to `{"epochs": 100}`.
 
-    inference: string, inference method, or None
-        Method for performing inference.  This estimator supports 'bootstrap'
-        (or an instance of `BootstrapOptions`)
-
     """
 
     def __init__(self, n_components, m, h,
                  n_samples, use_upper_bound_loss=False, n_gradient_samples=0,
                  optimizer='adam',
                  first_stage_options={"epochs": 100},
-                 second_stage_options={"epochs": 100},
-                 inference=None):
+                 second_stage_options={"epochs": 100}):
         self._n_components = n_components
         self._m = m
         self._h = h
@@ -290,9 +285,10 @@ class DeepIVEstimator(BaseCateEstimator):
         self._optimizer = optimizer
         self._first_stage_options = first_stage_options
         self._second_stage_options = second_stage_options
-        super().__init__(inference=inference)
+        super().__init__()
 
-    def _fit_impl(self, Y, T, X, Z):
+    @BaseCateEstimator._wrap_fit
+    def fit(self, Y, T, X, Z, inference=None):
         """Estimate the counterfactual model from data.
 
         That is, estimate functions τ(·, ·, ·), ∂τ(·, ·).
@@ -303,10 +299,13 @@ class DeepIVEstimator(BaseCateEstimator):
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X: (n × dₓ) matrix
             Features for each sample
-        Z: optional (n × d_z) matrix
+        Z: (n × d_z) matrix
             Instruments for each sample
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`)
 
         Returns
         -------
@@ -320,8 +319,6 @@ class DeepIVEstimator(BaseCateEstimator):
         assert np.shape(X)[0] == np.shape(Y)[0] == np.shape(T)[0] == np.shape(Z)[0]
 
         # in case vectors were passed for Y or T, keep track of trailing dims for reshaping effect output
-        self._d_y = np.shape(Y)[1:]
-        self._d_t = np.shape(T)[1:]
 
         d_x, d_y, d_z, d_t = [np.shape(a)[1] if np.ndim(a) > 1 else 1 for a in [X, Y, Z, T]]
         x_in, y_in, z_in, t_in = [L.Input((d,)) for d in [d_x, d_y, d_z, d_t]]
