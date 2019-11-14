@@ -147,7 +147,9 @@ class DRLearner(_OrthoLearner):
 
     Examples
     --------
-    A simple example with the default models::
+    A simple example with the default models:
+
+    .. testcode::
 
         import numpy as np
         import scipy.special
@@ -162,35 +164,34 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.const_marginal_effect(X[:2])
-    array([[ 0.5215622 ,  0.82215814],
-           [ 0.37704938,  0.21466424],
-           [-0.07505456, -0.77963048]])
+    array([[0.527611..., 1.043938...],
+           [0.345923..., 0.422289...]])
     >>> est.effect(X[:2], T0=0, T1=1)
-    array([0.5215622 , 0.37704938])
+    array([0.527611..., 0.345923...])
     >>> est.score_
-    10.243375492811202
+    6.48100436...
     >>> est.score(y, T, X=X)
-    8.489141208026698
+    4.58598642...
     >>> est.model_cate(T=1).coef_
-    array([1.00761575, 0.47127132, 0.01092897, 0.05185222])
+    array([0.413288..., 0.02370... , 0.021575...])
     >>> est.model_cate(T=2).coef_
-    array([ 1.92481336,  1.09654124,  0.08919048, -0.00413531])
-    >>> est.cate_feature_names
-    ['1', 'x0', 'x1', 'x2']
+    array([ 0.920586...,  0.0963652..., -0.060305...])
+    >>> est.cate_feature_names()
+    <BLANKLINE>
     >>> [mdl.coef_ for mdl in est.models_regression]
-    [array([ 1.43608627e+00,  9.16715532e-04, -7.66401138e-03,  6.73985763e-01,
-             1.98864974e+00]),
-     array([ 1.49529047e+00, -2.43886553e-03,  1.74824661e-03,  6.81810603e-01,
-             2.03340844e+00])]
+    [array([ 1.435973...e+00,  3.342106...e-04, -7.102984...e-03,  6.707922...e-01,
+            1.984256...e+00]), array([ 1.494633...e+00, -2.463273...e-03,  2.009746...e-03,  6.828204...e-01,
+            2.034977...e+00])]
     >>> [mdl.coef_ for mdl in est.models_propensity]
-    [array([[-1.05971312,  0.09307097,  0.11409781],
-            [ 0.09002839,  0.03464788, -0.09079638],
-            [ 0.96968473, -0.12771885, -0.02330143]]),
-     array([[-0.98251905,  0.09248893, -0.12248101],
-            [ 0.04591711, -0.03486403, -0.07891743],
-            [ 0.93660195, -0.05762491,  0.20139844]])]
+    [array([[-1.005830...,  0.087684...,  0.110012... ],
+           [ 0.087689...,  0.034947..., -0.088753...],
+           [ 0.918140..., -0.122632..., -0.021259...]]), array([[-0.742430...,  0.067423..., -0.080428...],
+           [ 0.046120..., -0.030004..., -0.076622...],
+           [ 0.696310..., -0.037418...,  0.157051...]])]
 
-    Beyond default models::
+    Beyond default models:
+
+    .. testcode::
 
         import scipy.special
         import numpy as np
@@ -210,19 +211,19 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    3.172135302455655
+    3.50415...
     >>> est.const_marginal_effect(X[:3])
-    array([[ 0.55038338,  1.14558174],
-           [ 0.32065866,  0.75638221],
-           [-0.07514842, -0.03658315]])
+    array([[ 0.553...,  1.138...],
+           [ 0.318...,  0.730...],
+           [-0.074..., -0.067...]])
     >>> est.model_cate(T=2).coef_
-    array([ 0.86420672,  0.01628151, -0.        ])
+    array([ 0.871...,  0.026..., -0.        ])
     >>> est.model_cate(T=2).intercept_
-    2.067552713536296
+    2.057...
     >>> est.model_cate(T=1).coef_
-    array([0.43487391, 0.02968939, 0.        ])
+    array([ 0.433...,  0.033..., -0.        ])
     >>> est.model_cate(T=1).intercept_
-    0.9928852195090293
+    0.990...
 
     Attributes
     ----------
@@ -568,7 +569,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     Examples
     --------
-    A simple example with the default models::
+    A simple example with the default models:
+
+    .. testcode::
 
         import numpy as np
         import scipy.special
@@ -582,19 +585,18 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None, inference='statsmodels')
 
     >>> est.effect(X[:3])
-    array([ 0.45450782,  0.32446905, -0.07040134])
+    array([ 0.454507...,  0.324469..., -0.070401...])
     >>> est.effect_interval(X[:3])
-    (array([ 0.18655358, -0.11752159, -0.58922191]),
-     array([0.72246206, 0.76645968, 0.44841923]))
-    >>> est.coef_(T=1).
-    array([0.4097647 , 0.01972211, 0.05364835])
+    (array([ 0.186553..., -0.117521..., -0.589221...]),
+     array([0.722462..., 0.766459..., 0.448419...]))
+    >>> est.coef_(T=1)
+    array([0.409764... , 0.019722..., 0.053648...])
     >>> est.coef__interval(T=1)
-    (array([ 0.14622515, -0.2045328 , -0.17625388]),
-    array([0.67330426, 0.24397702, 0.28355057]))
+    (array([ 0.188595..., -0.168478..., -0.139291...]), array([0.630934..., 0.207922..., 0.246588...]))
     >>> est.intercept_(T=1)
-    0.8645098360137696
+    0.86450983...
     >>> est.intercept__interval(T=1)
-    (0.641858878564784, 1.0871607934627552)
+    (0.67765526..., 1.05136440...)
 
     Attributes
     ----------
@@ -757,7 +759,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     Examples
     --------
-    A simple example with the default models::
+    A simple example with the default models:
+
+    .. testcode::
 
         import numpy as np
         import scipy.special
@@ -771,19 +775,19 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None, inference='debiasedlasso')
 
     >>> est.effect(X[:3])
-    array([ 0.46089994,  0.31993838, -0.07386204])
+    array([ 0.460899...,  0.319938..., -0.073862...])
     >>> est.effect_interval(X[:3])
-    (array([ 0.11912103, -0.16476616, -0.64903889]),
-     array([0.80267886, 0.80464292, 0.50131482]))
+    (array([ 0.119121..., -0.164766..., -0.649038...]),
+     array([0.802678..., 0.804642..., 0.501314...]))
     >>> est.coef_(T=1)
-    array([0.40984866, 0.02624624, 0.05320565])
+    array([0.409848..., 0.026246..., 0.053205...])
     >>> est.coef__interval(T=1)
-    (array([ 0.21365131, -0.15865431, -0.13733605]),
-     array([0.606046  , 0.21114678, 0.24374735]))
+    (array([ 0.213651..., -0.158654..., -0.137336...]),
+     array([0.606046... , 0.211146..., 0.243747...]))
     >>> est.intercept_(T=1)
-    0.864611566994208
+    0.86461156...
     >>> est.intercept__interval(T=1)
-    (0.6779174404370922, 1.0513056935513236)
+    (0.67791744..., 1.05130569...)
 
     Attributes
     ----------

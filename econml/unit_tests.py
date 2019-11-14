@@ -8,9 +8,8 @@ import matplotlib.pyplot as plt
 from itertools import product
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression
 import econml.dml
-import econml.xlearner
 import econml.dgp
-import econml.unittest
+import unittest
 
 
 ########################################
