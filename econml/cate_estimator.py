@@ -11,7 +11,7 @@ from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
-from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearCateInference
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -381,11 +381,12 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     effect.__doc__ = BaseCateEstimator.effect.__doc__
 
 
-class LinearCateEstimatorMixin(BaseCateEstimator):
+class StatsModelsCateEstimatorMixin:
 
     def _get_inference_options(self):
         # add statsmodels to parent's options
         options = super()._get_inference_options()
+        options.update(statsmodels=StatsModelsInference)
         return options
 
     @property
@@ -405,21 +406,12 @@ class LinearCateEstimatorMixin(BaseCateEstimator):
         pass
 
 
-class StatsModelsCateEstimatorMixin(LinearCateEstimatorMixin):
+class DebiasedLassoCateEstimatorMixin(StatsModelsCateEstimatorMixin):
 
     def _get_inference_options(self):
         # add statsmodels to parent's options
         options = super()._get_inference_options()
-        options.update(statsmodels=StatsModelsInference)
-        return options
-
-
-class DebiasedLassoCateEstimatorMixin(LinearCateEstimatorMixin):
-
-    def _get_inference_options(self):
-        # add statsmodels to parent's options
-        options = super()._get_inference_options()
-        options.update(debiasedlasso=LinearCateInference)
+        options.update(debiasedlasso=LinearModelFinalInference)
         return options
 
 

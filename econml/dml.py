@@ -308,8 +308,8 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
     This estimator can be used when the controls are high-dimensional
     and the coefficients of the nuisance functions are sparse.
 
-    The last stage is an instance of the 
-    :class:`MultiOutputDebiasedLasso <econml.sklearn_extensions.linear_model.MultiOutputDebiasedLasso>` 
+    The last stage is an instance of the
+    :class:`MultiOutputDebiasedLasso <econml.sklearn_extensions.linear_model.MultiOutputDebiasedLasso>`
 
     Parameters
     ----------

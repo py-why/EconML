@@ -311,3 +311,6 @@ class TestDML(unittest.TestCase):
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=5e-2)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
+
+    # TODO: sparseDML tests for a sparse design
+    # TODO: sparseDML inference

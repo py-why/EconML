@@ -59,7 +59,6 @@ class TestLassoExtensions(unittest.TestCase):
         with the standard lasso where the data entries have been replicated a number of times given by the
         integer weights.
         """
-
         # Define weights
         sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
                                         np.ones(TestLassoExtensions.n_samples // 2) * 2))
