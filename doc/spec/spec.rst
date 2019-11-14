@@ -1,5 +1,5 @@
-EconML Specification
-====================
+EconML User Guide
+=================
 
 Causal machine learning applies the power of machine learning techniques to answer causal questions.  
 

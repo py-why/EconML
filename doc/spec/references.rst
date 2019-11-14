@@ -73,3 +73,9 @@ References
     Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
     *arXiv preprint arXiv:1712.04912*, 2017.
     URL http://arxiv.org/abs/1712.04912.
+
+.. [Buhlmann2011]
+    P. Bühlmann and S. van de Geer
+    Statistics for High-Dimensional Data
+    Springer Series in Statistics, 2011
+    URL https://www.springer.com/gp/book/9783642201912

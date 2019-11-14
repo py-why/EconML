@@ -1,10 +1,12 @@
+=======================
 Forest Based Estimators
 =======================
 
-\
+
+.. _orthoforestuserguide:
 
 Orthogonal Random Forests
--------------------------
+=========================
 
 Orthogonal Random Forests [Oprescu2019]_ are a combination of causal forests and double machine learning that allow
 for controlling for a high-dimensional set of confounders :math:`W`, while at the same time estimating non-parametrically
@@ -101,7 +103,7 @@ For more examples check out our
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
 
 Examples
-^^^^^^^^
+--------
 
 Here is a simple example of how to call :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
 and what the returned values correspond to in a simple data generating process:
