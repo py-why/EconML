@@ -80,7 +80,7 @@ class DMLCateEstimator(_RLearner):
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-        by `np.random`.
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self,
@@ -248,7 +248,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-        by `np.random`.
+        by :mod:`np.random<numpy.random>`.
 
     """
 
@@ -285,7 +285,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
-        inference: string, `Inference` instance, or None
+        inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'statsmodels'
             (or an instance of :class:`.StatsModelsInference`)
@@ -374,7 +374,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-        by `np.random`.
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self,
@@ -491,7 +491,7 @@ class KernelDMLCateEstimator(LinearDMLCateEstimator):
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-        by `np.random`.
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self, model_y=LassoCV(), model_t=LassoCV(),

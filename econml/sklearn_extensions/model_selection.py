@@ -86,11 +86,11 @@ class WeightedKFold:
     shuffle : boolean, optional
         Whether to shuffle the data before splitting into batches.
 
-    random_state : int, RandomState instance or None, optional, default=None
+    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default=None
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`. Used when ``shuffle`` == True.
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`. Used when ``shuffle`` == True.
     """
 
     def __init__(self, n_splits=3, n_trials=10, shuffle=False, random_state=None):
@@ -167,11 +167,11 @@ class WeightedStratifiedKFold(WeightedKFold):
     shuffle : boolean, optional
         Whether to shuffle the data before splitting into batches.
 
-    random_state : int, RandomState instance or None, optional, default=None
+    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default=None
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`. Used when ``shuffle`` == True.
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`. Used when ``shuffle`` == True.
     """
 
     def split(self, X, y, sample_weight=None):

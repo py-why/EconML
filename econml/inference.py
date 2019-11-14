@@ -136,9 +136,9 @@ class StatsModelsInferenceDiscrete(Inference):
 
     This class can be used for inference by the LinearDRLearner.
 
-    Any estimator that supports this method of inference must implement a `statsmodels`
-    property that returns a `StatsModelsLinearRegression` instance, a `statsmodels_fitted` property
-    which is a list of the fitted `StatsModelsLinearRegression` instances, fitted by the estimator for each
+    Any estimator that supports this method of inference must implement a ``statsmodels``
+    property that returns a :class:`.StatsModelsLinearRegression` instance, a ``statsmodels_fitted`` property
+    which is a list of the fitted :class:`.StatsModelsLinearRegression` instances, fitted by the estimator for each
     discrete treatment target and a `featurizer` property that returns an
     preprocessing featurizer for the X variable.
 
