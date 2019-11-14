@@ -57,9 +57,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X : array-like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        inference : string, `Inference` instance, or None
+        inference : string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of `BootstrapInference`)
+            (or an instance of :class:`.BootstrapInference`)
 
         Returns
         -------
@@ -140,9 +140,9 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X : array-like, shape (n, d_x), optional
             Feature vector that captures heterogeneity.
 
-        inference: string, `Inference` instance, or None
+        inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of `BootstrapInference`)
+            (or an instance of :class:`.BootstrapInference`)
 
         Returns
         -------
@@ -241,9 +241,9 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X : array-like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        inference : string, `Inference` instance, or None
+        inference : string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of `BootstrapInference`)
+            (or an instance of :class:`.BootstrapInference`)
 
         Returns
         -------
@@ -361,9 +361,9 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X : array-like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        inference : string, `Inference` instance, or None
+        inference : string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of `BootstrapInference`)
+            (or an instance of :class:`.BootstrapInference`)
 
         Returns
         -------

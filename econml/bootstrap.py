@@ -7,7 +7,7 @@ from joblib import Parallel, delayed
 from sklearn.base import clone
 
 
-class BootstrapEstimator(object):
+class BootstrapEstimator:
     """Estimator that uses bootstrap sampling to wrap an existing estimator.
 
     This estimator provides a `fit` method with the same signature as the wrapped estimator.
@@ -38,12 +38,12 @@ class BootstrapEstimator(object):
 
     compute_means : bool, default: True
         Whether to pass calls through to the underlying collection and return the mean.  Setting this
-        to `False` can avoid ambiguities if the wrapped object itself has method names with an `_interval` suffix.
+        to ``False`` can avoid ambiguities if the wrapped object itself has method names with an `_interval` suffix.
 
     prefer_wrapped: bool, default: False
         In case a method ending in '_interval' exists on the wrapped object, whether
         that should be preferred (meaning this wrapper will compute the mean of it).
-        This option only affects behavior if `compute_means` is set to `True`.
+        This option only affects behavior if `compute_means` is set to ``True``.
     """
 
     def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None, compute_means=True, prefer_wrapped=False):

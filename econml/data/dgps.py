@@ -14,11 +14,11 @@ def ihdp_surface_A(random_state=None):
 
         Parameters
         ----------
-        random_state : int, RandomState instance or None, optional (default=None)
+        random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
             If int, random_state is the seed used by the random number generator;
-            If RandomState instance, random_state is the random number generator;
-            If None, the random number generator is the RandomState instance used
-            by `np.random`.
+            If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+            If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+            by :mod:`np.random<numpy.random>`.
 
         Returns
         -------
@@ -48,11 +48,11 @@ def ihdp_surface_B(random_state=None):
 
         Parameters
         ----------
-        random_state : int, RandomState instance or None, optional (default=None)
+        random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
             If int, random_state is the seed used by the random number generator;
-            If RandomState instance, random_state is the random number generator;
-            If None, the random number generator is the RandomState instance used
-            by `np.random`.
+            If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+            If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+            by :mod:`np.random<numpy.random>`.
 
         Returns
         -------

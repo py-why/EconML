@@ -19,9 +19,9 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     def _get_inference_options(self):
         """
-        Produce a dictionary mapping string names to `Inference` types.
+        Produce a dictionary mapping string names to :class:`.Inference` types.
 
-        This is used by the `fit` method when a string is passed rather than an `Inference` type.
+        This is used by the :meth:`fit` method when a string is passed rather than an :class:`.Inference` type.
         """
         return {'bootstrap': BootstrapInference}
 
@@ -66,9 +66,9 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Controls for each sample
         Z: optional (n, d_z) matrix
             Instruments for each sample
-        inference: optional string, `Inference` instance, or None
-            Method for performing inference.  All estimators support 'bootstrap'
-            (or an instance of `BootstrapInference`), some support other methods as well.
+        inference: optional string, :class:`.Inference` instance, or None
+            Method for performing inference.  All estimators support ``'bootstrap'``
+            (or an instance of :class:`.BootstrapInference`), some support other methods as well.
 
         Returns
         -------

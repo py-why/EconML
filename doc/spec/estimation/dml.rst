@@ -197,7 +197,7 @@ One can also define a custom featurizer, as long as it supports the fit\_transfo
 .. code-block:: python3
     :caption: Custom Featurizer
 
-    class LogFeatures(object):
+    class LogFeatures:
         ''' Augments the features with logarithmic features and returns the augmented structure'''
         def fit_transform(self, X):
             return np.concatenate((X, np.log(X)), axis=1)
