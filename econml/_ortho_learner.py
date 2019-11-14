@@ -88,11 +88,12 @@ def _crossfit(model, folds, *args, **kwargs):
     Examples
     --------
 
-    .. code-block:: python
+    .. testcode::
 
         import numpy as np
         from sklearn.model_selection import KFold
         from sklearn.linear_model import Lasso
+        from econml._ortho_learner import _crossfit
         class Wrapper:
             def __init__(self, model):
                 self._model = model
@@ -109,10 +110,10 @@ def _crossfit(model, folds, *args, **kwargs):
         nuisance, model_list, fitted_inds = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
 
     >>> nuisance
-    (array([-1.1057289 , -1.53756637, -2.4518278 , ...,  1.10628792,
-       -1.82966233, -1.78227335]),)
+    (array([-1.105728... , -1.537566..., -2.451827... , ...,  1.106287...,
+       -1.829662..., -1.782273...]),)
     >>> model_list
-    [<__main__.Wrapper object at 0x12f41e518>, <__main__.Wrapper object at 0x12f41e6d8>]
+    [<Wrapper object at 0x...>, <Wrapper object at 0x...>]
     >>> fitted_inds
     array([   0,    1,    2, ..., 4997, 4998, 4999])
 
@@ -275,7 +276,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     method on top of the :py:class:`~econml._ortho_learner._OrthoLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
     :py:class:`~econml._ortho_learner._OrthoLearner` check out :py:class:`~econml.dml.DMLCateEstimator`
-    and its child classes::
+    and its child classes:
+
+    .. testcode::
 
         import numpy as np
         from sklearn.linear_model import LinearRegression
@@ -311,23 +314,25 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
-    0.007568302109999707
+    0.00756830...
     >>> est.const_marginal_effect()
-    1.0236499258047582
+    1.02364992...
     >>> est.effect()
-    array([1.02364993])
+    array([1.023649...])
     >>> est.effect(T0=0, T1=10)
-    array([12.34401722])
+    array([10.236499...])
     >>> est.score(y, X[:, 0], W=X[:, 1:])
-    0.00727995424098179
+    0.00727995...
     >>> est.model_final.model
-    LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
+    LinearRegression(copy_X=True, fit_intercept=False, n_jobs=None,
          normalize=False)
     >>> est.model_final.model.coef_
-    array([1.02364993])
+    array([1.023649...])
 
     The following example shows how to do double machine learning with discrete treatments, using
-    the _OrthoLearner::
+    the _OrthoLearner:
+
+    .. testcode::
 
         class ModelNuisance:
             def __init__(self, model_t, model_y):
@@ -371,15 +376,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, W=W)
 
     >>> est.score_
-    0.0031604059708364245
+    0.00316040...
     >>> est.const_marginal_effect()
-    array([[1.00123159]])
+    array([[1.001231...]])
     >>> est.effect()
-    array([1.00123159])
+    array([1.001231...])
     >>> est.score(y, T, W=W)
-    0.002569588332146612
+    0.00256958...
     >>> est.model_final.model.coef_[0]
-    1.0012315874866917
+    1.00123158...
 
     Attributes
     ----------

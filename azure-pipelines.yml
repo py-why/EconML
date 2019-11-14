@@ -70,6 +70,8 @@ jobs:
           artifact: 'Documentation'
           displayName: 'Publish documentation as artifact'
 
+        - script: 'python setup.py build_sphinx -b doctest'
+          displayName: 'Run doctests'
 
 - job: 'Notebooks'
   dependsOn: 'EvalChanges'
