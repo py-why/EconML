@@ -326,7 +326,7 @@ class LinearCateEstimator(BaseCateEstimator):
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\theta(X)` produced
-        by the model. Available only when `inference`` is not ``None``, when
+        by the model. Available only when ``inference`` is not ``None``, when
         calling the fit method.
 
         Parameters
