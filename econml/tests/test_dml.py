@@ -308,7 +308,7 @@ class TestDML(unittest.TestCase):
             fit_intercept=False), featurizer=FunctionTransformer())
         dml.fit(y, t, x, w)
 
-        np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=5e-2)
+        np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
 
