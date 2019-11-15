@@ -305,8 +305,8 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
     """
     A specialized version of the Double ML estimator for the sparse linear case.
 
-    This estimator can be used when the controls are high-dimensional
-    and the coefficients of the nuisance functions are sparse.
+    This estimator should be used when the features of heterogeneity are high-dimensional
+    and the coefficients of the linear CATE function are sparse.
 
     The last stage is an instance of the
     :class:`MultiOutputDebiasedLasso <econml.sklearn_extensions.linear_model.MultiOutputDebiasedLasso>`
@@ -324,11 +324,6 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
     alpha: string | float, optional. Default='auto'.
         CATE L1 regularization applied through the debiased lasso in the final model.
         'auto' corresponds to a CV form of the :class:`MultiOutputDebiasedLasso`.
-
-    fit_intercept: boolean, optional, default False
-        Whether to fit CATE intercept in the final model. If set
-        to False, no intercept will be used in calculations.
-        Correcsponds to `fit_intercept` parameter in :class:`MultiOutputDebiasedLasso`.
 
     max_iter : int, optional, default=1000
         The maximum number of iterations in the Debiased Lasso
@@ -380,7 +375,6 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
     def __init__(self,
                  model_y=LassoCV(), model_t=LassoCV(),
                  alpha='auto',
-                 fit_intercept=False,
                  max_iter=1000,
                  tol=1e-4,
                  positive=False,
@@ -391,7 +385,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                  random_state=None):
         model_final = MultiOutputDebiasedLasso(
             alpha=alpha,
-            fit_intercept=fit_intercept,
+            fit_intercept=False,
             max_iter=max_iter,
             tol=tol,
             positive=positive)
@@ -430,6 +424,9 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         self
         """
         # TODO: support sample_var
+        if sample_weight is not None and inference is not None:
+            warn("This estimator does not yet support sample variances and inference does not take "
+                 "sample variances into account. This feature will be supported in a future release.")
         self._check_sparsity(X, T)
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
 
