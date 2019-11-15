@@ -136,36 +136,53 @@ class TestDML(unittest.TestCase):
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
-        dml = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
-        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
-        self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
-        score = dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
-        self.assertAlmostEqual(score, 0)
+        dmls = [
+            LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer()),
+            SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
+        ]
+        for dml in dmls:
+            dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+            self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
+            score = dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+            self.assertAlmostEqual(score, 0)
 
     def test_can_use_sample_weights(self):
         """Test that we can pass sample weights to an estimator."""
-        dml = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
-        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]),
-                np.ones((6, 1)), sample_weight=np.ones((6, )))
-        self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
+        dmls = [
+            LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer()),
+            SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
+        ]
+        for dml in dmls:
+            dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]),
+                    np.ones((6, 1)), sample_weight=np.ones((6, )))
+            self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
 
     def test_discrete_treatments(self):
         """Test that we can use discrete treatments"""
-        dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
-                                     featurizer=FunctionTransformer(), discrete_treatment=True)
-        # create a simple artificial setup where effect of moving from treatment
-        #     1 -> 2 is 2,
-        #     1 -> 3 is 1, and
-        #     2 -> 3 is -1 (necessarily, by composing the previous two effects)
-        # Using an uneven number of examples from different classes,
-        # and having the treatments in non-lexicographic order,
-        # Should rule out some basic issues.
-        dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
-        np.testing.assert_almost_equal(dml.effect(np.ones((9, 1)),
-                                                  T0=np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
-                                                  T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3])),
-                                       [0, 2, 1, -2, 0, -1, -1, 1, 0])
-        dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+        dmls = [
+            LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
+                                   featurizer=FunctionTransformer(), discrete_treatment=True),
+            SparseLinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
+                                         featurizer=FunctionTransformer(), discrete_treatment=True)
+        ]
+        for dml in dmls:
+            # create a simple artificial setup where effect of moving from treatment
+            #     1 -> 2 is 2,
+            #     1 -> 3 is 1, and
+            #     2 -> 3 is -1 (necessarily, by composing the previous two effects)
+            # Using an uneven number of examples from different classes,
+            # and having the treatments in non-lexicographic order,
+            # Should rule out some basic issues.
+            dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+            np.testing.assert_almost_equal(
+                dml.effect(
+                    np.ones((9, 1)),
+                    T0=np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                    T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3])
+                ),
+                [0, 2, 1, -2, 0, -1, -1, 1, 0],
+                decimal=2)
+            dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
     def test_can_custom_splitter(self):
         # test that we can fit with a KFold instance
@@ -238,6 +255,65 @@ class TestDML(unittest.TestCase):
             dml.fit(y, t)
         assert dml.const_marginal_effect() == 1  # coefficient on X in InterceptModel is 1
 
+    def test_sparse(self):
+        for _ in range(5):
+            # Ensure reproducibility
+            np.random.seed(1234)
+            n_p = np.random.randint(2, 5)  # 2 to 4 products
+            d_w = np.random.randint(0, 5)  # random number of covariates
+            min_n = np.ceil(2 + d_w * (1 + (d_w + 1) / n_p))  # minimum number of rows per product
+            n_r = np.random.randint(min_n, min_n + 3)
+            with self.subTest(n_p=n_p, d_w=d_w, n_r=n_r):
+                TestDML._test_sparse(n_p, d_w, n_r)
+
+    # TODO: sparseDML tests for a sparse design
+    # TODO: sparseDML inference
+
+    def test_zlinear_sparse(self):
+        """SparseDML test with a sparse DGP"""
+        # Sparse DGP
+        np.random.seed(123)
+        n_x = 50
+        n_nonzero = 5
+        n_w = 5
+        n = 1000
+        # Treatment effect coef
+        a = np.zeros(n_x)
+        nonzero_idx = np.random.choice(n_x, size=n_nonzero, replace=False)
+        a[nonzero_idx] = 1
+        # Other coefs
+        b = np.zeros(n_x + n_w)
+        g = np.zeros(n_x + n_w)
+        b_nonzero = np.random.choice(n_x + n_w, size=n_nonzero, replace=False)
+        g_nonzero = np.random.choice(n_x + n_w, size=n_nonzero, replace=False)
+        b[b_nonzero] = 1
+        g[g_nonzero] = 1
+        # Features and controls
+        x = np.random.normal(size=(n, n_x))
+        w = np.random.normal(size=(n, n_w))
+        xw = np.hstack([x, w])
+        err_T = np.random.normal(size=n)
+        T = xw @ b + err_T
+        err_Y = np.random.normal(size=n, scale=0.5)
+        Y = T * (x @ a) + xw @ g + err_Y
+        # Test sparse estimator
+        # --> test coef_, intercept_
+        sparse_dml = SparseLinearDMLCateEstimator(featurizer=FunctionTransformer())
+        sparse_dml.fit(Y, T, x, w, inference='debiasedlasso')
+        np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
+        self.assertEqual(sparse_dml.intercept_, 0)
+        # --> test treatment effects
+        # Restrict x_test to vectors of norm < 1
+        x_test = np.random.uniform(size=(10, n_x))
+        true_eff = (x_test @ a)
+        eff = sparse_dml.effect(x_test, T0=0, T1=1)
+        np.testing.assert_allclose(true_eff, eff, atol=0.5)
+        # --> check inference
+        y_lower, y_upper = sparse_dml.effect_interval(x_test, T0=0, T1=1)
+        in_CI = ((y_lower < true_eff) & (true_eff < y_upper))
+        # Check that a majority of true effects lie in the 5-95% CI
+        self.assertTrue(in_CI.mean() > 0.8)
+
     @staticmethod
     def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer()):
         """Return error vectors e_t and e_y such that OLS can recover the true coefficients from both stages."""
@@ -262,15 +338,6 @@ class TestDML(unittest.TestCase):
         e_y = rand_sol(vstack([M, v_X.T]), vstack([-M @ (v_X @ a_X + v_W @ a_W), np.zeros((shape(v_X)[1],))]))
 
         return e_t, e_y
-
-    def test_sparse(self):
-        for _ in range(5):
-            n_p = np.random.randint(2, 5)  # 2 to 4 products
-            d_w = np.random.randint(0, 5)  # random number of covariates
-            min_n = np.ceil(2 + d_w * (1 + (d_w + 1) / n_p))  # minimum number of rows per product
-            n_r = np.random.randint(min_n, min_n + 3)
-            with self.subTest(n_p=n_p, d_w=d_w, n_r=n_r):
-                TestDML._test_sparse(n_p, d_w, n_r)
 
     # sparse test case: heterogeneous effect by product
     @staticmethod
@@ -311,6 +378,3 @@ class TestDML(unittest.TestCase):
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
-
-    # TODO: sparseDML tests for a sparse design
-    # TODO: sparseDML inference
