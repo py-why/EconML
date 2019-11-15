@@ -81,7 +81,7 @@ The base class of all the methods in our API has the following signature:
 
     class BaseCateEstimator
         
-        def fit(self, Y, T, X=None, W=None, Z=None):
+        def fit(self, Y, T, X=None, W=None, Z=None, inference=None):
             ''' Estimates the counterfactual model from data, i.e. estimates functions 
             τ(·, ·, ·)}, ∂τ(·, ·) and μ(·, ·)
         
@@ -91,9 +91,12 @@ The base class of all the methods in our API has the following signature:
             X: optional (n × d_x) matrix of features for each sample
             W: optional (n × d_w) matrix of controls for each sample
             Z: optional (n × d_z) matrix of instruments for each sample
+            inference: optional string, `Inference` instance, or None
+                Method for performing inference.  All estimators support 'bootstrap'
+                (or an instance of `BootstrapInference`), some support other methods as well.
             '''
         
-        def effect(self, T0, T1, X=None):
+        def effect(self, X=None, *, T0, T1):
             ''' Calculates the heterogeneous treatment effect τ(·, ·, ·) between two treatment
             points conditional on a vector of features on a set of m test samples {T0_i, T1_i, X_i}
         
@@ -120,6 +123,37 @@ The base class of all the methods in our API has the following signature:
                 for each sample
             '''
 
+        def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+            ''' Confidence intervals for the quantities τ(·, ·, ·) produced by the model. 
+            Available only when inference is not None, when calling the fit method.
+
+            Parameters:
+            X: optional (m, d_x) matrix of features for each sample
+            T0: optional (m, d_t) matrix of base treatments for each sample
+            T1: optional (m, d_t) matrix of target treatments for each sample
+            alpha: optional float in [0, 1] of the (1-alpha) level of confidence
+
+            Returns:
+            lower, upper : tuple of the lower and the upper bounds of the confidence interval 
+                for each quantity.
+            '''
+        
+        def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+            ''' Confidence intervals for the quantities effect ∂τ(·, ·) produced by the model. 
+            Available only when inference is not None, when calling the fit method.
+
+            Parameters:
+            T: (m, d_t) matrix of base treatments for each sample
+            X: optional (m, d_x) matrix of features for each sample
+            alpha: optional float in [0, 1] of the (1-alpha) level of confidence
+
+            Returns:
+            lower, upper : tuple of the lower and the upper bounds of the confidence interval 
+                for each quantity.
+            '''
+
+        
+
 
 Linear in Treatment CATE Estimators
 -----------------------------------
@@ -145,7 +179,8 @@ Hence, the marginal CATE is independent of :math:`\vec{t}`. In these settings, w
 .. math ::
     \theta(\vec{x}) = \E[H(X, W) | X=\vec{x}] \tag{constant marginal CATE}
 
-Given the prevalence of linear treatment effect assumptions, we will create a generic LinearCateEstimator, which will support a method that returns the constant marginal CATE at any target feature vector :math:`\vec{x}`.
+Given the prevalence of linear treatment effect assumptions, we will create a generic LinearCateEstimator, which will support a method that returns the constant marginal CATE 
+and constant marginal CATE interval at any target feature vector :math:`\vec{x}`.
 
 .. code-block:: python3
     :caption: Linear CATE Estimator Class
@@ -164,11 +199,29 @@ Given the prevalence of linear treatment effect assumptions, we will create a ge
             on each outcome	for each sample
             '''
         
-        def effect(self, T0, T1, X=None):
+        def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+            ''' Confidence intervals for the quantities θ(·) produced by the model.
+            Available only when inference is not None, when calling the fit method.
+
+            Parameters:
+            X: optional (m, d_x) matrix of features for each sample
+            alpha: optional float in [0, 1] of the (1-alpha) level of confidence
+
+            Returns:
+            lower, upper : tuple of the lower and the upper bounds of the confidence interval 
+                for each quantity.
+            '''
+        
+        def effect(self,  X=None, *, T0, T1,):
             return const_marginal_effect(X) * (T1 - T0)
         
         def marginal_effect(self, T, X=None)
             return const_marginal_effect(X)
+        
+        def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+            return const_marginal_effect_interval(X, alpha=alpha)
+        
+
 
 Example Use of API
 ------------------
@@ -216,18 +269,21 @@ samples with the following code:
     y = np.dot(T**2, gamma) + np.dot(np.multiply(T, X), delta) + np.dot(W, zeta) + epsilon
 
 
-We can then fit a counterfactual model to the data via the following code snippet:
+We can then fit a counterfactual model to the data. In order to learn confidence interval of our CATE, 
+we could pass an additional inference argument to fit, bootstrap interval is supported by all estimators.
+We can run the following: 
 
 .. code-block:: python3
     :caption: Example fit of causal model
 
     # Fit counterfactual model 
     cfest = BaseCateEstimator()
-    cfest.fit(y, T, X, W, Z)
+    cfest.fit(y, T, X, W, Z, inference='bootstrap')
 
 Suppose now that we wanted to estimate the conditional average treatment effect for every point :math:`X_i` 
 in the training data and between treatment 1 and treatment 0. 
-This should be an estimate of the quantities: :math:`\gamma + \delta X_i`. We can run the following:
+This should be an estimate of the quantities: :math:`\gamma + \delta X_i`.  We can also get the
+confidence interval of the CATE. We can run the following:
 
 .. code-block:: python3
     :caption: Estimating cate for all training features from treatment 0 to 1
@@ -236,11 +292,13 @@ This should be an estimate of the quantities: :math:`\gamma + \delta X_i`. We ca
     # Estimate heterogeneous treatment effects from going from treatment 0 to treatment 1
     T0_test = np.zeros((X_test.shape[0], n_treatments))
     T1_test = np.ones((X_test.shape[0], n_treatments))
-    hetero_te = cfest.effect(T0_test, T1_test, X_test) 
+    hetero_te = cfest.effect(X_test, T0=T0_test, T1=T1_test)
+    hetero_te_interval =  cfest.effect_interval(X_test, T0=T0_test, T1=T1_test, alpha=0.1)
 
 Suppose now that we wanted to estimate the conditional marginal effect for every point :math:`X_i` 
 at treatment 0.
-This should be an estimate of the quantities: :math:`\delta X_i`. We can run the following:
+This should be an estimate of the quantities: :math:`\delta X_i`. We can also get the
+confidence interval of the CATE. We can run the following:
 
 .. code-block:: python3
     :caption: Estimating marginal cate for all training features at treatment 0
@@ -248,6 +306,7 @@ This should be an estimate of the quantities: :math:`\delta X_i`. We can run the
     # Estimate heterogeneous marginal effects around treatment 0
     T_test = np.zeros((X_test.shape[0], n_treatments))
     hetero_marginal_te = cfest.marginal_effect(T_test, X_test)
+    hetero_marginal_te_interval = cfest.marginal_effect_interval(T_test, X_test, alpha=0.1)
 
 Suppose we wanted to create projections of these estimated quantities on sub-populations, i.e.
 the average treatment effect or the average treatment effect on the population where :math:`X_i\geq 1/2`.
@@ -261,11 +320,11 @@ We could simply achieve this as follows:
     T1_test = np.ones((X_test.shape[0], n_treatments))
 
     # average treatment effect
-    ate = np.mean(cfest.effect(T0_test, T1_test, X_test)) # returns estimate of γ + δ 𝔼[x]
+    ate = np.mean(cfest.effect(X_test, T0=T0_test, T1=T1_test)) # returns estimate of γ + δ 𝔼[x]
 
     # average treatment effect of population with x>1/2
     # returns estimate of γ + δ 𝔼[x | x>1/2]
-    cate = np.mean(cfest.effect(T0_test[X_test>1/2], T1_test[X_test>1/2], X_test[X_test>1/2])) 
+    cate = np.mean(cfest.effect(X_test[X_test>1/2], T0=T0_test[X_test>1/2], T1=T1_test[X_test>1/2])) 
 
 More importantly, suppose we wanted to understand what would be the overall expected change in response
 if we were to follow some treatment policy (e.g. treat everyone with :math:`X_i\geq 0`). This
@@ -278,13 +337,13 @@ can also be easily done as follows:
     Pi0_test = T
     Pi1_test = (X_test > 0) * 1.
     # returns estimate of γ/2 + δ/√(2π)
-    policy_effect = np.mean(cfest.effect(Pi0_test, Pi1_test, X_test)) 
+    policy_effect = np.mean(cfest.effect(X_test, T0=Pi0_test, T1=Pi1_test)) 
 
     # Estimate expected lift of treatment policy: π(x) = 𝟙{x > 0} over baseline of no treatment
     Pi0_test = np.zeros((X_test.shape[0], n_treatments))
     Pi1_test = (X_test > 0) * 1.
     # returns estimate of γ/2 + δ/√(2π)
-    policy_effect = np.mean(cfest.effect(Pi0_test, Pi1_test, X_test)) 
+    policy_effect = np.mean(cfest.effect(X_test, T0=Pi0_test, T1=Pi1_test)) 
 
 .. rubric:: Footnotes
 
