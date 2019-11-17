@@ -688,7 +688,7 @@ class DebiasedLasso(WeightedLasso):
             self.alpha = 'auto'
         return self
 
-    def predict_interval(self, X, lower=5, upper=95):
+    def predict_interval(self, X, alpha=0.1):
         """Build prediction confidence intervals using the debiased lasso.
 
         Parameters
@@ -696,19 +696,17 @@ class DebiasedLasso(WeightedLasso):
         X : ndarray or scipy.sparse matrix, (n_samples, n_features)
             Samples.
 
-        lower : float, optional
-            Lower percentile. Must be a number between 0 and 100.
-            Defaults to 5.0.
-
-        upper : float, optional
-            Upper percentile. Must be a number between 0 and 100, larger than 'lower'.
-            Defaults to 95.0.
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
         (y_lower, y_upper) : tuple of arrays, shape (n_samples, )
             Returns lower and upper interval endpoints.
         """
+        lower = alpha / 2
+        upper = 1 - alpha / 2
         y_pred = self.predict(X)
         y_lower = np.empty(y_pred.shape)
         y_upper = np.empty(y_pred.shape)
@@ -724,11 +722,52 @@ class DebiasedLasso(WeightedLasso):
         sd_pred = np.sqrt(var_pred)
         y_lower = y_pred + \
             np.apply_along_axis(lambda s: norm.ppf(
-                lower / 100, scale=s), 0, sd_pred)
+                lower, scale=s), 0, sd_pred)
         y_upper = y_pred + \
             np.apply_along_axis(lambda s: norm.ppf(
-                upper / 100, scale=s), 0, sd_pred)
+                upper, scale=s), 0, sd_pred)
         return y_lower, y_upper
+
+    def coef__interval(self, alpha=0.1):
+        """Get a confidence interval bounding the fitted coefficients.
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        (coef_lower, coef_upper) : tuple of arrays, shape (n_coefs, )
+            Returns lower and upper interval endpoints for the coefficients.
+        """
+        lower = alpha / 2
+        upper = 1 - alpha / 2
+        return self.coef_ + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, self.coef_std_err_), \
+            self.coef_ + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, self.coef_std_err_)
+
+    def intercept__interval(self, alpha=0.1):
+        """Get a confidence interval bounding the fitted intercept.
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        (intercept_lower, intercept_upper) : tuple floats
+            Returns lower and upper interval endpoints for the intercept.
+        """
+        lower = alpha / 2
+        upper = 1 - alpha / 2
+        if self.fit_intercept:
+            return self.intercept_ + norm.ppf(lower, scale=self.intercept_std_err_), self.intercept_ + \
+                norm.ppf(upper, scale=self.intercept_std_err_),
+        else:
+            return 0.0, 0.0
 
     def _get_coef_correction(self, X, y, y_pred, sample_weight, theta_hat):
         # Assumes flattened y
@@ -752,6 +791,11 @@ class DebiasedLasso(WeightedLasso):
     def _get_theta_hat(self, X, sample_weight):
         # Assumes that X has already been offset
         n_samples, n_features = X.shape
+        # Special case: n_features=1
+        if n_features == 1:
+            C_hat = np.ones((1, 1))
+            tausq = (X.T @ X / n_samples).flatten()
+            return np.diag(1 / tausq) @ C_hat
         coefs = np.empty((n_features, n_features - 1))
         tausq = np.empty(n_features)
         # Compute Lasso coefficients for the columns of the design matrix
@@ -780,7 +824,7 @@ class DebiasedLasso(WeightedLasso):
             C_hat[i][:i] = -coefs[i][:i]
             C_hat[i][i + 1:] = -coefs[i][i:]
         # Compute theta_hat
-        theta_hat = np.matmul(np.diag(1 / tausq), C_hat)
+        theta_hat = np.diag(1 / tausq) @ C_hat
         return theta_hat
 
     def _get_unscaled_coef_var(self, X, theta_hat, sample_weight):
@@ -795,9 +839,11 @@ class DebiasedLasso(WeightedLasso):
 
 
 class MultiOutputDebiasedLasso(MultiOutputRegressor):
-    """Debiased Multi Output Lasso model.
+    """Debiased MultiOutputLasso model.
 
     Implementation was derived from <https://arxiv.org/abs/1303.0518>.
+    Applies debiased lasso once per target. If only a flat target is passed in,
+    it reverts to the DebiasedLasso algorithm.
 
     Parameters
     ----------
@@ -855,19 +901,19 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
     Attributes
     ----------
-    coef_ : array, shape (n_targets, n_features)
+    coef_ : array, shape (n_targets, n_features) or (n_features,)
         Parameter vector (w in the cost function formula).
 
-    intercept_ : (n_targets, )
+    intercept_ : array, shape (n_targets, ) or float
         Independent term in decision function.
 
-    selected_alpha_ : float or (n_targets_)
+    selected_alpha_ : array, shape (n_targets, ) or float
         Penalty chosen through cross-validation, if alpha='auto'.
 
-    coef_std_err_ : array, shape (n_targets, n_features)
+    coef_std_err_ : array, shape (n_targets, n_features) or (n_features_, )
         Estimated standard errors for coefficients (see 'coef_' attribute).
 
-    intercept_std_err_ : (n_targets, )
+    intercept_std_err_ : array, shape (n_targets, ) or float
         Estimated standard error intercept (see 'intercept_' attribute).
 
     """
@@ -876,11 +922,11 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
                  precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False, positive=False,
                  random_state=None, selection='cyclic', n_jobs=None):
-        estimator = DebiasedLasso(alpha=alpha, fit_intercept=fit_intercept,
-                                  precompute=precompute, copy_X=copy_X, max_iter=max_iter,
-                                  tol=tol, warm_start=warm_start, positive=False,
-                                  random_state=None, selection='cyclic')
-        super().__init__(estimator=estimator, n_jobs=n_jobs)
+        self.estimator = DebiasedLasso(alpha=alpha, fit_intercept=fit_intercept,
+                                       precompute=precompute, copy_X=copy_X, max_iter=max_iter,
+                                       tol=tol, warm_start=warm_start, positive=False,
+                                       random_state=None, selection='cyclic')
+        super().__init__(estimator=self.estimator, n_jobs=n_jobs)
 
     def fit(self, X, y, sample_weight=None):
         """Fit the multi-output debiased lasso model.
@@ -890,13 +936,19 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         X : ndarray or scipy.sparse matrix, (n_samples, n_features)
             Input data.
 
-        y : array, shape (n_samples, n_targets)
+        y : array, shape (n_samples, n_targets) or (n_samples, )
             Target. Will be cast to X's dtype if necessary
 
         sample_weight : numpy array of shape [n_samples]
                         Individual weights for each sample.
                         The weights will be normalized internally.
         """
+        # Allow for single output as well
+        # When only one output is passed in, the MultiOutputDebiasedLasso behaves like the DebiasedLasso
+        self.flat_target = False
+        if np.ndim(y) == 1:
+            self.flat_target = True
+            y = np.asarray(y).reshape(-1, 1)
         super().fit(X, y, sample_weight)
         # Set coef_ attribute
         self._set_attribute("coef_")
@@ -905,14 +957,14 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
                             condition=self.estimators_[0].fit_intercept,
                             default=0.0)
         # Set selected_alpha_ attribute
-        self._set_attribute("intercept_",
+        self._set_attribute("selected_alpha_",
                             condition=(self.estimators_[0].alpha == 'auto'))
         # Set coef_std_err_
         self._set_attribute("coef_std_err_")
         # intercept_std_err_
         self._set_attribute("intercept_std_err_")
 
-    def predict_interval(self, X, lower=5, upper=95):
+    def predict_interval(self, X, alpha=0.1):
         """Build prediction confidence intervals using the debiased lasso.
 
         Parameters
@@ -920,17 +972,13 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         X : ndarray or scipy.sparse matrix, (n_samples, n_features)
             Samples.
 
-        lower : float, optional
-            Lower percentile. Must be a number between 0 and 100.
-            Defaults to 5.0.
-
-        upper : float, optional
-            Upper percentile. Must be a number between 0 and 100, larger than 'lower'.
-            Defaults to 95.0.
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
-        (y_lower, y_upper) : tuple of arrays, shape (n_samples, n_targets)
+        (y_lower, y_upper) : tuple of arrays, shape (n_samples, n_targets) or (n_samples, )
             Returns lower and upper interval endpoints.
         """
         n_estimators = len(self.estimators_)
@@ -938,34 +986,70 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         y_lower = np.empty((X.shape[0], n_estimators))
         y_upper = np.empty((X.shape[0], n_estimators))
         for i, estimator in enumerate(self.estimators_):
-            y_lower[:, i], y_upper[:, i] = estimator.predict_interval(X, lower=lower, upper=upper)
+            y_lower[:, i], y_upper[:, i] = estimator.predict_interval(X, alpha=alpha)
+        if self.flat_target:
+            y_lower = y_lower.flatten()
+            y_upper = y_upper.flatten()
         return y_lower, y_upper
+
+    def coef__interval(self, alpha=0.1):
+        """Get a confidence interval bounding the fitted coefficients.
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        (coef_lower, coef_upper) : tuple of arrays, shape (n_targets, n_coefs) or (n_coefs, )
+            Returns lower and upper interval endpoints for the coefficients.
+        """
+        n_estimators = len(self.estimators_)
+        coef_lower = np.empty((n_estimators, self.estimators_[0].coef_.shape[0]))
+        coef_upper = np.empty((n_estimators, self.estimators_[0].coef_.shape[0]))
+        for i, estimator in enumerate(self.estimators_):
+            coef_lower[i], coef_upper[i] = estimator.coef__interval(alpha=alpha)
+        if self.flat_target == 1:
+            coef_lower = coef_lower.flatten()
+            coef_upper = coef_upper.flatten()
+        return coef_lower, coef_upper
+
+    def intercept__interval(self, alpha=0.1):
+        """Get a confidence interval bounding the fitted intercept.
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        (intercept_lower, intercept_upper) : tuple of arrays of size (n_targets, ) or tuple of floats
+            Returns lower and upper interval endpoints for the intercept.
+        """
+        if len(self.estimators_) == 1:
+            return self.estimators_[0].intercept__interval(alpha=alpha)
+        else:
+            intercepts = np.array([estimator.intercept__interval(alpha=alpha) for estimator in self.estimators_])
+            return intercepts[:, 0], intercepts[:, 1]
 
     def get_params(self, deep=True):
         """Get parameters for this estimator."""
-        param_mapping = super().get_params(deep=deep)
-        new_param_mapping = {self._transform_param(k): v for (k, v) in param_mapping.items()}
-        return new_param_mapping
+        return self.estimator.get_params(deep=deep)
 
     def set_params(self, **params):
         """Set parameters for this estimator."""
-        new_params = {self._inverse_transform_param(k): v for (k, v) in params.items()}
-        return super().set_params(**new_params)
-
-    def _transform_param(self, param):
-        transformed_param = param.split("estimator__")[1] if "estimator__" in param else param
-        return transformed_param
-
-    def _inverse_transform_param(self, param):
-        param_mapping = super().get_params()
-        inverse_transformed_param = "estimator__{}".format(param)
-        if inverse_transformed_param in param_mapping:
-            return inverse_transformed_param
-        return param
+        self.estimator.set_params(**params)
 
     def _set_attribute(self, attribute_name, condition=True, default=None):
         if condition:
-            attribute_value = np.array([getattr(estimator, attribute_name) for estimator in self.estimators_])
+            if not self.flat_target:
+                attribute_value = np.array([getattr(estimator, attribute_name) for estimator in self.estimators_])
+            else:
+                attribute_value = getattr(self.estimators_[0], attribute_name)
         else:
             attribute_value = default
         setattr(self, attribute_name, attribute_value)

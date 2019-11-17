@@ -59,7 +59,6 @@ class TestLassoExtensions(unittest.TestCase):
         with the standard lasso where the data entries have been replicated a number of times given by the
         integer weights.
         """
-
         # Define weights
         sample_weight = np.concatenate((np.ones(TestLassoExtensions.n_samples // 2),
                                         np.ones(TestLassoExtensions.n_samples // 2) * 2))
@@ -362,10 +361,12 @@ class TestLassoExtensions(unittest.TestCase):
             TestLassoExtensions.X,
             TestLassoExtensions.y_2D_consistent,
             sample_weight=sample_weight,
-            expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2])
+            expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2],
+            params=params)
         expanded_debiased_coefs = self._check_debiased_coefs(
             X_expanded, y_expanded, sample_weight=None,
-            expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2])
+            expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2],
+            params=params)
         for i in range(2):
             self.assertTrue(np.allclose(weighted_debiased_coefs[i], expanded_debiased_coefs[i]))
 
@@ -384,7 +385,7 @@ class TestLassoExtensions(unittest.TestCase):
             debiased_lasso = DebiasedLasso()
             debiased_lasso.set_params(**params)
             debiased_lasso.fit(X_exp, y_exp, sample_weight)
-            y_lower, y_upper = debiased_lasso.predict_interval(X_test, 5, 95)
+            y_lower, y_upper = debiased_lasso.predict_interval(X_test, alpha=0.1)
             is_in_interval[i] = ((y_test_mean >= y_lower) & (y_test_mean <= y_upper))
         CI_coverage = np.mean(is_in_interval, axis=0)
         self.assertTrue(all(CI_coverage >= 0.85))
@@ -405,7 +406,7 @@ class TestLassoExtensions(unittest.TestCase):
             debiased_lasso = MultiOutputDebiasedLasso()
             debiased_lasso.set_params(**params)
             debiased_lasso.fit(X_exp, y_exp, sample_weight)
-            y_lower, y_upper = debiased_lasso.predict_interval(X_test, 5, 95)
+            y_lower, y_upper = debiased_lasso.predict_interval(X_test, alpha=0.1)
             for j in range(y.shape[1]):
                 is_in_interval[j, i, :] = ((y_test_mean[:, j] >= y_lower[:, j]) & (y_test_mean[:, j] <= y_upper[:, j]))
         for i in range(y.shape[1]):

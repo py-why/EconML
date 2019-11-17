@@ -3,6 +3,7 @@
 
 import abc
 import numpy as np
+from scipy.stats import norm
 from .bootstrap import BootstrapEstimator
 from .utilities import cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, ndim
 
@@ -60,37 +61,13 @@ class BootstrapInference(Inference):
         return wrapped
 
 
-class StatsModelsInference(Inference):
-    """
-    Stores statsmodels covariance options.
+class LinearModelFinalInference(Inference):
 
-    This class can be used for inference by the LinearDMLCateEstimator.
-
-    Any estimator that supports this method of inference must implement a `statsmodels`
-    property that returns a :class:`.StatsModelsLinearRegression` instance and a `featurizer` property that returns an
-    preprocessing featurizer for the X variable.
-
-    Parameters
-    ----------
-    cov_type : string, optional (default 'HC1')
-        The type of covariance estimation method to use.  Supported values are 'nonrobust',
-        'HC0', 'HC1'.
-
-    TODO Create parent StatsModelsInference class so that some functionalities can be shared
-    """
-
-    def __init__(self, cov_type='HC1'):
-        if cov_type not in ['nonrobust', 'HC0', 'HC1']:
-            raise ValueError("Unsupported cov_type; "
-                             "must be one of 'nonrobust', "
-                             "'HC0', 'HC1'")
-
-        self.cov_type = cov_type
+    def __init__(self):
+        pass
 
     def prefit(self, estimator, *args, **kwargs):
-        self.statsmodels = estimator.statsmodels
-        # need to set the fit args before the estimator is fit
-        self.statsmodels.cov_type = self.cov_type
+        self.model_final = estimator.model_final
         self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
 
     def fit(self, estimator, *args, **kwargs):
@@ -106,7 +83,7 @@ class StatsModelsInference(Inference):
             X = np.ones((T0.shape[0], 1))
         elif self.featurizer is not None:
             X = self.featurizer.transform(X)
-        return self.statsmodels.predict_interval(cross_product(X, T1 - T0), alpha=alpha)
+        return self._predict_interval(cross_product(X, T1 - T0), alpha=alpha)
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if X is None:
@@ -114,15 +91,43 @@ class StatsModelsInference(Inference):
         elif self.featurizer is not None:
             X = self.featurizer.fit_transform(X)
         X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
-        preds = self.statsmodels.predict_interval(cross_product(X, T), alpha=alpha)
+        preds = self._predict_interval(cross_product(X, T), alpha=alpha)
         return tuple(reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
                      for pred in preds)
 
     def coef__interval(self, *, alpha=0.1):
-        return self.statsmodels.coef__interval(alpha)
+        return self.model_final.coef__interval(alpha)
 
     def intercept__interval(self, *, alpha=0.1):
-        return self.statsmodels.intercept__interval(alpha)
+        return self.model_final.intercept__interval(alpha)
+
+    def _predict_interval(self, X, alpha):
+        return self.model_final.predict_interval(X, alpha=alpha)
+
+
+class StatsModelsInference(LinearModelFinalInference):
+    """Stores statsmodels covariance options.
+
+    This class can be used for inference by the LinearDMLCateEstimator.
+
+    Parameters
+    ----------
+    cov_type : string, optional (default 'HC1')
+        The type of covariance estimation method to use.  Supported values are 'nonrobust',
+        'HC0', 'HC1'.
+    """
+
+    def __init__(self, cov_type='HC1'):
+        if cov_type not in ['nonrobust', 'HC0', 'HC1']:
+            raise ValueError("Unsupported cov_type; "
+                             "must be one of 'nonrobust', "
+                             "'HC0', 'HC1'")
+
+        self.cov_type = cov_type
+
+    def prefit(self, estimator, *args, **kwargs):
+        super().prefit(estimator, *args, **kwargs)
+        self.model_final.cov_type = self.cov_type
 
 
 class StatsModelsInferenceDiscrete(Inference):
