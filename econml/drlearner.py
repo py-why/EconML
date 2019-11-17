@@ -540,6 +540,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
+    fit_cate_intercept : bool, optional (Default=True)
+        Whether the linear CATE model should have a constant term.
+
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -670,7 +673,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
     is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
-    faster than bootstrap inference. Set ``inference='statsmodels'`` at fit time, to enable inference
+    faster than bootstrap inference. Set ``inference='debiasedlasso'`` at fit time, to enable inference
     via asymptotic normality.
 
     More concretely, this estimator assumes that the final cate model for each treatment takes a linear form:
@@ -687,7 +690,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         \\min_{\\theta_t, \\beta_t}\
         E_n\\left[\\left(Y_{i, t}^{DR} - Y_{i, 0}^{DR}\
             - \\left\\langle \\theta_t, \\phi(X_i) \\right\\rangle - \\beta_t\\right)^2\\right]\
-                + \\lambda \\left|\\ell\\right|_1
+                + \\lambda \\left\\lVert \\theta_t \\right\\rVert_1
 
     This approach is valid even if the CATE model is not linear in :math:`\\phi(X)`. In this case it performs
     inference on the best sparse linear approximation of the CATE model.
@@ -709,6 +712,25 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional (Default=True)
+        Whether the linear CATE model should have a constant term.
+
+    alpha: string | float, optional. Default='auto'.
+        CATE L1 regularization applied through the debiased lasso in the final model.
+        'auto' corresponds to a CV form of the :class:`MultiOutputDebiasedLasso`.
+
+    max_iter : int, optional, default=1000
+        The maximum number of iterations in the Debiased Lasso
+
+    tol : float, optional, default=1e-4
+        The tolerance for the optimization: if the updates are
+        smaller than ``tol``, the optimization code checks the
+        dual gap for optimality and continues until it is smaller
+        than ``tol``.
+
+    positive : bool, optional, default=False
+        When set to ``True``, forces the coefficients of teh DebiasedLasso to be positive.
 
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
@@ -781,13 +803,17 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  model_regression=WeightedLassoCV(cv=3),
                  featurizer=None,
                  fit_cate_intercept=True,
+                 alpha='auto',
+                 max_iter=1000,
+                 tol=1e-4,
+                 positive=False,
                  n_splits=2, random_state=None):
         model_final = DebiasedLasso(
-            alpha='auto',
+            alpha=alpha,
             fit_intercept=fit_cate_intercept,
-            max_iter=1000,
-            tol=1e-4,
-            positive=False)
+            max_iter=max_iter,
+            tol=tol,
+            positive=positive)
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=model_final,
