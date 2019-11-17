@@ -12,10 +12,14 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import PolynomialFeatures
-from econml.drlearner import DRLearner, LinearDRLearner
+from econml.drlearner import DRLearner, LinearDRLearner, SparseLinearDRLearner
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
 from contextlib import ExitStack
+from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from econml.utilities import StatsModelsLinearRegression
+import scipy.special
 
 
 class TestDRLearner(unittest.TestCase):
@@ -311,23 +315,23 @@ class TestDRLearner(unittest.TestCase):
                                                                                     for mdl
                                                                                     in est.models_regression]).shape,
                                                                           [2, 2 + X.shape[1] +
-                                                                          (W.shape[1] if W is not None else 0)])
+                                                                           (W.shape[1] if W is not None else 0)])
                                             np.testing.assert_array_equal(np.array([mdl.feature_importances_
                                                                                     for mdl
                                                                                     in est.models_propensity]).shape,
                                                                           [2, X.shape[1] +
-                                                                          (W.shape[1] if W is not None else 0)])
+                                                                           (W.shape[1] if W is not None else 0)])
                                         else:
                                             np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                     for mdl
                                                                                     in est.models_regression]).shape,
                                                                           [2, 2 + X.shape[1] +
-                                                                          (W.shape[1] if W is not None else 0)])
+                                                                           (W.shape[1] if W is not None else 0)])
                                             np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                     for mdl
                                                                                     in est.models_propensity]).shape,
                                                                           [2, 3, X.shape[1] +
-                                                                          (W.shape[1] if W is not None else 0)])
+                                                                           (W.shape[1] if W is not None else 0)])
                                         if multitask_model_final:
                                             if isinstance(models[2], RandomForestRegressor):
                                                 np.testing.assert_equal(np.argsort(
@@ -353,10 +357,6 @@ class TestDRLearner(unittest.TestCase):
                                                         est.model_cate(T=t).intercept_, t, rtol=0, atol=.15)
 
     def test_linear_drlearner_all_attributes(self):
-        from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
-        from sklearn.linear_model import LinearRegression, LogisticRegression
-        from econml.utilities import StatsModelsLinearRegression
-        import scipy.special
         np.random.seed(123)
         controls = np.random.uniform(-1, 1, size=(5000, 3))
         T = np.random.binomial(2, scipy.special.expit(controls[:, 0]))
@@ -369,13 +369,20 @@ class TestDRLearner(unittest.TestCase):
                         for models in [(GradientBoostingClassifier(), GradientBoostingRegressor()),
                                        (LogisticRegression(solver='lbfgs', multi_class='auto'),
                                         LinearRegression())]:
-                            for inference in ['statsmodels', StatsModelsInferenceDiscrete(cov_type='nonrobust')]:
+                            for est_class,\
+                                inference in [(LinearDRLearner, 'statsmodels'),
+                                              (LinearDRLearner, StatsModelsInferenceDiscrete(cov_type='nonrobust')),
+                                              (SparseLinearDRLearner, 'debiasedlasso')]:
                                 with self.subTest(X=X, W=W, sample_weight=sample_weight, sample_var=sample_var,
                                                   featurizer=featurizer, models=models,
-                                                  inference=inference):
-                                    est = LinearDRLearner(model_propensity=models[0],
-                                                          model_regression=models[1],
-                                                          featurizer=featurizer)
+                                                  est_class=est_class, inference=inference):
+                                    if (X is None) and (est_class == SparseLinearDRLearner):
+                                        continue
+
+                                    est = est_class(model_propensity=models[0],
+                                                    model_regression=models[1],
+                                                    featurizer=featurizer)
+
                                     if (X is None) and (W is None):
                                         with pytest.raises(AttributeError) as e_info:
                                             est.fit(y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
@@ -432,23 +439,23 @@ class TestDRLearner(unittest.TestCase):
                                                                                 for mdl
                                                                                 in est.models_regression]).shape,
                                                                       [2, 2 + len(feat_names) +
-                                                                      (W.shape[1] if W is not None else 0)])
+                                                                       (W.shape[1] if W is not None else 0)])
                                         np.testing.assert_array_equal(np.array([mdl.feature_importances_
                                                                                 for mdl
                                                                                 in est.models_propensity]).shape,
                                                                       [2, len(feat_names) +
-                                                                      (W.shape[1] if W is not None else 0)])
+                                                                       (W.shape[1] if W is not None else 0)])
                                     else:
                                         np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                 for mdl
                                                                                 in est.models_regression]).shape,
                                                                       [2, 2 + len(feat_names) +
-                                                                      (W.shape[1] if W is not None else 0)])
+                                                                       (W.shape[1] if W is not None else 0)])
                                         np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                 for mdl
                                                                                 in est.models_propensity]).shape,
                                                                       [2, 3, len(feat_names) +
-                                                                      (W.shape[1] if W is not None else 0)])
+                                                                       (W.shape[1] if W is not None else 0)])
 
                                     if X is not None:
                                         for t in [1, 2]:
@@ -497,6 +504,50 @@ class TestDRLearner(unittest.TestCase):
         self._test_te(DR_learner, tol=0.5, te_type="heterogeneous")
         # Test heterogenous treatment effect for W =/= None
         self._test_with_W(DR_learner, tol=0.5)
+
+    def test_sparse(self):
+        """SparseDRLearner test with a sparse DGP"""
+        # Sparse DGP
+        np.random.seed(123)
+        n_x = 50
+        n_nonzero = 1
+        n_w = 5
+        n = 1000
+        # Treatment effect coef
+        a = np.zeros(n_x)
+        nonzero_idx = np.random.choice(n_x, size=n_nonzero, replace=False)
+        a[nonzero_idx] = 1
+        # Other coefs
+        b = np.zeros(n_x + n_w)
+        g = np.zeros(n_x + n_w)
+        b_nonzero = np.random.choice(n_x + n_w, size=n_nonzero, replace=False)
+        g_nonzero = np.random.choice(n_x + n_w, size=n_nonzero, replace=False)
+        b[b_nonzero] = 1
+        g[g_nonzero] = 1
+        # Features and controls
+        x = np.random.normal(size=(n, n_x))
+        w = np.random.normal(size=(n, n_w))
+        xw = np.hstack([x, w])
+        T = np.random.binomial(1, scipy.special.expit(xw @ b))
+        err_Y = np.random.normal(size=n, scale=0.5)
+        Y = T * (x @ a) + xw @ g + err_Y
+        # Test sparse estimator
+        # --> test coef_, intercept_
+        sparse_dml = SparseLinearDRLearner(featurizer=FunctionTransformer())
+        sparse_dml.fit(Y, T, x, w, inference='debiasedlasso')
+        np.testing.assert_allclose(a, sparse_dml.coef_(T=1), atol=2e-1)
+        np.testing.assert_allclose(sparse_dml.intercept_(T=1), 0, atol=2e-1)
+        # --> test treatment effects
+        # Restrict x_test to vectors of norm < 1
+        x_test = np.random.uniform(size=(10, n_x))
+        true_eff = (x_test @ a)
+        eff = sparse_dml.effect(x_test, T0=0, T1=1)
+        np.testing.assert_allclose(true_eff, eff, atol=0.5)
+        # --> check inference
+        y_lower, y_upper = sparse_dml.effect_interval(x_test, T0=0, T1=1)
+        in_CI = ((y_lower < true_eff) & (true_eff < y_upper))
+        # Check that a majority of true effects lie in the 5-95% CI
+        self.assertTrue(in_CI.mean() > 0.8)
 
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:

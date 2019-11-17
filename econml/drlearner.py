@@ -28,12 +28,13 @@ Tsiatis AA (2006).
 """
 
 import numpy as np
+from warnings import warn
 from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
 from econml.utilities import inverse_onehot
-from econml.sklearn_extensions.linear_model import WeightedLassoCV
+from econml.sklearn_extensions.linear_model import WeightedLassoCV, DebiasedLasso
 from sklearn.base import clone
 from econml._ortho_learner import _OrthoLearner
-from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin
+from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin, DebiasedLassoCateEstimatorDiscreteMixin
 from econml.utilities import StatsModelsLinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
@@ -656,9 +657,207 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         return super().multitask_model_cate
 
     @property
-    def statsmodels(self):
-        return self.model_final._model_final
+    def model_final(self):
+        return super().model_final._model_final
 
     @property
-    def statsmodels_fitted(self):
-        return self.model_final.models_cate
+    def fitted_models_final(self):
+        return super().model_final.models_cate
+
+
+class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
+    """
+    Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
+    is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
+    and its asymptotic normal characterization of the estimated parameters. This is computationally
+    faster than bootstrap inference. Set ``inference='statsmodels'`` at fit time, to enable inference
+    via asymptotic normality.
+
+    More concretely, this estimator assumes that the final cate model for each treatment takes a linear form:
+
+    .. math ::
+        \\theta_t(X) = \\left\\langle \\theta_t, \\phi(X) \\right\\rangle + \\beta_t
+
+    where :math:`\\phi(X)` is the outcome features of the featurizers, or `X` if featurizer is None. :math:`\\beta_t`
+    is a an intercept of the CATE, which is included if ``fit_cate_intercept=True`` (Default). It fits this by
+    running a debiased lasso regression (i.e. :math:`\\ell_1`-penalized regression with debiasing),
+    regressing the doubly robust outcome differences on X:
+
+    .. math ::
+        \\min_{\\theta_t, \\beta_t}\
+        E_n\\left[\\left(Y_{i, t}^{DR} - Y_{i, 0}^{DR}\
+            - \\left\\langle \\theta_t, \\phi(X_i) \\right\\rangle - \\beta_t\\right)^2\\right]\
+                + \\lambda \\left|\\ell\\right|_1
+
+    This approach is valid even if the CATE model is not linear in :math:`\\phi(X)`. In this case it performs
+    inference on the best sparse linear approximation of the CATE model.
+
+    Parameters
+    ----------
+    model_propensity : scikit-learn classifier
+        Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
+        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
+        where T is a shape (n, ) array.
+
+    model_regression : scikit-learn regressor
+        Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
+        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
+        `predict` methods. If different models per treatment arm are desired, see the
+        :class:`~econml.utilities.MultiModelWrapper` helper class.
+
+    featurizer : sklearn featurizer or None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models::
+
+        import numpy as np
+        import scipy.special
+        from econml.drlearner import DRLearner, SparseLinearDRLearner
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 3))
+        T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = SparseLinearDRLearner()
+        est.fit(y, T, X=X, W=None, inference='debiasedlasso')
+
+    >>> est.effect(X[:3])
+    array([ 0.46089994,  0.31993838, -0.07386204])
+    >>> est.effect_interval(X[:3])
+    (array([ 0.11912103, -0.16476616, -0.64903889]),
+     array([0.80267886, 0.80464292, 0.50131482]))
+    >>> est.coef_(T=1)
+    array([0.40984866, 0.02624624, 0.05320565])
+    >>> est.coef__interval(T=1)
+    (array([ 0.21365131, -0.15865431, -0.13733605]),
+     array([0.606046  , 0.21114678, 0.24374735]))
+    >>> est.intercept_(T=1)
+    0.864611566994208
+    >>> est.intercept__interval(T=1)
+    (0.6779174404370922, 1.0513056935513236)
+
+    Attributes
+    ----------
+    score_ : float
+        The MSE in the final doubly robust potential outcome regressions, i.e.
+
+        .. math::
+            \\frac{1}{n_t} \\sum_{t=1}^{n_t} \\frac{1}{n} \\sum_{i=1}^n (Y_{i, t}^{DR} - \\hat{\\theta}_t(X_i))^2
+
+        where n_t is the number of treatments (excluding control).
+
+        If `sample_weight` is not None at fit time, then a weighted average across samples is returned.
+
+    """
+
+    def __init__(self,
+                 model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
+                 model_regression=WeightedLassoCV(cv=3),
+                 featurizer=None,
+                 fit_cate_intercept=True,
+                 n_splits=2, random_state=None):
+        model_final = DebiasedLasso(
+            alpha='auto',
+            fit_intercept=fit_cate_intercept,
+            max_iter=1000,
+            tol=1e-4,
+            positive=False)
+        super().__init__(model_propensity=model_propensity,
+                         model_regression=model_regression,
+                         model_final=model_final,
+                         featurizer=featurizer,
+                         multitask_model_final=False,
+                         n_splits=n_splits,
+                         random_state=random_state)
+
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
+        """
+        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+
+        Parameters
+        ----------
+        Y: (n,) vector of length n
+            Outcomes for each sample
+        T: (n,) vector of length n
+            Treatments for each sample
+        X: optional(n, d_x) matrix or None (Default=None)
+            Features for each sample
+        W: optional(n, d_w) matrix or None (Default=None)
+            Controls for each sample
+        sample_weight: optional(n,) vector or None (Default=None)
+            Weights for each samples
+        sample_var: optional(n,) vector or None (Default=None)
+            Sample variance for each sample
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports ``'bootstrap'``
+            (or an instance of :class:`.BootstrapInference`) and ``'debiasedlasso'``
+            (or an instance of :class:`.LinearModelInferenceDiscrete`).
+
+        Returns
+        -------
+        self: DRLearner instance
+        """
+        # Replacing fit from DRLearner, to add debiasedlasso inference in docstring
+        # TODO: support sample_var
+        if sample_weight is not None and inference is not None:
+            warn("This estimator does not yet support sample variances and inference does not take "
+                 "sample variances into account. This feature will be supported in a future release.")
+        self._check_sparsity(X, T)
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
+
+    def _check_sparsity(self, X, T):
+        # Check if model is sparse enough for this model
+        if X is None:
+            d_x = 1
+        elif self.featurizer is None:
+            d_x = X.shape[1]
+        else:
+            d_x = clone(self.featurizer, safe=False).fit_transform(X[[0], :]).shape[1]
+        if self._discrete_treatment:
+            d_t = len(set(T.flatten())) - 1
+        else:
+            d_t = 1 if np.ndim(T) < 2 else T.shape[1]
+        if d_x * d_t < 5:
+            warn("The number of features in the final model (< 5) is too small for a sparse model. "
+                 "We recommend using the LinearDMLCateEstimator for this low-dimensional setting.",
+                 UserWarning)
+
+    @property
+    def multitask_model_cate(self):
+        # Replacing this method which is invalid for this class, so that we make the
+        # dosctring empty and not appear in the docs.
+        return super().multitask_model_cate
+
+    @property
+    def model_final(self):
+        return super().model_final._model_final
+
+    @property
+    def fitted_models_final(self):
+        return super().model_final.models_cate

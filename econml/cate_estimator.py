@@ -11,7 +11,8 @@ from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape
-from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
+    LinearModelFinalInferenceDiscrete
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -415,19 +416,8 @@ class DebiasedLassoCateEstimatorMixin(StatsModelsCateEstimatorMixin):
         return options
 
 
-class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
+class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     # TODO Create parent StatsModelsCateEstimatorMixin class so that some functionalities can be shared
-
-    def _get_inference_options(self):
-        # add statsmodels to parent's options
-        options = super()._get_inference_options()
-        options.update(statsmodels=StatsModelsInferenceDiscrete)
-        return options
-
-    @property
-    @abc.abstractmethod
-    def statsmodels(self):
-        pass
 
     def coef_(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
@@ -447,7 +437,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         _, T = self._expand_treatments(None, T)
         ind = (T @ np.arange(T.shape[1])).astype(int)[0]
-        return self.statsmodels_fitted[ind].coef_
+        return self.fitted_models_final[ind].coef_
 
     def intercept_(self, T):
         """ The intercept in the linear model of the constant marginal treatment
@@ -464,7 +454,7 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         _, T = self._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
-        return self.statsmodels_fitted[ind].intercept_
+        return self.fitted_models_final[ind].intercept_
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, T, *, alpha=0.1):
@@ -505,3 +495,22 @@ class StatsModelsCateEstimatorDiscreteMixin(BaseCateEstimator):
             The lower and upper bounds of the confidence interval.
         """
         pass
+
+
+class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscreteMixin):
+    # TODO Create parent StatsModelsCateEstimatorMixin class so that some functionalities can be shared
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(statsmodels=StatsModelsInferenceDiscrete)
+        return options
+
+
+class DebiasedLassoCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscreteMixin):
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(debiasedlasso=LinearModelFinalInferenceDiscrete)
+        return options
