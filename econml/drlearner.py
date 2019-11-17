@@ -684,13 +684,16 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     where :math:`\\phi(X)` is the outcome features of the featurizers, or `X` if featurizer is None. :math:`\\beta_t`
     is a an intercept of the CATE, which is included if ``fit_cate_intercept=True`` (Default). It fits this by
     running a debiased lasso regression (i.e. :math:`\\ell_1`-penalized regression with debiasing),
-    regressing the doubly robust outcome differences on X:
+    regressing the doubly robust outcome differences on X: i.e. first solves the penalized square loss problem
 
     .. math ::
         \\min_{\\theta_t, \\beta_t}\
         E_n\\left[\\left(Y_{i, t}^{DR} - Y_{i, 0}^{DR}\
             - \\left\\langle \\theta_t, \\phi(X_i) \\right\\rangle - \\beta_t\\right)^2\\right]\
                 + \\lambda \\left\\lVert \\theta_t \\right\\rVert_1
+
+    and then adds a debiasing correction to the solution. If alpha='auto' (recommended), then the penalty
+    weight :math:`\\lambda` is set optimally via cross-validation.
 
     This approach is valid even if the CATE model is not linear in :math:`\\phi(X)`. In this case it performs
     inference on the best sparse linear approximation of the CATE model.
@@ -718,7 +721,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     alpha: string | float, optional. Default='auto'.
         CATE L1 regularization applied through the debiased lasso in the final model.
-        'auto' corresponds to a CV form of the :class:`MultiOutputDebiasedLasso`.
+        'auto' corresponds to a CV form of the :class:`DebiasedLasso`.
 
     max_iter : int, optional, default=1000
         The maximum number of iterations in the Debiased Lasso
@@ -728,9 +731,6 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         smaller than ``tol``, the optimization code checks the
         dual gap for optimality and continues until it is smaller
         than ``tol``.
-
-    positive : bool, optional, default=False
-        When set to ``True``, forces the coefficients of teh DebiasedLasso to be positive.
 
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
@@ -806,14 +806,12 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  alpha='auto',
                  max_iter=1000,
                  tol=1e-4,
-                 positive=False,
                  n_splits=2, random_state=None):
         model_final = DebiasedLasso(
             alpha=alpha,
             fit_intercept=fit_cate_intercept,
             max_iter=max_iter,
-            tol=tol,
-            positive=positive)
+            tol=tol)
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=model_final,
