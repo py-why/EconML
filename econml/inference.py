@@ -199,3 +199,44 @@ class StatsModelsInferenceDiscrete(Inference):
         _, T = self._est._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
         return self._est.statsmodels_fitted[ind].intercept__interval(alpha)
+
+
+class GenericModelFinalInference(Inference):
+
+    def __init__(self):
+        pass
+
+    def prefit(self, estimator, *args, **kwargs):
+        self.model_final = estimator.model_final
+        self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
+
+    def fit(self, estimator, *args, **kwargs):
+        # once the estimator has been fit, it's kosher to access its effect_op and store it here
+        # (which needs to have seen the expanded d_t if there's a discrete treatment, etc.)
+        self._est = estimator
+        self._d_t = estimator._d_t
+        self._d_y = estimator._d_y
+        if len(self._d_t) > 1 and (self._d_t[0] > 1):
+            raise AttributeError("This method only works for single-dimensional continuous treatment "
+                                 "or binary categorical treatment")
+
+    def const_marginal_effect_interval(self, X, *, alpha=0.1):
+        if X is None:
+            X = np.ones((1, 1))
+        elif self.featurizer is not None:
+            X = self.featurizer.fit_transform(X)
+        X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
+        preds = self._predict_interval(cross_product(X, T), alpha=alpha)
+        return tuple(reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
+                     for pred in preds)
+
+    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        lb_pre, ub_pre = self.const_marginal_effect_interval(X, alpha=alpha)
+        intrv_pre = np.array([lb_pre, ub_pre]) * (T1 - T0).ravel().reshape(1, -1)
+        lb = np.min(intrv_pre, axis=0)
+        ub = np.max(intrv_pre, axis=0)
+        return lb, ub
+
+    def _predict_interval(self, X, alpha):
+        return self.model_final.predict_interval(X, alpha=alpha)
