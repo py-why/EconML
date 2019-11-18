@@ -14,7 +14,7 @@ import copy
 from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        StatsModelsLinearRegression, LassoCVWrapper)
+                        StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional)
 from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
@@ -360,9 +360,6 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    positive : bool, optional, default=False
-        When set to ``True``, forces the coefficients of teh DebiasedLasso to be positive.
-
     featurizer: transformer, optional
     (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
         The transformer used to featurize the raw features when fitting the final model.  Must implement
@@ -403,7 +400,6 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                  alpha='auto',
                  max_iter=1000,
                  tol=1e-4,
-                 positive=False,
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
                  linear_first_stages=True,
                  discrete_treatment=False,
@@ -413,8 +409,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
             alpha=alpha,
             fit_intercept=False,
             max_iter=max_iter,
-            tol=tol,
-            positive=positive)
+            tol=tol)
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=model_final,
@@ -453,22 +448,11 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         if sample_weight is not None and inference is not None:
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
-        self._check_sparsity(X, T)
+        check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
+                               discrete_treatment=self._discrete_treatment,
+                               msg="The number of features in the final model (< 5) is too small for a sparse model. "
+                               "We recommend using the LinearDMLCateEstimator for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
-
-    def _check_sparsity(self, X, T):
-        # Check if model is sparse enough for this model
-        if X is None:
-            d_x = 1
-        else:
-            d_x = clone(self.featurizer, safe=False).fit_transform(X[[0], :]).shape[1]
-        if self._discrete_treatment:
-            d_t = len(set(T.flatten())) - 1
-        else:
-            d_t = 1 if np.ndim(T) < 2 else T.shape[1]
-        if d_x * d_t < 5:
-            warn("The number of features in the final model (< 5) is too small for a sparse model. "
-                 "We recommend using the LinearDMLCateEstimator for this low-dimensional setting.", UserWarning)
 
 
 class KernelDMLCateEstimator(LinearDMLCateEstimator):

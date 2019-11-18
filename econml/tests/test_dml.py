@@ -266,10 +266,7 @@ class TestDML(unittest.TestCase):
             with self.subTest(n_p=n_p, d_w=d_w, n_r=n_r):
                 TestDML._test_sparse(n_p, d_w, n_r)
 
-    # TODO: sparseDML tests for a sparse design
-    # TODO: sparseDML inference
-
-    def test_zlinear_sparse(self):
+    def test_linear_sparse(self):
         """SparseDML test with a sparse DGP"""
         # Sparse DGP
         np.random.seed(123)

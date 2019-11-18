@@ -130,39 +130,19 @@ class StatsModelsInference(LinearModelFinalInference):
         self.model_final.cov_type = self.cov_type
 
 
-class StatsModelsInferenceDiscrete(Inference):
+class LinearModelFinalInferenceDiscrete(Inference):
     """
-    Stores statsmodels covariance options.
+    Inference method for estimators with categorical treatments, where a linear in X model is used
+    for the CATE associated with each treatment.
 
-    This class can be used for inference by the LinearDRLearner.
-
-    Any estimator that supports this method of inference must implement a ``statsmodels``
-    property that returns a :class:`.StatsModelsLinearRegression` instance, a ``statsmodels_fitted`` property
-    which is a list of the fitted :class:`.StatsModelsLinearRegression` instances, fitted by the estimator for each
-    discrete treatment target and a `featurizer` property that returns an
-    preprocessing featurizer for the X variable.
-
-    Parameters
-    ----------
-    cov_type : string, optional (default 'HC1')
-        The type of covariance estimation method to use.  Supported values are 'nonrobust',
-        'HC0', 'HC1'.
-
-    TODO Create parent StatsModelsInference class so that some functionalities can be shared
+    TODO Create parent LinearModelFinalInference class so that some functionalities can be shared
     """
 
-    def __init__(self, cov_type='HC1'):
-        if cov_type not in ['nonrobust', 'HC0', 'HC1']:
-            raise ValueError("Unsupported cov_type; "
-                             "must be one of 'nonrobust', "
-                             "'HC0', 'HC1'")
-
-        self.cov_type = cov_type
+    def __init__(self):
+        pass
 
     def prefit(self, estimator, *args, **kwargs):
-        self.statsmodels = estimator.statsmodels
-        # need to set the fit args before the estimator is fit
-        self.statsmodels.cov_type = self.cov_type
+        self.model_final = estimator.model_final
         self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
 
     def fit(self, estimator, *args, **kwargs):
@@ -171,11 +151,12 @@ class StatsModelsInferenceDiscrete(Inference):
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
+        self.fitted_models_final = estimator.fitted_models_final
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.fit_transform(X)
-        preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self._est.statsmodels_fitted])
+        preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self.fitted_models_final])
         return tuple([preds[:, 0, :].T, preds[:, 1, :].T])
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
@@ -193,13 +174,37 @@ class StatsModelsInferenceDiscrete(Inference):
     def coef__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
-        return self._est.statsmodels_fitted[ind].coef__interval(alpha)
+        return self.fitted_models_final[ind].coef__interval(alpha)
 
     def intercept__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
-        return self._est.statsmodels_fitted[ind].intercept__interval(alpha)
+        return self.fitted_models_final[ind].intercept__interval(alpha)
 
+
+class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
+    """
+    Special case where final model is a StatsModelsLinearRegression
+
+    Parameters
+    ----------
+    cov_type : string, optional (default 'HC1')
+        The type of covariance estimation method to use.  Supported values are 'nonrobust',
+        'HC0', 'HC1'.
+    """
+
+    def __init__(self, cov_type='HC1'):
+        if cov_type not in ['nonrobust', 'HC0', 'HC1']:
+            raise ValueError("Unsupported cov_type; "
+                             "must be one of 'nonrobust', "
+                             "'HC0', 'HC1'")
+
+        self.cov_type = cov_type
+
+    def prefit(self, estimator, *args, **kwargs):
+        super().prefit(estimator, *args, **kwargs)
+        # need to set the fit args before the estimator is fit
+        self.model_final.cov_type = self.cov_type
 
 class GenericModelFinalInference(Inference):
 

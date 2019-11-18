@@ -562,9 +562,6 @@ class DebiasedLasso(WeightedLasso):
         initialization, otherwise, just erase the previous solution.
         See :term:`the Glossary <warm_start>`.
 
-    positive : bool, optional
-        When set to ``True``, forces the coefficients to be positive.
-
     random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default None
         The seed of the pseudo random number generator that selects a random
         feature to update.  If int, random_state is the seed used by the random
@@ -604,13 +601,13 @@ class DebiasedLasso(WeightedLasso):
 
     def __init__(self, alpha='auto', fit_intercept=True,
                  precompute=False, copy_X=True, max_iter=1000,
-                 tol=1e-4, warm_start=False, positive=False,
+                 tol=1e-4, warm_start=False,
                  random_state=None, selection='cyclic'):
         super().__init__(
             alpha=alpha, fit_intercept=fit_intercept,
             precompute=precompute, copy_X=copy_X,
             max_iter=max_iter, tol=tol, warm_start=warm_start,
-            positive=positive, random_state=random_state,
+            positive=False, random_state=random_state,
             selection=selection)
 
     def fit(self, X, y, sample_weight=None, check_input=True):
@@ -882,9 +879,6 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         initialization, otherwise, just erase the previous solution.
         See :term:`the Glossary <warm_start>`.
 
-    positive : bool, optional
-        When set to ``True``, forces the coefficients to be positive.
-
     random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default None
         The seed of the pseudo random number generator that selects a random
         feature to update.  If int, random_state is the seed used by the random
@@ -920,12 +914,12 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
     def __init__(self, alpha='auto', fit_intercept=True,
                  precompute=False, copy_X=True, max_iter=1000,
-                 tol=1e-4, warm_start=False, positive=False,
+                 tol=1e-4, warm_start=False,
                  random_state=None, selection='cyclic', n_jobs=None):
         self.estimator = DebiasedLasso(alpha=alpha, fit_intercept=fit_intercept,
                                        precompute=precompute, copy_X=copy_X, max_iter=max_iter,
-                                       tol=tol, warm_start=warm_start, positive=False,
-                                       random_state=None, selection='cyclic')
+                                       tol=tol, warm_start=warm_start,
+                                       random_state=random_state, selection=selection)
         super().__init__(estimator=self.estimator, n_jobs=n_jobs)
 
     def fit(self, X, y, sample_weight=None):
@@ -963,6 +957,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         self._set_attribute("coef_std_err_")
         # intercept_std_err_
         self._set_attribute("intercept_std_err_")
+        return self
 
     def predict_interval(self, X, alpha=0.1):
         """Build prediction confidence intervals using the debiased lasso.
