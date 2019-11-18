@@ -16,6 +16,7 @@ from functools import reduce
 from sklearn.utils import check_array, check_X_y
 from statsmodels.tools.tools import add_constant
 import warnings
+from warnings import warn
 from sklearn.model_selection import KFold, StratifiedKFold
 from collections.abc import Iterable
 from sklearn.model_selection._split import _CVIterableWrapper, CV_WARNING
@@ -35,6 +36,22 @@ class IdentityFeatures(TransformerMixin):
     def transform(self, X):
         """Perform the identity transform, which returns the input unmodified."""
         return X
+
+
+def check_high_dimensional(X, T, *, threshold, featurizer=None, discrete_treatment=False, msg=""):
+    # Check if model is sparse enough for this model
+    if X is None:
+        d_x = 1
+    elif featurizer is None:
+        d_x = X.shape[1]
+    else:
+        d_x = clone(featurizer, safe=False).fit_transform(X[[0], :]).shape[1]
+    if discrete_treatment:
+        d_t = len(set(T.flatten())) - 1
+    else:
+        d_t = 1 if np.ndim(T) < 2 else T.shape[1]
+    if d_x * d_t < threshold:
+        warn(msg, UserWarning)
 
 
 def inverse_onehot(X):

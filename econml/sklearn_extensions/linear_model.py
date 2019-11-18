@@ -957,6 +957,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         self._set_attribute("coef_std_err_")
         # intercept_std_err_
         self._set_attribute("intercept_std_err_")
+        return self
 
     def predict_interval(self, X, alpha=0.1):
         """Build prediction confidence intervals using the debiased lasso.
