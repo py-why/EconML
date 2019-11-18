@@ -384,11 +384,6 @@ class TreatmentExpansionMixin(BaseCateEstimator):
 class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
     """Base class for models where the final stage is a linear model."""
 
-    def _get_inference_options(self):
-        # add statsmodels to parent's options
-        options = super()._get_inference_options()
-        return options
-
     @property
     def coef_(self):
         return self.model_final.coef_
