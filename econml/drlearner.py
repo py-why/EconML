@@ -30,7 +30,7 @@ Tsiatis AA (2006).
 import numpy as np
 from warnings import warn
 from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
-from econml.utilities import inverse_onehot
+from econml.utilities import inverse_onehot, check_high_dimensional
 from econml.sklearn_extensions.linear_model import WeightedLassoCV, DebiasedLasso
 from sklearn.base import clone
 from econml._ortho_learner import _OrthoLearner
@@ -852,25 +852,11 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         if sample_weight is not None and inference is not None:
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
-        self._check_sparsity(X, T)
+        check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
+                               discrete_treatment=self._discrete_treatment,
+                               msg="The number of features in the final model (< 5) is too small for a sparse model. "
+                               "We recommend using the LinearDRLearner for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
-
-    def _check_sparsity(self, X, T):
-        # Check if model is sparse enough for this model
-        if X is None:
-            d_x = 1
-        elif self.featurizer is None:
-            d_x = X.shape[1]
-        else:
-            d_x = clone(self.featurizer, safe=False).fit_transform(X[[0], :]).shape[1]
-        if self._discrete_treatment:
-            d_t = len(set(T.flatten())) - 1
-        else:
-            d_t = 1 if np.ndim(T) < 2 else T.shape[1]
-        if d_x * d_t < 5:
-            warn("The number of features in the final model (< 5) is too small for a sparse model. "
-                 "We recommend using the LinearDMLCateEstimator for this low-dimensional setting.",
-                 UserWarning)
 
     @property
     def multitask_model_cate(self):
