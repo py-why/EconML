@@ -381,12 +381,12 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     effect.__doc__ = BaseCateEstimator.effect.__doc__
 
 
-class StatsModelsCateEstimatorMixin:
+class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
+    """Base class for models where the final stage is a linear model."""
 
     def _get_inference_options(self):
         # add statsmodels to parent's options
         options = super()._get_inference_options()
-        options.update(statsmodels=StatsModelsInference)
         return options
 
     @property
@@ -406,10 +406,21 @@ class StatsModelsCateEstimatorMixin:
         pass
 
 
-class DebiasedLassoCateEstimatorMixin(StatsModelsCateEstimatorMixin):
+class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
+    """Mixin for cate models where the final stage is a stats model."""
 
     def _get_inference_options(self):
         # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(statsmodels=StatsModelsInference)
+        return options
+
+
+class DebiasedLassoCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
+    """Mixin for cate models where the final stage is a debiased lasso model."""
+
+    def _get_inference_options(self):
+        # add debiasedlasso to parent's options
         options = super()._get_inference_options()
         options.update(debiasedlasso=LinearModelFinalInference)
         return options

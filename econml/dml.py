@@ -334,9 +334,6 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    positive : bool, optional, default=False
-        When set to ``True``, forces the coefficients of teh DebiasedLasso to be positive.
-
     featurizer: transformer, optional
     (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
         The transformer used to featurize the raw features when fitting the final model.  Must implement
@@ -377,7 +374,6 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                  alpha='auto',
                  max_iter=1000,
                  tol=1e-4,
-                 positive=False,
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
                  linear_first_stages=True,
                  discrete_treatment=False,
@@ -387,8 +383,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
             alpha=alpha,
             fit_intercept=False,
             max_iter=max_iter,
-            tol=tol,
-            positive=positive)
+            tol=tol)
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=model_final,
