@@ -15,6 +15,7 @@ The EconML Python SDK, developed by the ALICE team at MSR New England, incorpora
 .. toctree::
     motivation
     api
+    flowchart
     estimation
     inference
     references
