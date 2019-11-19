@@ -425,7 +425,8 @@ class DRLearner(_OrthoLearner):
         if self._multitask_model_final:
             raise AttributeError("A single multitask model was fitted for all treatments! Use multitask_model_cate.")
         _, T = self._expand_treatments(None, T)
-        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        ind = inverse_onehot(T).item() - 1
+        assert ind >= 0, "No model was fitted for the control"
         return super().model_final.models_cate[ind]
 
     @property

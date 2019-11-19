@@ -10,7 +10,7 @@ from copy import deepcopy
 from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
-from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params
+from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete
 
@@ -526,9 +526,9 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             estimator has a featurizer.)
         """
         _, T = self._expand_treatments(None, T)
-        ind = (T @ np.arange(T.shape[1])).astype(int)[0]
-        all_coefs = self.fitted_models_final[ind].coef_
-        return all_coefs
+        ind = inverse_onehot(T).item() - 1
+        assert ind >= 0, "No model was fitted for the control"
+        return self.fitted_models_final[ind].coef_
 
     def intercept_(self, T):
         """ The intercept in the linear model of the constant marginal treatment
@@ -544,7 +544,8 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         intercept: float or (n_y,) array like
         """
         _, T = self._expand_treatments(None, T)
-        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        ind = inverse_onehot(T).item() - 1
+        assert ind >= 0, "No model was fitted for the control"
         return self.fitted_models_final[ind].intercept_
 
     @BaseCateEstimator._defer_to_inference

@@ -72,10 +72,25 @@ def check_high_dimensional(X, T, *, threshold, featurizer=None, discrete_treatme
         warn(msg, UserWarning)
 
 
-def inverse_onehot(X):
-    """Take a one-hot-encoding where zero label is mapped to all zeros and
-    transform it back to the label vector"""
-    return np.matmul(X, np.arange(1, X.shape[1] + 1)).ravel().astype(int)
+def inverse_onehot(T):
+    """
+    Given a one-hot encoding of a value, return a vector reversing the encoding to get numeric treatment indices.
+
+    Note that we assume that the first column has been removed from the input.
+
+    Parameters
+    ----------
+    T : array (shape (n, d_t-1))
+        The one-hot-encoded array
+
+    Returns
+    -------
+    A : vector of int (shape (n,))
+        The un-encoded 0-based category indices
+    """
+    assert ndim(T) == 2
+    # note that by default OneHotEncoder returns float64s, so need to convert to int
+    return (T @ np.arange(1, T.shape[1] + 1)).astype(int)
 
 
 def issparse(X):
