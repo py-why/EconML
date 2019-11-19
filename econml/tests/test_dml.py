@@ -16,6 +16,7 @@ from econml.inference import BootstrapInference
 from contextlib import ExitStack
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
+from econml.sklearn_extensions.linear_model import WeightedLasso
 
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
@@ -78,17 +79,17 @@ class TestDML(unittest.TestCase):
                             if not is_discrete:
                                 all_infs.append(BootstrapInference(1))
 
-                            for est, multi, infs in [(LinearDMLCateEstimator(model_y=Lasso(),
+                            for est, multi, infs in [(LinearDMLCateEstimator(model_y=WeightedLasso(),
                                                                              model_t=model_t,
                                                                              discrete_treatment=is_discrete),
                                                       False,
                                                       all_infs),
-                                                     (SparseLinearDMLCateEstimator(model_y=LinearRegression(),
+                                                     (SparseLinearDMLCateEstimator(model_y=WeightedLasso(),
                                                                                    model_t=model_t,
                                                                                    discrete_treatment=is_discrete),
                                                       True,
                                                       [None]),
-                                                     (KernelDMLCateEstimator(model_y=LinearRegression(),
+                                                     (KernelDMLCateEstimator(model_y=WeightedLasso(),
                                                                              model_t=model_t,
                                                                              discrete_treatment=is_discrete),
                                                       False,
@@ -178,20 +179,20 @@ class TestDML(unittest.TestCase):
                                                            ((d_y,) if d_y > 0 else ()) +
                                                            ((d_t_final,) if d_t_final > 0 else()))
 
-                            model_t = LogisticRegression() if is_discrete else LinearRegression()
+                            model_t = LogisticRegression() if is_discrete else WeightedLasso()
 
                             # TODO Add bootstrap inference, once discrete treatment issue is fixed
                             base_infs = [None]
                             if not is_discrete:
                                 base_infs += [BootstrapInference(2)]
-                            for est, multi, infs in [(NonParamDMLCateEstimator(model_y=LinearRegression(),
+                            for est, multi, infs in [(NonParamDMLCateEstimator(model_y=WeightedLasso(),
                                                                                model_t=model_t,
-                                                                               model_final=LinearRegression(),
+                                                                               model_final=WeightedLasso(),
                                                                                featurizer=FunctionTransformer(),
                                                                                discrete_treatment=is_discrete),
                                                       True,
                                                       base_infs),
-                                                     (ForestDMLCateEstimator(model_y=LinearRegression(),
+                                                     (ForestDMLCateEstimator(model_y=WeightedLasso(),
                                                                              model_t=model_t,
                                                                              discrete_treatment=is_discrete),
                                                       True,
