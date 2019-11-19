@@ -178,13 +178,13 @@ class TestDML(unittest.TestCase):
                                                            ((d_y,) if d_y > 0 else ()) +
                                                            ((d_t_final,) if d_t_final > 0 else()))
 
-                            model_t = LogisticRegression() if is_discrete else Lasso()
+                            model_t = LogisticRegression() if is_discrete else LinearRegression()
 
                             # TODO Add bootstrap inference, once discrete treatment issue is fixed
                             base_infs = [None]
                             if not is_discrete:
                                 base_infs += [BootstrapInference(2)]
-                            for est, multi, infs in [(NonParamDMLCateEstimator(model_y=Lasso(),
+                            for est, multi, infs in [(NonParamDMLCateEstimator(model_y=LinearRegression(),
                                                                                model_t=model_t,
                                                                                model_final=LinearRegression(),
                                                                                featurizer=FunctionTransformer(),
