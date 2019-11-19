@@ -206,6 +206,7 @@ class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
         # need to set the fit args before the estimator is fit
         self.model_final.cov_type = self.cov_type
 
+
 class GenericModelFinalInference(Inference):
 
     def __init__(self):
