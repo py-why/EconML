@@ -176,7 +176,6 @@ class DMLCateEstimator(_RLearner):
                 model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold())
             else:
                 model_t = WeightedLassoCVWrapper()
-        # if make it auto, should we also consider multiple output or single output?
 
         class FirstStageWrapper:
             def __init__(self, model, is_Y):
