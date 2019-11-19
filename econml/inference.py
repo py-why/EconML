@@ -239,7 +239,7 @@ class GenericModelFinalInference(Inference):
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         lb_pre, ub_pre = self.const_marginal_effect_interval(X, alpha=alpha)
-        intrv_pre = np.array([lb_pre, ub_pre]) * (T1 - T0).ravel().reshape(1, -1)
+        intrv_pre = np.array([lb_pre.flatten(), ub_pre.flatten()]) * (T1 - T0).flatten().reshape(1, -1)
         lb = np.min(intrv_pre, axis=0)
         ub = np.max(intrv_pre, axis=0)
         return lb, ub

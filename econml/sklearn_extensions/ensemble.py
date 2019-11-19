@@ -27,7 +27,7 @@ MAX_RAND_SEED = np.iinfo(np.int32).max
 MAX_INT = np.iinfo(np.int32).max
 
 
-def _parallel_add_trees(tree, forest, X, y, sample_weight, sample_var, s_inds, tree_idx, n_trees, verbose=0):
+def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_trees, verbose=0):
     """Private function used to fit a single subsampled honest tree in parallel."""
     if verbose > 1:
         print("building tree %d of %d" % (tree_idx + 1, n_trees))
@@ -39,36 +39,23 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, sample_var, s_inds, t
     else:
         sample_weight = sample_weight[s_inds]
 
-    if sample_var is None:
-        sample_var_none = True
-        sample_var = np.zeros((X.shape[0],), dtype=np.float64)
-    else:
-        sampl_var_none = False
-
     # Split into estimation and splitting sample set
     if forest.honest:
         X_split, X_est, y_split, y_est,\
-            sample_weight_split, sample_weight_est,\
-            sample_var_split, sample_var_est = train_test_split(
-                X, y, sample_weight, sample_var, test_size=.5, shuffle=True)
+            sample_weight_split, sample_weight_est = train_test_split(
+                X, y, sample_weight, test_size=.5, shuffle=True)
     else:
-        X_split, X_est, y_split, y_est, sample_weight_split, sample_weight_est, sample_var_split, sample_var_est =\
-            X, X, y, y, sample_weight, sample_weight, sample_var, sample_var
+        X_split, X_est, y_split, y_est, sample_weight_split, sample_weight_est =\
+            X, X, y, y, sample_weight, sample_weight
 
     # Fit the tree on the splitting sample
     tree.fit(X_split, y_split, sample_weight=sample_weight_split, check_input=False)
 
-    if not sample_var_none or forest.honest:
-        # Apply the trained tree on the estimation sample to get the path for every estimation sample
-        path_est = tree.decision_path(X_est)
-
-    sample_var_node = None
-    if not sample_var_none:
-        sample_var_node = np.array(scipy.sparse.csr_matrix(sample_var_est.reshape(1, -1)).dot(path_est))[0]
-
     # Set the estimation values based on the estimation split
     total_weight_est = np.sum(sample_weight_est)
     if forest.honest:
+        # Apply the trained tree on the estimation sample to get the path for every estimation sample
+        path_est = tree.decision_path(X_est)
         # Calculate the total weight of estimation samples on each tree node
         weight_est = scipy.sparse.csr_matrix(sample_weight_est.reshape(1, -1)).dot(path_est)
         # Calculate the total number of estimation samples on each tree node
@@ -94,7 +81,7 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, sample_var, s_inds, t
                     stack.append((children_left[node_id], node_id))
                     stack.append((children_right[node_id], node_id))
 
-    return tree, sample_var_node
+    return tree
 
 
 class SubsampledHonestForest(ForestRegressor, RegressorMixin):
@@ -383,6 +370,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         X : features
         y : label
         sample_weight : sample weights
+        sample_var : variance of composite samples (not used here. Exists for API compatibility)
         """
 
         # Validate or convert input data
@@ -434,7 +422,6 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         if not self.warm_start or not hasattr(self, "estimators_"):
             # Free allocated memory, if any
             self.estimators_ = []
-            self.vars_ = []
 
         n_more_estimators = self.n_estimators - len(self.estimators_)
 
@@ -474,19 +461,14 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                                                                     int(np.ceil(self.subsample_fr *
                                                                                 (X.shape[0] // 2))),
                                                                     replace=False)])
-            trees_plus_vars = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
-                                       **_joblib_parallel_args(prefer='threads'))(
+            trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
+                             **_joblib_parallel_args(prefer='threads'))(
                 delayed(_parallel_add_trees)(
-                    t, self, X, y, sample_weight, sample_var, s_inds[i], i, len(trees),
+                    t, self, X, y, sample_weight, s_inds[i], i, len(trees),
                     verbose=self.verbose)
                 for i, t in enumerate(trees))
-            trees = [tree for tree, _ in trees_plus_vars]
             # Collect newly grown trees
             self.estimators_.extend(trees)
-
-            if sample_var is not None:
-                vars = [var for _, var in trees_plus_vars]
-                self.vars_.extend(vars)
 
         return self
 
@@ -532,8 +514,6 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                                            axis=0)
                                 for it in range(self.n_slices)])
         weight_hat = np.array([tree.tree_.weighted_n_node_samples[tree.apply(X)] for tree in self.estimators_])
-        if self.vars_:
-            var_hat = np.array([var[tree.apply(X)] for tree, var in zip(self.estimators_, self.vars_)])
         weight_hat_bags = np.array([np.nanmean(weight_hat[np.arange(it * self.slice_len,
                                                                     min((it + 1) * self.slice_len,
                                                                         self.n_estimators))], axis=0)
@@ -548,11 +528,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         """
         y_point_pred = np.sum(y_pred, axis=0) / np.sum(weight_hat, axis=0)
         bag_res = y_bags_pred - weight_hat_bags * y_point_pred.reshape(1, -1)
-        if not self.vars_:
-            std_pred = np.sqrt(np.nanmean(bag_res**2, axis=0)) / np.nanmean(weight_hat, axis=0)
-        else:
-            std_pred = np.sqrt(np.nanmean(bag_res**2, axis=0) + np.nanmean(var_hat, axis=0)) / \
-                np.nanmean(weight_hat, axis=0)
+        std_pred = np.sqrt(np.nanmean(bag_res**2, axis=0)) / np.nanmean(weight_hat, axis=0)
         y_bags_pred /= weight_hat_bags
 
         if normal:

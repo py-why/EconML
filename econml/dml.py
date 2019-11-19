@@ -800,3 +800,30 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
         options = super()._get_inference_options()
         options.update(blb=GenericModelFinalInference)
         return options
+
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
+        """
+        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+
+        Parameters
+        ----------
+        Y: (n × d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n × dₜ) matrix or vector of length n
+            Treatments for each sample
+        X: optional (n × dₓ) matrix
+            Features for each sample
+        W: optional (n × d_w) matrix
+            Controls for each sample
+        sample_weight: optional (n,) vector
+            Weights for each row
+        inference: string, `Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'blb'
+            (for Bootstrap-of-Little-Bags based inference)
+
+        Returns
+        -------
+        self
+        """
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
