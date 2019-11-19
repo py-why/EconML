@@ -56,10 +56,17 @@ def _build_tree_in_parallel(Y, T, X, W,
 
 def _fit_weighted_pipeline(model_instance, X, y, sample_weight):
     if not isinstance(model_instance, Pipeline):
-        model_instance.fit(X, y, sample_weight)
+        try:
+            model_instance.fit(X, y, sample_weight=sample_weight)
+        except Exception:
+            raise TypeError("Estimators of type {} do not accept weights.".format(model_instance.__class__.__name__))
     else:
-        last_step_name = model_instance.steps[-1][0]
-        model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
+        try:
+            last_step_name = model_instance.steps[-1][0]
+            model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
+        except Exception:
+            raise TypeError("Estimators of type {} do not accept weights.".format(
+                model_instance.steps[-1][1].__class__.__name__))
 
 
 def _cross_fit(model_instance, X, y, split_indices, sample_weight=None, predict_func_name='predict'):
