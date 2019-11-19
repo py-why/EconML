@@ -1,11 +1,35 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-"""Double ML.
+"""Double Machine Learning. The method uses machine learning methods to identify the
+part of the observed outcome and treatment that is not predictable by the controls X, W
+(aka residual outcome and residual treatment).
+Then estimates a CATE model by regressing the residual outcome on the residual treatment
+in a manner that accounts for heterogeneity in the regression coefficient, with respect
+to X.
 
-"Double Machine Learning" is an algorithm that applies arbitrary machine learning methods
-to fit the treatment and response, then uses a linear model to predict the response residuals
-from the treatment residuals.
+References
+----------
+
+\\ V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newey.
+    Double Machine Learning for Treatment and Causal Parameters.
+    https://arxiv.org/abs/1608.00060, 2016.
+
+\\ X. Nie and S. Wager.
+    Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
+    arXiv preprint arXiv:1712.04912, 2017. URL http://arxiv.org/abs/1712.04912.
+
+\\ V. Chernozhukov, M. Goldman, V. Semenova, and M. Taddy.
+    Orthogonal Machine Learning for Demand Estimation: High Dimensional Causal Inference in Dynamic Panels.
+    https://arxiv.org/abs/1712.09988, December 2017.
+
+\\ V. Chernozhukov, D. Nekipelov, V. Semenova, and V. Syrgkanis.
+    Two-Stage Estimation with a High-Dimensional Second Stage.
+    https://arxiv.org/abs/1806.04823, 2018.
+
+\\ Dylan Foster, Vasilis Syrgkanis (2019).
+    Orthogonal Statistical Learning.
+    ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
 
 """
 
@@ -17,7 +41,7 @@ from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, 
                         StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional, WeightedLassoCVWrapper)
 from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
-from sklearn.linear_model import LinearRegression, LassoCV, LogisticRegressionCV
+from sklearn.linear_model import LinearRegression, LassoCV, LogisticRegressionCV, ElasticNetCV
 from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
                                    FunctionTransformer)
 from sklearn.base import clone, TransformerMixin
@@ -33,7 +57,59 @@ from .sklearn_extensions.model_selection import WeightedStratifiedKFold
 
 class DMLCateEstimator(_RLearner):
     """
-    The base class for parametric Double ML estimators.
+    The base class for parametric Double ML estimators. The estimator is a special
+    case of an :class:`~econml._rlearner._RLearner` estimator, which in turn is a special case
+    of an :class:`~econml._ortho_learner._OrthoLearner` estimator, so it follows the two
+    stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
+    manner and a final stage estimates the CATE model. See the documentation of
+    :class:`~econml._ortho_learner._OrthoLearner` for a description of this two stage process.
+
+    In this estimator, the CATE is estimated by using the following estimating equations:
+
+    .. math ::
+        Y - \\E[Y | X, W] = \\Theta(X) \\cdot (T - \\E[T | X, W]) + \\epsilon
+
+    Thus if we estimate the nuisance functions :math:`q(X, W) = \\E[Y | X, W]` and
+    :math:`f(X, W)=\\E[T | X, W]` in the first stage, we can estimate the final stage cate for each
+    treatment t, by running a regression, minimizing the residual on residual square loss:
+
+    .. math ::
+        \\hat{\\theta} = \\arg\\min_{\\Theta}\
+        \\E_n\\left[ (\\tilde{Y} - \\Theta(X) \\cdot \\tilde{T})^2 \\right]
+
+    Where :math:`\\tilde{Y}=Y - \\E[Y | X, W]` and :math:`\\tilde{T}=T-\\E[T | X, W]` denotes the
+    residual outcome and residual treatment.
+
+    The DMLCateEstimator further assumes a linear parametric form for the cate, i.e. for each outcome
+    :math:`i` and treatment :math:`j`:
+
+    .. math ::
+        \\Theta_{i, j}(X) =  \\phi(X)' \\cdot \\Theta_{ij}
+
+    For some given feature mapping :math:`\\phi(X)` (the user can provide this featurizer via the `featurizer`
+    parameter at init time and could be any arbitrary class that adheres to the scikit-learn transformer
+    interface :py:class:`~sklearn.base.TransformerMixin`).
+
+    The second nuisance function :math:`q` is a simple regression problem and the
+    :class:`~econml.dml.DMLCateEstimator`
+    class takes as input the parameter `model_y`, which is an arbitrary scikit-learn regressor that
+    is internally used to solve this regression problem.
+
+    The problem of estimating the nuisance function :math:`f` is also a regression problem and
+    the :class:`~econml.dml.DMLCateEstimator`
+    class takes as input the parameter `model_t`, which is an arbitrary scikit-learn regressor that
+    is internally used to solve this regression problem. If the init flag `discrete_treatment` is set
+    to `True`, then the parameter `model_t` is treated as a scikit-learn classifier. The input categorical
+    treatment is one-hot encoded (excluding the lexicographically smallest treatment which is used as the
+    baseline) and the `predict_proba` method of the `model_t` classifier is used to
+    residualize the one-hot encoded treatment.
+
+    The final stage is (potentially multi-task) linear regression problem with outcomes the labels
+    :math:`\\tilde{Y}` and regressors the composite features
+    :math:`\\tilde{T}\\otimes \\phi(X) = \\mathtt{vec}(\\tilde{T}\\cdot \\phi(X)^T)`.
+    The :class:`~econml.dml.DMLCateEstimator` takes as input parameter
+    ``model_final``, which is any linear scikit-learn regressor that is internally used to solve this
+    (multi-task) linear regresion problem.
 
     Parameters
     ----------
@@ -437,7 +513,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
 
 
-class KernelDMLCateEstimator(LinearDMLCateEstimator):
+class KernelDMLCateEstimator(DMLCateEstimator):
     """
     A specialized version of the linear Double ML Estimator that uses random fourier features.
 
@@ -498,5 +574,6 @@ class KernelDMLCateEstimator(LinearDMLCateEstimator):
                 return np.sqrt(2 / dim) * np.cos(np.matmul(X, self.omegas) + self.biases)
 
         super().__init__(model_y=model_y, model_t=model_t,
+                         model_final=ElasticNetCV(),
                          featurizer=RandomFeatures(random_state),
                          discrete_treatment=discrete_treatment, n_splits=n_splits, random_state=random_state)
