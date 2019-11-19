@@ -14,10 +14,10 @@ import copy
 from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional)
+                        StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional, WeightedLassoCVWrapper)
 from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
-from sklearn.linear_model import LinearRegression, LassoCV
+from sklearn.linear_model import LinearRegression, LassoCV, LogisticRegressionCV
 from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
                                    FunctionTransformer)
 from sklearn.base import clone, TransformerMixin
@@ -28,6 +28,7 @@ from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                              DebiasedLassoCateEstimatorMixin)
 from .inference import StatsModelsInference
 from ._rlearner import _RLearner
+from .sklearn_extensions.model_selection import WeightedStratifiedKFold
 
 
 class DMLCateEstimator(_RLearner):
@@ -93,6 +94,13 @@ class DMLCateEstimator(_RLearner):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
+
+        if model_t == 'auto':
+            if discrete_treatment:
+                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold())
+            else:
+                model_t = WeightedLassoCVWrapper()
+        # if make it auto, should we also consider multiple output or single output?
 
         class FirstStageWrapper:
             def __init__(self, model, is_Y):
@@ -253,7 +261,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
     """
 
     def __init__(self,
-                 model_y=LassoCV(), model_t=LassoCV(),
+                 model_y=LassoCV(), model_t='auto',
                  featurizer=PolynomialFeatures(degree=1, include_bias=True),
                  linear_first_stages=True,
                  discrete_treatment=False,
@@ -370,7 +378,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
     """
 
     def __init__(self,
-                 model_y=LassoCV(), model_t=LassoCV(),
+                 model_y=LassoCV(), model_t='auto',
                  alpha='auto',
                  max_iter=1000,
                  tol=1e-4,
@@ -475,7 +483,7 @@ class KernelDMLCateEstimator(LinearDMLCateEstimator):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_y=LassoCV(), model_t=LassoCV(),
+    def __init__(self, model_y=LassoCV(), model_t='auto',
                  dim=20, bw=1.0, discrete_treatment=False, n_splits=2, random_state=None):
         class RandomFeatures(TransformerMixin):
             def __init__(self, random_state):

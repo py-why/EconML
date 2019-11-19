@@ -76,7 +76,7 @@ class TestDML(unittest.TestCase):
                                 all_infs.append(BootstrapInference(1))
 
                             for est, multi, infs in [(LinearDMLCateEstimator(model_y=Lasso(),
-                                                                             model_t=model_t,
+                                                                             model_t='auto',
                                                                              discrete_treatment=is_discrete),
                                                       False,
                                                       all_infs),

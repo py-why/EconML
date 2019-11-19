@@ -22,6 +22,7 @@ from collections.abc import Iterable
 from sklearn.model_selection._split import _CVIterableWrapper, CV_WARNING
 from sklearn.utils.multiclass import type_of_target
 import numbers
+from .sklearn_extensions.linear_model import WeightedLassoCV, WeightedMultiTaskLassoCV
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -1871,3 +1872,42 @@ class LassoCVWrapper:
     def predict(self, X):
         predictions = self.model.predict(X)
         return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
+
+
+class WeightedLassoCVWrapper:
+    """Helper class to wrap either WeightedLassoCV or WeightedMultiTaskLassoCV depending on the shape of the target."""
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+
+    def fit(self, X, y):
+        assert shape(X)[0] == shape(y)[0]
+        assert ndim(y) <= 2
+        self.needs_unravel = False
+        if ndim(y) == 2 and shape(y)[1] > 1:
+            self.model = WeightedMultiTaskLassoCV(*self.args, **self.kwargs)
+        else:
+            if ndim(y) == 2 and shape(y)[1] == 1:
+                y = np.ravel(y)
+                self.needs_unravel = True
+            self.model = WeightedLassoCV(*self.args, **self.kwargs)
+        self.model.fit(X, y)
+        # set intercept_ attribute
+        self.intercept_ = self.model.intercept_
+        # set coef_ attribute
+        self.coef_ = self.model.coef_
+        # set alpha_ attribute
+        self.alpha_ = self.model.alpha_
+        # set alphas_ attribute
+        self.alphas_ = self.model.alphas_
+        # set n_iter_ attribute
+        self.n_iter_ = self.model.n_iter_
+        return self
+
+    def predict(self, X):
+        predictions = self.model.predict(X)
+        return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
+
+    def score(self, X, y, sample_weight=None):
+        return self.model.score(X, y, sample_weight)
