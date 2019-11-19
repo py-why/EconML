@@ -50,7 +50,7 @@ def _coverage_profile(est, X_test, alpha, true_coef, true_effect):
     cov['coef_lower'] = coef_interval[0].flatten()
     cov['coef_upper'] = coef_interval[1].flatten()
     cov['true_coef'] = true_coef.flatten()
-    cov['coef_stderr'] = est._model_final._model.coef_stderr_.flatten()
+    cov['coef_stderr'] = est.model_final.coef_stderr_.flatten()
     cov['coef_sqerror'] = ((est.coef_ - true_coef)**2).flatten()
     cov['coef_cov'] = ((true_coef >= coef_interval[0]) & (true_coef <= coef_interval[1])).flatten()
     cov['coef_length'] = (coef_interval[1] - coef_interval[0]).flatten()
@@ -64,7 +64,7 @@ def _coverage_profile(est, X_test, alpha, true_coef, true_effect):
     cov['effect_upper'] = effect_interval[1].flatten()
     cov['true_effect'] = true_eff.flatten()
     cov['effect_sqerror'] = ((est_effect - true_eff)**2).flatten()
-    cov['effect_stderr'] = est._model_final._model.prediction_stderr(
+    cov['effect_stderr'] = est.model_final.prediction_stderr(
         cross_product(add_constant(X_test), np.ones((X_test.shape[0], d_t)))).flatten()
     cov['effect_cov'] = ((true_eff >= effect_interval[0]) & (true_eff <= effect_interval[1])).flatten()
     cov['effect_length'] = (effect_interval[1] - effect_interval[0]).flatten()
