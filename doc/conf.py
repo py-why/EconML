@@ -42,7 +42,13 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinx.ext.inheritance_diagram',
 ]
+inheritance_graph_attrs = dict(rankdir="TB", size='"6.0, 8.0"',
+                               fontsize=8, ratio='compress',
+                               bgcolor='"#f8f8f8"', center='true', style='solid')
+inheritance_node_attrs = dict(shape='ellipse', fontsize=8,
+                              fontname="sfmono", height=0.75)
 napoleon_use_param = False
 autosummary_generate = True
 autodoc_default_options = {'members': None,
@@ -110,6 +116,7 @@ html_theme_options = {
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 # html_static_path = ['_static']
+html_extra_path = ['map.svg']
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
@@ -204,7 +211,8 @@ epub_exclude_files = ['search.html']
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'numpy': ('https://docs.scipy.org/doc/numpy/', None),
-                       'sklearn': ('http://scikit-learn.org/stable', None)}
+                       'sklearn': ('https://scikit-learn.org/stable', None),
+                       'statsmodels': ('https://www.statsmodels.org/stable', None)}
 
 # -- Options for todo extension ----------------------------------------------
 

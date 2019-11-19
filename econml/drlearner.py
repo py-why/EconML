@@ -398,7 +398,7 @@ class DRLearner(_OrthoLearner):
 
         Returns
         -------
-        multitask_model_cate: object of type(model_final)
+        multitask_model_cate: object of type(`model_final`)
             An instance of the model_final object that was fitted after calling fit which corresponds whose
             vector of outcomes correspond to the CATE model for each treatment, compared to baseline.
             Available only when multitask_model_final=True.
@@ -461,7 +461,7 @@ class DRLearner(_OrthoLearner):
 
         Returns
         -------
-        featurizer: object of type(featurizer)
+        featurizer: object of type(`featurizer`)
             An instance of the fitted featurizer that was used to preprocess X in the final CATE model training.
             Available only when featurizer is not None and X is not None.
         """

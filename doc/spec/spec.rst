@@ -1,5 +1,5 @@
-EconML Specification
-====================
+EconML User Guide
+=================
 
 Causal machine learning applies the power of machine learning techniques to answer causal questions.  
 
@@ -15,6 +15,7 @@ The EconML Python SDK, developed by the ALICE team at MSR New England, incorpora
 .. toctree::
     motivation
     api
+    flowchart
     estimation
     inference
     references

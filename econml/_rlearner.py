@@ -46,7 +46,28 @@ from ._ortho_learner import _OrthoLearner
 
 class _RLearner(_OrthoLearner):
     """
-    Base class for orthogonal learners.
+    Base class for CATE learners that residualize treatment and outcome and run residual on residual regression.
+    The estimator is a special of an :class:`~econml._ortho_learner._OrthoLearner` estimator,
+    so it follows the two
+    stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
+    manner and a final stage estimates the CATE model. See the documentation of
+    :class:`~econml._ortho_learner._OrthoLearner` for a description of this two stage process.
+
+    In this estimator, the CATE is estimated by using the following estimating equations:
+
+    .. math ::
+        Y - \\E[Y | X, W] = \\Theta(X) \\cdot (T - \\E[T | X, W]) + \\epsilon
+
+    Thus if we estimate the nuisance functions :math:`q(X, W) = \\E[Y | X, W]` and
+    :math:`f(X, W)=\\E[T | X, W]` in the first stage, we can estimate the final stage cate for each
+    treatment t, by running a regression, minimizing the residual on residual square loss:
+
+    .. math ::
+        \\hat{\\theta} = \\arg\\min_{\\Theta}\
+        \\E_n\\left[ (\\tilde{Y} - \\Theta(X) \\cdot \\tilde{T})^2 \\right]
+
+    Where :math:`\\tilde{Y}=Y - \\E[Y | X, W]` and :math:`\\tilde{T}=T-\\E[T | X, W]` denotes the
+    residual outcome and residual treatment.
 
     Parameters
     ----------

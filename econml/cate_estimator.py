@@ -387,23 +387,78 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @property
     def coef_(self):
+        """ The coefficients in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        coef: (n_x * n_t,) or (n_y, n_x * n_t) array like
+            Where n_x is the number of features that enter the final model (either the
+            dimension of X or the dimension of featurizer.fit_transform(X) if the CATE
+            estimator has a featurizer.), n_t is the number of treatments, n_y is
+            the number of outcomes. The coefficient is flattened in a manner that
+            the first block of n_x columns are the coefficients associated with treatment 0,
+            the next n_x columns are the coefficients associated with treatment 1 etc.
+        """
         return self.model_final.coef_
 
     @property
     def intercept_(self):
+        """ The intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        intercept: float or (n_y,) array like
+        """
         return self.model_final.intercept_
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, *, alpha=0.1):
+        """ The coefficients in the linear model of the constant marginal treatment
+        effect.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lb, ub: tuple(type of :meth:`coef_()<coef_>`, type of :meth:`coef_()<coef_>`)
+            The lower and upper bounds of the confidence interval for each quantity.
+        """
         pass
 
     @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, *, alpha=0.1):
+        """ The intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple(type of :meth:`intercept_()<intercept_>`, type of :meth:`intercept_()<intercept_>`)
+            The lower and upper bounds of the confidence interval.
+        """
         pass
 
 
 class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
-    """Mixin for cate models where the final stage is a stats model."""
+    """
+    Mixin class that offers `inference='statsmodels'` options to the CATE estimator
+    that inherits it.
+
+    Such an estimator must implement a :attr:`model_final` attribute that points
+    to the fitted final :py:class:`~econml.utilities.StatsModelsLinearRegression` object that
+    represents the fitted CATE model.
+    """
 
     def _get_inference_options(self):
         # add statsmodels to parent's options
@@ -423,7 +478,7 @@ class DebiasedLassoCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
 
 
 class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
-    # TODO Create parent StatsModelsCateEstimatorMixin class so that some functionalities can be shared
+    # TODO Share some logic with non-discrete version
 
     def coef_(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
@@ -477,7 +532,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        lower, upper: tuple(type of :meth:`coef_(T)<coef_>`, type of :meth:`coef_(T)<coef_`)
+        lower, upper: tuple(type of :meth:`coef_(T)<coef_>`, type of :meth:`coef_(T)<coef_>`)
             The lower and upper bounds of the confidence interval for each quantity.
         """
         pass
@@ -504,7 +559,15 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
 
 class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscreteMixin):
-    # TODO Create parent StatsModelsCateEstimatorMixin class so that some functionalities can be shared
+    """
+    Mixin class that offers `inference='statsmodels'` options to the CATE estimator
+    that inherits it.
+
+    Such an estimator must implement a :attr:`model_final` attribute that points
+    to a :py:class:`~econml.utilities.StatsModelsLinearRegression` object that is cloned to fit
+    each discrete treatment target CATE model and a :attr:`fitted_models_final` attribute
+    that returns the list of fitted final models that represent the CATE for each categorical treatment.
+    """
 
     def _get_inference_options(self):
         # add statsmodels to parent's options
@@ -514,6 +577,7 @@ class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscret
 
 
 class DebiasedLassoCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscreteMixin):
+    """Mixin for cate models where the final stage is a debiased lasso model."""
 
     def _get_inference_options(self):
         # add statsmodels to parent's options
