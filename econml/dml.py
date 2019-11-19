@@ -119,14 +119,21 @@ class _FinalWrapper:
             sign_T_res = np.sign(T_res)
             sign_T_res[sign_T_res == 0] = 1
             clipped_T_res = np.sign(T_res) * np.clip(np.abs(T_res), 1e-5, np.inf)
-            if sample_weight is not None:
-                if sample_var is not None:
-                    self._model.fit(X, Y_res / clipped_T_res, sample_weight=sample_weight * T_res.flatten()**2,
-                                    sample_var=sample_var / clipped_T_res**2)
-                else:
-                    self._model.fit(X, Y_res / clipped_T_res, sample_weight=sample_weight * T_res.flatten()**2)
+            if np.ndim(Y_res) > 1:
+                target = Y_res / clipped_T_res.reshape(-1, 1)
+                target_var = sample_var / (clipped_T_res**2).reshape(-1, 1) if sample_var is not None else None
             else:
-                self._model.fit(X, Y_res / clipped_T_res, sample_weight=T_res.flatten()**2)
+                target = Y_res / clipped_T_res
+                target_var = sample_var / clipped_T_res**2 if sample_var is not None else None
+
+            if sample_weight is not None:
+                if target_var is not None:
+                    self._model.fit(F, target, sample_weight=sample_weight * T_res.flatten()**2,
+                                    sample_var=target_var)
+                else:
+                    self._model.fit(F, target, sample_weight=sample_weight * T_res.flatten()**2)
+            else:
+                self._model.fit(F, target, sample_weight=T_res.flatten()**2)
 
     def predict(self, X):
         F = self._featurizer.transform(X) if X is not None else np.ones((1, 1))

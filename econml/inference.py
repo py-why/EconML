@@ -239,7 +239,13 @@ class GenericModelFinalInference(Inference):
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         lb_pre, ub_pre = self.const_marginal_effect_interval(X, alpha=alpha)
-        intrv_pre = np.array([lb_pre.flatten(), ub_pre.flatten()]) * (T1 - T0).flatten().reshape(1, -1)
+        dT = T1 - T0
+        einsum_str = 'myt,mt->my'
+        if ndim(dT) == 1:
+            einsum_str = einsum_str.replace('t', '')
+        if ndim(lb_pre) == ndim(dT):  # y is a vector, rather than a 2D array
+            einsum_str = einsum_str.replace('y', '')
+        intrv_pre = np.array([np.einsum(einsum_str, lb_pre, dT), np.einsum(einsum_str, ub_pre, dT)])
         lb = np.min(intrv_pre, axis=0)
         ub = np.max(intrv_pre, axis=0)
         return lb, ub

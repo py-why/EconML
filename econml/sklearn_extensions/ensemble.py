@@ -493,7 +493,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         y_pred = super(SubsampledHonestForest, self).predict(X)
         weight_hat = self._weight(X)
         if len(y_pred.shape) > 1:
-            weight_hat.reshape((y_pred.shape[0], 1))
+            weight_hat = weight_hat.reshape((y_pred.shape[0], 1))
         return y_pred / weight_hat
 
     def predict_interval(self, X, alpha=.1, normal=True):
@@ -518,6 +518,9 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                                                                     min((it + 1) * self.slice_len,
                                                                         self.n_estimators))], axis=0)
                                     for it in range(self.n_slices)])
+        if np.ndim(y_pred) > 2:
+            weight_hat = weight_hat[:, :, np.newaxis]
+            weight_hat_bags = weight_hat_bags[:, :, np.newaxis]
 
         """
         The recommended approach in the GRF paper for estimating variance of estimate, specialized to this setup.
@@ -527,7 +530,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                 Var_{random half-samples S}[ \\sum_{b\\in S} w_b(x) (Y_i - \\theta(X)) ] / (\\sum_{b} w_b(x))^2
         """
         y_point_pred = np.sum(y_pred, axis=0) / np.sum(weight_hat, axis=0)
-        bag_res = y_bags_pred - weight_hat_bags * y_point_pred.reshape(1, -1)
+        bag_res = y_bags_pred - weight_hat_bags * np.expand_dims(y_point_pred, axis=0)
         std_pred = np.sqrt(np.nanmean(bag_res**2, axis=0)) / np.nanmean(weight_hat, axis=0)
         y_bags_pred /= weight_hat_bags
 
