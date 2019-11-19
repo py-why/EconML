@@ -14,6 +14,8 @@ import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference
 from contextlib import ExitStack
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, GradientBoostingClassifier
+import itertools
 
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
@@ -233,6 +235,49 @@ class TestDML(unittest.TestCase):
                                             effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
                                             eff = est.effect(X) if not is_discrete else est.effect(X, T0='a', T1='b')
                                             self.assertEqual(shape(eff), effect_shape2)
+
+    def test_forest_dml_perf(self):
+        np.random.seed(123)
+        n = 10000  # number of raw samples
+        d = 4
+        X = np.random.binomial(1, .5, size=(n, d))
+        T = np.random.binomial(1, .5, size=(n,))
+
+        def true_fn(x): return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
+        y = true_fn(X) * T + X[:, 0] + (1 * X[:, 0] + 1) * np.random.normal(0, 1, size=(n,))
+        est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
+                                     model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
+                                     discrete_treatment=True,
+                                     n_crossfit_splits=5,
+                                     n_estimators=100,
+                                     subsample_fr=.5,
+                                     min_samples_leaf=5,
+                                     verbose=0, min_weight_fraction_leaf=.03)
+        est.fit(y, T, X, inference='blb')
+        X_test = np.array(list(itertools.product([0, 1], repeat=4)))
+        point = est.effect(X_test)
+        truth = true_fn(X_test)
+        lb, ub = est.effect_interval(X_test, alpha=.01)
+        np.testing.assert_allclose(point, truth, rtol=0, atol=.2)
+        np.testing.assert_array_less(lb - .01, truth)
+        np.testing.assert_array_less(truth, ub + .01)
+
+        est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
+                                     model_t=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
+                                     discrete_treatment=False,
+                                     n_crossfit_splits=5,
+                                     n_estimators=100,
+                                     subsample_fr=.5,
+                                     min_samples_leaf=5,
+                                     verbose=0, min_weight_fraction_leaf=.03)
+        est.fit(y, T, X, inference='blb')
+        X_test = np.array(list(itertools.product([0, 1], repeat=4)))
+        point = est.effect(X_test)
+        truth = true_fn(X_test)
+        lb, ub = est.effect_interval(X_test, alpha=.01)
+        np.testing.assert_allclose(point, truth, rtol=0, atol=.3)
+        np.testing.assert_array_less(lb - .01, truth)
+        np.testing.assert_array_less(truth, ub + .01)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
