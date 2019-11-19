@@ -137,8 +137,8 @@ class TestDML(unittest.TestCase):
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
         dmls = [
-            LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer()),
-            SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
+            LinearDMLCateEstimator(LinearRegression(), LinearRegression(), fit_cate_intercept=False),
+            SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), fit_cate_intercept=False)
         ]
         for dml in dmls:
             dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
@@ -149,8 +149,8 @@ class TestDML(unittest.TestCase):
     def test_can_use_sample_weights(self):
         """Test that we can pass sample weights to an estimator."""
         dmls = [
-            LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer()),
-            SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
+            LinearDMLCateEstimator(LinearRegression(), LinearRegression(), fit_cate_intercept=False),
+            SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), fit_cate_intercept=False)
         ]
         for dml in dmls:
             dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]),
@@ -161,9 +161,9 @@ class TestDML(unittest.TestCase):
         """Test that we can use discrete treatments"""
         dmls = [
             LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
-                                   featurizer=FunctionTransformer(), discrete_treatment=True),
+                                   fit_cate_intercept=False, discrete_treatment=True),
             SparseLinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
-                                         featurizer=FunctionTransformer(), discrete_treatment=True)
+                                         fit_cate_intercept=False, discrete_treatment=True)
         ]
         for dml in dmls:
             # create a simple artificial setup where effect of moving from treatment
@@ -247,7 +247,7 @@ class TestDML(unittest.TestCase):
         # (incorrectly) use a final model with an intercept
         dml = DMLCateEstimator(LinearRegression(), LinearRegression(),
                                model_final=InterceptModel,
-                               featurizer=FunctionTransformer())
+                               fit_cate_intercept=False)
         # Because final model is fixed, actual values of T and Y don't matter
         t = np.random.normal(size=100)
         y = np.random.normal(size=100)
@@ -295,7 +295,7 @@ class TestDML(unittest.TestCase):
         Y = T * (x @ a) + xw @ g + err_Y
         # Test sparse estimator
         # --> test coef_, intercept_
-        sparse_dml = SparseLinearDMLCateEstimator(featurizer=FunctionTransformer())
+        sparse_dml = SparseLinearDMLCateEstimator(fit_cate_intercept=False)
         sparse_dml.fit(Y, T, x, w, inference='debiasedlasso')
         np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
         self.assertEqual(sparse_dml.intercept_, 0)
@@ -369,7 +369,7 @@ class TestDML(unittest.TestCase):
             t[fold * n:(fold + 1) * n] = t_f
 
         dml = SparseLinearDMLCateEstimator(LinearRegression(fit_intercept=False), LinearRegression(
-            fit_intercept=False), featurizer=FunctionTransformer())
+            fit_intercept=False), fit_cate_intercept=False)
         dml.fit(y, t, x, w)
 
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
