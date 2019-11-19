@@ -178,7 +178,7 @@ class TestOrthoForest(unittest.TestCase):
         assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
 
-    def test_nuissance_model_has_weights(self):
+    def test_nuisance_model_has_weights(self):
         """Test whether the correct exception is being raised if model_final doesn't have weights."""
         # Generate data with continuous treatments
         T = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_T) + \
