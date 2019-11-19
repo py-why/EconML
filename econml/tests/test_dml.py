@@ -180,18 +180,22 @@ class TestDML(unittest.TestCase):
 
                             model_t = LogisticRegression() if is_discrete else Lasso()
 
+                            # TODO Add bootstrap inference, once discrete treatment issue is fixed
+                            base_infs = [None]
+                            if not is_discrete:
+                                base_infs += [BootstrapInference(2)]
                             for est, multi, infs in [(NonParamDMLCateEstimator(model_y=Lasso(),
                                                                                model_t=model_t,
                                                                                model_final=LinearRegression(),
                                                                                featurizer=FunctionTransformer(),
                                                                                discrete_treatment=is_discrete),
                                                       True,
-                                                      [None, BootstrapInference(2)]),
+                                                      base_infs),
                                                      (ForestDMLCateEstimator(model_y=LinearRegression(),
                                                                              model_t=model_t,
                                                                              discrete_treatment=is_discrete),
                                                       True,
-                                                      [None, BootstrapInference(2), 'blb'])]:
+                                                      base_infs + ['blb'])]:
 
                                 if not(multi) and d_y > 1:
                                     continue
