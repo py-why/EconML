@@ -5,8 +5,8 @@ import abc
 import numpy as np
 from scipy.stats import norm
 from .bootstrap import BootstrapEstimator
-from .utilities import cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, ndim,\
-    parse_final_model_params
+from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects,
+                        ndim, inverse_onehot, parse_final_model_params)
 
 """Options for performing inference in estimators."""
 
@@ -195,12 +195,14 @@ class LinearModelFinalInferenceDiscrete(Inference):
 
     def coef__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
-        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        ind = inverse_onehot(T).item() - 1
+        assert ind >= 0, "No model was fitted for the control"
         return self.fitted_models_final[ind].coef__interval(alpha)
 
     def intercept__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
-        ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
+        ind = inverse_onehot(T).item() - 1
+        assert ind >= 0, "No model was fitted for the control"
         return self.fitted_models_final[ind].intercept__interval(alpha)
 
 
