@@ -243,7 +243,8 @@ class TestDML(unittest.TestCase):
         X = np.random.binomial(1, .5, size=(n, d))
         T = np.random.binomial(1, .5, size=(n,))
 
-        def true_fn(x): return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
+        def true_fn(x):
+            return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
         y = true_fn(X) * T + X[:, 0] + (1 * X[:, 0] + 1) * np.random.normal(0, 1, size=(n,))
         est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
                                      model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
