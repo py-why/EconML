@@ -239,10 +239,10 @@ def cross_product(*XS):
 
     Returns
     -------
-    n x (d1*d2*...) matrix
+    A : n x (d1*d2*...) matrix
         Matrix of n samples of d1*d2*... cross product features,
-        arranged in form such that each row t of X12 contains:
-        [X1[t,0]*X2[t,0]*..., ..., X1[t,d1-1]*X2[t,0]*..., X1[t,0]*X2[t,1]*..., ..., X1[t,d1-1]*X2[t,1]*..., ...]
+        arranged in form such that each row t of A contains:
+        [X1[t,0]*X2[t,0]*..., ..., X1[t,0]*X2[t,d2-1]*..., X1[t,1]*X2[t,0]*..., ..., X1[t,1]*X2[t,d2-1]*..., ...]
 
     """
     for X in XS:
@@ -251,12 +251,9 @@ def cross_product(*XS):
     for X in XS:
         assert n == shape(X)[0]
 
-    # TODO: wouldn't making X1 vary more slowly than X2 be more intuitive?
-    #       (but note that changing this would necessitate changes to callers
-    #       to switch the order to preserve behavior where order is important)
     def cross(XS):
         k = len(XS)
-        XS = [reshape(XS[i], (n,) + (1,) * (k - i - 1) + (-1,) + (1,) * i) for i in range(k)]
+        XS = [reshape(XS[i], (n,) + (1,) * i + (-1,) + (1,) * (k - i - 1)) for i in range(k)]
         return reshape(reduce(np.multiply, XS), (n, -1))
     return _apply(cross, XS)
 
