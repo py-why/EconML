@@ -276,7 +276,7 @@ class DMLCateEstimator(_RLearner):
                     prediction -= self._intercept
                 return reshape_treatmentwise_effects(prediction,
                                                      self._d_t, self._d_y)
-
+        self.bias_part_of_coef = fit_cate_intercept
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
                          model_t=FirstStageWrapper(model_t, is_Y=False),
                          model_final=FinalWrapper(),

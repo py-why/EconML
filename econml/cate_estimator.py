@@ -383,7 +383,20 @@ class TreatmentExpansionMixin(BaseCateEstimator):
 
 
 class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
-    """Base class for models where the final stage is a linear model."""
+    """
+    Base class for models where the final stage is a linear model.
+
+    Subclasses must expose a ``model_final`` attribute containing the model's
+    final stage model.
+
+    Attributes
+    ----------
+    bias_part_of_coef: bool
+        Whether the CATE model's intercept is contained in the final model's ``coef_`` rather
+        than as a separate ``intercept_``
+    """
+
+    bias_part_of_coef = False
 
     @property
     def coef_(self):
@@ -400,7 +413,11 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             the first block of n_x columns are the coefficients associated with treatment 0,
             the next n_x columns are the coefficients associated with treatment 1 etc.
         """
-        return self.model_final.coef_
+        all_coefs = self.model_final.coef_
+        if self.bias_part_of_coef:
+            return all_coefs[..., 1:]
+        else:
+            return all_coefs
 
     @property
     def intercept_(self):
@@ -411,7 +428,11 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         -------
         intercept: float or (n_y,) array like
         """
-        return self.model_final.intercept_
+        if self.bias_part_of_coef:
+            all_coefs = self.model_final.coef_
+            return all_coefs[..., 0]
+        else:
+            return self.model_final.intercept_
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, *, alpha=0.1):
@@ -479,6 +500,20 @@ class DebiasedLassoCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
 
 class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     # TODO Share some logic with non-discrete version
+    """
+    Base class for models where the final stage is a linear model.
+
+    Subclasses must expose a ``fitted_models_final`` attribute 
+    returning an array of the fitted models for each non-control treatment
+
+    Attributes
+    ----------
+    bias_part_of_coef: bool
+        Whether the CATE model's intercept is contained in each final model's ``coef_`` rather
+        than as a separate ``intercept_``
+    """
+
+    bias_part_of_coef = False
 
     def coef_(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
@@ -498,7 +533,11 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         _, T = self._expand_treatments(None, T)
         ind = (T @ np.arange(T.shape[1])).astype(int)[0]
-        return self.fitted_models_final[ind].coef_
+        all_coefs = self.fitted_models_final[ind].coef_
+        if self.bias_part_of_coef:
+            return all_coefs[..., 1:]
+        else:
+            return all_coefs
 
     def intercept_(self, T):
         """ The intercept in the linear model of the constant marginal treatment
@@ -515,7 +554,11 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         _, T = self._expand_treatments(None, T)
         ind = (T @ np.arange(1, T.shape[1] + 1)).astype(int)[0] - 1
-        return self.fitted_models_final[ind].intercept_
+        if self.bias_part_of_coef:
+            all_coefs = self.fitted_models_final[ind].coef_
+            return all_coefs[..., 0]
+        else:
+            return self.fitted_models_final[ind].intercept_
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, T, *, alpha=0.1):

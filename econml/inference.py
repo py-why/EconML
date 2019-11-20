@@ -96,10 +96,18 @@ class LinearModelFinalInference(Inference):
                      for pred in preds)
 
     def coef__interval(self, *, alpha=0.1):
-        return self.model_final.coef__interval(alpha)
+        if self._est.bias_part_of_coef:
+            lo, hi = self.model_final.coef__interval(alpha)
+            return lo[..., 1:], hi[..., 1:]
+        else:
+            return self.model_final.coef__interval(alpha)
 
     def intercept__interval(self, *, alpha=0.1):
-        return self.model_final.intercept__interval(alpha)
+        if self._est.bias_part_of_coef:
+            lo, hi = self.model_final.coef__interval(alpha)
+            return lo[..., 0], hi[..., 0]
+        else:
+            return self.model_final.intercept__interval(alpha)
 
     def _predict_interval(self, X, alpha):
         return self.model_final.predict_interval(X, alpha=alpha)
