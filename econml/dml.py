@@ -118,10 +118,11 @@ class DMLCateEstimator(_RLearner):
         `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
 
     model_t: estimator or 'auto' (default is 'auto')
-        The estimator for fitting the treatment to the features. 
+        The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods.  Must be a linear model for correctness
-        when linear_first_stages is ``True``; 
-        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>` will be applied for discrete treatment, 
+        when linear_first_stages is ``True``;
+        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>`
+        will be applied for discrete treatment,
         and :class:`WeightedLassoCV() <econml.sklearn_extensions.linear_model.WeightedLassoCV>`/
         :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
         will be applied for continuous treatment.
@@ -296,14 +297,16 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`WeightedLassoCVWrapper() <econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
+    model_y: estimator, optional (default is :class:`WeightedLassoCVWrapper()
+        <econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
     model_t: estimator or 'auto', optional (default is 'auto')
-        The estimator for fitting the treatment to the features. 
+        The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
-        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>` will be applied for discrete treatment, 
+        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>`
+        will be applied for discrete treatment,
         and :class:`WeightedLassoCV() <econml.sklearn_extensions.linear_model.WeightedLassoCV>`/
         :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
         will be applied for continuous treatment.
@@ -405,15 +408,17 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`WeightedLassoCVWrapper() <econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
+    model_y: estimator, optional (default is :class:`WeightedLassoCVWrapper()
+        <econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
     model_t: estimator or 'auto', optional (default is 'auto')
-        The estimator for fitting the treatment to the features. 
-        If estimator, it must implement `fit` and `predict` methods, and must be a 
+        The estimator for fitting the treatment to the features.
+        If estimator, it must implement `fit` and `predict` methods, and must be a
         linear model for correctness;
-        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>` will be applied for discrete treatment, 
+        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>`
+        will be applied for discrete treatment,
         and :class:`WeightedLassoCV() <econml.sklearn_extensions.linear_model.WeightedLassoCV>`/
         :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
         will be applied for continuous treatment.
@@ -537,9 +542,10 @@ class KernelDMLCateEstimator(DMLCateEstimator):
         `fit` and `predict` methods.
 
     model_t: estimator or 'auto', optional (default is 'auto')
-        The estimator for fitting the treatment to the features. 
+        The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
-        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>` will be applied for discrete treatment, 
+        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>`
+        will be applied for discrete treatment,
         and :class:`WeightedLassoCV() <econml.sklearn_extensions.linear_model.WeightedLassoCV>`/
         :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
         will be applied for continuous treatment.
