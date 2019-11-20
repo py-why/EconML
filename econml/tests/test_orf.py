@@ -191,7 +191,11 @@ class TestOrthoForest(unittest.TestCase):
                                              model_T=Lasso(),
                                              model_Y=Lasso())
         est.fit(Y=Y, T=T, X=TestOrthoForest.X, W=TestOrthoForest.W)
-        self.assertRaisesRegexp(TypeError, "Estimators of type Lasso do not accept weights.",
+        weights_error_msg = (
+            "Estimators of type {} do not accept weights. "
+            "Consider using the class WeightedModelWrapper from econml.utilities to build a weighted model."
+        )
+        self.assertRaisesRegexp(TypeError, weights_error_msg.format("Lasso"),
                                 est.effect, X=TestOrthoForest.X)
 
     def _test_te(self, learner_instance, expected_te, tol, treatment_type='continuous'):
