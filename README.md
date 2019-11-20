@@ -133,7 +133,7 @@ To install from source, see [For Developers](#for-developers) section below.
                                        model_T=WeightedLassoCV(cv=3), model_Y=WeightedLassoCV(cv=3)
                                        )
   est.fit(Y, T, X, W)
-  treatment_effects = est.effect(X_test, T0=0, T1=3)
+  treatment_effects = est.effect(X_test)
   ```
 
 * [Deep Instrumental Variables](#references)
@@ -161,7 +161,7 @@ To install from source, see [For Developers](#for-developers) section below.
                         n_samples=1 # Number of samples used to estimate the response
                         )
   est.fit(Y, T, X, Z) # Z -> instrumental variables
-  treatment_effects = est.effect(X_test, T0=0, T1=2)
+  treatment_effects = est.effect(X_test)
   ```
 
 
