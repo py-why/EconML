@@ -320,8 +320,6 @@ class DRLearner(_OrthoLearner):
                 if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.transform(X)
                 Y_pred, = nuisances
-                if sample_weight is None:
-                    sample_weight = np.ones(Y.shape[0])
                 if self._multitask_model_final:
                     return np.mean(np.average((Y_pred[:, 1:] - Y_pred[:, [0]] - self.model_cate.predict(X))**2,
                                               weights=sample_weight, axis=0))
