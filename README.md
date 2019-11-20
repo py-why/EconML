@@ -170,7 +170,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from econml.dml import LinearDMLCateEstimator
   
   est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
-  # Confidence intervals through the Statsmodels model final
+  # Confidence intervals assuming normality, via 'statsmodels'
   # Report [alpha/2, 1-alpha/2] confidence interval
   est.fit(Y, T, X, W, inference='statsmodels')
   treatment_effect_interval = est.effect_interval(X_test, alpha=0.1)
