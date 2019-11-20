@@ -149,7 +149,7 @@ class TestDML(unittest.TestCase):
     def test_can_use_sample_weights(self):
         """Test that we can pass sample weights to an estimator."""
         dmls = [
-            LinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer()),
+            LinearDMLCateEstimator(LinearRegression(), 'auto', featurizer=FunctionTransformer()),
             SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
         ]
         for dml in dmls:
