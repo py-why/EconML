@@ -178,6 +178,26 @@ class TestOrthoForest(unittest.TestCase):
         assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
 
+    def test_nuisance_model_has_weights(self):
+        """Test whether the correct exception is being raised if model_final doesn't have weights."""
+        # Generate data with continuous treatments
+        T = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_T) + \
+            TestOrthoForest.eta_sample(TestOrthoForest.n)
+        TE = np.array([self._exp_te(x) for x in TestOrthoForest.X])
+        Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
+            T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
+        # Instantiate model with most of the default parameters
+        est = ContinuousTreatmentOrthoForest(n_jobs=4, n_trees=10,
+                                             model_T=Lasso(),
+                                             model_Y=Lasso())
+        est.fit(Y=Y, T=T, X=TestOrthoForest.X, W=TestOrthoForest.W)
+        weights_error_msg = (
+            "Estimators of type {} do not accept weights. "
+            "Consider using the class WeightedModelWrapper from econml.utilities to build a weighted model."
+        )
+        self.assertRaisesRegexp(TypeError, weights_error_msg.format("Lasso"),
+                                est.effect, X=TestOrthoForest.X)
+
     def _test_te(self, learner_instance, expected_te, tol, treatment_type='continuous'):
         # Compute the treatment effect on test points
         te_hat = learner_instance.const_marginal_effect(
