@@ -55,11 +55,29 @@ def _build_tree_in_parallel(Y, T, X, W,
 
 
 def _fit_weighted_pipeline(model_instance, X, y, sample_weight):
+    weights_error_msg = (
+        "Estimators of type {} do not accept weights. "
+        "Consider using the class WeightedModelWrapper from econml.utilities to build a weighted model."
+    )
+    expected_error_msg = "fit() got an unexpected keyword argument 'sample_weight'"
     if not isinstance(model_instance, Pipeline):
-        model_instance.fit(X, y, sample_weight)
+        try:
+            model_instance.fit(X, y, sample_weight=sample_weight)
+        except TypeError as e:
+            if expected_error_msg in str(e):
+                # Make sure the correct exception is being rethrown
+                raise TypeError(weights_error_msg.format(model_instance.__class__.__name__))
+            else:
+                raise e
     else:
-        last_step_name = model_instance.steps[-1][0]
-        model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
+        try:
+            last_step_name = model_instance.steps[-1][0]
+            model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
+        except TypeError as e:
+            if expected_error_msg in str(e):
+                raise TypeError(weights_error_msg.format(model_instance.steps[-1][1].__class__.__name__))
+            else:
+                raise e
 
 
 def _cross_fit(model_instance, X, y, split_indices, sample_weight=None, predict_func_name='predict'):
