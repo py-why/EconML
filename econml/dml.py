@@ -183,7 +183,8 @@ class DMLCateEstimator(_RLearner):
 
             def _combine(self, X, W, n_samples, fitting=True):
                 if X is None:
-                    return W or np.ones((n_samples, 1))  # if both X and W are None, just return a column of ones
+                    # if both X and W are None, just return a column of ones
+                    return (W if W is not None else np.ones((n_samples, 1)))
                 XW = hstack([X, W]) if W is not None else X
                 if self._is_Y and linear_first_stages:
                     if self._featurizer is None:
@@ -238,6 +239,8 @@ class DMLCateEstimator(_RLearner):
                     else:
                         F = X
                 else:
+                    if not fit_cate_intercept:
+                        raise AttributeError("Cannot have X=None and also not allow for a CATE intercept!")
                     F = np.ones((T.shape[0], 1))
                 return cross_product(F, T)
 
@@ -273,6 +276,7 @@ class DMLCateEstimator(_RLearner):
                 return reshape_treatmentwise_effects(prediction,
                                                      self._d_t, self._d_y)
         self.bias_part_of_coef = fit_cate_intercept
+        self.fit_cate_intercept = fit_cate_intercept
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
                          model_t=FirstStageWrapper(model_t, is_Y=False),
                          model_final=FinalWrapper(),
@@ -609,6 +613,9 @@ class KernelDMLCateEstimator(DMLCateEstimator):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.
 
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
+
     dim: int, optional (default is 20)
         The number of random Fourier features to generate
 
@@ -641,7 +648,7 @@ class KernelDMLCateEstimator(DMLCateEstimator):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_y=LassoCV(), model_t=LassoCV(),
+    def __init__(self, model_y=LassoCV(), model_t=LassoCV(), fit_cate_intercept=True,
                  dim=20, bw=1.0, discrete_treatment=False, n_splits=2, random_state=None):
         class RandomFeatures(TransformerMixin):
             def __init__(self, random_state):
@@ -658,5 +665,5 @@ class KernelDMLCateEstimator(DMLCateEstimator):
         super().__init__(model_y=model_y, model_t=model_t,
                          model_final=ElasticNetCV(),
                          featurizer=RandomFeatures(random_state),
-                         fit_cate_intercept=False,
+                         fit_cate_intercept=fit_cate_intercept,
                          discrete_treatment=discrete_treatment, n_splits=n_splits, random_state=random_state)

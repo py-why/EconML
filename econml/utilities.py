@@ -38,6 +38,24 @@ class IdentityFeatures(TransformerMixin):
         return X
 
 
+def parse_final_model_params(coef, intercept, d_y, d_t, d_t_in, bias_part_of_coef, fit_cate_intercept):
+    dt = d_t
+    if (d_t_in != d_t) and (d_t[0]==1):  # binary treatment
+        dt = ()
+    cate_intercept = None
+    if bias_part_of_coef:
+        cate_coef = coef.reshape(d_y + dt + (-1,))[..., 1:]
+        if fit_cate_intercept:
+            cate_intercept = coef.reshape(d_y + dt + (-1,))[..., 0]
+    else:
+        cate_coef = coef.reshape(d_y + dt + (-1,))
+        if fit_cate_intercept:
+            cate_intercept = np.reshape(intercept, d_y + dt)
+    if (cate_intercept is not None) and (np.ndim(cate_intercept) == 0):
+        cate_intercept = np.asscalar(cate_intercept)
+    return cate_coef, cate_intercept
+
+
 def check_high_dimensional(X, T, *, threshold, featurizer=None, discrete_treatment=False, msg=""):
     # Check if model is sparse enough for this model
     if X is None:
@@ -235,14 +253,13 @@ def cross_product(*XS):
     X2 : n x d2 matrix
         Second matrix of n samples of d2 features
         (or an n-element vector, which will be treated as an n x 1 matrix)
-    …
 
     Returns
     -------
-    A : n x (d1*d2*...) matrix
+    n x (d1*d2*...) matrix
         Matrix of n samples of d1*d2*... cross product features,
-        arranged in form such that each row t of A contains:
-        [X1[t,0]*X2[t,0]*..., ..., X1[t,0]*X2[t,d2-1]*..., X1[t,1]*X2[t,0]*..., ..., X1[t,1]*X2[t,d2-1]*..., ...]
+        arranged in form such that each row t of X12 contains:
+        [X1[t,0]*X2[t,0]*..., ..., X1[t,d1-1]*X2[t,0]*..., X1[t,0]*X2[t,1]*..., ..., X1[t,d1-1]*X2[t,1]*..., ...]
 
     """
     for X in XS:
@@ -251,9 +268,12 @@ def cross_product(*XS):
     for X in XS:
         assert n == shape(X)[0]
 
+    # TODO: wouldn't making X1 vary more slowly than X2 be more intuitive?
+    #       (but note that changing this would necessitate changes to callers
+    #       to switch the order to preserve behavior where order is important)
     def cross(XS):
         k = len(XS)
-        XS = [reshape(XS[i], (n,) + (1,) * i + (-1,) + (1,) * (k - i - 1)) for i in range(k)]
+        XS = [reshape(XS[i], (n,) + (1,) * (k - i - 1) + (-1,) + (1,) * i) for i in range(k)]
         return reshape(reduce(np.multiply, XS), (n, -1))
     return _apply(cross, XS)
 

@@ -235,6 +235,14 @@ class TestDML(unittest.TestCase):
         assert (point <= hi).all()
         assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
 
+        interval = dml.intercept__interval(alpha=0.05)
+        point = dml.intercept_
+        assert len(interval) == 2
+        lo, hi = interval
+        assert (lo <= point).all()
+        assert (point <= hi).all()
+        assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
+
     def test_ignores_final_intercept(self):
         """Test that final model intercepts are ignored (with a warning)"""
         class InterceptModel:
@@ -246,8 +254,7 @@ class TestDML(unittest.TestCase):
 
         # (incorrectly) use a final model with an intercept
         dml = DMLCateEstimator(LinearRegression(), LinearRegression(),
-                               model_final=InterceptModel,
-                               fit_cate_intercept=False)
+                               model_final=InterceptModel)
         # Because final model is fixed, actual values of T and Y don't matter
         t = np.random.normal(size=100)
         y = np.random.normal(size=100)
@@ -298,7 +305,8 @@ class TestDML(unittest.TestCase):
         sparse_dml = SparseLinearDMLCateEstimator(fit_cate_intercept=False)
         sparse_dml.fit(Y, T, x, w, inference='debiasedlasso')
         np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
-        self.assertEqual(sparse_dml.intercept_, 0)
+        with pytest.raises(AttributeError):
+            sparse_dml.intercept_
         # --> test treatment effects
         # Restrict x_test to vectors of norm < 1
         x_test = np.random.uniform(size=(10, n_x))

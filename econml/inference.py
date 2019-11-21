@@ -5,7 +5,8 @@ import abc
 import numpy as np
 from scipy.stats import norm
 from .bootstrap import BootstrapEstimator
-from .utilities import cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, ndim
+from .utilities import cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, ndim,\
+    parse_final_model_params
 
 """Options for performing inference in estimators."""
 
@@ -76,6 +77,9 @@ class LinearModelFinalInference(Inference):
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
+        self._d_t_in = estimator._d_t_in
+        self.bias_part_of_coef = estimator.bias_part_of_coef
+        self.fit_cate_intercept = estimator.fit_cate_intercept
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -96,18 +100,28 @@ class LinearModelFinalInference(Inference):
                      for pred in preds)
 
     def coef__interval(self, *, alpha=0.1):
-        if self._est.bias_part_of_coef:
-            lo, hi = self.model_final.coef__interval(alpha)
-            return lo[..., 1:], hi[..., 1:]
-        else:
-            return self.model_final.coef__interval(alpha)
+        lo, hi = self.model_final.coef__interval(alpha)
+        lo_int, hi_int = self.model_final.intercept__interval(alpha)
+        lo = parse_final_model_params(lo, lo_int,
+                                      self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                      self.fit_cate_intercept)[0]
+        hi = parse_final_model_params(hi, hi_int,
+                                      self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                      self.fit_cate_intercept)[0]
+        return lo, hi
 
     def intercept__interval(self, *, alpha=0.1):
-        if self._est.bias_part_of_coef:
-            lo, hi = self.model_final.coef__interval(alpha)
-            return lo[..., 0], hi[..., 0]
-        else:
-            return self.model_final.intercept__interval(alpha)
+        if not self.fit_cate_intercept:
+            raise AttributeError("No intercept was fitted!")
+        lo, hi = self.model_final.coef__interval(alpha)
+        lo_int, hi_int = self.model_final.intercept__interval(alpha)
+        lo = parse_final_model_params(lo, lo_int,
+                                      self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                      self.fit_cate_intercept)[1]
+        hi = parse_final_model_params(hi, hi_int,
+                                      self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                      self.fit_cate_intercept)[1]
+        return lo, hi
 
     def _predict_interval(self, X, alpha):
         return self.model_final.predict_interval(X, alpha=alpha)

@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from econml.dml import DMLCateEstimator, LinearDMLCateEstimator
 from econml.inference import StatsModelsInference
 from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
@@ -14,7 +15,7 @@ import time
 from econml.utilities import StatsModelsLinearRegression as OLS
 import unittest
 import joblib
-
+from sklearn.preprocessing import PolynomialFeatures
 
 class StatsModelsOLS:
     """
@@ -806,25 +807,57 @@ class TestStatsModels(unittest.TestCase):
                                                          model_t=LinearRegression(),
                                                          linear_first_stages=False)
                             est.fit(y, T, X[:, :d_x], X[:, d_x:], inference=StatsModelsInference(cov_type='nonrobust'))
+                            intercept = est.intercept_.reshape((p, q))
+                            lower_int, upper_int = est.intercept__interval(alpha=.001)
+                            lower_int = lower_int.reshape((p, q))
+                            upper_int = upper_int.reshape((p, q))
                             coef = est.coef_.reshape(p, q, d_x)
                             lower, upper = est.coef__interval(alpha=.001)
                             lower = lower.reshape(p, q, d_x)
                             upper = upper.reshape(p, q, d_x)
                             for i in range(p):
                                 for j in range(q):
-                                    assert np.abs(coef[i, j, 0] - 10 * i - j) < precision, (coef[i, j, 0], 10 * i + j)
-                                    assert ((lower[i, j, 0] <= 10 * i + j + precision_int) &
-                                            (upper[i, j, 0] >= 10 * i + j - precision_int)),\
-                                        (lower[i, j, 0], upper[i, j, 0], 10 * i + j)
-                                    assert np.abs(coef[i, j, 1] - 1) < precision, (coef[i, j, 1], 1)
-                                    assert ((lower[i, j, 1] <= 1 + precision_int) &
-                                            (upper[i, j, 1] >= 1 - precision_int)), \
-                                        (lower[i, j, 1], upper[i, j, 1])
-                                    assert np.all(np.abs(coef[i, j, 2:]) < precision)
-                                    assert np.all((lower[i, j, 2:] <= precision_int) &
-                                                  (upper[i, j, 2:] >= -precision_int)),\
-                                        (np.max(lower[i, j, 2:]),
-                                         np.min(upper[i, j, 2:]))
+                                    np.testing.assert_allclose(intercept[i, j], 10 * i + j, rtol=0, atol=precision)
+                                    np.testing.assert_array_less(lower_int[i, j], 10 * i + j + precision_int)
+                                    np.testing.assert_array_less(10 * i + j - precision_int, upper_int[i, j])
+                                    np.testing.assert_allclose(coef[i, j, 0], 1, atol=precision)
+                                    np.testing.assert_array_less(lower[i, j, 0], 1)
+                                    np.testing.assert_array_less(1, upper[i, j, 0])
+                                    np.testing.assert_allclose(coef[i, j, 1:], np.zeros(coef[i, j, 1:].shape),
+                                                                atol=precision)
+                                    np.testing.assert_array_less(lower[i, j, 1:],
+                                                                 np.zeros(lower[i, j, 1:].shape) + precision_int)
+                                    np.testing.assert_array_less(np.zeros(lower[i, j, 1:].shape) - precision_int,
+                                                                 upper[i, j, 1:])
+                            
+                            est = LinearDMLCateEstimator(model_y=LinearRegression(),
+                                                         model_t=LinearRegression(),
+                                                         linear_first_stages=False,
+                                                         featurizer=PolynomialFeatures(degree=1),
+                                                         fit_cate_intercept=False)
+                            est.fit(y, T, X[:, :d_x], X[:, d_x:], inference=StatsModelsInference(cov_type='nonrobust'))
+                            with pytest.raises(AttributeError) as e_info:
+                                intercept = est.intercept_
+                            with pytest.raises(AttributeError) as e_info:
+                                intercept = est.intercept__interval(alpha=0.05)
+                            coef = est.coef_.reshape(p, q, d_x + 1)
+                            lower, upper = est.coef__interval(alpha=.001)
+                            lower = lower.reshape(p, q, d_x + 1)
+                            upper = upper.reshape(p, q, d_x + 1)
+                            for i in range(p):
+                                for j in range(q):
+                                    np.testing.assert_allclose(coef[i, j, 0], 10 * i + j, rtol=0, atol=precision)
+                                    np.testing.assert_array_less(lower[i, j, 0], 10 * i + j + precision_int)
+                                    np.testing.assert_array_less(10 * i + j - precision_int, upper[i, j, 0])
+                                    np.testing.assert_allclose(coef[i, j, 1], 1, atol=precision)
+                                    np.testing.assert_array_less(lower[i, j, 1], 1)
+                                    np.testing.assert_array_less(1, upper[i, j, 1])
+                                    np.testing.assert_allclose(coef[i, j, 2:], np.zeros(coef[i, j, 2:].shape),
+                                                                atol=precision)
+                                    np.testing.assert_array_less(lower[i, j, 2:],
+                                                                 np.zeros(lower[i, j, 2:].shape) + precision_int)
+                                    np.testing.assert_array_less(np.zeros(lower[i, j, 2:].shape) - precision_int,
+                                                                 upper[i, j, 2:])
                             XT = np.hstack([X, T])
                             (X1, X2, y1, y2,
                              X_final_first, X_final_sec, y_sum_first, y_sum_sec, n_sum_first, n_sum_sec,
@@ -856,21 +889,25 @@ class TestStatsModels(unittest.TestCase):
                                                               sample_weight=n_sum,
                                                               sample_var=var_sum,
                                                               inference=StatsModelsInference(cov_type='nonrobust'))
+                            intercept = est.intercept_.reshape((p, q))
+                            lower_int, upper_int = est.intercept__interval(alpha=.001)
+                            lower_int = lower_int.reshape((p, q))
+                            upper_int = upper_int.reshape((p, q))
                             coef = est.coef_.reshape(p, q, d_x)
                             lower, upper = est.coef__interval(alpha=.001)
                             lower = lower.reshape(p, q, d_x)
                             upper = upper.reshape(p, q, d_x)
                             for i in range(p):
                                 for j in range(q):
-                                    assert np.abs(coef[i, j, 0] - 10 * i - j) < precision, (coef[i, j, 0], 10 * i + j)
-                                    assert ((lower[i, j, 0] <= 10 * i + j + precision_int) &
-                                            (upper[i, j, 0] >= 10 * i + j - precision_int)), \
-                                        (lower[i, j, 0], upper[i, j, 0], 10 * i + j)
-                                    assert np.abs(coef[i, j, 1] - 1) < precision, (coef[i, j, 1], 1)
-                                    assert ((lower[i, j, 1] <= 1 + precision_int) &
-                                            (upper[i, j, 1] >= 1 - precision_int)), \
-                                        (lower[i, j, 1], upper[i, j, 1])
-                                    assert np.all(np.abs(coef[i, j, 2:]) < precision)
-                                    assert np.all((lower[i, j, 2:] <= precision_int) &
-                                                  (upper[i, j, 2:] >= -precision_int)), \
-                                        (np.max(lower[i, j, 2:]), np.min(upper[i, j, 2:]))
+                                    np.testing.assert_allclose(intercept[i, j], 10 * i + j, rtol=0, atol=precision)
+                                    np.testing.assert_array_less(lower_int[i, j], 10 * i + j + precision_int)
+                                    np.testing.assert_array_less(10 * i + j - precision_int, upper_int[i, j])
+                                    np.testing.assert_allclose(coef[i, j, 0], 1, atol=precision)
+                                    np.testing.assert_array_less(lower[i, j, 0], 1)
+                                    np.testing.assert_array_less(1, upper[i, j, 0])
+                                    np.testing.assert_allclose(coef[i, j, 1:], np.zeros(coef[i, j, 1:].shape),
+                                                                atol=precision)
+                                    np.testing.assert_array_less(lower[i, j, 1:],
+                                                                 np.zeros(lower[i, j, 1:].shape) + precision_int)
+                                    np.testing.assert_array_less(np.zeros(lower[i, j, 1:].shape) - precision_int,
+                                                                 upper[i, j, 1:])
