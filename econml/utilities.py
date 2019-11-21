@@ -52,7 +52,7 @@ def parse_final_model_params(coef, intercept, d_y, d_t, d_t_in, bias_part_of_coe
         if fit_cate_intercept:
             cate_intercept = np.reshape(intercept, d_y + dt)
     if (cate_intercept is not None) and (np.ndim(cate_intercept) == 0):
-        cate_intercept = np.asscalar(cate_intercept)
+        cate_intercept = cate_intercept.item()
     return cate_coef, cate_intercept
 
 
