@@ -127,11 +127,11 @@
         <path d="M98.311 676.238 253.971 776.265 252.349 778.789 96.6891 678.762ZM254.331 772.93 259.47 781.582 249.465 780.502Z" fill="#2980B9" />
         <path d="M227.5 66C227.5 32.0345 278.54 4.50005 341.5 4.50005 404.461 4.50005 455.5 32.0345 455.5 66 455.5 99.9656 404.461 127.5 341.5 127.5 278.54 127.5 227.5 99.9656 227.5 66Z" stroke="#2980B9" stroke-miterlimit="8" fill="#2980B9" fill-rule="evenodd" />
         <a href="spec/flowchart.html#term-treatment-assignment" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="14" transform="translate(286.436 45)">
-                Can you MEASURE
-                <tspan x="-0.41333" y="17">all the confounding </tspan>
-                <tspan x="-9.5" y="34">drivers of TREATMENT </tspan>
-                <tspan x="12.6667" y="51">ASSIGNMENT?</tspan>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="14" transform="translate(289.189 45)">
+                Do you MEASURE
+                <tspan x="-3.16669" y="17">all the confounding </tspan>
+                <tspan x="-12.2534" y="34">drivers of TREATMENT </tspan>
+                <tspan x="9.91333" y="51">ASSIGNMENT?</tspan>
             </text>
         </a>
         <path d="M423.699 108.598 486.766 192.391 484.369 194.195 421.302 110.402ZM488.261 189.389 490.078 199.286 481.07 194.801Z" fill="#2980B9" />
