@@ -23,20 +23,20 @@ consult the documentation at https://econml.azurewebsites.net/.
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
 
-- [Introduction](#Introduction)
-  - [About Treatment Effect Estimation](#About-Treatment-Effect-Estimation)
-  - [Example Applications](#Example-Applications)
-- [News](#News)
-- [Getting Started](#Getting-Started)
-  - [Installation](#Installation)
-  - [Usage Examples](#Usage-Examples)
-- [For Developers](#For-Developers)
-  - [Running the tests](#Running-the-tests)
-  - [Generating the documentation](#Generating-the-documentation)
-- [Blogs and Publications](#Blogs-and-Publications)
-- [Citation](#Citation)
-- [Contributing and Feedback](#Contributing-and-Feedback)
-- [References](#References)
+- [Introduction](#introduction)
+  - [About Treatment Effect Estimation](#about-treatment-effect-estimation)
+  - [Example Applications](#example-applications)
+- [News](#news)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Usage Examples](#usage-examples)
+- [For Developers](#for-developers)
+  - [Running the tests](#running-the-tests)
+  - [Generating the documentation](#generating-the-documentation)
+- [Blogs and Publications](#blogs-and-publications)
+- [Citation](#citation)
+- [Contributing and Feedback](#contributing-and-feedback)
+- [References](#references)
 
 </details>
 
@@ -111,10 +111,10 @@ To install from source, see [For Developers](#for-developers) section below.
 * [Double Machine Learning](#references)
 
   ```Python
-  from econml.dml import DMLCateEstimator
+  from econml.dml import LinearDMLCateEstimator
   from sklearn.linear_model import LassoCV
   
-  est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
+  est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
   est.fit(Y, T, X, W) # W -> high-dimensional confounders, X -> features
   treatment_effects = est.effect(X_test)
   ```
@@ -123,16 +123,18 @@ To install from source, see [For Developers](#for-developers) section below.
 
   ```Python
   from econml.ortho_forest import ContinuousTreatmentOrthoForest
+  from econml.sklearn_extensions.linear_model import WeightedLassoCV
   # Use defaults
   est = ContinuousTreatmentOrthoForest()
   # Or specify hyperparameters
-  est = ContinuousTreatmentOrthoForest(n_trees=500, min_leaf_size=10, max_depth=10, 
-                                       subsample_ratio=0.7, lambda_reg=0.01,
-                                       model_T=LassoCV(cv=3), model_Y=LassoCV(cv=3)
+  est = ContinuousTreatmentOrthoForest(n_trees=500, min_leaf_size=10, 
+                                       max_depth=10, subsample_ratio=0.7, 
+                                       lambda_reg=0.01,
+                                       model_T=WeightedLassoCV(cv=3), model_Y=WeightedLassoCV(cv=3)
                                        )
   est.fit(Y, T, X, W)
   treatment_effects = est.effect(X_test)
-    ```
+  ```
 
 * [Deep Instrumental Variables](#references)
   
@@ -159,17 +161,22 @@ To install from source, see [For Developers](#for-developers) section below.
                         n_samples=1 # Number of samples used to estimate the response
                         )
   est.fit(Y, T, X, Z) # Z -> instrumental variables
-  treatment_effects = est.effect(T0, T1, X_test)
+  treatment_effects = est.effect(X_test)
   ```
 
 
-* Bootstrap Confidence Intervals
+* Confidence Intervals
   ```Python
-  from econml.dml import DMLCateEstimator
+  from econml.dml import LinearDMLCateEstimator
   
-  est = DMLCateEstimator(model_y=LassoCV(), model_t=LassoCV(), inference='bootstrap')
-  est.fit(Y, T, X, W)
-  treatment_effect_interval = est.effect_interval(X_test, lower=1, upper=99)
+  est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
+  # Confidence intervals assuming normality, via 'statsmodels'
+  # Report [alpha/2, 1-alpha/2] confidence interval
+  est.fit(Y, T, X, W, inference='statsmodels')
+  treatment_effect_interval = est.effect_interval(X_test, alpha=0.1)
+  # Confidence intervals using bootstrap
+  est.fit(Y, T, X, W, inference='bootstrap')
+  treatment_effect_interval = est.effect_interval(X_test, alpha=0.1)
   ```
 
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
