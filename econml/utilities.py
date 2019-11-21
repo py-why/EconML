@@ -268,9 +268,6 @@ def cross_product(*XS):
     for X in XS:
         assert n == shape(X)[0]
 
-    # TODO: wouldn't making X1 vary more slowly than X2 be more intuitive?
-    #       (but note that changing this would necessitate changes to callers
-    #       to switch the order to preserve behavior where order is important)
     def cross(XS):
         k = len(XS)
         XS = [reshape(XS[i], (n,) + (1,) * (k - i - 1) + (-1,) + (1,) * i) for i in range(k)]
