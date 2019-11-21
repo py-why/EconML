@@ -300,6 +300,7 @@ class DMLCateEstimator(_RLearner):
         # NOTE This is used by the inference methods and is more for internal use to the library
         return super().model_final._model
 
+    @property
     def model_cate(self):
         """
         Get the fitted final CATE model.
