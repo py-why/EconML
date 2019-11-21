@@ -221,7 +221,8 @@ class DMLCateEstimator(_RLearner):
             def __init__(self):
                 self._model = clone(model_final, safe=False)
                 self._original_featurizer = clone(featurizer, safe=False)
-                if fit_cate_intercept:
+                self._fit_cate_intercept = fit_cate_intercept
+                if self._fit_cate_intercept:
                     add_intercept = FunctionTransformer(lambda F:
                                                         hstack([np.ones((F.shape[0], 1)), F]))
                     if featurizer:
@@ -239,7 +240,7 @@ class DMLCateEstimator(_RLearner):
                     else:
                         F = X
                 else:
-                    if not fit_cate_intercept:
+                    if not self._fit_cate_intercept:
                         raise AttributeError("Cannot have X=None and also not allow for a CATE intercept!")
                     F = np.ones((T.shape[0], 1))
                 return cross_product(F, T)
