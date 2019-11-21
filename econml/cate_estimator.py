@@ -503,7 +503,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     """
     Base class for models where the final stage is a linear model.
 
-    Subclasses must expose a ``fitted_models_final`` attribute 
+    Subclasses must expose a ``fitted_models_final`` attribute
     returning an array of the fitted models for each non-control treatment
 
     Attributes
