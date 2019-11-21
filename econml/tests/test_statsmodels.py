@@ -17,6 +17,7 @@ import unittest
 import joblib
 from sklearn.preprocessing import PolynomialFeatures
 
+
 class StatsModelsOLS:
     """
     Helper class to wrap a StatsModels OLS model to conform to the sklearn API.
@@ -824,12 +825,12 @@ class TestStatsModels(unittest.TestCase):
                                     np.testing.assert_array_less(lower[i, j, 0], 1)
                                     np.testing.assert_array_less(1, upper[i, j, 0])
                                     np.testing.assert_allclose(coef[i, j, 1:], np.zeros(coef[i, j, 1:].shape),
-                                                                atol=precision)
+                                                               atol=precision)
                                     np.testing.assert_array_less(lower[i, j, 1:],
                                                                  np.zeros(lower[i, j, 1:].shape) + precision_int)
                                     np.testing.assert_array_less(np.zeros(lower[i, j, 1:].shape) - precision_int,
                                                                  upper[i, j, 1:])
-                            
+
                             est = LinearDMLCateEstimator(model_y=LinearRegression(),
                                                          model_t=LinearRegression(),
                                                          linear_first_stages=False,
@@ -853,7 +854,7 @@ class TestStatsModels(unittest.TestCase):
                                     np.testing.assert_array_less(lower[i, j, 1], 1)
                                     np.testing.assert_array_less(1, upper[i, j, 1])
                                     np.testing.assert_allclose(coef[i, j, 2:], np.zeros(coef[i, j, 2:].shape),
-                                                                atol=precision)
+                                                               atol=precision)
                                     np.testing.assert_array_less(lower[i, j, 2:],
                                                                  np.zeros(lower[i, j, 2:].shape) + precision_int)
                                     np.testing.assert_array_less(np.zeros(lower[i, j, 2:].shape) - precision_int,
@@ -906,7 +907,7 @@ class TestStatsModels(unittest.TestCase):
                                     np.testing.assert_array_less(lower[i, j, 0], 1)
                                     np.testing.assert_array_less(1, upper[i, j, 0])
                                     np.testing.assert_allclose(coef[i, j, 1:], np.zeros(coef[i, j, 1:].shape),
-                                                                atol=precision)
+                                                               atol=precision)
                                     np.testing.assert_array_less(lower[i, j, 1:],
                                                                  np.zeros(lower[i, j, 1:].shape) + precision_int)
                                     np.testing.assert_array_less(np.zeros(lower[i, j, 1:].shape) - precision_int,
