@@ -24,10 +24,10 @@ class TestUtilities(unittest.TestCase):
 
         # make sure cross product varies more slowly with first array
         # and that vectors are okay as inputs
-        assert np.all(cross_product(X, Y, Z) == np.array([[1, 2, 3, 2, 4, 6],
+        assert np.all(cross_product(Z, Y, X) == np.array([[1, 2, 3, 2, 4, 6],
                                                           [12, 15, 18, 16, 20, 24]]))
 
-        assert np.all(cross_product(Y, Z, X) == np.array([[1, 2, 2, 4, 3, 6],
+        assert np.all(cross_product(X, Z, Y) == np.array([[1, 2, 2, 4, 3, 6],
                                                           [12, 16, 15, 20, 18, 24]]))
 
         ()
