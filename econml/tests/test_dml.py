@@ -150,7 +150,7 @@ class TestDML(unittest.TestCase):
         """Test that we can pass sample weights to an estimator."""
         dmls = [
             LinearDMLCateEstimator(LinearRegression(), 'auto', featurizer=FunctionTransformer()),
-            SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), featurizer=FunctionTransformer())
+            SparseLinearDMLCateEstimator(LinearRegression(), 'auto', featurizer=FunctionTransformer())
         ]
         for dml in dmls:
             dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]),
