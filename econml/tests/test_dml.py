@@ -76,7 +76,7 @@ class TestDML(unittest.TestCase):
                                 all_infs.append(BootstrapInference(1))
 
                             for est, multi, infs in [(LinearDMLCateEstimator(model_y=Lasso(),
-                                                                             model_t=model_t,
+                                                                             model_t='auto',
                                                                              discrete_treatment=is_discrete),
                                                       False,
                                                       all_infs),
@@ -149,8 +149,8 @@ class TestDML(unittest.TestCase):
     def test_can_use_sample_weights(self):
         """Test that we can pass sample weights to an estimator."""
         dmls = [
-            LinearDMLCateEstimator(LinearRegression(), LinearRegression(), fit_cate_intercept=False),
-            SparseLinearDMLCateEstimator(LinearRegression(), LinearRegression(), fit_cate_intercept=False)
+            LinearDMLCateEstimator(LinearRegression(), 'auto', fit_cate_intercept=False),
+            SparseLinearDMLCateEstimator(LinearRegression(), 'auto', fit_cate_intercept=False)
         ]
         for dml in dmls:
             dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]),
