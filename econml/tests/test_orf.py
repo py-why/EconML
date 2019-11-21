@@ -41,7 +41,7 @@ class TestOrthoForest(unittest.TestCase):
         warnings.filterwarnings("ignore")
 
     @pytest.mark.slow
-    def test_zcontinuous_treatments(self):
+    def test_continuous_treatments(self):
         np.random.seed(123)
         # Generate data with continuous treatments
         T = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_T) + \
