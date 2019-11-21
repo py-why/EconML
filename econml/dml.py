@@ -353,8 +353,8 @@ class DMLCateEstimator(_RLearner):
         out_feature_names: list of strings or None
             The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
             final constant marginal CATE model is linear. It is the names of the features that are associated
-            with each entry of the :meth:`coef_` parameter. Available only when the featurizer is not None and has
-            a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+            with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
+            does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
         """
         if self.original_featurizer is None:
             return input_feature_names
