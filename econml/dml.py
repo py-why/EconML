@@ -182,16 +182,10 @@ class DMLCateEstimator(_RLearner):
                 self._is_Y = is_Y
 
             def _combine(self, X, W, n_samples, fitting=True):
-                no_x = X is None
-                if no_x:
-                    X = np.ones((n_samples, 1))
-                if W is None:
-                    W = np.empty((n_samples, 0))
-                XW = hstack([X, W])
+                if X is None:
+                    return W or np.ones((n_samples, 1)) # if both X and W are None, just return a column of ones
+                XW = hstack([X, W]) if W is not None else X
                 if self._is_Y and linear_first_stages:
-                    if no_x:
-                        return XW
-
                     if self._featurizer is None:
                         F = X
                     else:
