@@ -114,15 +114,15 @@ class DRLearner(_OrthoLearner):
           mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
           clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
 
-    multitask_model_final : optional bool (default=False)
+    multitask_model_final : bool, optional, default False
         Whether the model_final should be treated as a multi-task model. See description of model_final.
 
-    featurizer : sklearn featurizer or None
+    featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    n_splits: int, cross-validation generator or an iterable, optional (default is 2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -535,15 +535,15 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`~econml.utilities.MultiModelWrapper` helper class.
 
-    featurizer : sklearn featurizer or None
+    featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional (Default=True)
+    fit_cate_intercept : bool, optional, default True
         Whether the linear CATE model should have a constant term.
 
-    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    n_splits: int, cross-validation generator or an iterable, optional (default is 2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -711,28 +711,28 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`~econml.utilities.MultiModelWrapper` helper class.
 
-    featurizer : sklearn featurizer or None
+    featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional (Default=True)
+    fit_cate_intercept : bool, optional, default True
         Whether the linear CATE model should have a constant term.
 
-    alpha: string | float, optional. Default='auto'.
+    alpha: string | float, optional., default 'auto'.
         CATE L1 regularization applied through the debiased lasso in the final model.
         'auto' corresponds to a CV form of the :class:`DebiasedLasso`.
 
-    max_iter : int, optional, default=1000
+    max_iter : int, optional, default 1000
         The maximum number of iterations in the Debiased Lasso
 
-    tol : float, optional, default=1e-4
+    tol : float, optional, default 1e-4
         The tolerance for the optimization: if the updates are
         smaller than ``tol``, the optimization code checks the
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    n_splits: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 

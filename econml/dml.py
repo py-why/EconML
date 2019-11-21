@@ -131,18 +131,22 @@ class DMLCateEstimator(_RLearner):
         The estimator for fitting the response residuals to the treatment residuals. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
-    featurizer: transformer
-        The transformer used to featurize the raw features when fitting the final model.  Must implement
-        a `fit_transform` method.
+    featurizer: :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    n_splits: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -168,7 +172,8 @@ class DMLCateEstimator(_RLearner):
 
     def __init__(self,
                  model_y, model_t, model_final,
-                 featurizer,
+                 featurizer=None,
+                 fit_cate_intercept=True,
                  linear_first_stages=False,
                  discrete_treatment=False,
                  n_splits=2,
@@ -190,22 +195,18 @@ class DMLCateEstimator(_RLearner):
                 self._is_Y = is_Y
 
             def _combine(self, X, W, n_samples, fitting=True):
+                if X is None:
+                    # if both X and W are None, just return a column of ones
+                    return (W if W is not None else np.ones((n_samples, 1)))
+                XW = hstack([X, W]) if W is not None else X
                 if self._is_Y and linear_first_stages:
-                    if X is not None:
-                        F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
+                    if self._featurizer is None:
+                        F = X
                     else:
-                        X = np.ones((n_samples, 1))
-                        F = np.ones((n_samples, 1))
-                    if W is None:
-                        W = np.empty((n_samples, 0))
-                    XW = hstack([X, W])
-                    return cross_product(XW, hstack([np.ones((shape(XW)[0], 1)), F, W]))
+                        F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
+                    return cross_product(XW, hstack([np.ones((shape(XW)[0], 1)), F]))
                 else:
-                    if X is None:
-                        X = np.ones((n_samples, 1))
-                    if W is None:
-                        W = np.empty((n_samples, 0))
-                    return hstack([X, W])
+                    return XW
 
             def fit(self, X, W, Target, sample_weight=None):
                 if (not self._is_Y) and discrete_treatment:
@@ -232,14 +233,36 @@ class DMLCateEstimator(_RLearner):
         class FinalWrapper:
             def __init__(self):
                 self._model = clone(model_final, safe=False)
-                self._featurizer = clone(featurizer, safe=False)
+                self._original_featurizer = clone(featurizer, safe=False)
+                self._fit_cate_intercept = fit_cate_intercept
+                if self._fit_cate_intercept:
+                    add_intercept = FunctionTransformer(lambda F:
+                                                        hstack([np.ones((F.shape[0], 1)), F]))
+                    if featurizer:
+                        self._featurizer = Pipeline([('featurize', self._original_featurizer),
+                                                     ('add_intercept', add_intercept)])
+                    else:
+                        self._featurizer = add_intercept
+                else:
+                    self._featurizer = self._original_featurizer
+
+            def _combine(self, X, T, fitting=True):
+                if X is not None:
+                    if self._featurizer is not None:
+                        F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
+                    else:
+                        F = X
+                else:
+                    if not self._fit_cate_intercept:
+                        raise AttributeError("Cannot have X=None and also not allow for a CATE intercept!")
+                    F = np.ones((T.shape[0], 1))
+                return cross_product(F, T)
 
             def fit(self, X, T_res, Y_res, sample_weight=None, sample_var=None):
                 # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
                 self._d_t = shape(T_res)[1:]
                 self._d_y = shape(Y_res)[1:]
-                F = self._featurizer.fit_transform(X) if X is not None else np.ones((T_res.shape[0], 1))
-                fts = cross_product(F, T_res)
+                fts = self._combine(X, T_res)
                 if sample_weight is not None:
                     if sample_var is not None:
                         self._model.fit(fts,
@@ -259,14 +282,15 @@ class DMLCateEstimator(_RLearner):
                     self._intercept = intercept
 
             def predict(self, X):
-                F = self._featurizer.transform(X) if X is not None else np.ones((1, 1))
-                F, T = broadcast_unit_treatments(F, self._d_t[0] if self._d_t else 1)
-                prediction = self._model.predict(cross_product(F, T))
+                X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),
+                                                  self._d_t[0] if self._d_t else 1)
+                prediction = self._model.predict(self._combine(None if X is None else X2, T, fitting=False))
                 if self._intercept is not None:
                     prediction -= self._intercept
                 return reshape_treatmentwise_effects(prediction,
                                                      self._d_t, self._d_y)
-
+        self.bias_part_of_coef = fit_cate_intercept
+        self.fit_cate_intercept = fit_cate_intercept
         super().__init__(model_y=FirstStageWrapper(model_y, is_Y=True),
                          model_t=FirstStageWrapper(model_t, is_Y=False),
                          model_final=FinalWrapper(),
@@ -275,20 +299,82 @@ class DMLCateEstimator(_RLearner):
                          random_state=random_state)
 
     @property
+    def original_featurizer(self):
+        return super().model_final._original_featurizer
+
+    @property
     def featurizer(self):
+        # NOTE This is used by the inference methods and has to be the overall featurizer. intended
+        # for internal use by the library
         return super().model_final._featurizer
 
     @property
     def model_final(self):
+        # NOTE This is used by the inference methods and is more for internal use to the library
+        return super().model_final._model
+
+    @property
+    def model_cate(self):
+        """
+        Get the fitted final CATE model.
+
+        Returns
+        -------
+        model_cate: object of type(model_final)
+            An instance of the model_final object that was fitted after calling fit which corresponds
+            to the constant marginal CATE model.
+        """
         return super().model_final._model
 
     @property
     def models_y(self):
+        """
+        Get the fitted models for E[Y | X, W].
+
+        Returns
+        -------
+        models_y: list of objects of type(`model_y`)
+            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
+            fold and is the model instance that was fitted for that training fold.
+        """
         return [mdl._model for mdl in super().models_y]
 
     @property
     def models_t(self):
+        """
+        Get the fitted models for E[T | X, W].
+
+        Returns
+        -------
+        models_y: list of objects of type(`model_t`)
+            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
+            fold and is the model instance that was fitted for that training fold.
+        """
         return [mdl._model for mdl in super().models_t]
+
+    def cate_feature_names(self, input_feature_names=None):
+        """
+        Get the output feature names.
+
+        Parameters
+        ----------
+        input_feature_names: list of strings of length X.shape[1] or None
+            The names of the input features
+
+        Returns
+        -------
+        out_feature_names: list of strings or None
+            The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
+            final constant marginal CATE model is linear. It is the names of the features that are associated
+            with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
+            does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+        """
+        if self.original_featurizer is None:
+            return input_feature_names
+        elif hasattr(self.original_featurizer, 'get_feature_names'):
+            return self.original_featurizer.get_feature_names(input_feature_names)
+        else:
+            raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
 class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
@@ -311,10 +397,13 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
         :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
         will be applied for continuous treatment.
 
-    featurizer: transformer, optional (default is \
-        :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
-        The transformer used to featurize the raw features when fitting the final model.  Must implement
-        a `fit_transform` method.
+    featurizer : :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
@@ -349,7 +438,8 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
 
     def __init__(self,
                  model_y=WeightedLassoCVWrapper(), model_t='auto',
-                 featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                 featurizer=None,
+                 fit_cate_intercept=True,
                  linear_first_stages=True,
                  discrete_treatment=False,
                  n_splits=2,
@@ -358,6 +448,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
                          model_t=model_t,
                          model_final=StatsModelsLinearRegression(fit_intercept=False),
                          featurizer=featurizer,
+                         fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
@@ -436,10 +527,13 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    featurizer: transformer, optional
-    (default is :class:`PolynomialFeatures(degree=1, include_bias=True) <sklearn.preprocessing.PolynomialFeatures>`)
-        The transformer used to featurize the raw features when fitting the final model.  Must implement
-        a `fit_transform` method.
+    featurizer : :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
@@ -476,7 +570,8 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                  alpha='auto',
                  max_iter=1000,
                  tol=1e-4,
-                 featurizer=PolynomialFeatures(degree=1, include_bias=True),
+                 featurizer=None,
+                 fit_cate_intercept=True,
                  linear_first_stages=True,
                  discrete_treatment=False,
                  n_splits=2,
@@ -490,6 +585,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                          model_t=model_t,
                          model_final=model_final,
                          featurizer=featurizer,
+                         fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
@@ -550,6 +646,9 @@ class KernelDMLCateEstimator(DMLCateEstimator):
         :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
         will be applied for continuous treatment.
 
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
+
     dim: int, optional (default is 20)
         The number of random Fourier features to generate
 
@@ -582,7 +681,7 @@ class KernelDMLCateEstimator(DMLCateEstimator):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_y=WeightedLassoCVWrapper(), model_t='auto',
+    def __init__(self, model_y=WeightedLassoCVWrapper(), model_t='auto', fit_cate_intercept=True,
                  dim=20, bw=1.0, discrete_treatment=False, n_splits=2, random_state=None):
         class RandomFeatures(TransformerMixin):
             def __init__(self, random_state):
@@ -599,4 +698,5 @@ class KernelDMLCateEstimator(DMLCateEstimator):
         super().__init__(model_y=model_y, model_t=model_t,
                          model_final=ElasticNetCV(),
                          featurizer=RandomFeatures(random_state),
+                         fit_cate_intercept=fit_cate_intercept,
                          discrete_treatment=discrete_treatment, n_splits=n_splits, random_state=random_state)
