@@ -219,15 +219,17 @@ class DMLCateEstimator(_RLearner):
         class FinalWrapper:
             def __init__(self):
                 self._model = clone(model_final, safe=False)
-                self._featurizer = clone(featurizer, safe=False)
+                self._original_featurizer = clone(featurizer, safe=False)
                 if fit_cate_intercept:
                     add_intercept = FunctionTransformer(lambda F:
                                                         hstack([np.ones((F.shape[0], 1)), F]))
                     if featurizer:
-                        self._featurizer = Pipeline([('featurize', self._featurizer),
+                        self._featurizer = Pipeline([('featurize', self._original_featurizer),
                                                      ('add_intercept', add_intercept)])
                     else:
                         self._featurizer = add_intercept
+                else:
+                    self._featurizer = self._original_featurizer
 
             def _combine(self, X, T, fitting=True):
                 if X is not None:
@@ -279,20 +281,81 @@ class DMLCateEstimator(_RLearner):
                          random_state=random_state)
 
     @property
+    def original_featurizer(self):
+        return super().model_final._original_featurizer
+
+    @property
     def featurizer(self):
+        # NOTE This is used by the inference methods and has to be the overall featurizer. intended
+        # for internal use by the library
         return super().model_final._featurizer
 
     @property
     def model_final(self):
+        # NOTE This is used by the inference methods and is more for internal use to the library
+        return super().model_final._model
+
+    def model_cate(self):
+        """
+        Get the fitted final CATE model.
+
+        Returns
+        -------
+        model_cate: object of type(model_final)
+            An instance of the model_final object that was fitted after calling fit which corresponds
+            to the constant marginal CATE model.
+        """
         return super().model_final._model
 
     @property
     def models_y(self):
+        """
+        Get the fitted models for E[Y | X, W].
+
+        Returns
+        -------
+        models_y: list of objects of type(`model_y`)
+            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
+            fold and is the model instance that was fitted for that training fold.
+        """
         return [mdl._model for mdl in super().models_y]
 
     @property
     def models_t(self):
+        """
+        Get the fitted models for E[T | X, W].
+
+        Returns
+        -------
+        models_y: list of objects of type(`model_t`)
+            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
+            fold and is the model instance that was fitted for that training fold.
+        """
         return [mdl._model for mdl in super().models_t]
+    
+    def cate_feature_names(self, input_feature_names=None):
+        """
+        Get the output feature names.
+
+        Parameters
+        ----------
+        input_feature_names: list of strings of length X.shape[1] or None
+            The names of the input features
+
+        Returns
+        -------
+        out_feature_names: list of strings or None
+            The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
+            final constant marginal CATE model is linear. It is the names of the features that are associated
+            with each entry of the :meth:`coef_` parameter. Available only when the featurizer is not None and has
+            a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+        """
+        if self.original_featurizer is None:
+            return input_feature_names
+        elif hasattr(self.original_featurizer, 'get_feature_names'):
+            return self.original_featurizer.get_feature_names(input_feature_names)
+        else:
+            raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
 class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
