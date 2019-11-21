@@ -183,7 +183,7 @@ class DMLCateEstimator(_RLearner):
 
             def _combine(self, X, W, n_samples, fitting=True):
                 if X is None:
-                    return W or np.ones((n_samples, 1)) # if both X and W are None, just return a column of ones
+                    return W or np.ones((n_samples, 1))  # if both X and W are None, just return a column of ones
                 XW = hstack([X, W]) if W is not None else X
                 if self._is_Y and linear_first_stages:
                     if self._featurizer is None:
@@ -332,7 +332,7 @@ class DMLCateEstimator(_RLearner):
             fold and is the model instance that was fitted for that training fold.
         """
         return [mdl._model for mdl in super().models_t]
-    
+
     def cate_feature_names(self, input_feature_names=None):
         """
         Get the output feature names.
