@@ -256,7 +256,7 @@ def cross_product(*XS):
 
     Returns
     -------
-    n x (d1*d2*...) matrix
+    A : n x (d1*d2*...) matrix
         Matrix of n samples of d1*d2*... cross product features,
         arranged in form such that each row t of X12 contains:
         [X1[t,0]*X2[t,0]*..., ..., X1[t,d1-1]*X2[t,0]*..., X1[t,0]*X2[t,1]*..., ..., X1[t,d1-1]*X2[t,1]*..., ...]
