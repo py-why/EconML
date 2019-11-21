@@ -806,10 +806,10 @@ class TestStatsModels(unittest.TestCase):
                                                          model_t=LinearRegression(),
                                                          linear_first_stages=False)
                             est.fit(y, T, X[:, :d_x], X[:, d_x:], inference=StatsModelsInference(cov_type='nonrobust'))
-                            coef = est.coef_.reshape(p, q, d_x + 1)
+                            coef = est.coef_.reshape(p, q, d_x)
                             lower, upper = est.coef__interval(alpha=.001)
-                            lower = lower.reshape(p, q, d_x + 1)
-                            upper = upper.reshape(p, q, d_x + 1)
+                            lower = lower.reshape(p, q, d_x)
+                            upper = upper.reshape(p, q, d_x)
                             for i in range(p):
                                 for j in range(q):
                                     assert np.abs(coef[i, j, 0] - 10 * i - j) < precision, (coef[i, j, 0], 10 * i + j)
@@ -856,10 +856,10 @@ class TestStatsModels(unittest.TestCase):
                                                               sample_weight=n_sum,
                                                               sample_var=var_sum,
                                                               inference=StatsModelsInference(cov_type='nonrobust'))
-                            coef = est.coef_.reshape(p, q, d_x + 1)
+                            coef = est.coef_.reshape(p, q, d_x)
                             lower, upper = est.coef__interval(alpha=.001)
-                            lower = lower.reshape(p, q, d_x + 1)
-                            upper = upper.reshape(p, q, d_x + 1)
+                            lower = lower.reshape(p, q, d_x)
+                            upper = upper.reshape(p, q, d_x)
                             for i in range(p):
                                 for j in range(q):
                                     assert np.abs(coef[i, j, 0] - 10 * i - j) < precision, (coef[i, j, 0], 10 * i + j)
