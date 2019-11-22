@@ -47,11 +47,11 @@ from ._ortho_learner import _OrthoLearner
 class _RLearner(_OrthoLearner):
     """
     Base class for CATE learners that residualize treatment and outcome and run residual on residual regression.
-    The estimator is a special of an :class:`~econml._ortho_learner._OrthoLearner` estimator,
+    The estimator is a special of an :class:`._OrthoLearner` estimator,
     so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
-    :class:`~econml._ortho_learner._OrthoLearner` for a description of this two stage process.
+    :class:`._OrthoLearner` for a description of this two stage process.
 
     In this estimator, the CATE is estimated by using the following estimating equations:
 
@@ -125,9 +125,9 @@ class _RLearner(_OrthoLearner):
     Examples
     --------
     The example code below implements a very simple version of the double machine learning
-    method on top of the :py:class:`~econml._ortho_learner._RLearner` class, for expository purposes.
+    method on top of the :class:`._RLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
-    checkout :py:class:`~econml.dml.DMLCateEstimator` and its child classes:
+    checkout :class:`.DMLCateEstimator` and its child classes:
 
     .. testcode::
 
@@ -274,7 +274,7 @@ class _RLearner(_OrthoLearner):
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         Parameters
         ----------

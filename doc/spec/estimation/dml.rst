@@ -29,9 +29,9 @@ provide *valid inference* (confidence interval construction) for measuring the u
 What are the relevant estimator classes?
 ========================================
 
-This section describes the methodology implemented in the classes, :py:class:`~econml._rlearner._RLearner`,
-:py:class:`~econml.dml.DMLCateEstimator`, :py:class:`~econml.dml.LinearDMLCateEstimator`,
-:py:class:`~econml.dml.SparseLinearDMLCateEstimator`, :py:class:`~econml.dml.KernelDMLCateEstimator`. Click on each of these links for a detailed module documentation and input parameters of each class.
+This section describes the methodology implemented in the classes, :class:`._RLearner`,
+:class:`.DMLCateEstimator`, :class:`.LinearDMLCateEstimator`,
+:class:`.SparseLinearDMLCateEstimator`, :class:`.KernelDMLCateEstimator`. Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
 When should you use it?
@@ -116,7 +116,7 @@ linear function,
 The main advantage of DML is that if one makes parametric assumptions on :math:`\theta(X)`, then one achieves fast estimation rates and 
 asymptotic normality on the second stage estimate :math:`\hat{\theta}`, even if the first stage estimates on :math:`q(X, W)` 
 and :math:`f(X, W)` are only :math:`n^{1/4}` consistent, in terms of RMSE. For this theorem to hold, the nuisance
-estimates need to be fitted in a cross-fitting manner (see :py:class:`~econml._ortho_learner._OrthoLearner`).
+estimates need to be fitted in a cross-fitting manner (see :class:`._OrthoLearner`).
 The latter robustness property follows from the fact that the moment equations that correspond to the final 
 least squares estimation (i.e. the gradient of the squared loss), satisfy a Neyman orthogonality condition with respect to the
 nuisance parameters :math:`q, f`. For a more detailed exposition of how Neyman orthogonality 
@@ -136,8 +136,8 @@ structure of the implemented CATE estimators is as follows.
 
 Below we give a brief description of each of these classes:
 
-    * *DMLCateEstimator.* The class :py:class:`~econml.dml.DMLCateEstimator` assumes that the effect model for each outcome :math:`i` and treatment :math:`j` is linear, i.e. takes the form :math:`\theta_{ij}(X)=\langle \theta_{ij}, \phi(X)\rangle`, and allows for any arbitrary scikit-learn linear estimator to be defined as the final stage (e.g.    
-      :py:class:`~sklearn.linear_model.ElasticNet`, :py:class:`~sklearn.linear_model.Lasso`, :py:class:`~sklearn.linear_model.LinearRegression` and their multi-task variations in the case where we have mulitple outcomes, i.e. :math:`Y` is a vector). The final linear model will be fitted on features that are derived by the Kronecker-product
+    * *DMLCateEstimator.* The class :class:`.DMLCateEstimator` assumes that the effect model for each outcome :math:`i` and treatment :math:`j` is linear, i.e. takes the form :math:`\theta_{ij}(X)=\langle \theta_{ij}, \phi(X)\rangle`, and allows for any arbitrary scikit-learn linear estimator to be defined as the final stage (e.g.    
+      :class:`~sklearn.linear_model.ElasticNet`, :class:`~sklearn.linear_model.Lasso`, :class:`~sklearn.linear_model.LinearRegression` and their multi-task variations in the case where we have mulitple outcomes, i.e. :math:`Y` is a vector). The final linear model will be fitted on features that are derived by the Kronecker-product
       of the vectors :math:`T` and :math:`\phi(X)`, i.e. :math:`\tilde{T}\otimes \phi(X) = \mathtt{vec}(\tilde{T}\cdot \phi(X)^T)`. This regression will estimate the coefficients :math:`\theta_{ijk}` 
       for each outcome :math:`i`, treatment :math:`j` and feature :math:`k`. The final model is minimizing a regularized empirical square loss of the form:
       
@@ -170,10 +170,10 @@ Below we give a brief description of each of these classes:
       constraints on the matrix :math:`\Theta`.
       This essentially implements the techniques analyzed in [Chernozhukov2016]_, [Nie2017]_, [Chernozhukov2017]_, [Chernozhukov2018]_
         
-        - *LinearDMLCateEstimator.* The child class  :py:class:`~econml.dml.LinearDMLCateEstimator`, uses an unregularized final linear model and  
+        - *LinearDMLCateEstimator.* The child class  :class:`.LinearDMLCateEstimator`, uses an unregularized final linear model and  
           essentially works only when the feature vector :math:`\phi(X)` is low dimensional. Given that it is an unregularized
           low dimensional final model, this class also offers confidence intervals via asymptotic normality 
-          arguments. This is achieved by essentially using the :py:class:`~econml.utilities.StatsModelsLinearRegression`
+          arguments. This is achieved by essentially using the :class:`.StatsModelsLinearRegression`
           (which is an extension of the scikit-learn LinearRegression estimator, that also supports inference
           functionalities) as a final model. The theoretical foundations of this class essentially follow the arguments in [Chernozhukov2016]_.
           For instance, to get confidence intervals on the effect of going
@@ -186,8 +186,8 @@ Below we give a brief description of each of these classes:
 
           One could also construct bootstrap based confidence intervals by setting `inference='bootstrap'`.
 
-        - *SparseLinearDMLCateEstimator.* The child class :py:class:`~econml.dml.SparseLinearDMLCateEstimator`, uses an :math:`\ell_1`-regularized final    
-          model. In particular, it uses an implementation of the DebiasedLasso algorithm [Buhlmann2011]_ (see :py:class:`~econml.sklearn_extensions.linear_model.DebiasedLasso`). Using the asymptotic normality properties
+        - *SparseLinearDMLCateEstimator.* The child class :class:`.SparseLinearDMLCateEstimator`, uses an :math:`\ell_1`-regularized final    
+          model. In particular, it uses an implementation of the DebiasedLasso algorithm [Buhlmann2011]_ (see :class:`.DebiasedLasso`). Using the asymptotic normality properties
           of the debiased lasso, this class also offers asymptotically normal based confidence intervals.
           The theoretical foundations of this class essentially follow the arguments in [Chernozhukov2017]_, [Chernozhukov2018]_.
           For instance, to get confidence intervals on the effect of going
@@ -198,21 +198,21 @@ Below we give a brief description of each of these classes:
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
-        - *KernelDMLCateEstimator.* The child class :py:class:`~econml.dml.KernelDMLCateEstimator` performs a variant of the RKHS approach proposed in 
+        - *KernelDMLCateEstimator.* The child class :class:`.KernelDMLCateEstimator` performs a variant of the RKHS approach proposed in 
           [Nie2017]_. It approximates any function in the RKHS by creating random Fourier features. Then runs a ElasticNet
           regularized final model. Thus it approximately implements the results of [Nie2017], via the random fourier feature
           approximate representation of functions in the RKHS. Moreover, given that we use Random Fourier Features this class
           asssumes an RBF kernel.
     
-    - *_RLearner.* The internal private class :py:class:`~econml._rlearner._RLearner` is a parent of the :py:class:`~econml.dml.DMLCateEstimator`
+    - *_RLearner.* The internal private class :class:`._RLearner` is a parent of the :class:`.DMLCateEstimator`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,
       the features :math:`X` and predicts the residual :math:`\tilde{Y}`. Moreover, the nuisance models take as input
       :math:`X` and :math:`W` and predict :math:`T` and :math:`Y` respectively. Since these models take non-standard
       input variables, one cannot use out-of-the-box scikit-learn estimators as inputs to this class. Hence, it is
       slightly more cumbersome to use, which is the reason why we designated it as private. However, if one wants to
       fit for instance a neural net model for :math:`\theta(X)`, then this class can be used (see the implementation
-      of the :py:class:`~econml.dml.DMLCateEstimator` of how to wrap sklearn estimators and pass them as inputs to the
-      :py:class:`~econml._rlearner._RLearner`. This private class essentially follows the general arguments and
+      of the :class:`.DMLCateEstimator` of how to wrap sklearn estimators and pass them as inputs to the
+      :class:`._RLearner`. This private class essentially follows the general arguments and
       terminology of the RLearner presented in [Nie2017]_, and allows for the full flexibility of the final model
       estimation that is presented in [Foster2019]_.
 
@@ -223,9 +223,9 @@ Usage FAQs
 
 - **What if I want confidence intervals?**
 
-    For valid confidence intervals use the :py:class:`~econml.dml.LinearDMLCateEstimator` if the number of features :math:`X`,
+    For valid confidence intervals use the :class:`.LinearDMLCateEstimator` if the number of features :math:`X`,
     that you want to use for heterogeneity are small compared to the number of samples that you have. If the number of
-    features is comparable to the number of samples, then use :py:class:`~econml.dml.SparseLinearDMLCateEstimator`.
+    features is comparable to the number of samples, then use :class:`.SparseLinearDMLCateEstimator`.
     e.g.::
 
         from econml.dml import LinearDMLCateEstimator
@@ -241,7 +241,7 @@ Usage FAQs
     potential approach one could take is simply run a big linear regression, regressing :math:`Y` on
     :math:`T, X, W` and then looking at the coefficient associated with the :math:`T` variable and
     the corresponding confidence interval (e.g. using statistical packages like
-    :py:class:`~statsmodels.api.OLS`). However, this will not work if:
+    :class:`~statsmodels.api.OLS`). However, this will not work if:
 
         1) The number of control variables :math:`X, W` that you have is large and comparable
         to the number of samples. This could for instance arise if one wants to control for
@@ -267,7 +267,7 @@ Usage FAQs
 
         1) If effect heterogeneity does not have a linear form, then this approach is not valid.
         One might want to then create more complex featurization, in which case the problem could
-        become too high-dimensional for OLS. Our :py:class:`~econml.dml.SparseLinearDMLCateEstimator`
+        become too high-dimensional for OLS. Our :class:`.SparseLinearDMLCateEstimator`
         can handle such settings via the use of the debiased Lasso. Also see the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or, if your treatment is categorical, then also check the :ref:`Meta Learners User Guide <metalearnersuserguide>`, if you want even more flexible CATE models.
 
         2) If the number of features :math:`X` is comparable to the number of samples, then even
@@ -277,7 +277,7 @@ Usage FAQs
 - **What if I have no idea how heterogeneity looks like?**
 
     Either use a flexible featurizer, e.g. a polynomial featurizer with many degrees and use
-    the :py:class:`~econml.dml.SparseLinearDMLCateEstimator`::
+    the :class:`.SparseLinearDMLCateEstimator`::
 
         from econml.dml import SparseLinearDMLCateEstimator
         from sklearn.preprocessing import PolynomialFeatures
@@ -291,7 +291,7 @@ Usage FAQs
 
 - **What if I have too many features that can create heterogeneity?**
 
-    Use the :py:class:`~econml.dml.SparseLinearDMLCateEstimator` (see above).
+    Use the :class:`.SparseLinearDMLCateEstimator` (see above).
 
 - **What if I have too many features I want to control for?**
 
@@ -318,8 +318,8 @@ Usage FAQs
 - **How do I select the hyperparameters of the first stage models?**
 
     You can use cross-validated models that automatically choose the hyperparameters, e.g. the
-    :py:class:`~sklearn.linear_model.LassoCV` instead of the :py:class:`~sklearn.linear_model.Lasso`. Similarly,
-    for forest based estimators you can wrap them with a grid search CV, :py:class:`~sklearn.model_selection.GridSearchCV`, e.g.::
+    :class:`~sklearn.linear_model.LassoCV` instead of the :class:`~sklearn.linear_model.Lasso`. Similarly,
+    for forest based estimators you can wrap them with a grid search CV, :class:`~sklearn.model_selection.GridSearchCV`, e.g.::
 
         from econml.dml import DMLCateEstimator
         from sklearn.model_selection import GridSearchCV
@@ -364,7 +364,7 @@ Usage FAQs
         point = est.const_marginal_effect(X)
         est.effect(X, T0=poly.transform(T0), T1=poly.transform(T1)) 
 
-    If your treatments are too many, then you can use the :py:class:`~econml.dml.SparseLinearDMLCateEstimator`. However,
+    If your treatments are too many, then you can use the :class:`.SparseLinearDMLCateEstimator`. However,
     this method will essentially impose a regularization that only a small subset of them has any effect.
 
 - **What if my treatments are continuous and don't have a linear effect on the outcome?**
@@ -418,7 +418,7 @@ Usage FAQs
 - **How should I set the parameter `n_splits`?**
 
     This parameter defines the number of data partitions to create in order to fit the first stages in a
-    crossfittin manner (see :py:class:`~econml._ortho_learner._OrthoLearner`). The default is 2, which
+    crossfittin manner (see :class:`._OrthoLearner`). The default is 2, which
     is the minimal. However, larger values like 5 or 6 can lead to greater statistical stability of the method,
     especially if the number of samples is small. So we advise that for small datasets, one should raise this
     value. This can increase the computational cost as more first stage models are being fitted.

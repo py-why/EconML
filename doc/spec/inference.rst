@@ -6,7 +6,7 @@ Generic Inference
 Bootstrap Subsampling
 ---------------------
 
-We provide a generic bootstrap sampling estimator :py:class:`~econml.bootstrap.BootstrapEstimator` that can wrap either sklearn 
+We provide a generic bootstrap sampling estimator :class:`.BootstrapEstimator` that can wrap either sklearn 
 or econml estimators.  This requires the wrapped object to provide a fit method, whose signature will be reused by the bootstrap 
 estimator (called on each of the cloned instances with a subsample of the data).
 

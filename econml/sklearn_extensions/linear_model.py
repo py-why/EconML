@@ -1,7 +1,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-"""Collection of scikit-learn extensions for linear models."""
+"""Collection of scikit-learn extensions for linear models.
+
+.. testcode::
+    :hide:
+
+    # Our classes that derive from sklearn ones sometimes include
+    # inherited docstrings that have embedded doctests; we need the following imports
+    # so that they don't break.
+
+    import numpy as np
+    from sklearn.linear_model import lasso_path
+"""
 
 import numbers
 import numpy as np
@@ -531,19 +542,19 @@ class DebiasedLasso(WeightedLasso):
 
     Parameters
     ----------
-    alpha : string | float, optional. Default='auto'.
+    alpha : string | float, optional, default 'auto'.
         Constant that multiplies the L1 term. Defaults to 'auto'.
         ``alpha = 0`` is equivalent to an ordinary least square, solved
         by the :class:`LinearRegression` object. For numerical
         reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
-        Given this, you should use the :class:`LinearRegression` object.
+        Given this, you should use the :class:`.LinearRegression` object.
 
     fit_intercept : boolean, optional, default True
         Whether to calculate the intercept for this model. If set
         to False, no intercept will be used in calculations
         (e.g. data is expected to be already centered).
 
-    precompute : True | False | array-like, default=False
+    precompute : True | False | array-like, default False
         Whether to use a precomputed Gram matrix to speed up
         calculations. If set to ``'auto'`` let us decide. The Gram
         matrix can also be passed as argument. For sparse input
@@ -596,10 +607,10 @@ class DebiasedLasso(WeightedLasso):
         Penalty chosen through cross-validation, if alpha='auto'.
 
     coef_std_err_ : array, shape (n_features,)
-        Estimated standard errors for coefficients (see 'coef_' attribute).
+        Estimated standard errors for coefficients (see ``coef_`` attribute).
 
     intercept_std_err_ : float
-        Estimated standard error intercept (see 'intercept_' attribute).
+        Estimated standard error intercept (see ``intercept_`` attribute).
 
     """
 
@@ -908,11 +919,11 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
     selected_alpha_ : array, shape (n_targets, ) or float
         Penalty chosen through cross-validation, if alpha='auto'.
 
-    coef_std_err_ : array, shape (n_targets, n_features) or (n_features_, )
-        Estimated standard errors for coefficients (see 'coef_' attribute).
+    coef_std_err_ : array, shape (n_targets, n_features) or (n_features, )
+        Estimated standard errors for coefficients (see ``coef_`` attribute).
 
     intercept_std_err_ : array, shape (n_targets, ) or float
-        Estimated standard error intercept (see 'intercept_' attribute).
+        Estimated standard error intercept (see ``intercept_`` attribute).
 
     """
 
