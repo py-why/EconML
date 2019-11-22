@@ -33,9 +33,10 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures, FunctionTransformer
 from sklearn.utils import check_random_state, check_array, column_or_1d
+from .sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
-from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
+from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, cross_product
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -55,11 +56,29 @@ def _build_tree_in_parallel(Y, T, X, W,
 
 
 def _fit_weighted_pipeline(model_instance, X, y, sample_weight):
+    weights_error_msg = (
+        "Estimators of type {} do not accept weights. "
+        "Consider using the class WeightedModelWrapper from econml.utilities to build a weighted model."
+    )
+    expected_error_msg = "fit() got an unexpected keyword argument 'sample_weight'"
     if not isinstance(model_instance, Pipeline):
-        model_instance.fit(X, y, sample_weight)
+        try:
+            model_instance.fit(X, y, sample_weight=sample_weight)
+        except TypeError as e:
+            if expected_error_msg in str(e):
+                # Make sure the correct exception is being rethrown
+                raise TypeError(weights_error_msg.format(model_instance.__class__.__name__))
+            else:
+                raise e
     else:
-        last_step_name = model_instance.steps[-1][0]
-        model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
+        try:
+            last_step_name = model_instance.steps[-1][0]
+            model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
+        except TypeError as e:
+            if expected_error_msg in str(e):
+                raise TypeError(weights_error_msg.format(model_instance.steps[-1][1].__class__.__name__))
+            else:
+                raise e
 
 
 def _cross_fit(model_instance, X, y, split_indices, sample_weight=None, predict_func_name='predict'):
@@ -381,8 +400,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
-                 model_T=WeightedModelWrapper(LassoCV(cv=3)),
-                 model_Y=WeightedModelWrapper(LassoCV(cv=3)),
+                 model_T=WeightedLassoCVWrapper(cv=3),
+                 model_Y=WeightedLassoCVWrapper(cv=3),
                  model_T_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
@@ -609,7 +628,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  lambda_reg=0.01,
                  propensity_model=LogisticRegression(penalty='l1', solver='saga',
                                                      multi_class='auto'),  # saga solver supports l1
-                 model_Y=WeightedModelWrapper(LassoCV(cv=3)),
+                 model_Y=WeightedLassoCVWrapper(cv=3),
                  propensity_model_final=None,
                  model_Y_final=None,
                  n_jobs=-1,

@@ -10,8 +10,8 @@ from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.pipeline import Pipeline
-from econml.ortho_forest import ContinuousTreatmentOrthoForest, DiscreteTreatmentOrthoForest, \
-    WeightedModelWrapper
+from econml.ortho_forest import ContinuousTreatmentOrthoForest, DiscreteTreatmentOrthoForest
+from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
 
 
 class TestOrthoForest(unittest.TestCase):
@@ -53,8 +53,8 @@ class TestOrthoForest(unittest.TestCase):
         est = ContinuousTreatmentOrthoForest(n_jobs=4, n_trees=10,
                                              model_T=Lasso(),
                                              model_Y=Lasso(),
-                                             model_T_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"),
-                                             model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
+                                             model_T_final=WeightedLassoCVWrapper(),
+                                             model_Y_final=WeightedLassoCVWrapper())
         # Test inputs for continuous treatments
         # --> Check that one can pass in regular lists
         est.fit(list(Y), list(T), list(TestOrthoForest.X), list(TestOrthoForest.W))
@@ -69,8 +69,8 @@ class TestOrthoForest(unittest.TestCase):
                                              max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
                                              model_T=Lasso(alpha=0.024),
                                              model_Y=Lasso(alpha=0.024),
-                                             model_T_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"),
-                                             model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
+                                             model_T_final=WeightedLassoCVWrapper(),
+                                             model_Y_final=WeightedLassoCVWrapper())
         est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W)
         self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5)
         # Test continuous treatments without controls
@@ -94,7 +94,7 @@ class TestOrthoForest(unittest.TestCase):
         est = DiscreteTreatmentOrthoForest(n_trees=10, n_jobs=4,
                                            propensity_model=LogisticRegression(), model_Y=Lasso(),
                                            propensity_model_final=LogisticRegressionCV(penalty='l1', solver='saga'),
-                                           model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
+                                           model_Y_final=WeightedLassoCVWrapper())
         # Test inputs for binary treatments
         # --> Check that one can pass in regular lists
         est.fit(list(Y), list(T), list(TestOrthoForest.X), list(TestOrthoForest.W))
@@ -118,7 +118,7 @@ class TestOrthoForest(unittest.TestCase):
                                            propensity_model=LogisticRegression(C=1 / 0.024, penalty='l1'),
                                            model_Y=Lasso(alpha=0.024),
                                            propensity_model_final=LogisticRegressionCV(penalty='l1', solver='saga'),
-                                           model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
+                                           model_Y_final=WeightedLassoCVWrapper())
         est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W)
         self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.7, treatment_type='discrete')
         # Test binary treatments without controls
@@ -146,9 +146,8 @@ class TestOrthoForest(unittest.TestCase):
                                              max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
                                              model_T=MultiOutputRegressor(Lasso(alpha=0.024)),
                                              model_Y=Lasso(alpha=0.024),
-                                             model_T_final=WeightedModelWrapper(
-                                                 MultiOutputRegressor(LassoCV()), sample_type="weighted"),
-                                             model_Y_final=WeightedModelWrapper(LassoCV(), sample_type="weighted"))
+                                             model_T_final=WeightedLassoCVWrapper(),
+                                             model_Y_final=WeightedLassoCVWrapper())
         est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W)
         expected_te = np.array([TestOrthoForest.expected_exp_te, TestOrthoForest.expected_const_te]).T
         self._test_te(est, expected_te, tol=0.5, treatment_type='multi')
@@ -177,6 +176,26 @@ class TestOrthoForest(unittest.TestCase):
         assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
+
+    def test_nuisance_model_has_weights(self):
+        """Test whether the correct exception is being raised if model_final doesn't have weights."""
+        # Generate data with continuous treatments
+        T = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_T) + \
+            TestOrthoForest.eta_sample(TestOrthoForest.n)
+        TE = np.array([self._exp_te(x) for x in TestOrthoForest.X])
+        Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
+            T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
+        # Instantiate model with most of the default parameters
+        est = ContinuousTreatmentOrthoForest(n_jobs=4, n_trees=10,
+                                             model_T=Lasso(),
+                                             model_Y=Lasso())
+        est.fit(Y=Y, T=T, X=TestOrthoForest.X, W=TestOrthoForest.W)
+        weights_error_msg = (
+            "Estimators of type {} do not accept weights. "
+            "Consider using the class WeightedModelWrapper from econml.utilities to build a weighted model."
+        )
+        self.assertRaisesRegexp(TypeError, weights_error_msg.format("Lasso"),
+                                est.effect, X=TestOrthoForest.X)
 
     def _test_te(self, learner_instance, expected_te, tol, treatment_type='continuous'):
         # Compute the treatment effect on test points

@@ -9,6 +9,7 @@ import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
 from econml.sklearn_extensions.model_selection import WeightedKFold, WeightedStratifiedKFold
+from econml.utilities import ndim, shape, reshape
 from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection._split import _CVIterableWrapper, CV_WARNING
@@ -1048,3 +1049,40 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         else:
             attribute_value = default
         setattr(self, attribute_name, attribute_value)
+
+
+class WeightedLassoCVWrapper:
+    """Helper class to wrap either WeightedLassoCV or WeightedMultiTaskLassoCV depending on the shape of the target."""
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+
+    def fit(self, X, y, sample_weight=None):
+        self.needs_unravel = False
+        if ndim(y) == 2 and shape(y)[1] > 1:
+            self.model = WeightedMultiTaskLassoCV(*self.args, **self.kwargs)
+        else:
+            if ndim(y) == 2 and shape(y)[1] == 1:
+                y = np.ravel(y)
+                self.needs_unravel = True
+            self.model = WeightedLassoCV(*self.args, **self.kwargs)
+        self.model.fit(X, y, sample_weight)
+        # set intercept_ attribute
+        self.intercept_ = self.model.intercept_
+        # set coef_ attribute
+        self.coef_ = self.model.coef_
+        # set alpha_ attribute
+        self.alpha_ = self.model.alpha_
+        # set alphas_ attribute
+        self.alphas_ = self.model.alphas_
+        # set n_iter_ attribute
+        self.n_iter_ = self.model.n_iter_
+        return self
+
+    def predict(self, X):
+        predictions = self.model.predict(X)
+        return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
+
+    def score(self, X, y, sample_weight=None):
+        return self.model.score(X, y, sample_weight)

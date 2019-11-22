@@ -46,7 +46,28 @@ from ._ortho_learner import _OrthoLearner
 
 class _RLearner(_OrthoLearner):
     """
-    Base class for orthogonal learners.
+    Base class for CATE learners that residualize treatment and outcome and run residual on residual regression.
+    The estimator is a special of an :class:`~econml._ortho_learner._OrthoLearner` estimator,
+    so it follows the two
+    stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
+    manner and a final stage estimates the CATE model. See the documentation of
+    :class:`~econml._ortho_learner._OrthoLearner` for a description of this two stage process.
+
+    In this estimator, the CATE is estimated by using the following estimating equations:
+
+    .. math ::
+        Y - \\E[Y | X, W] = \\Theta(X) \\cdot (T - \\E[T | X, W]) + \\epsilon
+
+    Thus if we estimate the nuisance functions :math:`q(X, W) = \\E[Y | X, W]` and
+    :math:`f(X, W)=\\E[T | X, W]` in the first stage, we can estimate the final stage cate for each
+    treatment t, by running a regression, minimizing the residual on residual square loss:
+
+    .. math ::
+        \\hat{\\theta} = \\arg\\min_{\\Theta}\
+        \\E_n\\left[ (\\tilde{Y} - \\Theta(X) \\cdot \\tilde{T})^2 \\right]
+
+    Where :math:`\\tilde{Y}=Y - \\E[Y | X, W]` and :math:`\\tilde{T}=T-\\E[T | X, W]` denotes the
+    residual outcome and residual treatment.
 
     Parameters
     ----------
@@ -106,7 +127,9 @@ class _RLearner(_OrthoLearner):
     The example code below implements a very simple version of the double machine learning
     method on top of the :py:class:`~econml._ortho_learner._RLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
-    checkout :py:class:`~econml.dml.DMLCateEstimator` and its child classes::
+    checkout :py:class:`~econml.dml.DMLCateEstimator` and its child classes:
+
+    .. testcode::
 
         import numpy as np
         from sklearn.linear_model import LinearRegression
@@ -137,18 +160,18 @@ class _RLearner(_OrthoLearner):
         est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
 
     >>> est.const_marginal_effect(np.ones((1,1)))
-    array([0.99963147])
+    array([0.999631...])
     >>> est.effect(np.ones((1,1)), T0=0, T1=10)
-    array([9.99631472])
+    array([9.996314...])
     >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
-    9.736380060274913e-05
+    9.73638006...e-05
     >>> est.model_final.model
     LinearRegression(copy_X=True, fit_intercept=False, n_jobs=None,
          normalize=False)
     >>> est.model_final.model.coef_
-    array([0.99963147])
+    array([0.999631...])
     >>> est.score_
-    9.826232040878233e-05
+    9.82623204...e-05
     >>> [mdl._model for mdl in est.models_y]
     [LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
           normalize=False),
