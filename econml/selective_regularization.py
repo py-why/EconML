@@ -3,193 +3,165 @@
 
 """Provides linear regressors with support for applying L1 and/or L2 regularization to a subset of coefficients."""
 
-import os
-import tensorflow as tf
+from warnings import warn
 import numpy as np
-import scipy.sparse as sp
-from itertools import product
+from sklearn import clone
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
 
 
-class SelectiveElasticNet:
+class SelectiveRegularization:
     """
-    Estimator that allows L1 and L2 penalties on a subset of the features of a linear model.
+    Estimator of a linear model where regularization is applied to only a subset of the coefficients.
+
+    Assume that our loss is
+
+    .. math::
+        \\ell(\\beta_1, \\beta_2) = \\lVert y - X_1 \\beta_1 - X_2 \\beta_2 \\rVert^2 + f(\\beta_2)
+
+    so that we're regularizing only the coefficients in :math:`\\beta_2`.
+
+    Then, since :math:`\\beta_1` doesn't appear in the penalty, the problem of finding :math:`\\beta_1` to minimize the
+    loss once :math:`\\beta_2` is known reduces to just a normal OLS regression, so that:
+
+    .. math::
+        \\beta_1 = (X_1^\\top X_1)^{-1}X_1^\\top(y - X_2 \\beta_2)
+
+    Plugging this into the loss, we obtain
+
+    .. math::
+
+        ~& \\lVert y - X_1 (X_1^\\top X_1)^{-1}X_1^\\top(y - X_2 \\beta_2) - X_2 \\beta_2 \\rVert^2 + f(\\beta_2) \\\\
+        =~& \\lVert (I - X_1 (X_1^\\top  X_1)^{-1}X_1^\\top)(y - X_2 \\beta_2) \\rVert^2 + f(\\beta_2)
+
+    But, letting :math:`M_{X_1} = I - X_1 (X_1^\\top  X_1)^{-1}X_1^\\top`, we see that this is
+
+    .. math::
+        \\lVert (M_{X_1} y) - (M_{X_1} X_2) \\beta_2 \\rVert^2 + f(\\beta_2)
+
+    so finding the minimizing :math:`\\beta_2` can be done by regressing :math:`M_{X_1} y` on :math:`M_{X_1} X_2` using
+    the penalized regression method incorporating :math:`f`.  Note that these are just the residual values of :math:`y`
+    and :math:`X_2` when regressed on :math:`X_1` using OLS.
 
     Parameters
     ----------
-    num_outcomes : int
-        The dimension of the output
-
-    num_features : int
-        The dimension of the input
-
-    subset : set of int
-        The set of feature indices to penalize
-
-    steps : int, optional (default 1000)
-        The number of iterations to run
-
-    alpha_l1 : float, optional (default 0.1)
-        The L1 penalty to apply to coefficients
-
-    alpha_l2 : float, optional (default 0.1)
-        The L2 penalty to apply to coefficients
-
-    learning_rate : float, optional (default 0.1)
-        The learning rate to use with Adagrad
-
-    Returns
-    -------
-    The estimator
+    unpenalized_inds : list of int
+        The indices that should not be penalized when the model is fit; all other indices will be penalized
+    penalized_model : :term:`regressor`
+        A penalized linear regression model
+    fit_intercept : bool, optional, default True
+        Whether to fit an intercept; the intercept will not be penalized if it is fit
     """
 
-    # TODO: allow different subsets for L1 and L2 regularization?
+    def __init__(self, unpenalized_inds, penalized_model, fit_intercept=True):
+        self._unpenalized_inds = unpenalized_inds
+        self._penalized_model = clone(penalized_model)
+        self._fit_intercept = fit_intercept
 
-    def __init__(self, num_outcomes, num_features, subset, steps=1000, alpha_l1=0.1, alpha_l2=0.1, learning_rate=0.1):
-        self._subset = subset
-        self._subset_c = np.setdiff1d(np.arange(num_features), subset)
-        self._steps = steps
-        self._alpha_l1 = alpha_l1
-        self._alpha_l2 = alpha_l2
-        self._learning_rate = learning_rate
-        self.tf_graph_init(num_outcomes, len(self._subset), len(self._subset_c))
-
-    def tf_graph_init(self, num_outcomes, num_reg_features, num_ureg_features):
+    def fit(self, X, y, sample_weight=None):
         """
-        Create the graph that corresponds to the squared loss with an L1/L2 penalties.
+        Fit the model.
 
-        The penalties apply only on the subset of features specified by the self._subset variable.
-        Also creates the optimizer that minimizes this loss and a persistent tensorflow
-        session for the class.
+        Parameters
+        ----------
+        X : array-like, shape (n, d_x)
+            The features to regress against
+        y : array-like, shape (n,) or (n, d_y)
+            The regression target
+        sample_weight : array-like, shape (n,), optional, default None
+            Relative weights for each sample
         """
-        self.Y = tf.placeholder("float", [None, num_outcomes], name="outcome")
-        self.X_reg = tf.placeholder("float", [None, num_reg_features], name="reg_features")
-        self.X_ureg = tf.placeholder("float", [None, num_ureg_features], name="ureg_features")
+        self._penalized_inds = np.delete(np.arange(X.shape[1]), self._unpenalized_inds)
+        X1 = X[:, self._unpenalized_inds]
+        X2 = X[:, self._penalized_inds]
 
-        self.weights_reg = tf.Variable(tf.random_normal(
-            [num_reg_features, num_outcomes], 0, 0.1), name="weights_reg")
-        self.weights_ureg = tf.Variable(tf.random_normal(
-            [num_ureg_features, num_outcomes], 0, 0.1), name="weights_ureg")
-        self.bias = tf.Variable(tf.random_normal(
-            [num_outcomes], 0, 0.1), name="biases")
-        self.Y_pred = tf.add(tf.add(tf.matmul(self.X_reg, self.weights_reg),
-                                    tf.matmul(self.X_ureg, self.weights_ureg)), self.bias)
+        X2_res = X2 - LinearRegression(fit_intercept=self._fit_intercept).fit(X1, X2,
+                                                                              sample_weight=sample_weight).predict(X1)
+        y_res = y - LinearRegression(fit_intercept=self._fit_intercept).fit(X1, y,
+                                                                            sample_weight=sample_weight).predict(X1)
 
-        regularization = tf.contrib.layers.apply_regularization(
-            tf.contrib.layers.l1_l2_regularizer(
-                scale_l1=self._alpha_l1, scale_l2=self._alpha_l2), [self.weights_reg])
-        self.cost = tf.reduce_mean(tf.pow(self.Y - self.Y_pred, 2)) + regularization
+        if sample_weight is not None:
+            self._penalized_model.fit(X2_res, y_res, sample_weight=sample_weight)
+        else:
+            self._penalized_model.fit(X2_res, y_res)
 
-        self.optimizer = tf.train.AdagradOptimizer(learning_rate=self._learning_rate)
-        self.train = self.optimizer.minimize(self.cost)
+        # The unpenalized model can't contain an intercept, because in the analysis above
+        # we rely on the fact that M(X beta) = (M X) beta, but M(X beta + c) is not the same
+        # as (M X) beta + c, so the learned coef and intercept will be wrong
+        intercept = self._penalized_model.predict(np.zeros_like(X2[0:1]))
+        if not np.allclose(intercept, 0):
+            raise AttributeError("The penalized model has a non-zero intercept; to fit an intercept "
+                                 "you should instead either set fit_intercept to True when initializing the "
+                                 "SelectiveRegression instance (for an unpenalized intercept) or "
+                                 "explicitly add a column of ones to the data being fit and include that "
+                                 "column in the penalized indices.")
 
-        self.session = tf.Session()
+        # now regress X1 on y - X2 * beta2 to learn beta1
+        self._model_X1 = LinearRegression(fit_intercept=self._fit_intercept)
+        self._model_X1.fit(X1, y - self._penalized_model.predict(X2), sample_weight=sample_weight)
 
-    def fit(self, X, y):
-        """Fit the model."""
-        # TODO: any better way to deal with sparsity?
-        if sp.issparse(X):
-            X = X.toarray()
-        self.session.run(tf.global_variables_initializer())
-        for step in range(self._steps):
-            self.session.run(self.train, feed_dict={
-                self.X_reg: X[:, self._subset],
-                self.X_ureg: X[:, self._subset_c],
-                self.Y: y.reshape(-1, 1)
-            })
         return self
 
     def predict(self, X):
-        """Apply the model to a set of features to predict the outcomes."""
-        # TODO: any better way to deal with sparsity?
-        if sp.issparse(X):
-            X = X.toarray()
-        return self.session.run(self.Y_pred, feed_dict={
-            self.X_reg: X[:, self._subset],
-            self.X_ureg: X[:, self._subset_c]
-        })
+        """
+        Make a prediction for each sample.
+
+        Parameters
+        ----------
+        X : array-like, shape (m, d_x)
+            The samples whose targets to predict
+
+        Output
+        ------
+        arr : array-like, shape (m,) or (m, d_y)
+            The predicted targets
+        """
+        X1 = X[:, self._unpenalized_inds]
+        X2 = X[:, self._penalized_inds]
+        return self._model_X1.predict(X1) + self._penalized_model.predict(X2)
 
     @property
     def coef_(self):
-        """Get the model coefficients."""
-        coef_reg = self.session.run(self.weights_reg.value())
-        coef_ureg = self.session.run(self.weights_ureg.value())
-        full_coef = np.zeros((coef_reg.shape[0] + coef_ureg.shape[0], coef_reg.shape[1]))
-        full_coef[self._subset, :] = coef_reg
-        full_coef[self._subset_c, :] = coef_ureg
-        return full_coef
+        """
+        Get the coefficient matrix of the predictor.
+
+        Output
+        ------
+        arr : array, shape (d_x) or (d_y,d_x)
+        """
+        y_dim = self._model_X1.coef_.shape[0:-1]  # get () if y was a vector, or (d_y,) otherwise
+        x_dim = len(self._penalized_inds) + len(self._unpenalized_inds),
+        coefs = np.empty(y_dim + x_dim)
+        coefs[..., self._penalized_inds] = self._penalized_model.coef_
+        coefs[..., self._unpenalized_inds] = self._model_X1.coef_
+        return coefs
+
+    @property
+    def intercept_(self):
+        """
+        Get the intercept of the predictor.
+
+        Output
+        ------
+        arr : scalar or array of shape (d_y,)
+        """
+        # Note that the penalized model should *not* have an intercept
+        return self._model_X1.intercept_
 
     def score(self, X, y):
-        """Score the predictions for a set of features to ground truth."""
-        from sklearn.metrics import r2_score
-        return r2_score(y, self.predict(X).reshape(y.shape))
+        """
+        Score the predictions for a set of features to ground truth.
 
+        Parameters
+        ----------
+        X : array-like, shape (m, d_x)
+            The samples to predict
+        y : array-like, shape (m,) or (m, d_y)
+            The ground truth targets
 
-class SelectiveLasso(SelectiveElasticNet):
-    """
-    Estimator that allows L1 penalties on a subset of the features of a linear model.
-
-    Parameters
-    ----------
-    num_outcomes : int
-        The dimension of the output
-
-    num_features : int
-        The dimension of the input
-
-    subset : set of int
-        The set of feature indices to penalize
-
-    steps : int, optional (default 1000)
-        The number of iterations to run
-
-    alpha_l1 : float, optional (default 0.1)
-        The L1 penalty to apply to coefficients
-
-    learning_rate : float, optional (default 0.1)
-        The learning rate to use with Adagrad
-
-    Returns
-    -------
-    The estimator
-    """
-
-    def __init__(self, num_outcomes, num_features, subset, steps=1000, alpha=0.1, learning_rate=0.1):
-        super().__init__(num_outcomes, num_features, subset, steps=1000,
-                         alpha_l1=alpha, alpha_l2=0.0, learning_rate=0.1)
-
-
-class SelectiveRidge(SelectiveElasticNet):
-    """
-    Estimator that allows L2 penalties on a subset of the features of a linear model.
-
-    Parameters
-    ----------
-    num_outcomes : int
-        The dimension of the output
-
-    num_features : int
-        The dimension of the input
-
-    subset : set of int
-        The set of feature indices to penalize
-
-    steps : int, optional (default 1000)
-        The number of iterations to run
-
-    alpha_l1 : float, optional (default 0.1)
-        The L1 penalty to apply to coefficients
-
-    alpha_l2 : float, optional (default 0.1)
-        The L2 penalty to apply to coefficients
-
-    learning_rate : float, optional (default 0.1)
-        The learning rate to use with Adagrad
-
-    Returns
-    -------
-    The estimator
-    """
-
-    def __init__(self, num_outcomes, num_features, subset, steps=1000, alpha=0.1, learning_rate=0.1):
-        super().__init__(num_outcomes, num_features, subset, steps=1000,
-                         alpha_l1=0.0, alpha_l2=alpha, learning_rate=0.1)
+        Output
+        ------
+        score : float
+            The model's score
+        """
+        return r2_score(y, self.predict(X))
