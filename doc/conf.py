@@ -219,6 +219,13 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = False
 
+# -- Options for doctest extension -------------------------------------------
+import doctest
+doctest_default_flags = (doctest.DONT_ACCEPT_TRUE_FOR_1 |
+                         doctest.ELLIPSIS |
+                         doctest.IGNORE_EXCEPTION_DETAIL |
+                         doctest.NORMALIZE_WHITESPACE)
+
 
 def exclude_entity(app, what, name, obj, skip, opts):
     # we can document otherwise excluded entities here by returning False

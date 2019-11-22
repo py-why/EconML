@@ -33,9 +33,10 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures, FunctionTransformer
 from sklearn.utils import check_random_state, check_array, column_or_1d
+from .sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
-from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, WeightedModelWrapper, cross_product
+from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, cross_product
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -399,8 +400,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
-                 model_T=WeightedModelWrapper(LassoCV(cv=3)),
-                 model_Y=WeightedModelWrapper(LassoCV(cv=3)),
+                 model_T=WeightedLassoCVWrapper(cv=3),
+                 model_Y=WeightedLassoCVWrapper(cv=3),
                  model_T_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
@@ -627,7 +628,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  lambda_reg=0.01,
                  propensity_model=LogisticRegression(penalty='l1', solver='saga',
                                                      multi_class='auto'),  # saga solver supports l1
-                 model_Y=WeightedModelWrapper(LassoCV(cv=3)),
+                 model_Y=WeightedLassoCVWrapper(cv=3),
                  propensity_model_final=None,
                  model_Y_final=None,
                  n_jobs=-1,
