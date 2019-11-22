@@ -25,7 +25,7 @@ The T-Learner models :math:`Y(0)`, :math:`Y(1)` separately. The estimated CATE i
 where :math:`\hat{\mu}_0 = M_0(Y^0\sim X^0),\; \hat{\mu}_1 = M_1(Y^1\sim X^1)` are the outcome models for the control and treatment group, respectively. Here, :math:`M_0`, :math:`M_1` can be any suitable machine learning algorithms that can learn the relationship between features and outcome.
 
 The EconML package provides the following implementation of the T-Learner:
-:py:class:`~econml.metalearners.TLearner`
+:class:`.TLearner`
 
 S-Learner
 -----------
@@ -40,7 +40,7 @@ The S-Learner models :math:`Y(0)` and :math:`Y(1)` through one model that receiv
 where :math:`\hat{\mu}=M(Y \sim (X, T))` is the outcome model for features :math:`X, T`. Here, :math:`M` is any suitable machine learning algorithm.
  
 The EconML package provides the following implementation of the S-Learner: 
-:py:class:`~econml.metalearners.SLearner`
+:class:`.SLearner`
 
 X-Learner
 -----------
@@ -60,7 +60,7 @@ The X-Learner models :math:`Y(1)` and :math:`Y(0)` separately in order to estima
 where :math:`g(x)` is an estimation of :math:`P[T=1| X]` and :math:`M_1, M_2, M_3, M_4` are suitable machine learning algorithms. 
 
 The EconML package provides the following implementation of the X-Learner: 
-:py:class:`~econml.metalearners.XLearner`
+:class:`.XLearner`
 
 
 Domain Adaptation Learner
@@ -84,7 +84,7 @@ where :math:`g(x)` is an estimation of :math:`P[T=1| X]`, :math:`M_1, M_2, M_3` 
 dataset concatenation. 
 
 The EconML package provides the following implementation of the Domain Adaptation Learner: 
-:py:class:`~econml.metalearners.DomainAdaptationLearner`
+:class:`.DomainAdaptationLearner`
 
 
 Doubly Robust Learner
@@ -101,7 +101,7 @@ it first constructs the proxies:
 and then runs a regression between :math:`Y_{i, 1}^{DR} - Y_{i, 0}^{DR}` and :math:`X`.
 
 The EconML package provides the following implementation of the Doubly Robust Learner: 
-:py:class:`~econml.drlearner.DRLearner`
+:class:`.DRLearner`
 
 
 .. todo::

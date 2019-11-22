@@ -14,7 +14,7 @@ the heterogeneous treatment effect :math:`\theta(X)`, on a lower dimensional set
 Moreover, the estimates are asymptotically normal and hence have theoretical properties
 that render bootstrap based confidence intervals asymptotically valid. 
 
-In the case of continuous treatments (see :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`) the method estimates :math:`\theta(x)` for some target :math:`x` by solving the following
+In the case of continuous treatments (see :class:`.ContinuousTreatmentOrthoForest`) the method estimates :math:`\theta(x)` for some target :math:`x` by solving the following
 system of equations:
 
 .. math::
@@ -55,7 +55,7 @@ the final stage estimation, in a cross-fitting manner).
 Algorithmically, the nuisance estimation part of the method is implemented in a
 flexible manner, not restricted to :math:`\ell_1` regularization, as follows: the user can define any class that
 supports fit and predict. The fit function needs to also support sample weights, passed as a third argument. 
-If it does not, then we provided a weighted model wrapper :py:class:`~econml.ortho_forest.WeightedModelWrapper` that
+If it does not, then we provided a weighted model wrapper :class:`.WeightedModelWrapper` that
 can wrap any class that supports fit and predict and enables sample weight functionality. This is done either
 by re-sampling the data based on the weights and then calling fit and predict, or, in the case of square losses of
 linear function classes, by re-scaling the features and labels appropriately based on the weights:
@@ -80,7 +80,7 @@ If not, then it re-samples the data based on the weights and calls the fit metho
 class on this re-sampled dataset. The latter has higher variance and should not be chosen if the
 first approach is applicable.
 
-In the case of discrete treatments (see :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`) the
+In the case of discrete treatments (see :class:`.DiscreteTreatmentOrthoForest`) the
 method estimates :math:`\theta(x)` for some target :math:`x` by solving a slightly different
 set of equations (see [Oprescu2019]_ for a theoretical exposition of why a different set of
 estimating equations is used). In particular, suppose that the treatment :math:`T` takes
@@ -107,8 +107,8 @@ a multi-class classification model and should support :code:`predict_proba`.
 For more details on the input parameters of the orthogonal forest classes and how to customize
 the estimator checkout the two modules:
 
-- :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`
-- :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
+- :class:`.DiscreteTreatmentOrthoForest`
+- :class:`.ContinuousTreatmentOrthoForest`
 
 For more examples check out our 
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
@@ -116,7 +116,7 @@ For more examples check out our
 Examples
 --------
 
-Here is a simple example of how to call :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
+Here is a simple example of how to call :class:`.ContinuousTreatmentOrthoForest`
 and what the returned values correspond to in a simple data generating process:
 
     .. testcode::
@@ -138,7 +138,7 @@ and what the returned values correspond to in a simple data generating process:
     [[1. ]
      [1.2]]
 
-Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoForest`:
+Similarly, we can call :class:`.DiscreteTreatmentOrthoForest`:
 
     >>> T = np.array([0, 1]*60)
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
@@ -153,7 +153,7 @@ Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoFor
 
 Let's now look at a more involved example with a high-dimensional set of confounders :math:`W`
 and with more realistic noisy data. In this case we can just use the default parameters
-of the class, which specify the use of the :py:class:`~sklearn.linear_model.LassoCV` for 
+of the class, which specify the use of the :class:`~sklearn.linear_model.LassoCV` for 
 both the treatment and the outcome regressions, in the case of continuous treatments.
 
     >>> from econml.ortho_forest import ContinuousTreatmentOrthoForest

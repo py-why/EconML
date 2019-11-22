@@ -17,6 +17,8 @@ Public Module Reference
     econml.drlearner
     econml.two_stage_least_squares
     econml.utilities
+    econml.sklearn_extensions.linear_model
+    econml.sklearn_extensions.model_selection    
 
 Private Module Reference
 ========================

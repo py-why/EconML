@@ -479,7 +479,7 @@ class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
     that inherits it.
 
     Such an estimator must implement a :attr:`model_final` attribute that points
-    to the fitted final :py:class:`~econml.utilities.StatsModelsLinearRegression` object that
+    to the fitted final :class:`.StatsModelsLinearRegression` object that
     represents the fitted CATE model.
     """
 
@@ -595,7 +595,7 @@ class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscret
     that inherits it.
 
     Such an estimator must implement a :attr:`model_final` attribute that points
-    to a :py:class:`~econml.utilities.StatsModelsLinearRegression` object that is cloned to fit
+    to a :class:`.StatsModelsLinearRegression` object that is cloned to fit
     each discrete treatment target CATE model and a :attr:`fitted_models_final` attribute
     that returns the list of fitted final models that represent the CATE for each categorical treatment.
     """

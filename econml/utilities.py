@@ -1,20 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-"""
-Utility methods.
-
-.. testcode::
-    :hide:
-
-    # Our classes that derive from sklearn ones sometimes include
-    # inherited docstrings that have embedded doctests; we need the following imports
-    # so that they don't break.
-
-    import numpy as np
-    from sklearn.linear_model import lasso_path
-
-"""
+"""Utility methods."""
 
 import numpy as np
 import scipy.sparse
