@@ -55,7 +55,8 @@ from .inference import StatsModelsInference, GenericModelFinalInference
 from ._rlearner import _RLearner
 from .sklearn_extensions.model_selection import WeightedStratifiedKFold
 
-class FirstStageWrapper:
+
+class _FirstStageWrapper:
     def __init__(self, model, is_Y, featurizer, linear_first_stages, discrete_treatment):
         self._model = clone(model, safe=False)
         self._featurizer = clone(featurizer, safe=False)
@@ -68,7 +69,7 @@ class FirstStageWrapper:
             # if both X and W are None, just return a column of ones
             return (W if W is not None else np.ones((n_samples, 1)))
         XW = hstack([X, W]) if W is not None else X
-        if self._is_Y and linear_first_stages:
+        if self._is_Y and self._linear_first_stages:
             if self._featurizer is None:
                 F = X
             else:
@@ -99,7 +100,8 @@ class FirstStageWrapper:
         else:
             return self._model.predict(self._combine(X, W, n_samples, fitting=False))
 
-class FinalWrapper:
+
+class _FinalWrapper:
     def __init__(self, model_final, fit_cate_intercept, featurizer, use_weight_trick):
         self._model = clone(model_final, safe=False)
         self._use_weight_trick = use_weight_trick
@@ -128,7 +130,11 @@ class FinalWrapper:
                 F = X
         else:
             if not self._fit_cate_intercept:
-                raise AttributeError("Cannot have X=None and also not allow for a CATE intercept!")
+                if self._use_weight_trick:
+                    raise AttributeError("Cannot use this method with X=None. Consider "
+                                         "using the LinearDMLCateEstimator.")
+                else:
+                    raise AttributeError("Cannot have X=None and also not allow for a CATE intercept!")
             F = np.ones((T.shape[0], 1))
         return cross_product(F, T)
 
@@ -180,7 +186,6 @@ class FinalWrapper:
                     self._model.fit(F, target, sample_weight=sample_weight * T_res.flatten()**2)
             else:
                 self._model.fit(F, target, sample_weight=T_res.flatten()**2)
-            
 
     def predict(self, X):
         X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),

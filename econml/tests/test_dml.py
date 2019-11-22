@@ -204,6 +204,11 @@ class TestDML(unittest.TestCase):
                                 for inf in infs:
                                     with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
                                                       is_discrete=is_discrete, est=est, inf=inf):
+                                        if X is None:
+                                            with pytest.raises(AttributeError):
+                                                est.fit(Y, T, X, W, inference=inf)
+                                            continue
+
                                         est.fit(Y, T, X, W, inference=inf)
                                         # make sure we can call the marginal_effect and effect methods
                                         const_marg_eff = est.const_marginal_effect(X)
