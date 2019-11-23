@@ -50,7 +50,7 @@ class TestOrthoForest(unittest.TestCase):
         Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Instantiate model with most of the default parameters
-        est = ContinuousTreatmentOrthoForest(n_jobs=4, n_trees=10,
+        est = ContinuousTreatmentOrthoForest(n_jobs=1, n_trees=10,
                                              model_T=Lasso(),
                                              model_Y=Lasso(),
                                              model_T_final=WeightedLassoCVWrapper(),
@@ -91,7 +91,7 @@ class TestOrthoForest(unittest.TestCase):
         Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Instantiate model with default params
-        est = DiscreteTreatmentOrthoForest(n_trees=10, n_jobs=4,
+        est = DiscreteTreatmentOrthoForest(n_trees=10, n_jobs=1,
                                            propensity_model=LogisticRegression(), model_Y=Lasso(),
                                            propensity_model_final=LogisticRegressionCV(penalty='l1', solver='saga'),
                                            model_Y_final=WeightedLassoCVWrapper())
