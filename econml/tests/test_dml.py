@@ -6,7 +6,7 @@ import pytest
 from sklearn.base import TransformerMixin
 from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
+from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
 from sklearn.model_selection import KFold
 from econml.dml import DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
 from econml.dml import NonParamDMLCateEstimator, ForestDMLCateEstimator
@@ -17,6 +17,7 @@ from contextlib import ExitStack
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
 from econml.sklearn_extensions.linear_model import WeightedLasso
+from econml.tests.test_statsmodels import _summarize
 
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
@@ -60,83 +61,131 @@ class TestDML(unittest.TestCase):
                                                                  (False, d_y),
                                                                  (is_discrete, d_t)]]
 
-                            d_t_final = 2 if is_discrete else d_t
+                            for featurizer, fit_cate_intercept in\
+                                [(None, True),
+                                 (PolynomialFeatures(degree=2, include_bias=False), True),
+                                 (PolynomialFeatures(degree=2, include_bias=True), False)]:
 
-                            effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
-                            marginal_effect_shape = ((n,) +
-                                                     ((d_y,) if d_y > 0 else ()) +
-                                                     ((d_t_final,) if d_t_final > 0 else ()))
+                                d_t_final = 2 if is_discrete else d_t
 
-                            # since T isn't passed to const_marginal_effect, defaults to one row if X is None
-                            const_marginal_effect_shape = ((n if d_x else 1,) +
-                                                           ((d_y,) if d_y > 0 else ()) +
-                                                           ((d_t_final,) if d_t_final > 0 else()))
+                                effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
+                                marginal_effect_shape = ((n,) +
+                                                         ((d_y,) if d_y > 0 else ()) +
+                                                         ((d_t_final,) if d_t_final > 0 else ()))
 
-                            model_t = LogisticRegression() if is_discrete else Lasso()
+                                # since T isn't passed to const_marginal_effect, defaults to one row if X is None
+                                const_marginal_effect_shape = ((n if d_x else 1,) +
+                                                               ((d_y,) if d_y > 0 else ()) +
+                                                               ((d_t_final,) if d_t_final > 0 else()))
 
-                            # TODO: add stratification to bootstrap so that we can use it even with discrete treatments
-                            all_infs = [None, 'statsmodels']
-                            if not is_discrete:
-                                all_infs.append(BootstrapInference(1))
+                                fd_x = featurizer.fit_transform(X).shape[1:] if featurizer and d_x\
+                                    else ((d_x,) if d_x else (0,))
+                                coef_shape = Y.shape[1:] + (T.shape[1:] if not is_discrete else (2,)) + fd_x
+                                intercept_shape = Y.shape[1:] + (T.shape[1:] if not is_discrete else (2,))
 
-                            for est, multi, infs in [(LinearDMLCateEstimator(model_y=Lasso(),
-                                                                             model_t='auto',
-                                                                             discrete_treatment=is_discrete),
-                                                      False,
-                                                      all_infs),
-                                                     (SparseLinearDMLCateEstimator(model_y=WeightedLasso(),
-                                                                                   model_t=model_t,
-                                                                                   discrete_treatment=is_discrete),
-                                                      True,
-                                                      [None]),
-                                                     (KernelDMLCateEstimator(model_y=WeightedLasso(),
-                                                                             model_t=model_t,
-                                                                             discrete_treatment=is_discrete),
-                                                      False,
-                                                      [None])]:
+                                model_t = LogisticRegression() if is_discrete else Lasso()
 
-                                if not(multi) and d_y > 1:
-                                    continue
+                                # TODO: add stratification to bootstrap so that we can use it
+                                # even with discrete treatments
+                                all_infs = [None, 'statsmodels']
+                                if not is_discrete:
+                                    all_infs.append(BootstrapInference(1))
 
-                                for inf in infs:
-                                    with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
-                                                      is_discrete=is_discrete, est=est, inf=inf):
-                                        est.fit(Y, T, X, W, inference=inf)
-                                        # make sure we can call the marginal_effect and effect methods
-                                        const_marg_eff = est.const_marginal_effect(X)
-                                        marg_eff = est.marginal_effect(T, X)
-                                        self.assertEqual(shape(marg_eff), marginal_effect_shape)
-                                        self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
+                                for est, multi, infs in [(LinearDMLCateEstimator(model_y=Lasso(),
+                                                                                 model_t='auto',
+                                                                                 featurizer=featurizer,
+                                                                                 fit_cate_intercept=\
+                                                                                     fit_cate_intercept,
+                                                                                 discrete_treatment=is_discrete),
+                                                          True,
+                                                          all_infs),
+                                                         (SparseLinearDMLCateEstimator(model_y=WeightedLasso(),
+                                                                                       model_t=model_t,
+                                                                                       featurizer=featurizer,
+                                                                                       fit_cate_intercept=\
+                                                                                           fit_cate_intercept,
+                                                                                       discrete_treatment=\
+                                                                                           is_discrete),
+                                                          True,
+                                                          [None, 'debiasedlasso']),
+                                                         (KernelDMLCateEstimator(model_y=WeightedLasso(),
+                                                                                 model_t=model_t,
+                                                                                 fit_cate_intercept=\
+                                                                                     fit_cate_intercept,
+                                                                                 discrete_treatment=is_discrete),
+                                                          False,
+                                                          [None])]:
 
-                                        np.testing.assert_array_equal(
-                                            marg_eff if d_x else marg_eff[0:1], const_marg_eff)
+                                    if not(multi) and d_y > 1:
+                                        continue
 
-                                        T0 = np.full_like(T, 'a') if is_discrete else np.zeros_like(T)
-                                        eff = est.effect(X, T0=T0, T1=T)
-                                        self.assertEqual(shape(eff), effect_shape)
+                                    for inf in infs:
+                                        with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
+                                                          is_discrete=is_discrete, est=est, inf=inf):
 
-                                        if inf is not None:
-                                            const_marg_eff_int = est.const_marginal_effect_interval(X)
-                                            marg_eff_int = est.marginal_effect_interval(T, X)
-                                            self.assertEqual(shape(marg_eff_int),
-                                                             (2,) + marginal_effect_shape)
-                                            self.assertEqual(shape(const_marg_eff_int),
-                                                             (2,) + const_marginal_effect_shape)
-                                            self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
-                                                             (2,) + effect_shape)
+                                            if X is None and (not fit_cate_intercept):
+                                                with pytest.raises(AttributeError) as e_info:
+                                                    est.fit(Y, T, X, W, inference=inf)
+                                                continue
 
-                                        est.score(Y, T, X, W)
+                                            est.fit(Y, T, X, W, inference=inf)
+                                            # make sure we can call the marginal_effect and effect methods
+                                            const_marg_eff = est.const_marginal_effect(X)
+                                            marg_eff = est.marginal_effect(T, X)
+                                            self.assertEqual(shape(marg_eff), marginal_effect_shape)
+                                            self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
 
-                                        # make sure we can call effect with implied scalar treatments, no matter the
-                                        # dimensions of T, and also that we warn when there are multiple treatments
-                                        if d_t > 1:
-                                            cm = self.assertWarns(Warning)
-                                        else:
-                                            cm = ExitStack()  # ExitStack can be used as a "do nothing" ContextManager
-                                        with cm:
-                                            effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
-                                            eff = est.effect(X) if not is_discrete else est.effect(X, T0='a', T1='b')
-                                            self.assertEqual(shape(eff), effect_shape2)
+                                            np.testing.assert_array_equal(
+                                                marg_eff if d_x else marg_eff[0:1], const_marg_eff)
+
+                                            T0 = np.full_like(T, 'a') if is_discrete else np.zeros_like(T)
+                                            eff = est.effect(X, T0=T0, T1=T)
+                                            self.assertEqual(shape(eff), effect_shape)
+
+                                            if isinstance(est, LinearDMLCateEstimator) or\
+                                                    isinstance(est, SparseLinearDMLCateEstimator):
+                                                self.assertEqual(shape(est.coef_), coef_shape)
+                                                if fit_cate_intercept:
+                                                    self.assertEqual(shape(est.intercept_), intercept_shape)
+                                                else:
+                                                    with pytest.raises(AttributeError) as e_info:
+                                                        self.assertEqual(shape(est.intercept_), intercept_shape)
+
+                                            if inf is not None:
+                                                const_marg_eff_int = est.const_marginal_effect_interval(X)
+                                                marg_eff_int = est.marginal_effect_interval(T, X)
+                                                self.assertEqual(shape(marg_eff_int),
+                                                                 (2,) + marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_eff_int),
+                                                                 (2,) + const_marginal_effect_shape)
+                                                self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
+                                                                 (2,) + effect_shape)
+                                                if isinstance(est, LinearDMLCateEstimator) or\
+                                                    isinstance(est, SparseLinearDMLCateEstimator):
+                                                    self.assertEqual(shape(est.coef__interval()), (2,) + coef_shape)
+                                                    if fit_cate_intercept:
+                                                        self.assertEqual(shape(est.intercept__interval()),
+                                                                         (2,) + intercept_shape)
+                                                    else:
+                                                        with pytest.raises(AttributeError) as e_info:
+                                                            self.assertEqual(shape(est.intercept__interval()),
+                                                                             (2,) + intercept_shape)
+
+                                            est.score(Y, T, X, W)
+
+                                            # make sure we can call effect with implied scalar treatments,
+                                            # no matter the dimensions of T, and also that we warn when there
+                                            # are multiple treatments
+                                            if d_t > 1:
+                                                cm = self.assertWarns(Warning)
+                                            else:
+                                                # ExitStack can be used as a "do nothing" ContextManager
+                                                cm = ExitStack()
+                                            with cm:
+                                                effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
+                                                eff = est.effect(X) if not is_discrete else est.effect(
+                                                    X, T0='a', T1='b')
+                                                self.assertEqual(shape(eff), effect_shape2)
 
     def test_cate_api_nonparam(self):
         """Test that we correctly implement the CATE API."""
@@ -188,6 +237,13 @@ class TestDML(unittest.TestCase):
                             for est, multi, infs in [(NonParamDMLCateEstimator(model_y=WeightedLasso(),
                                                                                model_t=model_t,
                                                                                model_final=WeightedLasso(),
+                                                                               featurizer=None,
+                                                                               discrete_treatment=is_discrete),
+                                                      True,
+                                                      base_infs),
+                                                      (NonParamDMLCateEstimator(model_y=WeightedLasso(),
+                                                                               model_t=model_t,
+                                                                               model_final=WeightedLasso(),
                                                                                featurizer=FunctionTransformer(),
                                                                                discrete_treatment=is_discrete),
                                                       True,
@@ -205,7 +261,7 @@ class TestDML(unittest.TestCase):
                                     with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
                                                       is_discrete=is_discrete, est=est, inf=inf):
                                         if X is None:
-                                            with pytest.raises(AttributeError):
+                                            with pytest.raises(AttributeError) as e_info:
                                                 est.fit(Y, T, X, W, inference=inf)
                                             continue
 
@@ -246,10 +302,79 @@ class TestDML(unittest.TestCase):
                                             eff = est.effect(X) if not is_discrete else est.effect(X, T0='a', T1='b')
                                             self.assertEqual(shape(eff), effect_shape2)
 
+    def test_bad_splits_discrete(self):
+        Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
+        T = np.array([2, 2, 1, 2, 1, 1, 1, 1])
+        X = np.ones((8, 1))
+        est = LinearDMLCateEstimator(n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
+        with pytest.raises(AttributeError) as e_info:
+            est.fit(Y, T, X)
+        Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
+        T = np.array([2, 2, 1, 2, 2, 2, 2, 2])
+        X = np.ones((8, 1))
+        est = LinearDMLCateEstimator(n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
+        with pytest.raises(AttributeError) as e_info:
+            est.fit(Y, T, X)
+
+    def test_bad_treatment_nonparam(self):
+        Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
+        T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
+        X = np.ones((8, 1))
+        est = NonParamDMLCateEstimator(model_y=WeightedLasso(),
+                                       model_t=LogisticRegression(),
+                                       model_final=WeightedLasso(),
+                                       discrete_treatment=True)
+        with pytest.raises(AttributeError) as e_info:
+            est.fit(Y, T, X)
+        T = np.ones((8, 2))
+        est = NonParamDMLCateEstimator(model_y=WeightedLasso(),
+                                       model_t=LinearRegression(),
+                                       model_final=WeightedLasso(),
+                                       discrete_treatment=False)
+        with pytest.raises(AttributeError) as e_info:
+            est.fit(Y, T, X)
+    
+    def test_internals(self):
+        Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
+        T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
+        X = np.ones((8, 1))
+        est = DMLCateEstimator(model_y=WeightedLasso(),
+                                       model_t=LogisticRegression(),
+                                       model_final=WeightedLasso(),
+                                       featurizer=PolynomialFeatures(degree=2, include_bias=False),
+                                       fit_cate_intercept=True,
+                                       discrete_treatment=True)
+        est.fit(Y, T, X)
+        assert isinstance(est.original_featurizer, PolynomialFeatures)
+        assert isinstance(est.featurizer, Pipeline)
+        assert isinstance(est.model_cate, WeightedLasso)
+        for mdl in est.models_y:
+            assert isinstance(mdl, WeightedLasso)
+        for mdl in est.models_t:
+            assert isinstance(mdl, LogisticRegression)
+        np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
+        np.testing.assert_array_equal(est.cate_feature_names(), ['x0', 'x0^2'])
+        est = DMLCateEstimator(model_y=WeightedLasso(),
+                                       model_t=LogisticRegression(),
+                                       model_final=WeightedLasso(),
+                                       featurizer=None,
+                                       fit_cate_intercept=True,
+                                       discrete_treatment=True)
+        est.fit(Y, T, X)
+        assert est.original_featurizer is None
+        assert isinstance(est.featurizer, FunctionTransformer)
+        assert isinstance(est.model_cate, WeightedLasso)
+        for mdl in est.models_y:
+            assert isinstance(mdl, WeightedLasso)
+        for mdl in est.models_t:
+            assert isinstance(mdl, LogisticRegression)
+        np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
+
+
     def test_forest_dml_perf(self):
         np.random.seed(1234)
         n = 20000  # number of raw samples
-        d = 5
+        d = 10
         for _ in range(2):
             X = np.random.binomial(1, .5, size=(n, d))
             T = np.random.binomial(1, .5, size=(n,))
@@ -257,41 +382,67 @@ class TestDML(unittest.TestCase):
             def true_fn(x):
                 return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
             y = true_fn(X) * T + X[:, 0] + (1 * X[:, 0] + 1) * np.random.normal(0, 1, size=(n,))
-            est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
-                                         model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
-                                         discrete_treatment=True,
-                                         n_crossfit_splits=2,
-                                         n_estimators=1000,
-                                         subsample_fr=.8,
-                                         min_samples_leaf=20,
-                                         min_impurity_decrease=0.001,
-                                         verbose=0, min_weight_fraction_leaf=.03)
-            est.fit(y, T, X[:, :4], X[:, 4:], inference='blb')
-            X_test = np.array(list(itertools.product([0, 1], repeat=4)))
-            point = est.effect(X_test)
-            truth = true_fn(X_test)
-            lb, ub = est.effect_interval(X_test, alpha=.01)
-            np.testing.assert_allclose(point, truth, rtol=0, atol=.2)
-            np.testing.assert_array_less(lb - .01, truth)
-            np.testing.assert_array_less(truth, ub + .01)
 
-            est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
-                                         model_t=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
-                                         discrete_treatment=False,
-                                         n_crossfit_splits=2,
-                                         n_estimators=1000,
-                                         subsample_fr=.8,
-                                         min_samples_leaf=20,
-                                         min_impurity_decrease=0.001,
-                                         verbose=0, min_weight_fraction_leaf=.03)
-            est.fit(y, T, X[:, :4], X[:, 4:], inference='blb')
-            X_test = np.array(list(itertools.product([0, 1], repeat=4)))
-            point = est.effect(X_test)
-            truth = true_fn(X_test)
-            lb, ub = est.effect_interval(X_test, alpha=.01)
-            np.testing.assert_allclose(point, truth, rtol=0, atol=.3)
-            np.testing.assert_array_less(lb - .01, truth)
-            np.testing.assert_array_less(truth, ub + .01)
+            XT = np.hstack([T.reshape(-1, 1), X])
+            X1, X2, y1, y2, X1_sum, X2_sum, y1_sum, y2_sum, n1_sum, n2_sum, var1_sum, var2_sum = _summarize(XT, y)
+            # We concatenate the two copies data
+            X_sum = np.vstack([np.array(X1_sum)[:, 1:], np.array(X2_sum)[:, 1:]])
+            T_sum = np.concatenate((np.array(X1_sum)[:, 0], np.array(X2_sum)[:, 0]))
+            y_sum = np.concatenate((y1_sum, y2_sum)) # outcome
+            n_sum = np.concatenate((n1_sum, n2_sum)) # number of summarized points
+            var_sum = np.concatenate((var1_sum, var2_sum)) # variance of the summarized points
+            for summarized, min_samples_leaf, sample_var in [(False, 20, False), (True, 1, True), (True, 1, False)]:
+                est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
+                                            model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
+                                            discrete_treatment=True,
+                                            n_crossfit_splits=2,
+                                            n_estimators=1000,
+                                            subsample_fr=.8,
+                                            min_samples_leaf=min_samples_leaf,
+                                            min_impurity_decrease=0.001,
+                                            verbose=0, min_weight_fraction_leaf=.03)
+                if summarized:
+                    if sample_var:
+                        est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
+                                sample_weight=n_sum, sample_var=var_sum, inference='blb')
+                    else:
+                        est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
+                                sample_weight=n_sum, inference='blb')
+                else:
+                    est.fit(y, T, X[:, :4], X[:, 4:], inference='blb')
+                X_test = np.array(list(itertools.product([0, 1], repeat=4)))
+                point = est.effect(X_test)
+                truth = true_fn(X_test)
+                lb, ub = est.effect_interval(X_test, alpha=.01)
+                np.testing.assert_allclose(point, truth, rtol=0, atol=.3)
+                np.testing.assert_array_less(lb - .01, truth)
+                np.testing.assert_array_less(truth, ub + .01)
+
+                est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
+                                            model_t=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
+                                            discrete_treatment=False,
+                                            n_crossfit_splits=2,
+                                            n_estimators=1000,
+                                            subsample_fr=.8,
+                                            min_samples_leaf=min_samples_leaf,
+                                            min_impurity_decrease=0.001,
+                                            verbose=0, min_weight_fraction_leaf=.03)
+                if summarized:
+                    if sample_var:
+                        est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
+                                sample_weight=n_sum, sample_var=var_sum, inference='blb')
+                    else:
+                        est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
+                                sample_weight=n_sum, inference='blb')
+                else:
+                    est.fit(y, T, X[:, :4], X[:, 4:], inference='blb')
+                X_test = np.array(list(itertools.product([0, 1], repeat=4)))
+                point = est.effect(X_test)
+                truth = true_fn(X_test)
+                lb, ub = est.effect_interval(X_test, alpha=.01)
+                np.testing.assert_allclose(point, truth, rtol=0, atol=.3)
+                np.testing.assert_array_less(lb - .01, truth)
+                np.testing.assert_array_less(truth, ub + .01)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
@@ -464,7 +615,7 @@ class TestDML(unittest.TestCase):
         sparse_dml = SparseLinearDMLCateEstimator(fit_cate_intercept=False)
         sparse_dml.fit(Y, T, x, w, inference='debiasedlasso')
         np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
-        with pytest.raises(AttributeError):
+        with pytest.raises(AttributeError) as e_info:
             sparse_dml.intercept_
         # --> test treatment effects
         # Restrict x_test to vectors of norm < 1

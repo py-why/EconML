@@ -132,7 +132,7 @@ structure of the implemented CATE estimators is as follows.
     .. inheritance-diagram:: econml.dml.LinearDMLCateEstimator econml.dml.SparseLinearDMLCateEstimator econml.dml.KernelDMLCateEstimator
         :parts: 1
         :private-bases:
-        :top-classes: econml._rlearner._RLearner, econml.cate_estimator.StatsModelsCateEstimatorMixin
+        :top-classes: econml._rlearner._RLearner, econml.cate_estimator.StatsModelsCateEstimatorMixin, econml.cate_estimator.DebiasedLassoCateEstimatorMixin
 
 Below we give a brief description of each of these classes:
 

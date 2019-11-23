@@ -165,7 +165,7 @@ class _FinalWrapper:
             if (np.ndim(T_res) > 1) and (self._d_t[0] > 1):
                 raise AttributeError("This method can only be used with single-dimensional continuous treatment "
                                      "or binary categorical treatment.")
-            F = self._featurizer.fit_transform(X) if X is not None else np.ones((T_res.shape[0], 1))
+            F = self._combine(X, np.ones((T_res.shape[0], 1)))
             self._intercept = None
             T_res = T_res.ravel()
             sign_T_res = np.sign(T_res)
@@ -197,7 +197,90 @@ class _FinalWrapper:
                                              self._d_t, self._d_y)
 
 
-class DMLCateEstimator(_RLearner):
+class _BaseDMLCateEstimator(_RLearner):
+    # A helper class that access all the internal fitted objects of a DML Cate Estimator. Used by
+    # both Parametric and Non Parametric DML.
+
+    @property
+    def original_featurizer(self):
+        return super().model_final._original_featurizer
+
+    @property
+    def featurizer(self):
+        # NOTE This is used by the inference methods and has to be the overall featurizer. intended
+        # for internal use by the library
+        return super().model_final._featurizer
+
+    @property
+    def model_final(self):
+        # NOTE This is used by the inference methods and is more for internal use to the library
+        return super().model_final._model
+
+    @property
+    def model_cate(self):
+        """
+        Get the fitted final CATE model.
+
+        Returns
+        -------
+        model_cate: object of type(model_final)
+            An instance of the model_final object that was fitted after calling fit which corresponds
+            to the constant marginal CATE model.
+        """
+        return super().model_final._model
+
+    @property
+    def models_y(self):
+        """
+        Get the fitted models for E[Y | X, W].
+
+        Returns
+        -------
+        models_y: list of objects of type(`model_y`)
+            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
+            fold and is the model instance that was fitted for that training fold.
+        """
+        return [mdl._model for mdl in super().models_y]
+
+    @property
+    def models_t(self):
+        """
+        Get the fitted models for E[T | X, W].
+
+        Returns
+        -------
+        models_y: list of objects of type(`model_t`)
+            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
+            fold and is the model instance that was fitted for that training fold.
+        """
+        return [mdl._model for mdl in super().models_t]
+
+    def cate_feature_names(self, input_feature_names=None):
+        """
+        Get the output feature names.
+
+        Parameters
+        ----------
+        input_feature_names: list of strings of length X.shape[1] or None
+            The names of the input features
+
+        Returns
+        -------
+        out_feature_names: list of strings or None
+            The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
+            final constant marginal CATE model is linear. It is the names of the features that are associated
+            with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
+            does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+        """
+        if self.original_featurizer is None:
+            return input_feature_names
+        elif hasattr(self.original_featurizer, 'get_feature_names'):
+            return self.original_featurizer.get_feature_names(input_feature_names)
+        else:
+            raise AttributeError("Featurizer does not have a method: get_feature_names!")
+
+
+class DMLCateEstimator(_BaseDMLCateEstimator):
     """
     The base class for parametric Double ML estimators. The estimator is a special
     case of an :class:`~econml._rlearner._RLearner` estimator, which in turn is a special case
@@ -339,84 +422,6 @@ class DMLCateEstimator(_RLearner):
                          n_splits=n_splits,
                          random_state=random_state)
 
-    @property
-    def original_featurizer(self):
-        return super().model_final._original_featurizer
-
-    @property
-    def featurizer(self):
-        # NOTE This is used by the inference methods and has to be the overall featurizer. intended
-        # for internal use by the library
-        return super().model_final._featurizer
-
-    @property
-    def model_final(self):
-        # NOTE This is used by the inference methods and is more for internal use to the library
-        return super().model_final._model
-
-    @property
-    def model_cate(self):
-        """
-        Get the fitted final CATE model.
-
-        Returns
-        -------
-        model_cate: object of type(model_final)
-            An instance of the model_final object that was fitted after calling fit which corresponds
-            to the constant marginal CATE model.
-        """
-        return super().model_final._model
-
-    @property
-    def models_y(self):
-        """
-        Get the fitted models for E[Y | X, W].
-
-        Returns
-        -------
-        models_y: list of objects of type(`model_y`)
-            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
-            fold and is the model instance that was fitted for that training fold.
-        """
-        return [mdl._model for mdl in super().models_y]
-
-    @property
-    def models_t(self):
-        """
-        Get the fitted models for E[T | X, W].
-
-        Returns
-        -------
-        models_y: list of objects of type(`model_t`)
-            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
-            fold and is the model instance that was fitted for that training fold.
-        """
-        return [mdl._model for mdl in super().models_t]
-
-    def cate_feature_names(self, input_feature_names=None):
-        """
-        Get the output feature names.
-
-        Parameters
-        ----------
-        input_feature_names: list of strings of length X.shape[1] or None
-            The names of the input features
-
-        Returns
-        -------
-        out_feature_names: list of strings or None
-            The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
-            final constant marginal CATE model is linear. It is the names of the features that are associated
-            with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
-            does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
-        """
-        if self.original_featurizer is None:
-            return input_feature_names
-        elif hasattr(self.original_featurizer, 'get_feature_names'):
-            return self.original_featurizer.get_feature_names(input_feature_names)
-        else:
-            raise AttributeError("Featurizer does not have a method: get_feature_names!")
-
 
 class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
     """
@@ -522,10 +527,6 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
         self
         """
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
-
-    @property
-    def statsmodels(self):
-        return self.model_final
 
 
 class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstimator):
@@ -737,13 +738,13 @@ class KernelDMLCateEstimator(DMLCateEstimator):
                 return np.sqrt(2 / dim) * np.cos(np.matmul(X, self.omegas) + self.biases)
 
         super().__init__(model_y=model_y, model_t=model_t,
-                         model_final=ElasticNetCV(),
+                         model_final=ElasticNetCV(fit_intercept=False),
                          featurizer=RandomFeatures(random_state),
                          fit_cate_intercept=fit_cate_intercept,
                          discrete_treatment=discrete_treatment, n_splits=n_splits, random_state=random_state)
 
 
-class NonParamDMLCateEstimator(_RLearner):
+class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
     """
     The base class for non-parametric Double ML estimators, that can have arbitrary final ML models of the CATE.
     Works only for single-dimensional continuous treatment or for binary categorical treatment and uses
@@ -798,7 +799,7 @@ class NonParamDMLCateEstimator(_RLearner):
 
     def __init__(self,
                  model_y, model_t, model_final,
-                 featurizer,
+                 featurizer=None,
                  discrete_treatment=False,
                  n_splits=2,
                  random_state=None):
@@ -814,22 +815,6 @@ class NonParamDMLCateEstimator(_RLearner):
                          discrete_treatment=discrete_treatment,
                          n_splits=n_splits,
                          random_state=random_state)
-
-    @property
-    def featurizer(self):
-        return super().model_final._featurizer
-
-    @property
-    def model_final(self):
-        return super().model_final._model
-
-    @property
-    def models_y(self):
-        return [mdl._model for mdl in super().models_y]
-
-    @property
-    def models_t(self):
-        return [mdl._model for mdl in super().models_t]
 
 
 class ForestDMLCateEstimator(NonParamDMLCateEstimator):
@@ -1014,7 +999,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
                                              random_state=random_state,
                                              verbose=verbose)
         super().__init__(model_y=model_y, model_t=model_t,
-                         model_final=model_final, featurizer=FunctionTransformer(),
+                         model_final=model_final, featurizer=None,
                          discrete_treatment=discrete_treatment,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
