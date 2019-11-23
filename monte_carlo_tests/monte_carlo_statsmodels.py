@@ -3,7 +3,7 @@ from econml.dml import LinearDMLCateEstimator
 from sklearn.linear_model import LinearRegression, MultiTaskLassoCV, MultiTaskLasso, Lasso
 from econml.inference import StatsModelsInference
 from econml.tests.test_statsmodels import _summarize
-from econml.utilities import WeightedModelWrapper, LassoCVWrapper, WeightedLasso
+from econml.sklearn_extensions.linear_model import WeightedLasso, WeightedMultiTaskLassoCV, WeightedMultiTaskLasso
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from statsmodels.tools.tools import add_constant
 from econml.utilities import cross_product
@@ -16,6 +16,7 @@ import joblib
 from sklearn.model_selection import GridSearchCV
 from statsmodels.tools.tools import add_constant
 from econml.utilities import cross_product
+from sklearn.multioutput import MultiOutputRegressor
 
 
 class GridSearchCVList:
@@ -46,14 +47,19 @@ def _coverage_profile(est, X_test, alpha, true_coef, true_effect):
     d_t = true_coef.shape[1] // (X_test.shape[1] + 1)
     d_y = true_coef.shape[0]
     coef_interval = est.coef__interval(alpha=alpha)
-    cov['coef'] = est.coef_.flatten()
-    cov['coef_lower'] = coef_interval[0].flatten()
-    cov['coef_upper'] = coef_interval[1].flatten()
-    cov['true_coef'] = true_coef.flatten()
+    intercept_interval = est.intercept__interval(alpha=alpha)
+    true_coef = true_coef.flatten()
+    est_coef = np.concatenate((est.intercept_[..., np.newaxis], est.coef_), axis=-1).flatten()
+    est_coef_lb = np.concatenate((intercept_interval[0][..., np.newaxis], coef_interval[0]), axis=-1).flatten()
+    est_coef_ub = np.concatenate((intercept_interval[1][..., np.newaxis], coef_interval[1]), axis=-1).flatten()
+    cov['coef'] = est_coef
+    cov['coef_lower'] = est_coef_lb
+    cov['coef_upper'] = est_coef_ub
+    cov['true_coef'] = true_coef
     cov['coef_stderr'] = est.model_final.coef_stderr_.flatten()
-    cov['coef_sqerror'] = ((est.coef_ - true_coef)**2).flatten()
-    cov['coef_cov'] = ((true_coef >= coef_interval[0]) & (true_coef <= coef_interval[1])).flatten()
-    cov['coef_length'] = (coef_interval[1] - coef_interval[0]).flatten()
+    cov['coef_sqerror'] = (est_coef - true_coef)**2
+    cov['coef_cov'] = ((true_coef >= est_coef_lb) & (true_coef <= est_coef_ub))
+    cov['coef_length'] = est_coef_ub - est_coef_lb
     effect_interval = est.effect_interval(X_test, T0=np.zeros(
         (X_test.shape[0], d_t)), T1=np.ones((X_test.shape[0], d_t)), alpha=alpha)
     true_eff = true_effect(X_test, np.ones((X_test.shape[0], d_t))).reshape(effect_interval[0].shape)
@@ -363,14 +369,14 @@ def run_all_mc(first_stage, folder, n_list, n_exp, hetero_coef_list, d_list,
 
 
 def monte_carlo(first_stage=lambda: LinearRegression(), folder='lr'):
-    n_exp = 10000
+    n_exp = 1000
     n_list = [500]
     hetero_coef_list = [0, 1]
-    d_list = [1, 10, 20]
+    d_list = [1, 10]
     d_x_list = [1, 5]
     p_list = [1, 5]
     t_list = [1, 2]
-    cov_type_list = ['nonrobust', 'HC0', 'HC1']
+    cov_type_list = ['HC1']
     alpha_list = [.01, .05, .2]
     run_all_mc(first_stage, folder, n_list, n_exp, hetero_coef_list,
                d_list, d_x_list, p_list, t_list, cov_type_list, alpha_list)
@@ -410,13 +416,13 @@ def monte_carlo_rf(first_stage=lambda: RandomForestRegressor(n_estimators = 100,
 def monte_carlo_gcv(folder='gcv'):
     def first_stage():
         return GridSearchCVList([LinearRegression(),
-                                 WeightedLasso(alpha=0.05, fit_intercept=True,
-                                               tol=1e-6, random_state=123),
+                                 WeightedMultiTaskLasso(alpha=0.05, fit_intercept=True,
+                                                        tol=1e-6, random_state=123),
                                  RandomForestRegressor(n_estimators=100, max_depth=3,
                                                        min_samples_leaf=10, random_state=123),
-                                 GradientBoostingRegressor(n_estimators=20,
-                                                           max_depth=3,
-                                                           min_samples_leaf=10, random_state=123)],
+                                 MultiOutputRegressor(GradientBoostingRegressor(n_estimators=20,
+                                                                                max_depth=3,
+                                                                                min_samples_leaf=10, random_state=123))],
                                 param_grid_list=[{},
                                                  {},
                                                  {},

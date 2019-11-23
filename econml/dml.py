@@ -113,7 +113,8 @@ class _FinalWrapper:
             self._fit_cate_intercept = fit_cate_intercept
             if self._fit_cate_intercept:
                 add_intercept = FunctionTransformer(lambda F:
-                                                    hstack([np.ones((F.shape[0], 1)), F]))
+                                                    hstack([np.ones((F.shape[0], 1)), F]),
+                                                    validate=True)
                 if featurizer:
                     self._featurizer = Pipeline([('featurize', self._original_featurizer),
                                                  ('add_intercept', add_intercept)])
