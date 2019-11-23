@@ -91,30 +91,27 @@ class TestDML(unittest.TestCase):
                                 if not is_discrete:
                                     all_infs.append(BootstrapInference(1))
 
-                                for est, multi, infs in [(LinearDMLCateEstimator(model_y=Lasso(),
-                                                                                 model_t='auto',
-                                                                                 featurizer=featurizer,
-                                                                                 fit_cate_intercept=\
-                                                                                     fit_cate_intercept,
-                                                                                 discrete_treatment=is_discrete),
-                                                          True,
-                                                          all_infs),
-                                                         (SparseLinearDMLCateEstimator(model_y=WeightedLasso(),
-                                                                                       model_t=model_t,
-                                                                                       featurizer=featurizer,
-                                                                                       fit_cate_intercept=\
-                                                                                           fit_cate_intercept,
-                                                                                       discrete_treatment=\
-                                                                                           is_discrete),
-                                                          True,
-                                                          [None, 'debiasedlasso']),
-                                                         (KernelDMLCateEstimator(model_y=WeightedLasso(),
-                                                                                 model_t=model_t,
-                                                                                 fit_cate_intercept=\
-                                                                                     fit_cate_intercept,
-                                                                                 discrete_treatment=is_discrete),
-                                                          False,
-                                                          [None])]:
+                                for est, multi, infs in\
+                                    [(LinearDMLCateEstimator(model_y=Lasso(),
+                                                             model_t='auto',
+                                                             featurizer=featurizer,
+                                                             fit_cate_intercept=fit_cate_intercept,
+                                                             discrete_treatment=is_discrete),
+                                      True,
+                                      all_infs),
+                                     (SparseLinearDMLCateEstimator(model_y=WeightedLasso(),
+                                                                   model_t=model_t,
+                                                                   featurizer=featurizer,
+                                                                   fit_cate_intercept=fit_cate_intercept,
+                                                                   discrete_treatment=is_discrete),
+                                      True,
+                                      [None, 'debiasedlasso']),
+                                     (KernelDMLCateEstimator(model_y=WeightedLasso(),
+                                                             model_t=model_t,
+                                                             fit_cate_intercept=fit_cate_intercept,
+                                                             discrete_treatment=is_discrete),
+                                      False,
+                                      [None])]:
 
                                     if not(multi) and d_y > 1:
                                         continue
@@ -160,9 +157,12 @@ class TestDML(unittest.TestCase):
                                                                  (2,) + const_marginal_effect_shape)
                                                 self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                                  (2,) + effect_shape)
-                                                if isinstance(est, LinearDMLCateEstimator) or\
-                                                    isinstance(est, SparseLinearDMLCateEstimator):
-                                                    self.assertEqual(shape(est.coef__interval()), (2,) + coef_shape)
+                                                if (isinstance(est,
+                                                               LinearDMLCateEstimator) or
+                                                    isinstance(est,
+                                                               SparseLinearDMLCateEstimator)):
+                                                    self.assertEqual(shape(est.coef__interval()),
+                                                                     (2,) + coef_shape)
                                                     if fit_cate_intercept:
                                                         self.assertEqual(shape(est.intercept__interval()),
                                                                          (2,) + intercept_shape)
@@ -241,7 +241,7 @@ class TestDML(unittest.TestCase):
                                                                                discrete_treatment=is_discrete),
                                                       True,
                                                       base_infs),
-                                                      (NonParamDMLCateEstimator(model_y=WeightedLasso(),
+                                                     (NonParamDMLCateEstimator(model_y=WeightedLasso(),
                                                                                model_t=model_t,
                                                                                model_final=WeightedLasso(),
                                                                                featurizer=FunctionTransformer(),
@@ -333,17 +333,17 @@ class TestDML(unittest.TestCase):
                                        discrete_treatment=False)
         with pytest.raises(AttributeError) as e_info:
             est.fit(Y, T, X)
-    
+
     def test_internals(self):
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
         X = np.ones((8, 1))
         est = DMLCateEstimator(model_y=WeightedLasso(),
-                                       model_t=LogisticRegression(),
-                                       model_final=WeightedLasso(),
-                                       featurizer=PolynomialFeatures(degree=2, include_bias=False),
-                                       fit_cate_intercept=True,
-                                       discrete_treatment=True)
+                               model_t=LogisticRegression(),
+                               model_final=WeightedLasso(),
+                               featurizer=PolynomialFeatures(degree=2, include_bias=False),
+                               fit_cate_intercept=True,
+                               discrete_treatment=True)
         est.fit(Y, T, X)
         assert isinstance(est.original_featurizer, PolynomialFeatures)
         assert isinstance(est.featurizer, Pipeline)
@@ -355,11 +355,11 @@ class TestDML(unittest.TestCase):
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
         np.testing.assert_array_equal(est.cate_feature_names(), ['x0', 'x0^2'])
         est = DMLCateEstimator(model_y=WeightedLasso(),
-                                       model_t=LogisticRegression(),
-                                       model_final=WeightedLasso(),
-                                       featurizer=None,
-                                       fit_cate_intercept=True,
-                                       discrete_treatment=True)
+                               model_t=LogisticRegression(),
+                               model_final=WeightedLasso(),
+                               featurizer=None,
+                               fit_cate_intercept=True,
+                               discrete_treatment=True)
         est.fit(Y, T, X)
         assert est.original_featurizer is None
         assert isinstance(est.featurizer, FunctionTransformer)
@@ -369,7 +369,6 @@ class TestDML(unittest.TestCase):
         for mdl in est.models_t:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
-
 
     def test_forest_dml_perf(self):
         np.random.seed(1234)
@@ -388,19 +387,19 @@ class TestDML(unittest.TestCase):
             # We concatenate the two copies data
             X_sum = np.vstack([np.array(X1_sum)[:, 1:], np.array(X2_sum)[:, 1:]])
             T_sum = np.concatenate((np.array(X1_sum)[:, 0], np.array(X2_sum)[:, 0]))
-            y_sum = np.concatenate((y1_sum, y2_sum)) # outcome
-            n_sum = np.concatenate((n1_sum, n2_sum)) # number of summarized points
-            var_sum = np.concatenate((var1_sum, var2_sum)) # variance of the summarized points
+            y_sum = np.concatenate((y1_sum, y2_sum))  # outcome
+            n_sum = np.concatenate((n1_sum, n2_sum))  # number of summarized points
+            var_sum = np.concatenate((var1_sum, var2_sum))  # variance of the summarized points
             for summarized, min_samples_leaf, sample_var in [(False, 20, False), (True, 1, True), (True, 1, False)]:
                 est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
-                                            model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
-                                            discrete_treatment=True,
-                                            n_crossfit_splits=2,
-                                            n_estimators=1000,
-                                            subsample_fr=.8,
-                                            min_samples_leaf=min_samples_leaf,
-                                            min_impurity_decrease=0.001,
-                                            verbose=0, min_weight_fraction_leaf=.03)
+                                             model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
+                                             discrete_treatment=True,
+                                             n_crossfit_splits=2,
+                                             n_estimators=1000,
+                                             subsample_fr=.8,
+                                             min_samples_leaf=min_samples_leaf,
+                                             min_impurity_decrease=0.001,
+                                             verbose=0, min_weight_fraction_leaf=.03)
                 if summarized:
                     if sample_var:
                         est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
@@ -419,14 +418,14 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_array_less(truth, ub + .01)
 
                 est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
-                                            model_t=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
-                                            discrete_treatment=False,
-                                            n_crossfit_splits=2,
-                                            n_estimators=1000,
-                                            subsample_fr=.8,
-                                            min_samples_leaf=min_samples_leaf,
-                                            min_impurity_decrease=0.001,
-                                            verbose=0, min_weight_fraction_leaf=.03)
+                                             model_t=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
+                                             discrete_treatment=False,
+                                             n_crossfit_splits=2,
+                                             n_estimators=1000,
+                                             subsample_fr=.8,
+                                             min_samples_leaf=min_samples_leaf,
+                                             min_impurity_decrease=0.001,
+                                             verbose=0, min_weight_fraction_leaf=.03)
                 if summarized:
                     if sample_var:
                         est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
