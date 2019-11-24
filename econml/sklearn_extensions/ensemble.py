@@ -53,33 +53,32 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
 
     # Set the estimation values based on the estimation split
     total_weight_est = np.sum(sample_weight_est)
-    if forest.honest:
-        # Apply the trained tree on the estimation sample to get the path for every estimation sample
-        path_est = tree.decision_path(X_est)
-        # Calculate the total weight of estimation samples on each tree node
-        weight_est = scipy.sparse.csr_matrix(sample_weight_est.reshape(1, -1)).dot(path_est)
-        # Calculate the total number of estimation samples on each tree node
-        count_est = np.sum(path_est, axis=0)
-        # Calculate the weighted sum of responses on the estimation sample on each node
-        value_est = scipy.sparse.csr_matrix((sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
-        # Prune tree to remove leafs that don't satisfy the leaf requirements on the estimation sample
-        children_left = tree.tree_.children_left
-        children_right = tree.tree_.children_right
-        stack = [(0, -1)]  # seed is the root node id and its parent depth
-        while len(stack) > 0:
-            node_id, parent_id = stack.pop()
-            if weight_est[0, node_id] / total_weight_est < forest.min_weight_fraction_leaf\
-                    or count_est[0, node_id] < forest.min_samples_leaf:
-                tree.tree_.children_left[parent_id] = -1
-                tree.tree_.children_right[parent_id] = -1
-            else:
-                for i in range(tree.n_outputs_):
-                    tree.tree_.value[node_id, i] = value_est[i, node_id]
-                tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id]
-                tree.tree_.n_node_samples[node_id] = count_est[0, node_id]
-                if (children_left[node_id] != children_right[node_id]):
-                    stack.append((children_left[node_id], node_id))
-                    stack.append((children_right[node_id], node_id))
+    # Apply the trained tree on the estimation sample to get the path for every estimation sample
+    path_est = tree.decision_path(X_est)
+    # Calculate the total weight of estimation samples on each tree node
+    weight_est = scipy.sparse.csr_matrix(sample_weight_est.reshape(1, -1)).dot(path_est)
+    # Calculate the total number of estimation samples on each tree node
+    count_est = np.sum(path_est, axis=0)
+    # Calculate the weighted sum of responses on the estimation sample on each node
+    value_est = scipy.sparse.csr_matrix((sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
+    # Prune tree to remove leafs that don't satisfy the leaf requirements on the estimation sample
+    children_left = tree.tree_.children_left
+    children_right = tree.tree_.children_right
+    stack = [(0, -1)]  # seed is the root node id and its parent depth
+    while len(stack) > 0:
+        node_id, parent_id = stack.pop()
+        if weight_est[0, node_id] / total_weight_est < forest.min_weight_fraction_leaf\
+                or count_est[0, node_id] < forest.min_samples_leaf:
+            tree.tree_.children_left[parent_id] = -1
+            tree.tree_.children_right[parent_id] = -1
+        else:
+            for i in range(tree.n_outputs_):
+                tree.tree_.value[node_id, i] = value_est[i, node_id]
+            tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id]
+            tree.tree_.n_node_samples[node_id] = count_est[0, node_id]
+            if (children_left[node_id] != children_right[node_id]):
+                stack.append((children_left[node_id], node_id))
+                stack.append((children_right[node_id], node_id))
 
     return tree
 
