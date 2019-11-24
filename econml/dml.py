@@ -170,7 +170,7 @@ class _FinalWrapper:
             self._intercept = None
             T_res = T_res.ravel()
             sign_T_res = np.sign(T_res)
-            sign_T_res[sign_T_res == 0] = 1
+            sign_T_res[(sign_T_res < 1) & (sign_T_res > -1)] = 1
             clipped_T_res = np.sign(T_res) * np.clip(np.abs(T_res), 1e-5, np.inf)
             if np.ndim(Y_res) > 1:
                 target = Y_res / clipped_T_res.reshape(-1, 1)
@@ -1026,6 +1026,9 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
+        sample_var: optional (n, n_y) vector
+            Variance of sample, in case it corresponds to summary of many samples. Currently
+            not in use by this method (as inference method does not require sample variance info).
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'blb'

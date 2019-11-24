@@ -152,16 +152,11 @@ class StatsModelsInference(LinearModelFinalInference):
         self.model_final.cov_type = self.cov_type
 
 
-class LinearModelFinalInferenceDiscrete(Inference):
+class GenericModelFinalInferenceDiscrete(Inference):
     """
-    Inference method for estimators with categorical treatments, where a linear in X model is used
-    for the CATE associated with each treatment.
-
-    TODO Create parent LinearModelFinalInference class so that some functionalities can be shared
+    Inference method for estimators with categorical treatments, where a general in X model is used
+    for the CATE associated with each treatment, which also supports predict_interval.
     """
-
-    def __init__(self):
-        pass
 
     def prefit(self, estimator, *args, **kwargs):
         self.model_final = estimator.model_final
@@ -192,6 +187,13 @@ class LinearModelFinalInferenceDiscrete(Inference):
         if X is None:  # Then statsmodels will return a single row
             lower, upper = np.tile(lower, (T0.shape[0], 1)), np.tile(upper, (T0.shape[0], 1))
         return lower[np.arange(T0.shape[0]), ind], upper[np.arange(T0.shape[0]), ind]
+
+
+class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
+    """
+    Inference method for estimators with categorical treatments, where a linear in X model is used
+    for the CATE associated with each treatment.
+    """
 
     def coef__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
