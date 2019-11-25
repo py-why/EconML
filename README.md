@@ -139,7 +139,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from sklearn.linear_model import LassoCV
 
   est = SparseLinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
-  est.fit(Y, T, X, W, inference='debiasedlasso') # W -> high-dimensional confounders, X -> high dimensional features
+  est.fit(Y, T, X, W, inference='debiasedlasso') # X -> high dimensional features
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via debiased lasso
   ```
@@ -151,7 +151,8 @@ To install from source, see [For Developers](#for-developers) section below.
   est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
   est.fit(Y, T, X, W, inference='blb') 
   treatment_effects = est.effect(X_test)
-  lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via Bootstrap-of-Little-Bags for forests
+  # Confidence intervals via Bootstrap-of-Little-Bags for forests
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
   ```
 
 * [Orthogonal Random Forests](#references)
@@ -183,7 +184,8 @@ To install from source, see [For Developers](#for-developers) section below.
   est.fit(Y, T, np.hstack([X, W]))
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
 
-  est.fit(Y, T, np.hstack([X, W]), inference='bootstrap') # Fit with bootstrap confidence interval construction enabled
+  # Fit with bootstrap confidence interval construction enabled
+  est.fit(Y, T, np.hstack([X, W]), inference='bootstrap')
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
   lb, ub = est.effect_interval(np.hstack([X_test, W_test]), alpha=0.05) # Bootstrap CIs
   ```
@@ -191,6 +193,7 @@ To install from source, see [For Developers](#for-developers) section below.
   ```Python
   from econml.metalearners import SLearner
   from sklearn.ensemble import GradientBoostingRegressor
+
   est = SLearner(overall_model=GradientBoostingRegressor())
   est.fit(Y, T, np.hstack([X, W]))
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
@@ -199,6 +202,7 @@ To install from source, see [For Developers](#for-developers) section below.
   ```Python
   from econml.metalearners import TLearner
   from sklearn.ensemble import GradientBoostingRegressor
+
   est = TLearner(models=GradientBoostingRegressor())
   est.fit(Y, T, np.hstack([X, W]))
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
@@ -210,7 +214,8 @@ To install from source, see [For Developers](#for-developers) section below.
   from econml.drlearner import LinearDRLearner
   from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 
-  est = LinearDRLearner(model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor())
+  est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
+                        model_regression=GradientBoostingRegressor())
   est.fit(Y, T, X, W, inference='statsmodels')
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05)
@@ -220,7 +225,8 @@ To install from source, see [For Developers](#for-developers) section below.
   from econml.drlearner import SparseLinearDRLearner
   from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 
-  est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor())
+  est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
+                              model_regression=GradientBoostingRegressor())
   est.fit(Y, T, X, W, inference='debiasedlasso')
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05)
@@ -230,7 +236,8 @@ To install from source, see [For Developers](#for-developers) section below.
   from econml.drlearner import ForestDRLearner
   from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 
-  est = ForestDRLearner(model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor())
+  est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
+                        model_regression=GradientBoostingRegressor())
   est.fit(Y, T, X, W, inference='blb') 
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05)
