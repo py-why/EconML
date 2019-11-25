@@ -51,7 +51,7 @@ from sklearn.utils import check_random_state
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                              TreatmentExpansionMixin, StatsModelsCateEstimatorMixin,
                              DebiasedLassoCateEstimatorMixin)
-from .inference import StatsModelsInference, GenericModelFinalInference
+from .inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from ._rlearner import _RLearner
 from .sklearn_extensions.model_selection import WeightedStratifiedKFold
 
@@ -1007,7 +1007,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
     def _get_inference_options(self):
         # add statsmodels to parent's options
         options = super()._get_inference_options()
-        options.update(blb=GenericModelFinalInference)
+        options.update(blb=GenericSingleTreatmentModelFinalInference)
         return options
 
     def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
