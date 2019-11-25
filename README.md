@@ -204,6 +204,38 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
   ```
 
+* [Doubly Robust Learner](#references)
+
+  ```Python
+  from econml.drlearner import LinearDRLearner
+  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+  est = LinearDRLearner(model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor())
+  est.fit(Y, T, X, W, inference='statsmodels')
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
+  ```
+
+  ```Python
+  from econml.drlearner import SparseLinearDRLearner
+  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+  est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor())
+  est.fit(Y, T, X, W, inference='debiasedlasso')
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
+  ```
+
+  ```Python
+  from econml.drlearner import ForestDRLearner
+  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+  est = ForestDRLearner(model_propensity=GradientBoostingClassifier(), model_regression=GradientBoostingRegressor())
+  est.fit(Y, T, X, W, inference='blb') 
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
+  ```
+
 * [Deep Instrumental Variables](#references)
   
   ```Python
