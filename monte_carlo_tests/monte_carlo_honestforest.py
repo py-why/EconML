@@ -8,7 +8,7 @@ import joblib
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 
 
-def monte_carlo(normal=True):
+def monte_carlo():
     n = 5000
     d = 5
     x_grid = np.linspace(-1, 1, 1000)
@@ -22,7 +22,7 @@ def monte_carlo(normal=True):
         est = SubsampledHonestForest(n_estimators=1000, verbose=1)
         est.fit(X, y)
         point = est.predict(X_test)
-        low, up = est.predict_interval(X_test, alpha=0.05, normal=normal)
+        low, up = est.predict_interval(X_test, alpha=0.05)
         coverage.append((low <= x_grid) & (x_grid <= up))
         exp_dict['point'].append(point)
         exp_dict['low'].append(low)
@@ -35,22 +35,20 @@ def monte_carlo(normal=True):
 
     plt.figure()
     plt.plot(x_grid, np.mean(coverage, axis=0))
-    plt.savefig('figures/honestforest/coverage_normal_{}.png'.format(normal))
+    plt.savefig('figures/honestforest/coverage.png')
 
     plt.figure()
     plt.plot(x_grid, np.sqrt(np.mean((np.array(exp_dict['point']) - x_grid)**2, axis=0)), label='RMSE')
-    plt.savefig('figures/honestforest/rmse_normal_{}.png'.format(normal))
+    plt.savefig('figures/honestforest/rmse.png')
 
     plt.figure()
     plt.plot(x_grid, np.mean(np.array(exp_dict['up']) - np.array(exp_dict['low']), axis=0), label='length')
-    plt.savefig('figures/honestforest/length_normal_{}.png'.format(normal))
+    plt.savefig('figures/honestforest/length.png')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Description of your program')
     parser.add_argument('-e', '--exp', help='What experiment (default=all)', required=False, default='all')
     args = vars(parser.parse_args())
-    if args['exp'] in ['normal', 'all']:
-        monte_carlo(normal=True)
-    if args['exp'] in ['ss', 'all']:
-        monte_carlo(normal=False)
+    if args['exp'] in ['all']:
+        monte_carlo()

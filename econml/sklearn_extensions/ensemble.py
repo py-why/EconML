@@ -49,18 +49,21 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
             X, X, y, y, sample_weight, sample_weight
 
     # Fit the tree on the splitting sample
-    tree.fit(X_split, y_split, sample_weight=sample_weight_split, check_input=False)
+    tree.fit(X_split, y_split, sample_weight=sample_weight_split,
+             check_input=False)
 
     # Set the estimation values based on the estimation split
     total_weight_est = np.sum(sample_weight_est)
     # Apply the trained tree on the estimation sample to get the path for every estimation sample
     path_est = tree.decision_path(X_est)
     # Calculate the total weight of estimation samples on each tree node
-    weight_est = scipy.sparse.csr_matrix(sample_weight_est.reshape(1, -1)).dot(path_est)
+    weight_est = scipy.sparse.csr_matrix(
+        sample_weight_est.reshape(1, -1)).dot(path_est)
     # Calculate the total number of estimation samples on each tree node
     count_est = np.sum(path_est, axis=0)
     # Calculate the weighted sum of responses on the estimation sample on each node
-    value_est = scipy.sparse.csr_matrix((sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
+    value_est = scipy.sparse.csr_matrix(
+        (sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
     # Prune tree to remove leafs that don't satisfy the leaf requirements on the estimation sample
     children_left = tree.tree_.children_left
     children_right = tree.tree_.children_right
@@ -411,7 +414,8 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                 sample_weight = expanded_class_weight
 
         if self.subsample_fr == 'auto':
-            self.subsample_fr = (X.shape[0] / 2)**(1 - 1 / (2 * X.shape[1] + 2)) / (X.shape[0] / 2)
+            self.subsample_fr = (
+                X.shape[0] / 2)**(1 - 1 / (2 * X.shape[1] + 2)) / (X.shape[0] / 2)
 
         # Check parameters
         self._validate_estimator()
@@ -454,7 +458,8 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             # TODO. This slicing should ultimately be done inside the parallel function
             # so that we don't need to create a matrix of size roughly n_samples * n_estimators
             for it in range(self.n_slices):
-                half_sample_inds = np.random.choice(X.shape[0], X.shape[0] // 2, replace=False)
+                half_sample_inds = np.random.choice(
+                    X.shape[0], X.shape[0] // 2, replace=False)
                 for _ in np.arange(it * self.slice_len, min((it + 1) * self.slice_len, self.n_estimators)):
                     s_inds.append(half_sample_inds[np.random.choice(X.shape[0] // 2,
                                                                     int(np.ceil(self.subsample_fr *
@@ -471,29 +476,180 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
         return self
 
-    def _weight(self, X):
+    def _mean_fn(self, X, fn, acc, slice=None):
+        # Helper class that accumulates an arbitrary function in parallel on the accumulator acc
+        # and calls the function fn on each tree e and returns the mean output. The function fn
+        # should take as input a tree e, and return another function g_e, which takes as input X, check_input
+        # If slice is not None, but rather a tuple (start, end), then a subset of the trees from
+        # index start to index end will be used. The returned result is essentially:
+        # (mean over e in slice)(g_e(X)).
         check_is_fitted(self, 'estimators_')
         # Check data
         X = self._validate_X_predict(X)
+
+        if slice is None:
+            estimator_slice = self.estimators_
+        else:
+            estimator_slice = self.estimators_[slice[0]:slice[1]]
+
         # Assign chunk of trees to jobs
-        n_jobs, _, _ = _partition_estimators(self.n_estimators, self.n_jobs)
-        # avoid storing the output of every estimator by summing them here
-        weight_hat = np.zeros((X.shape[0]), dtype=np.float64)
+        n_jobs, _, _ = _partition_estimators(len(estimator_slice), self.n_jobs)
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose,
                  **_joblib_parallel_args(require="sharedmem"))(
-            delayed(_accumulate_prediction)(lambda x, check_input: e.tree_.weighted_n_node_samples[e.apply(x)],
-                                            X, [weight_hat], lock)
-            for e in self.estimators_)
-        weight_hat /= len(self.estimators_)
-        return weight_hat
+            delayed(_accumulate_prediction)(fn(e), X, [acc], lock)
+            for e in estimator_slice)
+        acc /= len(estimator_slice)
+        return acc
 
-    def predict(self, X):
-        y_pred = super(SubsampledHonestForest, self).predict(X)
+    def _weight(self, X, slice=None):
+        """
+        Returns the cummulative sum of training data weights for each of a target set of samples
+
+        Parameters
+        ----------
+        X : (n, d_x) array
+            The target samples
+        slice : tuple(int, int) or None
+            (start, end) tree index of the slice to be used
+
+        Returns
+        -------
+        W : (n,) array
+            For each sample x in X, it returns the quantity: 1/B\\sum_b \\sum_i w_{bi}(x).
+            If slice is not None, then the above average is computed on the subset of trees in the slice
+            start:end
+        """
+        # Check data
+        X = self._validate_X_predict(X)
+        weight_hat = np.zeros((X.shape[0]), dtype=np.float64)
+        return self._mean_fn(X, lambda e: (lambda x, check_input: e.tree_.weighted_n_node_samples[e.apply(x)]),
+                             weight_hat, slice=slice)
+
+    def _predict(self, X, slice=None):
+        """Predict regression target for X, allowing for subselecting the set of trees to use.
+
+        The predicted regression target of an input sample is computed as the
+        mean predicted regression targets of the trees in the forest.
+
+        Parameters
+        ----------
+        X : array-like or sparse matrix of shape = [n_samples, n_features]
+            The input samples. Internally, its dtype will be converted to
+            ``dtype=np.float32``. If a sparse matrix is provided, it will be
+            converted into a sparse ``csr_matrix``.
+        slice : tuple(int, int) or None
+            (start, end) tree index of the slice to be used
+        Returns
+        -------
+        y : array of shape = [n_samples] or [n_samples, n_outputs]
+            The predicted values based on the subset of estimators in the slice start:end
+            (all estimators, if slice=None).
+        """
+        # Check data
+        X = self._validate_X_predict(X)
+        # avoid storing the output of every estimator by summing them here
+        if self.n_outputs_ > 1:
+            y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+        else:
+            y_hat = np.zeros((X.shape[0]), dtype=np.float64)
+
+        return self._mean_fn(X, lambda e: e.predict, y_hat, slice=slice)
+
+    def _inference(self, X, stderr=False):
+        """
+        Returns the point prediction for a set of samples X and if stderr=True, also returns stderr of the prediction.
+        For standard error calculation it implements the bootstrap of little bags approach proposed
+        in the GRF paper for estimating variance of estimate, specialized to this setup.
+
+        .. math ::
+            Var(\\theta(X)) = \\frac{V_hat}{(1/B \\sum_{b \\in [B], i\\in [n]} w_{b, i}(x))^2}
+
+        where B is the number of trees, n the number of training points,
+
+        .. math ::
+            w_{b, i}(x) = sample_weight[i] \\cdot 1{i is in the same leaf as x at tree b}
+
+        .. math ::
+            V_hat = Var_{random half-samples S}[ 1/B_S \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) ]
+
+        where B_S is the number of trees in half sample S. This variance calculation does not contain the
+        correction due to finite number of monte carlo half-samples used, hence can be a bit conservative
+        when a small number of half samples is used. However, it is on the conservative side.
+
+        Parameters
+        ----------
+        X : (n, d_x) array
+            The target samples
+        stderr : bool, optional (default=2)
+            Whether to return stderr information for each prediction
+
+        Returns
+        -------
+        Y_pred : (n,) or (n, d_y) array
+            For each sample x in X, it returns the point prediction
+        stderr : (n,) or (n, d_y) array
+            The standard error for each prediction. Returned only if stderr=True.
+        """
+        y_pred = self._predict(X)
         weight_hat = self._weight(X)
         if len(y_pred.shape) > 1:
             weight_hat = weight_hat.reshape((y_pred.shape[0], 1))
-        return y_pred / weight_hat
+
+        y_point_pred = y_pred / weight_hat
+
+        if stderr:
+            def slice_inds(it):
+                return (it * self.slice_len, min((it + 1) * self.slice_len, self.n_estimators))
+            # Calculate for each slice S: 1/B_S \sum_{b\in S, i\in [n]} w_{b, i}(x) Y_i
+            y_bags_pred = np.array([self._predict(X, slice=slice_inds(it))
+                                    for it in range(self.n_slices)])
+            # Calculate for each slice S: 1/B_S \sum_{b\in S, i\in [n]} w_{b, i}(x)
+            weight_hat_bags = np.array([self._weight(X, slice=slice_inds(it))
+                                        for it in range(self.n_slices)])
+            if np.ndim(y_pred) > 2:
+                weight_hat_bags = weight_hat_bags[:, :, np.newaxis]
+
+            # Calculate for each slice S: Q(S) = 1/B_S \sum_{b\in S, i\in [n]} w_{b, i}(x) (Y_i - \theta(X))
+            # where \theta(X) is the point estimate using the whole forest
+            bag_res = y_bags_pred - weight_hat_bags * \
+                np.expand_dims(y_point_pred, axis=0)
+            # Calculate the Variance of the latter as E[Q(S)^2]
+            std_pred = np.sqrt(np.nanmean(bag_res**2, axis=0)) / weight_hat
+
+            return y_point_pred, std_pred
+
+        return y_point_pred
+
+    def predict(self, X):
+        """
+        Returns point prediction.
+
+        Parameters
+        ----------
+        X : (n, d_x) array
+            Features
+
+        Returns
+        -------
+        y_pred : (n,) or (n, d_y) array
+            Point predictions
+        """
+        return self._inference(X)
+
+    def prediction_stderr(self, X):
+        """
+        Parameters
+        ----------
+        X : features
+
+        Returns
+        -------
+        pred_stderr : (n,) or (n, d_y) array
+            The standard error for each point prediction
+        """
+        _, pred_stderr = self._inference(X, stderr=True)
+        return pred_stderr
 
     def predict_interval(self, X, alpha=.1, normal=True):
         """
@@ -501,41 +657,15 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         ----------
         X : features
         alpha : the significance level of the interval
-        normal : whether to use normal approximation to construct CI or perform
-            a non-parametric bootstrap of little bags
+
+        Returns
+        -------
+        lb, ub : tuple(shape of :meth:`predict(X)<predict>`, shape of :meth:`predict(X)<predict>`
+            The lower and upper bound of an alpha-confidence interval for each prediction
         """
-        lower = 100 * alpha / 2
-        upper = 100 * (1 - alpha / 2)
-
-        y_pred = np.array([tree.predict(X) for tree in self.estimators_])
-        y_bags_pred = np.array([np.nanmean(y_pred[np.arange(it * self.slice_len,
-                                                            min((it + 1) * self.slice_len, self.n_estimators))],
-                                           axis=0)
-                                for it in range(self.n_slices)])
-        weight_hat = np.array([tree.tree_.weighted_n_node_samples[tree.apply(X)] for tree in self.estimators_])
-        weight_hat_bags = np.array([np.nanmean(weight_hat[np.arange(it * self.slice_len,
-                                                                    min((it + 1) * self.slice_len,
-                                                                        self.n_estimators))], axis=0)
-                                    for it in range(self.n_slices)])
-        if np.ndim(y_pred) > 2:
-            weight_hat = weight_hat[:, :, np.newaxis]
-            weight_hat_bags = weight_hat_bags[:, :, np.newaxis]
-
-        """
-        The recommended approach in the GRF paper for estimating variance of estimate, specialized to this setup.
-
-        .. math ::
-            Var(\\theta(X)) ~\
-                Var_{random half-samples S}[ \\sum_{b\\in S} w_b(x) (Y_i - \\theta(X)) ] / (\\sum_{b} w_b(x))^2
-        """
-        y_point_pred = np.sum(y_pred, axis=0) / np.sum(weight_hat, axis=0)
-        bag_res = y_bags_pred - weight_hat_bags * np.expand_dims(y_point_pred, axis=0)
-        std_pred = np.sqrt(np.nanmean(bag_res**2, axis=0)) / np.nanmean(weight_hat, axis=0)
-        y_bags_pred /= weight_hat_bags
-
-        if normal:
-            upper_pred = scipy.stats.norm.ppf(upper / 100, loc=y_point_pred, scale=std_pred)
-            lower_pred = scipy.stats.norm.ppf(lower / 100, loc=y_point_pred, scale=std_pred)
-            return lower_pred, upper_pred
-        else:
-            return np.nanpercentile(y_bags_pred, lower, axis=0), np.nanpercentile(y_bags_pred, upper, axis=0)
+        y_point_pred, pred_stderr = self._inference(X, stderr=True)
+        upper_pred = scipy.stats.norm.ppf(
+            1 - alpha / 2, loc=y_point_pred, scale=pred_stderr)
+        lower_pred = scipy.stats.norm.ppf(
+            alpha / 2, loc=y_point_pred, scale=pred_stderr)
+        return lower_pred, upper_pred
