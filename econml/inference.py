@@ -63,6 +63,12 @@ class BootstrapInference(Inference):
 
 
 class GenericModelFinalInference(Inference):
+    """
+    Inference based on predict_interval of the model_final model. Assumes that estimator
+    class has a model_final method, whose predict(cross_product(X, [0, ..., 1, ..., 0])) gives
+    the const_marginal_effect of the treamtnent at the column with value 1 and which also supports
+    predict_interval(X).
+    """
 
     def prefit(self, estimator, *args, **kwargs):
         self.model_final = estimator.model_final
@@ -89,6 +95,11 @@ class GenericModelFinalInference(Inference):
 
 
 class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
+    """
+    Inference based on predict_interval of the model_final model. Assumes that treatment is single dimensional.
+    Thus, the predict(X) of model_final gives the const_marginal_effect(X). The single dimensionality allows us
+    to implement effect_interval(X, T0, T1) based on the const_marginal_effect_interval.
+    """
 
     def fit(self, estimator, *args, **kwargs):
         super().fit(estimator, *args, **kwargs)
@@ -113,6 +124,12 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
 
 
 class LinearModelFinalInference(GenericModelFinalInference):
+    """
+    Inference based on predict_interval of the model_final model. Assumes that estimator
+    class has a model_final method and that model is linear. Thus, the predict(cross_product(X, T1 - T0)) gives
+    the effect(X, T0, T1). This allows us to implement effect_interval(X, T0, T1) based on the
+    predict_interval of model_final.
+    """
 
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit
@@ -182,8 +199,9 @@ class StatsModelsInference(LinearModelFinalInference):
 
 class GenericModelFinalInferenceDiscrete(Inference):
     """
-    Inference method for estimators with categorical treatments, where a general in X model is used
-    for the CATE associated with each treatment, which also supports predict_interval.
+    Assumes estimator is fitted on categorical treatment and a separate generic model_final is used to
+    fit the CATE associated with each treatment. This model_final supports predict_interval. Inference is
+    based on predict_interval of the model_final model.
     """
 
     def prefit(self, estimator, *args, **kwargs):
@@ -219,7 +237,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
     """
     Inference method for estimators with categorical treatments, where a linear in X model is used
-    for the CATE associated with each treatment.
+    for the CATE associated with each treatment. Implements the coef__interval and intercept__interval
+    based on the corresponding methods of the underlying model_final estimator.
     """
 
     def coef__interval(self, T, *, alpha=0.1):
