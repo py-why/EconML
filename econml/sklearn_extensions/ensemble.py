@@ -299,14 +299,21 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     Examples
     --------
-    >>> from econml.sklearn_extensions.ensemble import SubsampledHonestForest
-    >>> from sklearn.datasets import make_regression
-    >>> from sklearn.model_selection import train_test_split
-    >>> X, y = make_regression(n_samples=1000, n_features=4, n_informative=2,
-    ...                        random_state=0, shuffle=False)
-    >>> X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5)
-    >>> regr = SubsampledHonestForest(max_depth=None, random_state=0,
-    ...                          n_estimators=1000)
+
+    .. testcode::
+
+        import numpy as np
+        from econml.sklearn_extensions.ensemble import SubsampledHonestForest
+        from sklearn.datasets import make_regression
+        from sklearn.model_selection import train_test_split
+
+        np.random.seed(123)
+        X, y = make_regression(n_samples=1000, n_features=4, n_informative=2,
+                               random_state=0, shuffle=False)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5)
+        regr = SubsampledHonestForest(max_depth=None, random_state=0,
+                                      n_estimators=1000)
+
     >>> regr.fit(X_train, y_train)
     SubsampledHonestForest(criterion='mse', honest=True, max_depth=None,
             max_features='auto', max_leaf_nodes=None,
@@ -315,13 +322,13 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             n_estimators=1000, n_jobs=None, random_state=0,
             subsample_fr=0.5757129508131623, verbose=0, warm_start=False)
     >>> regr.feature_importances_
-    array([0.379... , 0.362..., 0.123..., 0.134...])
+    array([0.39..., 0.34..., 0.12..., 0.12...])
     >>> regr.predict(np.ones((1, 4)))
-    array([114.98...])
+    array([110.4...])
     >>> regr.predict_interval(np.ones((1, 4)), alpha=.05)
-    (array([100.048...]), array([129.913...]))
+    (array([93.0...]), array([127.7...]))
     >>> regr.score(X_test, y_test)
-    0.947...
+    0.94...
 
     Notes
     -----
