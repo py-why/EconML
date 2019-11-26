@@ -819,9 +819,9 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
 
 
 class ForestDMLCateEstimator(NonParamDMLCateEstimator):
-    """ Instance of NonParamDMLCateEstimator with a subsampled honest forest
+    """ Instance of NonParamDMLCateEstimator with a
+    :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
-    See ``.sklearn_extensions.SubsampledHonestForest`` for a description of each of the input parameters.
 
     Parameters
     ----------
