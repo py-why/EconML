@@ -13,7 +13,6 @@ Public Module Reference
     econml.drlearner
     econml.inference
     econml.ortho_forest
-    econml.selective_regularization
     econml.metalearners
     econml.drlearner
     econml.two_stage_least_squares
