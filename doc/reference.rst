@@ -24,6 +24,14 @@ Private Module Reference
 
 .. autosummary::
     :toctree: _autosummary
-    
+
     econml._ortho_learner
     econml._rlearner
+
+Scikit-Learn Extensions
+=======================
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.sklearn_extensions.ensemble

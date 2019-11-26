@@ -56,28 +56,37 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
     total_weight_est = np.sum(sample_weight_est)
     # Apply the trained tree on the estimation sample to get the path for every estimation sample
     path_est = tree.decision_path(X_est)
-    # Calculate the total weight of estimation samples on each tree node
+    # Calculate the total weight of estimation samples on each tree node:
+    # \sum_i sample_weight[i] * 1{i \\in node}
     weight_est = scipy.sparse.csr_matrix(
         sample_weight_est.reshape(1, -1)).dot(path_est)
-    # Calculate the total number of estimation samples on each tree node
+    # Calculate the total number of estimation samples on each tree node:
+    # |node| = \sum_{i} 1{i \\in node}
     count_est = np.sum(path_est, axis=0)
-    # Calculate the weighted sum of responses on the estimation sample on each node
+    # Calculate the weighted sum of responses on the estimation sample on each node:
+    # \sum_{i} sample_weight[i] 1{i \\in node} Y_i
     value_est = scipy.sparse.csr_matrix(
         (sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
     # Prune tree to remove leafs that don't satisfy the leaf requirements on the estimation sample
+    # and for each un-pruned tree set the value and the weight appropriately.
     children_left = tree.tree_.children_left
     children_right = tree.tree_.children_right
     stack = [(0, -1)]  # seed is the root node id and its parent depth
     while len(stack) > 0:
         node_id, parent_id = stack.pop()
+        # If minimum weight requirement or minimum leaf size requirement is not satisfied on estimation
+        # sample, then prune the whole sub-tree
         if weight_est[0, node_id] / total_weight_est < forest.min_weight_fraction_leaf\
                 or count_est[0, node_id] < forest.min_samples_leaf:
             tree.tree_.children_left[parent_id] = -1
             tree.tree_.children_right[parent_id] = -1
         else:
             for i in range(tree.n_outputs_):
-                tree.tree_.value[node_id, i] = value_est[i, node_id]
-            tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id]
+                # Set the value of the node to: \sum_{i} sample_weight[i] 1{i \\in node} Y_i / |node|
+                tree.tree_.value[node_id, i] = value_est[i, node_id] / count_est[0, node_id]
+            # Set the weight of the node to: \sum_{i} sample_weight[i] 1{i \\in node} / |node|
+            tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id] / count_est[0, node_id]
+            # Set the count to the estimation split count
             tree.tree_.n_node_samples[node_id] = count_est[0, node_id]
             if (children_left[node_id] != children_right[node_id]):
                 stack.append((children_left[node_id], node_id))
@@ -89,8 +98,9 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
 class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     """
     An implementation of a subsampled honest random forest regressor on top of an sklearn
-    regression tree. Implements subsampling and honesty as described in [3],
-    but uses a scikit-learn regression tree as a base.
+    regression tree. Implements subsampling and honesty as described in [3]_,
+    but uses a scikit-learn regression tree as a base. It provides confidence intervals based on ideas
+    described in [3]_ and [4]_
 
     A random forest is a meta estimator that fits a number of classifying
     decision trees on various sub-samples of the dataset and uses averaging
@@ -100,27 +110,55 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     manner: half of the sub-sampled data are used for creating the tree structure
     (referred to as the splitting sample) and the other half for calculating the
     constant regression estimate at each leaf of the tree (referred to as the estimation sample).
-    One difference with the algorithm proposed in [3] is that we do not ensure balancedness
+    One difference with the algorithm proposed in [3]_ is that we do not ensure balancedness
     and we do not consider poisson sampling of the features, so that we guarantee
     that each feature has a positive probability of being selected on each split.
-    Rather we use the original algorithm of Breiman [1], which selects the best split
+    Rather we use the original algorithm of Breiman [1]_, which selects the best split
     among a collection of candidate splits, as long as the max_depth is not reached
     and as long as there are not more than max_leafs and each child contains
     at least min_samples_leaf samples and total weight fraction of
     min_weight_fraction_leaf. Moreover, it allows the use of both mean squared error (MSE)
     and mean absoulte error (MAE) as the splitting criterion. Finally, we allow
     for early stopping of the splits if the criterion is not improved by more than
-    min_impurity_decrease. These techniques that date back to the work of [1],
+    min_impurity_decrease. These techniques that date back to the work of [1]_,
     should lead to finite sample performance improvements, especially for
     high dimensional features.
 
     The implementation also provides confidence intervals
-    for each prediction using a bootstrap of little bags approach described in [3]:
+    for each prediction using a bootstrap of little bags approach described in [3]_:
     subsampling is performed at hierarchical level by first drawing a set of half-samples
     at random and then sub-sampling from each half-sample to build a forest
     of forests. All the trees are used for the point prediction and the distribution
-    of predictions returned by each of the sub-forests is used for confidence
-    interval construction.
+    of predictions returned by each of the sub-forests is used to calculate the standard error
+    of the point prediction.
+
+    In particular we use a variant of the standard error estimation approach proposed in [4]_,
+    where, if :math:`\\theta(X)` is the point prediction at X, then the variance of :math:`\\theta(X)`
+    is computed as:
+
+    .. math ::
+        Var(\\theta(X)) = \\frac{\\hat{V}}{\\left(\\frac{1}{B} \\sum_{b \\in [B], i\\in [n]} w_{b, i}(x)\\right)^2}
+
+    where B is the number of trees, n the number of training points, and:
+
+    .. math ::
+        w_{b, i}(x) = \\text{sample_weight}[i] \\cdot \\frac{1\\{i \\in \\text{leaf}(x; b)\\}}{|\\text{leaf}(x; b)|}
+
+    .. math ::
+        \\hat{V} = \\text{Var}_{\\text{random half-samples } S}\\left[ \\frac{1}{B_S}\
+            \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) \\right]
+
+    where :math:`B_S` is the number of trees in half sample S. The latter variance is approximated by:
+
+    .. math ::
+        \\hat{V} = \\frac{1}{|\\text{drawn half samples } S|} \\sum_{S} \\left( \\frac{1}{B_S}\
+            \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) \\right)^2
+
+    This variance calculation does not contain the correction due to finite number of monte carlo half-samples
+    used (as proposed in [4]_), hence can be a bit conservative when a small number of half samples is used.
+    However, it is on the conservative side. We use ceil(sqrt(n_estimators)) half samples, and the forest associated
+    with each such half-sample contains roughly sqrt(n_estimators) trees, amounting to a total of n_estimator trees
+    overall.
 
     Parameters
     ----------
@@ -261,9 +299,9 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     Examples
     --------
-    >>> from econml.honestforest import SubsampledHonestForest
+    >>> from econml.sklearn_extensions.ensemble import SubsampledHonestForest
     >>> from sklearn.datasets import make_regression
-
+    >>> from sklearn.model_selection import train_test_split
     >>> X, y = make_regression(n_samples=1000, n_features=4, n_informative=2,
     ...                        random_state=0, shuffle=False)
     >>> X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5)
@@ -276,14 +314,14 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             min_samples_split=2, min_weight_fraction_leaf=0.0,
             n_estimators=1000, n_jobs=None, random_state=0,
             subsample_fr=0.5757129508131623, verbose=0, warm_start=False)
-    >>> print(regr.feature_importances_)
-    [0.58333173 0.39696654 0.01039317 0.00930856]
-    >>> print(regr.predict(np.ones((1, 4))))
-    [114.09511749]
-    >>> print(regr.predict_interval(np.ones((1, 4))), lower=2.5, upper=97.5)
-    (array([102.25043604]), array([124.83995659]))
+    >>> regr.feature_importances_
+    array([0.379... , 0.362..., 0.123..., 0.134...])
+    >>> regr.predict(np.ones((1, 4)))
+    array([114.98...])
+    >>> regr.predict_interval(np.ones((1, 4)), alpha=.05)
+    (array([100.048...]), array([129.913...]))
     >>> regr.score(X_test, y_test)
-    0.944958960444053
+    0.947...
 
     Notes
     -----
@@ -303,7 +341,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     The default value ``max_features="auto"`` uses ``n_features``
     rather than ``n_features / 3``. The latter was originally suggested in
-    [1], whereas the former was more recently justified empirically in [2].
+    [1]_, whereas the former was more recently justified empirically in [2]_.
 
     References
     ----------
@@ -314,7 +352,10 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
            trees", Machine Learning, 63(1), 3-42, 2006.
 
     .. [3] S. Athey, S. Wager, "Estimation and Inference of Heterogeneous Treatment Effects using Random Forests",
-    Journal of the American Statistical Association 113.523 (2018): 1228-1242.
+            Journal of the American Statistical Association 113.523 (2018): 1228-1242.
+
+    .. [4] S. Athey, J. Tibshirani, and S. Wager, "Generalized random forests",
+            The Annals of Statistics, 47(2), 1148-1178, 2019.
 
     """
 
@@ -516,9 +557,10 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         Returns
         -------
         W : (n,) array
-            For each sample x in X, it returns the quantity: 1/B\\sum_b \\sum_i w_{bi}(x).
-            If slice is not None, then the above average is computed on the subset of trees in the slice
-            start:end
+            For each sample x in X, it returns the quantity:
+            1/B_S \\sum_{b \\in S} \\sum_{i\\in [n]} sample_weight[i] * 1{i \\in leaf(x; b)} / |leaf(x; b)|.
+            where S is the slice of estimators chosen. If slice is None, then all estimators are used else
+            the slice start:end is used.
         """
         # Check data
         X = self._validate_X_predict(X)
@@ -544,7 +586,8 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         -------
         y : array of shape = [n_samples] or [n_samples, n_outputs]
             The predicted values based on the subset of estimators in the slice start:end
-            (all estimators, if slice=None).
+            (all estimators, if slice=None). This is equivalent to:
+            1/B_S \\sum_{b\\in S} \\sum_{i\\in [n]} sample_weight[i] * 1{i \\in leaf(x; b)} * Y_i / |leaf(x; b)|
         """
         # Check data
         X = self._validate_X_predict(X)
@@ -568,10 +611,11 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         where B is the number of trees, n the number of training points,
 
         .. math ::
-            w_{b, i}(x) = sample_weight[i] \\cdot 1{i is in the same leaf as x at tree b}
+            w_{b, i}(x) = sample_weight[i] \\cdot 1{i \\in leaf(x; b)} / |leaf(x; b)|
 
         .. math ::
             V_hat = Var_{random half-samples S}[ 1/B_S \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) ]
+                  = E_S[(1/B_S \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)))^2]
 
         where B_S is the number of trees in half sample S. This variance calculation does not contain the
         correction due to finite number of monte carlo half-samples used, hence can be a bit conservative
@@ -591,12 +635,12 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         stderr : (n,) or (n, d_y) array
             The standard error for each prediction. Returned only if stderr=True.
         """
-        y_pred = self._predict(X)
-        weight_hat = self._weight(X)
+        y_pred = self._predict(X)  # get \sum_{b, i} w_{b, i} Y_i
+        weight_hat = self._weight(X)  # get \sum_{b, i} w_{b, i}
         if len(y_pred.shape) > 1:
-            weight_hat = weight_hat.reshape((y_pred.shape[0], 1))
+            weight_hat = weight_hat[:, np.newaxis]
 
-        y_point_pred = y_pred / weight_hat
+        y_point_pred = y_pred / weight_hat  # point prediction: \sum_{b, i} w_{b, i} Y_i / \sum_{b, i} w_{b, i}
 
         if stderr:
             def slice_inds(it):
@@ -607,14 +651,14 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             # Calculate for each slice S: 1/B_S \sum_{b\in S, i\in [n]} w_{b, i}(x)
             weight_hat_bags = np.array([self._weight(X, slice=slice_inds(it))
                                         for it in range(self.n_slices)])
-            if np.ndim(y_pred) > 2:
+            if np.ndim(y_bags_pred) > 2:
                 weight_hat_bags = weight_hat_bags[:, :, np.newaxis]
 
             # Calculate for each slice S: Q(S) = 1/B_S \sum_{b\in S, i\in [n]} w_{b, i}(x) (Y_i - \theta(X))
             # where \theta(X) is the point estimate using the whole forest
             bag_res = y_bags_pred - weight_hat_bags * \
                 np.expand_dims(y_point_pred, axis=0)
-            # Calculate the Variance of the latter as E[Q(S)^2]
+            # Calculate the variance of the latter as E[Q(S)^2]
             std_pred = np.sqrt(np.nanmean(bag_res**2, axis=0)) / weight_hat
 
             return y_point_pred, std_pred
