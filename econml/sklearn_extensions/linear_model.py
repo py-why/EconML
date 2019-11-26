@@ -10,12 +10,15 @@ from collections.abc import Iterable
 from scipy.stats import norm
 from econml.sklearn_extensions.model_selection import WeightedKFold, WeightedStratifiedKFold
 from econml.utilities import ndim, shape, reshape
-from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
+from sklearn import clone
+from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
+from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.model_selection._split import _CVIterableWrapper, CV_WARNING
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.multiclass import type_of_target
+from sklearn.utils.validation import check_is_fitted
 
 
 def _weighted_check_cv(cv='warn', y=None, classifier=False):
@@ -1086,3 +1089,168 @@ class WeightedLassoCVWrapper:
 
     def score(self, X, y, sample_weight=None):
         return self.model.score(X, y, sample_weight)
+
+
+class SelectiveRegularization:
+    """
+    Estimator of a linear model where regularization is applied to only a subset of the coefficients.
+
+    Assume that our loss is
+
+    .. math::
+        \\ell(\\beta_1, \\beta_2) = \\lVert y - X_1 \\beta_1 - X_2 \\beta_2 \\rVert^2 + f(\\beta_2)
+
+    so that we're regularizing only the coefficients in :math:`\\beta_2`.
+
+    Then, since :math:`\\beta_1` doesn't appear in the penalty, the problem of finding :math:`\\beta_1` to minimize the
+    loss once :math:`\\beta_2` is known reduces to just a normal OLS regression, so that:
+
+    .. math::
+        \\beta_1 = (X_1^\\top X_1)^{-1}X_1^\\top(y - X_2 \\beta_2)
+
+    Plugging this into the loss, we obtain
+
+    .. math::
+
+        ~& \\lVert y - X_1 (X_1^\\top X_1)^{-1}X_1^\\top(y - X_2 \\beta_2) - X_2 \\beta_2 \\rVert^2 + f(\\beta_2) \\\\
+        =~& \\lVert (I - X_1 (X_1^\\top  X_1)^{-1}X_1^\\top)(y - X_2 \\beta_2) \\rVert^2 + f(\\beta_2)
+
+    But, letting :math:`M_{X_1} = I - X_1 (X_1^\\top  X_1)^{-1}X_1^\\top`, we see that this is
+
+    .. math::
+        \\lVert (M_{X_1} y) - (M_{X_1} X_2) \\beta_2 \\rVert^2 + f(\\beta_2)
+
+    so finding the minimizing :math:`\\beta_2` can be done by regressing :math:`M_{X_1} y` on :math:`M_{X_1} X_2` using
+    the penalized regression method incorporating :math:`f`.  Note that these are just the residual values of :math:`y`
+    and :math:`X_2` when regressed on :math:`X_1` using OLS.
+
+    Parameters
+    ----------
+    unpenalized_inds : list of int, other 1-dimensional indexing expression, or callable
+        The indices that should not be penalized when the model is fit; all other indices will be penalized.
+        If this is a callable, it will be called with the arguments to `fit` and should return a corresponding
+        indexing expression.  For example, ``lambda X, y: unpenalized_inds=slice(1,-1)`` will result in only the first
+        and last indices being penalized.
+    penalized_model : :term:`regressor`
+        A penalized linear regression model
+    fit_intercept : bool, optional, default True
+        Whether to fit an intercept; the intercept will not be penalized if it is fit
+
+    Attributes
+    ----------
+    coef_ : array, shape (n_features, ) or (n_targets, n_features)
+        Estimated coefficients for the linear regression problem.
+        If multiple targets are passed during the fit (y 2D), this
+        is a 2D array of shape (n_targets, n_features), while if only
+        one target is passed, this is a 1D array of length n_features.
+    intercept_ : float or array of shape (n_targets)
+        Independent term in the linear model.
+    penalized_model : :term:`regressor`
+        The penalized linear regression model, cloned from the one passed into the initializer
+    """
+
+    def __init__(self, unpenalized_inds, penalized_model, fit_intercept=True):
+        self._unpenalized_inds_expr = unpenalized_inds
+        self.penalized_model = clone(penalized_model)
+        self._fit_intercept = fit_intercept
+
+    def fit(self, X, y, sample_weight=None):
+        """
+        Fit the model.
+
+        Parameters
+        ----------
+        X : array-like, shape (n, d_x)
+            The features to regress against
+        y : array-like, shape (n,) or (n, d_y)
+            The regression target
+        sample_weight : array-like, shape (n,), optional, default None
+            Relative weights for each sample
+        """
+        X, y = check_X_y(X, y, multi_output=True, estimator=self)
+        if callable(self._unpenalized_inds_expr):
+            if sample_weight is None:
+                self._unpenalized_inds = self._unpenalized_inds_expr(X, y)
+            else:
+                self._unpenalized_inds = self._unpenalized_inds_expr(X, y, sample_weight=sample_weight)
+        else:
+            self._unpenalized_inds = self._unpenalized_inds_expr
+        mask = np.ones(X.shape[1], dtype=bool)
+        mask[self._unpenalized_inds] = False
+        self._penalized_inds = np.arange(X.shape[1])[mask]
+        X1 = X[:, self._unpenalized_inds]
+        X2 = X[:, self._penalized_inds]
+
+        X2_res = X2 - LinearRegression(fit_intercept=self._fit_intercept).fit(X1, X2,
+                                                                              sample_weight=sample_weight).predict(X1)
+        y_res = y - LinearRegression(fit_intercept=self._fit_intercept).fit(X1, y,
+                                                                            sample_weight=sample_weight).predict(X1)
+
+        if sample_weight is not None:
+            self.penalized_model.fit(X2_res, y_res, sample_weight=sample_weight)
+        else:
+            self.penalized_model.fit(X2_res, y_res)
+
+        # The unpenalized model can't contain an intercept, because in the analysis above
+        # we rely on the fact that M(X beta) = (M X) beta, but M(X beta + c) is not the same
+        # as (M X) beta + c, so the learned coef and intercept will be wrong
+        intercept = self.penalized_model.predict(np.zeros_like(X2[0:1]))
+        if not np.allclose(intercept, 0):
+            raise AttributeError("The penalized model has a non-zero intercept; to fit an intercept "
+                                 "you should instead either set fit_intercept to True when initializing the "
+                                 "SelectiveRegression instance (for an unpenalized intercept) or "
+                                 "explicitly add a column of ones to the data being fit and include that "
+                                 "column in the penalized indices.")
+
+        # now regress X1 on y - X2 * beta2 to learn beta1
+        self._model_X1 = LinearRegression(fit_intercept=self._fit_intercept)
+        self._model_X1.fit(X1, y - self.penalized_model.predict(X2), sample_weight=sample_weight)
+
+        # set coef_ and intercept_ attributes
+        self.coef_ = np.empty(shape(y)[1:] + shape(X)[1:])
+        self.coef_[..., self._penalized_inds] = self.penalized_model.coef_
+        self.coef_[..., self._unpenalized_inds] = self._model_X1.coef_
+
+        # Note that the penalized model should *not* have an intercept
+        self.intercept_ = self._model_X1.intercept_
+
+        return self
+
+    def predict(self, X):
+        """
+        Make a prediction for each sample.
+
+        Parameters
+        ----------
+        X : array-like, shape (m, d_x)
+            The samples whose targets to predict
+
+        Output
+        ------
+        arr : array-like, shape (m,) or (m, d_y)
+            The predicted targets
+        """
+        check_is_fitted(self, "coef_")
+        X1 = X[:, self._unpenalized_inds]
+        X2 = X[:, self._penalized_inds]
+        return self._model_X1.predict(X1) + self.penalized_model.predict(X2)
+
+    def score(self, X, y):
+        """
+        Score the predictions for a set of features to ground truth.
+
+        Parameters
+        ----------
+        X : array-like, shape (m, d_x)
+            The samples to predict
+        y : array-like, shape (m,) or (m, d_y)
+            The ground truth targets
+
+        Output
+        ------
+        score : float
+            The model's score
+        """
+        check_is_fitted(self, "coef_")
+        X, y = check_X_y(X, y, multi_output=True, estimator=self)
+        return r2_score(y, self.predict(X))
