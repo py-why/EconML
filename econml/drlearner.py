@@ -53,10 +53,10 @@ class DRLearner(_OrthoLearner):
     """
     CATE estimator that uses doubly-robust correction techniques to account for
     covariate shift (selection bias) between the treatment arms. The estimator is a special
-    case of an :class:`~econml._ortho_learner._OrthoLearner` estimator, so it follows the two
+    case of an :class:`._OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
-    :class:`~econml._ortho_learner._OrthoLearner` for a description of this two stage process.
+    :class:`._OrthoLearner` for a description of this two stage process.
 
     In this estimator, the CATE is estimated by using the following estimating equations. If we let:
 
@@ -74,16 +74,16 @@ class DRLearner(_OrthoLearner):
     treatment t, by running a regression, regressing :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}` on :math:`X_i`.
 
     The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
-    problem of predicting the label :math:`T` from :math:`X, W`. The :class:`~econml.drlearner.DRLearner`
+    problem of predicting the label :math:`T` from :math:`X, W`. The :class:`.DRLearner`
     class takes as input the parameter ``model_propensity``, which is an arbitrary scikit-learn
     classifier, that is internally used to solve this classification problem.
 
-    The second nuisance function :math:`h` is a simple regression problem and the :class:`~econml.drlearner.DRLearner`
+    The second nuisance function :math:`h` is a simple regression problem and the :class:`.DRLearner`
     class takes as input the parameter `model_regressor``, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem.
 
     The final stage is multi-task regression problem with outcomes the labels :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}`
-    for each non-baseline treatment t. The :class:`~econml.drlearner.DRLearner` takes as input parameter
+    for each non-baseline treatment t. The :class:`.DRLearner` takes as input parameter
     ``model_final``, which is any scikit-learn regressor that is internally used to solve this multi-task
     regresion problem. If the parameter ``multitask_model_final`` is False, then this model is assumed
     to be a mono-task regressor, and separate clones of it are used to solve each regression target
@@ -100,7 +100,7 @@ class DRLearner(_OrthoLearner):
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
-        :class:`~econml.utilities.MultiModelWrapper` helper class.
+        :class:`.MultiModelWrapper` helper class.
 
     model_final :
         estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
@@ -338,7 +338,7 @@ class DRLearner(_OrthoLearner):
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         Parameters
         ----------
@@ -497,7 +497,7 @@ class DRLearner(_OrthoLearner):
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     """
-    Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
+    Special case of the :class:`.DRLearner` where the final stage
     is a Linear Regression on a low dimensional set of features. In this case, inference
     can be performed via the asymptotic normal characterization of the estimated parameters.
     This is computationally faster than bootstrap inference. Set ``inference='statsmodels'``
@@ -519,7 +519,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     Then inference can be performed via standard approaches for inference of OLS, via asympotic normal approximations
     of the estimated parameters. The default covariance estimator used is heteroskedasticity robust (HC1).
-    For other methods see :class:`~econml.inference.StatsModelsInferenceDiscrete`. Use can invoke them by setting:
+    For other methods see :class:`.StatsModelsInferenceDiscrete`. Use can invoke them by setting:
     ``inference=StatsModelsInferenceDiscrete(cov_type=...)``.
 
     This approach is valid even if the CATE model is not linear in :math:`\\phi(X)`. In this case it performs
@@ -536,7 +536,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
-        :class:`~econml.utilities.MultiModelWrapper` helper class.
+        :class:`.MultiModelWrapper` helper class.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -629,7 +629,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         Parameters
         ----------
@@ -674,7 +674,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
 class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     """
-    Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
+    Special case of the :class:`.DRLearner` where the final stage
     is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
     faster than bootstrap inference. Set ``inference='debiasedlasso'`` at fit time, to enable inference
@@ -713,7 +713,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
-        :class:`~econml.utilities.MultiModelWrapper` helper class.
+        :class:`.MultiModelWrapper` helper class.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -828,7 +828,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         Parameters
         ----------

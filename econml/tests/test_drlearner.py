@@ -20,6 +20,7 @@ from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegress
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from econml.utilities import StatsModelsLinearRegression
 import scipy.special
+import econml.tests.utilities  # bugfix for assertWarns
 
 
 class TestDRLearner(unittest.TestCase):

@@ -3,7 +3,6 @@
 
 import unittest
 import pytest
-from sklearn.base import TransformerMixin
 from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
@@ -18,6 +17,8 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, G
 import itertools
 from econml.sklearn_extensions.linear_model import WeightedLasso
 from econml.tests.test_statsmodels import _summarize
+import econml.tests.utilities  # bugfix for assertWarns
+
 
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
@@ -629,7 +630,7 @@ class TestDML(unittest.TestCase):
         self.assertTrue(in_CI.mean() > 0.8)
 
     @staticmethod
-    def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=FunctionTransformer()):
+    def _generate_recoverable_errors(a_X, X, a_W=None, W=None, featurizer=None):
         """Return error vectors e_t and e_y such that OLS can recover the true coefficients from both stages."""
         if W is None:
             W = np.empty((shape(X)[0], 0))
@@ -643,7 +644,7 @@ class TestDML(unittest.TestCase):
         #                                                          -([X; W]⊗[1; ϕ(X); W])⁺ ((ϕ(X)⊗e_t)a_X+(W⊗e_t)a_W)
         # then, to correctly recover a in the third stage, we additionally need (ϕ(X)⊗e_t)ᵀ e_y = 0
 
-        ϕ = featurizer.fit_transform(X)
+        ϕ = featurizer.fit_transform(X) if featurizer is not None else X
 
         v_X = cross_product(ϕ, e_t)
         v_W = cross_product(W, e_t)

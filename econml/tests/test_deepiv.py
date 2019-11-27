@@ -562,6 +562,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
 
         model2 = keras.engine.Model([x_input], [pi, mu, sig])
         import matplotlib
+        matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         for x in [0, 1, 2]:
             pi, mu, sig = model2.predict(np.array([[x]]))

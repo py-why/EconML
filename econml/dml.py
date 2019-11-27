@@ -284,11 +284,11 @@ class _BaseDMLCateEstimator(_RLearner):
 class DMLCateEstimator(_BaseDMLCateEstimator):
     """
     The base class for parametric Double ML estimators. The estimator is a special
-    case of an :class:`~econml._rlearner._RLearner` estimator, which in turn is a special case
-    of an :class:`~econml._ortho_learner._OrthoLearner` estimator, so it follows the two
+    case of an :class:`._RLearner` estimator, which in turn is a special case
+    of an :class:`_OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
-    :class:`~econml._ortho_learner._OrthoLearner` for a description of this two stage process.
+    :class:`._OrthoLearner` for a description of this two stage process.
 
     In this estimator, the CATE is estimated by using the following estimating equations:
 
@@ -314,15 +314,15 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
 
     For some given feature mapping :math:`\\phi(X)` (the user can provide this featurizer via the `featurizer`
     parameter at init time and could be any arbitrary class that adheres to the scikit-learn transformer
-    interface :py:class:`~sklearn.base.TransformerMixin`).
+    interface :class:`~sklearn.base.TransformerMixin`).
 
     The second nuisance function :math:`q` is a simple regression problem and the
-    :class:`~econml.dml.DMLCateEstimator`
+    :class:`.DMLCateEstimator`
     class takes as input the parameter `model_y`, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem.
 
     The problem of estimating the nuisance function :math:`f` is also a regression problem and
-    the :class:`~econml.dml.DMLCateEstimator`
+    the :class:`.DMLCateEstimator`
     class takes as input the parameter `model_t`, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem. If the init flag `discrete_treatment` is set
     to `True`, then the parameter `model_t` is treated as a scikit-learn classifier. The input categorical
@@ -333,7 +333,7 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
     The final stage is (potentially multi-task) linear regression problem with outcomes the labels
     :math:`\\tilde{Y}` and regressors the composite features
     :math:`\\tilde{T}\\otimes \\phi(X) = \\mathtt{vec}(\\tilde{T}\\cdot \\phi(X)^T)`.
-    The :class:`~econml.dml.DMLCateEstimator` takes as input parameter
+    The :class:`.DMLCateEstimator` takes as input parameter
     ``model_final``, which is any linear scikit-learn regressor that is internally used to solve this
     (multi-task) linear regresion problem.
 
@@ -347,10 +347,10 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods.  Must be a linear model for correctness
         when linear_first_stages is ``True``;
-        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>`
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
         will be applied for discrete treatment,
-        and :class:`WeightedLassoCV() <econml.sklearn_extensions.linear_model.WeightedLassoCV>`/
-        :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
+        and :class:`.WeightedLassoCV`/
+        :class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
     model_final: estimator
@@ -430,18 +430,15 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`WeightedLassoCVWrapper()
-        <econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
+    model_y: estimator, optional (default is :class:`.WeightedLassoCVWrapper`)
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
     model_t: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
-        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>`
-        will be applied for discrete treatment,
-        and :class:`WeightedLassoCV() <econml.sklearn_extensions.linear_model.WeightedLassoCV>`/
-        :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
     featurizer : :term:`transformer`, optional, default None
@@ -538,7 +535,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
     and the coefficients of the linear CATE function are sparse.
 
     The last stage is an instance of the
-    :class:`MultiOutputDebiasedLasso <econml.sklearn_extensions.linear_model.MultiOutputDebiasedLasso>`
+    :class:`.MultiOutputDebiasedLasso`
 
     Parameters
     ----------
@@ -551,10 +548,10 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods, and must be a
         linear model for correctness;
-        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>`
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
         will be applied for discrete treatment,
-        and :class:`WeightedLassoCV() <econml.sklearn_extensions.linear_model.WeightedLassoCV>`/
-        :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
+        and :class:`.WeightedLassoCV`/
+        :class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
     alpha: string | float, optional. Default='auto'.
@@ -683,10 +680,10 @@ class KernelDMLCateEstimator(DMLCateEstimator):
     model_t: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
-        If 'auto', :class:`LogisticRegressionCV() <sklearn.linear_model.LogisticRegressionCV>`
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
         will be applied for discrete treatment,
-        and :class:`WeightedLassoCV() <econml.sklearn_extensions.linear_model.WeightedLassoCV>`/
-        :class:`WeightedMultitaskLassoCV() <econml.sklearn_extensions.linear_model.WeightedMultitaskLassoCV>`
+        and :class:`.WeightedLassoCV`/
+        :class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
     fit_cate_intercept : bool, optional, default True
