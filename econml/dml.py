@@ -169,8 +169,9 @@ class _FinalWrapper:
             F = self._combine(X, np.ones(T_res.shape[0]))
             self._intercept = None
             T_res = T_res.ravel()
-            clipped_T_res = T_res
-            clipped_T_res[np.abs(T_res) < 1e-5] = 1e-5
+            sign_T_res = np.sign(T_res)
+            sign_T_res[(sign_T_res < 1) & (sign_T_res > -1)] = 1
+            clipped_T_res = np.sign(T_res) * np.clip(np.abs(T_res), 1e-5, np.inf)
             if np.ndim(Y_res) > 1:
                 clipped_T_res = clipped_T_res.reshape(-1, 1)
             target = Y_res / clipped_T_res
