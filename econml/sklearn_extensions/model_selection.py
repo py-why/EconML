@@ -30,7 +30,7 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
             return self._get_folds_from_splits(splits, X.shape[0])
         # Record all splits in case the stratification by weight yeilds a worse partition
         all_splits.append(splits)
-        max_deviation = np.abs(weight_fracs - 1 / self.n_splits)
+        max_deviation = np.max(np.abs(weight_fracs - 1 / self.n_splits))
         max_deviations.append(max_deviation)
         # Reseed random generator and try again
         kfold_model.shuffle = True
@@ -57,7 +57,7 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
         # Did not find a good split
         # Record the devaiation for the weight-stratified split to compare with KFold splits
         all_splits.append(stratified_weight_splits)
-        max_deviation = np.abs(weight_fracs - 1 / self.n_splits)
+        max_deviation = np.max(np.abs(weight_fracs - 1 / self.n_splits))
         max_deviations.append(max_deviation)
     # Return most weight-balanced partition
     min_deviation_index = np.argmin(max_deviations)

@@ -16,6 +16,7 @@ The EconML Python SDK, developed by the ALICE team at MSR New England, incorpora
     motivation
     api
     flowchart
+    comparison
     estimation
     inference
     references

@@ -58,10 +58,21 @@ supports fit and predict. The fit function needs to also support sample weights,
 If it does not, then we provided a weighted model wrapper :py:class:`~econml.ortho_forest.WeightedModelWrapper` that
 can wrap any class that supports fit and predict and enables sample weight functionality. This is done either
 by re-sampling the data based on the weights and then calling fit and predict, or, in the case of square losses of
-linear function classes, by re-scaling the features and labels appropriately based on the weights.
+linear function classes, by re-scaling the features and labels appropriately based on the weights:
 
-    >>> est = ContinuousTreatmentOrthoForest(model_y=WeightedModelWrapper(Lasso(), sample_type=sample_type),
-    ...                                      model_t=WeightedModelWrapper(Lasso(), sample_type=sample_type))
+    .. testcode:: intro
+        :hide:
+
+        from econml.ortho_forest import ContinuousTreatmentOrthoForest
+        from econml.utilities import WeightedModelWrapper
+        from sklearn.linear_model import Lasso
+        sample_type = 'sampled'
+
+
+    .. doctest:: intro
+
+        >>> est = ContinuousTreatmentOrthoForest(model_Y=WeightedModelWrapper(Lasso(), sample_type=sample_type),
+        ...                                      model_T=WeightedModelWrapper(Lasso(), sample_type=sample_type))
 
 If the variable :code:`sample_type` takes the value "weighted", then the wrapper assumes the loss
 is the squared loss and the function class is linear and re-scales the features and labels appropriately.
@@ -108,13 +119,21 @@ Examples
 Here is a simple example of how to call :py:class:`~econml.ortho_forest.ContinuousTreatmentOrthoForest`
 and what the returned values correspond to in a simple data generating process:
 
+    .. testcode::
+
+        import numpy as np
+        import sklearn
+        from econml.ortho_forest import ContinuousTreatmentOrthoForest, DiscreteTreatmentOrthoForest
+        np.random.seed(123)
+
     >>> T = np.array([0, 1]*60)
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
     >>> Y = (.2 * W[:, 0] + 1) * T + .5
-    >>> est = ContinuousTreatmentOrthoForest(n_trees=1, max_splits=1, subsample_ratio=1,
+    >>> est = ContinuousTreatmentOrthoForest(n_trees=1, max_depth=1, subsample_ratio=1,
     ...                                      model_T=sklearn.linear_model.LinearRegression(),
     ...                                      model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, W, W)
+    <econml.ortho_forest.ContinuousTreatmentOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [[1. ]
      [1.2]]
@@ -124,32 +143,44 @@ Similarly, we can call :py:class:`~econml.ortho_forest.DiscreteTreatmentOrthoFor
     >>> T = np.array([0, 1]*60)
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
     >>> Y = (.2 * W[:, 0] + 1) * T + .5
-    >>> est = DiscreteTreatmentOrthoForest(n_trees=1, max_splits=1, subsample_ratio=1,
+    >>> est = DiscreteTreatmentOrthoForest(n_trees=1, max_depth=1, subsample_ratio=1,
     ...                                    propensity_model=sklearn.linear_model.LogisticRegression(),
     ...                                    model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, W, W)
+    <econml.ortho_forest.DiscreteTreatmentOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
-    [[1. ]
-     [1.2]]
+    [1.  1.2]
 
 Let's now look at a more involved example with a high-dimensional set of confounders :math:`W`
 and with more realistic noisy data. In this case we can just use the default parameters
 of the class, which specify the use of the :py:class:`~sklearn.linear_model.LassoCV` for 
 both the treatment and the outcome regressions, in the case of continuous treatments.
 
+    >>> from econml.ortho_forest import ContinuousTreatmentOrthoForest
+    >>> from econml.ortho_forest import ContinuousTreatmentOrthoForest
+    >>> from econml.sklearn_extensions.linear_model import WeightedLasso
+    >>> import matplotlib.pyplot as plt
+    >>> np.random.seed(123)
     >>> X = np.random.uniform(-1, 1, size=(4000, 1))
     >>> W = np.random.normal(size=(4000, 50))
     >>> support = np.random.choice(50, 4, replace=False)
     >>> T = np.dot(W[:, support], np.random.normal(size=4)) + np.random.normal(size=4000)
     >>> Y = np.exp(2*X[:, 0]) * T + np.dot(W[:, support], np.random.normal(size=4)) + .5
-    >>> est = ContinuousTreatmentOrthoForest()
+    >>> est = ContinuousTreatmentOrthoForest(n_trees=100,
+    ...                                     max_depth=5,
+    ...                                     model_Y=WeightedLasso(alpha=0.01),
+    ...                                     model_T=WeightedLasso(alpha=0.01))
     >>> est.fit(Y, T, X, W)
+    <econml.ortho_forest.ContinuousTreatmentOrthoForest object at 0x...>
     >>> X_test = np.linspace(-1, 1, 30).reshape(-1, 1)
     >>> treatment_effects = est.effect(X_test)
-    >>> plt.plot(X_test, y, label='ORF estimate')
+    >>> plt.plot(X_test[:, 0], treatment_effects, label='ORF estimate')
+    [<matplotlib.lines.Line2D object at 0x...>]
     >>> plt.plot(X_test[:, 0], np.exp(2*X_test[:, 0]), 'b--', label='True effect')
+    [<matplotlib.lines.Line2D object at 0x...>]
     >>> plt.legend()
-    >>> plt.show()
+    <matplotlib.legend.Legend object at 0x...>
+    >>> plt.show(block=False)
 
 .. figure:: figures/continuous_ortho_forest_doc_example.png
     :align: center
