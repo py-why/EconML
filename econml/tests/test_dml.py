@@ -321,6 +321,9 @@ class TestDML(unittest.TestCase):
             est.fit(Y, T, X)
 
     def test_bad_treatment_nonparam(self):
+        """
+        Test that the non-parametric dml raises errors when treatment is not binary or single dimensional
+        """
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
         X = np.ones((8, 1))
