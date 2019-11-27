@@ -303,6 +303,10 @@ class TestDML(unittest.TestCase):
                                             self.assertEqual(shape(eff), effect_shape2)
 
     def test_bad_splits_discrete(self):
+        """
+        Tests that when some training splits in a crossfit fold don't contain all treatments then an error
+        is raised.
+        """
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([2, 2, 1, 2, 1, 1, 1, 1])
         X = np.ones((8, 1))
@@ -334,7 +338,10 @@ class TestDML(unittest.TestCase):
         with pytest.raises(AttributeError) as e_info:
             est.fit(Y, T, X)
 
-    def test_internals(self):
+    def test_access_to_internal_models(self):
+        """
+        Test that API related to accessing the nuisance models, cate_model and featurizer is working.
+        """
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
         X = np.ones((8, 1))
