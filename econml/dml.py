@@ -172,11 +172,9 @@ class _FinalWrapper:
             clipped_T_res = T_res
             clipped_T_res[np.abs(T_res) < 1e-5] = 1e-5
             if np.ndim(Y_res) > 1:
-                target = Y_res / clipped_T_res.reshape(-1, 1)
-                target_var = sample_var / (clipped_T_res**2).reshape(-1, 1) if sample_var is not None else None
-            else:
-                target = Y_res / clipped_T_res
-                target_var = sample_var / clipped_T_res**2 if sample_var is not None else None
+                clipped_T_res = clipped_T_res.reshape(-1, 1)
+            target = Y_res / clipped_T_res
+            target_var = sample_var / clipped_T_res**2 if sample_var is not None else None
 
             if sample_weight is not None:
                 if target_var is not None:
