@@ -188,6 +188,8 @@ class _FinalWrapper:
     def predict(self, X):
         X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),
                                           self._d_t[0] if self._d_t else 1)
+        # This works both with our without the weighting trick as the treatments T are unit vector
+        # treatments. And in the case of a weighting trick we also know that treatment is single-dimensional
         prediction = self._model.predict(self._combine(None if X is None else X2, T, fitting=False))
         if self._intercept is not None:
             prediction -= self._intercept
@@ -758,8 +760,8 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
 
     model_final: estimator
         The estimator for fitting the response residuals to the treatment residuals. Must implement
-        `fit` and `predict` methods, and must be a linear model for correctness. The `fit` method must
-        accept `sample_weight` as a keyword argument.
+        `fit` and `predict` methods. It can be an arbitrary scikit-learn regressor. The `fit` method
+        must accept `sample_weight` as a keyword argument.
 
     featurizer: transformer
         The transformer used to featurize the raw features when fitting the final model.  Must implement
