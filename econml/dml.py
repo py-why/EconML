@@ -166,7 +166,7 @@ class _FinalWrapper:
             if (np.ndim(T_res) > 1) and (self._d_t[0] > 1):
                 raise AttributeError("This method can only be used with single-dimensional continuous treatment "
                                      "or binary categorical treatment.")
-            F = self._combine(X, np.ones((T_res.shape[0], 1)))
+            F = self._combine(X, np.ones(T_res.shape[0]))
             self._intercept = None
             T_res = T_res.ravel()
             sign_T_res = np.sign(T_res)
