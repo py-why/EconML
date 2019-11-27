@@ -591,7 +591,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV(cv=3))
         Estimator for learning potential outcomes at each leaf.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
-        If different models per treatment arm are desired, see the :py:class:`~econml.utilities.MultiModelWrapper`
+        If different models per treatment arm are desired, see the :class:`.MultiModelWrapper`
         helper class. The model(s) must implement `fit` and `predict` methods.
 
     propensity_model_final : estimator, optional (default=None)
@@ -602,7 +602,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     model_Y_final : estimator, optional (default=None)
         Estimator for learning potential outcomes at prediction time.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
-        If different models per treatment arm are desired, see the :py:class:`~econml.utilities.MultiModelWrapper`
+        If different models per treatment arm are desired, see the :class:`.MultiModelWrapper`
         helper class. The model(s) must implement `fit` and `predict` methods.
         If parameter is set to ``None``, it defaults to the value of `model_Y` parameter.
 

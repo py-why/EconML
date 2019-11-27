@@ -1,16 +1,16 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-"""Tests for lasso extensions."""
+"""Tests for linear_model extensions."""
 
 import numpy as np
 import pytest
 import unittest
 import warnings
-from econml.sklearn_extensions.linear_model import WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV, \
-    DebiasedLasso, MultiOutputDebiasedLasso
+from econml.sklearn_extensions.linear_model import (WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV,
+                                                    DebiasedLasso, MultiOutputDebiasedLasso, SelectiveRegularization)
 from econml.sklearn_extensions.model_selection import WeightedKFold
-from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV
+from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV, Ridge
 from sklearn.model_selection import KFold
 
 
@@ -484,3 +484,115 @@ class TestLassoExtensions(unittest.TestCase):
             unweighted_train_idx = np.setdiff1d(all_idx, unweighted_test_idx, assume_unique=True)
             unweighted_splits.append((unweighted_train_idx, unweighted_test_idx))
         return unweighted_splits
+
+
+class TestSelectiveRegularization(unittest.TestCase):
+
+    # selective ridge has a simple implementation that we can test against
+    # see https://stats.stackexchange.com/questions/69205/how-to-derive-the-ridge-regression-solution/164546#164546
+    def test_against_ridge_ground_truth(self):
+        for _ in range(10):
+            n = 100 + np.random.choice(500)
+            d = 5 + np.random.choice(20)
+            n_inds = np.random.choice(np.arange(2, d - 2))
+            inds = np.random.choice(d, n_inds, replace=False)
+            alpha = np.random.uniform(0.5, 1.5)
+            X = np.random.normal(size=(n, d))
+            y = np.random.normal(size=(n,))
+            coef = SelectiveRegularization(unpenalized_inds=np.delete(np.arange(d), inds),
+                                           penalized_model=Ridge(alpha=alpha, fit_intercept=False),
+                                           fit_intercept=False).fit(X, y).coef_
+            X_aug = np.zeros((n_inds, d))
+            X_aug[np.arange(n_inds), inds] = np.sqrt(alpha)
+            y_aug = np.zeros((n_inds,))
+            coefs = LinearRegression(fit_intercept=False).fit(np.vstack((X, X_aug)),
+                                                              np.concatenate((y, y_aug))).coef_
+            np.testing.assert_allclose(coef, coefs)
+
+    # it should be the case that when we set fit_intercept to true,
+    # it doesn't matter whether the penalized model also fits an intercept or not
+    def test_intercept(self):
+        for _ in range(10):
+            n = 100 + np.random.choice(500)
+            d = 5 + np.random.choice(20)
+            n_inds = np.random.choice(np.arange(2, d - 2))
+            inds = np.random.choice(d, n_inds, replace=False)
+            unpenalized_inds = np.delete(np.arange(d), inds)
+            alpha = np.random.uniform(0.5, 1.5)
+            X = np.random.normal(size=(n, d))
+            y = np.random.normal(size=(n,))
+            models = [SelectiveRegularization(unpenalized_inds=unpenalized_inds,
+                                              penalized_model=Lasso(alpha=alpha,
+                                                                    fit_intercept=inner_intercept),
+                                              fit_intercept=True)
+                      for inner_intercept in [False, True]]
+
+            for model in models:
+                model.fit(X, y)
+
+            np.testing.assert_allclose(models[0].coef_, models[1].coef_)
+            np.testing.assert_allclose(models[0].intercept_, models[1].intercept_)
+
+    def test_vectors_and_arrays(self):
+        X = np.random.normal(size=(10, 3))
+        Y = np.random.normal(size=(10, 2))
+        model = SelectiveRegularization(unpenalized_inds=[0],
+                                        penalized_model=Ridge(),
+                                        fit_intercept=True)
+        self.assertEqual(model.fit(X, Y).coef_.shape, (2, 3))
+        self.assertEqual(model.fit(X, Y[:, 0]).coef_.shape, (3,))
+
+    def test_can_use_sample_weights(self):
+        n = 100 + np.random.choice(500)
+        d = 5 + np.random.choice(20)
+        n_inds = np.random.choice(np.arange(2, d - 2))
+        inds = np.random.choice(d, n_inds, replace=False)
+        alpha = np.random.uniform(0.5, 1.5)
+        X = np.random.normal(size=(n, d))
+        y = np.random.normal(size=(n,))
+        sample_weight = np.random.choice([1, 2], n)
+        # create an extra copy of rows with weight 2
+        X_aug = X[sample_weight == 2, :]
+        y_aug = y[sample_weight == 2]
+        model = SelectiveRegularization(unpenalized_inds=inds,
+                                        penalized_model=Ridge(),
+                                        fit_intercept=True)
+        coef = model.fit(X, y, sample_weight=sample_weight).coef_
+        coef2 = model.fit(np.vstack((X, X_aug)),
+                          np.concatenate((y, y_aug))).coef_
+        np.testing.assert_allclose(coef, coef2)
+
+    def test_can_slice(self):
+        n = 100 + np.random.choice(500)
+        d = 5 + np.random.choice(20)
+        alpha = np.random.uniform(0.5, 1.5)
+        X = np.random.normal(size=(n, d))
+        y = np.random.normal(size=(n,))
+        coef = SelectiveRegularization(unpenalized_inds=slice(2, None),
+                                       penalized_model=Lasso(),
+                                       fit_intercept=True).fit(X, y).coef_
+        X_perm = np.hstack((X[:, 1:],
+                            X[:, :1]))
+        coef2 = SelectiveRegularization(unpenalized_inds=slice(1, -1),
+                                        penalized_model=Lasso(),
+                                        fit_intercept=True).fit(X_perm, y).coef_
+        np.testing.assert_allclose(coef2, np.hstack((coef[1:],
+                                                     coef[:1])))
+
+    def test_can_use_index_lambda(self):
+        n = 100 + np.random.choice(500)
+        d = 5 + np.random.choice(20)
+        alpha = np.random.uniform(0.5, 1.5)
+        X = np.random.normal(size=(n, d))
+        y = np.random.normal(size=(n,))
+        coef = SelectiveRegularization(unpenalized_inds=slice(2, None),
+                                       penalized_model=Lasso(),
+                                       fit_intercept=True).fit(X, y).coef_
+
+        def index_lambda(X, y):
+            # instead of a slice, explicitly return an array of indices
+            return np.arange(2, X.shape[1])
+        coef2 = SelectiveRegularization(unpenalized_inds=index_lambda,
+                                        penalized_model=Lasso(),
+                                        fit_intercept=True).fit(X, y).coef_
+        np.testing.assert_allclose(coef, coef2)

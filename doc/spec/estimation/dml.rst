@@ -29,9 +29,9 @@ provide *valid inference* (confidence interval construction) for measuring the u
 What are the relevant estimator classes?
 ========================================
 
-This section describes the methodology implemented in the classes, :py:class:`~econml._rlearner._RLearner`,
-:py:class:`~econml.dml.DMLCateEstimator`, :py:class:`~econml.dml.LinearDMLCateEstimator`,
-:py:class:`~econml.dml.SparseLinearDMLCateEstimator`, :py:class:`~econml.dml.KernelDMLCateEstimator`. Click on each of these links for a detailed module documentation and input parameters of each class.
+This section describes the methodology implemented in the classes, :class:`._RLearner`,
+:class:`.DMLCateEstimator`, :class:`.LinearDMLCateEstimator`,
+:class:`.SparseLinearDMLCateEstimator`, :class:`.KernelDMLCateEstimator`. Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
 When should you use it?
@@ -42,7 +42,19 @@ Suppose you have observational (or experimental from an A/B test) historical dat
 potentially gone into the choice of :math:`T`, and simultaneously could have had a direct effect on the outcome :math:`Y` (aka controls or confounders) are also recorder in the dataset.
 
 If your goal is to understand what was the effect of the treatment on the outcome as a function of a set of observable
-characteristics :math:`X` of the treated samples, then one can use this method. For instance call::
+characteristics :math:`X` of the treated samples, then one can use this method. For instance call:
+
+.. testsetup::
+
+    import numpy as np
+    X = np.random.choice(np.arange(5), size=(100,3))
+    Y = np.random.normal(size=(100,2))
+    y = np.random.normal(size=(100,))
+    T = T0 = T1 = np.random.choice(np.arange(3), size=(100,2))
+    t = t0 = t1 = T[:,0]
+    W = np.random.normal(size=(100,2))
+
+.. testcode::
 
     from econml.dml import LinearDMLCateEstimator
     est = LinearDMLCateEstimator()
@@ -116,7 +128,7 @@ linear function,
 The main advantage of DML is that if one makes parametric assumptions on :math:`\theta(X)`, then one achieves fast estimation rates and 
 asymptotic normality on the second stage estimate :math:`\hat{\theta}`, even if the first stage estimates on :math:`q(X, W)` 
 and :math:`f(X, W)` are only :math:`n^{1/4}` consistent, in terms of RMSE. For this theorem to hold, the nuisance
-estimates need to be fitted in a cross-fitting manner (see :py:class:`~econml._ortho_learner._OrthoLearner`).
+estimates need to be fitted in a cross-fitting manner (see :class:`._OrthoLearner`).
 The latter robustness property follows from the fact that the moment equations that correspond to the final 
 least squares estimation (i.e. the gradient of the squared loss), satisfy a Neyman orthogonality condition with respect to the
 nuisance parameters :math:`q, f`. For a more detailed exposition of how Neyman orthogonality 
@@ -136,8 +148,8 @@ structure of the implemented CATE estimators is as follows.
 
 Below we give a brief description of each of these classes:
 
-    * *DMLCateEstimator.* The class :py:class:`~econml.dml.DMLCateEstimator` assumes that the effect model for each outcome :math:`i` and treatment :math:`j` is linear, i.e. takes the form :math:`\theta_{ij}(X)=\langle \theta_{ij}, \phi(X)\rangle`, and allows for any arbitrary scikit-learn linear estimator to be defined as the final stage (e.g.    
-      :py:class:`~sklearn.linear_model.ElasticNet`, :py:class:`~sklearn.linear_model.Lasso`, :py:class:`~sklearn.linear_model.LinearRegression` and their multi-task variations in the case where we have mulitple outcomes, i.e. :math:`Y` is a vector). The final linear model will be fitted on features that are derived by the Kronecker-product
+    * *DMLCateEstimator.* The class :class:`.DMLCateEstimator` assumes that the effect model for each outcome :math:`i` and treatment :math:`j` is linear, i.e. takes the form :math:`\theta_{ij}(X)=\langle \theta_{ij}, \phi(X)\rangle`, and allows for any arbitrary scikit-learn linear estimator to be defined as the final stage (e.g.    
+      :class:`~sklearn.linear_model.ElasticNet`, :class:`~sklearn.linear_model.Lasso`, :class:`~sklearn.linear_model.LinearRegression` and their multi-task variations in the case where we have mulitple outcomes, i.e. :math:`Y` is a vector). The final linear model will be fitted on features that are derived by the Kronecker-product
       of the vectors :math:`T` and :math:`\phi(X)`, i.e. :math:`\tilde{T}\otimes \phi(X) = \mathtt{vec}(\tilde{T}\cdot \phi(X)^T)`. This regression will estimate the coefficients :math:`\theta_{ijk}` 
       for each outcome :math:`i`, treatment :math:`j` and feature :math:`k`. The final model is minimizing a regularized empirical square loss of the form:
       
@@ -145,24 +157,28 @@ Below we give a brief description of each of these classes:
     
             \hat{\alpha} = \arg\min_{\alpha} \E_n\left[ (\tilde{Y} - \Theta \cdot \tilde{T}\otimes \phi(X) \right] + \lambda R(\Theta)
 
-      for some strongly convex regularizer :math:`R`, where :math:`\Theta` is the parameter matrix of dimensions (number of outcomes, number of treatments * number of features). For instance, if :math:`Y` is single dimensional and the lasso is used as model final, i.e.::
+      for some strongly convex regularizer :math:`R`, where :math:`\Theta` is the parameter matrix of dimensions (number of outcomes, number of treatments * number of features). For instance, if :math:`Y` is single dimensional and the lasso is used as model final, i.e.:
 
+      .. testcode::
+      
+        from econml.dml import DMLCateEstimator
         from sklearn.linear_model import LassoCV
         from sklearn.ensemble import GradientBoostingRegressor
         est = DMLCateEstimator(model_y=GradientBoostingRegressor(),
                                model_t=GradientBoostingRegressor(),    
-                               model_final=LassoCV(),
-                               featurizer=PolynomialFeatures(degree=1, include_bias=True))
+                               model_final=LassoCV())
 
       then :math:`R(\Theta) =\|\Theta\|_1`, 
-      if ElasticNet is used as model final, i.e.::
+      if ElasticNet is used as model final, i.e.:
 
+      .. testcode::    
+
+        from econml.dml import DMLCateEstimator
         from sklearn.linear_model import ElasticNetCV
         from sklearn.ensemble import GradientBoostingRegressor
         est = DMLCateEstimator(model_y=GradientBoostingRegressor(),
                                model_t=GradientBoostingRegressor(),
-                               model_final=ElasticNetCV(),
-                               featurizer=PolynomialFeatures(degree=1, include_bias=True))
+                               model_final=ElasticNetCV())
 
       then :math:`R(\Theta)=\kappa \|\Theta\|_2 + (1-\kappa)\|\Theta\|_1`. For multi-dimensional :math:`Y`, 
       one can impose several extensions to the matrix of parameters :math:`\alpha`, such as the one corresponding to the MultiTask Lasso 
@@ -170,14 +186,16 @@ Below we give a brief description of each of these classes:
       constraints on the matrix :math:`\Theta`.
       This essentially implements the techniques analyzed in [Chernozhukov2016]_, [Nie2017]_, [Chernozhukov2017]_, [Chernozhukov2018]_
         
-        - *LinearDMLCateEstimator.* The child class  :py:class:`~econml.dml.LinearDMLCateEstimator`, uses an unregularized final linear model and  
+        - *LinearDMLCateEstimator.* The child class  :class:`.LinearDMLCateEstimator`, uses an unregularized final linear model and  
           essentially works only when the feature vector :math:`\phi(X)` is low dimensional. Given that it is an unregularized
           low dimensional final model, this class also offers confidence intervals via asymptotic normality 
-          arguments. This is achieved by essentially using the :py:class:`~econml.utilities.StatsModelsLinearRegression`
+          arguments. This is achieved by essentially using the :class:`.StatsModelsLinearRegression`
           (which is an extension of the scikit-learn LinearRegression estimator, that also supports inference
           functionalities) as a final model. The theoretical foundations of this class essentially follow the arguments in [Chernozhukov2016]_.
           For instance, to get confidence intervals on the effect of going
-          from any treatment T0 to any other treatment T1, one can simply call::
+          from any treatment T0 to any other treatment T1, one can simply call:
+
+          .. testcode::
 
             est = LinearDMLCateEstimator()
             est.fit(y, T, X, W, inference='statsmodels')
@@ -186,33 +204,36 @@ Below we give a brief description of each of these classes:
 
           One could also construct bootstrap based confidence intervals by setting `inference='bootstrap'`.
 
-        - *SparseLinearDMLCateEstimator.* The child class :py:class:`~econml.dml.SparseLinearDMLCateEstimator`, uses an :math:`\ell_1`-regularized final    
-          model. In particular, it uses an implementation of the DebiasedLasso algorithm [Buhlmann2011]_ (see :py:class:`~econml.sklearn_extensions.linear_model.DebiasedLasso`). Using the asymptotic normality properties
+        - *SparseLinearDMLCateEstimator.* The child class :class:`.SparseLinearDMLCateEstimator`, uses an :math:`\ell_1`-regularized final    
+          model. In particular, it uses an implementation of the DebiasedLasso algorithm [Buhlmann2011]_ (see :class:`.DebiasedLasso`). Using the asymptotic normality properties
           of the debiased lasso, this class also offers asymptotically normal based confidence intervals.
           The theoretical foundations of this class essentially follow the arguments in [Chernozhukov2017]_, [Chernozhukov2018]_.
           For instance, to get confidence intervals on the effect of going
-          from any treatment T0 to any other treatment T1, one can simply call::
-            
+          from any treatment T0 to any other treatment T1, one can simply call:
+
+          .. testcode::
+
+            from econml.dml import SparseLinearDMLCateEstimator
             est = SparseLinearDMLCateEstimator()
             est.fit(y, T, X, W, inference='debiasedlasso')
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
-        - *KernelDMLCateEstimator.* The child class :py:class:`~econml.dml.KernelDMLCateEstimator` performs a variant of the RKHS approach proposed in 
+        - *KernelDMLCateEstimator.* The child class :class:`.KernelDMLCateEstimator` performs a variant of the RKHS approach proposed in 
           [Nie2017]_. It approximates any function in the RKHS by creating random Fourier features. Then runs a ElasticNet
           regularized final model. Thus it approximately implements the results of [Nie2017], via the random fourier feature
           approximate representation of functions in the RKHS. Moreover, given that we use Random Fourier Features this class
           asssumes an RBF kernel.
     
-    - *_RLearner.* The internal private class :py:class:`~econml._rlearner._RLearner` is a parent of the :py:class:`~econml.dml.DMLCateEstimator`
+    - *_RLearner.* The internal private class :class:`._RLearner` is a parent of the :class:`.DMLCateEstimator`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,
       the features :math:`X` and predicts the residual :math:`\tilde{Y}`. Moreover, the nuisance models take as input
       :math:`X` and :math:`W` and predict :math:`T` and :math:`Y` respectively. Since these models take non-standard
       input variables, one cannot use out-of-the-box scikit-learn estimators as inputs to this class. Hence, it is
       slightly more cumbersome to use, which is the reason why we designated it as private. However, if one wants to
       fit for instance a neural net model for :math:`\theta(X)`, then this class can be used (see the implementation
-      of the :py:class:`~econml.dml.DMLCateEstimator` of how to wrap sklearn estimators and pass them as inputs to the
-      :py:class:`~econml._rlearner._RLearner`. This private class essentially follows the general arguments and
+      of the :class:`.DMLCateEstimator` of how to wrap sklearn estimators and pass them as inputs to the
+      :class:`._RLearner`. This private class essentially follows the general arguments and
       terminology of the RLearner presented in [Nie2017]_, and allows for the full flexibility of the final model
       estimation that is presented in [Foster2019]_.
 
@@ -223,10 +244,12 @@ Usage FAQs
 
 - **What if I want confidence intervals?**
 
-    For valid confidence intervals use the :py:class:`~econml.dml.LinearDMLCateEstimator` if the number of features :math:`X`,
+    For valid confidence intervals use the :class:`.LinearDMLCateEstimator` if the number of features :math:`X`,
     that you want to use for heterogeneity are small compared to the number of samples that you have. If the number of
-    features is comparable to the number of samples, then use :py:class:`~econml.dml.SparseLinearDMLCateEstimator`.
-    e.g.::
+    features is comparable to the number of samples, then use :class:`.SparseLinearDMLCateEstimator`.
+    e.g.:
+
+    .. testcode::
 
         from econml.dml import LinearDMLCateEstimator
         est = LinearDMLCateEstimator()
@@ -241,7 +264,7 @@ Usage FAQs
     potential approach one could take is simply run a big linear regression, regressing :math:`Y` on
     :math:`T, X, W` and then looking at the coefficient associated with the :math:`T` variable and
     the corresponding confidence interval (e.g. using statistical packages like
-    :py:class:`~statsmodels.api.OLS`). However, this will not work if:
+    :class:`~statsmodels.api.OLS`). However, this will not work if:
 
         1) The number of control variables :math:`X, W` that you have is large and comparable
         to the number of samples. This could for instance arise if one wants to control for
@@ -267,7 +290,7 @@ Usage FAQs
 
         1) If effect heterogeneity does not have a linear form, then this approach is not valid.
         One might want to then create more complex featurization, in which case the problem could
-        become too high-dimensional for OLS. Our :py:class:`~econml.dml.SparseLinearDMLCateEstimator`
+        become too high-dimensional for OLS. Our :class:`.SparseLinearDMLCateEstimator`
         can handle such settings via the use of the debiased Lasso. Also see the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or, if your treatment is categorical, then also check the :ref:`Meta Learners User Guide <metalearnersuserguide>`, if you want even more flexible CATE models.
 
         2) If the number of features :math:`X` is comparable to the number of samples, then even
@@ -277,7 +300,9 @@ Usage FAQs
 - **What if I have no idea how heterogeneity looks like?**
 
     Either use a flexible featurizer, e.g. a polynomial featurizer with many degrees and use
-    the :py:class:`~econml.dml.SparseLinearDMLCateEstimator`::
+    the :class:`.SparseLinearDMLCateEstimator`:
+
+    .. testcode::
 
         from econml.dml import SparseLinearDMLCateEstimator
         from sklearn.preprocessing import PolynomialFeatures
@@ -291,13 +316,15 @@ Usage FAQs
 
 - **What if I have too many features that can create heterogeneity?**
 
-    Use the :py:class:`~econml.dml.SparseLinearDMLCateEstimator` (see above).
+    Use the :class:`.SparseLinearDMLCateEstimator` (see above).
 
 - **What if I have too many features I want to control for?**
 
     Use first stage models that work well with high dimensional features. For instance, the Lasso or the 
     ElasticNet or gradient boosted forests are all good options (the latter allows for 
-    non-linearities in the model but can typically handle fewer features than the former), e.g.::
+    non-linearities in the model but can typically handle fewer features than the former), e.g.:
+
+    .. testcode::
 
         from econml.dml import SparseLinearDMLCateEstimator
         from sklearn.linear_model import LassoCV, ElasticNetCV
@@ -318,10 +345,13 @@ Usage FAQs
 - **How do I select the hyperparameters of the first stage models?**
 
     You can use cross-validated models that automatically choose the hyperparameters, e.g. the
-    :py:class:`~sklearn.linear_model.LassoCV` instead of the :py:class:`~sklearn.linear_model.Lasso`. Similarly,
-    for forest based estimators you can wrap them with a grid search CV, :py:class:`~sklearn.model_selection.GridSearchCV`, e.g.::
+    :class:`~sklearn.linear_model.LassoCV` instead of the :class:`~sklearn.linear_model.Lasso`. Similarly,
+    for forest based estimators you can wrap them with a grid search CV, :class:`~sklearn.model_selection.GridSearchCV`, e.g.:
+
+    .. testcode::
 
         from econml.dml import DMLCateEstimator
+        from sklearn.ensemble import RandomForestRegressor
         from sklearn.model_selection import GridSearchCV
         first_stage = lambda: GridSearchCV(
                         estimator=RandomForestRegressor(),
@@ -336,7 +366,9 @@ Usage FAQs
 - **How do I select the hyperparameters of the final model (if any)?**
 
     You can use cross-validated classes for the final model too. Our default debiased lasso performs cross validation
-    for hyperparameter selection. For custom final models you can also use CV versions, e.g.::
+    for hyperparameter selection. For custom final models you can also use CV versions, e.g.:
+
+    .. testcode::
 
         from econml.dml import DMLCateEstimator
         from sklearn.linear_model import ElasticNetCV
@@ -344,16 +376,18 @@ Usage FAQs
         est = DMLCateEstimator(model_y=GradientBoostingRegressor(),
                                model_t=GradientBoostingRegressor(),
                                model_final=ElasticNetCV())
-        est.fit(y, T, X, W)
+        est.fit(y, t, X, W)
         point = est.const_marginal_effect(X)
-        point = est.effect(X, T0=T0, T1=T1)
+        point = est.effect(X, T0=t0, T1=t1)
 
 - **What if I have many treatments?**
 
     The method is going to assume that each of these treatments enters linearly into the model. So it cannot capture complementarities or substitutabilities
     of the different treatments. For that you can also create composite treatments that look like the product 
     of two base treatments. Then these product will enter in the model and an effect for that product will be estimated.
-    This effect will be the substitute/complement effect of both treatments being present, i.e.::
+    This effect will be the substitute/complement effect of both treatments being present, i.e.:
+
+    .. testcode::
 
         from econml.dml import LinearDMLCateEstimator
         from sklearn.preprocessing import PolynomialFeatures
@@ -364,7 +398,7 @@ Usage FAQs
         point = est.const_marginal_effect(X)
         est.effect(X, T0=poly.transform(T0), T1=poly.transform(T1)) 
 
-    If your treatments are too many, then you can use the :py:class:`~econml.dml.SparseLinearDMLCateEstimator`. However,
+    If your treatments are too many, then you can use the :class:`.SparseLinearDMLCateEstimator`. However,
     this method will essentially impose a regularization that only a small subset of them has any effect.
 
 - **What if my treatments are continuous and don't have a linear effect on the outcome?**
@@ -375,27 +409,31 @@ Usage FAQs
 - **What if my treatment is categorical/binary?**
 
     You can simply set `discrete_treatment=True` in the parameters of the class. Then use any classifier for 
-    `model_t`, that has a `predict_proba` method::
+    `model_t`, that has a `predict_proba` method:
+
+    .. testcode::
 
         from econml.dml import LinearDMLCateEstimator
         from sklearn.linear_model import LogisticRegressionCV
         est = LinearDMLCateEstimator(model_t=LogisticRegressionCV(), discrete_treatment=True)
-        est.fit(y, T, X, W)
+        est.fit(y, t, X, W)
         point = est.const_marginal_effect(X)
-        est.effect(X, T0=T0, T1=T1)
+        est.effect(X, T0=t0, T1=t1)
 
 - **How can I assess the performance of the CATE model?**
 
     Each of the DML classes have an attribute `score_` after they are fitted. So one can access that
-    attribute and compare the performance accross different modeling parameters (lower score is better)::
+    attribute and compare the performance accross different modeling parameters (lower score is better):
+
+    .. testcode::
 
         from econml.dml import DMLCateEstimator
         from sklearn.linear_model import ElasticNetCV
         from sklearn.ensemble import RandomForestRegressor
         est = DMLCateEstimator(model_y=RandomForestRegressor(oob_score=True),
-                            model_t=RandomForestRegressor(oob_score=True),
-                            model_final=ElasticNetCV(), featurizer=PolynomialFeatures(degree=1))
-        est.fit(Y, T, X, W)
+                               model_t=RandomForestRegressor(oob_score=True),
+                               model_final=ElasticNetCV(), featurizer=PolynomialFeatures(degree=1))
+        est.fit(y, T, X, W)
         est.score_
 
     This essentially measures the score based on the final stage loss. Moreover, one can assess the out-of-sample score by calling the `score` method on a separate validation sample that was not
@@ -418,7 +456,7 @@ Usage FAQs
 - **How should I set the parameter `n_splits`?**
 
     This parameter defines the number of data partitions to create in order to fit the first stages in a
-    crossfittin manner (see :py:class:`~econml._ortho_learner._OrthoLearner`). The default is 2, which
+    crossfittin manner (see :class:`._OrthoLearner`). The default is 2, which
     is the minimal. However, larger values like 5 or 6 can lead to greater statistical stability of the method,
     especially if the number of samples is small. So we advise that for small datasets, one should raise this
     value. This can increase the computational cost as more first stage models are being fitted.
@@ -437,13 +475,12 @@ We consider some example use cases of the library when :math:`Y` and :math:`T` a
 
 A classical non-parametric regressor for the first stage estimates is a Random Forest. Using RandomForests in our API is as simple as:
 
-.. code-block:: python3
-    :caption: Random Forest First Stage
+.. testcode::
 
     from econml.dml import LinearDMLCateEstimator
     from sklearn.ensemble import RandomForestRegressor
     est = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                model_t=RandomForestRegressor())
+                                 model_t=RandomForestRegressor())
     est.fit(y, T, X, W, inference='statsmodels')
     pnt_effect = est.const_marginal_effect(X)
     lb_effect, ub_effect = est.const_marginal_effect_interval(X, alpha=.05)
@@ -461,15 +498,14 @@ Suppose that we believe that the treatment effect is a polynomial of :math:`X`, 
 
 Then we can estimate the coefficients :math:`\alpha_i` by running:
 
-.. code-block:: python3
-    :caption: Polynomial Second Stage Features
+.. testcode::
 
     from econml.dml import LinearDMLCateEstimator
     from sklearn.ensemble import RandomForestRegressor
     from sklearn.preprocessing import PolynomialFeatures
     est = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                model_t=RandomForestRegressor(),
-                                featurizer=PolynomialFeatures(degree=4, include_bias=True))
+                                 model_t=RandomForestRegressor(),
+                                 featurizer=PolynomialFeatures(degree=4, include_bias=True))
     est.fit(y, T, X, W)
 
     # To get the coefficients of the polynomial fitted in the final stage we can
@@ -482,8 +518,7 @@ Then we can estimate the coefficients :math:`\alpha_i` by running:
 
 To add fixed effect heterogeneity, we can create one-hot encodings of the id, which is assumed to be part of the input:
 
-.. code-block:: python3
-    :caption: Fixed Effect Heterogeneity
+.. testcode::
 
     from econml.dml import LinearDMLCateEstimator
     from sklearn.preprocessing import OneHotEncoder
@@ -491,7 +526,7 @@ To add fixed effect heterogeneity, we can create one-hot encodings of the id, wh
     X_oh = OneHotEncoder(sparse=False).fit_transform(X)[:, 1:]
 
     est = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                model_t=RandomForestRegressor())
+                                 model_t=RandomForestRegressor())
     est.fit(y, T, X_oh, W)
     # The latter will fit a model for θ(x) of the form ̂α_0 + ̂α_1 𝟙{id=1} + ̂α_2 𝟙{id=2} + ...
     # The vector of α can be extracted as follows
@@ -501,17 +536,16 @@ To add fixed effect heterogeneity, we can create one-hot encodings of the id, wh
 
 One can also define a custom featurizer, as long as it supports the fit\_transform interface of sklearn.
 
-.. code-block:: python3
-    :caption: Custom Featurizer
+.. testcode::
 
     from sklearn.ensemble import RandomForestRegressor
     class LogFeatures(object):
         """Augments the features with logarithmic features and returns the augmented structure"""
-        def fit(self, X):
+        def fit(self, X, y=None):
             return self
         def transform(self, X):
             return np.concatenate((X, np.log(1+X)), axis=1)
-        def fit_transform(self, X):
+        def fit_transform(self, X, y=None):
             return self.fit(X).transform(X)
 
     est = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
@@ -521,16 +555,16 @@ One can also define a custom featurizer, as long as it supports the fit\_transfo
 
 We can even create a Pipeline or Union of featurizers that will apply multiply featurizations, e.g. first creating log features and then adding polynomials of them:
 
-.. code-block:: python3
-    :caption: Pipeline Featurizer
+.. testcode::
 
+    from econml.dml import LinearDMLCateEstimator
     from sklearn.ensemble import RandomForestRegressor
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import PolynomialFeatures
-    est = DMLCateEstimator(model_y=RandomForestRegressor(), 
-                            model_t=RandomForestRegressor(),
-                            featurizer=Pipeline([('log', LogFeatures()), 
-                                                 ('poly', PolynomialFeatures(degree=3))]))
+    est = LinearDMLCateEstimator(model_y=RandomForestRegressor(), 
+                                 model_t=RandomForestRegressor(),
+                                 featurizer=Pipeline([('log', LogFeatures()), 
+                                                      ('poly', PolynomialFeatures(degree=3))]))
     est.fit(y, T, X, W)
 
 
@@ -540,8 +574,7 @@ Single Outcome, Multiple Treatments
 Suppose that we believed that our treatment was affecting the outcome in a non-linear manner. 
 Then we could expand the treatment vector to contain also polynomial features:
 
-.. code-block:: python3
-    :caption: Polynomial Treatments
+.. testcode::
 
     import numpy as np
     est = LinearDMLCateEstimator()
@@ -553,9 +586,9 @@ Multiple Outcome, Multiple Treatments
 In settings like demand estimation, we might want to fit the demand of multiple products as a function of the price of each one of them, i.e. fit the matrix of cross price elasticities. The latter can be done, by simply setting :math:`Y` to be the vector of demands and :math:`T` to be the vector of prices. Then we can recover the 
 matrix of cross price elasticities as:
 
-.. code-block:: python3
-    :caption: Cross-Price Elasticities
+.. testcode::
 
+    from sklearn.linear_model import MultiTaskElasticNet
     est = LinearDMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1),
                                  model_t=MultiTaskElasticNet(alpha=0.1))
     est.fit(Y, T, None, W)
@@ -571,8 +604,7 @@ to well-studied latent factor models in pricing. Our framework can easily handle
 a nuclear norm regularized multi-task regression in the final stage. For instance the 
 lightning package implements such a class:
 
-.. code-block:: python3
-    :caption: Cross-Price Elasticities with Low-Rank Regularization
+.. testcode::
 
     from econml.dml import DMLCateEstimator
     from sklearn.preprocessing import PolynomialFeatures
@@ -583,8 +615,13 @@ lightning package implements such a class:
     est = DMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1),
                            model_t=MultiTaskElasticNet(alpha=0.1),
                            model_final=FistaRegressor(penalty='trace', C=0.0001),
-                           featurizer=PolynomialFeatures(degree=1, include_bias=False))
+                           fit_cate_intercept=False)
     est.fit(Y, T, X, W)
-    te_pred = est.const_marginal_effect(np.array([[np.median(X, axis=0)]]))
+    te_pred = est.const_marginal_effect(np.median(X, axis=0, keepdims=True))
     print(te_pred)
     print(np.linalg.svd(te_pred[0]))
+
+.. testoutput::
+    :hide:
+
+    ...
