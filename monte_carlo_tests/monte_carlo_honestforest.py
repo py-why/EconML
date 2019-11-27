@@ -47,8 +47,5 @@ def monte_carlo():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Description of your program')
-    parser.add_argument('-e', '--exp', help='What experiment (default=all)', required=False, default='all')
-    args = vars(parser.parse_args())
-    if args['exp'] in ['all']:
-        monte_carlo()
+    parser = argparse.ArgumentParser(description='Monte Carlo Coverage Tests for the SubsampledHonestForest')
+    monte_carlo()
