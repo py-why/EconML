@@ -23,7 +23,6 @@ from sklearn.utils.fixes import parallel_helper, _joblib_parallel_args
 from sklearn.utils.validation import check_is_fitted
 from sklearn.ensemble.base import _partition_estimators
 
-MAX_RAND_SEED = np.iinfo(np.int32).max
 MAX_INT = np.iinfo(np.int32).max
 
 
