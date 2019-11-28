@@ -49,7 +49,8 @@ class TestOrthoForest(unittest.TestCase):
         TE = np.array([self._exp_te(x) for x in TestOrthoForest.X])
         Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-        # Instantiate model with most of the default parameters
+        # Instantiate model with most of the default parameters. Using n_jobs=1 since code coverage
+        # does not work well with parallelism.
         est = ContinuousTreatmentOrthoForest(n_jobs=1, n_trees=10,
                                              model_T=Lasso(),
                                              model_Y=Lasso(),
@@ -90,7 +91,8 @@ class TestOrthoForest(unittest.TestCase):
         TE = np.array([self._exp_te(x) for x in TestOrthoForest.X])
         Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-        # Instantiate model with default params
+        # Instantiate model with default params. Using n_jobs=1 since code coverage
+        # does not work well with parallelism.
         est = DiscreteTreatmentOrthoForest(n_trees=10, n_jobs=1,
                                            propensity_model=LogisticRegression(), model_Y=Lasso(),
                                            propensity_model_final=LogisticRegressionCV(penalty='l1', solver='saga'),

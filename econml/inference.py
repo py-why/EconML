@@ -75,7 +75,8 @@ class GenericModelFinalInference(Inference):
         self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
 
     def fit(self, estimator, *args, **kwargs):
-        # once the estimator has been fit we can access the correct dimensions of the treatment and outcome.
+        # once the estimator has been fit, it's kosher to store d_t here
+        # (which needs to have been expanded if there's a discrete treatment)
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -209,7 +210,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
         self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
 
     def fit(self, estimator, *args, **kwargs):
-        # once the estimator has been fit we can access the correct dimensions of the treatment and outcome.
+        # once the estimator has been fit, it's kosher to store d_t here
+        # (which needs to have been expanded if there's a discrete treatment)
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
