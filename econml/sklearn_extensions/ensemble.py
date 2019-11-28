@@ -720,14 +720,18 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     def predict_interval(self, X, alpha=.1, normal=True):
         """
+        Return the confidence interval of the prediction.
+
         Parameters
         ----------
-        X : features
-        alpha : the significance level of the interval
+        X : (n, d_x) array
+            Features
+        alpha : float
+            The significance level of the interval
 
         Returns
         -------
-        lb, ub : tuple(shape of :meth:`predict(X)<predict>`, shape of :meth:`predict(X)<predict>`
+        lb, ub : tuple(shape of :meth:`predict(X)<predict>`, shape of :meth:`predict(X)<predict>`)
             The lower and upper bound of an alpha-confidence interval for each prediction
         """
         y_point_pred, pred_stderr = self._inference(X, stderr=True)
