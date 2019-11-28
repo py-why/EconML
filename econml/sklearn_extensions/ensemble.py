@@ -703,9 +703,12 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     def prediction_stderr(self, X):
         """
+        Returns the standard deviation of the point prediction.
+
         Parameters
         ----------
-        X : features
+        X : (n, d_x) array
+            Features
 
         Returns
         -------
