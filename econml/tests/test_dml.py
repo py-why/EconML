@@ -121,7 +121,7 @@ class TestDML(unittest.TestCase):
                                                           is_discrete=is_discrete, est=est, inf=inf):
 
                                             if X is None and (not fit_cate_intercept):
-                                                with pytest.raises(AttributeError) as e_info:
+                                                with pytest.raises(AttributeError):
                                                     est.fit(Y, T, X, W, inference=inf)
                                                 continue
 
@@ -145,7 +145,7 @@ class TestDML(unittest.TestCase):
                                                 if fit_cate_intercept:
                                                     self.assertEqual(shape(est.intercept_), intercept_shape)
                                                 else:
-                                                    with pytest.raises(AttributeError) as e_info:
+                                                    with pytest.raises(AttributeError):
                                                         self.assertEqual(shape(est.intercept_), intercept_shape)
 
                                             if inf is not None:
@@ -167,7 +167,7 @@ class TestDML(unittest.TestCase):
                                                         self.assertEqual(shape(est.intercept__interval()),
                                                                          (2,) + intercept_shape)
                                                     else:
-                                                        with pytest.raises(AttributeError) as e_info:
+                                                        with pytest.raises(AttributeError):
                                                             self.assertEqual(shape(est.intercept__interval()),
                                                                              (2,) + intercept_shape)
 
@@ -261,7 +261,7 @@ class TestDML(unittest.TestCase):
                                     with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
                                                       is_discrete=is_discrete, est=est, inf=inf):
                                         if X is None:
-                                            with pytest.raises(AttributeError) as e_info:
+                                            with pytest.raises(AttributeError):
                                                 est.fit(Y, T, X, W, inference=inf)
                                             continue
 
@@ -311,13 +311,13 @@ class TestDML(unittest.TestCase):
         T = np.array([2, 2, 1, 2, 1, 1, 1, 1])
         X = np.ones((8, 1))
         est = LinearDMLCateEstimator(n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             est.fit(Y, T, X)
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([2, 2, 1, 2, 2, 2, 2, 2])
         X = np.ones((8, 1))
         est = LinearDMLCateEstimator(n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             est.fit(Y, T, X)
 
     def test_bad_treatment_nonparam(self):
@@ -331,14 +331,14 @@ class TestDML(unittest.TestCase):
                                        model_t=LogisticRegression(),
                                        model_final=WeightedLasso(),
                                        discrete_treatment=True)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             est.fit(Y, T, X)
         T = np.ones((8, 2))
         est = NonParamDMLCateEstimator(model_y=WeightedLasso(),
                                        model_t=LinearRegression(),
                                        model_final=WeightedLasso(),
                                        discrete_treatment=False)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             est.fit(Y, T, X)
 
     def test_access_to_internal_models(self):
@@ -381,6 +381,7 @@ class TestDML(unittest.TestCase):
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 
     def test_forest_dml_perf(self):
+        """Testing accuracy of forest DML is reasonable"""
         np.random.seed(1234)
         n = 20000  # number of raw samples
         d = 10
@@ -624,7 +625,7 @@ class TestDML(unittest.TestCase):
         sparse_dml = SparseLinearDMLCateEstimator(fit_cate_intercept=False)
         sparse_dml.fit(Y, T, x, w, inference='debiasedlasso')
         np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
-        with pytest.raises(AttributeError) as e_info:
+        with pytest.raises(AttributeError):
             sparse_dml.intercept_
         # --> test treatment effects
         # Restrict x_test to vectors of norm < 1
