@@ -414,12 +414,26 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     def fit(self, X, y, sample_weight=None, sample_var=None):
         """
+        Fit the forest.
+
         Parameters
         ----------
-        X : features
-        y : label
-        sample_weight : sample weights
-        sample_var : variance of composite samples (not used here. Exists for API compatibility)
+        X : ndarray or scipy.sparse matrix, (n_samples, n_features)
+            Input data.
+
+        y : array, shape (n_samples, n_outputs)
+            Target. Will be cast to X's dtype if necessary
+
+        sample_weight : numpy array of shape [n_samples]
+            Individual weights for each sample. Weights will not be normalized. The weighted square loss
+            will be minimized by the forest.
+
+        sample_var : numpy array of shape [n_samples, n_outputs]
+            Variance of composite samples (not used here. Exists for API compatibility)
+
+        Returns
+        -------
+        self
         """
 
         # Validate or convert input data
