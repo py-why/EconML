@@ -162,7 +162,7 @@ class _FinalWrapper:
                      "it will be subtracted, but consider fitting a model without an intercept if possible.",
                      UserWarning)
                 self._intercept = intercept
-        else:
+        elif not self._fit_cate_intercept:
             if (np.ndim(T_res) > 1) and (self._d_t[0] > 1):
                 raise AttributeError("This method can only be used with single-dimensional continuous treatment "
                                      "or binary categorical treatment.")
@@ -185,6 +185,8 @@ class _FinalWrapper:
                     self._model.fit(F, target, sample_weight=sample_weight * T_res.flatten()**2)
             else:
                 self._model.fit(F, target, sample_weight=T_res.flatten()**2)
+        else:
+            raise AttributeError("This combination is not a feasible one!")
 
     def predict(self, X):
         X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),
