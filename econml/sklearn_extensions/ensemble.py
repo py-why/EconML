@@ -381,7 +381,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                  random_state=None,
                  verbose=0,
                  warm_start=False):
-        super(SubsampledHonestForest, self).__init__(
+        super().__init__(
             base_estimator=DecisionTreeRegressor(),
             n_estimators=n_estimators,
             estimator_params=("criterion", "max_depth", "min_samples_split",
