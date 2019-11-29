@@ -90,7 +90,7 @@ jobs:
         - script: 'sudo apt-get -yq install graphviz'
           displayName: 'Install graphviz'
 
-        - script: 'sudo pip install shap'
+        - script: 'pip install shap'
           displayName: 'Install shap'
 
         - script: 'python setup.py pytest'
