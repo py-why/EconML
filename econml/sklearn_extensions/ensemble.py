@@ -297,7 +297,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         The number of outputs when ``fit`` is performed.
 
     subsample_fr_ : float
-        The chosen subsample ratio. Eache tree was trained on subsample_fr_ * n_samples / 2
+        The chosen subsample ratio. Eache tree was trained on ``subsample_fr_ * n_samples / 2``
         data points.
 
     Examples
