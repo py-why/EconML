@@ -662,8 +662,8 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         stderr : (n,) or (n, d_y) array
             The standard error for each prediction. Returned only if stderr=True.
         """
-        y_pred = self._predict(X)  # get \sum_{b, i} w_{b, i} Y_i
-        weight_hat = self._weight(X)  # get \sum_{b, i} w_{b, i}
+        y_pred = self._predict(X)  # get 1/B \sum_{b, i} w_{b, i}(x) Y_i
+        weight_hat = self._weight(X)  # get 1/B \sum_{b, i} w_{b, i}(x)
         if len(y_pred.shape) > 1:
             weight_hat = weight_hat[:, np.newaxis]
 
