@@ -481,6 +481,8 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         if self.subsample_fr == 'auto':
             self.subsample_fr_ = (
                 X.shape[0] / 2)**(1 - 1 / (2 * X.shape[1] + 2)) / (X.shape[0] / 2)
+        else:
+            self.subsample_fr_ = self.subsample_fr
 
         # Check parameters
         self._validate_estimator()
