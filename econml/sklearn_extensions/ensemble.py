@@ -413,6 +413,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         self.honest = honest
         self.estimators_ = None
         self.vars_ = None
+        self.subsample_fr_ = None
 
         return
 
