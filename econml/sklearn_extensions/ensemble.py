@@ -296,6 +296,10 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     n_outputs_ : int
         The number of outputs when ``fit`` is performed.
 
+    subsample_fr_ : float
+        The chosen subsample ratio. Eache tree was trained on subsample_fr_ * n_samples / 2
+        data points.
+
     Examples
     --------
 
@@ -315,11 +319,11 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     >>> regr.fit(X_train, y_train)
     SubsampledHonestForest(criterion='mse', honest=True, max_depth=None,
-            max_features='auto', max_leaf_nodes=None,
-            min_impurity_decrease=0.0, min_samples_leaf=1,
-            min_samples_split=2, min_weight_fraction_leaf=0.0,
-            n_estimators=1000, n_jobs=None, random_state=0,
-            subsample_fr=0.5757129508131623, verbose=0, warm_start=False)
+        max_features='auto', max_leaf_nodes=None,
+        min_impurity_decrease=0.0, min_samples_leaf=1,
+        min_samples_split=2, min_weight_fraction_leaf=0.0,
+        n_estimators=1000, n_jobs=None, random_state=0,
+        subsample_fr='auto', verbose=0, warm_start=False)
     >>> regr.feature_importances_
     array([0.39..., 0.34..., 0.12..., 0.12...])
     >>> regr.predict(np.ones((1, 4)))
@@ -475,7 +479,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                 sample_weight = expanded_class_weight
 
         if self.subsample_fr == 'auto':
-            self.subsample_fr = (
+            self.subsample_fr_ = (
                 X.shape[0] / 2)**(1 - 1 / (2 * X.shape[1] + 2)) / (X.shape[0] / 2)
 
         # Check parameters
@@ -523,7 +527,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                     X.shape[0], X.shape[0] // 2, replace=False)
                 for _ in np.arange(it * self.slice_len, min((it + 1) * self.slice_len, self.n_estimators)):
                     s_inds.append(half_sample_inds[np.random.choice(X.shape[0] // 2,
-                                                                    int(np.ceil(self.subsample_fr *
+                                                                    int(np.ceil(self.subsample_fr_ *
                                                                                 (X.shape[0] // 2))),
                                                                     replace=False)])
             trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
