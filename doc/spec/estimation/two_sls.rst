@@ -28,17 +28,3 @@ We do this by first estimating each of the functions :math:`\E[\psi_d(T)|X,Z,W]`
 onto the features :math:`\{\phi_d(z_i) \rho_k(x_i) \}` and :math:`(x_i,w_i)`. We will then project :math:`y_i` onto these
 estimated functions and :math:`(x_i,w_i)` again to arrive at an estimate :math:`\hat{\beta}^Y` whose individual coefficients 
 :math:`\beta^Y_{d,k}` can be used to return our estimate of :math:`\tau`.  
-
-.. rubric:: Footnotes
-
-.. [1]
-    Asymptotic arguments about non-parametric consistency require that the neural net architecture (respectively set of basis functions) 
-    are allowed to grow at some rate so that arbitrary functions can be approximated, but this will not be our concern here.
-.. [2]
-    .. math::
-
-        & \int \left(y_i - g(t,x_i,w_i)\right)^2 dt \\
-        =~& y_i - 2 y_i \int g(t,x_i,w_i)\,dt + \int g(t,x_i,w_i)^2\,dt \\
-        =~& y_i - 2 y_i \int g(t,x_i,w_i)\,dt + \left(\int g(t,x_i,w_i)\,dt\right)^2 + \int g(t,x_i,w_i)^2\,dt - \left(\int g(t,x_i,w_i)\,dt\right)^2 \\
-        =~& \left(y_i - \int g(t,x_i,w_i)\,dt\right)^2 + \left(\int g(t,x_i,w_i)^2\,dt - \left(\int g(t,x_i,w_i)\,dt\right)^2\right) \\
-        =~& \left(y_i - \int g(t,x_i,w_i)\,dt\right)^2 + \Var_t g(t,x_i,w_i)
