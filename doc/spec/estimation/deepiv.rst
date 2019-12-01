@@ -5,11 +5,11 @@ Instrumental variables (IV) methods are an approach for estimating causal effect
 The assumptions made are weaker than the unconfoundedness assumption needed in DML.
 The cost is that when unconfoundedness holds, IV estimators will be less efficient than DML estimators.  
 What is required is a vector of instruments :math:`Z`, assumed to casually affect the distribution of the treatment :math:`T`, 
-and to have no direct causal effect on the expected value of the outcome :math:`Y`.  The package offers two IV methods for 
-estimating heterogeneous treatment effects: deep instrumental variables [Hartford2017]_ and the two-stage basis expansion approach 
-of [Newey2003]_.  
+and to have no direct causal effect on the expected value of the outcome :math:`Y`.  The package offers two IV methods for
+estimating heterogeneous treatment effects: deep instrumental variables [Hartford2017]_
+and the two-stage basis expansion approach of [Newey2003]_.
 
-The setup of the model is as follows: 
+The setup of the model is as follows:
 
 .. math::
 
@@ -71,3 +71,16 @@ function at :math:`\vec{t}_1` and :math:`\vec{t}_0`, replacing the expectation w
 observations with the specified :math:`\vec{x}`.    
 
 
+.. rubric:: Footnotes
+
+.. [1]
+    Asymptotic arguments about non-parametric consistency require that the neural net architecture (respectively set of basis functions) 
+    are allowed to grow at some rate so that arbitrary functions can be approximated, but this will not be our concern here.
+.. [2]
+    .. math::
+
+        & \int \left(y_i - g(t,x_i,w_i)\right)^2 dt \\
+        =~& y_i - 2 y_i \int g(t,x_i,w_i)\,dt + \int g(t,x_i,w_i)^2\,dt \\
+        =~& y_i - 2 y_i \int g(t,x_i,w_i)\,dt + \left(\int g(t,x_i,w_i)\,dt\right)^2 + \int g(t,x_i,w_i)^2\,dt - \left(\int g(t,x_i,w_i)\,dt\right)^2 \\
+        =~& \left(y_i - \int g(t,x_i,w_i)\,dt\right)^2 + \left(\int g(t,x_i,w_i)^2\,dt - \left(\int g(t,x_i,w_i)\,dt\right)^2\right) \\
+        =~& \left(y_i - \int g(t,x_i,w_i)\,dt\right)^2 + \Var_t g(t,x_i,w_i)

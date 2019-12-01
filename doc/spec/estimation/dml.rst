@@ -153,14 +153,14 @@ Class Hierarchy Structure
 In this library we implement variants of several of the approaches mentioned in the last section. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.dml.LinearDMLCateEstimator econml.dml.SparseLinearDMLCateEstimator econml.dml.KernelDMLCateEstimator econml.cate_estimator.NonParamDMLCateEstimator econml.cate_estimator.ForestDMLCateEstimator
+    .. inheritance-diagram:: econml.dml.LinearDMLCateEstimator econml.dml.SparseLinearDMLCateEstimator econml.dml.KernelDMLCateEstimator econml.dml.NonParamDMLCateEstimator econml.dml.ForestDMLCateEstimator
         :parts: 1
         :private-bases:
         :top-classes: econml._rlearner._RLearner, econml.cate_estimator.StatsModelsCateEstimatorMixin, econml.cate_estimator.DebiasedLassoCateEstimatorMixin
 
 Below we give a brief description of each of these classes:
 
-    * *DMLCateEstimator.* The class :class:`.DMLCateEstimator` assumes that the effect model for each outcome :math:`i` and treatment :math:`j` is linear, i.e. takes the form :math:`\theta_{ij}(X)=\langle \theta_{ij}, \phi(X)\rangle`, and allows for any arbitrary scikit-learn linear estimator to be defined as the final stage (e.g.    
+    * **DMLCateEstimator.** The class :class:`.DMLCateEstimator` assumes that the effect model for each outcome :math:`i` and treatment :math:`j` is linear, i.e. takes the form :math:`\theta_{ij}(X)=\langle \theta_{ij}, \phi(X)\rangle`, and allows for any arbitrary scikit-learn linear estimator to be defined as the final stage (e.g.    
       :class:`~sklearn.linear_model.ElasticNet`, :class:`~sklearn.linear_model.Lasso`, :class:`~sklearn.linear_model.LinearRegression` and their multi-task variations in the case where we have mulitple outcomes, i.e. :math:`Y` is a vector). The final linear model will be fitted on features that are derived by the Kronecker-product
       of the vectors :math:`T` and :math:`\phi(X)`, i.e. :math:`\tilde{T}\otimes \phi(X) = \mathtt{vec}(\tilde{T}\cdot \phi(X)^T)`. This regression will estimate the coefficients :math:`\theta_{ijk}` 
       for each outcome :math:`i`, treatment :math:`j` and feature :math:`k`. The final model is minimizing a regularized empirical square loss of the form:
@@ -198,7 +198,7 @@ Below we give a brief description of each of these classes:
       constraints on the matrix :math:`\Theta`.
       This essentially implements the techniques analyzed in [Chernozhukov2016]_, [Nie2017]_, [Chernozhukov2017]_, [Chernozhukov2018]_
         
-        - *LinearDMLCateEstimator.* The child class  :class:`.LinearDMLCateEstimator`, uses an unregularized final linear model and  
+        - **LinearDMLCateEstimator.** The child class  :class:`.LinearDMLCateEstimator`, uses an unregularized final linear model and  
           essentially works only when the feature vector :math:`\phi(X)` is low dimensional. Given that it is an unregularized
           low dimensional final model, this class also offers confidence intervals via asymptotic normality 
           arguments. This is achieved by essentially using the :class:`.StatsModelsLinearRegression`
@@ -216,7 +216,7 @@ Below we give a brief description of each of these classes:
 
           One could also construct bootstrap based confidence intervals by setting `inference='bootstrap'`.
 
-        - *SparseLinearDMLCateEstimator.* The child class :class:`.SparseLinearDMLCateEstimator`, uses an :math:`\ell_1`-regularized final    
+        - **SparseLinearDMLCateEstimator.** The child class :class:`.SparseLinearDMLCateEstimator`, uses an :math:`\ell_1`-regularized final    
           model. In particular, it uses an implementation of the DebiasedLasso algorithm [Buhlmann2011]_ (see :class:`.DebiasedLasso`). Using the asymptotic normality properties
           of the debiased lasso, this class also offers asymptotically normal based confidence intervals.
           The theoretical foundations of this class essentially follow the arguments in [Chernozhukov2017]_, [Chernozhukov2018]_.
@@ -231,13 +231,13 @@ Below we give a brief description of each of these classes:
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
-        - *KernelDMLCateEstimator.* The child class :class:`.KernelDMLCateEstimator` performs a variant of the RKHS approach proposed in 
+        - **KernelDMLCateEstimator.** The child class :class:`.KernelDMLCateEstimator` performs a variant of the RKHS approach proposed in 
           [Nie2017]_. It approximates any function in the RKHS by creating random Fourier features. Then runs a ElasticNet
           regularized final model. Thus it approximately implements the results of [Nie2017], via the random fourier feature
           approximate representation of functions in the RKHS. Moreover, given that we use Random Fourier Features this class
           asssumes an RBF kernel.
     
-    * *NonParamDMLCateEstimator.* The class :class:`.NonParamDMLCateEstimator` makes no assumption on the effect model for each outcome :math:`i`.
+    * **NonParamDMLCateEstimator.** The class :class:`.NonParamDMLCateEstimator` makes no assumption on the effect model for each outcome :math:`i`.
       However, it applies only when the treatment is either binary or single-dimensional continuous. It uses the observation that for a single
       dimensional treatment, the square loss can be re-written as:
 
@@ -259,19 +259,20 @@ Below we give a brief description of each of these classes:
         point = est.effect(X, T0=T0, T1=T1)    
 
       Examples include Random Forests (:class:`~sklearn.ensemble.RandomForestRegressor`), Gradient Boosted Forests (:class:`~sklearn.ensemble.GradientBoostingRegressor`) and
-      Support Vector Machines (:class:`~sklearn.svm.SVC`). Moreover, we offer a wrapper :class:`.utilities.WeightedModelWrapper` that adds sample weight functionality
-      to any scikit-learn regressor. Moreover, for particular estimators we offer scikit-learn extensions that are more tailored such as the :class:`.sklearn_extensions.linear_model.WeightedLasso`.
+      Support Vector Machines (:class:`~sklearn.svm.SVC`). Moreover, we offer a wrapper :class:`.WeightedModelWrapper` that adds sample weight functionality
+      to any scikit-learn regressor. Moreover, for particular estimators we offer scikit-learn extensions that are more tailored such as the :class:`.WeightedLasso`.
       Hence, any such model and even cross validated estimators that perform automatic model selection can be used as `model_final`. From that respect this
-      estimator is also a *Meta-Learner*, since all steps of the estimation use out-of-the-box ML algorithms. For more information, check out :ref:`Meta Learners User Guide <metalearnersuserguide>`
+      estimator is also a *Meta-Learner*, since all steps of the estimation use out-of-the-box ML algorithms. For more information,
+      check out :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 
-        - *ForestDMLCateEstimator.* This is a child of the :class:`.NonParamDMLCateEstimator` that uses an Subsampled Honest Forest regressor
-        as a final model (see [Wager2018]_ and [Athey2019]_). The subsampled honest forest is implemented as a scikit learn extension
-        of the :class:`~sklearn.ensemble.RandomForestRegresssor`, in the class :class:`.SubsampledHonestForest`. This estimator
-        offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_. Using this functionality we can
-        also construct confidence intervals for the CATE:
+        - **ForestDMLCateEstimator.** This is a child of the :class:`.NonParamDMLCateEstimator` that uses a Subsampled Honest Forest regressor
+          as a final model (see [Wager2018]_ and [Athey2019]_). The subsampled honest forest is implemented in the library as a scikit-learn extension
+          of the :class:`~sklearn.ensemble.RandomForestRegressor`, in the class :class:`.SubsampledHonestForest`. This estimator
+          offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_. Using this functionality we can
+          also construct confidence intervals for the CATE:
 
-        .. testcode::
-
+          .. testcode::
+            
             from econml.dml import ForestDMLCateEstimator
             from sklearn.ensemble import GradientBoostingRegressor
             est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(),
@@ -280,7 +281,10 @@ Below we give a brief description of each of these classes:
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
-    * *_RLearner.* The internal private class :class:`._RLearner` is a parent of the :class:`.DMLCateEstimator`
+          Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
+          alternatives to the :class:`.ForestDMLCateEstimator`.
+
+    * **_RLearner.** The internal private class :class:`._RLearner` is a parent of the :class:`.DMLCateEstimator`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,
       the features :math:`X` and predicts the residual :math:`\tilde{Y}`. Moreover, the nuisance models take as input
       :math:`X` and :math:`W` and predict :math:`T` and :math:`Y` respectively. Since these models take non-standard
@@ -312,6 +316,10 @@ Usage FAQs
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
         lb, ub = est.coef__interval(alpha=.05)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=.05)
+    
+    If you have a single dimensional continuous treatment or a binary treatment, then you can also fit non-linear
+    models and have confidence intervals by using the :class:`.ForestDMLCateEstimator`. This class will also
+    perform well with high dimensional features, as long as only few of these features are actually relevant.
 
 - **Why not just run a simple big linear regression with all the treatments, features and controls?**
 
@@ -346,7 +354,10 @@ Usage FAQs
         1) If effect heterogeneity does not have a linear form, then this approach is not valid.
         One might want to then create more complex featurization, in which case the problem could
         become too high-dimensional for OLS. Our :class:`.SparseLinearDMLCateEstimator`
-        can handle such settings via the use of the debiased Lasso. Also see the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or, if your treatment is categorical, then also check the :ref:`Meta Learners User Guide <metalearnersuserguide>`, if you want even more flexible CATE models.
+        can handle such settings via the use of the debiased Lasso. Our :class:`.ForestDMLCateEstimator` does not
+        even need explicit featurization and learns non-linear forest based CATE models, automatically. Also see the
+        :ref:`Forest Estimators User Guide <orthoforestuserguide>` and the :ref:`Meta Learners User Guide <metalearnersuserguide>`,
+        if you want even more flexible CATE models.
 
         2) If the number of features :math:`X` is comparable to the number of samples, then even
         with a linear model, the OLS approach is not feasible or has very small statistical power.
@@ -365,13 +376,25 @@ Usage FAQs
         est.fit(y, T, X, W, inference='debiasedlasso')
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
-    Alternatively, if your number of features :math:`X` is small compared to your number of samples, then
-    you can look into the check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or the
+    Alternatively, you can also use a forest based estimator such as :class:`.ForestDMLCateEstimator`. This 
+    estimator can also handle many features, albeit typically smaller number of features than the sparse linear DML.
+    Moreover, this estimator essentially performs automatic featurization and can fit non-linear models.
+
+    .. testcode::
+
+        from econml.dml import ForestDMLCateEstimator
+        from sklearn.ensemble import GradientBoostingRegressor
+        est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(),
+                                     model_t=GradientBoostingRegressor())
+        est.fit(y, T, X, W, inference='blb')
+        lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
+    
+    Also the check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or the
     :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 
 - **What if I have too many features that can create heterogeneity?**
 
-    Use the :class:`.SparseLinearDMLCateEstimator` (see above).
+    Use the :class:`.SparseLinearDMLCateEstimator` or :class:`.ForestDMLCateEstimator` (see above).
 
 - **What if I have too many features I want to control for?**
 
@@ -434,6 +457,24 @@ Usage FAQs
         est.fit(y, t, X, W)
         point = est.const_marginal_effect(X)
         point = est.effect(X, T0=t0, T1=t1)
+    
+    In the case of :class:`.NonParamDMLCateEstimator` you can also use non-linear cross-validated models as model_final:
+
+    .. testcode::
+
+        from econml.dml import NonParamDMLCateEstimator
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.model_selection import GridSearchCV
+        cv_reg = lambda: GridSearchCV(
+                    estimator=RandomForestRegressor(),
+                    param_grid={
+                            'max_depth': [3, None],
+                            'n_estimators': (10, 30, 50, 100, 200, 400, 600, 800, 1000),
+                            'max_features': (2,4,6)
+                        }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
+                    )
+        est = NonParamDMLCateEstimator(model_y=cv_reg(), model_t=cv_reg(), model_final=cv_reg())
+
 
 - **What if I have many treatments?**
 
