@@ -31,7 +31,8 @@ What are the relevant estimator classes?
 
 This section describes the methodology implemented in the classes, :class:`._RLearner`,
 :class:`.DMLCateEstimator`, :class:`.LinearDMLCateEstimator`,
-:class:`.SparseLinearDMLCateEstimator`, :class:`.KernelDMLCateEstimator`.
+:class:`.SparseLinearDMLCateEstimator`, :class:`.KernelDMLCateEstimator`, :class:`.NonParamDMLCateEstimator`,
+:class:`.ForestDMLCateEstimator`.
 Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
@@ -65,10 +66,13 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 This way an optimal treatment policy can be learned, by simply inspecting for which :math:`X` the effect was positive.
 
 Most of the methods provided make a parametric form assumption on the heterogeneous treatment effect model (e.g.
-linear on some pre-defined; potentially high-dimensional; featurization).
-For fullly non-parametric heterogeneous treatment effect models,
-check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or, if your treatment is categorical,
-then also check the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
+linear on some pre-defined; potentially high-dimensional; featurization). These methods include: 
+:class:`.DMLCateEstimator`, :class:`.LinearDMLCateEstimator`,
+:class:`.SparseLinearDMLCateEstimator`, :class:`.KernelDMLCateEstimator`.
+For fullly non-parametric heterogeneous treatment effect models, checkout the :class:`.NonParamDMLCateEstimator`
+and the :class:`.ForestDMLCateEstimator`. For more options of non-parametric CATE estimators, 
+check out the :ref:`Forest Estimators User Guide <orthoforestuserguide>` 
+and the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 
 
 Overview of Formal Methodology
@@ -126,11 +130,15 @@ This approach has been analyzed in multiple papers in the literature, for differ
 [Chernozhukov2016]_ consider the case where :math:`\theta(X)` is a constant (average treatment effect) or a low dimensional
 linear function,
 [Nie2017]_ consider the case where :math:`\theta(X)` falls in a Reproducing Kernel Hilbert Space (RKHS),
-[Chernozhukov2017]_, [Chernozhukov2018]_ consider the case of a high dimensional sparse linear space, where :math:`\theta(X)=\langle \theta, \phi(X)\rangle` for some known high-dimensional feature mapping and where :math:`\theta_0` has very few non-zero entries (sparse), [Athey2019]_ (among other results) consider the case where :math:`\theta(X)` is a non-parametric lipschitz function and use random forest models to fit the function, [Foster2019]_ allow for arbitrary models :math:`\theta(X)` and give results based on sample complexity measures of the model space (e.g. Rademacher complexity, metric entropy).
+[Chernozhukov2017]_, [Chernozhukov2018]_ consider the case of a high dimensional sparse linear space, where :math:`\theta(X)=\langle \theta, \phi(X)\rangle`
+for some known high-dimensional feature mapping and where :math:`\theta_0` has very few non-zero entries (sparse), 
+[Athey2019]_ (among other results) consider the case where :math:`\theta(X)` is a non-parametric lipschitz function and 
+use random forest models to fit the function, [Foster2019]_ allow for arbitrary models :math:`\theta(X)` and give 
+results based on sample complexity measures of the model space (e.g. Rademacher complexity, metric entropy).
 
 
-The main advantage of DML is that if one makes parametric assumptions on :math:`\theta(X)`, then one achieves fast estimation rates and 
-asymptotic normality on the second stage estimate :math:`\hat{\theta}`, even if the first stage estimates on :math:`q(X, W)` 
+The main advantage of DML is that if one makes parametric assumptions on :math:`\theta(X)`, then one achieves fast estimation rates and, 
+for many cases of final stage estimators, also asymptotic normality on the second stage estimate :math:`\hat{\theta}`, even if the first stage estimates on :math:`q(X, W)` 
 and :math:`f(X, W)` are only :math:`n^{1/4}` consistent, in terms of RMSE. For this theorem to hold, the nuisance
 estimates need to be fitted in a cross-fitting manner (see :class:`._OrthoLearner`).
 The latter robustness property follows from the fact that the moment equations that correspond to the final 
@@ -145,7 +153,7 @@ Class Hierarchy Structure
 In this library we implement variants of several of the approaches mentioned in the last section. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.dml.LinearDMLCateEstimator econml.dml.SparseLinearDMLCateEstimator econml.dml.KernelDMLCateEstimator
+    .. inheritance-diagram:: econml.dml.LinearDMLCateEstimator econml.dml.SparseLinearDMLCateEstimator econml.dml.KernelDMLCateEstimator econml.cate_estimator.NonParamDMLCateEstimator econml.cate_estimator.ForestDMLCateEstimator
         :parts: 1
         :private-bases:
         :top-classes: econml._rlearner._RLearner, econml.cate_estimator.StatsModelsCateEstimatorMixin, econml.cate_estimator.DebiasedLassoCateEstimatorMixin
@@ -159,7 +167,7 @@ Below we give a brief description of each of these classes:
       
       .. math::
     
-            \hat{\alpha} = \arg\min_{\alpha} \E_n\left[ \left(\tilde{Y} - \Theta \cdot \tilde{T}\otimes \phi(X)\right)^2 \right] + \lambda R(\Theta)
+            \hat{\Theta} = \arg\min_{\Theta} \E_n\left[ \left(\tilde{Y} - \Theta \cdot \tilde{T}\otimes \phi(X)\right)^2 \right] + \lambda R(\Theta)
 
       for some strongly convex regularizer :math:`R`, where :math:`\Theta` is the parameter matrix of dimensions (number of outcomes, number of treatments * number of features). For instance, if :math:`Y` is single dimensional and the lasso is used as model final, i.e.:
 
@@ -229,7 +237,50 @@ Below we give a brief description of each of these classes:
           approximate representation of functions in the RKHS. Moreover, given that we use Random Fourier Features this class
           asssumes an RBF kernel.
     
-    - *_RLearner.* The internal private class :class:`._RLearner` is a parent of the :class:`.DMLCateEstimator`
+    * *NonParamDMLCateEstimator.* The class :class:`.NonParamDMLCateEstimator` makes no assumption on the effect model for each outcome :math:`i`.
+      However, it applies only when the treatment is either binary or single-dimensional continuous. It uses the observation that for a single
+      dimensional treatment, the square loss can be re-written as:
+
+      .. math::
+
+        \E_n\left[ \left(\tilde{Y} - \theta(X) \cdot \tilde{T}\right)^2 \right] = \E_n\left[ \tilde{T}^2 \left(\frac{\tilde{Y}}{\tilde{T}} - \theta(X)\right)^2 \right]
+    
+      The latter corresponds to a weighted regression problem, where the target label is :math:`\tilde{Y}/\tilde{T}`, the features are :math:`X`
+      and the weight of each sample is :math:`\tilde{T}^2`. Thus any scikit-learn regressor that accepts sample weights can be used as a final model, e.g.:
+
+      .. testcode::
+
+        from econml.dml import NonParamDMLCateEstimator
+        from sklearn.ensemble import GradientBoostingRegressor
+        est = NonParamDMLCateEstimator(model_y=GradientBoostingRegressor(),
+                                       model_t=GradientBoostingRegressor(),    
+                                       model_final=GradientBoostingRegressor())
+        est.fit(y, T, X, W)
+        point = est.effect(X, T0=T0, T1=T1)    
+
+      Examples include Random Forests (:class:`~sklearn.ensemble.RandomForestRegressor`), Gradient Boosted Forests (:class:`~sklearn.ensemble.GradientBoostingRegressor`) and
+      Support Vector Machines (:class:`~sklearn.svm.SVC`). Moreover, we offer a wrapper :class:`.utilities.WeightedModelWrapper` that adds sample weight functionality
+      to any scikit-learn regressor. Moreover, for particular estimators we offer scikit-learn extensions that are more tailored such as the :class:`.sklearn_extensions.linear_model.WeightedLasso`.
+      Hence, any such model and even cross validated estimators that perform automatic model selection can be used as `model_final`. From that respect this
+      estimator is also a *Meta-Learner*, since all steps of the estimation use out-of-the-box ML algorithms. For more information, check out :ref:`Meta Learners User Guide <metalearnersuserguide>`
+
+        - *ForestDMLCateEstimator.* This is a child of the :class:`.NonParamDMLCateEstimator` that uses an Subsampled Honest Forest regressor
+        as a final model (see [Wager2018]_ and [Athey2019]_). The subsampled honest forest is implemented as a scikit learn extension
+        of the :class:`~sklearn.ensemble.RandomForestRegresssor`, in the class :class:`.SubsampledHonestForest`. This estimator
+        offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_. Using this functionality we can
+        also construct confidence intervals for the CATE:
+
+        .. testcode::
+
+            from econml.dml import ForestDMLCateEstimator
+            from sklearn.ensemble import GradientBoostingRegressor
+            est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(),
+                                         model_t=GradientBoostingRegressor())
+            est.fit(y, T, X, W, inference='blb')
+            point = est.effect(X, T0=T0, T1=T1)
+            lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
+
+    * *_RLearner.* The internal private class :class:`._RLearner` is a parent of the :class:`.DMLCateEstimator`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,
       the features :math:`X` and predicts the residual :math:`\tilde{Y}`. Moreover, the nuisance models take as input
       :math:`X` and :math:`W` and predict :math:`T` and :math:`Y` respectively. Since these models take non-standard
