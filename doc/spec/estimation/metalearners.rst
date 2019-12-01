@@ -1,8 +1,12 @@
 .. _metalearnersuserguide:
 
-Metalearners
-============
+==============
+Meta-Learners
+==============
 
+
+What is it?
+==================================
 Metalearners are discrete treatment CATE estimators that model either two response surfaces, :math:`Y(0)` and :math:`Y(1)`, or
 multiple response surfaces, :math:`Y(0)` to :math:`Y(K)` separately. For a detailed overview of these methods,
 see [Kunzel2017]_ and [Foster2019]_. 
@@ -10,6 +14,18 @@ see [Kunzel2017]_ and [Foster2019]_.
 For examples of how to use our implemented metelearners check out this
 `Metalearners Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Metalearners%20Examples.ipynb>`_. The examples
 and documents here are only based on binary treatment setting, but all of these estimators are applicable to multiple treatment settings as well.
+
+
+What are the relevant estimator classes?
+========================================
+
+
+When should you use it?
+==================================
+
+
+Overview of Formal Methodology
+==============================
 
 T-Learner
 -----------------
@@ -103,6 +119,18 @@ and then runs a regression between :math:`Y_{i, 1}^{DR} - Y_{i, 0}^{DR}` and :ma
 The EconML package provides the following implementation of the Doubly Robust Learner: 
 :class:`.DRLearner`
 
+Non-Parametric Double Machine Learning
+--------------------------------------
+
+
+Class Hierarchy Structure
+==================================
+
+Usage FAQs
+==========
+
+Usage Examples
+==================================
 
 .. todo::
     * Synthetic Controls via Matchings

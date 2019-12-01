@@ -5,8 +5,24 @@ Forest Based Estimators
 
 .. _orthoforestuserguide:
 
+
+What is it?
+==================================
+
+
+What are the relevant estimator classes?
+========================================
+
+
+When should you use it?
+==================================
+
+
+Overview of Formal Methodology
+==================================
+
 Orthogonal Random Forests
-=========================
+-------------------------
 
 Orthogonal Random Forests [Oprescu2019]_ are a combination of causal forests and double machine learning that allow
 for controlling for a high-dimensional set of confounders :math:`W`, while at the same time estimating non-parametrically
@@ -32,7 +48,7 @@ split.
 
 The method splits the data and performs cross-fitting: i.e. fits the
 conditional expectation models on the first half and predicts the quantities on the second half and vice versa. 
-Subsequently estimates :math:`\theta(x)` on all the data. 
+Subsequently estimates :math:`\theta(x)` on all the data.
 
 In order to handle high-dimensional :math:`W`, the method estimates the conditional expectations also in a local manner
 around each target :math:`x`. In particular, to estimate :math:`\hat{\E}[Y_i \mid x, W_i]` for each target :math:`x`
@@ -113,8 +129,20 @@ the estimator checkout the two modules:
 For more examples check out our 
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
 
-Examples
---------
+CausalForest (aka Forest Double Machine Learning)
+--------------------------------------------------
+
+Forest Double Robust Learner
+-------------------------------
+
+Class Hierarchy Structure
+=========================
+
+Usage FAQs
+==========
+
+Usage Examples
+==================================
 
 Here is a simple example of how to call :class:`.ContinuousTreatmentOrthoForest`
 and what the returned values correspond to in a simple data generating process:
@@ -186,3 +214,4 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     :align: center
 
     Synthetic data estimation with high dimensional controls
+

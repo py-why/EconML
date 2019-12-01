@@ -1,6 +1,6 @@
-==================================
-Orthogonal/Double Machine Learning
-==================================
+======================
+Double Robust Learning
+======================
 
 What is it?
 ==================================
@@ -31,8 +31,7 @@ What are the relevant estimator classes?
 
 This section describes the methodology implemented in the classes, :class:`._RLearner`,
 :class:`.DMLCateEstimator`, :class:`.LinearDMLCateEstimator`,
-:class:`.SparseLinearDMLCateEstimator`, :class:`.KernelDMLCateEstimator`.
-Click on each of these links for a detailed module documentation and input parameters of each class.
+:class:`.SparseLinearDMLCateEstimator`, :class:`.KernelDMLCateEstimator`. Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
 When should you use it?
@@ -65,10 +64,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 This way an optimal treatment policy can be learned, by simply inspecting for which :math:`X` the effect was positive.
 
 Most of the methods provided make a parametric form assumption on the heterogeneous treatment effect model (e.g.
-linear on some pre-defined; potentially high-dimensional; featurization).
-For fullly non-parametric heterogeneous treatment effect models,
-check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or, if your treatment is categorical,
-then also check the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
+linear on some pre-defined; potentially high-dimensional; featurization). For fullly non-parametric heterogeneous treatment effect models, check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or, if your treatment is categorical, then also check the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 
 
 Overview of Formal Methodology
@@ -470,11 +466,13 @@ Usage Examples
 ==================================
 
 
-.. rubric:: Single Outcome, Single Treatment
+Single Outcome, Single Treatment
+---------------------------------------------------
 
 We consider some example use cases of the library when :math:`Y` and :math:`T` are :math:`1`-dimensional.
 
-**Random Forest First Stages.**
+.. rubric:: Random Forest First Stages
+
 A classical non-parametric regressor for the first stage estimates is a Random Forest. Using RandomForests in our API is as simple as:
 
 .. testcode::
@@ -490,7 +488,8 @@ A classical non-parametric regressor for the first stage estimates is a Random F
     lb_coef, ub_coef = est.coef__interval(alpha=.05)
 
 
-**Polynomial Features for Heterogeneity.**
+.. rubric:: Polynomial Features for Heterogeneity
+
 Suppose that we believe that the treatment effect is a polynomial of :math:`X`, i.e.
 
 .. math::
@@ -515,7 +514,8 @@ Then we can estimate the coefficients :math:`\alpha_i` by running:
     est.coef_
 
 
-**Fixed Effects.**
+.. rubric:: Fixed Effects
+
 To add fixed effect heterogeneity, we can create one-hot encodings of the id, which is assumed to be part of the input:
 
 .. testcode::
@@ -532,7 +532,8 @@ To add fixed effect heterogeneity, we can create one-hot encodings of the id, wh
     # The vector of α can be extracted as follows
     est.coef_
 
-**Custom Features.**
+.. rubric:: Custom Features
+
 One can also define a custom featurizer, as long as it supports the fit\_transform interface of sklearn.
 
 .. testcode::
@@ -567,7 +568,8 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
     est.fit(y, T, X, W)
 
 
-.. rubric:: Single Outcome, Multiple Treatments
+Single Outcome, Multiple Treatments
+------------------------------------------------------
 
 Suppose that we believed that our treatment was affecting the outcome in a non-linear manner. 
 Then we could expand the treatment vector to contain also polynomial features:
@@ -578,7 +580,8 @@ Then we could expand the treatment vector to contain also polynomial features:
     est = LinearDMLCateEstimator()
     est.fit(y, np.concatenate((T, T**2), axis=1), X, W)
 
-.. rubric:: Multiple Outcome, Multiple Treatments
+Multiple Outcome, Multiple Treatments
+--------------------------------------------------------
 
 In settings like demand estimation, we might want to fit the demand of multiple products as a function of the price of each one of them, i.e. fit the matrix of cross price elasticities. The latter can be done, by simply setting :math:`Y` to be the vector of demands and :math:`T` to be the vector of prices. Then we can recover the 
 matrix of cross price elasticities as:
