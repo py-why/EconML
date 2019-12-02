@@ -61,8 +61,8 @@ class DRLearner(_OrthoLearner):
     In this estimator, the CATE is estimated by using the following estimating equations. If we let:
 
     .. math ::
-        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i]\
-            + \\sum_{t=0}^{n_t} \\frac{Y_i - E[Y | X_i, W_i, T_i]}{Pr[T=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
+        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i=t]\
+            + \\frac{Y_i - E[Y | X_i, W_i, T_i=t]}{Pr[T_i=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
 
     Then the following estimating equation holds:
 

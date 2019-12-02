@@ -193,7 +193,7 @@ Below we give a brief description of each of these classes:
                                model_final=ElasticNetCV())
 
       then :math:`R(\Theta)=\kappa \|\Theta\|_2 + (1-\kappa)\|\Theta\|_1`. For multi-dimensional :math:`Y`, 
-      one can impose several extensions to the matrix of parameters :math:`\alpha`, such as the one corresponding to the MultiTask Lasso 
+      one can impose several extensions to the matrix of parameters :math:`\Theta`, such as the one corresponding to the MultiTask Lasso 
       :math:`\sum_{j} \sum_{i} \theta_{ij}^2` or MultiTask ElasticNet or nuclear norm regularization  [Jaggi2010]_, which enforces low-rank 
       constraints on the matrix :math:`\Theta`.
       This essentially implements the techniques analyzed in [Chernozhukov2016]_, [Nie2017]_, [Chernozhukov2017]_, [Chernozhukov2018]_
@@ -372,7 +372,7 @@ Usage FAQs
 
         from econml.dml import SparseLinearDMLCateEstimator
         from sklearn.preprocessing import PolynomialFeatures
-        est = SparseLinearDMLCateEstimator(featurizer=PolynomialFeatures(degree=4))
+        est = SparseLinearDMLCateEstimator(featurizer=PolynomialFeatures(degree=4, include_bias=False))
         est.fit(y, T, X, W, inference='debiasedlasso')
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
