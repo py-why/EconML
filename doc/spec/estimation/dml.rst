@@ -561,6 +561,9 @@ Usage FAQs
 Usage Examples
 ==================================
 
+For more extensive examples check out the following notebooks:
+`DML Examples Jupyter Notebook <https://github.com/microsoft/EconML/blob/master/notebooks/Double%20Machine%20Learning%20Examples.ipynb>`_,
+`Forest Learners Jupyter Notebook <https://github.com/microsoft/EconML/blob/master/notebooks/ForestLearners%20Basic%20Example.ipynb>`_.
 
 .. rubric:: Single Outcome, Single Treatment
 
