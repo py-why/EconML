@@ -14,9 +14,10 @@ Both of these latter problems can be addressed via machine learning techniques (
 The method dates back to the early works of [Robins1994]_, [Bang]_ (see [Tsiatis]_ for more details), which applied
 the method primarily for the estimation of average treatment effects. In this library we implement recent modifications
 to the doubly robust approach that allow for the estimation of heterogeneous treatment effects (see e.g. [Foster2019]_).
+The method has also been recently heavily used in the context of policy learning (see e.g. [Dudik2014]_, [Athey2017]_).
 
 It reduces the problem to first estimating *two predictive tasks*: 
-    
+
     1) predicting the outcome from the treatment and controls,
     2) predicting the treatment from the controls;
 
@@ -90,10 +91,45 @@ the CATE associated with each possible treatment :math:`t \in \{1, \ldots, n_t\}
 treatment :math:`t=0`, i.e.: 
 
 .. math::
-    
-    \theta_t(X) = E[g_t(X, W) - g_0(X, W) | X]
 
-The idea to estimate :math:`\theta(X)` is as follows: we can re-write the structural equations as
+    \theta_t(X) = \E[Y^{(t)} - Y^{(0)} | X] = \E[g_t(X, W) - g_0(X, W) | X]
+
+One way to estimate :math:`\theta_t(X)` is the Direct Method (DM) approach, where we simply estimate a regression,
+regresstin :math:`Y` on :math:`T, X, W` to learn a model
+of :math:`g_T(X, W) = \E[Y | T, X, W]` and then evaluate :math:`\theta_t(X)` by regressing
+
+.. math::
+
+    Y_{i, t}^{DM} = g_t(X, W) - g_0(X, W)
+
+on :math:`X`. The main problem with this approach is that it is heavily dependend
+on the model-based extrapolation that is implicitly done via the model that is fitted in the regression. Essentially,
+when we evaluate :math:`g_t(X, W)` on a sample with features :math:`X, W` for which we gave some other treatment
+:math:`T=t'`, then we are extrapolating from other samples with similar :math:`X, W`, which received the treatment
+:math:`T=t`. However, the definition of "similarity" is very model based and in some cases we might even be extrapolating
+from very far away points (e.g. if we fit linear regression models).
+
+An alternative approach that does not suffer from the aforementioned problems is the Inverse Propensity Score (IPS)
+approach. This method starts from the realization that, due to the unconfoundedness assumption, we can create
+an unbiased estimate of every potential outcome by re-weighting each sample by the inverse probability of that
+sample receiving the treatment we observed (i.e. up-weighting samples that have "surprising" treatment assignments).
+More concretely, if we let:
+
+.. math::
+
+    Y_{i, t}^{IPS} = \frac{Y 1\{T=t\}}{\Pr[T=t | X, W]}
+
+then it holds that:
+
+.. math::
+
+    \E[Y_{i, t}^{IPS} | X, W] =& \E\left[\frac{Y 1\{T=t\}}{\Pr[T=t | X, W]} | X, W\right] \\
+    =& \E\left[\frac{Y^{(t)} 1\{T=t\}}{\Pr[T=t | X, W]} | X, W\right] \\
+    =&  \E\left[\frac{Y^{(t)} \E[1\{T=t\} | X, W]}{\Pr[T=t | X, W]} | X, W] = \E\left[\frac{Y^{(t)} | X, W]
+
+Thus we can estimate a :math:`\theta_t(X)` by regressing :math:`Y_{i, t}^{IPS} - Y_{i, 0}^{IPS}` on :math:`X`.
+
+The idea to estimate :math:`\theta(X)` is as follows:
 In this estimator, the CATE is estimated by using the following estimating equations. If we let:
 
     .. math ::
