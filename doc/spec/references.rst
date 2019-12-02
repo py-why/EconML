@@ -94,3 +94,13 @@ References
     Tsiatis AA (2006).
     Semiparametric Theory and Missing Data.
     New York: Springer; 2006.
+
+.. [Dudik2014]
+    Dudík, M., Erhan, D., Langford, J., & Li, L. (2014).
+    Doubly robust policy evaluation and optimization.
+    Statistical Science, 29(4), 485-511.
+
+.. [Athey2017]
+    Athey, S., & Wager, S. (2017).
+    Efficient policy learning.
+    arXiv preprint arXiv:1702.02896.
