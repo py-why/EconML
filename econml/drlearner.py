@@ -79,7 +79,7 @@ class DRLearner(_OrthoLearner):
     classifier, that is internally used to solve this classification problem.
 
     The second nuisance function :math:`h` is a simple regression problem and the :class:`.DRLearner`
-    class takes as input the parameter `model_regressor``, which is an arbitrary scikit-learn regressor that
+    class takes as input the parameter ``model_regressor``, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem.
 
     The final stage is multi-task regression problem with outcomes the labels :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}`

@@ -1,26 +1,32 @@
 ======================
-Double Robust Learning
+Doubly Robust Learning
 ======================
 
 What is it?
 ==================================
 
-Double Machine Learning is a method for estimating (heterogeneous) treatment effects when
-all potential confounders/controls (factors that simultaneously had a direct effect on the treatment decision in the
+Doubly Robust Learning, similar to Double Machine Learning, is a method for estimating (heterogeneous) treatment effects when
+the treatment is categorical and all potential confounders/controls (factors that simultaneously had a direct effect on the treatment decision in the
 collected data and the observed outcome) are observed, but are either too many (high-dimensional) for
 classical statistical approaches to be applicable or their effect on 
 the treatment and outcome cannot be satisfactorily modeled by parametric functions (non-parametric).
-Both of these latter problems can be addressed via machine learning techniques (see e.g. [Chernozhukov2016]_).
+Both of these latter problems can be addressed via machine learning techniques (see e.g. [Chernozhukov2016]_, [Foster2019]_).
+The method dates back to the early works of [Robins1994]_, [Bang]_ (see [Tsiatis]_ for more details), which applied
+the method primarily for the estimation of average treatment effects. In this library we implement recent modifications
+to the doubly robust approach that allow for the estimation of heterogeneous treatment effects (see e.g. [Foster2019]_).
 
-The method reduces the problem to first estimating *two predictive tasks*: 
+It reduces the problem to first estimating *two predictive tasks*: 
     
-    1) predicting the outcome from the controls,
+    1) predicting the outcome from the treatment and controls,
     2) predicting the treatment from the controls;
 
-Then the method combines these two predictive models in a final stage estimation so as to create a
+Thus unlike Double Machine Learning the first model predicts the outcome from both the treatment and the controls as
+opposed to just the controls. Then the method combines these two predictive models in a final stage estimation so as to create a
 model of the heterogeneous treatment efffect. The approach allows for *arbitrary Machine Learning algorithms* to be
 used for the two predictive tasks, while maintaining many favorable statistical properties related to the final
-model (e.g. small mean squared error, asymptotic normality, construction of confidence intervals).
+model (e.g. small mean squared error, asymptotic normality, construction of confidence intervals). The latter
+favorable statsitical properties hold if either the first or the second of the two predictive tasks achieves small mean
+squared error (hence the name doubly robust).
 
 Our package offers several variants for the final model estimation. Many of these variants also
 provide *valid inference* (confidence interval construction) for measuring the uncertainty of the learned model.
@@ -29,19 +35,21 @@ provide *valid inference* (confidence interval construction) for measuring the u
 What are the relevant estimator classes?
 ========================================
 
-This section describes the methodology implemented in the classes, :class:`._RLearner`,
-:class:`.DMLCateEstimator`, :class:`.LinearDMLCateEstimator`,
-:class:`.SparseLinearDMLCateEstimator`, :class:`.KernelDMLCateEstimator`. Click on each of these links for a detailed module documentation and input parameters of each class.
+This section describes the methodology implemented in the classes, :class:`.DRLearner`,
+:class:`.LinearDRLearner`,
+:class:`.SparseLinearDRLearner`, :class:`.ForestDRLearner`.
+Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
 When should you use it?
 ==================================
 
-Suppose you have observational (or experimental from an A/B test) historical data, where some treatment(s)/intervention(s)/action(s) 
-:math:`T` were chosen and some outcome(s) :math:`Y` were observed and all the variables :math:`W` that could have
-potentially gone into the choice of :math:`T`, and simultaneously could have had a direct effect on the outcome :math:`Y` (aka controls or confounders) are also recorder in the dataset.
+Suppose you have observational (or experimental from an A/B test) historical data, where some treatment/intervention/action
+:math:`T` from among a finite set of treatments was chosen and some outcome(s) :math:`Y` was observed and all the variables :math:`W` that could have
+potentially gone into the choice of :math:`T`, and simultaneously could have had a direct effect on the outcome
+:math:`Y` (aka controls or confounders) are also recorder in the dataset.
 
-If your goal is to understand what was the effect of the treatment on the outcome as a function of a set of observable
+If your goal is to understand what was the effect of each of the treatments on the outcome as a function of a set of observable
 characteristics :math:`X` of the treated samples, then one can use this method. For instance call:
 
 .. testsetup::
@@ -56,74 +64,66 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
 .. testcode::
 
-    from econml.dml import LinearDMLCateEstimator
-    est = LinearDMLCateEstimator()
+    from econml.dml import LinearDRLearner
+    est = LinearDRLearner()
     est.fit(y, T, X, W)
     est.const_marginal_effect(X)
 
 This way an optimal treatment policy can be learned, by simply inspecting for which :math:`X` the effect was positive.
 
-Most of the methods provided make a parametric form assumption on the heterogeneous treatment effect model (e.g.
-linear on some pre-defined; potentially high-dimensional; featurization). For fullly non-parametric heterogeneous treatment effect models, check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or, if your treatment is categorical, then also check the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
-
 
 Overview of Formal Methodology
 ==================================
 
-The model makes the following structural equation assumptions on the data generating process.
+The model's assumpitons are better explained in the language of potential outcomes. If we denote with :math:`Y^{(t)}` the potential outcome that
+we would have observed had we treated the sample with treatment :math:`T=t`, then the approach assumes that:
 
 .. math::
 
-    Y =~& \theta(X) \cdot T + g(X, W) + \epsilon ~~~&~~~ \E[\epsilon | X, W] = 0 \\ 
-    T =~& f(X, W) + \eta & \E[\eta \mid X, W] = 0 \\
-    ~& \E[\eta \cdot \epsilon | X, W] = 0
+    Y^{(t)} = g_t(X, W) + \epsilon_t ~~~&~~~ \E[\epsilon | X, W] = 0 \\
+    \Pr[T = t | X, W] =~& p_t(X, W) & \\
+    \{Y^{(t)}\}_{t=1}^{n_t} \perp T | X, W
 
-What is particularly attractive about DML is that it makes no further structural assumptions on :math:`g` and :math:`f` and estimates them 
+It makes no further structural assumptions on :math:`g_t` and :math:`p_t` and estimates them 
 non-parametrically using arbitrary non-parametric Machine Learning methods. Our goal is to estimate
-the constant marginal CATE :math:`\theta(X)`.
+the CATE associated with each possible treatment :math:`t \in \{1, \ldots, n_t\}`, as compared to some baseline
+treatment :math:`t=0`, i.e.: 
+
+.. math::
+    
+    \theta_t(X) = E[g_t(X, W) - g_0(X, W) | X]
 
 The idea to estimate :math:`\theta(X)` is as follows: we can re-write the structural equations as
+In this estimator, the CATE is estimated by using the following estimating equations. If we let:
 
-.. math::
+    .. math ::
+        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i]\
+            + \\sum_{t=0}^{n_t} \\frac{Y_i - E[Y | X_i, W_i, T_i]}{Pr[T=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
 
-    Y - \E[Y | X, W]
-    = \theta(X) \cdot (T - \E[T | X, W]) + \epsilon
+Then the following estimating equation holds:
 
-Thus if one can estimate the conditional expectation functions (both of which are non-parametric regression tasks):
+    .. math ::
+        E\\left[Y_{i, t}^{DR} - Y_{i, 0}^{DR} | X_i\\right] = \\theta_t(X_i)
 
-.. math::
+Thus if we estimate the nuisance functions :math:`h(X, W, T) = E[Y | X, W, T]` and
+:math:`p_t(X, W)=Pr[T=t | X, W]` in the first stage, we can estimate the final stage cate for each
+treatment t, by running a regression, regressing :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}` on :math:`X_i`.
 
-    q(X, W) =~& \E[Y | X, W]\\
-    f(X, W) =~& \E[T | X, W]
+The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
+problem of predicting the label :math:`T` from :math:`X, W`. The :class:`.DRLearner`
+class takes as input the parameter ``model_propensity``, which is an arbitrary scikit-learn
+classifier, that is internally used to solve this classification problem.
 
-Then we can compute the residuals:
+The second nuisance function :math:`h` is a simple regression problem and the :class:`.DRLearner`
+class takes as input the parameter model_regressor, which is an arbitrary scikit-learn regressor that
+is internally used to solve this regression problem.
 
-.. math::
-
-    \tilde{Y} =~& Y - q(X, W)\\
-    \tilde{T} =~& T - f(X, W) = \eta
-
-which are subsequently related by the equation:
-
-.. math::
-
-    \tilde{Y} = \theta(X) \cdot \tilde{T} + \epsilon
-
-Subsequently, since :math:`\E[\epsilon \cdot \eta | X]=0`, estimating :math:`\theta(X)` is a final regression problem, regressing :math:`\tilde{Y}` on :math:`X, \tilde{T}` (albeit over models that are linear in :math:`\tilde{T}`), i.e.
-
-.. math::
-    :nowrap:
-
-    \begin{equation}
-    \hat{\theta} = \arg\min_{\theta \in \Theta} \E_n\left[ (\tilde{Y} - \theta(X)\cdot \tilde{T})^2 \right]
-    \end{equation}
-
-This approach has been analyzed in multiple papers in the literature, for different model classes :math:`\Theta`.
-[Chernozhukov2016]_ consider the case where :math:`\theta(X)` is a constant (average treatment effect) or a low dimensional
-linear function,
-[Nie2017]_ consider the case where :math:`\theta(X)` falls in a Reproducing Kernel Hilbert Space (RKHS),
-[Chernozhukov2017]_, [Chernozhukov2018]_ consider the case of a high dimensional sparse linear space, where :math:`\theta(X)=\langle \theta, \phi(X)\rangle` for some known high-dimensional feature mapping and where :math:`\theta_0` has very few non-zero entries (sparse), [Athey2019]_ (among other results) consider the case where :math:`\theta(X)` is a non-parametric lipschitz function and use random forest models to fit the function, [Foster2019]_ allow for arbitrary models :math:`\theta(X)` and give results based on sample complexity measures of the model space (e.g. Rademacher complexity, metric entropy).
-
+The final stage is multi-task regression problem with outcomes the labels :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}`
+for each non-baseline treatment t. The :class:`.DRLearner` takes as input parameter
+``model_final``, which is any scikit-learn regressor that is internally used to solve this multi-task
+regresion problem. If the parameter ``multitask_model_final`` is False, then this model is assumed
+to be a mono-task regressor, and separate clones of it are used to solve each regression target
+separately.
 
 The main advantage of DML is that if one makes parametric assumptions on :math:`\theta(X)`, then one achieves fast estimation rates and 
 asymptotic normality on the second stage estimate :math:`\hat{\theta}`, even if the first stage estimates on :math:`q(X, W)` 
@@ -141,10 +141,10 @@ Class Hierarchy Structure
 In this library we implement variants of several of the approaches mentioned in the last section. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.dml.LinearDMLCateEstimator econml.dml.SparseLinearDMLCateEstimator econml.dml.KernelDMLCateEstimator
+    .. inheritance-diagram:: econml.drlearner.DRLearner econml.drlearner.LinearDRLearner econml.drlearner.SparseLinearDRLearner econml.drlearner.ForestDRLearner
         :parts: 1
         :private-bases:
-        :top-classes: econml._rlearner._RLearner, econml.cate_estimator.StatsModelsCateEstimatorMixin, econml.cate_estimator.DebiasedLassoCateEstimatorMixin
+        :top-classes: econml._ortho_learner._OrthoLearner, econml.cate_estimator.StatsModelsCateEstimatorDiscreteMixin, econml.cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin
 
 Below we give a brief description of each of these classes:
 
@@ -465,163 +465,3 @@ Usage FAQs
 Usage Examples
 ==================================
 
-
-Single Outcome, Single Treatment
----------------------------------------------------
-
-We consider some example use cases of the library when :math:`Y` and :math:`T` are :math:`1`-dimensional.
-
-.. rubric:: Random Forest First Stages
-
-A classical non-parametric regressor for the first stage estimates is a Random Forest. Using RandomForests in our API is as simple as:
-
-.. testcode::
-
-    from econml.dml import LinearDMLCateEstimator
-    from sklearn.ensemble import RandomForestRegressor
-    est = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                 model_t=RandomForestRegressor())
-    est.fit(y, T, X, W, inference='statsmodels')
-    pnt_effect = est.const_marginal_effect(X)
-    lb_effect, ub_effect = est.const_marginal_effect_interval(X, alpha=.05)
-    pnt_coef = est.coef_
-    lb_coef, ub_coef = est.coef__interval(alpha=.05)
-
-
-.. rubric:: Polynomial Features for Heterogeneity
-
-Suppose that we believe that the treatment effect is a polynomial of :math:`X`, i.e.
-
-.. math::
-    
-    Y = (\alpha_0 + \alpha_1 X + \alpha_2 X^2 + \ldots) \cdot T + g(X, W, \epsilon)
-
-Then we can estimate the coefficients :math:`\alpha_i` by running:
-
-.. testcode::
-
-    from econml.dml import LinearDMLCateEstimator
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.preprocessing import PolynomialFeatures
-    est = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                 model_t=RandomForestRegressor(),
-                                 featurizer=PolynomialFeatures(degree=4, include_bias=True))
-    est.fit(y, T, X, W)
-
-    # To get the coefficients of the polynomial fitted in the final stage we can
-    # access the `coef_` attribute of the fitted second stage model. This would 
-    # return the coefficients in front of each term in the vector T⊗ϕ(X).
-    est.coef_
-
-
-.. rubric:: Fixed Effects
-
-To add fixed effect heterogeneity, we can create one-hot encodings of the id, which is assumed to be part of the input:
-
-.. testcode::
-
-    from econml.dml import LinearDMLCateEstimator
-    from sklearn.preprocessing import OneHotEncoder
-    # removing one id to avoid colinearity, as is standard for fixed effects
-    X_oh = OneHotEncoder(sparse=False).fit_transform(X)[:, 1:]
-
-    est = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                 model_t=RandomForestRegressor())
-    est.fit(y, T, X_oh, W)
-    # The latter will fit a model for θ(x) of the form ̂α_0 + ̂α_1 𝟙{id=1} + ̂α_2 𝟙{id=2} + ...
-    # The vector of α can be extracted as follows
-    est.coef_
-
-.. rubric:: Custom Features
-
-One can also define a custom featurizer, as long as it supports the fit\_transform interface of sklearn.
-
-.. testcode::
-
-    from sklearn.ensemble import RandomForestRegressor
-    class LogFeatures(object):
-        """Augments the features with logarithmic features and returns the augmented structure"""
-        def fit(self, X, y=None):
-            return self
-        def transform(self, X):
-            return np.concatenate((X, np.log(1+X)), axis=1)
-        def fit_transform(self, X, y=None):
-            return self.fit(X).transform(X)
-
-    est = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                model_t=RandomForestRegressor(),
-                                featurizer=LogFeatures())
-    est.fit(y, T, X, W)
-
-We can even create a Pipeline or Union of featurizers that will apply multiply featurizations, e.g. first creating log features and then adding polynomials of them:
-
-.. testcode::
-
-    from econml.dml import LinearDMLCateEstimator
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.pipeline import Pipeline
-    from sklearn.preprocessing import PolynomialFeatures
-    est = LinearDMLCateEstimator(model_y=RandomForestRegressor(), 
-                                 model_t=RandomForestRegressor(),
-                                 featurizer=Pipeline([('log', LogFeatures()), 
-                                                      ('poly', PolynomialFeatures(degree=3))]))
-    est.fit(y, T, X, W)
-
-
-Single Outcome, Multiple Treatments
-------------------------------------------------------
-
-Suppose that we believed that our treatment was affecting the outcome in a non-linear manner. 
-Then we could expand the treatment vector to contain also polynomial features:
-
-.. testcode::
-
-    import numpy as np
-    est = LinearDMLCateEstimator()
-    est.fit(y, np.concatenate((T, T**2), axis=1), X, W)
-
-Multiple Outcome, Multiple Treatments
---------------------------------------------------------
-
-In settings like demand estimation, we might want to fit the demand of multiple products as a function of the price of each one of them, i.e. fit the matrix of cross price elasticities. The latter can be done, by simply setting :math:`Y` to be the vector of demands and :math:`T` to be the vector of prices. Then we can recover the 
-matrix of cross price elasticities as:
-
-.. testcode::
-
-    from sklearn.linear_model import MultiTaskElasticNet
-    est = LinearDMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1),
-                                 model_t=MultiTaskElasticNet(alpha=0.1))
-    est.fit(Y, T, None, W)
-
-    # a_hat[i,j] contains the elasticity of the demand of product i on the price of product j
-    a_hat = est.const_marginal_effect()
-
-If we have too many products then the cross-price elasticity matrix contains many parameters and we need
-to regularize. Given that we want to estimate a matrix, it makes sense in this application to consider
-the case where this matrix has low rank: all the products can be embedded in some low dimensional feature
-space and the cross-price elasticities is a linear function of these low dimensional embeddings. This corresponds
-to well-studied latent factor models in pricing. Our framework can easily handle this by using 
-a nuclear norm regularized multi-task regression in the final stage. For instance the 
-lightning package implements such a class:
-
-.. testcode::
-
-    from econml.dml import DMLCateEstimator
-    from sklearn.preprocessing import PolynomialFeatures
-    from lightning.regression import FistaRegressor
-    from econml.bootstrap import BootstrapEstimator
-    from sklearn.linear_model import MultiTaskElasticNet
-
-    est = DMLCateEstimator(model_y=MultiTaskElasticNet(alpha=0.1),
-                           model_t=MultiTaskElasticNet(alpha=0.1),
-                           model_final=FistaRegressor(penalty='trace', C=0.0001),
-                           fit_cate_intercept=False)
-    est.fit(Y, T, X, W)
-    te_pred = est.const_marginal_effect(np.median(X, axis=0, keepdims=True))
-    print(te_pred)
-    print(np.linalg.svd(te_pred[0]))
-
-.. testoutput::
-    :hide:
-
-    ...
