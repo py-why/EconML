@@ -1,22 +1,61 @@
+.. _orthoforestuserguide:
+
 =======================
 Forest Based Estimators
 =======================
 
 
-.. _orthoforestuserguide:
-
-
 What is it?
 ==================================
+
+This section describes the different estimation methods provided in the package that use a forest based methodology
+to model the treatment effect heterogeneity. We collect these methods in a single user guide to better illustrate
+their comparisons and differences. Currently, our package offers three such estimation methods:
+
+* The Orthogonal Random Forest Estimator (see :class:`.ContinuousTreatmentOrthoForest`, :class:`.DiscreteTreatmentOrthoForest`)
+* The Forest Double Machine Learning Estimator (aka Causal Forest) (see :class:`.ForestDMLCateEstimator`)
+* The Forest Doubly Robust Estimator (see :class:`.ForestDRLearner`).
+
+These estimators, similar to the DML and DR sections require the unconfoundedness assumption, i.e. that all potential
+variables that could simultaneously have affected the treatment and the outcome to be observed.
+
+There many commonalities among these estimators. In particular the :class:`.ContinuousTreatmentOrthoForest` shares
+many similarities with the :class:`.ForestDMLCateEstimator` and the :class:`.DiscreteTreatmentOrthoForest` shares
+many similarities with the :class:`.ForestDRLearner`. Specifically, the corresponding classes use the same estimating (moment)
+equations to identify the heterogeneous treatment effect. However, they differ in a substantial manner in how they
+estimate the first stage regression/classification (nuisance) models. In particular, the OrthoForest methods fit
+local nuisance parameters around the target feature :math:`X` and so as to optimize a local mean squared error, putting
+more weight on samples that look similar in the :math:`X` space. The similarity metric is captured by a data-adaptive
+forest based method that tries to learn a metric in the :math:`X` space, such that similar points have similar treatment effects.
+On the contrary the DML and DR forest methods perform a global first fit, which typically will optimize the overall
+mean squared error. Local fitting can many times improve the final performance of the CATE estimate. However, it does
+add some extra computational cost as a separate first stage model needs to be fitted for each target prediction point.
+All these three methods provide valid confidence intervals as their estimates are asymptotically normal. Moreover,
+the methods differ slightly in how they define the the similarity metric in finite samples, in that the OrthoForest
+tries to grow a forest to define a similarity metric that internally performs nuisance estimation at the nodes
+and uses the same metric for the local fitting of the nuisances as well as the final CATE estimate. See 
+[Wager2018]_, [Athey2019]_, [Oprescu2019]_ for more technical details around these methods.
 
 
 What are the relevant estimator classes?
 ========================================
 
+This section describes the methodology implemented in the classes, :class:`.ContinuousTreatmentOrthoForest`,
+:class:`.DiscreteTreatmentOrthoForest`,
+:class:`.ForestDMLCateEstimator`, :class:`.ForestDRLearner`.
+Click on each of these links for a detailed module documentation and input parameters of each class.
+
 
 When should you use it?
 ==================================
 
+These methods estimate very flexible non-linear models of the heterogeneous treatment effect. Moreover, they
+are data-adaptive methods and adapt to low dimensional latent structures of the data generating process. Hence,
+they can perform well even with many features, even though they perform non-parametric estimation (which typically
+requires a small number of features compared to the number of samples). Finally, these methods use recent ideas
+in the literature so as to provide valid confidence intervals, despite being data-adaptive and non-parametric.
+Thus you should use these methods if you have many features, you have no good idea how your effect heterogeneity
+looks like and you want confidence intervals.
 
 Overview of Formal Methodology
 ==================================
@@ -87,8 +126,8 @@ linear function classes, by re-scaling the features and labels appropriately bas
 
     .. doctest:: intro
 
-        >>> est = ContinuousTreatmentOrthoForest(model_Y=WeightedModelWrapper(Lasso(), sample_type=sample_type),
-        ...                                      model_T=WeightedModelWrapper(Lasso(), sample_type=sample_type))
+        >>> est = ContinuousTreatmentOrthoForest(model_Y=WeightedLasso(),
+        ...                                      model_T=WeightedLasso())
 
 If the variable :code:`sample_type` takes the value "weighted", then the wrapper assumes the loss
 is the squared loss and the function class is linear and re-scales the features and labels appropriately.
@@ -132,7 +171,7 @@ For more examples check out our
 CausalForest (aka Forest Double Machine Learning)
 --------------------------------------------------
 
-Forest Double Robust Learner
+Forest Doubly Robust Learner
 -------------------------------
 
 Class Hierarchy Structure
