@@ -104,3 +104,8 @@ References
     Athey, S., & Wager, S. (2017).
     Efficient policy learning.
     arXiv preprint arXiv:1702.02896.
+
+.. [Friedberg2018]
+    Friedberg, R., Tibshirani, J., Athey, S., & Wager, S. (2018).
+    Local linear forests.
+    arXiv preprint arXiv:1807.11408.

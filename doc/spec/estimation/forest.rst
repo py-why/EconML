@@ -67,42 +67,90 @@ Orthogonal Random Forests [Oprescu2019]_ are a combination of causal forests and
 for controlling for a high-dimensional set of confounders :math:`W`, while at the same time estimating non-parametrically
 the heterogeneous treatment effect :math:`\theta(X)`, on a lower dimensional set of variables :math:`X`. 
 Moreover, the estimates are asymptotically normal and hence have theoretical properties
-that render bootstrap based confidence intervals asymptotically valid. 
+that render bootstrap based confidence intervals asymptotically valid.
 
-In the case of continuous treatments (see :class:`.ContinuousTreatmentOrthoForest`) the method estimates :math:`\theta(x)` for some target :math:`x` by solving the following
-system of equations:
+In the case of continuous treatments (see :class:`.ContinuousTreatmentOrthoForest`) the method estimates :math:`\theta(x)`
+for some target :math:`x` by solving the same set of moment equations as the ones used in the Double Machine Learning
+framework, albeit, it tries to solve them locally for every possible :math:`X=x`. The method makes the following
+structural equations assumptions on the data generating process:
 
 .. math::
 
-    \sum_{i=1}^n K(X_i, x)\cdot \left( Y_i - \hat{\E}[Y \mid x, W_i] - \langle \theta(x), T_i - \hat{\E}[T \mid x, W_i] \rangle \right)\cdot \left(T_i - \hat{\E}[T_i \mid x, W_i]\right) = 0
+    Y =~& \theta(X) \cdot T + g(X, W) + \epsilon ~~~&~~~ \E[\epsilon | X, W] = 0 \\ 
+    T =~& f(X, W) + \eta & \E[\eta \mid X, W] = 0 \\
+    ~& \E[\eta \cdot \epsilon | X, W] = 0
 
-where :math:`\hat{\E}[Y \mid x, W_i]` and :math:`\hat{\E}[T \mid x, W_i]` are first stage estimates of the
-corresponding conditional expectations. This approach is similar to the orthogonal/double machine learning
-approach since we essentially perform a residual outcome on residual treatment regression. However, instead
-of running an arbitrary regression we perform a non-parametric local weighted regression. The kernel :math:`K(X_i, x)`
-is a similarity metric that is calculated by building a random forest with a causal criterion. This 
+But makes no further strong assumption on the functions :math:`\theta, g, f`. It primarily assumes that :math:`\theta`
+is a Lipschitz function. It identifies the function :math:`\theta` via the set of local moment conditions:
+
+.. math::
+
+    \E[\left( Y - \E[Y \mid X, W] - \theta(x)\cdot (T- \E[T \mid X, W]) \right)\cdot \left(T - \E[T \mid X, W]\right) \mid X=x]=0
+
+Equivalently, if we let :math:`q(X, W)=\E[Y | X, W]`, then we can re-write the latter as:
+
+.. math::
+
+    \E[\left( Y - q(x, W) - \theta(x) \cdot (T- f(X, W)) \rangle \right)\cdot \left(T - f(X, W)\right) \mid X=x]=0
+
+This is a local version of the DML loss, since the above is equivalent to minimizing the residual :math:`Y` on
+residual :math:`T` square loss, locally at the point :math:`X=x`:
+
+.. math::
+
+    \theta(x) = \argmin_{\theta} \E[\left( Y - q(X, W) - \theta \cdot (T- f(X, W)) \right)^2 \mid X=x]
+
+
+When taking these identification approach to estimation, we will replace the local moment equations with a locally
+weighted empirical average and replace the function :math:`q(X, W)`, :math:`f(X, W)`, with local estimates
+:math:`\hat{q}_x(X, W)`, :math:`\hat{f}_x(X, W)` of these conditional expectations (which would typically be locally in 
+:math:`x` parametric/linear functions).
+
+.. math::
+
+    \sum_{i=1}^n K_x(X_i)\cdot \left( Y_i - \hat{q}_x(X_i, W_i) - \hat{\theta}(x) \cdot (T_i - \hat{f}_x(X_i, W_i)) \right)\cdot \left(T_i - \hat{f}_x(X_i, W_i)\right) = 0
+
+or equivalently minimize the local square loss (i.e. run a local linear regression):
+
+.. math::
+
+    \hat{\theta}(x) = \argmin_{\theta} \sum_{i=1}^n K_x(X_i)\cdot \left( Y_i - \hat{q}_x(X_i, W_i) - \theta \cdot (T_i - \hat{f}_x(X_i, W_i)) \right)^2
+
+In fact, in our package we also implement the local-linear correction proposed in [Friedberg2018]_, where instead
+of fitting a constant :math:`\theta` locally, we fit a linear function of :math:`X` locally and regularize
+the linear part, i.e.:
+
+.. math::
+
+    \hat{\alpha}, \hat{\beta} =~& \argmin_{\alpha, \beta} \sum_{i=1}^n K_x(X_i)\cdot \left( Y_i - \hat{q}_x(X_i, W_i) - (\beta\cdot X_i + \alpha) \cdot (T_i - \hat{f}_x(X_i, W_i)) \right)^2 + \lambda \|\beta\|_2^2\\
+    \hat{\theta}(x) =~& \hat{\beta} \cdot x + \hat{\alpha}
+
+The kernel :math:`K_x(X_i)` is a similarity metric that is calculated by building a random forest with a causal criterion. This 
 criterion is a slight modification of the criterion used in generalized random forests [Athey2019]_ and 
 causal forests [Wager2018]_, so as to incorporate residualization when calculating the score of each candidate
 split.
 
+Moreover, for every target point :math:`x` we will need to estimate the local nuisance functions
+:math:`\hat{q}_x(X, W)`, :math:`\hat{f}_x(X, W)` of the functions :math:`q(X, W) = \E[Y | X, W]` and :math:`f(X, W)=\E[T | X, W]`.
 The method splits the data and performs cross-fitting: i.e. fits the
 conditional expectation models on the first half and predicts the quantities on the second half and vice versa. 
 Subsequently estimates :math:`\theta(x)` on all the data.
 
 In order to handle high-dimensional :math:`W`, the method estimates the conditional expectations also in a local manner
-around each target :math:`x`. In particular, to estimate :math:`\hat{\E}[Y_i \mid x, W_i]` for each target :math:`x`
+around each target :math:`x`. In particular, to estimate :math:`\hat{q}_x(X, W)`, :math:`\hat{f}_x(X, W)` for each target :math:`x`
 it minimizes a weighted (penalized) loss :math:`\ell` (e.g. square loss or multinomial logistic loss):
 
 .. math::
 
-    \min_{h_x \in H} \sum_{i=1}^n K(X_i, x)\cdot \ell(Y_i, h_x(W_i)) + R(h_x)
+    \hat{q}_x = \argmin_{q_x \in Q} \sum_{i=1}^n K_x(X_i)\cdot \ell(Y_i, q_x(X_i, W_i)) + R(q_x)\\
+    \hat{f}_x = \argmin_{f_x \in F} \sum_{i=1}^n K_x(X_i)\cdot \ell(T_i, f_x(X_i, W_i)) + R(f_x)
 
-where :math:`H` is some function space and :math:`R` is some regularizer. If the hypothesis space
-is locally linear, i.e. :math:`h_x(W) = \langle \nu(x), W \rangle`, the regularizer is the 
+where :math:`Q, F` is some function spaces and :math:`R` is some regularizer. If the hypothesis space
+is locally linear, i.e. :math:`h_x(X, W) = \langle \nu(x), [X; W] \rangle`, the regularizer is the 
 :math:`\ell_1` norm of the coefficients :math:`\|\nu(x)\|_1` and the loss is either the square
 loss or the logistic loss, then the method has provable guarantees of asymptotic normality,
 assuming the true coefficients are relatively sparse (i.e. most of them are zero). The 
-weights :math:`K(X_i, x)` are computed using the same Random Forest algorithm with 
+weights :math:`K(x, X_i)` are computed using the same Random Forest algorithm with 
 a causal criterion as the one used to calculate the weights for the second stage 
 estimation of :math:`\theta(x)` (albeit using a different half sample than the one used for 
 the final stage estimation, in a cross-fitting manner).
@@ -111,33 +159,23 @@ Algorithmically, the nuisance estimation part of the method is implemented in a
 flexible manner, not restricted to :math:`\ell_1` regularization, as follows: the user can define any class that
 supports fit and predict. The fit function needs to also support sample weights, passed as a third argument. 
 If it does not, then we provided a weighted model wrapper :class:`.WeightedModelWrapper` that
-can wrap any class that supports fit and predict and enables sample weight functionality. This is done either
-by re-sampling the data based on the weights and then calling fit and predict, or, in the case of square losses of
-linear function classes, by re-scaling the features and labels appropriately based on the weights:
+can wrap any class that supports fit and predict and enables sample weight functionality. Moreover, we provide
+some extensions to the scikit-learn library that enable sample weights, such as the :class:`.WeightedLasso`.
 
     .. testcode:: intro
         :hide:
 
         from econml.ortho_forest import ContinuousTreatmentOrthoForest
-        from econml.utilities import WeightedModelWrapper
-        from sklearn.linear_model import Lasso
-        sample_type = 'sampled'
-
+        from econml.sklearn_extensions.linear_model import WeightedLasso
 
     .. doctest:: intro
 
-        >>> est = ContinuousTreatmentOrthoForest(model_Y=WeightedLasso(),
-        ...                                      model_T=WeightedLasso())
+        >>> est = ContinuousTreatmentOrthoForest(model_Y=WeightedLasso(), model_T=WeightedLasso())
 
-If the variable :code:`sample_type` takes the value "weighted", then the wrapper assumes the loss
-is the squared loss and the function class is linear and re-scales the features and labels appropriately.
-If not, then it re-samples the data based on the weights and calls the fit method of the base
-class on this re-sampled dataset. The latter has higher variance and should not be chosen if the
-first approach is applicable.
 
 In the case of discrete treatments (see :class:`.DiscreteTreatmentOrthoForest`) the
 method estimates :math:`\theta(x)` for some target :math:`x` by solving a slightly different
-set of equations (see [Oprescu2019]_ for a theoretical exposition of why a different set of
+set of equations, similar to the Doubly Robust Learner (see [Oprescu2019]_ for a theoretical exposition of why a different set of
 estimating equations is used). In particular, suppose that the treatment :math:`T` takes
 values in :math:`\{0, 1, \ldots, k\}`, then to estimate the treatment effect :math:`\theta_t(x)` of
 treatment :math:`t` as compared to treatment :math:`0`, the method finds the solution to the
@@ -145,19 +183,32 @@ equation:
 
 .. math::
 
-    \sum_{i=1}^n K(X_i, x)\cdot \left( Y_{i,t}^{DR} - Y_{i,0}^{DR}- \theta_t(x) \right) = 0
+    \E\left[ Y_{i,t}^{DR} - Y_{i,0}^{DR}- \theta_t(x) | X=x\right] = 0
 
 where :math:`Y_{i,t}^{DR}` is a doubly robust based unbiased estimate of the counterfactual
 outcome of sample :math:`i` had we treated it with treatment :math:`t`, i.e.:
 
 .. math::
-    
-    Y_{i,t}^{DR} = \hat{\E}[Y \mid T=t, x, W_i] + 1\{T_i=t\} \frac{Y_i - \hat{\E}[Y \mid T=t, x, W_i]}{\hat{\E}[1\{T=t\} \mid x, W_i]} 
 
-where :math:`\hat{\E}[Y \mid T=t, x, W_i]` and :math:`\hat{\E}[1\{T=t\} \mid x, W_i]` are first stage estimates of the
-corresponding conditional expectations. These two regression functions are fitted in a similar manner
-as in the continuous treatment case. However, in the case of discrete treatment, the model for the treatment is 
-a multi-class classification model and should support :code:`predict_proba`.    
+    Y_{i,t}^{DR} = \E[Y \mid T=t, X_i, W_i] + 1\{T_i=t\} \frac{Y_i - \E[Y \mid T=t, X_i, W_i]}{\E[1\{T=t\} \mid X_i, W_i]} 
+
+Equivalently, we can express this as minimizing a local square loss:
+
+.. math::
+    \theta_t(x) = \argmin_{\theta_t} \E\left[(Y_{i,t}^{DR} - Y_{i,0}^{DR}- \theta_t)^2 | X=x\right]
+
+Similar to the continuous treatment case, we transfer this identification strategy to estimation by minimizing
+a locally weighted square loss, with a local linear correction:
+
+.. math::
+    \hat{\alpha}_t, \hat{\beta}_t =~& \sum_{i=1}^n K(x, X_i)\cdot \left( Y_{i,t}^{DR} - Y_{i,0}^{DR}- \beta_t\cdot X_i + \alpha_t \right)^2 + \lambda \|\beta_t\|_2^2\\
+    \hat{\theta}_t(x) =~& \hat{\beta}_t \cdot x + \hat{\alpha}_t
+
+where we use first stage local estimates :math:`g_x(T, X, W)`, :math:`p_{x, t}(X, W)` of the conditional
+expectations :math:`\E[Y \mid T=t, X, W]` and :math:`\E[1\{T=t\} \mid X, W]`, when constructing the doubly robust
+estimates. These are estimated by fitting a locally-weighted regression and classification model, correspondingly,
+in a cross-fitting manner. We note that in the case of discrete treatment, the model for the treatment is 
+a multi-class classification model and should support :code:`predict_proba`.
 
 For more details on the input parameters of the orthogonal forest classes and how to customize
 the estimator checkout the two modules:
@@ -165,26 +216,89 @@ the estimator checkout the two modules:
 - :class:`.DiscreteTreatmentOrthoForest`
 - :class:`.ContinuousTreatmentOrthoForest`
 
-For more examples check out our 
-`OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
-
 CausalForest (aka Forest Double Machine Learning)
 --------------------------------------------------
+
+In this package we implement the double machine learning version of Causal Forests (see [Wager2018]_, [Athey2019]_) 
+as for instance described in Section 6.1.1 of [Athey2019]_. This version follows a similar structure to the ContinuousTreatmentOrthoForest approach,
+in that the estimation is based on solving a local residual on residual moment condition:
+
+.. math::
+
+    \hat{\theta}(x) = \argmin_{\theta} \sum_{i=1}^n K_x(X_i)\cdot \left( Y_i - \hat{q}(X_i, W_i) - \theta \cdot (T_i - \hat{f}(X_i, W_i)) \right)^2
+
+The similarity metric :math:`K_x(X_i)` is trained in a data-adaptive manner by constructing a Subsampled Honest Random Forest
+with a causal criterion and roughly calculating how frequently sample :math:`x` falls in the same leaf as
+sample :math:`X_i`.
+
+The Causal Forest has two main differences from the OrthoForest: first the nuisance estimates :math:`\hat{q}` and :math:`\hat{f}`
+are fitted based on a global objective and not locally for every target point. So typically they will not be minimizing
+some form of local mean squared error. Second the similarity metric that was potentially used to fit these
+estimates (e.g. if a RandomForest was used) is not coupled with the similarity metric used in the final effect estimation.
+This difference can potentially lead to an improvement in the estimation error of the OrthoForest as opposed to the
+Causal Forest. However, it does add significant computation cost, as a nuisance function needs to be estimated locally
+for each target prediction.
+
+Our implementation of a Causal Forest is restricted to binary treatment or single-dimensional continuous treatment
+and is based on an extra observation that for such settings, we can view the local square loss above as a normal regression
+square loss with sample weights, i.e.:
+
+.. math::
+
+    \hat{\theta}(x) = \argmin_{\theta} \sum_{i=1}^n K_x(X_i)\cdot \tilde{T}_i^2 \cdot \left( \tilde{Y}_i/\tilde{T}_i - \theta\right)^2
+
+where :math:`\tilde{T}_i = T_i - \hat{f}(X_i, W_i)` and :math:`\tilde{Y}_i = Y_i - \hat{q}(X_i, W_i)`. Moreover,
+the causal criterion used in [Athey2019]_ is exactly equal to the weighted squared loss regression criterion with
+weights :math:`\tilde{T}_i^2`, target label :math:`\tilde{Y}_i/\tilde{T}_i` and features :math:`X_i`. Thus we can apply
+a normal regression forest to estimate the :math:`\theta`. Albeit for valid confidence intervals we need a forest
+that is based on subsampling and uses honesty to define the leaf estimates. Thus we can re-use the splitting machinery
+of a scikit-learn regressor and augment it with honesty and subsampling capabilities. We implement this in our
+:class:`.SubsampledHonestForest` scikit-learn extension.
+
+Moreover, a subtle point is that in order to mirror the Causal Forest algorithm, our final prediction is not just
+the average of the tree estimates. Instead we use the tree to define sample weights as describe in [Athey2019]_ and then
+calculate the solution to the weighted moment equation or equivalently the minimizer of the square loss, which boils down to:
+
+.. math::
+
+    \hat{\theta}(x) = \frac{\sum_{i=1}^{n} K_x(X_i) \cdot \tilde{Y}_i \cdot \tilde{T}_i}{\sum_{i=1}^n K_x(X_i) \cdot \tilde{T}_i^2}
+
+From our reduction prespective, this is equivalent to saying that we will train a regression forest with sample weights
+:math:`k_i`, features :math:`X_i` and labels :math:`Y_i` and then in the end, we will define the overall estimate at some target :math:`x`, as:
+
+.. math::
+
+    \hat{\theta}(x) =~& \frac{\sum_{b=1}^B \sum_{i=1}^n w_{bi}\cdot Y_i}{\sum_{b=1}^B \sum_{i=1}^n w_{bi}}\\
+    w_{bi} =~& \frac{k_i\cdot 1\{i \in L_{b}(x)\}}{|L_b(x)|}
+
+where :math:`L_b(x)` is the leaf the sample :math:`x` falls into in the :math:`b`-th tree of the forest.
+This is exactly what is implemented in the SubsampledHonestForest (see :class:`.SubsampledHonestForest`). Combining
+these ideas leads to a "reduction-based" approach implementation of the Causal Forest, that re-uses and only slightly modifies
+existing impementations of regression forests.
+
 
 Forest Doubly Robust Learner
 -------------------------------
 
+
 Class Hierarchy Structure
 =========================
 
-Usage FAQs
-==========
+.. inheritance-diagram:: econml.ortho_forest.ContinuousTreatmentOrthoForest econml.ortho_forest.DiscreteTreatmentOrthoForest econml.drlearner.ForestDRLearner econml.dml.ForestDMLCateEstimator
+        :parts: 1
+        :private-bases:
+        :top-classes: econml._ortho_learner._OrthoLearner, econml.ortho_forest.BaseOrthoForest, econml.cate_estimator.LinearCateEstimator
+
 
 Usage Examples
 ==================================
 
 Here is a simple example of how to call :class:`.ContinuousTreatmentOrthoForest`
-and what the returned values correspond to in a simple data generating process:
+and what the returned values correspond to in a simple data generating process. 
+For more examples check out our 
+`OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
+and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/blob/master/notebooks/ForestLearners%20Basic%20Example.ipynb>`_ .
+
 
     .. testcode::
 
