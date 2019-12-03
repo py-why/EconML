@@ -4,9 +4,11 @@
 import abc
 import numpy as np
 from scipy.stats import norm
+import pandas as pd
+from collections import OrderedDict
 from .bootstrap import BootstrapEstimator
 from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        ndim, inverse_onehot, parse_final_model_params)
+                        ndim, inverse_onehot, parse_final_model_params, _safe_norm_ppf)
 
 """Options for performing inference in estimators."""
 
@@ -91,8 +93,30 @@ class GenericModelFinalInference(Inference):
         return tuple(reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
                      for pred in preds)
 
+    def const_marginal_effect_inference(self, X):
+        if X is None:
+            X = np.ones((1, 1))
+        elif self.featurizer is not None:
+            X = self.featurizer.fit_transform(X)
+        d_t = self._d_t[0] if self._d_t else 1
+        d_y = self._d_y[0] if self._d_y else 1
+        X, T = broadcast_unit_treatments(X, d_t)
+        pred = reshape_treatmentwise_effects(self._predict(cross_product(X, T)), self._d_t, self._d_y)
+        if not hasattr(self.model_final, 'prediction_stderr'):
+            raise AttributeError("Final model doesn't support prediction standard eror, "
+                                 "please call const_marginal_effect_interval to get confidence interval.")
+        pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)), self._d_t, self._d_y)
+        return InferenceResults(d_t=d_t, d_y=d_y, pred=pred,
+                                pred_stderr=pred_stderr, pred_dist=None)
+
     def _predict_interval(self, X, alpha):
         return self.model_final.predict_interval(X, alpha=alpha)
+
+    def _predict(self, X):
+        return self.model_final.predict(X)
+
+    def _prediction_stderr(self, X):
+        return self.model_final.prediction_stderr(X)
 
 
 class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
@@ -279,3 +303,220 @@ class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
         super().prefit(estimator, *args, **kwargs)
         # need to set the fit args before the estimator is fit
         self.model_final.cov_type = self.cov_type
+
+
+class InferenceResults(object):
+    """
+    Results class for inferences.
+
+    Parameters
+    ----------
+    d_t: int
+        Number of treatments
+    d_y: int
+        Number of outputs
+    pred : array-like, shape (m, d_y, d_t)
+        The prediction of the metric for each sample X[i].
+        Note that when Y or T is a vector rather than a 2-dimensional array,
+        the corresponding singleton dimensions should be collapsed
+        (e.g. if both are vectors, then the input of this argument will also be a vector)
+    pred_stderr : array-like, shape (m, d_y, d_t)
+        The prediction standard error of the metric for each sample X[i].
+        Note that when Y or T is a vector rather than a 2-dimensional array,
+        the corresponding singleton dimensions should be collapsed
+        (e.g. if both are vectors, then the input of this argument will also be a vector)
+    pred_dist : array-like, shape (b, m, d_y, d_t)
+        the raw predictions of the metric using b times bootstrap.
+        Note that when Y or T is a vector rather than a 2-dimensional array,
+        the corresponding singleton dimensions should be collapsed
+    """
+
+    def __init__(self, d_t, d_y, pred, pred_stderr, pred_dist=None):
+        self.d_t = d_t
+        self.d_y = d_y
+        self.pred = pred
+        self.pred_stderr = pred_stderr
+        self.pred_dist = pred_dist
+
+    @property
+    def stderr(self):
+        """
+        Get the standard error of the metric of each treatment on each outcome for each sample X[i].
+
+        Returns
+        -------
+        stderr : array-like, shape (m, d_y, d_t)
+            The standard error of the metric of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        return self.pred_stderr
+
+    @property
+    def var(self):
+        """
+        Get the variance of the metric of each treatment on each outcome for each sample X[i].
+
+        Returns
+        -------
+        var : array-like, shape (m, d_y, d_t)
+            The variance of the metric of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        return self.pred_stderr**2
+
+    def conf_int(self, alpha=0.1):
+        """
+        Get the confidence interval of the metric of each treatment on each outcome for each sample X[i].
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple of arrays, shape (m, d_y, d_t)
+            The lower and the upper bounds of the confidence interval for each quantity.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+
+        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                         for p, err in zip(self.pred, self.pred_stderr)]),\
+            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                      for p, err in zip(self.pred, self.pred_stderr)])
+
+    def pvalue(self, value=0):
+        """
+        Get the p value of the metric of each treatment on each outcome for each sample X[i].
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+
+        Returns
+        -------
+        pvalue : array-like, shape (m, d_y, d_t)
+            The p value of the metric of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+
+        return norm.sf(np.abs(self.zstat(value)), loc=0, scale=1) * 2
+
+    def zstat(self, value=0):
+        """
+        Get the z statistic of the metric of each treatment on each outcome for each sample X[i].
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+
+        Returns
+        -------
+        zstat : array-like, shape (m, d_y, d_t)
+            The z statistic of the metric of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        return (self.pred - value) / self.pred_stderr
+
+    def summary_frame(self, alpha=0.1, value=0, decimals=3):
+        """
+        Output the dataframe for all the inferences above.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+
+        Returns
+        -------
+        output: pandas dataframe
+            the output dataframe includes point estimate, standard error, z score, p value and confidence intervals
+            of the estimated metric of each treatment on each outcome for each sample X[i]
+        """
+
+        ci_mean = self.conf_int(alpha=alpha)
+        to_include = OrderedDict()
+        to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.pred)
+        to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.pred_stderr)
+        to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value))
+        to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value))
+        to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0])
+        to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1])
+        res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
+        if self.d_t == 1:
+            res.columns = res.columns.droplevel(1)
+        if self.d_y == 1:
+            res.index = res.index.droplevel(1)
+        return res
+
+    def population_summary(self, alpha=0.1, value=0, decimals=3):
+        """
+        Output the dataframe of population summary result.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+
+        Returns
+        -------
+        output: pandas dataframe
+            the output dataframe includes average of point estimate, standard error of the mean,
+        z statitic, p value and the confidence interval of the mean.
+        """
+        res_dic = OrderedDict()
+        pop_mean = np.mean(self.pred, axis=0)
+        var_pe = np.var(self.pred, axis=0)
+        avg_stderr = np.mean(self.pred_stderr, axis=0)
+        pop_stderr = np.sqrt(var_pe + avg_stderr)
+        pop_zstat = (pop_mean - value) / pop_stderr
+        pop_pvalue = norm.sf(np.abs(pop_zstat), loc=0, scale=1) * 2
+        pop_ci_lower = np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                                 for p, err in zip([pop_mean] if np.isscalar(pop_mean) else pop_mean,
+                                                   [pop_stderr] if np.isscalar(pop_stderr) else pop_stderr)])
+        pop_ci_upper = np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                                 for p, err in zip([pop_mean] if np.isscalar(pop_mean) else pop_mean,
+                                                   [pop_stderr] if np.isscalar(pop_stderr) else pop_stderr)])
+
+        res_dic['mean'] = self._array_to_frame(self.d_t, self.d_y, pop_mean)
+        res_dic['stderr'] = self._array_to_frame(self.d_t, self.d_y, pop_stderr)
+        res_dic['zstat'] = self._array_to_frame(self.d_t, self.d_y, pop_zstat)
+        res_dic['pvalue'] = self._array_to_frame(self.d_t, self.d_y, pop_pvalue)
+        res_dic['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, pop_ci_lower)
+        res_dic['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, pop_ci_upper)
+        res = pd.concat(res_dic, axis=1, keys=res_dic.keys()).round(decimals)
+        res.index = res.index.droplevel(0)
+        if self.d_t == 1:
+            res.columns = res.columns.droplevel(1)
+        return res
+
+    def _array_to_frame(self, d_t, d_y, arr):
+        arr = arr.reshape((-1, d_y, d_t))
+        df = pd.Panel(arr).transpose(2, 0, 1).to_frame()
+        df.index.names = [None, None]
+        df.index = df.index.set_levels(['Y' + str(i) for i in range(d_y)], level=1)
+        df.columns = ['T' + str(i) for i in range(d_t)]
+        return df

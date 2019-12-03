@@ -700,6 +700,29 @@ class DebiasedLasso(WeightedLasso):
             self.alpha = 'auto'
         return self
 
+    def prediction_stderr(self, X):
+        """Get the standard error of the predictions using the debiased lasso.
+
+        Parameters
+        ----------
+        X : ndarray or scipy.sparse matrix, (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        prediction_stderr : array like, shape (n_samples, )
+            The standard error of each coordinate of the output at each point we predict
+        """
+        # Note that in the case of no intercept, X_offset is 0
+        if self.fit_intercept:
+            X = X - self._X_offset
+        # Calculate the variance of the predictions
+        var_pred = np.sum(np.matmul(X, self._coef_variance) * X, axis=1)
+        if self.fit_intercept:
+            var_pred += self._mean_error_variance
+        pred_stderr = np.sqrt(var_pred)
+        return pred_stderr
+
     def predict_interval(self, X, alpha=0.1):
         """Build prediction confidence intervals using the debiased lasso.
 
@@ -973,6 +996,28 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         # intercept_std_err_
         self._set_attribute("intercept_std_err_")
         return self
+
+    def prediction_stderr(self, X):
+        """Get the standard error of the predictions using the debiased lasso.
+
+        Parameters
+        ----------
+        X : ndarray or scipy.sparse matrix, (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        prediction_stderr : array like, shape (n_samples, ) or (n_samples, n_targets)
+            The standard error of each coordinate of the output at each point we predict
+        """
+        n_estimators = len(self.estimators_)
+        X = check_array(X)
+        pred_stderr = np.empty((X.shape[0], n_estimators))
+        for i, estimator in enumerate(self.estimators_):
+            pred_stderr[:, i] = estimator.prediction_stderr(X)
+        if self.flat_target:
+            pred_stderr = pred_stderr.flatten()
+        return pred_stderr
 
     def predict_interval(self, X, alpha=0.1):
         """Build prediction confidence intervals using the debiased lasso.

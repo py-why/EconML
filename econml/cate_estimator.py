@@ -346,6 +346,26 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         pass
 
+    @BaseCateEstimator._defer_to_inference
+    def const_marginal_effect_inference(self, X=None):
+        """ Inference results for the quantities :math:`\\theta(X)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
+        pass
+
 
 class TreatmentExpansionMixin(BaseCateEstimator):
     """Mixin which automatically handles promotions of scalar treatments to the appropriate shape."""
