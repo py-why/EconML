@@ -141,7 +141,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     where B is the number of trees, n the number of training points, and:
 
     .. math ::
-        w_{b, i}(x) = \\text{sample\_weight}[i] \\cdot \\frac{1\\{i \\in \\text{leaf}(x; b)\\}}{|\\text{leaf}(x; b)|}
+        w_{b, i}(x) = \\text{sample\\_weight}[i] \\cdot \\frac{1\\{i \\in \\text{leaf}(x; b)\\}}{|\\text{leaf}(x; b)|}
 
     .. math ::
         \\hat{V} = \\text{Var}_{\\text{random half-samples } S}\\left[ \\frac{1}{B_S}\
@@ -585,7 +585,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         -------
         W : (n,) array
             For each sample x in X, it returns the quantity:
-            1/B_S \\sum_{b \\in S} \\sum_{i\\in [n]} sample\_weight[i] * 1{i \\in leaf(x; b)} / |leaf(x; b)|.
+            1/B_S \\sum_{b \\in S} \\sum_{i\\in [n]} sample\\_weight[i] * 1{i \\in leaf(x; b)} / |leaf(x; b)|.
             where S is the slice of estimators chosen. If slice is None, then all estimators are used else
             the slice start:end is used.
         """
@@ -639,7 +639,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         where B is the number of trees, n the number of training points,
 
         .. math ::
-            w_{b, i}(x) = sample\_weight[i] \\cdot 1{i \\in leaf(x; b)} / |leaf(x; b)|
+            w_{b, i}(x) = sample\\_weight[i] \\cdot 1{i \\in leaf(x; b)} / |leaf(x; b)|
 
         .. math ::
             V_hat = Var_{random half-samples S}[ 1/B_S \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) ]
