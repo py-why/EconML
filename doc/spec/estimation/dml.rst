@@ -1,3 +1,5 @@
+.. _druserguide:
+
 ==================================
 Orthogonal/Double Machine Learning
 ==================================

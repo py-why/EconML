@@ -122,7 +122,7 @@ the linear part, i.e.:
 
 .. math::
 
-    \hat{\alpha}, \hat{\beta} =~& \argmin_{\alpha, \beta} \sum_{i=1}^n K_x(X_i)\cdot \left( Y_i - \hat{q}_x(X_i, W_i) - (\beta\cdot X_i + \alpha) \cdot (T_i - \hat{f}_x(X_i, W_i)) \right)^2 + \lambda \|\beta\|_2^2\\
+    \hat{\alpha}, \hat{\beta} =~& \argmin_{\alpha, \beta} \sum_{i=1}^n K_x(X_i) \left( Y_i - \hat{q}_x(X_i, W_i) - (\beta\cdot X_i + \alpha) (T_i - \hat{f}_x(X_i, W_i)) \right)^2 + \lambda \|\beta\|_2^2\\
     \hat{\theta}(x) =~& \hat{\beta} \cdot x + \hat{\alpha}
 
 The kernel :math:`K_x(X_i)` is a similarity metric that is calculated by building a random forest with a causal criterion. This 
@@ -201,8 +201,8 @@ Similar to the continuous treatment case, we transfer this identification strate
 a locally weighted square loss, with a local linear correction:
 
 .. math::
-    \hat{\alpha}_t, \hat{\beta}_t =~& \sum_{i=1}^n K(x, X_i)\cdot \left( Y_{i,t}^{DR} - Y_{i,0}^{DR}- \beta_t\cdot X_i + \alpha_t \right)^2 + \lambda \|\beta_t\|_2^2\\
-    \hat{\theta}_t(x) =~& \hat{\beta}_t \cdot x + \hat{\alpha}_t
+    \hat{\alpha}_t, \hat{\beta}_t =& \argmin_{\alpha_t, \beta_t} \sum_{i=1}^n K(x, X_i)\cdot \left( Y_{i,t}^{DR} - Y_{i,0}^{DR}- \beta_t\cdot X_i + \alpha_t \right)^2 + \lambda \|\beta_t\|_2^2\\
+    \hat{\theta}_t(x) =& \hat{\beta}_t \cdot x + \hat{\alpha}_t
 
 where we use first stage local estimates :math:`g_x(T, X, W)`, :math:`p_{x, t}(X, W)` of the conditional
 expectations :math:`\E[Y \mid T=t, X, W]` and :math:`\E[1\{T=t\} \mid X, W]`, when constructing the doubly robust
@@ -291,9 +291,41 @@ This is exactly what is implemented in the SubsampledHonestForest (see :class:`.
 these ideas leads to a "reduction-based" approach implementation of the Causal Forest, that re-uses and only slightly modifies
 existing impementations of regression forests.
 
+For more details on Double Machine Learning and how the :class:`.ForestDMLCateEstimator` fits into our overall
+set of DML based CATE estimators, check out the :ref:`Double Machine Learning User Guide <dmluserguide>`.
 
 Forest Doubly Robust Learner
 -------------------------------
+
+The Forest Doubly Robust Learner is a variant of the Generalized Random Forest and the Orthogonal Random Forest
+(see [Wager2018]_, [Athey2019]_, [Oprescu2019]_) that uses the doubly robust moments for estimation as opposed
+to the double machine learning moments (see the :ref:`Doubly Robust Learning User Guide <druserguide>`).
+The method only applies for categorical treatments.
+
+Essentially, it is an analogue of the :class:`.DiscreteTreatmentOrthoForest`, that instead of local nuisance estimation
+it conducts global nuisance estimation and does not couple the implicit similarity metric used for the nuisance
+estimates, with the final stage similarity metric. 
+
+More concretely, the method estimates the CATE associated with treatment :math:`t`, by solving a local regression:
+
+.. math::
+
+    \theta_t(x) = \argmin_{\theta_t} \sum_{i=1}^n K(x, X_i)\cdot \left( Y_{i,t}^{DR} - Y_{i,0}^{DR} - \theta_t \right)^2
+
+where:
+
+.. math::
+
+    Y_{i,t}^{DR} = \hat{g}(t, X_i, W_i) + 1\{T_i=t\} \frac{Y_i - \hat{g}(t, X_i, W_i)}{\hat{p}_t(X_i, W_i)]} 
+
+and :math:`\hat{g}(t, X, W)` is an estimate of :math:`\E[Y | T=t, X, W]` and :math:`\hat{p}_t(X, W)` is an
+estimate of :math:`\Pr[T=t | X, W]`. These estimates are constructed in a first estimation phase in a cross fitting
+manner (see e.g. :class:`._OrthoLearner` for more details on cross fitting).
+
+The similarity metric :math:`K_x(X_i)` is trained in a data-adaptive manner by constructing a Subsampled Honest Random Regression Forest
+where the target label is :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}` and the features are :math:`X` and roughly calculating
+how frequently sample :math:`x` falls in the same leaf as
+sample :math:`X_i`. This is implemented in the SubsampledHonestForest (see :class:`.SubsampledHonestForest`).
 
 
 Class Hierarchy Structure

@@ -1,3 +1,5 @@
+.. _dmluserguide:
+
 ======================
 Doubly Robust Learning
 ======================
