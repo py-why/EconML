@@ -257,7 +257,7 @@ class TestDeepIV(unittest.TestCase):
             # covariates: time and emotion
             time = rng.rand(n) * 10
             emotion_id = rng.randint(0, 7, size=n)
-            emotion = one_hot(emotion_id, categories=np.arange(7))
+            emotion = one_hot(emotion_id, categories=np.arange(7).reshape(-1, 1))
             if use_images:
                 idx = np.argsort(emotion_id)
                 emotion_feature = np.zeros((0, 28 * 28))
@@ -397,7 +397,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
             # covariates: time and emotion
             time = rng.rand(n) * 10
             emotion_id = rng.randint(0, 7, size=n)
-            emotion = one_hot(emotion_id, categories=np.arange(7))
+            emotion = one_hot(emotion_id, categories=np.arange(7).reshape(-1, 1))
             emotion_feature = emotion
 
             # random instrument
