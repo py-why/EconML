@@ -17,14 +17,22 @@ Public Module Reference
     econml.drlearner
     econml.two_stage_least_squares
     econml.utilities
-    econml.sklearn_extensions.linear_model
-    econml.sklearn_extensions.model_selection    
 
 Private Module Reference
 ========================
 
 .. autosummary::
     :toctree: _autosummary
-    
+
     econml._ortho_learner
     econml._rlearner
+
+Scikit-Learn Extensions
+=======================
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.sklearn_extensions.linear_model
+    econml.sklearn_extensions.model_selection
+    econml.sklearn_extensions.ensemble

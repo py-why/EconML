@@ -19,7 +19,6 @@ import warnings
 from warnings import warn
 from sklearn.model_selection import KFold, StratifiedKFold
 from collections.abc import Iterable
-from sklearn.model_selection._split import _CVIterableWrapper, CV_WARNING
 from sklearn.utils.multiclass import type_of_target
 import numbers
 

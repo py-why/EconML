@@ -144,7 +144,7 @@ structure of the implemented CATE estimators is as follows.
     .. inheritance-diagram:: econml.dml.LinearDMLCateEstimator econml.dml.SparseLinearDMLCateEstimator econml.dml.KernelDMLCateEstimator
         :parts: 1
         :private-bases:
-        :top-classes: econml._rlearner._RLearner, econml.cate_estimator.StatsModelsCateEstimatorMixin
+        :top-classes: econml._rlearner._RLearner, econml.cate_estimator.StatsModelsCateEstimatorMixin, econml.cate_estimator.DebiasedLassoCateEstimatorMixin
 
 Below we give a brief description of each of these classes:
 
@@ -155,7 +155,7 @@ Below we give a brief description of each of these classes:
       
       .. math::
     
-            \hat{\alpha} = \arg\min_{\alpha} \E_n\left[ (\tilde{Y} - \Theta \cdot \tilde{T}\otimes \phi(X) \right] + \lambda R(\Theta)
+            \hat{\alpha} = \arg\min_{\alpha} \E_n\left[ \left(\tilde{Y} - \Theta \cdot \tilde{T}\otimes \phi(X)\right)^2 \right] + \lambda R(\Theta)
 
       for some strongly convex regularizer :math:`R`, where :math:`\Theta` is the parameter matrix of dimensions (number of outcomes, number of treatments * number of features). For instance, if :math:`Y` is single dimensional and the lasso is used as model final, i.e.:
 

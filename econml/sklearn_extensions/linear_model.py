@@ -25,18 +25,15 @@ from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold, StratifiedKFold
-from sklearn.model_selection._split import _CVIterableWrapper, CV_WARNING
+from sklearn.model_selection._split import _CVIterableWrapper
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import check_is_fitted
 
 
-def _weighted_check_cv(cv='warn', y=None, classifier=False):
-    if cv is None or cv == 'warn':
-        warnings.warn(CV_WARNING, FutureWarning)
-        cv = 3
-
+def _weighted_check_cv(cv=5, y=None, classifier=False):
+    cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
                 (type_of_target(y) in ('binary', 'multiclass'))):
@@ -358,7 +355,7 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
     copy_X : boolean, optional, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
-    cv : int, cross-validation generator or an iterable, optional
+    cv : int, cross-validation generator or an iterable, optional (default=None)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
         - None, to use the default 3-fold weighted cross-validation,
@@ -366,6 +363,8 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         - :term:`CV splitter`,
         - An iterable yielding (train, test) splits as arrays of indices.
         For integer/None inputs, :class:`WeightedKFold` is used.
+
+        If None then 5 folds are used.
 
     verbose : bool or integer
         Amount of verbosity.
@@ -396,7 +395,7 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
 
     def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
                  precompute='auto', max_iter=1000, tol=1e-4, normalize=False,
-                 copy_X=True, cv='warn', verbose=False, n_jobs=None,
+                 copy_X=True, cv=None, verbose=False, n_jobs=None,
                  positive=False, random_state=None, selection='cyclic'):
 
         super().__init__(
@@ -463,7 +462,7 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
     copy_X : boolean, optional, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
-    cv : int, cross-validation generator or an iterable, optional
+    cv : int, cross-validation generator or an iterable, optional (default = None)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
         - None, to use the default 3-fold weighted cross-validation,
@@ -471,6 +470,8 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         - :term:`CV splitter`,
         - An iterable yielding (train, test) splits as arrays of indices.
         For integer/None inputs, :class:`WeightedKFold` is used.
+
+        If None then 5-folds are used.
 
     verbose : bool or integer
         Amount of verbosity.
@@ -499,7 +500,7 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
 
     def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-4,
-                 copy_X=True, cv='warn', verbose=False, n_jobs=None,
+                 copy_X=True, cv=None, verbose=False, n_jobs=None,
                  random_state=None, selection='cyclic'):
 
         super().__init__(
