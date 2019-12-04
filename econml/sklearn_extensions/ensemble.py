@@ -19,7 +19,7 @@ from sklearn.exceptions import DataConversionWarning, NotFittedError
 from sklearn.tree._tree import DTYPE, DOUBLE
 from sklearn.utils import check_random_state, check_array, compute_sample_weight
 from sklearn.utils._joblib import Parallel, delayed
-from sklearn.utils.fixes import parallel_helper, _joblib_parallel_args
+from sklearn.utils.fixes import _joblib_parallel_args
 from sklearn.utils.validation import check_is_fitted
 from sklearn.ensemble.base import _partition_estimators
 
@@ -141,7 +141,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     where B is the number of trees, n the number of training points, and:
 
     .. math ::
-        w_{b, i}(x) = \\text{sample_weight}[i] \\cdot \\frac{1\\{i \\in \\text{leaf}(x; b)\\}}{|\\text{leaf}(x; b)|}
+        w_{b, i}(x) = \\text{sample\\_weight}[i] \\cdot \\frac{1\\{i \\in \\text{leaf}(x; b)\\}}{|\\text{leaf}(x; b)|}
 
     .. math ::
         \\hat{V} = \\text{Var}_{\\text{random half-samples } S}\\left[ \\frac{1}{B_S}\
@@ -585,7 +585,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         -------
         W : (n,) array
             For each sample x in X, it returns the quantity:
-            1/B_S \\sum_{b \\in S} \\sum_{i\\in [n]} sample_weight[i] * 1{i \\in leaf(x; b)} / |leaf(x; b)|.
+            1/B_S \\sum_{b \\in S} \\sum_{i\\in [n]} sample\\_weight[i] * 1{i \\in leaf(x; b)} / |leaf(x; b)|.
             where S is the slice of estimators chosen. If slice is None, then all estimators are used else
             the slice start:end is used.
         """
@@ -596,10 +596,11 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                              weight_hat, slice=slice)
 
     def _predict(self, X, slice=None):
-        """Predict regression target for X, allowing for subselecting the set of trees to use.
+        """Construct un-normalized numerator of the prediction for taret X, which when divided by weights
+        creates the point prediction. Allows for subselecting the set of trees to use.
 
-        The predicted regression target of an input sample is computed as the
-        mean predicted regression targets of the trees in the forest.
+        The predicted regression unnormalized target of an input sample is computed as the
+        mean predicted regression unnormalized targets of the trees in the forest.
 
         Parameters
         ----------
@@ -638,7 +639,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         where B is the number of trees, n the number of training points,
 
         .. math ::
-            w_{b, i}(x) = sample_weight[i] \\cdot 1{i \\in leaf(x; b)} / |leaf(x; b)|
+            w_{b, i}(x) = sample\\_weight[i] \\cdot 1{i \\in leaf(x; b)} / |leaf(x; b)|
 
         .. math ::
             V_hat = Var_{random half-samples S}[ 1/B_S \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) ]

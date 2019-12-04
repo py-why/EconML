@@ -473,8 +473,8 @@ class TestDML(unittest.TestCase):
             SparseLinearDMLCateEstimator(LinearRegression(), 'auto', fit_cate_intercept=False)
         ]
         for dml in dmls:
-            dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]),
-                    np.ones((6, 1)), sample_weight=np.ones((6, )))
+            dml.fit(np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]),
+                    np.ones((12, 1)), sample_weight=np.ones((12, )))
             self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
 
     def test_discrete_treatments(self):
