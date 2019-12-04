@@ -19,7 +19,7 @@ from sklearn.exceptions import DataConversionWarning, NotFittedError
 from sklearn.tree._tree import DTYPE, DOUBLE
 from sklearn.utils import check_random_state, check_array, compute_sample_weight
 from sklearn.utils._joblib import Parallel, delayed
-from sklearn.utils.fixes import parallel_helper, _joblib_parallel_args
+from sklearn.utils.fixes import _joblib_parallel_args
 from sklearn.utils.validation import check_is_fitted
 from sklearn.ensemble.base import _partition_estimators
 
