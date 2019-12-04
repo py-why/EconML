@@ -25,17 +25,15 @@ from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold, StratifiedKFold
-from sklearn.model_selection._split import _CVIterableWrapper, CV_WARNING
+from sklearn.model_selection._split import _CVIterableWrapper
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import check_is_fitted
 
 
-def _weighted_check_cv(cv='warn', y=None, classifier=False):
-    if cv is None or cv == 'warn':
-        warnings.warn(CV_WARNING, FutureWarning)
-        cv = 3
+def _weighted_check_cv(cv=5, y=None, classifier=False):
+    cv = 5 if cv is None else cv
 
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
