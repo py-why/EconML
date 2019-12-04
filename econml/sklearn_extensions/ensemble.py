@@ -596,10 +596,11 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                              weight_hat, slice=slice)
 
     def _predict(self, X, slice=None):
-        """Predict regression target for X, allowing for subselecting the set of trees to use.
+        """Construct un-normalized numerator of the prediction for taret X, which when divided by weights
+        creates the point prediction. Allows for subselecting the set of trees to use.
 
-        The predicted regression target of an input sample is computed as the
-        mean predicted regression targets of the trees in the forest.
+        The predicted regression unnormalized target of an input sample is computed as the
+        mean predicted regression unnormalized targets of the trees in the forest.
 
         Parameters
         ----------
