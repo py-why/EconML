@@ -219,7 +219,7 @@ the estimator checkout the two modules:
 CausalForest (aka Forest Double Machine Learning)
 --------------------------------------------------
 
-In this package we implement the double machine learning version of Causal Forests (see [Wager2018]_, [Athey2019]_) 
+In this package we implement the double machine learning version of Causal Forests/Generalized Random Forests (see [Wager2018]_, [Athey2019]_) 
 as for instance described in Section 6.1.1 of [Athey2019]_. This version follows a similar structure to the ContinuousTreatmentOrthoForest approach,
 in that the estimation is based on solving a local residual on residual moment condition:
 
@@ -247,15 +247,30 @@ square loss with sample weights, i.e.:
 
     \hat{\theta}(x) = \argmin_{\theta} \sum_{i=1}^n K_x(X_i)\cdot \tilde{T}_i^2 \cdot \left( \tilde{Y}_i/\tilde{T}_i - \theta\right)^2
 
-where :math:`\tilde{T}_i = T_i - \hat{f}(X_i, W_i)` and :math:`\tilde{Y}_i = Y_i - \hat{q}(X_i, W_i)`. Moreover,
-the causal criterion used in [Athey2019]_ is exactly equal to the weighted squared loss regression criterion with
-weights :math:`\tilde{T}_i^2`, target label :math:`\tilde{Y}_i/\tilde{T}_i` and features :math:`X_i`. Thus we can apply
+where :math:`\tilde{T}_i = T_i - \hat{f}(X_i, W_i)` and :math:`\tilde{Y}_i = Y_i - \hat{q}(X_i, W_i)`. Thus we can apply
 a normal regression forest to estimate the :math:`\theta`. Albeit for valid confidence intervals we need a forest
 that is based on subsampling and uses honesty to define the leaf estimates. Thus we can re-use the splitting machinery
 of a scikit-learn regressor and augment it with honesty and subsampling capabilities. We implement this in our
 :class:`.SubsampledHonestForest` scikit-learn extension.
 
-Moreover, a subtle point is that in order to mirror the Causal Forest algorithm, our final prediction is not just
+The causal criterion that is implicit in the above reduction approach is slightly different than the one
+proposed in [Athey2019]_. However, the exact criterion is not crucial for the theoretical developments and the
+validity of the confidence intervals is maintained. The difference can potentially lead to small finite sample
+differences. In particular, suppose that we want to decide how to split a node in two subsets of samples :math:`S_1`
+and :math:`S_2` and let :math:`\theta_1` and :math:`\theta_2` be the estimates on each of these partitions.
+Then the criterion implicit in the reduction is the weighted mean squared error, which boils down to
+
+.. math::
+
+    \max_{S_1, S_2} \theta_1^2 \sum_{i\in S_1} \tilde{T}_i^2 + \theta_2^2 \sum_{i \in S_2} \tilde{T}_i^2 \approx
+    \max_{S_1, S_2} \theta_1^2 \cdot |S_1| \cdot Var_n(T | x\in S_1) + \theta_2^2 \cdot |S_2|\cdot Var_n(T | x \in S_2)
+
+where :math:`Var_n`, denotes the empirical variance. Essentially, this criterion tries to maximize heterogeneity
+(as captured by maximizing the sum of squares of the two estimates), while penalizing splits that create nodes
+with small variation in the treatment. On the contrary the criterion proposed in [Athey2019]_ ignores the within
+child variation of the treatment and solely maximizes the hetergoeneity, i.e. :math:`\max_{S_1, S_2} \theta_1^2 + \theta_2^2`.
+
+Moreover, a subtle point is that in order to mirror the Genearlized Random Forest algorithm, our final prediction is not just
 the average of the tree estimates. Instead we use the tree to define sample weights as describe in [Athey2019]_ and then
 calculate the solution to the weighted moment equation or equivalently the minimizer of the square loss, which boils down to:
 
@@ -294,7 +309,7 @@ Usage Examples
 ==================================
 
 Here is a simple example of how to call :class:`.ContinuousTreatmentOrthoForest`
-and what the returned values correspond to in a simple data generating process. 
+and what the returned values correspond to in a simple data generating process.
 For more examples check out our 
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
 and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/blob/master/notebooks/ForestLearners%20Basic%20Example.ipynb>`_ .
