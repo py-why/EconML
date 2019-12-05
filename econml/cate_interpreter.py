@@ -507,6 +507,25 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         self.min_impurity_decrease = min_impurity_decrease
 
     def interpret(self, cate_estimator, X, sample_treatment_costs=None, treatment_names=None):
+        """
+        Interpret a policy based on a linear CATE estimator when applied to a set of features
+
+        Parameters
+        ----------
+        cate_estimator : :class:`.LinearCateEstimator`
+            The fitted estimator to interpret
+
+        X : array-like
+            The features against which to interpret the estimator;
+            must be compatible shape-wise with the features used to fit
+            the estimator
+
+        sample_treatment_costs : array-like, optional
+            The cost of treatment.  Can be a scalar or a variable cost with the same number of rows as ``X``
+
+        treatment_names : list of string, optional
+            The names of the two treatments
+        """
         self.tree_model = DecisionTreeClassifier(criterion=self.criterion,
                                                  splitter=self.splitter,
                                                  max_depth=self.max_depth,
