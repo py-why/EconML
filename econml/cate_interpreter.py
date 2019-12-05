@@ -1,58 +1,292 @@
 import abc
 import numpy as np
+from io import StringIO
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.utils.validation import check_is_fitted
-import six
-from .dot_exporter import _CATETreeDOTExporter, _CATETreeMPLExporter, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
+import graphviz
+from .dot_exporter import _CateTreeDOTExporter, _CateTreeMPLExporter, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
 
 
-class CateInterpreter(metaclass=abc.ABCMeta):
+class _SingleTreeInterpreter(metaclass=abc.ABCMeta):
+
+    tree_model = None
 
     @abc.abstractmethod
     def interpret(self, cate_estimator, X):
+        """
+        Interpret a linear CATE estimator when applied to a set of features
+
+        Parameters
+        ----------
+        cate_estimator : :class:`.LinearCateEstimator`
+            The fitted estimator to interpret
+
+        X : array-like
+            The features against which to interpret the estimator;
+            must be compatible shape-wise with the features used to fit
+            the estimator
+        """
         pass
 
     @abc.abstractmethod
-    def summary(self):
+    def _make_dot_exporter(self, *, out_file, feature_names, filled,
+                           leaves_parallel, rotate, rounded,
+                           special_characters, precision):
+        """
+        Make a dot file exporter
+
+        Parameters
+        ----------
+        out_file : file object
+            Handle to write to.
+
+        feature_names : list of strings
+            Names of each of the features.
+
+        filled : bool
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        leaves_parallel : bool
+            When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+        rotate : bool
+            When set to ``True``, orient tree left to right rather than top-down.
+
+        rounded : bool
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        special_characters : bool
+            When set to ``False``, ignore special characters for PostScript
+            compatibility.
+
+        precision : int
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+        """
         pass
 
     @abc.abstractmethod
-    def export(self):
+    def _make_mpl_exporter(self, *, title=None, feature_names=None,
+                           filled=True, rounded=True, precision=3, fontsize=None):
+        """
+        Make a matplotlib exporter
+
+        Parameters
+        ----------
+        title : string
+            A title for the final figure to be printed at the top of the page.
+
+        feature_names : list of strings
+            Names of each of the features.
+
+        filled : bool
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        rounded : bool
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        precision : int
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+
+        fontsize : int
+            Fontsize for text
+        """
         pass
 
+    def export_graphviz(self, out_file=None, feature_names=None,
+                        filled=True, leaves_parallel=True,
+                        rotate=False, rounded=True, special_characters=False, precision=3):
+        """
+        Export a graphviz dot file representing the learned tree model
 
-class SingleTreeCateInterpreter:
+        Parameters
+        ----------
+        out_file : file object or string, optional, default None
+            Handle or name of the output file. If ``None``, the result is
+            returned as a string.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        leaves_parallel : bool, optional, default True
+            When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+        rotate : bool, optional, default False
+            When set to ``True``, orient tree left to right rather than top-down.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        special_characters : bool, optional, default False
+            When set to ``False``, ignore special characters for PostScript
+            compatibility.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+        """
+
+        check_is_fitted(self.tree_model, 'tree_')
+        own_file = False
+        try:
+            if isinstance(out_file, str):
+                out_file = open(out_file, "w", encoding="utf-8")
+                own_file = True
+
+            return_string = out_file is None
+            if return_string:
+                out_file = StringIO()
+
+            exporter = self._make_dot_exporter(out_file=out_file, feature_names=feature_names, filled=filled,
+                                               leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
+                                               special_characters=special_characters, precision=precision)
+            exporter.export(self.tree_model)
+
+            if return_string:
+                return out_file.getvalue()
+
+        finally:
+            if own_file:
+                out_file.close()
+
+    def render(self, out_file, format='pdf', view=True, feature_names=None,
+               filled=True, leaves_parallel=True, rotate=False, rounded=True,
+               special_characters=False, precision=3):
+        """
+        Render the tree to a flie
+
+        Parameters
+        ----------
+        out_file : file object or string, optional, default None
+            Handle or name of the output file. If ``None``, the result is
+            returned as a string.
+
+        format : string, optional, default 'pdf'
+            The file format to render to; must be supported by graphviz
+
+        view : bool, optional, default True
+            Whether to open the rendered result with the default application.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        leaves_parallel : bool, optional, default True
+            When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+        rotate : bool, optional, default False
+            When set to ``True``, orient tree left to right rather than top-down.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        special_characters : bool, optional, default False
+            When set to ``False``, ignore special characters for PostScript
+            compatibility.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+        """
+        dot_source = self.export_graphviz(out_file=None,  # want the output as a string, only write the final file
+                                          feature_names=feature_names, filled=filled,
+                                          leaves_parallel=leaves_parallel, rotate=rotate,
+                                          rounded=rounded, special_characters=special_characters,
+                                          precision=precision)
+        graphviz.Source(dot_source).render(out_file, format=format, view=view)
+
+    def plot(self, ax=None, title=None, feature_names=None,
+             filled=True, rounded=True, precision=3, fontsize=None):
+        """
+            Exports policy trees to matplotlib
+
+        Parameters
+        ----------
+        ax : :class:`matplotlib.axes.Axes`, optional, default None
+            The axes on which to plot
+
+        title : string, optional, default None
+            A title for the final figure to be printed at the top of the page.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+
+        fontsize : int, optional, default None
+            Font size for text
+        """
+        check_is_fitted(self.tree_model, 'tree_')
+        exporter = self._make_mpl_exporter(title=title, feature_names=feature_names, filled=filled,
+                                           rounded=rounded, precision=precision, fontsize=fontsize)
+        exporter.export(self.tree_model, ax=ax)
+
+
+class SingleTreeCateInterpreter(_SingleTreeInterpreter):
     """
-    include_uncertainty : bool, optional (default=False)
+    An interpreter for the effect estimated by a CATE estimator
+
+    Parameters
+    ----------
+    include_uncertainty : bool, optional, default False
         Whether to include confidence interval information when building a
         simplified model of the cate model. If set to True, then
         cate estimator needs to support the `effect_interval` method.
 
-    uncertainty_level : double, optional (default=.05)
+    uncertainty_level : double, optional, default .05
         The uncertainty level for the confidence intervals to be constructed
         and used in the simplified model creation. If value=alpha
         then a multitask decision tree will be built such that all samples
         in a leaf have similar target prediction but also similar alpha
         confidence intervals.
 
-    splitter : string, optional (default="best")
+    splitter : string, optional, default "best"
         The strategy used to choose the split at each node. Supported
         strategies are "best" to choose the best split and "random" to choose
         the best random split.
 
-    max_depth : int or None, optional (default=None)
+    max_depth : int or None, optional, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional (default=2)
+    min_samples_split : int, float, optional, default 2
         The minimum number of samples required to split an internal node:
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional (default=1)
+    min_samples_leaf : int, float, optional, default 1
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -63,23 +297,23 @@ class SingleTreeCateInterpreter:
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional (default=0.)
+    min_weight_fraction_leaf : float, optional, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    random_state : int, RandomState instance or None, optional (default=None)
+    random_state : int, RandomState instance or None, optional, default None
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
 
-    max_leaf_nodes : int or None, optional (default=None)
+    max_leaf_nodes : int or None, optional, default None
         Grow a tree with ``max_leaf_nodes`` in best-first fashion.
         Best nodes are defined as relative reduction in impurity.
         If None then unlimited number of leaf nodes.
 
-    min_impurity_decrease : float, optional (default=0.)
+    min_impurity_decrease : float, optional, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -149,94 +383,29 @@ class SingleTreeCateInterpreter:
 
         return self
 
-    def export_graphviz(self, out_file=None, feature_names=None,
-                        filled=True, leaves_parallel=True,
-                        rotate=False, rounded=True, special_characters=False, precision=3):
-        """
-        Parameters
-        ----------
-        decision_tree : decision tree classifier
-            The decision tree to be exported to GraphViz.
+    def _make_dot_exporter(self, *, out_file, feature_names, filled,
+                           leaves_parallel, rotate, rounded,
+                           special_characters, precision):
+        return _CateTreeDOTExporter(self.include_uncertainty, self.uncertainty_level,
+                                    out_file=out_file, feature_names=feature_names, filled=filled,
+                                    leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
+                                    special_characters=special_characters, precision=precision)
 
-        out_file : file object or string, optional (default=None)
-            Handle or name of the output file. If ``None``, the result is
-            returned as a string.
-
-        feature_names : list of strings, optional (default=None)
-            Names of each of the features.
-
-        filled : bool, optional (default=False)
-            When set to ``True``, paint nodes to indicate majority class for
-            classification, extremity of values for regression, or purity of node
-            for multi-output.
-
-        leaves_parallel : bool, optional (default=False)
-            When set to ``True``, draw all leaf nodes at the bottom of the tree.
-
-        rotate : bool, optional (default=False)
-            When set to ``True``, orient tree left to right rather than top-down.
-
-        rounded : bool, optional (default=False)
-            When set to ``True``, draw node boxes with rounded corners and use
-            Helvetica fonts instead of Times-Roman.
-
-        special_characters : bool, optional (default=False)
-            When set to ``False``, ignore special characters for PostScript
-            compatibility.
-
-        precision : int, optional (default=3)
-            Number of digits of precision for floating point in the values of
-            impurity, threshold and value attributes of each node.
-        """
-        check_is_fitted(self.tree_model, 'tree_')
-        own_file = False
-        return_string = False
-        try:
-            if isinstance(out_file, six.string_types):
-                if six.PY3:
-                    out_file = open(out_file, "w", encoding="utf-8")
-                else:
-                    out_file = open(out_file, "wb")
-                own_file = True
-
-            if out_file is None:
-                return_string = True
-                out_file = six.StringIO()
-
-            exporter = _CATETreeDOTExporter(self.include_uncertainty, self.uncertainty_level,
-                                            out_file=out_file, feature_names=feature_names, filled=filled,
-                                            leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
-                                            special_characters=special_characters, precision=precision)
-            exporter.export(self.tree_model)
-
-            if return_string:
-                return exporter.out_file.getvalue()
-
-        finally:
-            if own_file:
-                out_file.close()
-
-    def render(self, out_file, format='pdf', view=True, feature_names=None,
-               filled=True, leaves_parallel=True,
-               rotate=False, rounded=True, special_characters=False, precision=3):
-        import graphviz
-        graphviz.Source(self.export_graphviz(feature_names=feature_names, filled=filled, rotate=rotate,
-                                             leaves_parallel=leaves_parallel, rounded=rounded,
-                                             special_characters=special_characters,
-                                             precision=precision)).render(out_file, format=format, view=view)
-
-    def plot(self, ax=None, title=None, feature_names=None,
-             filled=True,
-             rounded=True, precision=3, fontsize=None):
-        exporter = _CATETreeMPLExporter(self.include_uncertainty, self.uncertainty_level,
-                                        title=title, feature_names=feature_names, filled=filled,
-                                        rounded=rounded,
-                                        precision=precision, fontsize=fontsize)
-        exporter.export(self.tree_model, ax=ax)
+    def _make_mpl_exporter(self, *, title, feature_names,
+                           filled,
+                           rounded, precision, fontsize):
+        return _CateTreeMPLExporter(self.include_uncertainty, self.uncertainty_level,
+                                    title=title, feature_names=feature_names, filled=filled,
+                                    rounded=rounded,
+                                    precision=precision, fontsize=fontsize)
 
 
-class SingleTreePolicyInterpreter:
+class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
     """
+    An interpreter for a policy estimated by a
+
+    Parameters
+    ----------
     risk_level : float or None,
         If None then the point estimate of the CATE of every point will be used as the
         effect of treatment. If any float alpha and risk_seeking=False (default), then the
@@ -244,28 +413,28 @@ class SingleTreePolicyInterpreter:
         Otherwise if risk_seeking=True, then the upper end of an alpha confidence interval
         will be used.
 
-    risk_seeking : bool, optional (default=False),
+    risk_seeking : bool, optional, default False,
         Whether to use an optimistic or pessimistic value for the effect estimate at a
         sample point. Used only when risk_level is not None.
 
-    splitter : string, optional (default="best")
+    splitter : string, optional, default "best"
         The strategy used to choose the split at each node. Supported
         strategies are "best" to choose the best split and "random" to choose
         the best random split.
 
-    max_depth : int or None, optional (default=None)
+    max_depth : int or None, optional, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional (default=2)
+    min_samples_split : int, float, optional, default 2
         The minimum number of samples required to split an internal node:
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional (default=1)
+    min_samples_leaf : int, float, optional, default 1
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -276,23 +445,23 @@ class SingleTreePolicyInterpreter:
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional (default=0.)
+    min_weight_fraction_leaf : float, optional, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    random_state : int, RandomState instance or None, optional (default=None)
+    random_state : int, RandomState instance or None, optional, default None
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
 
-    max_leaf_nodes : int or None, optional (default=None)
+    max_leaf_nodes : int or None, optional, default None
         Grow a tree with ``max_leaf_nodes`` in best-first fashion.
         Best nodes are defined as relative reduction in impurity.
         If None then unlimited number of leaf nodes.
 
-    min_impurity_decrease : float, optional (default=0.)
+    min_impurity_decrease : float, optional, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -333,7 +502,7 @@ class SingleTreePolicyInterpreter:
         self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
 
-    def interpret(self, cate_estimator, X, sample_treatment_costs=None):
+    def interpret(self, cate_estimator, X, sample_treatment_costs=None, treatment_names=None):
         self.tree_model = DecisionTreeClassifier(criterion=self.criterion,
                                                  splitter=self.splitter,
                                                  max_depth=self.max_depth,
@@ -367,98 +536,28 @@ class SingleTreePolicyInterpreter:
         self.tree_model.fit(X, np.sign(y_pred).flatten(), sample_weight=np.abs(y_pred))
         self.policy_value = np.mean(y_pred * (self.tree_model.predict(X) == 1))
         self.always_treat_value = np.mean(y_pred)
+        self.treatment_names = treatment_names
         return self
 
-    def export_graphviz(self, out_file=None, treatment_names=None, feature_names=None,
-                        filled=True, leaves_parallel=True,
-                        rotate=False, rounded=True, special_characters=False, precision=3):
-        """
-        Parameters
-        ----------
-        out_file : file object or string, optional (default=None)
-            Handle or name of the output file. If ``None``, the result is
-            returned as a string.
+    def _make_dot_exporter(self, *, out_file, feature_names, filled,
+                           leaves_parallel, rotate, rounded,
+                           special_characters, precision):
+        title = "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
+        title += "Average policy gains over always treating: {}".format(
+            np.around(self.policy_value - self.always_treat_value, precision))
+        return _PolicyTreeDOTExporter(out_file=out_file, title=title,
+                                      treatment_names=self.treatment_names, feature_names=feature_names,
+                                      filled=filled, leaves_parallel=leaves_parallel, rotate=rotate,
+                                      rounded=rounded, special_characters=special_characters,
+                                      precision=precision)
 
-        treatment_names : list of strings, optional (default=None)
-            Names of each of the treatments.
-
-        feature_names : list of strings, optional (default=None)
-            Names of each of the features.
-
-        filled : bool, optional (default=False)
-            When set to ``True``, paint nodes to indicate majority class for
-            classification, extremity of values for regression, or purity of node
-            for multi-output.
-
-        leaves_parallel : bool, optional (default=False)
-            When set to ``True``, draw all leaf nodes at the bottom of the tree.
-
-        rotate : bool, optional (default=False)
-            When set to ``True``, orient tree left to right rather than top-down.
-
-        rounded : bool, optional (default=False)
-            When set to ``True``, draw node boxes with rounded corners and use
-            Helvetica fonts instead of Times-Roman.
-
-        special_characters : bool, optional (default=False)
-            When set to ``False``, ignore special characters for PostScript
-            compatibility.
-
-        precision : int, optional (default=3)
-            Number of digits of precision for floating point in the values of
-            impurity, threshold and value attributes of each node.
-        """
-        check_is_fitted(self.tree_model, 'tree_')
-        own_file = False
-        return_string = False
-        try:
-            if isinstance(out_file, six.string_types):
-                if six.PY3:
-                    out_file = open(out_file, "w", encoding="utf-8")
-                else:
-                    out_file = open(out_file, "wb")
-                own_file = True
-
-            if out_file is None:
-                return_string = True
-                out_file = six.StringIO()
-
-            title = "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
-            title += "Average policy gains over always treating: {}".format(
-                np.around(self.policy_value - self.always_treat_value, precision))
-            exporter = _PolicyTreeDOTExporter(out_file=out_file, title=title,
-                                              treatment_names=treatment_names, feature_names=feature_names,
-                                              filled=filled, leaves_parallel=leaves_parallel, rotate=rotate,
-                                              rounded=rounded, special_characters=special_characters,
-                                              precision=precision)
-            exporter.export(self.tree_model)
-
-            if return_string:
-                return exporter.out_file.getvalue()
-
-        finally:
-            if own_file:
-                out_file.close()
-
-    def render(self, out_file, format='pdf', view=True, feature_names=None, treatment_names=None,
-               filled=True, leaves_parallel=True,
-               rotate=False, rounded=True, special_characters=False, precision=3):
-        import graphviz
-        graphviz.Source(self.export_graphviz(treatment_names=treatment_names, feature_names=feature_names,
-                                             filled=filled, rotate=rotate,
-                                             leaves_parallel=leaves_parallel, rounded=rounded,
-                                             special_characters=special_characters,
-                                             precision=precision)).render(out_file, format=format, view=view)
-
-    def plot(self, ax=None, title=None, treatment_names=None, feature_names=None,
-             filled=True,
-             rounded=True, precision=3, fontsize=None):
+    def _make_mpl_exporter(self, *, title, feature_names, filled,
+                           rounded, precision, fontsize):
         title = "" if title is None else title
         title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
         title += "Average policy gains over always treating: {}".format(
             np.around(self.policy_value - self.always_treat_value, precision))
-        exporter = _PolicyTreeMPLExporter(treatment_names=treatment_names, title=title,
-                                          feature_names=feature_names, filled=filled,
-                                          rounded=rounded,
-                                          precision=precision, fontsize=fontsize)
-        exporter.export(self.tree_model, ax=ax)
+        return _PolicyTreeMPLExporter(treatment_names=self.treatment_names, title=title,
+                                      feature_names=feature_names, filled=filled,
+                                      rounded=rounded,
+                                      precision=precision, fontsize=fontsize)
