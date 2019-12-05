@@ -62,32 +62,24 @@ class BootstrapInference(Inference):
         return wrapped
 
 
-class LinearModelFinalInference(Inference):
-
-    def __init__(self):
-        pass
+class GenericModelFinalInference(Inference):
+    """
+    Inference based on predict_interval of the model_final model. Assumes that estimator
+    class has a model_final method, whose predict(cross_product(X, [0, ..., 1, ..., 0])) gives
+    the const_marginal_effect of the treamtnent at the column with value 1 and which also supports
+    predict_interval(X).
+    """
 
     def prefit(self, estimator, *args, **kwargs):
         self.model_final = estimator.model_final
         self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
 
     def fit(self, estimator, *args, **kwargs):
-        # once the estimator has been fit, it's kosher to access its effect_op and store it here
-        # (which needs to have seen the expanded d_t if there's a discrete treatment, etc.)
+        # once the estimator has been fit, it's kosher to store d_t here
+        # (which needs to have been expanded if there's a discrete treatment)
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
-        self._d_t_in = estimator._d_t_in
-        self.bias_part_of_coef = estimator.bias_part_of_coef
-        self.fit_cate_intercept = estimator.fit_cate_intercept
-
-    def effect_interval(self, X, *, T0, T1, alpha=0.1):
-        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
-        if X is None:
-            X = np.ones((T0.shape[0], 1))
-        elif self.featurizer is not None:
-            X = self.featurizer.transform(X)
-        return self._predict_interval(cross_product(X, T1 - T0), alpha=alpha)
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if X is None:
@@ -98,6 +90,63 @@ class LinearModelFinalInference(Inference):
         preds = self._predict_interval(cross_product(X, T), alpha=alpha)
         return tuple(reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
                      for pred in preds)
+
+    def _predict_interval(self, X, alpha):
+        return self.model_final.predict_interval(X, alpha=alpha)
+
+
+class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
+    """
+    Inference based on predict_interval of the model_final model. Assumes that treatment is single dimensional.
+    Thus, the predict(X) of model_final gives the const_marginal_effect(X). The single dimensionality allows us
+    to implement effect_interval(X, T0, T1) based on the const_marginal_effect_interval.
+    """
+
+    def fit(self, estimator, *args, **kwargs):
+        super().fit(estimator, *args, **kwargs)
+        if len(self._d_t) > 1 and (self._d_t[0] > 1):
+            raise AttributeError("This method only works for single-dimensional continuous treatment "
+                                 "or binary categorical treatment")
+
+    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+        # We can write effect interval as a function of const_marginal_effect_interval for a single treatment
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        lb_pre, ub_pre = self.const_marginal_effect_interval(X, alpha=alpha)
+        dT = T1 - T0
+        einsum_str = 'myt,mt->my'
+        if ndim(dT) == 1:
+            einsum_str = einsum_str.replace('t', '')
+        if ndim(lb_pre) == ndim(dT):  # y is a vector, rather than a 2D array
+            einsum_str = einsum_str.replace('y', '')
+        intrv_pre = np.array([np.einsum(einsum_str, lb_pre, dT), np.einsum(einsum_str, ub_pre, dT)])
+        lb = np.min(intrv_pre, axis=0)
+        ub = np.max(intrv_pre, axis=0)
+        return lb, ub
+
+
+class LinearModelFinalInference(GenericModelFinalInference):
+    """
+    Inference based on predict_interval of the model_final model. Assumes that estimator
+    class has a model_final method and that model is linear. Thus, the predict(cross_product(X, T1 - T0)) gives
+    the effect(X, T0, T1). This allows us to implement effect_interval(X, T0, T1) based on the
+    predict_interval of model_final.
+    """
+
+    def fit(self, estimator, *args, **kwargs):
+        # once the estimator has been fit
+        super().fit(estimator, *args, **kwargs)
+        self._d_t_in = estimator._d_t_in
+        self.bias_part_of_coef = estimator.bias_part_of_coef
+        self.fit_cate_intercept = estimator.fit_cate_intercept
+
+    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+        # We can write effect interval as a function of predict_interval of the final method for linear models
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        if X is None:
+            X = np.ones((T0.shape[0], 1))
+        elif self.featurizer is not None:
+            X = self.featurizer.transform(X)
+        return self._predict_interval(cross_product(X, T1 - T0), alpha=alpha)
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -122,9 +171,6 @@ class LinearModelFinalInference(Inference):
                                       self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                       self.fit_cate_intercept)[1]
         return lo, hi
-
-    def _predict_interval(self, X, alpha):
-        return self.model_final.predict_interval(X, alpha=alpha)
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -152,24 +198,20 @@ class StatsModelsInference(LinearModelFinalInference):
         self.model_final.cov_type = self.cov_type
 
 
-class LinearModelFinalInferenceDiscrete(Inference):
+class GenericModelFinalInferenceDiscrete(Inference):
     """
-    Inference method for estimators with categorical treatments, where a linear in X model is used
-    for the CATE associated with each treatment.
-
-    TODO Create parent LinearModelFinalInference class so that some functionalities can be shared
+    Assumes estimator is fitted on categorical treatment and a separate generic model_final is used to
+    fit the CATE associated with each treatment. This model_final supports predict_interval. Inference is
+    based on predict_interval of the model_final model.
     """
-
-    def __init__(self):
-        pass
 
     def prefit(self, estimator, *args, **kwargs):
         self.model_final = estimator.model_final
         self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
 
     def fit(self, estimator, *args, **kwargs):
-        # once the estimator has been fit, it's kosher to access its effect_op and store it here
-        # (which needs to have seen the expanded d_t if there's a discrete treatment, etc.)
+        # once the estimator has been fit, it's kosher to store d_t here
+        # (which needs to have been expanded if there's a discrete treatment)
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -189,9 +231,17 @@ class LinearModelFinalInferenceDiscrete(Inference):
         lower, upper = self.const_marginal_effect_interval(X, alpha=alpha)
         lower = np.hstack([np.zeros((lower.shape[0], 1)), lower])
         upper = np.hstack([np.zeros((upper.shape[0], 1)), upper])
-        if X is None:  # Then statsmodels will return a single row
+        if X is None:  # Then const_marginal_effect_interval will return a single row
             lower, upper = np.tile(lower, (T0.shape[0], 1)), np.tile(upper, (T0.shape[0], 1))
         return lower[np.arange(T0.shape[0]), ind], upper[np.arange(T0.shape[0]), ind]
+
+
+class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
+    """
+    Inference method for estimators with categorical treatments, where a linear in X model is used
+    for the CATE associated with each treatment. Implements the coef__interval and intercept__interval
+    based on the corresponding methods of the underlying model_final estimator.
+    """
 
     def coef__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)

@@ -44,11 +44,11 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.inheritance_diagram',
 ]
-inheritance_graph_attrs = dict(rankdir="TB", size='"6.0, 8.0"',
-                               fontsize=8, ratio='compress',
-                               bgcolor='"#f8f8f8"', center='true', style='solid')
-inheritance_node_attrs = dict(shape='ellipse', fontsize=8,
-                              fontname="sfmono", height=0.75)
+inheritance_graph_attrs = dict(rankdir="TB", size='"7.0, 10.0"',
+                               fontsize=12, ratio='auto',
+                               bgcolor='"#ffffff"', center='true', style='solid')
+inheritance_node_attrs = dict(shape='ellipse', fontsize=12,
+                              fontname="monspace", height=0.75)
 napoleon_use_param = False
 autosummary_generate = True
 autodoc_default_options = {'members': None,
