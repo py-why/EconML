@@ -4,7 +4,7 @@ from io import StringIO
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.utils.validation import check_is_fitted
 import graphviz
-from .dot_exporter import _CateTreeDOTExporter, _CateTreeMPLExporter, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
+from ._tree_exporter import _CateTreeDOTExporter, _CateTreeMPLExporter, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
 
 
 class _SingleTreeInterpreter(metaclass=abc.ABCMeta):
