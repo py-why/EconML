@@ -219,11 +219,11 @@ class DRLearner(_OrthoLearner):
            [ 0.38...,  0.55...],
            [ 0.00..., -0.35...]])
     >>> est.model_cate(T=2).coef_
-    array([ 0.98...,  0.01..., -0.0...     ])
+    array([ 0.98...,  0.01..., -0.00...        ])
     >>> est.model_cate(T=2).intercept_
     2.0...
     >>> est.model_cate(T=1).coef_
-    array([ 0.40...,  0.01..., 0.0...        ])
+    array([ 0.40...,  0.01..., 0.        ])
     >>> est.model_cate(T=1).intercept_
     1.00...
 
