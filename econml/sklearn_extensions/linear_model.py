@@ -34,7 +34,6 @@ from sklearn.utils.validation import check_is_fitted
 
 def _weighted_check_cv(cv=5, y=None, classifier=False):
     cv = 5 if cv is None else cv
-
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
                 (type_of_target(y) in ('binary', 'multiclass'))):
@@ -463,7 +462,7 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
     copy_X : boolean, optional, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
-    cv : int, cross-validation generator or an iterable, optional
+    cv : int, cross-validation generator or an iterable, optional (default = None)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
         - None, to use the default 3-fold weighted cross-validation,
@@ -471,6 +470,8 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         - :term:`CV splitter`,
         - An iterable yielding (train, test) splits as arrays of indices.
         For integer/None inputs, :class:`WeightedKFold` is used.
+
+        If None then 5-folds are used.
 
     verbose : bool or integer
         Amount of verbosity.
