@@ -213,19 +213,19 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    3.50415...
+    3.172...
     >>> est.const_marginal_effect(X[:3])
-    array([[ 0.553...,  1.138...],
-           [ 0.318...,  0.730...],
-           [-0.074..., -0.067...]])
+    array([[ 0.55...,  1.14...],
+           [ 0.32...,  0.75...],
+           [-0.07..., -0.03...]])
     >>> est.model_cate(T=2).coef_
-    array([ 0.871...,  0.026..., -0.        ])
+    array([ 0.86...,  0.01..., -0.        ])
     >>> est.model_cate(T=2).intercept_
-    2.057...
+    2.06...
     >>> est.model_cate(T=1).coef_
-    array([ 0.433...,  0.033..., -0.        ])
+    array([ 0.43...,  0.02..., -0.        ])
     >>> est.model_cate(T=1).intercept_
-    0.990...
+    0.99...
 
     Attributes
     ----------

@@ -68,7 +68,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
 .. testcode::
 
-    from econml.dml import LinearDRLearner
+    from econml.drlearner import LinearDRLearner
     est = LinearDRLearner()
     est.fit(y, T, X, W)
     est.effect(X, T0=t0, T1=t1)
@@ -235,7 +235,7 @@ Below we give a brief description of each of these classes:
                             }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         model_clf = lambda: GridSearchCV(
-                        estimator=RandomForestClassifier(),
+                        estimator=RandomForestClassifier(min_samples_leaf=10),
                         param_grid={
                                 'max_depth': [3, None],
                                 'n_estimators': (10, 50, 100)
@@ -362,7 +362,7 @@ Usage FAQs
         est.fit(y, T, X, W, inference='blb')
         point = est.effect(X, T0=T0, T1=T1)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
-        lb, ub = est.const_marginal_effect_interval(X, T0=T0, T1=T1, alpha=0.05)
+        lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
 
     If you care more about mean squared error than confidence intervals and hypothesis testing, then use the
     :class:`.DRLearner` class and choose a cross-validated final model (checkout the 
@@ -384,7 +384,7 @@ Usage FAQs
     .. testcode::
 
         from econml.drlearner import SparseLinearDRLearner
-        from sklearn.linear_model import LassoCV, LogisticRegressionCV
+        from sklearn.linear_model import LassoCV, LogisticRegressionCV, ElasticNetCV
         from sklearn.ensemble import GradientBoostingRegressor
         est = SparseLinearDRLearner(model_regression=LassoCV(),
                                     model_propensity=LogisticRegressionCV())
@@ -420,7 +420,7 @@ Usage FAQs
                             }, cv=5, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         model_clf = lambda: GridSearchCV(
-                        estimator=RandomForestClassifier(),
+                        estimator=RandomForestClassifier(min_samples_leaf=10),
                         param_grid={
                                 'max_depth': [3, None],
                                 'n_estimators': (10, 50, 100)

@@ -257,8 +257,8 @@ Below we give a brief description of each of these classes:
         est = NonParamDMLCateEstimator(model_y=GradientBoostingRegressor(),
                                        model_t=GradientBoostingRegressor(),    
                                        model_final=GradientBoostingRegressor())
-        est.fit(y, T, X, W)
-        point = est.effect(X, T0=T0, T1=T1)    
+        est.fit(y, t, X, W)
+        point = est.effect(X, T0=t0, T1=t1)    
 
       Examples include Random Forests (:class:`~sklearn.ensemble.RandomForestRegressor`), Gradient Boosted Forests (:class:`~sklearn.ensemble.GradientBoostingRegressor`) and
       Support Vector Machines (:class:`~sklearn.svm.SVC`). Moreover, we offer a wrapper :class:`.WeightedModelWrapper` that adds sample weight functionality
@@ -279,9 +279,9 @@ Below we give a brief description of each of these classes:
             from sklearn.ensemble import GradientBoostingRegressor
             est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(),
                                          model_t=GradientBoostingRegressor())
-            est.fit(y, T, X, W, inference='blb')
-            point = est.effect(X, T0=T0, T1=T1)
-            lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
+            est.fit(y, t, X, W, inference='blb')
+            point = est.effect(X, T0=t0, T1=t1)
+            lb, ub = est.effect_interval(X, T0=t0, T1=t1, alpha=0.05)
 
           Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
           alternatives to the :class:`.ForestDMLCateEstimator`.
@@ -388,7 +388,7 @@ Usage FAQs
         from sklearn.ensemble import GradientBoostingRegressor
         est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(),
                                      model_t=GradientBoostingRegressor())
-        est.fit(y, T, X, W, inference='blb')
+        est.fit(y, t, X, W, inference='blb')
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
     Also the check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or the
