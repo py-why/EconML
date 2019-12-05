@@ -206,26 +206,26 @@ class DRLearner(_OrthoLearner):
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
         sigma = 0.01
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
-        est = DRLearner(model_propensity=GradientBoostingClassifier(),
+        est = DRLearner(model_propensity=GradientBoostingClassifier(min_samples_leaf=10),
                         model_regression=GradientBoostingRegressor(),
                         model_final=LassoCV(cv=3),
                         featurizer=None)
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    3.172...
+    7.9...
     >>> est.const_marginal_effect(X[:3])
-    array([[ 0.55...,  1.14...],
-           [ 0.32...,  0.75...],
-           [-0.07..., -0.03...]])
+    array([[ 0.57...,  0.98...],
+           [ 0.38...,  0.55...],
+           [ 0.00..., -0.35...]])
     >>> est.model_cate(T=2).coef_
-    array([ 0.86...,  0.01..., -0.        ])
+    array([ 0.98...,  0.01..., -0.0...     ])
     >>> est.model_cate(T=2).intercept_
-    2.06...
+    2.0...
     >>> est.model_cate(T=1).coef_
-    array([ 0.43...,  0.02..., -0.        ])
+    array([ 0.40...,  0.01..., 0.0...        ])
     >>> est.model_cate(T=1).intercept_
-    0.99...
+    1.00...
 
     Attributes
     ----------
