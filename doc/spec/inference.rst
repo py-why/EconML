@@ -11,7 +11,7 @@ Every estimator can provide bootstrap based confidence intervals by passing ``in
 ``inference=BootstrapInference(n_bootstrap_samples=100, n_jobs=-1)`` (see :class:`.BootstrapInference`).
 These intervals are calculated by training multiple versions of the original estimator on bootstrap subsamples
 with replacement. Then the intervals are calculated based on the quantiles of the estimate distribution
-across the multiple clones. See also :class:`.BoostrapEstimator` for more details on this.
+across the multiple clones. See also :class:`.BootstrapEstimator` for more details on this.
 
 For instance:
 
