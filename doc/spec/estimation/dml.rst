@@ -1,4 +1,4 @@
-.. _druserguide:
+.. _dmluserguide:
 
 ==================================
 Orthogonal/Double Machine Learning

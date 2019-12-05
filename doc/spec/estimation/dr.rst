@@ -1,4 +1,4 @@
-.. _dmluserguide:
+.. _druserguide:
 
 ======================
 Doubly Robust Learning
