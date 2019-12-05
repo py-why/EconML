@@ -81,7 +81,7 @@ class _CateTreeMixin(_TreeExporter):
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
             # red for negative, green for positive
-            self.colors['rgb'] = [(200, 90, 90), (60, 180, 115)]
+            self.colors['rgb'] = [(179, 108, 96), (81, 157, 96)]
 
         # in multi-target use first target
         tree_min = np.min(tree.value, axis=0, keepdims=True)[(0,) * tree.value.ndim]
@@ -140,7 +140,7 @@ class _PolicyTreeMixin(_TreeExporter):
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
             # red for negative, green for positive
-            self.colors['rgb'] = [(200, 90, 90), (60, 180, 115)]
+            self.colors['rgb'] = [(179, 108, 96), (81, 157, 96)]
 
         node_val = tree.value[node_id][0, :] / tree.weighted_n_node_samples[node_id]
         return self.get_color(node_val)
