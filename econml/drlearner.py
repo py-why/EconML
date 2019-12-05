@@ -215,9 +215,9 @@ class DRLearner(_OrthoLearner):
     >>> est.score_
     1.9...
     >>> est.const_marginal_effect(X[:3])
-    array([[ 0.66...,  1.16...],
-           [ 0.56...,  0.86...],
-           [ 0.34...,  0.20...]])
+    array([[0.66...,  1.16...],
+           [0.56...,  0.86...],
+           [0.34...,  0.20...]])
     >>> est.model_cate(T=2).coef_
     array([ 0.71..., -0.        , -0.        ])
     >>> est.model_cate(T=2).intercept_
