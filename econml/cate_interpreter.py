@@ -216,7 +216,7 @@ class _SingleTreeInterpreter(metaclass=abc.ABCMeta):
     def plot(self, ax=None, title=None, feature_names=None,
              filled=True, rounded=True, precision=3, fontsize=None):
         """
-            Exports policy trees to matplotlib
+        Exports policy trees to matplotlib
 
         Parameters
         ----------
@@ -281,6 +281,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
     min_samples_split : int, float, optional, default 2
         The minimum number of samples required to split an internal node:
+
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
@@ -292,6 +293,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         least ``min_samples_leaf`` training samples in each of the left and
         right branches.  This may have the effect of smoothing the model,
         especially in regression.
+
         - If int, then consider `min_samples_leaf` as the minimum number.
         - If float, then `min_samples_leaf` is a fraction and
           `ceil(min_samples_leaf * n_samples)` are the minimum
@@ -402,7 +404,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
 class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
     """
-    An interpreter for a policy estimated by a
+    An interpreter for a policy estimated based on a CATE estimation
 
     Parameters
     ----------
@@ -429,6 +431,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
     min_samples_split : int, float, optional, default 2
         The minimum number of samples required to split an internal node:
+
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
@@ -440,6 +443,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         least ``min_samples_leaf`` training samples in each of the left and
         right branches.  This may have the effect of smoothing the model,
         especially in regression.
+
         - If int, then consider `min_samples_leaf` as the minimum number.
         - If float, then `min_samples_leaf` is a fraction and
           `ceil(min_samples_leaf * n_samples)` are the minimum
