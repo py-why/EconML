@@ -79,3 +79,33 @@ References
     Statistics for High-Dimensional Data
     Springer Series in Statistics, 2011
     URL https://www.springer.com/gp/book/9783642201912
+
+.. [Robins1994]
+    Robins, J.M., Rotnitzky, A., and Zhao, L.P. (1994).
+    Estimation of regression coefficients when some regressors are not always observed.
+    Journal of the American Statistical Association 89,846–866.
+
+.. [Bang]
+    Bang, H. and Robins, J.M. (2005).
+    Doubly robust estimation in missing data and causal inference models.
+    Biometrics 61,962–972.
+
+.. [Tsiatis]
+    Tsiatis AA (2006).
+    Semiparametric Theory and Missing Data.
+    New York: Springer; 2006.
+
+.. [Dudik2014]
+    Dudík, M., Erhan, D., Langford, J., & Li, L. (2014).
+    Doubly robust policy evaluation and optimization.
+    Statistical Science, 29(4), 485-511.
+
+.. [Athey2017]
+    Athey, S., & Wager, S. (2017).
+    Efficient policy learning.
+    arXiv preprint arXiv:1702.02896.
+
+.. [Friedberg2018]
+    Friedberg, R., Tibshirani, J., Athey, S., & Wager, S. (2018).
+    Local linear forests.
+    arXiv preprint arXiv:1807.11408.

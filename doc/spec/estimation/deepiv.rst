@@ -1,15 +1,15 @@
-Instrumental Variable Regression
-================================
+Deep Instrumental Variables
+===========================
 
 Instrumental variables (IV) methods are an approach for estimating causal effects despite the presence of confounding latent variables.  
 The assumptions made are weaker than the unconfoundedness assumption needed in DML.
 The cost is that when unconfoundedness holds, IV estimators will be less efficient than DML estimators.  
 What is required is a vector of instruments :math:`Z`, assumed to casually affect the distribution of the treatment :math:`T`, 
-and to have no direct causal effect on the expected value of the outcome :math:`Y`.  The package offers two IV methods for 
-estimating heterogeneous treatment effects: deep instrumental variables [Hartford2017]_ and the two-stage basis expansion approach 
-of [Newey2003]_.  
+and to have no direct causal effect on the expected value of the outcome :math:`Y`.  The package offers two IV methods for
+estimating heterogeneous treatment effects: deep instrumental variables [Hartford2017]_
+and the two-stage basis expansion approach of [Newey2003]_.
 
-The setup of the model is as follows: 
+The setup of the model is as follows:
 
 .. math::
 
@@ -32,9 +32,6 @@ in order for this quantity to be identified for arbitrary :math:`\vec{t}_0` and 
 In practice though we will place some parametric structure on the function :math:`g` which will make learning easier.
 In deep IV, this takes the form of assuming :math:`g` is a neural net with a given architecture; in the sieve based approaches, 
 this amounts to assuming that :math:`g` is a weighted sum of a fixed set of basis functions. [1]_
-
-Deep Instrumental Variables
----------------------------
 
 As explained in [Hartford2017]_, the Deep IV module learns the heterogenous causal effects by minimizing the "reduced-form" prediction error:
 
@@ -73,35 +70,6 @@ The output is an estimated function :math:`\hat{g}`.  To obtain an estimate of :
 function at :math:`\vec{t}_1` and :math:`\vec{t}_0`, replacing the expectation with the empirical average over all
 observations with the specified :math:`\vec{x}`.    
 
-Sieve Instrumental Variable Estimation
---------------------------------------
-
-The sieve based instrumental variable module is based on a two-stage least squares estimation procedure.
-The user must specify the sieve basis for :math:`T`, :math:`X` and :math:`Y` (Hermite polynomial or a set of indicator 
-functions), and the number of elements of the basis expansion to include. Formally, we now assume that we can write:
-
-.. math::
-
-    Y =~& \sum_{d=1}^{d^Y} \sum_{k=1}^{d^X} \beta^Y_{d,k} \psi_d(T) \rho_k(X) + \gamma (X,W) + \epsilon \\
-    T =~& \sum_{d=1}^{d^T} \sum_{k=1}^{d^X} \beta^T_{d,k} \phi_d(Z) \rho_k(X) + \delta (X,W) + u
-
-where :math:`\{\psi_d\}` is the sieve basis for :math:`Y` with degree :math:`d^Y`, :math:`\{\rho_k\}` is the sieve basis 
-for :math:`X`, with degree :math:`d^X`, :math:`\{\phi_d\}` is the sieve basis for :math:`T` with degree :math:`d^T`, 
-:math:`Z` are the instruments, :math:`(X,W)` is the horizontal concatenation of :math:`X` and :math:`W`, and :math:`u` 
-and :math:`\varepsilon` may be correlated. Each of the :math:`\psi_d` is a function from :math:`\dim(T)` into 
-:math:`\mathbb{R}`, each of the :math:`\rho_k` is a function from :math:`\dim(X)` into :math:`\mathbb{R}` and each 
-of the :math:`\phi_d` is a function from :math:`\dim(Z)` into :math:`\mathbb{R}`.  
-
-Our goal is to estimate
-
-.. math::
-
-    \tau(\vec{t}_0, \vec{t}_1, \vec{x}) = \sum_{d=1}^{d^Y} \sum_{k=1}^{d^X} \beta^Y_{d,k} \rho_k(\vec{x})  \left(\psi_d(\vec{t_1}) - \psi_d(\vec{t_0})\right)
-
-We do this by first estimating each of the functions :math:`\E[\psi_d(T)|X,Z,W]` by linear projection of :math:`\psi_d(t_i)` 
-onto the features :math:`\{\phi_d(z_i) \rho_k(x_i) \}` and :math:`(x_i,w_i)`. We will then project :math:`y_i` onto these
-estimated functions and :math:`(x_i,w_i)` again to arrive at an estimate :math:`\hat{\beta}^Y` whose individual coefficients 
-:math:`\beta^Y_{d,k}` can be used to return our estimate of :math:`\tau`.  
 
 .. rubric:: Footnotes
 
@@ -116,4 +84,3 @@ estimated functions and :math:`(x_i,w_i)` again to arrive at an estimate :math:`
         =~& y_i - 2 y_i \int g(t,x_i,w_i)\,dt + \left(\int g(t,x_i,w_i)\,dt\right)^2 + \int g(t,x_i,w_i)^2\,dt - \left(\int g(t,x_i,w_i)\,dt\right)^2 \\
         =~& \left(y_i - \int g(t,x_i,w_i)\,dt\right)^2 + \left(\int g(t,x_i,w_i)^2\,dt - \left(\int g(t,x_i,w_i)\,dt\right)^2\right) \\
         =~& \left(y_i - \int g(t,x_i,w_i)\,dt\right)^2 + \Var_t g(t,x_i,w_i)
-

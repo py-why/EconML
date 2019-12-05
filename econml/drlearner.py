@@ -61,8 +61,8 @@ class DRLearner(_OrthoLearner):
     In this estimator, the CATE is estimated by using the following estimating equations. If we let:
 
     .. math ::
-        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i]\
-            + \\sum_{t=0}^{n_t} \\frac{Y_i - E[Y | X_i, W_i, T_i]}{Pr[T=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
+        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i=t]\
+            + \\frac{Y_i - E[Y | X_i, W_i, T_i=t]}{Pr[T_i=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
 
     Then the following estimating equation holds:
 
@@ -79,7 +79,7 @@ class DRLearner(_OrthoLearner):
     classifier, that is internally used to solve this classification problem.
 
     The second nuisance function :math:`h` is a simple regression problem and the :class:`.DRLearner`
-    class takes as input the parameter `model_regressor``, which is an arbitrary scikit-learn regressor that
+    class takes as input the parameter ``model_regressor``, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem.
 
     The final stage is multi-task regression problem with outcomes the labels :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}`
@@ -198,7 +198,7 @@ class DRLearner(_OrthoLearner):
         import scipy.special
         import numpy as np
         from sklearn.linear_model import LassoCV
-        from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
         from econml.drlearner import DRLearner
 
         np.random.seed(123)
@@ -206,26 +206,26 @@ class DRLearner(_OrthoLearner):
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
         sigma = 0.01
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
-        est = DRLearner(model_propensity=GradientBoostingClassifier(),
-                        model_regression=GradientBoostingRegressor(),
+        est = DRLearner(model_propensity=RandomForestClassifier(n_estimators=100, min_samples_leaf=10),
+                        model_regression=RandomForestRegressor(n_estimators=100, min_samples_leaf=10),
                         model_final=LassoCV(cv=3),
                         featurizer=None)
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    3.50415...
+    1.9...
     >>> est.const_marginal_effect(X[:3])
-    array([[ 0.553...,  1.138...],
-           [ 0.318...,  0.730...],
-           [-0.074..., -0.067...]])
+    array([[0.66...,  1.16...],
+           [0.56...,  0.86...],
+           [0.34...,  0.20...]])
     >>> est.model_cate(T=2).coef_
-    array([ 0.871...,  0.026..., -0.        ])
+    array([ 0.71..., -0.        , -0.        ])
     >>> est.model_cate(T=2).intercept_
-    2.057...
+    1.9...
     >>> est.model_cate(T=1).coef_
-    array([ 0.433...,  0.033..., -0.        ])
+    array([0.23..., 0.        , 0.        ])
     >>> est.model_cate(T=1).intercept_
-    0.990...
+    0.92...
 
     Attributes
     ----------
