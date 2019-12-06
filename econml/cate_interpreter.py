@@ -333,7 +333,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
     def __init__(self,
                  include_model_uncertainty=False,
-                 uncertainty_level=.05,
+                 uncertainty_level=.1,
                  splitter="best",
                  max_depth=None,
                  min_samples_split=2,
@@ -369,15 +369,15 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
                                                 min_impurity_decrease=self.min_impurity_decrease)
         y_pred = cate_estimator.const_marginal_effect(X)
 
-        assert (y_pred.ndim == 1) or (y_pred.shape[1] ==
-                                      1), "Only single-dimensional treatment interpretation available!"
+        assert all(d == 1 for d in y_pred.shape[1:]), ("Interpretation is only available for "
+                                                       "single-dimensional treatments and outcomes")
 
-        if y_pred.ndim == 1:
+        if y_pred.ndim != 2:
             y_pred = y_pred.reshape(-1, 1)
 
         if self.include_uncertainty:
             y_lower, y_upper = cate_estimator.const_marginal_effect_interval(X, alpha=self.uncertainty_level)
-            if y_lower.ndim == 1:
+            if y_lower.ndim != 1:
                 y_lower = y_lower.reshape(-1, 1)
                 y_upper = y_upper.reshape(-1, 1)
             y_pred = np.hstack([y_pred, y_lower, y_upper])
@@ -542,7 +542,9 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         else:
             _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
 
-        assert (y_pred.ndim == 1) or (y_pred.shape[1] == 1), "Only binary treatment interpretation available!"
+        assert all(d == 1 for d in y_pred.shape[1:]), ("Interpretation is only available for "
+                                                       "single-dimensional treatments and outcomes")
+
         y_pred = y_pred.ravel()
 
         if sample_treatment_costs is not None:

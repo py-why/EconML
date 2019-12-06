@@ -8,12 +8,15 @@ from sklearn.tree import _tree
 try:
     from sklearn.tree._export import _BaseTreeExporter, _MPLTreeExporter, _DOTTreeExporter
 except ImportError:  # prior to sklearn 0.22.0, the ``export`` submodule was public
-    from sklearn.tree.export import _BaseTreeExporter, _MPLTreeExporter, _DOTTreeExporter
+    try:
+        from sklearn.tree.export import _BaseTreeExporter, _MPLTreeExporter, _DOTTreeExporter
+    except ImportError as e:  # matlab plotting was only available starting in sklearn 0.21.0
+        raise Exception("Rendering interpreters requires an sklearn version of at least 0.21.0") from e
 
 
 class _TreeExporter(_BaseTreeExporter):
     """
-    Tree exporter that supports replacing the "value" part of each node's text with something customized"
+    Tree exporter that supports replacing the "value" part of each node's text with something customized
     """
 
     def node_replacement_text(self, tree, node_id, criterion):
