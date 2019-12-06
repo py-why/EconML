@@ -769,10 +769,12 @@ class WeightedModelWrapper:
         return self.model_instance.predict(X)
 
     def _weighted_inputs(self, X, y, sample_weight):
+        X, y = check_X_y(X, y, y_numeric=True, multi_output=True)
         normalized_weights = sample_weight * X.shape[0] / np.sum(sample_weight)
         sqrt_weights = np.sqrt(normalized_weights)
-        weight_mat = np.diag(sqrt_weights)
-        return np.matmul(weight_mat, X), np.matmul(weight_mat, y)
+        weighted_X = sqrt_weights.reshape(-1, 1) * X
+        weighted_y = sqrt_weights.reshape(-1, 1) * y if y.ndim > 1 else sqrt_weights * y
+        return weighted_X, weighted_y
 
     def _sampled_inputs(self, X, y, sample_weight):
         # Normalize weights
