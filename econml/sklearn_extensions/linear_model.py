@@ -100,9 +100,8 @@ class WeightedModelMixin:
             # Weight inputs
             normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
             sqrt_weights = np.sqrt(normalized_weights)
-            weight_mat = np.diag(sqrt_weights)
-            X_weighted = np.matmul(weight_mat, X)
-            y_weighted = np.matmul(weight_mat, y)
+            X_weighted = sqrt_weights.reshape(-1, 1) * X
+            y_weighted = sqrt_weights.reshape(-1, 1) * y if y.ndim > 1 else sqrt_weights * y
             fit_params['X'] = X_weighted
             fit_params['y'] = y_weighted
             if self.fit_intercept:
@@ -842,8 +841,8 @@ class DebiasedLasso(WeightedLasso):
 
     def _get_unscaled_coef_var(self, X, theta_hat, sample_weight):
         if sample_weight is not None:
-            weights_mat = np.diag(sample_weight / np.sum(sample_weight))
-            sigma = X.T @ weights_mat @ X
+            norm_weights = sample_weight / np.sum(sample_weight)
+            sigma = X.T @ (norm_weights.reshape(-1, 1) * X)
         else:
             sigma = np.matmul(X.T, X) / X.shape[0]
         _unscaled_coef_var = np.matmul(
