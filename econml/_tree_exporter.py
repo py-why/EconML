@@ -299,7 +299,8 @@ class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
         super().__init__(title=title, out_file=out_file, feature_names=feature_names,
                          filled=filled, leaves_parallel=leaves_parallel,
                          rotate=rotate, rounded=rounded, special_characters=special_characters,
-                         precision=precision, treatment_names=treatment_names)
+                         precision=precision, treatment_names=treatment_names,
+                         impurity=False)
 
 
 class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
@@ -356,4 +357,5 @@ class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
                          out_file=out_file, title=title, feature_names=feature_names,
                          filled=filled, leaves_parallel=leaves_parallel,
                          rotate=rotate, rounded=rounded, special_characters=special_characters,
-                         precision=precision)
+                         precision=precision,
+                         impurity=False)
