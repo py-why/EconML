@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 import numpy as np
 import re
 import matplotlib.pyplot as plt
@@ -8,10 +11,7 @@ from sklearn.tree import _tree
 try:
     from sklearn.tree._export import _BaseTreeExporter, _MPLTreeExporter, _DOTTreeExporter
 except ImportError:  # prior to sklearn 0.22.0, the ``export`` submodule was public
-    try:
-        from sklearn.tree.export import _BaseTreeExporter, _MPLTreeExporter, _DOTTreeExporter
-    except ImportError as e:  # matlab plotting was only available starting in sklearn 0.21.0
-        raise Exception("Rendering interpreters requires an sklearn version of at least 0.21.0") from e
+    from sklearn.tree.export import _BaseTreeExporter, _MPLTreeExporter, _DOTTreeExporter
 
 
 class _TreeExporter(_BaseTreeExporter):

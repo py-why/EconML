@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 import abc
 import numpy as np
 from io import StringIO
@@ -170,9 +173,7 @@ class _SingleTreeInterpreter(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        out_file : file object or string, optional, default None
-            Handle or name of the output file. If ``None``, the result is
-            returned as a string.
+        out_file : file name to save to
 
         format : string, optional, default 'pdf'
             The file format to render to; must be supported by graphviz
@@ -377,7 +378,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
         if self.include_uncertainty:
             y_lower, y_upper = cate_estimator.const_marginal_effect_interval(X, alpha=self.uncertainty_level)
-            if y_lower.ndim != 1:
+            if y_lower.ndim != 2:
                 y_lower = y_lower.reshape(-1, 1)
                 y_upper = y_upper.reshape(-1, 1)
             y_pred = np.hstack([y_pred, y_lower, y_upper])
@@ -548,6 +549,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         y_pred = y_pred.ravel()
 
         if sample_treatment_costs is not None:
+            assert np.ndim(sample_treatment_costs) < 2, "Sample treatment costs should be a vector or scalar"
             y_pred -= sample_treatment_costs
 
         if np.all(y_pred > 0):
