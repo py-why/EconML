@@ -17,6 +17,11 @@ steps:
   displayName: 'Enable long paths on Windows'
   condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
 
+# Install graphviz programmatically on Linux
+- script: 'sudo apt-get -yq install graphviz'
+  displayName: 'Install graphviz on Linux'
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+
 # Install the package
 - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools && pip install .'
   displayName: 'Install dependencies'

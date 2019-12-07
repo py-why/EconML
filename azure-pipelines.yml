@@ -87,9 +87,6 @@ jobs:
   - template: azure-pipelines-steps.yml
     parameters:
       body:
-        - script: 'sudo apt-get -yq install graphviz'
-          displayName: 'Install graphviz'
-
         - script: 'pip install shap'
           displayName: 'Install shap'
 
