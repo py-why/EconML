@@ -82,12 +82,12 @@ jobs:
   variables:
     python.version: '3.6'
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'ubuntu-16.04'
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
       body:
-        - script: 'sudo pip install shap'
+        - script: 'pip install shap'
           displayName: 'Install shap'
 
         - script: 'python setup.py pytest'

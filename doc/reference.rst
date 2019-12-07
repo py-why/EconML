@@ -6,6 +6,7 @@ Public Module Reference
 
     econml.bootstrap
     econml.cate_estimator
+    econml.cate_interpreter
     econml.causal_tree
     econml.deepiv
     econml.dgp
