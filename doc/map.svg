@@ -182,19 +182,23 @@
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(533.872 588)">LinearDRLearner</text>
         </a>
         <path d="M534.292 590.095 583.792 590.095 633.292 590.095 633.292 591.095 583.792 591.095 534.292 591.095Z" fill="#FFFFFF" fill-rule="evenodd" />
-        <rect x="471" y="624" width="226" height="71" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47" />
+        <rect x="471" y="614" width="226" height="90" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47" />
         <a href="_autosummary/econml.ortho_forest.html#econml.ortho_forest.ContinuousTreatmentOrthoForest" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(482.126 647)">ContinuousTreatmentOrthoForest</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(482.126 638)">ContinuousTreatmentOrthoForest</text>
         </a>
-        <path d="M482.292 648.666 533.042 648.666 583.792 648.666 634.542 648.666 685.292 648.666 685.292 649.666 634.542 649.666 583.792 649.666 533.042 649.666 482.292 649.666Z" fill="#FFFFFF" fill-rule="evenodd" />
+        <path d="M482.292 639.866 533.042 639.866 583.792 639.866 634.542 639.866 685.292 639.866 685.292 640.866 634.542 640.866 583.792 640.866 533.042 640.866 482.292 640.866Z" fill="#FFFFFF" fill-rule="evenodd" />
         <a href="_autosummary/econml.ortho_forest.html#econml.ortho_forest.DiscreteTreatmentOrthoForest" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(491.539 664)">DiscreteTreatmentOrthoForest</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(491.539 655)">DiscreteTreatmentOrthoForest</text>
         </a>
-        <path d="M491.292 665.666 537.292 665.666 583.292 665.666 629.292 665.666 675.292 665.666 675.292 666.666 629.292 666.666 583.292 666.666 537.292 666.666 491.292 666.666Z" fill="#FFFFFF" fill-rule="evenodd" />
-        <text fill="#C5E0B4" font-family="Calibri,Calibri_MSFontService,sans-serif" font-style="italic" font-weight="400" font-size="15" transform="translate(503.706 682)">
-            Coming soon:
-            <tspan x="84" y="0">CausalForest</tspan>
-        </text>
+        <path d="M491.292 656.866 537.292 656.866 583.292 656.866 629.292 656.866 675.292 656.866 675.292 657.866 629.292 657.866 583.292 657.866 537.292 657.866 491.292 657.866Z" fill="#FFFFFF" fill-rule="evenodd" />
+        <a href="_autosummary/econml.drlearner.html#econml.drlearner.ForestDRLearner" target="_parent">
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(533.539 673)">ForestDRLearner</text>
+        </a>
+        <path d="M533.292 674.866 583.292 674.866 633.292 674.866 633.292 675.866 583.292 675.866 533.292 675.866Z" fill="#FFFFFF" fill-rule="evenodd" />
+        <a href="_autosummary/econml.dml.html#econml.dml.ForestDMLCateEstimator" target="_parent">
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(508.959 691)">ForestDMLCateEstimator</text>
+        </a>
+        <path d="M509.292 692.866 558.959 692.866 608.626 692.866 658.292 692.866 658.292 693.866 608.626 693.866 558.959 693.866 509.292 693.866Z" fill="#FFFFFF" fill-rule="evenodd" />
         <rect x="471" y="716" width="226" height="131" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47" />
         <a href="_autosummary/econml.metalearners.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(542.039 752)">MetaLearners</text>
@@ -208,11 +212,12 @@
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(527.626 787)">DMLCateEstimator</text>
         </a>
         <path d="M527.292 788.513 564.626 788.513 601.959 788.513 639.292 788.513 639.292 789.513 601.959 789.513 564.626 789.513 527.292 789.513Z" fill="#FFFFFF" fill-rule="evenodd" />
-        <text fill="#C5E0B4" font-family="Calibri,Calibri_MSFontService,sans-serif" font-style="italic" font-weight="400" font-size="15" transform="translate(494.126 805)">
-            Coming soon:
-            <tspan x="84" y="0">NonParamDML</tspan>
-            <tspan x="175.333" y="0">, </tspan>
-            <tspan x="47.6667" y="17">DeepRLearner</tspan>
+        <a href="_autosummary/econml.dml.html#econml.dml.NonParamDMLCateEstimator" target="_parent">
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(496.042 805)">NonParamDMLCateEstimator</text>
+        </a>
+        <path d="M496.296 806.513 540.046 806.513 583.796 806.513 627.546 806.513 671.296 806.513 671.296 807.513 627.546 807.513 583.796 807.513 540.046 807.513 496.296 807.513Z" fill="#FFFFFF" fill-rule="evenodd" />
+        <text fill="#C5E0B4" font-family="Calibri,Calibri_MSFontService,sans-serif" font-style="italic" font-weight="400" font-size="15" transform="translate(499.796 822)">
+            Coming soon: <tspan x="84" y="0">DeepRLearner</tspan>
         </text>
         <path d="M1.49999-0.00474748 2.10114 189.93-0.898849 189.939-1.49999 0.00474748ZM5.09637 188.421 0.624882 197.435-3.90358 188.449Z" fill="#2980B9" transform="matrix(-1 -8.74228e-08 -8.74228e-08 1 584.125 263.5)" />
         <path d="M0.0176327-1.4999 67.7667-0.703441 67.7315 2.29635-0.0176327 1.4999ZM66.3021-3.72087 75.2486 0.884619 66.1963 5.27851Z" fill="#2980B9" transform="matrix(1 0 0 -1 395.5 576.385)" />
