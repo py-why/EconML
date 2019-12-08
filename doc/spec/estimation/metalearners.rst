@@ -1,15 +1,49 @@
 .. _metalearnersuserguide:
 
-Metalearners
-============
+==============
+Meta-Learners
+==============
+
+
+What is it?
+==================================
 
 Metalearners are discrete treatment CATE estimators that model either two response surfaces, :math:`Y(0)` and :math:`Y(1)`, or
 multiple response surfaces, :math:`Y(0)` to :math:`Y(K)` separately. For a detailed overview of these methods,
-see [Kunzel2017]_ and [Foster2019]_. 
+see [Kunzel2017]_. We also describe here more generally all our estimator classes where each
+stage of estimation can be an arbitrary ML method (e.g. the DRLearner and the NonParamDMLCateEstimator).
+Moreover, we also introduce a new meta-learner that uses ideas from Domain Adaptation in Machine Learning (the DomainAdaptationLearner).
+These methods fall into the meta-learner category because they simply combine ML methods in a black box manner
+so as to get a final stage estimate and do not introduce new estimation components.
 
 For examples of how to use our implemented metelearners check out this
 `Metalearners Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Metalearners%20Examples.ipynb>`_. The examples
 and documents here are only based on binary treatment setting, but all of these estimators are applicable to multiple treatment settings as well.
+
+
+What are the relevant estimator classes?
+========================================
+
+This section describes the methodology implemented in the classes, :class:`.SLearner`,
+:class:`.TLearner`, :class:`.XLearner`, :class:`.DomainAdaptationLearner`, :class:`.NonParamDMLCateEstimator`, :class:`.DRLearner`.
+Click on each of these links for a detailed module documentation and input parameters of each class.
+
+When should you use it?
+==================================
+
+These methods are particularly valuable when one wants full flexibility on what estimation method to use at each 
+stage. Moreover, they allow for the user to perform cross-validation for more data-adaptive estimation at each
+stage. Hence, they allow the user to do model selection both for nuisance quantities and for the final CATE model.
+However, due to their unrestricted flexibility, they typically do not offer valid confidence intervals, since
+it is not clear how arbitrary ML methods trade off bias and variance. So one should use these methods primarily
+if the target goal is estimating a CATE with a small mean squared error and performing automatic model selection
+via cross-validated estimators.
+
+Overview of Formal Methodology
+==============================
+
+We present here the reasoning of each estimator for the case of binary treatment. Our package works even for multiple
+categorical treatments and each method has a natural extension to multiple treatments, which we omit for succinctness.
 
 T-Learner
 -----------------
@@ -25,7 +59,7 @@ The T-Learner models :math:`Y(0)`, :math:`Y(1)` separately. The estimated CATE i
 where :math:`\hat{\mu}_0 = M_0(Y^0\sim X^0),\; \hat{\mu}_1 = M_1(Y^1\sim X^1)` are the outcome models for the control and treatment group, respectively. Here, :math:`M_0`, :math:`M_1` can be any suitable machine learning algorithms that can learn the relationship between features and outcome.
 
 The EconML package provides the following implementation of the T-Learner:
-:py:class:`~econml.metalearners.TLearner`
+:class:`.TLearner`
 
 S-Learner
 -----------
@@ -40,7 +74,7 @@ The S-Learner models :math:`Y(0)` and :math:`Y(1)` through one model that receiv
 where :math:`\hat{\mu}=M(Y \sim (X, T))` is the outcome model for features :math:`X, T`. Here, :math:`M` is any suitable machine learning algorithm.
  
 The EconML package provides the following implementation of the S-Learner: 
-:py:class:`~econml.metalearners.SLearner`
+:class:`.SLearner`
 
 X-Learner
 -----------
@@ -60,7 +94,7 @@ The X-Learner models :math:`Y(1)` and :math:`Y(0)` separately in order to estima
 where :math:`g(x)` is an estimation of :math:`P[T=1| X]` and :math:`M_1, M_2, M_3, M_4` are suitable machine learning algorithms. 
 
 The EconML package provides the following implementation of the X-Learner: 
-:py:class:`~econml.metalearners.XLearner`
+:class:`.XLearner`
 
 
 Domain Adaptation Learner
@@ -84,24 +118,37 @@ where :math:`g(x)` is an estimation of :math:`P[T=1| X]`, :math:`M_1, M_2, M_3` 
 dataset concatenation. 
 
 The EconML package provides the following implementation of the Domain Adaptation Learner: 
-:py:class:`~econml.metalearners.DomainAdaptationLearner`
+:class:`.DomainAdaptationLearner`
 
 
 Doubly Robust Learner
 ---------------------
 
-The Doubly Robust Learner estimates the treatment effect by running a regression between 
-the doubly robust unbiased estimates of the counterfactual outcomes and the target features :math:`X`, i.e.
-it first constructs the proxies:
+See :ref:`Doubly Robust Learning User Guide <druserguide>`.
 
-.. math::
-    
-    Y_{i,t}^{DR} = \hat{\E}[Y \mid T=t, x, W_i] - 1\{T_i=t\} \frac{Y_i - \hat{\E}[Y \mid T=t, x, W_i]}{\hat{\E}[1\{T=t\} \mid x, W_i]} 
+Non-Parametric Double Machine Learning
+--------------------------------------
 
-and then runs a regression between :math:`Y_{i, 1}^{DR} - Y_{i, 0}^{DR}` and :math:`X`.
+See :ref:`Double Machine Learning User Guid <dmluserguide>`.
 
-The EconML package provides the following implementation of the Doubly Robust Learner: 
-:py:class:`~econml.drlearner.DRLearner`
+
+Class Hierarchy Structure
+==================================
+
+.. inheritance-diagram:: econml.metalearners.SLearner econml.metalearners.TLearner econml.metalearners.XLearner econml.metalearners.DomainAdaptationLearner econml.drlearner.DRLearner econml.dml.DMLCateEstimator
+        :parts: 1
+        :private-bases:
+        :top-classes: econml._ortho_learner._OrthoLearner, econml.cate_estimator.LinearCateEstimator, econml.cate_estimator.TreatmentExpansionMixin
+
+
+Usage Examples
+==================================
+
+Check out the following notebooks:
+
+    * `Metalearners Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Metalearners%20Examples.ipynb>`_.
+    * `DML Examples Jupyter Notebook <https://github.com/microsoft/EconML/blob/master/notebooks/Double%20Machine%20Learning%20Examples.ipynb>`_,
+    * `Forest Learners Jupyter Notebook <https://github.com/microsoft/EconML/blob/master/notebooks/ForestLearners%20Basic%20Example.ipynb>`_.
 
 
 .. todo::

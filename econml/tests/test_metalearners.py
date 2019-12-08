@@ -9,6 +9,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 from econml.metalearners import *
+import econml.tests.utilities  # bugfix for assertWarns
 
 
 class TestMetalearners(unittest.TestCase):

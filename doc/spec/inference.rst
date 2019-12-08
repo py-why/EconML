@@ -1,19 +1,140 @@
-Generic Inference
+=================
+Inference
 =================
 
 \ 
 
-Bootstrap Subsampling
----------------------
+Bootstrap Inference
+====================
 
-We provide a generic bootstrap sampling estimator :py:class:`~econml.bootstrap.BootstrapEstimator` that can wrap either sklearn 
-or econml estimators.  This requires the wrapped object to provide a fit method, whose signature will be reused by the bootstrap 
-estimator (called on each of the cloned instances with a subsample of the data).
+Every estimator can provide bootstrap based confidence intervals by passing ``inference='bootstrap'`` or
+``inference=BootstrapInference(n_bootstrap_samples=100, n_jobs=-1)`` (see :class:`.BootstrapInference`).
+These intervals are calculated by training multiple versions of the original estimator on bootstrap subsamples
+with replacement. Then the intervals are calculated based on the quantiles of the estimate distribution
+across the multiple clones. See also :class:`.BootstrapEstimator` for more details on this.
 
-All attributes and methods that return a single array are reflected on the boostrap estimator in two ways: once with the same
-name, in which case the mean of the estimates is returned, and again with the postfixed suffix "_interval", in which case a 
-tuple of the lower and upper bounds will be returned instead (based on a 5-95% interval by default).  See the class's documentation
-for more detail on how to call these methods.
+For instance:
+
+.. testsetup::
+
+    import numpy as np
+    X = np.random.choice(np.arange(5), size=(100,3))
+    Y = np.random.normal(size=(100,2))
+    y = np.random.normal(size=(100,))
+    T = T0 = T1 = np.random.choice(np.arange(3), size=(100,2))
+    t = t0 = t1 = T[:,0]
+    W = np.random.normal(size=(100,2))
+
+.. testcode::
+
+    from econml.dml import NonParamDMLCateEstimator
+    from sklearn.ensemble import RandomForestRegressor
+    est = NonParamDMLCateEstimator(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                                model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                                model_final=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
+    est.fit(y, t, X, W, inference='bootstrap')
+    point = est.const_marginal_effect(X)
+    lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
+
+
+
+OLS Inference
+====================
+
+For estimators where the final stage CATE estimate is based on an Ordinary Least Squares regression, then we offer
+normality-based confidence intervals by setting ``inference='statsmodels'`` or dependent on the estimator one can
+alter the covariance type calculation via
+``inference=StatsModelsInference(cov_type='HC1)`` or ``inference=StatsModelsInferenceDiscrete(cov_type='HC1)``.
+See :class:`.StatsModelsInference` and :class:`.StatsModelsInferenceDiscrete` for more details.
+This for instance holds for the :class:`.LinearDMLCateEstimator` and the
+:class:`.LinearDRLearner`, e.g.:
+
+.. testcode::
+
+    from econml.dml import LinearDMLCateEstimator
+    from sklearn.ensemble import RandomForestRegressor
+    est = LinearDMLCateEstimator(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                                 model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
+    est.fit(y, t, X, W, inference='statsmodels')
+    point = est.const_marginal_effect(X)
+    lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
+
+.. testcode::
+
+    from econml.drlearner import LinearDRLearner
+    from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+    est = LinearDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                          model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
+    est.fit(y, t, X, W, inference='statsmodels')
+    point = est.effect(X)
+    lb, ub = est.effect_interval(X, alpha=0.05)
+
+This inference are enabled by our :class:`.StatsModelsLinearRegression` extension to the scikit-learn 
+:class:`~sklearn.linear_model.LinearRegression`.
+
+Debiased Lasso Inference
+=========================
+
+For estimators where the final stage CATE estimate is based on a high dimensional linear model with a sparsity
+constraint, then we offer confidence intervals using the debiased lasso technique. This for instance
+holds for the :class:`.SparseLinearDMLCateEstimator` and the :class:`.SparseLinearDRLearner`. You can enable such
+intervals by setting ``inference='debiasedlasso'``, e.g.:
+
+.. testcode::
+
+    from econml.dml import SparseLinearDMLCateEstimator
+    from sklearn.ensemble import RandomForestRegressor
+    est = SparseLinearDMLCateEstimator(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                                       model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
+    est.fit(y, t, X, W, inference='debiasedlasso')
+    point = est.const_marginal_effect(X)
+    lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
+
+.. testcode::
+
+    from econml.drlearner import SparseLinearDRLearner
+    from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+    est = SparseLinearDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                                model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
+    est.fit(y, t, X, W, inference='debiasedlasso')
+    point = est.effect(X)
+    lb, ub = est.effect_interval(X, alpha=0.05)
+
+
+This inference is enabled by our implementation of the :class:`.DebiasedLasso` extension to the scikit-learn
+:class:`~sklearn.linear_model.Lasso`.
+
+
+Subsampled Honest Forest Inference
+===================================
+
+For estimators where the final stage CATE estimate is a non-parametric model based on a Random Forest, we offer
+confidence intervals via the bootstrap-of-little-bags approach (see [Athey2019]_) for estimating the uncertainty of
+an Honest Random Forest. This for instance holds for the :class:`.ForestDMLCateEstimator`
+and the :class:`.ForestDRLearner`. You can enable such intervals by setting ``inference='blb'``, e.g.:
+
+.. testcode::
+
+    from econml.dml import ForestDMLCateEstimator
+    from sklearn.ensemble import RandomForestRegressor
+    est = ForestDMLCateEstimator(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                                 model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
+    est.fit(y, t, X, W, inference='blb')
+    point = est.const_marginal_effect(X)
+    lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
+
+.. testcode::
+
+    from econml.drlearner import ForestDRLearner
+    from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+    est = ForestDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                          model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
+    est.fit(y, t, X, W, inference='blb')
+    point = est.effect(X)
+    lb, ub = est.effect_interval(X, alpha=0.05)
+
+This inference is enabled by our implementation of the :class:`.SubsampledHonestForest` extension to the scikit-learn
+:class:`~sklearn.ensemble.RandomForestRegressor`.
 
 .. todo::    
     * Subsampling

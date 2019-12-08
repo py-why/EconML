@@ -32,11 +32,13 @@ from warnings import warn
 from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
 from econml.utilities import inverse_onehot, check_high_dimensional
 from econml.sklearn_extensions.linear_model import WeightedLassoCV, DebiasedLasso
+from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from sklearn.base import clone
 from econml._ortho_learner import _OrthoLearner
 from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin, DebiasedLassoCateEstimatorDiscreteMixin
 from econml.utilities import StatsModelsLinearRegression
 from sklearn.preprocessing import PolynomialFeatures
+from econml.inference import GenericModelFinalInferenceDiscrete
 
 
 def _filter_none_kwargs(**kwargs):
@@ -51,16 +53,16 @@ class DRLearner(_OrthoLearner):
     """
     CATE estimator that uses doubly-robust correction techniques to account for
     covariate shift (selection bias) between the treatment arms. The estimator is a special
-    case of an :class:`~econml._ortho_learner._OrthoLearner` estimator, so it follows the two
+    case of an :class:`._OrthoLearner` estimator, so it follows the two
     stage process, where a set of nuisance functions are estimated in the first stage in a crossfitting
     manner and a final stage estimates the CATE model. See the documentation of
-    :class:`~econml._ortho_learner._OrthoLearner` for a description of this two stage process.
+    :class:`._OrthoLearner` for a description of this two stage process.
 
     In this estimator, the CATE is estimated by using the following estimating equations. If we let:
 
     .. math ::
-        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i]\
-            + \\sum_{t=0}^{n_t} \\frac{Y_i - E[Y | X_i, W_i, T_i]}{Pr[T=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
+        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i=t]\
+            + \\frac{Y_i - E[Y | X_i, W_i, T_i=t]}{Pr[T_i=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
 
     Then the following estimating equation holds:
 
@@ -72,16 +74,16 @@ class DRLearner(_OrthoLearner):
     treatment t, by running a regression, regressing :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}` on :math:`X_i`.
 
     The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
-    problem of predicting the label :math:`T` from :math:`X, W`. The :class:`~econml.drlearner.DRLearner`
+    problem of predicting the label :math:`T` from :math:`X, W`. The :class:`.DRLearner`
     class takes as input the parameter ``model_propensity``, which is an arbitrary scikit-learn
     classifier, that is internally used to solve this classification problem.
 
-    The second nuisance function :math:`h` is a simple regression problem and the :class:`~econml.drlearner.DRLearner`
-    class takes as input the parameter `model_regressor``, which is an arbitrary scikit-learn regressor that
+    The second nuisance function :math:`h` is a simple regression problem and the :class:`.DRLearner`
+    class takes as input the parameter ``model_regressor``, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem.
 
     The final stage is multi-task regression problem with outcomes the labels :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}`
-    for each non-baseline treatment t. The :class:`~econml.drlearner.DRLearner` takes as input parameter
+    for each non-baseline treatment t. The :class:`.DRLearner` takes as input parameter
     ``model_final``, which is any scikit-learn regressor that is internally used to solve this multi-task
     regresion problem. If the parameter ``multitask_model_final`` is False, then this model is assumed
     to be a mono-task regressor, and separate clones of it are used to solve each regression target
@@ -98,7 +100,7 @@ class DRLearner(_OrthoLearner):
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
-        :class:`~econml.utilities.MultiModelWrapper` helper class.
+        :class:`.MultiModelWrapper` helper class.
 
     model_final :
         estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
@@ -196,7 +198,7 @@ class DRLearner(_OrthoLearner):
         import scipy.special
         import numpy as np
         from sklearn.linear_model import LassoCV
-        from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+        from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
         from econml.drlearner import DRLearner
 
         np.random.seed(123)
@@ -204,26 +206,26 @@ class DRLearner(_OrthoLearner):
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
         sigma = 0.01
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
-        est = DRLearner(model_propensity=GradientBoostingClassifier(),
-                        model_regression=GradientBoostingRegressor(),
+        est = DRLearner(model_propensity=RandomForestClassifier(n_estimators=100, min_samples_leaf=10),
+                        model_regression=RandomForestRegressor(n_estimators=100, min_samples_leaf=10),
                         model_final=LassoCV(cv=3),
                         featurizer=None)
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    3.50415...
+    1.9...
     >>> est.const_marginal_effect(X[:3])
-    array([[ 0.553...,  1.138...],
-           [ 0.318...,  0.730...],
-           [-0.074..., -0.067...]])
+    array([[0.66...,  1.16...],
+           [0.56...,  0.86...],
+           [0.34...,  0.20...]])
     >>> est.model_cate(T=2).coef_
-    array([ 0.871...,  0.026..., -0.        ])
+    array([ 0.71..., -0.        , -0.        ])
     >>> est.model_cate(T=2).intercept_
-    2.057...
+    1.9...
     >>> est.model_cate(T=1).coef_
-    array([ 0.433...,  0.033..., -0.        ])
+    array([0.23..., 0.        , 0.        ])
     >>> est.model_cate(T=1).intercept_
-    0.990...
+    0.92...
 
     Attributes
     ----------
@@ -301,8 +303,7 @@ class DRLearner(_OrthoLearner):
                     X = self._featurizer.fit_transform(X)
                 filtered_kwargs = _filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var)
                 if self._multitask_model_final:
-                    self.model_cate = clone(self._model_final, safe=False).fit(
-                        X, Y_pred[:, 1:] - Y_pred[:, [0]], **filtered_kwargs)
+                    self.model_cate = self._model_final.fit(X, Y_pred[:, 1:] - Y_pred[:, [0]], **filtered_kwargs)
                 else:
                     self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[:, t] - Y_pred[:, 0],
                                                                                  **filtered_kwargs)
@@ -337,7 +338,7 @@ class DRLearner(_OrthoLearner):
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         Parameters
         ----------
@@ -496,7 +497,7 @@ class DRLearner(_OrthoLearner):
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     """
-    Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
+    Special case of the :class:`.DRLearner` where the final stage
     is a Linear Regression on a low dimensional set of features. In this case, inference
     can be performed via the asymptotic normal characterization of the estimated parameters.
     This is computationally faster than bootstrap inference. Set ``inference='statsmodels'``
@@ -518,7 +519,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     Then inference can be performed via standard approaches for inference of OLS, via asympotic normal approximations
     of the estimated parameters. The default covariance estimator used is heteroskedasticity robust (HC1).
-    For other methods see :class:`~econml.inference.StatsModelsInferenceDiscrete`. Use can invoke them by setting:
+    For other methods see :class:`.StatsModelsInferenceDiscrete`. Use can invoke them by setting:
     ``inference=StatsModelsInferenceDiscrete(cov_type=...)``.
 
     This approach is valid even if the CATE model is not linear in :math:`\\phi(X)`. In this case it performs
@@ -535,7 +536,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
-        :class:`~econml.utilities.MultiModelWrapper` helper class.
+        :class:`.MultiModelWrapper` helper class.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -628,7 +629,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         Parameters
         ----------
@@ -673,7 +674,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
 class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     """
-    Special case of the :class:`~econml.drlearner.DRLearner` where the final stage
+    Special case of the :class:`.DRLearner` where the final stage
     is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
     faster than bootstrap inference. Set ``inference='debiasedlasso'`` at fit time, to enable inference
@@ -712,7 +713,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
-        :class:`~econml.utilities.MultiModelWrapper` helper class.
+        :class:`.MultiModelWrapper` helper class.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -827,7 +828,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
-        Estimate the counterfactual model from data, i.e. estimates function: math: `\\theta(\\cdot)`.
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         Parameters
         ----------
@@ -868,6 +869,239 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         # Replacing this method which is invalid for this class, so that we make the
         # dosctring empty and not appear in the docs.
         return super().multitask_model_cate
+
+    @property
+    def model_final(self):
+        return super().model_final._model_final
+
+    @property
+    def fitted_models_final(self):
+        return super().model_final.models_cate
+
+
+class ForestDRLearner(DRLearner):
+    """ Instance of DRLearner with a :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
+    as a final model, so as to enable non-parametric inference.
+
+    Parameters
+    ----------
+    model_propensity : scikit-learn classifier
+        Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
+        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
+        where T is a shape (n, ) array.
+
+    model_regression : scikit-learn regressor
+        Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
+        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
+        `predict` methods. If different models per treatment arm are desired, see the
+        :class:`~econml.utilities.MultiModelWrapper` helper class.
+
+    n_crossfit_splits: int, cross-validation generator or an iterable, optional (Default=2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    n_estimators : integer, optional (default=100)
+        The total number of trees in the forest. The forest consists of a
+        forest of sqrt(n_estimators) sub-forests, where each sub-forest
+        contains sqrt(n_estimators) trees.
+
+    criterion : string, optional (default="mse")
+        The function to measure the quality of a split. Supported criteria
+        are "mse" for the mean squared error, which is equal to variance
+        reduction as feature selection criterion, and "mae" for the mean
+        absolute error.
+
+    max_depth : integer or None, optional (default=None)
+        The maximum depth of the tree. If None, then nodes are expanded until
+        all leaves are pure or until all leaves contain less than
+        min_samples_split samples.
+
+    min_samples_split : int, float, optional (default=2)
+        The minimum number of splitting samples required to split an internal node.
+
+        - If int, then consider `min_samples_split` as the minimum number.
+        - If float, then `min_samples_split` is a fraction and
+          `ceil(min_samples_split * n_samples)` are the minimum
+          number of samples for each split.
+
+    min_samples_leaf : int, float, optional (default=1)
+        The minimum number of samples required to be at a leaf node.
+        A split point at any depth will only be considered if it leaves at
+        least ``min_samples_leaf`` splitting samples in each of the left and
+        right branches.  This may have the effect of smoothing the model,
+        especially in regression. After construction the tree is also pruned
+        so that there are at least min_samples_leaf estimation samples on
+        each leaf.
+
+        - If int, then consider `min_samples_leaf` as the minimum number.
+        - If float, then `min_samples_leaf` is a fraction and
+          `ceil(min_samples_leaf * n_samples)` are the minimum
+          number of samples for each node.
+
+    min_weight_fraction_leaf : float, optional (default=0.)
+        The minimum weighted fraction of the sum total of weights (of all
+        splitting samples) required to be at a leaf node. Samples have
+        equal weight when sample_weight is not provided. After construction
+        the tree is pruned so that the fraction of the sum total weight
+        of the estimation samples contained in each leaf node is at
+        least min_weight_fraction_leaf
+
+    max_features : int, float, string or None, optional (default="auto")
+        The number of features to consider when looking for the best split:
+
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a fraction and
+          `int(max_features * n_features)` features are considered at each
+          split.
+        - If "auto", then `max_features=n_features`.
+        - If "sqrt", then `max_features=sqrt(n_features)`.
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
+
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+
+    max_leaf_nodes : int or None, optional (default=None)
+        Grow trees with ``max_leaf_nodes`` in best-first fashion.
+        Best nodes are defined as relative reduction in impurity.
+        If None then unlimited number of leaf nodes.
+
+    min_impurity_decrease : float, optional (default=0.)
+        A node will be split if this split induces a decrease of the impurity
+        greater than or equal to this value.
+
+        The weighted impurity decrease equation is the following::
+
+            N_t / N * (impurity - N_t_R / N_t * right_impurity
+                                - N_t_L / N_t * left_impurity)
+
+        where ``N`` is the total number of split samples, ``N_t`` is the number of
+        split samples at the current node, ``N_t_L`` is the number of split samples in the
+        left child, and ``N_t_R`` is the number of split samples in the right child.
+
+        ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
+        if ``sample_weight`` is passed.
+
+    subsample_fr : float or 'auto', optional (default='auto')
+        The fraction of the half-samples that are used on each tree. Each tree
+        will be built on subsample_fr * n_samples/2.
+
+        If 'auto', then the subsampling fraction is set to::
+
+            (n_samples/2)**(1-1/(2*n_features+2))/(n_samples/2)
+
+        which is sufficient to guarantee asympotitcally valid inference.
+
+    honest : boolean, optional (default=True)
+        Whether to use honest trees, i.e. half of the samples are used for
+        creating the tree structure and the other half for the estimation at
+        the leafs. If False, then all samples are used for both parts.
+
+    n_jobs : int or None, optional (default=None)
+        The number of jobs to run in parallel for both `fit` and `predict`.
+        ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
+        ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
+        for more details.
+
+    verbose : int, optional (default=0)
+        Controls the verbosity when fitting and predicting.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
+    """
+
+    def __init__(self,
+                 model_regression, model_propensity,
+                 n_crossfit_splits=2,
+                 n_estimators=1000,
+                 criterion="mse",
+                 max_depth=None,
+                 min_samples_split=5,
+                 min_samples_leaf=5,
+                 min_weight_fraction_leaf=0.,
+                 max_features="auto",
+                 max_leaf_nodes=None,
+                 min_impurity_decrease=0.,
+                 subsample_fr='auto',
+                 honest=True,
+                 n_jobs=None,
+                 verbose=0,
+                 random_state=None):
+        model_final = SubsampledHonestForest(n_estimators=n_estimators,
+                                             criterion=criterion,
+                                             max_depth=max_depth,
+                                             min_samples_split=min_samples_split,
+                                             min_samples_leaf=min_samples_leaf,
+                                             min_weight_fraction_leaf=min_weight_fraction_leaf,
+                                             max_features=max_features,
+                                             max_leaf_nodes=max_leaf_nodes,
+                                             min_impurity_decrease=min_impurity_decrease,
+                                             subsample_fr=subsample_fr,
+                                             honest=honest,
+                                             n_jobs=n_jobs,
+                                             random_state=random_state,
+                                             verbose=verbose)
+        super().__init__(model_regression=model_regression, model_propensity=model_propensity,
+                         model_final=model_final, featurizer=None,
+                         multitask_model_final=False,
+                         n_splits=n_crossfit_splits, random_state=random_state)
+
+    def _get_inference_options(self):
+        # add statsmodels to parent's options
+        options = super()._get_inference_options()
+        options.update(blb=GenericModelFinalInferenceDiscrete)
+        return options
+
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
+        """
+        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+
+        Parameters
+        ----------
+        Y: (n × d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n × dₜ) matrix or vector of length n
+            Treatments for each sample
+        X: optional (n × dₓ) matrix
+            Features for each sample
+        W: optional (n × d_w) matrix
+            Controls for each sample
+        sample_weight: optional (n,) vector
+            Weights for each row
+        sample_var: optional (n, n_y) vector
+            Variance of sample, in case it corresponds to summary of many samples. Currently
+            not in use by this method (as inference method does not require sample variance info).
+        inference: string, `Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'blb'
+            (for Bootstrap-of-Little-Bags based inference)
+
+        Returns
+        -------
+        self
+        """
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
+
+    def multitask_model_cate(self):
+        # Replacing to remove docstring
+        super().multitask_model_cate()
 
     @property
     def model_final(self):

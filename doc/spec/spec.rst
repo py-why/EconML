@@ -18,6 +18,7 @@ The EconML Python SDK, developed by the ALICE team at MSR New England, incorpora
     flowchart
     comparison
     estimation
+    estimation_iv
     inference
     references
 
