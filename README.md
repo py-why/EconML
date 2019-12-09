@@ -117,27 +117,132 @@ To install from source, see [For Developers](#for-developers) section below.
   ```Python
   from econml.dml import LinearDMLCateEstimator
   from sklearn.linear_model import LassoCV
-  
+
   est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
-  est.fit(Y, T, X, W) # W -> high-dimensional confounders, X -> features
+  est.fit(Y, T, X, W, inference='statsmodels') # W -> high-dimensional confounders, X -> features
   treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via OLS asymptotics
+  ```
+
+  ```Python
+  from econml.dml import LinearDMLCateEstimator
+  from sklearn.linear_model import LassoCV
+  from econml.inference import BootstrapInference
+
+  est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
+  est.fit(Y, T, X, W, inference='bootstrap')  # with default bootstrap parameters
+  est.fit(Y, T, X, W, inference=BootstrapInference(n_bootstrap_samples=100))  # or customized
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05) # Bootstrap confidence intervals
+  ```
+
+  ```Python
+  from econml.dml import SparseLinearDMLCateEstimator
+  from sklearn.linear_model import LassoCV
+
+  est = SparseLinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
+  est.fit(Y, T, X, W, inference='debiasedlasso') # X -> high dimensional features
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via debiased lasso
+  ```
+  
+  ```Python
+  from econml.dml import ForestDMLCateEstimator
+  from sklearn.ensemble import GradientBoostingRegressor
+
+  est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
+  est.fit(Y, T, X, W, inference='blb') 
+  treatment_effects = est.effect(X_test)
+  # Confidence intervals via Bootstrap-of-Little-Bags for forests
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
   ```
 
 * [Orthogonal Random Forests](#references)
 
   ```Python
   from econml.ortho_forest import ContinuousTreatmentOrthoForest
-  from econml.sklearn_extensions.linear_model import WeightedLassoCV
+  from econml.sklearn_extensions.linear_model import WeightedLasso, WeightedLassoCV
   # Use defaults
   est = ContinuousTreatmentOrthoForest()
   # Or specify hyperparameters
   est = ContinuousTreatmentOrthoForest(n_trees=500, min_leaf_size=10, 
-                                       max_depth=10, subsample_ratio=0.7, 
-                                       lambda_reg=0.01,
-                                       model_T=WeightedLassoCV(cv=3), model_Y=WeightedLassoCV(cv=3)
-                                       )
+                                      max_depth=10, subsample_ratio=0.7,
+                                      lambda_reg=0.01,
+                                      model_T=WeightedLasso(alpha=0.01), model_Y=WeightedLasso(alpha=0.01),
+                                      model_T_final=WeightedLassoCV(cv=3), model_Y_final=WeightedLassoCV(cv=3))
   est.fit(Y, T, X, W)
   treatment_effects = est.effect(X_test)
+  ```
+
+* [Meta-Learners](#references)
+
+  ```Python
+  from econml.metalearners import XLearner
+  from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+
+  est = XLearner(models=GradientBoostingRegressor(),
+                propensity_model=GradientBoostingClassifier(),
+                cate_models=GradientBoostingRegressor())
+  est.fit(Y, T, np.hstack([X, W]))
+  treatment_effects = est.effect(np.hstack([X_test, W_test]))
+
+  # Fit with bootstrap confidence interval construction enabled
+  est.fit(Y, T, np.hstack([X, W]), inference='bootstrap')
+  treatment_effects = est.effect(np.hstack([X_test, W_test]))
+  lb, ub = est.effect_interval(np.hstack([X_test, W_test]), alpha=0.05) # Bootstrap CIs
+  ```
+
+  ```Python
+  from econml.metalearners import SLearner
+  from sklearn.ensemble import GradientBoostingRegressor
+
+  est = SLearner(overall_model=GradientBoostingRegressor())
+  est.fit(Y, T, np.hstack([X, W]))
+  treatment_effects = est.effect(np.hstack([X_test, W_test]))
+  ```
+
+  ```Python
+  from econml.metalearners import TLearner
+  from sklearn.ensemble import GradientBoostingRegressor
+
+  est = TLearner(models=GradientBoostingRegressor())
+  est.fit(Y, T, np.hstack([X, W]))
+  treatment_effects = est.effect(np.hstack([X_test, W_test]))
+  ```
+
+* [Doubly Robust Learner](#references)
+
+  ```Python
+  from econml.drlearner import LinearDRLearner
+  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+  est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
+                        model_regression=GradientBoostingRegressor())
+  est.fit(Y, T, X, W, inference='statsmodels')
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
+  ```
+
+  ```Python
+  from econml.drlearner import SparseLinearDRLearner
+  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+  est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
+                              model_regression=GradientBoostingRegressor())
+  est.fit(Y, T, X, W, inference='debiasedlasso')
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
+  ```
+
+  ```Python
+  from econml.drlearner import ForestDRLearner
+  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+  est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
+                        model_regression=GradientBoostingRegressor())
+  est.fit(Y, T, X, W, inference='blb') 
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
   ```
 
 * [Deep Instrumental Variables](#references)
@@ -166,21 +271,6 @@ To install from source, see [For Developers](#for-developers) section below.
                         )
   est.fit(Y, T, X, Z) # Z -> instrumental variables
   treatment_effects = est.effect(X_test)
-  ```
-
-
-* Confidence Intervals
-  ```Python
-  from econml.dml import LinearDMLCateEstimator
-  
-  est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
-  # Confidence intervals assuming normality, via 'statsmodels'
-  # Report [alpha/2, 1-alpha/2] confidence interval
-  est.fit(Y, T, X, W, inference='statsmodels')
-  treatment_effect_interval = est.effect_interval(X_test, alpha=0.1)
-  # Confidence intervals using bootstrap
-  est.fit(Y, T, X, W, inference='bootstrap')
-  treatment_effect_interval = est.effect_interval(X_test, alpha=0.1)
   ```
 
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
