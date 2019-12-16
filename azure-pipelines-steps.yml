@@ -3,9 +3,6 @@
 # Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
-parameters:
-  body: []
-
 steps:
 - task: UsePythonVersion@0
   displayName: 'Use Python $(python.version)'
@@ -22,8 +19,26 @@ steps:
   displayName: 'Install graphviz on Linux'
   condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
+# Set pip cache location
+- script: 'echo "##vso[task.setvariable variable=PIP_CACHE]%LocalAppData%\pip\Cache"'
+  displayName: 'Set pip cache for Windows'
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+- script: 'echo "##vso[task.setvariable variable=PIP_CACHE]$HOME/.cache/pip"'
+  displayName: 'Set pip cache for Linux'
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+
+- script: 'echo "##vso[task.setvariable variable=PIP_CACHE]$HOME/Library/Caches/pip"'
+  displayName: 'Set pip cache for Darwin'
+  condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+ 
+# Cache pip results
+- task: Cache@2
+  displayName: 'Cache pip results'
+  inputs:
+    key: '"$(Agent.OS)" | "$(Agent.OSArchitecture)" | setup.cfg'
+    path: '$(PIP_CACHE)'
+
 # Install the package
 - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools && pip install .'
   displayName: 'Install dependencies'
-
-- ${{ parameters.body }}
