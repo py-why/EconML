@@ -1230,6 +1230,7 @@ class LassoCVWrapper:
 
 
 def summary_return(tables, return_fmt='text'):
+    """Helper function to return table with the coresponding format."""
     # join table parts then print
     if return_fmt == 'text':
         def strdrop(x): return str(x).rsplit('\n', 1)[0]

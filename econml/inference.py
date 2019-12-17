@@ -151,7 +151,7 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         return lb, ub
 
     def effect_inference(self, X, *, T0, T1):
-         # We can write effect inference as a function of const_marginal_effect_inference for a single treatment
+        # We can write effect inference as a function of const_marginal_effect_inference for a single treatment
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         cme_pred = self.const_marginal_effect_inference(X).point_estimate
         cme_stderr = self.const_marginal_effect_inference(X).stderr
@@ -373,6 +373,17 @@ class InferenceResults(object):
 
     @property
     def point_estimate(self):
+        """
+        Get the point estimate of each treatment on each outcome for each sample X[i].
+
+        Returns
+        -------
+        prediction : array-like, shape (m, d_y, d_t)
+            The point estimate of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
         return self.pred
 
     @property
@@ -431,7 +442,7 @@ class InferenceResults(object):
 
     def pvalue(self, value=0):
         """
-        Get the p value of the metric of each treatment on each outcome for each sample X[i].
+        Get the p value of the z test of each treatment on each outcome for each sample X[i].
 
         Parameters
         ----------
@@ -441,7 +452,7 @@ class InferenceResults(object):
         Returns
         -------
         pvalue : array-like, shape (m, d_y, d_t)
-            The p value of the metric of each treatment on each outcome for each sample X[i].
+            The p value of the z test of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
@@ -485,7 +496,7 @@ class InferenceResults(object):
         Returns
         -------
         output: pandas dataframe
-            the output dataframe includes point estimate, standard error, z score, p value and confidence intervals
+            The output dataframe includes point estimate, standard error, z score, p value and confidence intervals
             of the estimated metric of each treatment on each outcome for each sample X[i]
         """
 
@@ -505,16 +516,14 @@ class InferenceResults(object):
         return res
 
     def population_summary(self):
-        # TODO: update doc string here
         """
-        Output the dataframe of population summary result.
-
-        Parameters
-        ----------
+        Output the object of population summary results.
 
         Returns
         -------
-
+        PopulationSummaryResults: object
+            The population summary results instance contains mean, standard error, z score, p value and confidence intervals
+            of the mean of the estimated metric for sample X on each treatment and outcome.
         """
         return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y)
 
@@ -528,6 +537,27 @@ class InferenceResults(object):
 
 
 class PopulationSummaryResults(object):
+    """
+    Population summary results class for inferences.
+
+    Parameters
+    ----------
+    d_t: int
+        Number of treatments
+    d_y: int
+        Number of outputs
+    pred : array-like, shape (m, d_y, d_t)
+        The prediction of the metric for each sample X[i].
+        Note that when Y or T is a vector rather than a 2-dimensional array,
+        the corresponding singleton dimensions should be collapsed
+        (e.g. if both are vectors, then the input of this argument will also be a vector)
+    pred_stderr : array-like, shape (m, d_y, d_t)
+        The prediction standard error of the metric for each sample X[i].
+        Note that when Y or T is a vector rather than a 2-dimensional array,
+        the corresponding singleton dimensions should be collapsed
+        (e.g. if both are vectors, then the input of this argument will also be a vector)
+    """
+
     def __init__(self, pred, pred_stderr, d_t, d_y):
         self.pred = pred
         self.pred_stderr = pred_stderr
@@ -537,33 +567,138 @@ class PopulationSummaryResults(object):
     # 1. mean of point estimate
     @property
     def mean_point(self):
+        """
+        Get the mean of the point estimate of each treatment on each outcome for sample X.
+
+        Returns
+        -------
+        mean_point : array-like, shape (d_y, d_t)
+            The point estimate of each treatment on each outcome for sample X.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
         return np.mean(self.pred, axis=0)
+
     # 2. uncertainty of mean point estimate
     @property
     def stderr_mean(self):
+        """
+        Get the standard error of the mean point estimate of each treatment on each outcome for sample X.
+        The output is a conservative upper bound.
+
+        Returns
+        -------
+        stderr_mean : array-like, shape (d_y, d_t)
+            The standard error of the mean point estimate of each treatment on each outcome for sample X.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
         return np.sqrt(np.mean(self.pred_stderr**2, axis=0))
 
     def zstat(self, value=0):
+        """
+        Get the z statistic of the mean point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+
+
+        Returns
+        -------
+        zstat : array-like, shape (d_y, d_t)
+            The z statistic of the mean point estimate of each treatment on each outcome for sample X.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
         zstat = (self.mean_point - value) / self.stderr_mean
         return zstat
 
     def pvalue(self, value=0):
+        """
+        Get the p value of the z test of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+
+
+        Returns
+        -------
+        pvalue : array-like, shape (d_y, d_t)
+            The p value of the z test of each treatment on each outcome for sample X.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
         pvalue = norm.sf(np.abs(self.zstat(value)), loc=0, scale=1) * 2
         return pvalue
 
     def conf_int_mean(self, alpha=0.1):
+        """
+        Get the confidence interval of the mean point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple of arrays, shape (d_y, d_t)
+            The lower and the upper bounds of the confidence interval for each quantity.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+
         return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
                          for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
                                            [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)]),\
             np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                       for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
                                         [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)])
+
     # 3. distribution of point estimate
     @property
     def std_point(self):
+        """
+        Get the standard deviation of the point estimate of each treatment on each outcome for sample X.
+
+        Returns
+        -------
+        std_point : array-like, shape (d_y, d_t)
+            The standard deviation of the point estimate of each treatment on each outcome for sample X.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
         return np.std(self.pred, axis=0)
 
     def percentile_point(self, alpha=0.1):
+        """
+        Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple of arrays, shape (d_y, d_t)
+            The lower and the upper bounds of the confidence interval for each quantity.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
         lower_percentile_point = np.percentile(self.pred, (alpha / 2) * 100, axis=0)
         upper_percentile_point = np.percentile(self.pred, (1 - alpha / 2) * 100, axis=0)
         return np.array([lower_percentile_point]) if np.isscalar(lower_percentile_point) else lower_percentile_point, \
@@ -572,16 +707,65 @@ class PopulationSummaryResults(object):
     # 4. uncertainty of point estimate
     @property
     def stderr_point(self):
+        """
+        Get the standard error of the point estimate of each treatment on each outcome for sample X.
+
+        Returns
+        -------
+        stderr_point : array-like, shape (d_y, d_t)
+            The standard error of the point estimate of each treatment on each outcome for sample X.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
         return np.sqrt(self.stderr_mean**2 + self.std_point**2)
 
     def conf_int_point(self, alpha=0.1, tol=0.001):
+        """
+        Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple of arrays, shape (d_y, d_t)
+            The lower and the upper bounds of the confidence interval for each quantity.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
         lower_ci_point = np.array([self._mixture_ppf(alpha / 2, self.pred, self.pred_stderr, tol)])
         upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, tol)])
         return np.array([lower_ci_point]) if np.isscalar(lower_ci_point) else lower_ci_point,\
             np.array([upper_ci_point]) if np.isscalar(upper_ci_point) else upper_ci_point
 
-    # print the summary table
-    def print(self, decimals=3, value=0, alpha=0.1, tol=0.001):
+    def print(self, alpha=0.1, value=0, decimals=3, tol=0.001):
+        """
+        Output the summary inferences above.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        tol:  optinal float (default=0.001)
+            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+
+        Returns
+        -------
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
+        """
+
         # 1. mean of point estimate
         res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, decimals)
         myheaders1 = ["mean_point\nT" + str(i) for i in range(self.d_t)]
