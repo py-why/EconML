@@ -553,6 +553,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
     effect_interval.__doc__ = LinearCateEstimator.effect_interval.__doc__
 
+    def effect_inference(self, X=None, *, T0=0, T1=1):
+        self._check_fitted_dims(X)
+        return super().effect_inference(X, T0=T0, T1=T1)
+    effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
+
     def score(self, Y, T, X=None, W=None, Z=None):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters

@@ -3,12 +3,15 @@
 
 import abc
 import numpy as np
+import scipy
 from scipy.stats import norm
 import pandas as pd
 from collections import OrderedDict
+from statsmodels.iolib.table import SimpleTable
 from .bootstrap import BootstrapEstimator
 from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        ndim, inverse_onehot, parse_final_model_params, _safe_norm_ppf)
+                        ndim, inverse_onehot, parse_final_model_params, _safe_norm_ppf, Summary)
+
 
 """Options for performing inference in estimators."""
 
@@ -147,6 +150,23 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         ub = np.max(intrv_pre, axis=0)
         return lb, ub
 
+    def effect_inference(self, X, *, T0, T1):
+         # We can write effect inference as a function of const_marginal_effect_inference for a single treatment
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        cme_pred = self.const_marginal_effect_inference(X).point_estimate
+        cme_stderr = self.const_marginal_effect_inference(X).stderr
+        dT = T1 - T0
+        einsum_str = 'myt,mt->my'
+        if ndim(dT) == 1:
+            einsum_str = einsum_str.replace('t', '')
+        if ndim(cme_pred) == ndim(dT):  # y is a vector, rather than a 2D array
+            einsum_str = einsum_str.replace('y', '')
+        e_pred = np.einsum(einsum_str, cme_pred, dT)
+        e_stderr = np.einsum(einsum_str, cme_stderr, dT)
+        d_y = self._d_y[0] if self._d_y else 1
+        return InferenceResults(d_t=1, d_y=d_y, pred=e_pred,
+                                pred_stderr=e_stderr, pred_dist=None)
+
 
 class LinearModelFinalInference(GenericModelFinalInference):
     """
@@ -171,6 +191,19 @@ class LinearModelFinalInference(GenericModelFinalInference):
         elif self.featurizer is not None:
             X = self.featurizer.transform(X)
         return self._predict_interval(cross_product(X, T1 - T0), alpha=alpha)
+
+    def effect_inference(self, X, *, T0, T1):
+        # We can write effect inference as a function of predict_interval of the final method for linear models
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        if X is None:
+            X = np.ones((T0.shape[0], 1))
+        elif self.featurizer is not None:
+            X = self.featurizer.transform(X)
+        e_pred = self._predict(cross_product(X, T1 - T0))
+        e_stderr = self._prediction_stderr(cross_product(X, T1 - T0))
+        d_y = self._d_y[0] if self._d_y else 1
+        return InferenceResults(d_t=1, d_y=d_y, pred=e_pred,
+                                pred_stderr=e_stderr, pred_dist=None)
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -339,6 +372,10 @@ class InferenceResults(object):
         self.pred_dist = pred_dist
 
     @property
+    def point_estimate(self):
+        return self.pred
+
+    @property
     def stderr(self):
         """
         Get the standard error of the metric of each treatment on each outcome for each sample X[i].
@@ -467,51 +504,19 @@ class InferenceResults(object):
             res.index = res.index.droplevel(1)
         return res
 
-    def population_summary(self, alpha=0.1, value=0, decimals=3):
+    def population_summary(self):
+        # TODO: update doc string here
         """
         Output the dataframe of population summary result.
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.1)
-            The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
-            The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
-            Number of decimal places to round each column to.
 
         Returns
         -------
-        output: pandas dataframe
-            the output dataframe includes average of point estimate, standard error of the mean,
-        z statitic, p value and the confidence interval of the mean.
-        """
-        res_dic = OrderedDict()
-        pop_mean = np.mean(self.pred, axis=0)
-        var_pe = np.var(self.pred, axis=0)
-        avg_stderr = np.mean(self.pred_stderr, axis=0)
-        pop_stderr = np.sqrt(var_pe + avg_stderr)
-        pop_zstat = (pop_mean - value) / pop_stderr
-        pop_pvalue = norm.sf(np.abs(pop_zstat), loc=0, scale=1) * 2
-        pop_ci_lower = np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                                 for p, err in zip([pop_mean] if np.isscalar(pop_mean) else pop_mean,
-                                                   [pop_stderr] if np.isscalar(pop_stderr) else pop_stderr)])
-        pop_ci_upper = np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                                 for p, err in zip([pop_mean] if np.isscalar(pop_mean) else pop_mean,
-                                                   [pop_stderr] if np.isscalar(pop_stderr) else pop_stderr)])
 
-        res_dic['mean'] = self._array_to_frame(self.d_t, self.d_y, pop_mean)
-        res_dic['stderr'] = self._array_to_frame(self.d_t, self.d_y, pop_stderr)
-        res_dic['zstat'] = self._array_to_frame(self.d_t, self.d_y, pop_zstat)
-        res_dic['pvalue'] = self._array_to_frame(self.d_t, self.d_y, pop_pvalue)
-        res_dic['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, pop_ci_lower)
-        res_dic['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, pop_ci_upper)
-        res = pd.concat(res_dic, axis=1, keys=res_dic.keys()).round(decimals)
-        res.index = res.index.droplevel(0)
-        if self.d_t == 1:
-            res.columns = res.columns.droplevel(1)
-        return res
+        """
+        return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y)
 
     def _array_to_frame(self, d_t, d_y, arr):
         arr = arr.reshape((-1, d_y, d_t))
@@ -520,3 +525,131 @@ class InferenceResults(object):
         df.index = df.index.set_levels(['Y' + str(i) for i in range(d_y)], level=1)
         df.columns = ['T' + str(i) for i in range(d_t)]
         return df
+
+
+class PopulationSummaryResults(object):
+    def __init__(self, pred, pred_stderr, d_t, d_y):
+        self.pred = pred
+        self.pred_stderr = pred_stderr
+        self.d_t = d_t
+        self.d_y = d_y
+
+    # 1. mean of point estimate
+    @property
+    def mean_point(self):
+        return np.mean(self.pred, axis=0)
+    # 2. uncertainty of mean point estimate
+    @property
+    def stderr_mean(self):
+        return np.sqrt(np.mean(self.pred_stderr**2, axis=0))
+
+    def zstat(self, value=0):
+        zstat = (self.mean_point - value) / self.stderr_mean
+        return zstat
+
+    def pvalue(self, value=0):
+        pvalue = norm.sf(np.abs(self.zstat(value)), loc=0, scale=1) * 2
+        return pvalue
+
+    def conf_int_mean(self, alpha=0.1):
+        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                         for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
+                                           [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)]),\
+            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                      for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
+                                        [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)])
+    # 3. distribution of point estimate
+    @property
+    def std_point(self):
+        return np.std(self.pred, axis=0)
+
+    def percentile_point(self, alpha=0.1):
+        lower_percentile_point = np.percentile(self.pred, (alpha / 2) * 100, axis=0)
+        upper_percentile_point = np.percentile(self.pred, (1 - alpha / 2) * 100, axis=0)
+        return np.array([lower_percentile_point]) if np.isscalar(lower_percentile_point) else lower_percentile_point, \
+            np.array([upper_percentile_point]) if np.isscalar(upper_percentile_point) else upper_percentile_point
+
+    # 4. uncertainty of point estimate
+    @property
+    def stderr_point(self):
+        return np.sqrt(self.stderr_mean**2 + self.std_point**2)
+
+    def conf_int_point(self, alpha=0.1, tol=0.001):
+        lower_ci_point = np.array([self._mixture_ppf(alpha / 2, self.pred, self.pred_stderr, tol)])
+        upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, tol)])
+        return np.array([lower_ci_point]) if np.isscalar(lower_ci_point) else lower_ci_point,\
+            np.array([upper_ci_point]) if np.isscalar(upper_ci_point) else upper_ci_point
+
+    # print the summary table
+    def print(self, decimals=3, value=0, alpha=0.1, tol=0.001):
+        # 1. mean of point estimate
+        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, decimals)
+        myheaders1 = ["mean_point\nT" + str(i) for i in range(self.d_t)]
+        mystubs1 = ["Y" + str(i) for i in range(self.d_y)]
+        title1 = "Mean of Point Estimate"
+
+        # 2. uncertainty of mean point estimate
+        res2 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, decimals)
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.zstat(value), decimals)))
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.pvalue(value), decimals)))
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean(alpha)[0], decimals)))
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean(alpha)[1], decimals)))
+        metric_name2 = ['stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
+        myheaders2 = [name + '\nT' + str(i) for name in metric_name2 for i in range(self.d_t)]
+        mystubs2 = ["Y" + str(i) for i in range(self.d_y)]
+        title2 = "Uncertainty of Mean Point Estimate"
+        text2 = "Note: The stderr_mean is a conservative upper bound."
+
+        # 3. distribution of point estimate
+        res3 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, decimals)
+        res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point(alpha)[0], decimals)))
+        res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point(alpha)[1], decimals)))
+        metric_name3 = ['std_point', 'pct_point_lower', 'pct_point_upper']
+        myheaders3 = [name + '\nT' + str(i) for name in metric_name3 for i in range(self.d_t)]
+        mystubs3 = ["Y" + str(i) for i in range(self.d_y)]
+        title3 = "Distribution of Point Estimate"
+
+        # 4. uncertainty of point estimate
+        res4 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, decimals)
+        res4 = np.hstack((res4, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.conf_int_point(alpha, tol)[0], decimals)))
+        res4 = np.hstack((res4, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.conf_int_point(alpha, tol)[1], decimals)))
+        metric_name4 = ['std_point', 'ci_point_lower', 'ci_point_upper']
+        myheaders4 = [name + '\nT' + str(i) for name in metric_name4 for i in range(self.d_t)]
+        mystubs4 = ["Y" + str(i) for i in range(self.d_y)]
+        title4 = "Uncertainty of Point Estimate"
+
+        smry = Summary()
+        smry.add_table(res1, myheaders1, mystubs1, title1)
+        smry.add_table(res2, myheaders2, mystubs2, title2)
+        smry.add_extra_txt([text2])
+        smry.add_table(res3, myheaders3, mystubs3, title3)
+        smry.add_table(res4, myheaders4, mystubs4, title4)
+        return smry
+
+    def _mixture_ppf(self, alpha, mean, stderr, tol):
+        done = False
+        mix_ppf = scipy.stats.norm.ppf(alpha, loc=mean, scale=stderr)
+        lower = np.min(mix_ppf, axis=0)
+        upper = np.max(mix_ppf, axis=0)
+        while not done:
+            cur = (lower + upper) / 2
+            cur_mean = np.mean(scipy.stats.norm.cdf(cur, loc=mean, scale=stderr), axis=0)
+            if np.isscalar(cur):
+                if np.abs(cur_mean - alpha) < tol or (cur == lower):
+                    return cur
+                elif cur_mean < alpha:
+                    lower = cur
+                else:
+                    upper = cur
+            else:
+                if np.all((np.abs(cur_mean - alpha) < tol) | (cur == lower)):
+                    return cur
+                lower[cur_mean < alpha] = cur[cur_mean < alpha]
+                upper[cur_mean > alpha] = cur[cur_mean > alpha]
+
+    def _res_to_2darray(self, d_t, d_y, res, decimals):
+        arr = np.array([[res]]) if np.isscalar(res) else res.reshape((d_y, d_t))
+        arr = np.round(arr, decimals)
+        return arr

@@ -198,6 +198,30 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         pass
 
     @_defer_to_inference
+    def effect_inference(self, X=None, *, T0=0, T1=1):
+        """ Inference results for the quantities :math:`\\tau(X, T0, T1)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
+        pass
+
+    @_defer_to_inference
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\partial \\tau(T, X)` produced
         by the model. Available only when ``inference`` is not ``None``, when
@@ -218,6 +242,28 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         lower, upper : tuple(type of :meth:`marginal_effect(T, X)<marginal_effect>`, \
                              type of :meth:`marginal_effect(T, X)<marginal_effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @_defer_to_inference
+    def marginal_effect_inference(self, T, X=None):
+        """ Inference results for the quantities :math:`\\partial \\tau(T, X)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
         """
         pass
 
@@ -323,6 +369,9 @@ class LinearCateEstimator(BaseCateEstimator):
         return tuple(np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
                      for eff in effs)
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
+
+    def marginal_effect_inference(self, T, X=None):
+        raise AttributeError("The treatment effect is linear, please call const_marginal_effect_inference!")
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):

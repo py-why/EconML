@@ -21,6 +21,9 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from collections.abc import Iterable
 from sklearn.utils.multiclass import type_of_target
 import numbers
+from statsmodels.iolib.table import SimpleTable
+from statsmodels.compat.python import lmap
+import copy
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -1224,3 +1227,136 @@ class LassoCVWrapper:
     def predict(self, X):
         predictions = self.model.predict(X)
         return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
+
+
+def summary_return(tables, return_fmt='text'):
+    # join table parts then print
+    if return_fmt == 'text':
+        def strdrop(x): return str(x).rsplit('\n', 1)[0]
+        # convert to string drop last line
+        print(tables)
+        return '\n'.join(lmap(strdrop, tables[:-1]) + [str(tables[-1])])
+    elif return_fmt == 'tables':
+        return tables
+    elif return_fmt == 'csv':
+        return '\n'.join(x.as_csv() for x in tables)
+    elif return_fmt == 'latex':
+        # TODO: insert \hline after updating SimpleTable
+        table = copy.deepcopy(tables[0])
+        del table[-1]
+        for part in tables[1:]:
+            table.extend(part)
+        return table.as_latex_tabular()
+    elif return_fmt == 'html':
+        return "\n".join(table.as_html() for table in tables)
+    else:
+        raise ValueError('available output formats are text, csv, latex, html')
+
+
+class Summary(object):
+    """
+    Result summary
+
+    Construction does not take any parameters. Tables and text can be added
+    with the `add_` methods.
+
+    Attributes
+    ----------
+    tables : list of tables
+        Contains the list of SimpleTable instances, horizontally concatenated
+        tables are not saved separately.
+    extra_txt : str
+        extra lines that are added to the text output, used for warnings
+        and explanations.
+    """
+
+    def __init__(self):
+        self.tables = []
+        self.extra_txt = None
+
+    def __str__(self):
+        return self.as_text()
+
+    def __repr__(self):
+        return str(type(self)) + '\n"""\n' + self.__str__() + '\n"""'
+
+    def _repr_html_(self):
+        '''Display as HTML in IPython notebook.'''
+        return self.as_html()
+
+    def add_table(self, res, header, index, title):
+        table = SimpleTable(res, header, index, title)
+        self.tables.append(table)
+
+    def add_extra_txt(self, etext):
+        '''add additional text that will be added at the end in text format
+
+        Parameters
+        ----------
+        etext : list[str]
+            string with lines that are added to the text output.
+
+        '''
+        self.extra_txt = '\n'.join(etext)
+
+    def as_text(self):
+        '''return tables as string
+
+        Returns
+        -------
+        txt : str
+            summary tables and extra text as one string
+
+        '''
+        txt = summary_return(self.tables, return_fmt='text')
+        if self.extra_txt is not None:
+            txt = txt + '\n\n' + self.extra_txt
+        return txt
+
+    def as_latex(self):
+        '''return tables as string
+
+        Returns
+        -------
+        latex : str
+            summary tables and extra text as string of Latex
+
+        Notes
+        -----
+        This currently merges tables with different number of columns.
+        It is recommended to use `as_latex_tabular` directly on the individual
+        tables.
+
+        '''
+        latex = summary_return(self.tables, return_fmt='latex')
+        if self.extra_txt is not None:
+            latex = latex + '\n\n' + self.extra_txt.replace('\n', ' \\newline\n ')
+        return latex
+
+    def as_csv(self):
+        '''return tables as string
+
+        Returns
+        -------
+        csv : str
+            concatenated summary tables in comma delimited format
+
+        '''
+        csv = summary_return(self.tables, return_fmt='csv')
+        if self.extra_txt is not None:
+            csv = csv + '\n\n' + self.extra_txt
+        return csv
+
+    def as_html(self):
+        '''return tables as string
+
+        Returns
+        -------
+        html : str
+            concatenated summary tables in HTML format
+
+        '''
+        html = summary_return(self.tables, return_fmt='html')
+        if self.extra_txt is not None:
+            html = html + '<br/><br/>' + self.extra_txt.replace('\n', '<br/>')
+        return html
