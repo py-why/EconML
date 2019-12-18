@@ -522,8 +522,8 @@ class InferenceResults(object):
         Returns
         -------
         PopulationSummaryResults: object
-            The population summary results instance contains mean, standard error, z score, p value and confidence intervals
-            of the mean of the estimated metric for sample X on each treatment and outcome.
+            The population summary results instance contains mean, standard error, z score, p value
+            and confidence intervals of the mean of the estimated metric for sample X on each treatment and outcome.
         """
         return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y)
 
@@ -660,7 +660,8 @@ class PopulationSummaryResults(object):
 
         return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
                          for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
-                                           [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)]),\
+                                           [self.stderr_mean] if np.isscalar(self.stderr_mean)
+                                           else self.stderr_mean)]),\
             np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                       for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
                                         [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)])

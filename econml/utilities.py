@@ -1233,9 +1233,9 @@ def summary_return(tables, return_fmt='text'):
     """Helper function to return table with the coresponding format."""
     # join table parts then print
     if return_fmt == 'text':
-        def strdrop(x): return str(x).rsplit('\n', 1)[0]
+        def strdrop(x):
+            return str(x).rsplit('\n', 1)[0]
         # convert to string drop last line
-        print(tables)
         return '\n'.join(lmap(strdrop, tables[:-1]) + [str(tables[-1])])
     elif return_fmt == 'tables':
         return tables
