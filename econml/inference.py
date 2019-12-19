@@ -529,8 +529,7 @@ class InferenceResults(object):
 
     def _array_to_frame(self, d_t, d_y, arr):
         arr = arr.reshape((-1, d_y, d_t))
-        df = pd.Panel(arr).transpose(2, 0, 1).to_frame()
-        df.index.names = [None, None]
+        df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
         df.index = df.index.set_levels(['Y' + str(i) for i in range(d_y)], level=1)
         df.columns = ['T' + str(i) for i in range(d_t)]
         return df
