@@ -997,6 +997,25 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         self._set_attribute("intercept_std_err_")
         return self
 
+    def predict(self, X):
+        """Get the prediction using the debiased lasso.
+
+        Parameters
+        ----------
+        X : ndarray or scipy.sparse matrix, (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        prediction : array like, shape (n_samples, ) or (n_samples, n_targets)
+            The prediction at each point.
+
+        """
+        pred = super().predict(X)
+        if self.flat_target:
+            pred = pred.flatten()
+        return pred
+
     def prediction_stderr(self, X):
         """Get the standard error of the predictions using the debiased lasso.
 
