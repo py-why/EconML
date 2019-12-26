@@ -515,9 +515,21 @@ class InferenceResults(object):
             res.index = res.index.droplevel(1)
         return res
 
-    def population_summary(self):
+    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001):
         """
         Output the object of population summary results.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        tol:  optinal float (default=0.001)
+            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
 
         Returns
         -------
@@ -525,7 +537,8 @@ class InferenceResults(object):
             The population summary results instance contains mean, standard error, z score, p value
             and confidence intervals of the mean of the estimated metric for sample X on each treatment and outcome.
         """
-        return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y)
+        return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y,
+                                        alpha=alpha, value=value, decimals=decimals, tol=tol)
 
     def _array_to_frame(self, d_t, d_y, arr):
         arr = arr.reshape((-1, d_y, d_t))
@@ -555,13 +568,34 @@ class PopulationSummaryResults(object):
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
+    alpha: optional float in [0, 1] (Default=0.1)
+        The overall level of confidence of the reported interval.
+        The alpha/2, 1-alpha/2 confidence interval is reported.
+    value: optinal float (default=0)
+        The mean value of the metric you'd like to test under null hypothesis.
+    decimals: optinal int (default=3)
+        Number of decimal places to round each column to.
+    tol:  optinal float (default=0.001)
+        The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+
     """
 
-    def __init__(self, pred, pred_stderr, d_t, d_y):
+    def __init__(self, pred, pred_stderr, d_t, d_y, alpha, value, decimals, tol):
         self.pred = pred
         self.pred_stderr = pred_stderr
         self.d_t = d_t
         self.d_y = d_y
+        self.alpha = alpha
+        self.value = value
+        self.decimals = decimals
+        self.tol = tol
+
+    def __str__(self):
+        return self.print().as_text()
+
+    def _repr_html_(self):
+        '''Display as HTML in IPython notebook.'''
+        return self.print().as_html()
 
     # 1. mean of point estimate
     @property
@@ -596,15 +630,10 @@ class PopulationSummaryResults(object):
         """
         return np.sqrt(np.mean(self.pred_stderr**2, axis=0))
 
-    def zstat(self, value=0):
+    @property
+    def zstat(self):
         """
         Get the z statistic of the mean point estimate of each treatment on each outcome for sample X.
-
-        Parameters
-        ----------
-        value: optinal float (default=0)
-            The mean value of the metric you'd like to test under null hypothesis.
-
 
         Returns
         -------
@@ -614,18 +643,13 @@ class PopulationSummaryResults(object):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will be a scalar)
         """
-        zstat = (self.mean_point - value) / self.stderr_mean
+        zstat = (self.mean_point - self.value) / self.stderr_mean
         return zstat
 
-    def pvalue(self, value=0):
+    @property
+    def pvalue(self):
         """
         Get the p value of the z test of each treatment on each outcome for sample X.
-
-        Parameters
-        ----------
-        value: optinal float (default=0)
-            The mean value of the metric you'd like to test under null hypothesis.
-
 
         Returns
         -------
@@ -635,18 +659,13 @@ class PopulationSummaryResults(object):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will be a scalar)
         """
-        pvalue = norm.sf(np.abs(self.zstat(value)), loc=0, scale=1) * 2
+        pvalue = norm.sf(np.abs(self.zstat), loc=0, scale=1) * 2
         return pvalue
 
-    def conf_int_mean(self, alpha=0.1):
+    @property
+    def conf_int_mean(self):
         """
         Get the confidence interval of the mean point estimate of each treatment on each outcome for sample X.
-
-        Parameters
-        ----------
-        alpha: optional float in [0, 1] (Default=0.1)
-            The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -657,11 +676,11 @@ class PopulationSummaryResults(object):
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
 
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+        return np.array([_safe_norm_ppf(self.alpha / 2, loc=p, scale=err)
                          for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
                                            [self.stderr_mean] if np.isscalar(self.stderr_mean)
                                            else self.stderr_mean)]),\
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+            np.array([_safe_norm_ppf(1 - self.alpha / 2, loc=p, scale=err)
                       for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
                                         [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)])
 
@@ -681,15 +700,10 @@ class PopulationSummaryResults(object):
         """
         return np.std(self.pred, axis=0)
 
-    def percentile_point(self, alpha=0.1):
+    @property
+    def percentile_point(self):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
-
-        Parameters
-        ----------
-        alpha: optional float in [0, 1] (Default=0.1)
-            The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -699,8 +713,8 @@ class PopulationSummaryResults(object):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        lower_percentile_point = np.percentile(self.pred, (alpha / 2) * 100, axis=0)
-        upper_percentile_point = np.percentile(self.pred, (1 - alpha / 2) * 100, axis=0)
+        lower_percentile_point = np.percentile(self.pred, (self.alpha / 2) * 100, axis=0)
+        upper_percentile_point = np.percentile(self.pred, (1 - self.alpha / 2) * 100, axis=0)
         return np.array([lower_percentile_point]) if np.isscalar(lower_percentile_point) else lower_percentile_point, \
             np.array([upper_percentile_point]) if np.isscalar(upper_percentile_point) else upper_percentile_point
 
@@ -720,15 +734,10 @@ class PopulationSummaryResults(object):
         """
         return np.sqrt(self.stderr_mean**2 + self.std_point**2)
 
-    def conf_int_point(self, alpha=0.1, tol=0.001):
+    @property
+    def conf_int_point(self):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
-
-        Parameters
-        ----------
-        alpha: optional float in [0, 1] (Default=0.1)
-            The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -738,26 +747,14 @@ class PopulationSummaryResults(object):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        lower_ci_point = np.array([self._mixture_ppf(alpha / 2, self.pred, self.pred_stderr, tol)])
-        upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, tol)])
+        lower_ci_point = np.array([self._mixture_ppf(self.alpha / 2, self.pred, self.pred_stderr, self.tol)])
+        upper_ci_point = np.array([self._mixture_ppf(1 - self.alpha / 2, self.pred, self.pred_stderr, self.tol)])
         return np.array([lower_ci_point]) if np.isscalar(lower_ci_point) else lower_ci_point,\
             np.array([upper_ci_point]) if np.isscalar(upper_ci_point) else upper_ci_point
 
-    def print(self, alpha=0.1, value=0, decimals=3, tol=0.001):
+    def print(self):
         """
         Output the summary inferences above.
-
-        Parameters
-        ----------
-        alpha: optional float in [0, 1] (Default=0.1)
-            The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
-            The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
-            Number of decimal places to round each column to.
-        tol:  optinal float (default=0.001)
-            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
 
         Returns
         -------
@@ -766,50 +763,47 @@ class PopulationSummaryResults(object):
             converted to various output formats.
         """
 
-        # 1. mean of point estimate
-        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, decimals)
-        myheaders1 = ["mean_point\nT" + str(i) for i in range(self.d_t)]
-        mystubs1 = ["Y" + str(i) for i in range(self.d_y)]
-        title1 = "Mean of Point Estimate"
+        # 1. Uncertainty of Mean Point Estimate
+        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, self.decimals)
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, self.decimals)))
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.zstat, self.decimals)))
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue, self.decimals)))
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[0], self.decimals)))
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[1], self.decimals)))
+        metric_name1 = ['mean_point', 'stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
+        myheaders1 = [name + '\nT' + str(i) for name in metric_name1 for i in range(self.d_t)
+                      ] if self.d_t > 1 else [name for name in metric_name1]
+        mystubs1 = ["Y" + str(i) for i in range(self.d_y)] if self.d_y > 1 else []
+        title1 = "Uncertainty of Mean Point Estimate"
+        text1 = "Note: The stderr_mean is a conservative upper bound."
 
-        # 2. uncertainty of mean point estimate
-        res2 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, decimals)
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.zstat(value), decimals)))
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.pvalue(value), decimals)))
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean(alpha)[0], decimals)))
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean(alpha)[1], decimals)))
-        metric_name2 = ['stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
-        myheaders2 = [name + '\nT' + str(i) for name in metric_name2 for i in range(self.d_t)]
-        mystubs2 = ["Y" + str(i) for i in range(self.d_y)]
-        title2 = "Uncertainty of Mean Point Estimate"
-        text2 = "Note: The stderr_mean is a conservative upper bound."
+        # 2. Distribution of Point Estimate
+        res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, self.decimals)
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[0], self.decimals)))
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[1], self.decimals)))
+        metric_name2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
+        myheaders2 = [name + '\nT' + str(i) for name in metric_name2 for i in range(self.d_t)
+                      ] if self.d_t > 1 else [name for name in metric_name2]
+        mystubs2 = ["Y" + str(i) for i in range(self.d_y)] if self.d_y > 1 else []
+        title2 = "Distribution of Point Estimate"
 
-        # 3. distribution of point estimate
-        res3 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, decimals)
-        res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point(alpha)[0], decimals)))
-        res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point(alpha)[1], decimals)))
-        metric_name3 = ['std_point', 'pct_point_lower', 'pct_point_upper']
-        myheaders3 = [name + '\nT' + str(i) for name in metric_name3 for i in range(self.d_t)]
-        mystubs3 = ["Y" + str(i) for i in range(self.d_y)]
-        title3 = "Distribution of Point Estimate"
-
-        # 4. uncertainty of point estimate
-        res4 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, decimals)
-        res4 = np.hstack((res4, self._res_to_2darray(self.d_t, self.d_y,
-                                                     self.conf_int_point(alpha, tol)[0], decimals)))
-        res4 = np.hstack((res4, self._res_to_2darray(self.d_t, self.d_y,
-                                                     self.conf_int_point(alpha, tol)[1], decimals)))
-        metric_name4 = ['std_point', 'ci_point_lower', 'ci_point_upper']
-        myheaders4 = [name + '\nT' + str(i) for name in metric_name4 for i in range(self.d_t)]
-        mystubs4 = ["Y" + str(i) for i in range(self.d_y)]
-        title4 = "Uncertainty of Point Estimate"
+        # 3. Total Variance of Point Estimate
+        res3 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, self.decimals)
+        res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.conf_int_point[0], self.decimals)))
+        res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.conf_int_point[1], self.decimals)))
+        metric_name3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
+        myheaders3 = [name + '\nT' + str(i) for name in metric_name3 for i in range(self.d_t)
+                      ] if self.d_t > 1 else [name for name in metric_name3]
+        mystubs3 = ["Y" + str(i) for i in range(self.d_y)] if self.d_y > 1 else []
+        title3 = "Total Variance of Point Estimate"
 
         smry = Summary()
         smry.add_table(res1, myheaders1, mystubs1, title1)
+        smry.add_extra_txt([text1])
         smry.add_table(res2, myheaders2, mystubs2, title2)
-        smry.add_extra_txt([text2])
         smry.add_table(res3, myheaders3, mystubs3, title3)
-        smry.add_table(res4, myheaders4, mystubs4, title4)
         return smry
 
     def _mixture_ppf(self, alpha, mean, stderr, tol):

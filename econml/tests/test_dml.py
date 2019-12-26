@@ -69,6 +69,7 @@ class TestDML(unittest.TestCase):
                                 d_t_final = 2 if is_discrete else d_t
 
                                 effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
+                                effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),) + (6,)
                                 marginal_effect_shape = ((n,) +
                                                          ((d_y,) if d_y > 0 else ()) +
                                                          ((d_t_final,) if d_t_final > 0 else ()))
@@ -77,6 +78,8 @@ class TestDML(unittest.TestCase):
                                 const_marginal_effect_shape = ((n if d_x else 1,) +
                                                                ((d_y,) if d_y > 0 else ()) +
                                                                ((d_t_final,) if d_t_final > 0 else()))
+                                const_marginal_effect_summaryframe_shape = (
+                                    (n if d_x else 1) * (d_y if d_y > 0 else 1),) + (6 * (d_t_final if d_t_final > 0 else 1),)
 
                                 fd_x = featurizer.fit_transform(X).shape[1:] if featurizer and d_x\
                                     else ((d_x,) if d_x else (0,))
@@ -170,6 +173,45 @@ class TestDML(unittest.TestCase):
                                                         with pytest.raises(AttributeError):
                                                             self.assertEqual(shape(est.intercept__interval()),
                                                                              (2,) + intercept_shape)
+                                            if inf in ['statsmodels', 'debiasedlasso', 'blb']:
+                                                const_marg_effect_inf = est.const_marginal_effect_inference(X)
+                                                effect_inf = est.effect_inference(X, T0=T0, T1=T)
+                                                # test const marginal inference
+                                                self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
+                                                                 const_marginal_effect_summaryframe_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.point_estimate),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.stderr),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.var),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.pvalue()),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.zstat()),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.conf_int()),
+                                                                 (2,) + const_marginal_effect_shape)
+                                                const_marg_effect_inf.population_summary()
+
+                                                # test effect inference
+                                                self.assertEqual(shape(effect_inf.summary_frame()),
+                                                                 effect_summaryframe_shape)
+                                                self.assertEqual(shape(effect_inf.point_estimate),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.stderr),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.var),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.pvalue()),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.zstat()),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.conf_int()),
+                                                                 (2,) + effect_shape)
+                                                effect_inf.population_summary()
+
+                                                # test it fails when call marginal_effect_inference
+                                                self.assertRaises(AttributeError, est.marginal_effect_inference, T, X)
 
                                             est.score(Y, T, X, W)
 
@@ -219,6 +261,7 @@ class TestDML(unittest.TestCase):
                             d_t_final = 1 if is_discrete else d_t
 
                             effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
+                            effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),) + (6,)
                             marginal_effect_shape = ((n,) +
                                                      ((d_y,) if d_y > 0 else ()) +
                                                      ((d_t_final,) if d_t_final > 0 else ()))
@@ -227,6 +270,8 @@ class TestDML(unittest.TestCase):
                             const_marginal_effect_shape = ((n if d_x else 1,) +
                                                            ((d_y,) if d_y > 0 else ()) +
                                                            ((d_t_final,) if d_t_final > 0 else()))
+                            const_marginal_effect_summaryframe_shape = (
+                                n * (d_y if d_y > 0 else 1),) + (6 * (d_t_final if d_t_final > 0 else 1),)
 
                             model_t = LogisticRegression() if is_discrete else WeightedLasso()
 
@@ -288,6 +333,45 @@ class TestDML(unittest.TestCase):
                                                              (2,) + const_marginal_effect_shape)
                                             self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                              (2,) + effect_shape)
+                                            if inf in ['statsmodels', 'debiasedlasso', 'blb']:
+                                                const_marg_effect_inf = est.const_marginal_effect_inference(X)
+                                                effect_inf = est.effect_inference(X, T0=T0, T1=T)
+                                                # test const marginal inference
+                                                self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
+                                                                 const_marginal_effect_summaryframe_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.point_estimate),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.stderr),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.var),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.pvalue()),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.zstat()),
+                                                                 const_marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_effect_inf.conf_int()),
+                                                                 (2,) + const_marginal_effect_shape)
+                                                const_marg_effect_inf.population_summary()
+
+                                                # test effect inference
+                                                self.assertEqual(shape(effect_inf.summary_frame()),
+                                                                 effect_summaryframe_shape)
+                                                self.assertEqual(shape(effect_inf.point_estimate),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.stderr),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.var),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.pvalue()),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.zstat()),
+                                                                 effect_shape)
+                                                self.assertEqual(shape(effect_inf.conf_int()),
+                                                                 (2,) + effect_shape)
+                                                effect_inf.population_summary()
+
+                                                # test it fails when call marginal_effect_inference
+                                                self.assertRaises(AttributeError, est.marginal_effect_inference, T, X)
 
                                         est.score(Y, T, X, W)
 
