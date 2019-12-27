@@ -193,7 +193,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
         return self._predict_interval(cross_product(X, T1 - T0), alpha=alpha)
 
     def effect_inference(self, X, *, T0, T1):
-        # We can write effect inference as a function of predict_interval of the final method for linear models
+        # We can write effect inference as a function of prediction and prediction standard error of
+        # the final method for linear models
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if X is None:
             X = np.ones((T0.shape[0], 1))
@@ -348,17 +349,17 @@ class InferenceResults(object):
         Number of treatments
     d_y: int
         Number of outputs
-    pred : array-like, shape (m, d_y, d_t)
+    pred : array-like, shape (m, d_y, d_t) or (m, d_y)
         The prediction of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    pred_stderr : array-like, shape (m, d_y, d_t)
+    pred_stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
         The prediction standard error of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    pred_dist : array-like, shape (b, m, d_y, d_t)
+    pred_dist : array-like, shape (b, m, d_y, d_t) or (b, m, d_y)
         the raw predictions of the metric using b times bootstrap.
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
@@ -378,7 +379,7 @@ class InferenceResults(object):
 
         Returns
         -------
-        prediction : array-like, shape (m, d_y, d_t)
+        prediction : array-like, shape (m, d_y, d_t) or (m, d_y)
             The point estimate of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -393,7 +394,7 @@ class InferenceResults(object):
 
         Returns
         -------
-        stderr : array-like, shape (m, d_y, d_t)
+        stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
             The standard error of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -408,7 +409,7 @@ class InferenceResults(object):
 
         Returns
         -------
-        var : array-like, shape (m, d_y, d_t)
+        var : array-like, shape (m, d_y, d_t) or (m, d_y)
             The variance of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -428,7 +429,7 @@ class InferenceResults(object):
 
         Returns
         -------
-        lower, upper: tuple of arrays, shape (m, d_y, d_t)
+        lower, upper: tuple of arrays, shape (m, d_y, d_t) or (m, d_y)
             The lower and the upper bounds of the confidence interval for each quantity.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -451,7 +452,7 @@ class InferenceResults(object):
 
         Returns
         -------
-        pvalue : array-like, shape (m, d_y, d_t)
+        pvalue : array-like, shape (m, d_y, d_t) or (m, d_y)
             The p value of the z test of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -471,7 +472,7 @@ class InferenceResults(object):
 
         Returns
         -------
-        zstat : array-like, shape (m, d_y, d_t)
+        zstat : array-like, shape (m, d_y, d_t) or (m, d_y)
             The z statistic of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -485,7 +486,7 @@ class InferenceResults(object):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (default=0.1)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
         value: optinal float (default=0)
@@ -521,7 +522,7 @@ class InferenceResults(object):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (default=0.1)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
         value: optinal float (default=0)
@@ -534,8 +535,8 @@ class InferenceResults(object):
         Returns
         -------
         PopulationSummaryResults: object
-            The population summary results instance contains mean, standard error, z score, p value
-            and confidence intervals of the mean of the estimated metric for sample X on each treatment and outcome.
+            The population summary results instance contains the different summary analysis of point estimate
+            for sample X on each treatment and outcome.
         """
         return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y,
                                         alpha=alpha, value=value, decimals=decimals, tol=tol)
@@ -558,17 +559,17 @@ class PopulationSummaryResults(object):
         Number of treatments
     d_y: int
         Number of outputs
-    pred : array-like, shape (m, d_y, d_t)
+    pred : array-like, shape (m, d_y, d_t) or (m, d_y)
         The prediction of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    pred_stderr : array-like, shape (m, d_y, d_t)
+    pred_stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
         The prediction standard error of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    alpha: optional float in [0, 1] (Default=0.1)
+    alpha: optional float in [0, 1] (default=0.1)
         The overall level of confidence of the reported interval.
         The alpha/2, 1-alpha/2 confidence interval is reported.
     value: optinal float (default=0)
@@ -718,7 +719,7 @@ class PopulationSummaryResults(object):
         return np.array([lower_percentile_point]) if np.isscalar(lower_percentile_point) else lower_percentile_point, \
             np.array([upper_percentile_point]) if np.isscalar(upper_percentile_point) else upper_percentile_point
 
-    # 4. uncertainty of point estimate
+    # 4. total variance of point estimate
     @property
     def stderr_point(self):
         """
