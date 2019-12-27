@@ -78,8 +78,9 @@ class TestDML(unittest.TestCase):
                                 const_marginal_effect_shape = ((n if d_x else 1,) +
                                                                ((d_y,) if d_y > 0 else ()) +
                                                                ((d_t_final,) if d_t_final > 0 else()))
-                                const_marginal_effect_summaryframe_shape = (
-                                    (n if d_x else 1) * (d_y if d_y > 0 else 1),) + (6 * (d_t_final if d_t_final > 0 else 1),)
+                                const_marginal_effect_summaryframe_shape = ((n if d_x else 1) *
+                                                                            (d_y if d_y > 0 else 1),) +
+                                (6 * (d_t_final if d_t_final > 0 else 1),)
 
                                 fd_x = featurizer.fit_transform(X).shape[1:] if featurizer and d_x\
                                     else ((d_x,) if d_x else (0,))
