@@ -171,7 +171,7 @@ class _FinalWrapper:
             T_res = T_res.ravel()
             sign_T_res = np.sign(T_res)
             sign_T_res[(sign_T_res < 1) & (sign_T_res > -1)] = 1
-            clipped_T_res = np.sign(T_res) * np.clip(np.abs(T_res), 1e-5, np.inf)
+            clipped_T_res = sign_T_res * np.clip(np.abs(T_res), 1e-5, np.inf)
             if np.ndim(Y_res) > 1:
                 clipped_T_res = clipped_T_res.reshape(-1, 1)
             target = Y_res / clipped_T_res
