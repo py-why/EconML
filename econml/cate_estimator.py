@@ -12,7 +12,7 @@ from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
-    LinearModelFinalInferenceDiscrete
+    LinearModelFinalInferenceDiscrete, InferenceResults
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -371,7 +371,16 @@ class LinearCateEstimator(BaseCateEstimator):
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
     def marginal_effect_inference(self, T, X=None):
-        raise AttributeError("The treatment effect is linear, please call const_marginal_effect_inference!")
+        X, T = self._expand_treatments(X, T)
+        cme_inf = self.const_marginal_effect_inference(X=X)
+        pred = cme_inf.point_estimate
+        pred_stderr = cme_inf.stderr
+        if X is None:
+            pred = np.repeat(pred, shape(T)[0], axis=0)
+            pred_stderr = np.repeat(pred_stderr, shape(T)[0], axis=0)
+        return InferenceResults(d_t=cme_inf.d_t, d_y=cme_inf.d_y, pred=pred,
+                                pred_stderr=pred_stderr, pred_dist=None)
+    marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):

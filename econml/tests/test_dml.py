@@ -73,6 +73,8 @@ class TestDML(unittest.TestCase):
                                 marginal_effect_shape = ((n,) +
                                                          ((d_y,) if d_y > 0 else ()) +
                                                          ((d_t_final,) if d_t_final > 0 else ()))
+                                marginal_effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),
+                                                                      6 * (d_t_final if d_t_final > 0 else 1))
 
                                 # since T isn't passed to const_marginal_effect, defaults to one row if X is None
                                 const_marginal_effect_shape = ((n if d_x else 1,) +
@@ -177,6 +179,7 @@ class TestDML(unittest.TestCase):
                                             if inf in ['statsmodels', 'debiasedlasso', 'blb']:
                                                 const_marg_effect_inf = est.const_marginal_effect_inference(X)
                                                 effect_inf = est.effect_inference(X, T0=T0, T1=T)
+                                                marg_effect_inf = est.marginal_effect_inference(T0, X)
                                                 # test const marginal inference
                                                 self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
                                                                  const_marginal_effect_summaryframe_shape)
@@ -192,7 +195,7 @@ class TestDML(unittest.TestCase):
                                                                  const_marginal_effect_shape)
                                                 self.assertEqual(shape(const_marg_effect_inf.conf_int()),
                                                                  (2,) + const_marginal_effect_shape)
-                                                const_marg_effect_inf.population_summary()
+                                                assert isinstance(const_marg_effect_inf.population_summary(), object)
 
                                                 # test effect inference
                                                 self.assertEqual(shape(effect_inf.summary_frame()),
@@ -209,10 +212,24 @@ class TestDML(unittest.TestCase):
                                                                  effect_shape)
                                                 self.assertEqual(shape(effect_inf.conf_int()),
                                                                  (2,) + effect_shape)
-                                                effect_inf.population_summary()
+                                                assert isinstance(effect_inf.population_summary(), object)
 
-                                                # test it fails when call marginal_effect_inference
-                                                self.assertRaises(AttributeError, est.marginal_effect_inference, T, X)
+                                                # test marginal_effect_inference
+                                                self.assertEqual(shape(marg_effect_inf.summary_frame()),
+                                                                 marginal_effect_summaryframe_shape)
+                                                self.assertEqual(shape(marg_effect_inf.point_estimate),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.stderr),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.var),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.pvalue()),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.zstat()),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.conf_int()),
+                                                                 (2,) + marginal_effect_shape)
+                                                assert isinstance(marg_effect_inf.population_summary(), object)
 
                                             est.score(Y, T, X, W)
 
@@ -266,13 +283,15 @@ class TestDML(unittest.TestCase):
                             marginal_effect_shape = ((n,) +
                                                      ((d_y,) if d_y > 0 else ()) +
                                                      ((d_t_final,) if d_t_final > 0 else ()))
-
+                            marginal_effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),
+                                                                  6 * (d_t_final if d_t_final > 0 else 1))
                             # since T isn't passed to const_marginal_effect, defaults to one row if X is None
                             const_marginal_effect_shape = ((n if d_x else 1,) +
                                                            ((d_y,) if d_y > 0 else ()) +
                                                            ((d_t_final,) if d_t_final > 0 else()))
                             const_marginal_effect_summaryframe_shape = (
-                                n * (d_y if d_y > 0 else 1),) + (6 * (d_t_final if d_t_final > 0 else 1),)
+                                (n if d_x else 1) * (d_y if d_y > 0 else 1),
+                                6 * (d_t_final if d_t_final > 0 else 1))
 
                             model_t = LogisticRegression() if is_discrete else WeightedLasso()
 
@@ -337,6 +356,7 @@ class TestDML(unittest.TestCase):
                                             if inf in ['statsmodels', 'debiasedlasso', 'blb']:
                                                 const_marg_effect_inf = est.const_marginal_effect_inference(X)
                                                 effect_inf = est.effect_inference(X, T0=T0, T1=T)
+                                                marg_effect_inf = est.marginal_effect_inference(T0, X)
                                                 # test const marginal inference
                                                 self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
                                                                  const_marginal_effect_summaryframe_shape)
@@ -352,7 +372,7 @@ class TestDML(unittest.TestCase):
                                                                  const_marginal_effect_shape)
                                                 self.assertEqual(shape(const_marg_effect_inf.conf_int()),
                                                                  (2,) + const_marginal_effect_shape)
-                                                const_marg_effect_inf.population_summary()
+                                                assert isinstance(const_marg_effect_inf.population_summary(), object)
 
                                                 # test effect inference
                                                 self.assertEqual(shape(effect_inf.summary_frame()),
@@ -369,10 +389,24 @@ class TestDML(unittest.TestCase):
                                                                  effect_shape)
                                                 self.assertEqual(shape(effect_inf.conf_int()),
                                                                  (2,) + effect_shape)
-                                                effect_inf.population_summary()
+                                                assert isinstance(effect_inf.population_summary(), object)
 
-                                                # test it fails when call marginal_effect_inference
-                                                self.assertRaises(AttributeError, est.marginal_effect_inference, T, X)
+                                                # test marginal_effect_inference
+                                                self.assertEqual(shape(marg_effect_inf.summary_frame()),
+                                                                 marginal_effect_summaryframe_shape)
+                                                self.assertEqual(shape(marg_effect_inf.point_estimate),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.stderr),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.var),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.pvalue()),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.zstat()),
+                                                                 marginal_effect_shape)
+                                                self.assertEqual(shape(marg_effect_inf.conf_int()),
+                                                                 (2,) + marginal_effect_shape)
+                                                assert isinstance(marg_effect_inf.population_summary(), object)
 
                                         est.score(Y, T, X, W)
 

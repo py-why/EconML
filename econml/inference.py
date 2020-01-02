@@ -281,6 +281,19 @@ class GenericModelFinalInferenceDiscrete(Inference):
         preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self.fitted_models_final])
         return tuple([preds[:, 0, :].T, preds[:, 1, :].T])
 
+    def const_marginal_effect_inference(self, X):
+        self.d_t = self._d_t[0] if self._d_t else 1
+        self.d_y = self._d_y[0] if self._d_y else 1
+        if (X is not None) and (self.featurizer is not None):
+            X = self.featurizer.fit_transform(X)
+        pred = np.array([mdl.predict(X) for mdl in self.fitted_models_final]).T
+        if not hasattr(self.fitted_models_final[0], 'prediction_stderr'):
+            raise AttributeError("Final model doesn't support prediction standard eror, "
+                                 "please call const_marginal_effect_interval to get confidence interval.")
+        pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final]).T
+        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
+                                pred_stderr=pred_stderr, pred_dist=None)
+
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if np.any(np.any(T0 > 0, axis=1)):
@@ -292,6 +305,19 @@ class GenericModelFinalInferenceDiscrete(Inference):
         if X is None:  # Then const_marginal_effect_interval will return a single row
             lower, upper = np.tile(lower, (T0.shape[0], 1)), np.tile(upper, (T0.shape[0], 1))
         return lower[np.arange(T0.shape[0]), ind], upper[np.arange(T0.shape[0]), ind]
+
+    def effect_inference(self, X, *, T0, T1):
+        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        if np.any(np.any(T0 > 0, axis=1)):
+            raise AttributeError("Can only calculate inference of effects with respect to baseline treatment!")
+        ind = (T1 @ np.arange(1, T1.shape[1] + 1)).astype(int)
+        pred = self.const_marginal_effect_inference(X).point_estimate
+        pred_stderr = self.const_marginal_effect_inference(X).stderr
+        if X is None:  # Then const_marginal_effect_interval will return a single row
+            pred = np.tile(pred, (T0.shape[0], 1))
+            pred_stderr = np.tile(pred_stderr, (T0.shape[0], 1))
+        return InferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ind - 1],
+                                pred_stderr=pred_stderr[np.arange(T0.shape[0]), ind - 1], pred_dist=None)
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
