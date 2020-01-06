@@ -221,19 +221,19 @@ class GenericModelFinalInferenceDiscrete(Inference):
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.fit_transform(X)
         preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self.fitted_models_final])
-        return tuple([preds[:, 0, :].T, preds[:, 1, :].T])
+        return tuple(np.moveaxis(preds, [0, 1], [-1, 0]))  # send treatment to the end, pull bounds to the front
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if np.any(np.any(T0 > 0, axis=1)):
             raise AttributeError("Can only calculate intervals of effects with respect to baseline treatment!")
-        ind = (T1 @ np.arange(1, T1.shape[1] + 1)).astype(int)
+        ind = inverse_onehot(T1)
         lower, upper = self.const_marginal_effect_interval(X, alpha=alpha)
-        lower = np.hstack([np.zeros((lower.shape[0], 1)), lower])
-        upper = np.hstack([np.zeros((upper.shape[0], 1)), upper])
+        lower = np.concatenate([np.zeros(lower.shape[0:-1] + (1,)), lower], -1)
+        upper = np.concatenate([np.zeros(upper.shape[0:-1] + (1,)), upper], -1)
         if X is None:  # Then const_marginal_effect_interval will return a single row
-            lower, upper = np.tile(lower, (T0.shape[0], 1)), np.tile(upper, (T0.shape[0], 1))
-        return lower[np.arange(T0.shape[0]), ind], upper[np.arange(T0.shape[0]), ind]
+            lower, upper = np.repeat(lower, T0.shape[0], axis=0), np.repeat(upper, T0.shape[0], axis=0)
+        return lower[np.arange(T0.shape[0]), ..., ind], upper[np.arange(T0.shape[0]), ..., ind]
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
