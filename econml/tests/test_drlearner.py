@@ -129,7 +129,8 @@ class TestDRLearner(unittest.TestCase):
                                     const_marg_eff_int = est.const_marginal_effect_interval(X)
                                     marg_eff_int = est.marginal_effect_interval(T, X)
                                     const_marg_effect_inf = est.const_marginal_effect_inference(X)
-                                    effect_inf = est.effect_inference(X, T0=T0, T1=T)
+                                    T1 = np.full_like(T, 'b')
+                                    effect_inf = est.effect_inference(X, T0=T0, T1=T1)
                                     marg_effect_inf = est.marginal_effect_inference(T, X)
                                     self.assertEqual(shape(marg_eff_int),
                                                      (2,) + marginal_effect_shape)
@@ -152,7 +153,7 @@ class TestDRLearner(unittest.TestCase):
                                                      const_marginal_effect_shape)
                                     self.assertEqual(shape(const_marg_effect_inf.conf_int()),
                                                      (2,) + const_marginal_effect_shape)
-                                    assert isinstance(const_marg_effect_inf.population_summary(), object)
+                                    const_marg_effect_inf.population_summary()._repr_html_()
 
                                     # test effect inference
                                     self.assertEqual(shape(effect_inf.summary_frame()),
@@ -169,9 +170,9 @@ class TestDRLearner(unittest.TestCase):
                                                      effect_shape)
                                     self.assertEqual(shape(effect_inf.conf_int()),
                                                      (2,) + effect_shape)
-                                    assert isinstance(effect_inf.population_summary(), object)
+                                    effect_inf.population_summary()._repr_html_()
 
-                                    # test marginal_effect_inference
+                                    # test marginal effect inference
                                     self.assertEqual(shape(marg_effect_inf.summary_frame()),
                                                      marginal_effect_summaryframe_shape)
                                     self.assertEqual(shape(marg_effect_inf.point_estimate),
@@ -186,7 +187,7 @@ class TestDRLearner(unittest.TestCase):
                                                      marginal_effect_shape)
                                     self.assertEqual(shape(marg_effect_inf.conf_int()),
                                                      (2,) + marginal_effect_shape)
-                                    assert isinstance(marg_effect_inf.population_summary(), object)
+                                    marg_effect_inf.population_summary()._repr_html_()
 
                                 est.score(Y, T, X, W)
 
@@ -540,6 +541,8 @@ class TestDRLearner(unittest.TestCase):
                                                 point = est.coef_(t)
                                                 truth = true_coef
                                                 TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                                # test coef__inference function works
+                                                est.coef__inference(t).summary_frame()
                                         for t in [1, 2]:
                                             lower, upper = est.model_cate(T=t).intercept__interval()
                                             point = est.model_cate(T=t).intercept_
@@ -550,6 +553,8 @@ class TestDRLearner(unittest.TestCase):
                                             point = est.intercept_(t)
                                             truth = t
                                             TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                            # test intercept__inference function works
+                                            est.intercept__inference(t).summary_frame()
 
     @staticmethod
     def _check_with_interval(truth, point, lower, upper):

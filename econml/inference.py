@@ -9,7 +9,7 @@ import pandas as pd
 from collections import OrderedDict
 from statsmodels.iolib.table import SimpleTable
 from .bootstrap import BootstrapEstimator
-from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects,
+from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, reshape_coef,
                         ndim, inverse_onehot, parse_final_model_params, _safe_norm_ppf, Summary)
 
 
@@ -85,13 +85,15 @@ class GenericModelFinalInference(Inference):
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
+        self.d_t = self._d_t[0] if self._d_t else 1
+        self.d_y = self._d_y[0] if self._d_y else 1
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if X is None:
             X = np.ones((1, 1))
         elif self.featurizer is not None:
             X = self.featurizer.fit_transform(X)
-        X, T = broadcast_unit_treatments(X, self._d_t[0] if self._d_t else 1)
+        X, T = broadcast_unit_treatments(X, self.d_t)
         preds = self._predict_interval(cross_product(X, T), alpha=alpha)
         return tuple(reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
                      for pred in preds)
@@ -101,16 +103,14 @@ class GenericModelFinalInference(Inference):
             X = np.ones((1, 1))
         elif self.featurizer is not None:
             X = self.featurizer.fit_transform(X)
-        d_t = self._d_t[0] if self._d_t else 1
-        d_y = self._d_y[0] if self._d_y else 1
-        X, T = broadcast_unit_treatments(X, d_t)
+        X, T = broadcast_unit_treatments(X, self.d_t)
         pred = reshape_treatmentwise_effects(self._predict(cross_product(X, T)), self._d_t, self._d_y)
         if not hasattr(self.model_final, 'prediction_stderr'):
             raise AttributeError("Final model doesn't support prediction standard eror, "
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)), self._d_t, self._d_y)
-        return InferenceResults(d_t=d_t, d_y=d_y, pred=pred,
-                                pred_stderr=pred_stderr, pred_dist=None)
+        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
+                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
 
     def _predict_interval(self, X, alpha):
         return self.model_final.predict_interval(X, alpha=alpha)
@@ -162,10 +162,10 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         if ndim(cme_pred) == ndim(dT):  # y is a vector, rather than a 2D array
             einsum_str = einsum_str.replace('y', '')
         e_pred = np.einsum(einsum_str, cme_pred, dT)
-        e_stderr = np.einsum(einsum_str, cme_stderr, dT)
+        e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(dT))
         d_y = self._d_y[0] if self._d_y else 1
         return InferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                pred_stderr=e_stderr, pred_dist=None)
+                                pred_stderr=e_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
 
 
 class LinearModelFinalInference(GenericModelFinalInference):
@@ -204,7 +204,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         e_stderr = self._prediction_stderr(cross_product(X, T1 - T0))
         d_y = self._d_y[0] if self._d_y else 1
         return InferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                pred_stderr=e_stderr, pred_dist=None)
+                                pred_stderr=e_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -216,6 +216,29 @@ class LinearModelFinalInference(GenericModelFinalInference):
                                       self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                       self.fit_cate_intercept)[0]
         return lo, hi
+
+    def coef__inference(self):
+        coef = self.model_final.coef_
+        coef_stderr = self.model_final.coef_stderr_
+        intercept = self.model_final.intercept_
+        intercept_stderr = self.model_final.intercept_stderr_
+        coef = parse_final_model_params(coef, intercept,
+                                        self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                        self.fit_cate_intercept)[0]
+        coef_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
+                                               self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                               self.fit_cate_intercept)[0]
+        if coef.size == 0:  # X is None
+            raise AttributeError("X is None, please call intercept_inference to learn the constant!")
+
+        if callable(self._est.cate_feature_names):
+            def fn_transformer(x):
+                return self._est.cate_feature_names(x)
+        else:
+            fn_transformer = None
+        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=reshape_coef(coef, self._d_t, self._d_y),
+                                pred_stderr=reshape_coef(coef_stderr, self._d_t, self._d_y),
+                                inf_type='coefficient', pred_dist=None, fn_transformer=fn_transformer)
 
     def intercept__interval(self, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -229,6 +252,24 @@ class LinearModelFinalInference(GenericModelFinalInference):
                                       self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                       self.fit_cate_intercept)[1]
         return lo, hi
+
+    def intercept__inference(self):
+        if not self.fit_cate_intercept:
+            raise AttributeError("No intercept was fitted!")
+        coef = self.model_final.coef_
+        coef_stderr = self.model_final.coef_stderr_
+        intercept = self.model_final.intercept_
+        intercept_stderr = self.model_final.intercept_stderr_
+        intercept = parse_final_model_params(coef, intercept,
+                                             self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                             self.fit_cate_intercept)[1]
+        intercept_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
+                                                    self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                                    self.fit_cate_intercept)[1]
+        intercept = np.array([intercept]) if np.isscalar(intercept) else intercept
+        intercept_stderr = np.array([intercept_stderr]) if np.isscalar(intercept_stderr) else intercept_stderr
+        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
+                                inf_type='intercept', pred_dist=None, fn_transformer=None)
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -274,6 +315,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
         self.fitted_models_final = estimator.fitted_models_final
+        self.d_t = self._d_t[0] if self._d_t else 1
+        self.d_y = self._d_y[0] if self._d_y else 1
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if (X is not None) and (self.featurizer is not None):
@@ -282,8 +325,6 @@ class GenericModelFinalInferenceDiscrete(Inference):
         return tuple([preds[:, 0, :].T, preds[:, 1, :].T])
 
     def const_marginal_effect_inference(self, X):
-        self.d_t = self._d_t[0] if self._d_t else 1
-        self.d_y = self._d_y[0] if self._d_y else 1
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.fit_transform(X)
         pred = np.array([mdl.predict(X) for mdl in self.fitted_models_final]).T
@@ -292,7 +333,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final]).T
         return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                pred_stderr=pred_stderr, pred_dist=None)
+                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -317,7 +358,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
             pred = np.tile(pred, (T0.shape[0], 1))
             pred_stderr = np.tile(pred_stderr, (T0.shape[0], 1))
         return InferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ind - 1],
-                                pred_stderr=pred_stderr[np.arange(T0.shape[0]), ind - 1], pred_dist=None)
+                                pred_stderr=pred_stderr[np.arange(T0.shape[0]), ind - 1],
+                                inf_type='effect', pred_dist=None, fn_transformer=None)
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
@@ -333,11 +375,35 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         assert ind >= 0, "No model was fitted for the control"
         return self.fitted_models_final[ind].coef__interval(alpha)
 
+    def coef__inference(self, T):
+        _, T = self._est._expand_treatments(None, T)
+        ind = inverse_onehot(T).item() - 1
+        assert ind >= 0, "No model was fitted for the control"
+        coef = np.array([self.fitted_models_final[ind].coef_])
+        coef_stderr = np.array([self.fitted_models_final[ind].coef_stderr_])
+        if coef.size == 0:  # X is None
+            raise AttributeError("X is None, please call intercept_inference to learn the constant!")
+        if callable(self._est.cate_feature_names):
+            def fn_transformer(x):
+                return self._est.cate_feature_names(x)
+        else:
+            fn_transformer = None
+        return InferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
+                                inf_type='coefficient', pred_dist=None, fn_transformer=fn_transformer)
+
     def intercept__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
         return self.fitted_models_final[ind].intercept__interval(alpha)
+
+    def intercept__inference(self, T):
+        _, T = self._est._expand_treatments(None, T)
+        ind = inverse_onehot(T).item() - 1
+        assert ind >= 0, "No model was fitted for the control"
+        return InferenceResults(d_t=1, d_y=self.d_y, pred=np.array([self.fitted_models_final[ind].intercept_]),
+                                pred_stderr=np.array([self.fitted_models_final[ind].intercept_stderr_]),
+                                inf_type='intercept', pred_dist=None, fn_transformer=None)
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
@@ -385,18 +451,25 @@ class InferenceResults(object):
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
+    inf_type: string
+        The type of inference result.
+        It could be either 'effect', 'coefficient' or 'intercept'.
     pred_dist : array-like, shape (b, m, d_y, d_t) or (b, m, d_y)
         the raw predictions of the metric using b times bootstrap.
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
+    fn_transformer: None or predefined function
+        The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_stderr, pred_dist=None):
+    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, pred_dist=None, fn_transformer=None):
         self.d_t = d_t
         self.d_y = d_y
         self.pred = pred
         self.pred_stderr = pred_stderr
+        self.inf_type = inf_type
         self.pred_dist = pred_dist
+        self.fn_transformer = fn_transformer
 
     @property
     def point_estimate(self):
@@ -506,7 +579,7 @@ class InferenceResults(object):
         """
         return (self.pred - value) / self.pred_stderr
 
-    def summary_frame(self, alpha=0.1, value=0, decimals=3):
+    def summary_frame(self, alpha=0.1, value=0, decimals=3, feat_name=None):
         """
         Output the dataframe for all the inferences above.
 
@@ -540,6 +613,22 @@ class InferenceResults(object):
             res.columns = res.columns.droplevel(1)
         if self.d_y == 1:
             res.index = res.index.droplevel(1)
+        if self.inf_type == 'coefficient':
+            if feat_name and self.fn_transformer:
+                ind = self.fn_transformer(feat_name)
+            else:
+                ct = res.shape[0] // self.d_y
+                ind = ['X' + str(i) for i in range(ct)]
+
+            if self.d_y > 1:
+                res.index = res.index.set_levels(ind, level=0)
+            else:
+                res.index = ind
+        elif self.inf_type == 'intercept':
+            if self.d_y > 1:
+                res.index = res.index.set_levels(['intercept'], level=0)
+            else:
+                res.index = ['intercept']
         return res
 
     def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001):

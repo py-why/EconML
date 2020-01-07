@@ -606,10 +606,10 @@ class DebiasedLasso(WeightedLasso):
     selected_alpha_ : float
         Penalty chosen through cross-validation, if alpha='auto'.
 
-    coef_std_err_ : array, shape (n_features,)
+    coef_stderr_ : array, shape (n_features,)
         Estimated standard errors for coefficients (see ``coef_`` attribute).
 
-    intercept_std_err_ : float
+    intercept_stderr_ : float
         Estimated standard error intercept (see ``intercept_`` attribute).
 
     """
@@ -684,14 +684,14 @@ class DebiasedLasso(WeightedLasso):
         self.coef_ += coef_correction
 
         # Set coefficients and intercept standard errors
-        self.coef_std_err_ = np.sqrt(np.diag(self._coef_variance))
+        self.coef_stderr_ = np.sqrt(np.diag(self._coef_variance))
         if self.fit_intercept:
-            self.intercept_std_err_ = np.sqrt(
+            self.intercept_stderr_ = np.sqrt(
                 self._X_offset @ self._coef_variance @ self._X_offset +
                 self._mean_error_variance
             )
         else:
-            self.intercept_std_err_ = 0
+            self.intercept_stderr_ = 0
 
         # Set intercept
         self._set_intercept(X_offset, y_offset, X_scale)
@@ -779,8 +779,8 @@ class DebiasedLasso(WeightedLasso):
         """
         lower = alpha / 2
         upper = 1 - alpha / 2
-        return self.coef_ + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, self.coef_std_err_), \
-            self.coef_ + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, self.coef_std_err_)
+        return self.coef_ + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, self.coef_stderr_), \
+            self.coef_ + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, self.coef_stderr_)
 
     def intercept__interval(self, alpha=0.1):
         """Get a confidence interval bounding the fitted intercept.
@@ -799,8 +799,8 @@ class DebiasedLasso(WeightedLasso):
         lower = alpha / 2
         upper = 1 - alpha / 2
         if self.fit_intercept:
-            return self.intercept_ + norm.ppf(lower, scale=self.intercept_std_err_), self.intercept_ + \
-                norm.ppf(upper, scale=self.intercept_std_err_),
+            return self.intercept_ + norm.ppf(lower, scale=self.intercept_stderr_), self.intercept_ + \
+                norm.ppf(upper, scale=self.intercept_stderr_),
         else:
             return 0.0, 0.0
 
@@ -942,10 +942,10 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
     selected_alpha_ : array, shape (n_targets, ) or float
         Penalty chosen through cross-validation, if alpha='auto'.
 
-    coef_std_err_ : array, shape (n_targets, n_features) or (n_features, )
+    coef_stderr_ : array, shape (n_targets, n_features) or (n_features, )
         Estimated standard errors for coefficients (see ``coef_`` attribute).
 
-    intercept_std_err_ : array, shape (n_targets, ) or float
+    intercept_stderr_ : array, shape (n_targets, ) or float
         Estimated standard error intercept (see ``intercept_`` attribute).
 
     """
@@ -991,10 +991,10 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         # Set selected_alpha_ attribute
         self._set_attribute("selected_alpha_",
                             condition=(self.estimators_[0].alpha == 'auto'))
-        # Set coef_std_err_
-        self._set_attribute("coef_std_err_")
-        # intercept_std_err_
-        self._set_attribute("intercept_std_err_")
+        # Set coef_stderr_
+        self._set_attribute("coef_stderr_")
+        # intercept_stderr_
+        self._set_attribute("intercept_stderr_")
         return self
 
     def predict(self, X):

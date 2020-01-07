@@ -379,7 +379,7 @@ class LinearCateEstimator(BaseCateEstimator):
             pred = np.repeat(pred, shape(T)[0], axis=0)
             pred_stderr = np.repeat(pred_stderr, shape(T)[0], axis=0)
         return InferenceResults(d_t=cme_inf.d_t, d_y=cme_inf.d_y, pred=pred,
-                                pred_stderr=pred_stderr, pred_dist=None)
+                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
     marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
     @BaseCateEstimator._defer_to_inference
@@ -533,6 +533,18 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         pass
 
     @BaseCateEstimator._defer_to_inference
+    def coef__inference(self):
+        """ The inference of coefficients in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference of the coefficients in the final linear model
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, *, alpha=0.1):
         """ The intercept in the linear model of the constant marginal treatment
         effect.
@@ -547,6 +559,18 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         -------
         lower, upper: tuple(type of :meth:`intercept_()<intercept_>`, type of :meth:`intercept_()<intercept_>`)
             The lower and upper bounds of the confidence interval.
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def intercept__inference(self):
+        """ The inference of intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference of the intercept in the final linear model
         """
         pass
 
@@ -647,6 +671,23 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         pass
 
     @BaseCateEstimator._defer_to_inference
+    def coef__inference(self, T):
+        """ The inference for the coefficients in the linear model of the
+        constant marginal treatment effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference of the coefficients in the final linear model
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, T, *, alpha=0.1):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
@@ -663,6 +704,24 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         -------
         lower, upper: tuple(type of :meth:`intercept_(T)<intercept_>`, type of :meth:`intercept_(T)<intercept_>`)
             The lower and upper bounds of the confidence interval.
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def intercept__inference(self, T):
+        """ The inference of the intercept in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference of the intercept in the final linear model
+
         """
         pass
 
