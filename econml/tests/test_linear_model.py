@@ -304,7 +304,7 @@ class TestLassoExtensions(unittest.TestCase):
                                                              expected_coefs=TestLassoExtensions.coefs1)
         expanded_debiased_coefs = self._check_debiased_coefs(X_expanded, y_expanded, sample_weight=None,
                                                              expected_coefs=TestLassoExtensions.coefs1)
-        self.assertTrue(np.allclose(weighted_debiased_coefs, expanded_debiased_coefs))
+        np.testing.assert_allclose(weighted_debiased_coefs, expanded_debiased_coefs, atol=5e-2)
 
     def test_debiased_lasso_mixed_DGP(self):
         """Test WeightedLasso with two sets of coefficients."""
@@ -368,7 +368,7 @@ class TestLassoExtensions(unittest.TestCase):
             expected_coefs=[TestLassoExtensions.coefs1, TestLassoExtensions.coefs2],
             params=params)
         for i in range(2):
-            self.assertTrue(np.allclose(weighted_debiased_coefs[i], expanded_debiased_coefs[i]))
+            np.testing.assert_allclose(weighted_debiased_coefs[i], expanded_debiased_coefs[i], atol=5e-2)
 
     def _check_debiased_CI(self,
                            X, y, sample_weight, expected_coefs,
@@ -421,11 +421,11 @@ class TestLassoExtensions(unittest.TestCase):
         # Check coeffcients and intercept are the same within tolerance
         if np.ndim(y) > 1:
             for i in range(y.shape[1]):
-                self.assertTrue(np.allclose(debiased_lasso.coef_[i], expected_coefs[i], atol=5e-2))
+                np.testing.assert_allclose(debiased_lasso.coef_[i], expected_coefs[i], atol=5e-2)
                 if all_params["fit_intercept"]:
                     self.assertAlmostEqual(debiased_lasso.intercept_[i], expected_intercept[i], delta=1e-2)
         else:
-            self.assertTrue(np.allclose(debiased_lasso.coef_, expected_coefs, atol=5e-2))
+            np.testing.assert_allclose(debiased_lasso.coef_, expected_coefs, atol=5e-2)
             if all_params["fit_intercept"]:
                 self.assertAlmostEqual(debiased_lasso.intercept_, expected_intercept, delta=1e-2)
         return debiased_lasso.coef_
@@ -441,11 +441,11 @@ class TestLassoExtensions(unittest.TestCase):
             # Check results are similar with tolerance 1e-6
             if np.ndim(lasso_y) > 1:
                 for i in range(lasso_y.shape[1]):
-                    self.assertTrue(np.allclose(lasso.coef_[i], wlasso.coef_[i]))
+                    np.testing.assert_allclose(lasso.coef_[i], wlasso.coef_[i])
                     if lasso.get_params()["fit_intercept"]:
                         self.assertAlmostEqual(lasso.intercept_[i], wlasso.intercept_[i])
             else:
-                self.assertTrue(np.allclose(lasso.coef_, wlasso.coef_))
+                np.testing.assert_allclose(lasso.coef_, wlasso.coef_)
                 self.assertAlmostEqual(lasso.intercept_, wlasso.intercept_)
 
     def _compare_with_lasso_cv(self, lasso_X, lasso_y, wlasso_X, wlasso_y,
@@ -466,11 +466,11 @@ class TestLassoExtensions(unittest.TestCase):
         # Check that the coefficients are similar
         if np.ndim(lasso_y) > 1:
             for i in range(lasso_y.shape[1]):
-                self.assertTrue(np.allclose(lassoCV.coef_[i], wlassoCV.coef_[i], atol=tol))
+                np.testing.assert_allclose(lassoCV.coef_[i], wlassoCV.coef_[i], atol=tol)
                 if lassoCV.get_params()["fit_intercept"]:
                     self.assertAlmostEqual(lassoCV.intercept_[i], wlassoCV.intercept_[i])
         else:
-            self.assertTrue(np.allclose(lassoCV.coef_, wlassoCV.coef_, atol=tol))
+            np.testing.assert_allclose(lassoCV.coef_, wlassoCV.coef_, atol=tol)
             self.assertAlmostEqual(lassoCV.intercept_, wlassoCV.intercept_)
 
     def _map_splitter(self, weighted_splits, n_expanded, index_mapper):

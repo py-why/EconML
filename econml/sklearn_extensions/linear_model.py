@@ -644,12 +644,10 @@ class DebiasedLasso(WeightedLasso):
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
         """
-        alpha_grid = [0.01, 0.02, 0.03, 0.06, 0.1, 0.2, 0.3, 0.5, 0.8, 1]
         self.selected_alpha_ = None
         if self.alpha == 'auto':
             # Select optimal penalty
-            self.alpha = self._get_optimal_alpha(
-                alpha_grid, X, y, sample_weight)
+            self.alpha = self._get_optimal_alpha(X, y, sample_weight)
             self.selected_alpha_ = self.alpha
         else:
             # Warn about consistency
@@ -817,9 +815,9 @@ class DebiasedLasso(WeightedLasso):
             np.matmul(theta_hat, X.T), y_res_scaled)
         return delta_coef
 
-    def _get_optimal_alpha(self, alpha_grid, X, y, sample_weight):
+    def _get_optimal_alpha(self, X, y, sample_weight):
         # To be done once per target. Assumes y can be flattened.
-        cv_estimator = WeightedLassoCV(alphas=alpha_grid, cv=5, fit_intercept=self.fit_intercept)
+        cv_estimator = WeightedLassoCV(cv=5, fit_intercept=self.fit_intercept)
         cv_estimator.fit(X, y.flatten(), sample_weight=sample_weight)
         return cv_estimator.alpha_
 
