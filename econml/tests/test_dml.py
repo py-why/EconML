@@ -202,6 +202,9 @@ class TestDML(unittest.TestCase):
                                                                  const_marginal_effect_shape)
                                                 self.assertEqual(shape(const_marg_effect_inf.conf_int()),
                                                                  (2,) + const_marginal_effect_shape)
+                                                np.testing.assert_array_almost_equal(const_marg_effect_inf.conf_int()
+                                                                                     [0], const_marg_eff_int[0],
+                                                                                     decimal=5)
                                                 const_marg_effect_inf.population_summary()._repr_html_()
 
                                                 # test effect inference
@@ -219,6 +222,9 @@ class TestDML(unittest.TestCase):
                                                                  effect_shape)
                                                 self.assertEqual(shape(effect_inf.conf_int()),
                                                                  (2,) + effect_shape)
+                                                np.testing.assert_array_almost_equal(effect_inf.conf_int()
+                                                                                     [0], est.effect_interval
+                                                                                     (X, T0=T0, T1=T1)[0], decimal=5)
                                                 effect_inf.population_summary()._repr_html_()
 
                                                 # test marginal effect inference
@@ -236,6 +242,8 @@ class TestDML(unittest.TestCase):
                                                                  marginal_effect_shape)
                                                 self.assertEqual(shape(marg_effect_inf.conf_int()),
                                                                  (2,) + marginal_effect_shape)
+                                                np.testing.assert_array_almost_equal(marg_effect_inf.conf_int()
+                                                                                     [0], marg_eff_int[0], decimal=5)
                                                 marg_effect_inf.population_summary()._repr_html_()
 
                                                 # test coef__inference and intercept__inference
@@ -252,6 +260,7 @@ class TestDML(unittest.TestCase):
                                                         self.assertEqual(
                                                             shape(est.coef__inference().summary_frame()),
                                                             coef_summaryframe_shape)
+
                                                     if fit_cate_intercept:
                                                         cm = ExitStack()
                                                         # ExitStack can be used as a "do nothing" ContextManager
@@ -404,6 +413,9 @@ class TestDML(unittest.TestCase):
                                                                  const_marginal_effect_shape)
                                                 self.assertEqual(shape(const_marg_effect_inf.conf_int()),
                                                                  (2,) + const_marginal_effect_shape)
+                                                np.testing.assert_array_almost_equal(const_marg_effect_inf.conf_int()
+                                                                                     [0], const_marg_eff_int[0],
+                                                                                     decimal=5)
                                                 const_marg_effect_inf.population_summary()._repr_html_()
 
                                                 # test effect inference
@@ -421,6 +433,9 @@ class TestDML(unittest.TestCase):
                                                                  effect_shape)
                                                 self.assertEqual(shape(effect_inf.conf_int()),
                                                                  (2,) + effect_shape)
+                                                np.testing.assert_array_almost_equal(effect_inf.conf_int()
+                                                                                     [0], est.effect_interval
+                                                                                     (X, T0=T0, T1=T1)[0], decimal=5)
                                                 effect_inf.population_summary()._repr_html_()
 
                                                 # test marginal effect inference
@@ -438,6 +453,8 @@ class TestDML(unittest.TestCase):
                                                                  marginal_effect_shape)
                                                 self.assertEqual(shape(marg_effect_inf.conf_int()),
                                                                  (2,) + marginal_effect_shape)
+                                                np.testing.assert_array_almost_equal(marg_effect_inf.conf_int()
+                                                                                     [0], marg_eff_int[0], decimal=5)
                                                 marg_effect_inf.population_summary()._repr_html_()
 
                                         est.score(Y, T, X, W)
