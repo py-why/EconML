@@ -22,6 +22,7 @@ from collections.abc import Iterable
 from sklearn.utils.multiclass import type_of_target
 import numbers
 from statsmodels.iolib.table import SimpleTable
+from statsmodels.iolib.summary import summary_return
 from statsmodels.compat.python import lmap
 import copy
 
@@ -574,7 +575,7 @@ def reshape_treatmentwise_effects(A, d_t, d_y):
         return A
 
 
-def reshape_coef(A, d_t, d_y):
+def reshape_coef(A):
     """
     Given an coefficient matrix with shape (d_y,d_t,# of coef), transform it to be ordered by number of coef.
 
@@ -582,10 +583,6 @@ def reshape_coef(A, d_t, d_y):
     ----------
     A : array
         The array of effects, of shape (d_y,d_t,# of coef)
-    d_t : tuple of int
-        Either () if T was a vector, or a 1-tuple of the number of columns of T if it was an array
-    d_y : tuple of int
-        Either () if Y was a vector, or a 1-tuple of the number of columns of Y if it was an array
 
     Returns
     -------
@@ -593,9 +590,9 @@ def reshape_coef(A, d_t, d_y):
         The transformed array.  Note that singleton dimensions will be dropped for any inputs which
         were vectors.
     """
-    if d_t and d_y:
+    if A.ndim == 3:
         return transpose(A, (2, 0, 1))
-    elif d_t or d_y:
+    elif A.ndim == 2:
         return A.T
     else:
         return A
@@ -1256,32 +1253,8 @@ class LassoCVWrapper:
         return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
 
 
-def summary_return(tables, return_fmt='text'):
-    """Helper function to return table with the coresponding format."""
-    # join table parts then print
-    if return_fmt == 'text':
-        def strdrop(x):
-            return str(x).rsplit('\n', 1)[0]
-        # convert to string drop last line
-        return '\n'.join(lmap(strdrop, tables[:-1]) + [str(tables[-1])])
-    elif return_fmt == 'tables':
-        return tables
-    elif return_fmt == 'csv':
-        return '\n'.join(x.as_csv() for x in tables)
-    elif return_fmt == 'latex':
-        # TODO: insert \hline after updating SimpleTable
-        table = copy.deepcopy(tables[0])
-        del table[-1]
-        for part in tables[1:]:
-            table.extend(part)
-        return table.as_latex_tabular()
-    elif return_fmt == 'html':
-        return "\n".join(table.as_html() for table in tables)
-    else:
-        raise ValueError('available output formats are text, csv, latex, html')
-
-
-class Summary(object):
+class Summary:
+    # This class is mainly derived from statsmodels.iolib.summary.Summary
     """
     Result summary
 

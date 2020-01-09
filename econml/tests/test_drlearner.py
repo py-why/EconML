@@ -87,7 +87,7 @@ class TestDRLearner(unittest.TestCase):
                         d_t_final = 2 if is_discrete else d_t
 
                         effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
-                        effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),) + (6,)
+                        effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1), 6)
                         marginal_effect_shape = ((n,) +
                                                  ((d_y,) if d_y > 0 else ()) +
                                                  ((d_t_final,) if d_t_final > 0 else ()))

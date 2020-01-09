@@ -69,7 +69,7 @@ class TestDML(unittest.TestCase):
                                 d_t_final = 2 if is_discrete else d_t
 
                                 effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
-                                effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),) + (6,)
+                                effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1), 6)
                                 marginal_effect_shape = ((n,) +
                                                          ((d_y,) if d_y > 0 else ()) +
                                                          ((d_t_final,) if d_t_final > 0 else ()))
@@ -243,24 +243,24 @@ class TestDML(unittest.TestCase):
                                                                LinearDMLCateEstimator) or
                                                     isinstance(est,
                                                                SparseLinearDMLCateEstimator)):
-                                                    if X is not None:
+                                                    if X is None:
+                                                        cm = pytest.raises(AttributeError)
+                                                    else:
+                                                        cm = ExitStack()
+                                                        # ExitStack can be used as a "do nothing" ContextManager
+                                                    with cm:
                                                         self.assertEqual(
                                                             shape(est.coef__inference().summary_frame()),
                                                             coef_summaryframe_shape)
-                                                    else:
-                                                        with pytest.raises(AttributeError):
-                                                            self.assertEqual(
-                                                                shape(est.coef__inference().summary_frame()),
-                                                                coef_summaryframe_shape)
                                                     if fit_cate_intercept:
+                                                        cm = ExitStack()
+                                                        # ExitStack can be used as a "do nothing" ContextManager
+                                                    else:
+                                                        cm = pytest.raises(AttributeError)
+                                                    with cm:
                                                         self.assertEqual(shape(est.intercept__inference().
                                                                                summary_frame()),
                                                                          intercept_summaryframe_shape)
-                                                    else:
-                                                        with pytest.raises(AttributeError):
-                                                            self.assertEqual(shape(est.intercept__inference().
-                                                                                   summary_frame()),
-                                                                             intercept_summaryframe_shape)
 
                                             est.score(Y, T, X, W)
 
@@ -310,7 +310,7 @@ class TestDML(unittest.TestCase):
                             d_t_final = 1 if is_discrete else d_t
 
                             effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
-                            effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),) + (6,)
+                            effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1), 6)
                             marginal_effect_shape = ((n,) +
                                                      ((d_y,) if d_y > 0 else ()) +
                                                      ((d_t_final,) if d_t_final > 0 else ()))

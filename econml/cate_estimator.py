@@ -379,7 +379,7 @@ class LinearCateEstimator(BaseCateEstimator):
             pred = np.repeat(pred, shape(T)[0], axis=0)
             pred_stderr = np.repeat(pred_stderr, shape(T)[0], axis=0)
         return InferenceResults(d_t=cme_inf.d_t, d_y=cme_inf.d_y, pred=pred,
-                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
+                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
     marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
     @BaseCateEstimator._defer_to_inference

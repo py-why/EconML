@@ -110,7 +110,7 @@ class GenericModelFinalInference(Inference):
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)), self._d_t, self._d_y)
         return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
+                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
 
     def _predict_interval(self, X, alpha):
         return self.model_final.predict_interval(X, alpha=alpha)
@@ -164,8 +164,9 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         e_pred = np.einsum(einsum_str, cme_pred, dT)
         e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(dT))
         d_y = self._d_y[0] if self._d_y else 1
+        # d_t=1 here since we measure the effect across all Ts
         return InferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                pred_stderr=e_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
+                                pred_stderr=e_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
 
 
 class LinearModelFinalInference(GenericModelFinalInference):
@@ -203,8 +204,9 @@ class LinearModelFinalInference(GenericModelFinalInference):
         e_pred = self._predict(cross_product(X, T1 - T0))
         e_stderr = self._prediction_stderr(cross_product(X, T1 - T0))
         d_y = self._d_y[0] if self._d_y else 1
+        # d_t=1 here since we measure the effect across all Ts
         return InferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                pred_stderr=e_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
+                                pred_stderr=e_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -232,13 +234,13 @@ class LinearModelFinalInference(GenericModelFinalInference):
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
 
         if callable(self._est.cate_feature_names):
-            def fn_transformer(x):
+            def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
-            fn_transformer = None
-        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=reshape_coef(coef, self._d_t, self._d_y),
-                                pred_stderr=reshape_coef(coef_stderr, self._d_t, self._d_y),
-                                inf_type='coefficient', pred_dist=None, fn_transformer=fn_transformer)
+            fname_transformer = None
+        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=reshape_coef(coef),
+                                pred_stderr=reshape_coef(coef_stderr),
+                                inf_type='coefficient', pred_dist=None, fname_transformer=fname_transformer)
 
     def intercept__interval(self, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -269,7 +271,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         intercept = np.array([intercept]) if np.isscalar(intercept) else intercept
         intercept_stderr = np.array([intercept_stderr]) if np.isscalar(intercept_stderr) else intercept_stderr
         return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
-                                inf_type='intercept', pred_dist=None, fn_transformer=None)
+                                inf_type='intercept', pred_dist=None, fname_transformer=None)
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -333,7 +335,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final]).T
         return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fn_transformer=None)
+                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -357,9 +359,10 @@ class GenericModelFinalInferenceDiscrete(Inference):
         if X is None:  # Then const_marginal_effect_interval will return a single row
             pred = np.tile(pred, (T0.shape[0], 1))
             pred_stderr = np.tile(pred_stderr, (T0.shape[0], 1))
+        # d_t=1 here since we measure the effect across all Ts
         return InferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ind - 1],
                                 pred_stderr=pred_stderr[np.arange(T0.shape[0]), ind - 1],
-                                inf_type='effect', pred_dist=None, fn_transformer=None)
+                                inf_type='effect', pred_dist=None, fname_transformer=None)
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
@@ -384,12 +387,12 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
         if callable(self._est.cate_feature_names):
-            def fn_transformer(x):
+            def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
-            fn_transformer = None
+            fname_transformer = None
         return InferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
-                                inf_type='coefficient', pred_dist=None, fn_transformer=fn_transformer)
+                                inf_type='coefficient', pred_dist=None, fname_transformer=fname_transformer)
 
     def intercept__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
@@ -403,7 +406,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         assert ind >= 0, "No model was fitted for the control"
         return InferenceResults(d_t=1, d_y=self.d_y, pred=np.array([self.fitted_models_final[ind].intercept_]),
                                 pred_stderr=np.array([self.fitted_models_final[ind].intercept_stderr_]),
-                                inf_type='intercept', pred_dist=None, fn_transformer=None)
+                                inf_type='intercept', pred_dist=None, fname_transformer=None)
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
@@ -431,7 +434,7 @@ class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
         self.model_final.cov_type = self.cov_type
 
 
-class InferenceResults(object):
+class InferenceResults:
     """
     Results class for inferences.
 
@@ -458,18 +461,18 @@ class InferenceResults(object):
         the raw predictions of the metric using b times bootstrap.
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
-    fn_transformer: None or predefined function
+    fname_transformer: None or predefined function
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, pred_dist=None, fn_transformer=None):
+    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, pred_dist=None, fname_transformer=None):
         self.d_t = d_t
         self.d_y = d_y
         self.pred = pred
         self.pred_stderr = pred_stderr
         self.inf_type = inf_type
         self.pred_dist = pred_dist
-        self.fn_transformer = fn_transformer
+        self.fname_transformer = fname_transformer
 
     @property
     def point_estimate(self):
@@ -592,6 +595,8 @@ class InferenceResults(object):
             The mean value of the metric you'd like to test under null hypothesis.
         decimals: optinal int (default=3)
             Number of decimal places to round each column to.
+        feat_name: optional list of strings or None (default is None)
+            The input of the feature names
 
         Returns
         -------
@@ -614,8 +619,8 @@ class InferenceResults(object):
         if self.d_y == 1:
             res.index = res.index.droplevel(1)
         if self.inf_type == 'coefficient':
-            if feat_name and self.fn_transformer:
-                ind = self.fn_transformer(feat_name)
+            if feat_name and self.fname_transformer:
+                ind = self.fname_transformer(feat_name)
             else:
                 ct = res.shape[0] // self.d_y
                 ind = ['X' + str(i) for i in range(ct)]
@@ -664,7 +669,7 @@ class InferenceResults(object):
         return df
 
 
-class PopulationSummaryResults(object):
+class PopulationSummaryResults:
     """
     Population summary results class for inferences.
 
@@ -713,7 +718,6 @@ class PopulationSummaryResults(object):
         '''Display as HTML in IPython notebook.'''
         return self.print().as_html()
 
-    # 1. mean of point estimate
     @property
     def mean_point(self):
         """
@@ -729,7 +733,6 @@ class PopulationSummaryResults(object):
         """
         return np.mean(self.pred, axis=0)
 
-    # 2. uncertainty of mean point estimate
     @property
     def stderr_mean(self):
         """
@@ -800,7 +803,6 @@ class PopulationSummaryResults(object):
                       for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
                                         [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)])
 
-    # 3. distribution of point estimate
     @property
     def std_point(self):
         """
@@ -834,7 +836,6 @@ class PopulationSummaryResults(object):
         return np.array([lower_percentile_point]) if np.isscalar(lower_percentile_point) else lower_percentile_point, \
             np.array([upper_percentile_point]) if np.isscalar(upper_percentile_point) else upper_percentile_point
 
-    # 4. total variance of point estimate
     @property
     def stderr_point(self):
         """
@@ -923,6 +924,9 @@ class PopulationSummaryResults(object):
         return smry
 
     def _mixture_ppf(self, alpha, mean, stderr, tol):
+        """
+        Helper function to get the confidence interval of mixture gaussian distribution
+        """
         done = False
         mix_ppf = scipy.stats.norm.ppf(alpha, loc=mean, scale=stderr)
         lower = np.min(mix_ppf, axis=0)
