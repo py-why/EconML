@@ -29,7 +29,7 @@ Test strategy:
 Integration test public functions, integration tests adding
 automl to every model in the library.
 
-Test will a varying set of hyperparameters.
+Test a wide set of hyperparameters.
 """
 setAutomatedMLWorkspace(workspace_name="automl-dml-cloud-1",
                         subscription_id="a843f881-0968-4221-afce-2f99d7aed631",
