@@ -2,6 +2,7 @@
 from azureml.core.experiment import Experiment
 from azureml.core import Workspace
 from azureml.train.automl.automlconfig import AutoMLConfig
+from azureml._base_sdk_common.common import ProjectSystemException
 from sklearn.multioutput import MultiOutputRegressor
 # helper imports
 import time
@@ -51,22 +52,26 @@ def setAutomatedMLWorkspace(create_workspace=False,
         # write the details of the workspace to a configuration file to the notebook library
         ws.write_config()
         print("Workspace configuration has succeeded.")
-    except:
-        if(create_new):
-            print("Workspace not accessible. Creating a new workspace and \
-            resource group.")
-            ws = Workspace.create(name=workspace_name,
-                                  subscription_id=subscription_id,
-                                  resource_group=resource_group,
-                                  location=workspace_region,
-                                  create_resource_group=create_resource_group,
-                                  sku='basic',
-                                  exist_ok=True)
-            ws.get_details()
+    except ProjectSystemException:
+        if(create_workspace):
+            if(create_resource_group):
+                print("Workspace not accessible. Creating a new workspace and \
+                resource group.")
+                ws = Workspace.create(name=workspace_name,
+                                      subscription_id=subscription_id,
+                                      resource_group=resource_group,
+                                      location=workspace_region,
+                                      create_resource_group=create_resource_group,
+                                      sku='basic',
+                                      exist_ok=True)
+                ws.get_details()
+            else:
+                print("Workspace not accessible. Set \
+                create_resource_group = True and run again to create a new \
+                workspace and resource group.")
         else:
-            print("Workspace not accessible. Set create_workspace = True and \
-            create_resource_group = True and run again to create a new \
-            workspace and resource group.")
+            print("Workspace not accessible. Set create_workspace = True \
+            to create a new workspace.")
 
 
 def addAutomatedML(baseClass):
@@ -140,9 +145,10 @@ class AutomatedMLModel():
 
         automl_config: azureml.train.automl.automlconfig.AutoMLConfig, required
            Configuration for submitting an Automated Machine Learning experiment in Azure Machine Learning.
-           This configuration object contains and persists the parameters for configuring the experiment run parameters,
-           as well as the training data to be used at run time. For guidance on selecting your settings, you may refer
-           to https://docs.microsoft.com/azure/machine-learning/service/how-to-configure-auto-train.
+           This configuration object contains and persists the parameters for configuring the experiment
+           run parameters, as well as the training data to be used at run time. For guidance on selecting
+           your settings, you may refer to
+           https://docs.microsoft.com/azure/machine-learning/service/how-to-configure-auto-train.
 
         workspace: azureml.core.experiment.Experiment, optional
             The main experiment to associated with the automatedML runs for
