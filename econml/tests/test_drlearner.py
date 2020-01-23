@@ -564,6 +564,17 @@ class TestDRLearner(unittest.TestCase):
         # Check that a majority of true effects lie in the 5-95% CI
         self.assertTrue(in_CI.mean() > 0.8)
 
+    def test_drlearner_clipping(self):
+        X = np.linspace(0, 1, 200).reshape(-1, 1)
+        T = np.random.binomial(1, X)
+        Y = np.random.normal(size=T.shape)
+        X[0] = -1000  # one split will have only X values between 0 and 1,
+        # so the predicted propensity for this point will be extremely low
+        learner = DRLearner()
+        learner.fit(Y, T, X)
+        effect = learner.const_marginal_effect(np.array([[0.5]]))
+        assert not(np.any(np.isnan(effect)))
+
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:
             raise ValueError("Type of treatment effect must be 'const' or 'heterogeneous'.")

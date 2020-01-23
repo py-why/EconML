@@ -123,6 +123,9 @@ class DRLearner(_OrthoLearner):
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
+    min_propensity : float, optional, default ``1e-6``
+        The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+
     n_splits: int, cross-validation generator or an iterable, optional (default is 2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -246,6 +249,7 @@ class DRLearner(_OrthoLearner):
                  model_final=StatsModelsLinearRegression(),
                  multitask_model_final=False,
                  featurizer=None,
+                 min_propensity=1e-6,
                  n_splits=2,
                  random_state=None):
         class ModelNuisance:
@@ -273,7 +277,7 @@ class DRLearner(_OrthoLearner):
 
             def predict(self, Y, T, X=None, W=None, *, sample_weight=None):
                 XW = self._combine(X, W)
-                propensities = self._model_propensity.predict_proba(XW)
+                propensities = np.maximum(self._model_propensity.predict_proba(XW), min_propensity)
                 n = T.shape[0]
                 Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
                 T_counter = np.zeros(T.shape)
@@ -556,6 +560,10 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     fit_cate_intercept : bool, optional, default True
         Whether the linear CATE model should have a constant term.
 
+
+    min_propensity : float, optional, default ``1e-6``
+        The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+
     n_splits: int, cross-validation generator or an iterable, optional (default is 2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -628,12 +636,14 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  model_regression=WeightedLassoCVWrapper(cv=3),
                  featurizer=None,
                  fit_cate_intercept=True,
+                 min_propensity=1e-6,
                  n_splits=2, random_state=None):
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=StatsModelsLinearRegression(fit_intercept=fit_cate_intercept),
                          featurizer=featurizer,
                          multitask_model_final=False,
+                         min_propensity=min_propensity,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -746,6 +756,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
+    min_propensity : float, optional, default ``1e-6``
+        The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+
     n_splits: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -822,6 +835,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  alpha='auto',
                  max_iter=1000,
                  tol=1e-4,
+                 min_propensity=1e-6,
                  n_splits=2, random_state=None):
         model_final = DebiasedLasso(
             alpha=alpha,
@@ -833,6 +847,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          model_final=model_final,
                          featurizer=featurizer,
                          multitask_model_final=False,
+                         min_propensity=min_propensity,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -905,6 +920,9 @@ class ForestDRLearner(DRLearner):
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`~econml.utilities.MultiModelWrapper` helper class.
+
+    min_propensity : float, optional, default ``1e-6``
+        The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
 
     n_crossfit_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
@@ -1039,6 +1057,7 @@ class ForestDRLearner(DRLearner):
 
     def __init__(self,
                  model_regression, model_propensity,
+                 min_propensity=1e-6,
                  n_crossfit_splits=2,
                  n_estimators=1000,
                  criterion="mse",
@@ -1071,6 +1090,7 @@ class ForestDRLearner(DRLearner):
         super().__init__(model_regression=model_regression, model_propensity=model_propensity,
                          model_final=model_final, featurizer=None,
                          multitask_model_final=False,
+                         min_propensity=min_propensity,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
     def _get_inference_options(self):
