@@ -191,6 +191,9 @@ class AutomatedMLModel():
                 self._innerModel = MultiOutputRegressor(self._innerModel)
                 self._innerModel.fit(X, y, sample_weight=sample_weight)
                 return
+            else:
+                # flatten array as automl only takes vectors for y
+                y = y.flatten()
         self._innerModel.fit(X, y, sample_weight=sample_weight)
 
     def predict(self, X):
@@ -321,24 +324,24 @@ class EconAutoMLConfig(AutoMLConfig):
 
         """
         if(linear_model_required):
-            kwargs["blacklist"] = ["LightGBM",
-                                   "GradientBoostingRegressor",
-                                   "RandomForestRegressor",
-                                   "RandomForestRegressor",
-                                   "ExtraTreesRegressor",
-                                   "DecisionTreeRegressor",
-                                   "KNeighborsRegressor",
-                                   "DNNRegressor",
-                                   "SGDRegressor",
-                                   "XGBoost"]
+            kwargs["blacklist_models"] = ["LightGBM",
+                                          "GradientBoostingRegressor",
+                                          "RandomForestRegressor",
+                                          "RandomForestRegressor",
+                                          "ExtraTreesRegressor",
+                                          "DecisionTreeRegressor",
+                                          "KNeighborsRegressor",
+                                          "DNNRegressor",
+                                          "SGDRegressor",
+                                          "XGBoost"]
         if(sample_weights_required):
-            kwargs["blacklist"] = ["GradientBoostingRegressor",
-                                   "SGDRegressor",
-                                   "RandomForestRegressor",
-                                   "ExtraTreesRegressor",
-                                   "DNNRegressor",
-                                   "LinearRegressor",
-                                   "FastLinearRegressor"]
+            kwargs["blacklist_models"] = ["GradientBoostingRegressor",
+                                          "SGDRegressor",
+                                          "RandomForestRegressor",
+                                          "ExtraTreesRegressor",
+                                          "DNNRegressor",
+                                          "LinearRegressor",
+                                          "FastLinearRegressor"]
 
         # show output is not stored in the config in AutomatedML, so we need to make it a field.
         self._show_output = show_output
