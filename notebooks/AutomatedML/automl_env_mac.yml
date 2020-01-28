@@ -1,0 +1,38 @@
+name: azure_automl
+dependencies:
+  # The python interpreter version.
+  # Currently Azure ML only supports 3.5.2 and later.
+- pip
+- nomkl
+- python>=3.5.2,<3.6.8
+- nb_conda
+- matplotlib==2.1.0
+- numpy>=1.16.0,<=1.16.2
+- cython
+- urllib3<1.24
+- scipy>=1.0.0,<=1.1.0
+- scikit-learn>=0.19.0,<=0.20.3
+- pandas>=0.22.0,<0.23.0
+- py-xgboost<=0.80
+- fbprophet==0.5
+- pytorch=1.1.0
+- cudatoolkit=9.0
+
+- pip:
+  # Required packages for AzureML execution, history, and data preparation.
+  - azureml-defaults
+  - azureml-train-automl
+  - azureml-train
+  - azureml-widgets
+  - azureml-explain-model
+  - azureml-pipeline
+  - azureml-contrib-interpret
+  - pytorch-transformers==1.0.0
+  - spacy==2.1.8
+  - joblib
+  - onnxruntime==1.0.0
+  - https://aka.ms/automl-resources/packages/en_core_web_sm-2.1.0.tar.gz  
+
+channels:
+- conda-forge
+- pytorch
