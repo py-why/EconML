@@ -33,8 +33,6 @@ import logging
 from econml.data.dgps import ihdp_surface_B
 from azureml.train.automl.exceptions import ClientException
 
-setAutomatedMLWorkspace(workspace_name='automl-dml-cloud-1',
-                        subscription_id='a843f881-0968-4221-afce-2f99d7aed631', resource_group='automl-dml')
 AutomatedTLearner = addAutomatedML(TLearner)
 AutomatedSLearner = addAutomatedML(SLearner)
 AutomatedXLearner = addAutomatedML(XLearner)
@@ -136,10 +134,11 @@ Y, T, X, _ = ihdp_surface_B()
 class TestDML(unittest.TestCase):
 
     def test_nonparam(self):
+        Y, T, X, _ = ihdp_surface_B()
         est = \
             AutomatedNonParamDMLCateEstimator(model_y=automl_model_reg(),
-                                              model_t=GradientBoostingClassifier(),
-                                              model_final=automl_model_sample_weight_reg(), featurizer=None,
+                                              model_t=automl_model_clf(),
+                                              model_final=automl_model_reg(), featurizer=None,
                                               discrete_treatment=True)
         try:
             est.fit(Y, T, X)
@@ -149,11 +148,13 @@ class TestDML(unittest.TestCase):
             return
 
     def test_param(self):
+        Y, T, X, _ = ihdp_surface_B()
         est = \
-            AutomatedNonParamDMLCateEstimator(model_y=automl_model_reg(),
-                                              model_t=GradientBoostingClassifier(),
-                                              model_final=automl_model_linear_reg(), featurizer=None,
-                                              discrete_treatment=True)
+            AutomatedDMLCateEstimator(model_y=automl_model_reg(),
+                                      model_t=GradientBoostingClassifier(),
+                                      model_final=RandomForestRegressor(),
+                                      featurizer=None,
+                                      discrete_treatment=True)
         try:
             est.fit(Y, T, X)
             _ = est.effect(X)
@@ -191,13 +192,17 @@ class TestMetalearners(unittest.TestCase):
 
         # TLearner test
         # Instantiate TLearner
-
+        Y, T, X, _ = ihdp_surface_B()
         est = AutomatedTLearner(models=automl_model_reg())
 
         # Test constant and heterogeneous treatment effect, single and multi output y
 
-        est.fit(Y, T, X)
-        _ = est.effect(X)
+        try:
+            est.fit(Y, T, X)
+            _ = est.effect(X)
+        # system failure caused by early completion
+        except ClientException:
+            return
 
     def test_SLearner(self):
         """Tests whether the SLearner can accurately estimate constant and heterogeneous
@@ -206,7 +211,8 @@ class TestMetalearners(unittest.TestCase):
         # Test constant treatment effect with multi output Y
         # Test heterogeneous treatment effect
         # Need interactions between T and features
-        est = AutomatedSLearner(overall_model=overall_model)
+        Y, T, X, _ = ihdp_surface_B()
+        est = AutomatedSLearner(overall_model=automl_model_reg())
 
         try:
             est.fit(Y, T, X)
