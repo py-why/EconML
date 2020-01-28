@@ -129,18 +129,29 @@ def _crossfit(model, folds, *args, **kwargs):
             raise AttributeError("Invalid crossfitting fold structure. The same index appears in two test folds.")
         fitted_inds = np.concatenate((fitted_inds, test_idxs))
 
-        args_train = ()
-        args_test = ()
+        args_train_split = ()
+        args_test_split = ()
+        args_total = ()
+
         for var in args:
-            args_train += (var[train_idxs],) if var is not None else (None,)
-            args_test += (var[test_idxs],) if var is not None else (None,)
+            args_train_split += (var[train_idxs],) if var is not None else (None,)
+            args_test_split += (var[test_idxs],) if var is not None else (None,)
+            #add total (non-split) argument in for model selection
+            args_total += (var,) if var is not None else (None,)
+
+        args_train = args_train_split
+        args_test = args_test_split
 
         kwargs_train = {}
         kwargs_test = {}
+
         for key, var in kwargs.items():
             if var is not None:
+                key_total = key + "_total"
                 kwargs_train[key] = var[train_idxs]
                 kwargs_test[key] = var[test_idxs]
+                #Add total kwarg for model selection
+                # kwargs_test[key_total] = var
 
         model_list[idx].fit(*args_train, **kwargs_train)
 
