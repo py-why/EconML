@@ -363,8 +363,7 @@ and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/bl
     >>> est.fit(Y, T, W, W)
     <econml.ortho_forest.ContinuousTreatmentOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
-    [[1. ]
-     [1.2]]
+    [1.00...  1.19...]
 
 Similarly, we can call :class:`.DiscreteTreatmentOrthoForest`:
 
@@ -377,7 +376,7 @@ Similarly, we can call :class:`.DiscreteTreatmentOrthoForest`:
     >>> est.fit(Y, T, W, W)
     <econml.ortho_forest.DiscreteTreatmentOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
-    [1.  1.2]
+    [1.01... 1.25...]
 
 Let's now look at a more involved example with a high-dimensional set of confounders :math:`W`
 and with more realistic noisy data. In this case we can just use the default parameters
