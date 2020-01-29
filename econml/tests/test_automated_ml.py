@@ -51,7 +51,6 @@ AutomatedForestDMLCateEstimator = addAutomatedML(ForestDMLCateEstimator)
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
 
-
 def rand_sol(A, b):
     """Generate a random solution to the equation Ax=b."""
     assert np.linalg.matrix_rank(A) <= len(b)
@@ -140,12 +139,8 @@ class TestDML(unittest.TestCase):
                                               model_t=automl_model_clf(),
                                               model_final=automl_model_reg(), featurizer=None,
                                               discrete_treatment=True)
-        try:
-            est.fit(Y, T, X)
-            _ = est.effect(X)
-        # system failure caused by early completion
-        except ClientException:
-            return
+        est.fit(Y, T, X)
+        _ = est.effect(X)
 
     def test_param(self):
         Y, T, X, _ = ihdp_surface_B()
@@ -155,12 +150,8 @@ class TestDML(unittest.TestCase):
                                       model_final=RandomForestRegressor(),
                                       featurizer=None,
                                       discrete_treatment=True)
-        try:
-            est.fit(Y, T, X)
-            _ = est.effect(X)
-        # system failure caused by early completion
-        except ClientException:
-            return
+        est.fit(Y, T, X)
+        _ = est.effect(X)
 
     def test_forest_dml(self):
         """Testing accuracy of forest DML is reasonable"""
@@ -175,12 +166,8 @@ class TestDML(unittest.TestCase):
                                             min_samples_leaf=10,
                                             min_impurity_decrease=0.001,
                                             verbose=0, min_weight_fraction_leaf=.01)
-        try:
-            est.fit(Y, T, X)
-            _ = est.effect(X)
-        # system failure caused by early completion
-        except ClientException:
-            return
+        est.fit(Y, T, X)
+        _ = est.effect(X)
 
 
 class TestMetalearners(unittest.TestCase):
@@ -197,12 +184,8 @@ class TestMetalearners(unittest.TestCase):
 
         # Test constant and heterogeneous treatment effect, single and multi output y
 
-        try:
-            est.fit(Y, T, X)
-            _ = est.effect(X)
-        # system failure caused by early completion
-        except ClientException:
-            return
+        est.fit(Y, T, X)
+        _ = est.effect(X)
 
     def test_SLearner(self):
         """Tests whether the SLearner can accurately estimate constant and heterogeneous
@@ -214,12 +197,8 @@ class TestMetalearners(unittest.TestCase):
         Y, T, X, _ = ihdp_surface_B()
         est = AutomatedSLearner(overall_model=automl_model_reg())
 
-        try:
-            est.fit(Y, T, X)
-            _ = est.effect(X)
-        # system failure caused by early completion
-        except ClientException:
-            return
+        est.fit(Y, T, X)
+        _ = est.effect(X)
 
         # Test heterogeneous treatment effect with multi output Y
 
@@ -234,9 +213,5 @@ class TestMetalearners(unittest.TestCase):
             AutomatedDomainAdaptationLearner(models=automl_model_reg(),
                                              final_models=automl_model_reg())
 
-        try:
-            est.fit(Y, T, X)
-            _ = est.effect(X)
-        # system failure caused by early completion
-        except ClientException:
-            return
+        est.fit(Y, T, X)
+        _ = est.effect(X)
