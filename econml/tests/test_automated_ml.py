@@ -32,6 +32,7 @@ import copy
 import logging
 from econml.data.dgps import ihdp_surface_B
 from azureml.train.automl.exceptions import ClientException
+import os
 
 AutomatedTLearner = addAutomatedML(TLearner)
 AutomatedSLearner = addAutomatedML(SLearner)
@@ -50,6 +51,15 @@ AutomatedForestDMLCateEstimator = addAutomatedML(ForestDMLCateEstimator)
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
+subscription_id = os.getenv("SUBSCRIPTION_ID")
+resource_group = os.getenv("RESOURCE_GROUP")
+workspace_name = os.getenv("WORKSPACE_NAME")
+workspace_region = os.getenv("WORKSPACE_REGION")
+
+setAutomatedMLWorkspace(create_workspace=True,
+                        create_resource_group=True, workspace_region=workspace_region,
+                        subscription_id=subscription_id, resource_group=resource_group, workspace_name=workspace_name)
+
 
 def rand_sol(A, b):
     """Generate a random solution to the equation Ax=b."""
@@ -84,6 +94,7 @@ AUTOML_SETTINGS_CLF = {
     'featurization': 'off',
     'primary_metric': 'AUC_weighted',
 }
+
 
 AUTOML_CONFIG_REG = EconAutoMLConfig(task='regression',
                                      debug_log='automl_errors.log',
