@@ -52,22 +52,6 @@ AutomatedForestDMLCateEstimator = addAutomatedML(ForestDMLCateEstimator)
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
-subscription_id = os.getenv("SUBSCRIPTION_ID")
-resource_group = os.getenv("RESOURCE_GROUP")
-workspace_name = os.getenv("WORKSPACE_NAME")
-tenant_id = os.getenv("TENANT_ID")
-service_principal_id = os.getenv("SERVICE_PRINCIPAL_ID")
-svc_pr_password = os.getenv("SVR_PR_PASSWORD")
-
-svc_pr = ServicePrincipalAuthentication(
-    tenant_id=tenant_id,
-    service_principal_id=service_principal_id,
-    service_principal_password=svc_pr_password)
-
-setAutomatedMLWorkspace(auth=svc_pr,
-                        subscription_id=subscription_id, resource_group=resource_group, workspace_name=workspace_name)
-
-
 def rand_sol(A, b):
     """Generate a random solution to the equation Ax=b."""
     assert np.linalg.matrix_rank(A) <= len(b)
@@ -150,6 +134,23 @@ Y, T, X, _ = ihdp_surface_B()
 
 @pytest.mark.automl
 class TestDML(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        subscription_id = os.getenv("SUBSCRIPTION_ID")
+        resource_group = os.getenv("RESOURCE_GROUP")
+        workspace_name = os.getenv("WORKSPACE_NAME")
+        tenant_id = os.getenv("TENANT_ID")
+        service_principal_id = os.getenv("SERVICE_PRINCIPAL_ID")
+        svc_pr_password = os.getenv("SVR_PR_PASSWORD")
+
+        svc_pr = ServicePrincipalAuthentication(
+            tenant_id=tenant_id,
+            service_principal_id=service_principal_id,
+            service_principal_password=svc_pr_password)
+
+        setAutomatedMLWorkspace(auth=svc_pr,
+                                subscription_id=subscription_id, resource_group=resource_group, workspace_name=workspace_name)
 
     def test_nonparam(self):
         Y, T, X, _ = ihdp_surface_B()
