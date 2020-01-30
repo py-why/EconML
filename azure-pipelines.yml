@@ -122,9 +122,9 @@ jobs:
             inline: |
               $ctx = Get-AzContext
               $env:SUBSCRIPTION_ID = $ctx.Subscription.Id
-              $env:TENANT_ID = $ctx.Tentant.Id
-              $env:SERVICE_PRINCIPAL = $ctx.Account.Id
-              $env:CREDENTIAL = $ctx.Account.Credential
+              $env:TENANT_ID = $ctx.Subscription.TentantId
+              $env:SERVICE_PRINCIPAL_ID = $ctx.Account.Id
+              $env:SVR_PR_PASSWORD = $ctx.Account.Credential
               python setup.py pytest
               exit $LASTEXITCODE
           env:
