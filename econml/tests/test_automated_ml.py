@@ -148,6 +148,7 @@ def automl_model_sample_weight_reg():
 # Test values
 Y, T, X, _ = ihdp_surface_B()
 
+
 @pytest.mark.automl
 class TestDML(unittest.TestCase):
 
@@ -187,6 +188,7 @@ class TestDML(unittest.TestCase):
                                             verbose=0, min_weight_fraction_leaf=.01)
         est.fit(Y, T, X)
         _ = est.effect(X)
+
 
 @pytest.mark.automl
 class TestMetalearners(unittest.TestCase):
