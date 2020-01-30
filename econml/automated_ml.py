@@ -16,7 +16,7 @@ and final of their causal inferenve estimator.
 
 def setAutomatedMLWorkspace(create_workspace=False,
                             create_resource_group=False, workspace_region=None, *,
-                            subscription_id=None, resource_group=None, workspace_name=None):
+                            subscription_id=None, resource_group=None, workspace_name=None, auth=None):
     """Set configuration file for AutomatedML actions with the EconML library. If
     ``create_workspace`` is set true, a new workspace is created
     for the user. If ``create_workspace`` is set true, a new workspace is
@@ -48,7 +48,8 @@ def setAutomatedMLWorkspace(create_workspace=False,
        Name of workspace of workspace to be created or set.
     """
     try:
-        ws = Workspace(subscription_id=subscription_id, resource_group=resource_group, workspace_name=workspace_name)
+        ws = Workspace(subscription_id=subscription_id, resource_group=resource_group,
+                       workspace_name=workspace_name, auth=auth)
         # write the details of the workspace to a configuration file to the notebook library
         ws.write_config()
         print("Workspace configuration has succeeded.")
@@ -63,6 +64,7 @@ def setAutomatedMLWorkspace(create_workspace=False,
                                       location=workspace_region,
                                       create_resource_group=create_resource_group,
                                       sku='basic',
+                                      auth=auth,
                                       exist_ok=True)
                 ws.get_details()
             else:
@@ -259,7 +261,7 @@ class _InnerAutomatedMLModel():
 
 
 class AutomatedMLMixin():
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         Mixin enabling users to leverage automatedML as their model of choice in
         Double Machine Learners and Doubly Robust Learners. It instantiates
@@ -268,19 +270,28 @@ class AutomatedMLMixin():
 
         Parameters
         ----------
+        args: List, optional
+           args that are passed in order to initiate the final automatedML run.
+           Any arg, that is an AutoMLConfig, will be converted into as
+           AutomatedMLModel.
 
-        kwargs: AutoMLConfig, optional
+        kwargs: Dict, optional
            kwargs that are passed in order to initiate the final automatedML run.
            Any kwarg, that is an AutoMLConfig, will be converted into as
            AutomatedMLModel.
        """
-        # Loop through the kwargs if any of them is an AutoMLConfig file, pass them
+        # Loop through the kwargs and args if any of them is an AutoMLConfig file, pass them
         # create model and pass model into final.
+        new_args = ()
+        for var in args:
+            new_args += (var,) if var is not None else (None,)
+
         for key in kwargs:
             kwarg = kwargs[key]
             if isinstance(kwarg, EconAutoMLConfig):
                 kwargs[key] = self._get_automated_ml_model(kwarg, key)
-        super().__init__(**kwargs)
+
+        super().__init__(*new_args, **kwargs)
 
     def _get_automated_ml_model(self, automl_config, prefix):
         # takes in either automated_ml config and instantiates
