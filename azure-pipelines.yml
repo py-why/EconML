@@ -102,6 +102,44 @@ jobs:
             testRunTitle: 'Notebooks'
           condition: succeededOrFailed()
 
+- job: 'AutoML'
+  dependsOn: 'EvalChanges'
+  condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
+  variables:
+    python.version: '3.6'
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - template: azure-pipelines-steps.yml
+    parameters:
+      body:
+        - task: AzurePowershell@4
+          displayName: 'AutoML tests'
+          inputs:
+            azureSubscription: 'automl'
+            azurePowerShellVersion: 'latestVersion'
+            scriptType: 'inlineScript'
+            inline: |
+              $ctx = Get-AzContext
+              $env:SUBSCRIPTION_ID = $ctx.Subscription.Id
+              $env:TENANT_ID = $ctx.Tentant.Id
+              $env:SERVICE_PRINCIPAL_ID = $ctx.Account.Id
+              $env:SVR_PR_PASSWORD = $ctx.Account.Credential
+              python setup.py pytest
+              exit $LASTEXITCODE
+          env:
+            WORKSPACE_NAME: 'testWorkspace'
+            RESOURCE_GROUP: 'testingAutoMLEconML'
+            PYTEST_ADDOPTS: '-m "automl"'
+            COVERAGE_PROCESS_START: 'setup.cfg'
+
+        - task: PublishTestResults@2
+          displayName: 'Publish Test Results **/test-results.xml'
+          inputs:
+            testResultsFiles: '**/test-results.xml'
+            testRunTitle: 'AutoML'
+          condition: succeededOrFailed()
+
 - job: 'Linting'
   dependsOn: 'EvalChanges'
   condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
@@ -159,22 +197,11 @@ jobs:
   - template: azure-pipelines-steps.yml
     parameters:
       body:
-        - task: AzurePowershell@4
+        - script: 'python setup.py pytest'
           displayName: 'Unit tests'
-          inputs:
-            azureSubscription: 'automl'
-            azurePowerShellVersion: 'latestVersion'
-            scriptType: 'inlineScript'
-            inline: |
-              $env:SUBSCRIPTION_ID = (Get-AzContext).Subscription.Id
-              python setup.py pytest
           env:
-            WORKSPACE_NAME: 'testWorkspace'
-            WORKSPACE_REGION: 'Central US' 
-            RESOURCE_GROUP: 'testingAutoMLEconML'
-            PYTEST_ADDOPTS: '-m "not notebook"'
+            PYTEST_ADDOPTS: '-m "not (notebook or automl)"'
             COVERAGE_PROCESS_START: 'setup.cfg'
-
         - task: PublishTestResults@2
           displayName: 'Publish Test Results **/test-results.xml'
           inputs:
