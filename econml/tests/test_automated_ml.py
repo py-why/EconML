@@ -32,6 +32,7 @@ import copy
 import logging
 from econml.data.dgps import ihdp_surface_B
 from azureml.train.automl.exceptions import ClientException
+from azureml.core.authentication import ServicePrincipalAuthentication
 import os
 
 AutomatedTLearner = addAutomatedML(TLearner)
@@ -59,9 +60,9 @@ service_principal_id = os.getenv("SERVICE_PRINCIPAL_ID")
 svc_pr_password = os.getenv("SVR_PR_PASSWORD")
 
 svc_pr = ServicePrincipalAuthentication(
-       tenant_id=tenant_id,
-       service_principal_id=service_principal_id,
-       service_principal_password=svc_pr_password)
+    tenant_id=tenant_id,
+    service_principal_id=service_principal_id,
+    service_principal_password=svc_pr_password)
 
 setAutomatedMLWorkspace(auth=svc_pr,
                         workspace_region=workspace_region,
@@ -147,7 +148,7 @@ def automl_model_sample_weight_reg():
 # Test values
 Y, T, X, _ = ihdp_surface_B()
 
-
+@pytest.mark.automl
 class TestDML(unittest.TestCase):
 
     def test_nonparam(self):
@@ -187,7 +188,7 @@ class TestDML(unittest.TestCase):
         est.fit(Y, T, X)
         _ = est.effect(X)
 
-
+@pytest.mark.automl
 class TestMetalearners(unittest.TestCase):
 
     def test_TLearner(self):
