@@ -65,7 +65,6 @@ svc_pr = ServicePrincipalAuthentication(
     service_principal_password=svc_pr_password)
 
 setAutomatedMLWorkspace(auth=svc_pr,
-                        workspace_region=workspace_region,
                         subscription_id=subscription_id, resource_group=resource_group, workspace_name=workspace_name)
 
 
