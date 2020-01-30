@@ -159,9 +159,19 @@ jobs:
   - template: azure-pipelines-steps.yml
     parameters:
       body:
-        - script: 'python setup.py pytest'
+        - task: AzurePowershell@4
           displayName: 'Unit tests'
+          inputs:
+            azureSubscription: 'automl'
+            azurePowerShellVersion: 'latestVersion'
+            scriptType: 'inlineScript'
+            inline: |
+              $env:SUBSCRIPTION_ID = (Get-AzContext).Subscription.Id
+              python setup.py pytest
           env:
+            WORKSPACE_NAME: 'testWorkspace'
+            WORKSPACE_REGION: 'Central US' 
+            RESOURCE_GROUP: 'testingAutoMLEconML'
             PYTEST_ADDOPTS: '-m "not notebook"'
             COVERAGE_PROCESS_START: 'setup.cfg'
 
