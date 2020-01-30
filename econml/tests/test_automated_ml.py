@@ -152,7 +152,8 @@ class TestDML(unittest.TestCase):
             service_principal_password=svc_pr_password)
 
         setAutomatedMLWorkspace(auth=svc_pr,
-                                subscription_id=subscription_id, resource_group=resource_group, workspace_name=workspace_name)
+                                subscription_id=subscription_id,
+                                resource_group=resource_group, workspace_name=workspace_name)
 
     def test_nonparam(self):
         Y, T, X, _ = ihdp_surface_B()
