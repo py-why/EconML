@@ -217,13 +217,14 @@ class _RLearner(_OrthoLearner):
                 self._model_y = clone(model_y, safe=False)
                 self._model_t = clone(model_t, safe=False)
 
-            def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+            def fit(self, Y=None, T=None, X=None, W=None, Z=None, sample_weight=None,*,Y_total=None, T_total=None, X_total=None, W_total=None):
                 assert Z is None, "Cannot accept instrument!"
-                self._model_t.fit(X, W, T, sample_weight=sample_weight)
-                self._model_y.fit(X, W, Y, sample_weight=sample_weight)
+                print("fitting model t and y")
+                self._model_t.fit(X, W, T, sample_weight=sample_weight, X_total=Y_total, W_total=W_total, Target_total=T_total)
+                self._model_y.fit(X, W, Y, sample_weight=sample_weight , X_total=Y_total, W_total=W_total, Target_total=Y_total)
                 return self
 
-            def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+            def predict(self, Y=None, T=None, X=None, W=None, Z=None, sample_weight=None):
                 Y_pred = self._model_y.predict(X, W)
                 T_pred = self._model_t.predict(X, W)
                 if (X is None) and (W is None):  # In this case predict above returns a single row

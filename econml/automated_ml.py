@@ -76,39 +76,10 @@ def setAutomatedMLWorkspace(create_workspace=False,
 
 def addAutomatedML(baseClass):
     """
-    Add AutomatedMLMixin to specified base class.
-
-    In addition to a mixin that creates automatedML models from AutoMLConfig
-    objects, another mixin is added specifying modifications to the
-    AutoMLConfig. The business logic that this mixin runs is detailed below:
-
-    If the baseClass is of type NonParamDMLCateEstimator
-    the automatedML configuration must support sample weights for
-    correctness, and addAutomatedML will add functionality inject the
-    following models to the ``model_final_automl_config`` blacklist.
-
-    1. LightGBM
-    2. GradientBoostingRegressor
-    3. RandomForestRegressor
-    4. ExtraTreesRegressor
-    5. DecisionTreeRegressor
-    6. KNeighborsRegressor
-    7. DNNRegressor
-    8. SGDRegressor
-    9. XGBoost
-
-    If the baseClass is not of type NonParamDMLCateEstimator
-    the automatedML configuration must be a linear model for correctness,
-    and addAutomatedML will add functionality inject the following
-    models to the ``model_final_automl_config`` blacklist.
-
-    1. GradientBoostingRegressor
-    2. SGDRegressor
-    3. RandomForestRegressor
-    4. ExtraTreesRegressor
-    5. DNNRegressor
-    6. LinearRegressor
-    7. FastLinearRegressor
+    Enables base class to use EconAutoMLConfig objects instead of models
+    by adding the AutomatedMLMixin to specified base class. Once this Mixin
+    has been added, EconML classes can be initialized with EconAutoMLConfig
+    objects rather than scikit learn models.
 
     Parameters
     ----------
@@ -161,7 +132,7 @@ class AutomatedMLModel():
         self._innerModel = _InnerAutomatedMLModel(
             automl_config, workspace, experiment_name_prefix=experiment_name_prefix)
 
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, sample_weight=None, X_total=None, Y_total=None):
         """
         Select and fit model.
 
@@ -189,7 +160,7 @@ class AutomatedMLModel():
             if y.shape[1] > 1:
                 # switch _inner Model to a MultiOutputRegressor
                 self._innerModel = MultiOutputRegressor(self._innerModel)
-                self._innerModel.fit(X, y, sample_weight=sample_weight)
+                self._innerModel.fit(X, y, X_total=X_total, Y_Total=Y_total sample_weight=sample_weight)
                 return
             else:
                 # flatten array as automl only takes vectors for y
@@ -233,7 +204,7 @@ class _InnerAutomatedMLModel():
             'experiment_name_prefix': self._experiment_name_prefix
         }
 
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, sample_weight=None, X_total=None, Y_total=None):
         # fit implementation for a single output model.
         # Create experiment for specified workspace
         automl_config = copy.deepcopy(self._automl_config)
@@ -242,14 +213,20 @@ class _InnerAutomatedMLModel():
         experiment_name = self._experiment_name_prefix + "_" + current_time_string
         self._experiment = Experiment(self._workspace, experiment_name)
         # Configure automl_config with training set information.
-        automl_config.user_settings['X'] = X
-        automl_config.user_settings['y'] = y
+        if(X_total != None and Y_total != None):
+            automl_config.user_settings['X'] = X_total
+            automl_config.user_settings['y'] = Y_total
+        else:
+            automl_config.user_settings['X'] = X
+            automl_config.user_settings['y'] = y
         automl_config.user_settings['sample_weight'] = sample_weight
         # Wait for remote run to complete, the set the model
         print("Experiment " + experiment_name + " has started.")
         local_run = self._experiment.submit(automl_config, show_output=self._show_output)
         print("Experiment " + experiment_name + " completed.")
         _, self._model = local_run.get_output()
+        if(X_total != None and Y_total != None):
+            self._model.fit(X,y)
 
     def predict(self, X):
         return self._model.predict(X)
@@ -269,7 +246,7 @@ class AutomatedMLMixin():
         Parameters
         ----------
 
-        kwargs: AutoMLConfig, optional
+        kwargs: Dict, required
            kwargs that are passed in order to initiate the final automatedML run.
            Any kwarg, that is an AutoMLConfig, will be converted into as
            AutomatedMLModel.
@@ -297,7 +274,7 @@ class AutomatedMLMixin():
 
 class EconAutoMLConfig(AutoMLConfig):
 
-    def __init__(self, sample_weights_required=False, linear_model_required=False, show_output=False, **kwargs):
+    def __init__(self, linear_model_required=False, sample_weights_required= False, show_output=False, **kwargs):
         """
         Azure AutoMLConfig object with added guards to ensure correctness when used
         with EconML
@@ -305,12 +282,12 @@ class EconAutoMLConfig(AutoMLConfig):
         Parameters
         ----------
 
-        sample_weights_required: Boolean, optional, default False
-           If set true, only models that require sample weights will be selected during
-           AutomatedML.
-
         linear_model_required: Boolean, optional, default False
            If set to true, only linear models will be selected during AutomatedML.
+
+        sample_weights_required: Boolean, optional, default False
+           If set to true, only models that enable sample weights will be
+           in the model selection space.
 
         show_output: Boolean, optional, default False
             If set to true, outputs for the corresponding AutomatedMLModel
@@ -324,24 +301,19 @@ class EconAutoMLConfig(AutoMLConfig):
 
         """
         if(linear_model_required):
-            kwargs["blacklist_models"] = ["LightGBM",
-                                          "GradientBoostingRegressor",
-                                          "RandomForestRegressor",
-                                          "RandomForestRegressor",
-                                          "ExtraTreesRegressor",
-                                          "DecisionTreeRegressor",
-                                          "KNeighborsRegressor",
-                                          "DNNRegressor",
-                                          "SGDRegressor",
-                                          "XGBoost"]
-        if(sample_weights_required):
-            kwargs["blacklist_models"] = ["GradientBoostingRegressor",
-                                          "SGDRegressor",
-                                          "RandomForestRegressor",
-                                          "ExtraTreesRegressor",
-                                          "DNNRegressor",
+            kwargs["whitelist_models"] = ["ElasticNet",
+                                          "LassoLars",
                                           "LinearRegressor",
-                                          "FastLinearRegressor"]
+                                          "FastLinearRegressor",
+                                          "OnlineGradientDescentRegressor",
+                                          "SGDRegressor"]
+        if(linear_model_required):
+            kwargs["whitelist_models"] = ["ElasticNet",
+                                          "LassoLars",
+                                          "LinearRegressor",
+                                          "FastLinearRegressor",
+                                          "OnlineGradientDescentRegressor",
+                                          "SGDRegressor"]
 
         # show output is not stored in the config in AutomatedML, so we need to make it a field.
         self._show_output = show_output

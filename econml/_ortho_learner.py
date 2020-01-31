@@ -129,18 +129,13 @@ def _crossfit(model, folds, *args, **kwargs):
             raise AttributeError("Invalid crossfitting fold structure. The same index appears in two test folds.")
         fitted_inds = np.concatenate((fitted_inds, test_idxs))
 
-        args_train_split = ()
-        args_test_split = ()
-        args_total = ()
+        args_train = ()
+        args_test = ()
 
         for var in args:
-            args_train_split += (var[train_idxs],) if var is not None else (None,)
-            args_test_split += (var[test_idxs],) if var is not None else (None,)
+            args_train += (var[train_idxs],) if var is not None else (None,)
+            args_test += (var[test_idxs],) if var is not None else (None,)
             #add total (non-split) argument in for model selection
-            args_total += (var,) if var is not None else (None,)
-
-        args_train = args_train_split
-        args_test = args_test_split
 
         kwargs_train = {}
         kwargs_test = {}
@@ -151,8 +146,9 @@ def _crossfit(model, folds, *args, **kwargs):
                 kwargs_train[key] = var[train_idxs]
                 kwargs_test[key] = var[test_idxs]
                 #Add total kwarg for model selection
-                # kwargs_test[key_total] = var
+                kwargs_train[key_total] = var
 
+        print("fitting model_list[idx]")
         model_list[idx].fit(*args_train, **kwargs_train)
 
         nuisance_temp = model_list[idx].predict(*args_test, **kwargs_test)
@@ -161,7 +157,7 @@ def _crossfit(model, folds, *args, **kwargs):
             nuisance_temp = (nuisance_temp,)
 
         if idx == 0:
-            nuisances = tuple([np.full((args[0].shape[0],) + nuis.shape[1:], np.nan) for nuis in nuisance_temp])
+            nuisances = tuple([np.full((kwargs['X'].shape[0],) + nuis.shape[1:], np.nan) for nuis in nuisance_temp])
 
         for it, nuis in enumerate(nuisance_temp):
             nuisances[it][test_idxs] = nuis
@@ -526,7 +522,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 validate=False)
 
         nuisances, fitted_models, fitted_inds = _crossfit(self._model_nuisance, folds,
-                                                          Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
+                                                          Y=Y, T=T, X=X, W=W, Z=Z, sample_weight=sample_weight)
         self._models_nuisance = fitted_models
         return nuisances, fitted_inds
 

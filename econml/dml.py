@@ -54,7 +54,7 @@ from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
 from .inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from ._rlearner import _RLearner
 from .sklearn_extensions.model_selection import WeightedStratifiedKFold
-
+from .automated_ml import AutomatedMLModel
 
 class _FirstStageWrapper:
     def __init__(self, model, is_Y, featurizer, linear_first_stages, discrete_treatment):
@@ -78,20 +78,29 @@ class _FirstStageWrapper:
         else:
             return XW
 
-    def fit(self, X, W, Target, sample_weight=None):
+    def _validate_target(target):
+        if np.any(np.all(target == 0, axis=0)) or (not np.any(np.all(target == 0, axis=1))):
+            raise AttributeError("Provided crossfit folds contain training splits that " +
+                                 "don't contain all treatments")
+        return inverse_onehot(target)
+    def fit(self, X, W, Target, sample_weight=None, X_total=None, W_total=None, Target_total=None):
+        Y = Target
         if (not self._is_Y) and self._discrete_treatment:
             # In this case, the Target is the one-hot-encoding of the treatment variable
             # We need to go back to the label representation of the one-hot so as to call
             # the classifier.
-            if np.any(np.all(Target == 0, axis=0)) or (not np.any(np.all(Target == 0, axis=1))):
-                raise AttributeError("Provided crossfit folds contain training splits that " +
-                                     "don't contain all treatments")
-            Target = inverse_onehot(Target)
-
-        if sample_weight is not None:
-            self._model.fit(self._combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
+            #perform checks and onehot target total if it exist
+            Y = _validate_target(Target)
+        X = self._combine(X, W, Target.shape[0])
+        if isinstance(object, AutomatedMLModel):
+            #if the model is automated, do the same process that was done for the nonautomated model.
+            Y_total = Target_total
+            if (not self._is_Y) and self._discrete_treatment:
+                Y_Total =  _validate_target(Target_total) if Target_total else None
+            X_total = self._combine(X_total, W_total, Target_total.shape[0])
+            self._model.fit(X, Y,sample_weight=sample_weight, X_total = X_total, Y_total = Y_total)
         else:
-            self._model.fit(self._combine(X, W, Target.shape[0]), Target)
+            self._model.fit(X, Y,sample_weight=sample_weight)
 
     def predict(self, X, W):
         n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
@@ -108,6 +117,7 @@ class _FinalWrapper:
         self._original_featurizer = clone(featurizer, safe=False)
         if self._use_weight_trick:
             self._fit_cate_intercept = False
+
             self._featurizer = self._original_featurizer
         else:
             self._fit_cate_intercept = fit_cate_intercept

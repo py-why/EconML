@@ -130,7 +130,7 @@ def automl_model_sample_weight_reg():
 # Test values
 Y, T, X, _ = ihdp_surface_B()
 
-
+@pytest.mark.notebook
 class TestDML(unittest.TestCase):
 
     def test_nonparam(self):
@@ -182,7 +182,7 @@ class TestDML(unittest.TestCase):
         except ClientException:
             return
 
-
+@pytest.mark.notebook
 class TestMetalearners(unittest.TestCase):
 
     def test_TLearner(self):
