@@ -16,10 +16,10 @@ class TestAutoML(unittest.TestCase):
         subscription_id = os.getenv("SUBSCRIPTION_ID")
         resource_group = os.getenv("RESOURCE_GROUP")
         workspace_name = os.getenv("WORKSPACE_NAME")
-        tenant_id = os.getenv("TENANT_ID")
-        service_principal_id = os.getenv("SERVICE_PRINCIPAL_ID")
-        svc_pr_password = os.getenv("SVR_PR_PASSWORD")
 
         cli = AzureCliAuthentication()
 
         wkspc = Workspace(subscription_id, resource_group, workspace_name, auth=cli)
+
+    def test_failure(self):
+        self.assertFalse(True)
