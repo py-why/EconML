@@ -13,6 +13,31 @@ to use AutomatedML to automate the process of selecting models for models Y, T,
 and final of their causal inferenve estimator.
 """
 
+LINEAR_MODELS_SET = set([
+    "ElasticNet",
+    "LassoLars",
+    "LinearRegressor",
+    "FastLinearRegressor",
+    "OnlineGradientDescentRegressor",
+    "SGDRegressor"
+])
+
+
+SAMPLE_WEIGHTS_MODELS_SET = set([
+                                "ElasticNet",
+                                "LightGBM",
+                                "GradientBoostingRegressor",
+                                "DecisionTreeRegressor",
+                                "KNeighborsRegressor",
+                                "LassoLars",
+                                "SGDRegressor",
+                                "RandomForestRegressor",
+                                "ExtraTreesRegressor",
+                                "LinearRegressor",
+                                "FastLinearRegressor",
+                                "OnlineGradientDescentRegressor"
+                                ])
+
 
 def setAutomatedMLWorkspace(create_workspace=False,
                             create_resource_group=False, workspace_region=None, *,
@@ -36,6 +61,11 @@ def setAutomatedMLWorkspace(create_workspace=False,
     workspace_region: String, optional
        Region of workspace, only necessary if create_new is set to true and a
        new workspace is being created.
+
+    auth: azureml.core.authentication.AbstractAuthentication, optional
+        If set EconML will use auth object for handling Azure Authentication.
+        Otherwise, EconML will use interactive automation, opening an
+        authentication portal in the browser.
 
     subscription_id: String, required
        Definition of a class that will serve as the parent class of the
@@ -78,39 +108,11 @@ def setAutomatedMLWorkspace(create_workspace=False,
 
 def addAutomatedML(baseClass):
     """
-    Add AutomatedMLMixin to specified base class.
+    Enables base class to use EconAutoMLConfig objects instead of models
+    by adding the AutomatedMLMixin to specified base class. Once this Mixin
+    has been added, EconML classes can be initialized with EconAutoMLConfig
+    objects rather than scikit learn models.
 
-    In addition to a mixin that creates automatedML models from AutoMLConfig
-    objects, another mixin is added specifying modifications to the
-    AutoMLConfig. The business logic that this mixin runs is detailed below:
-
-    If the baseClass is of type NonParamDMLCateEstimator
-    the automatedML configuration must support sample weights for
-    correctness, and addAutomatedML will add functionality inject the
-    following models to the ``model_final_automl_config`` blacklist.
-
-    1. LightGBM
-    2. GradientBoostingRegressor
-    3. RandomForestRegressor
-    4. ExtraTreesRegressor
-    5. DecisionTreeRegressor
-    6. KNeighborsRegressor
-    7. DNNRegressor
-    8. SGDRegressor
-    9. XGBoost
-
-    If the baseClass is not of type NonParamDMLCateEstimator
-    the automatedML configuration must be a linear model for correctness,
-    and addAutomatedML will add functionality inject the following
-    models to the ``model_final_automl_config`` blacklist.
-
-    1. GradientBoostingRegressor
-    2. SGDRegressor
-    3. RandomForestRegressor
-    4. ExtraTreesRegressor
-    5. DNNRegressor
-    6. LinearRegressor
-    7. FastLinearRegressor
 
     Parameters
     ----------
@@ -284,10 +286,17 @@ class AutomatedMLMixin():
         # create model and pass model into final.
         new_args = ()
         for var in args:
-            new_args += (var,) if var is not None else (None,)
+            # If item is an automl config, get its corresponding
+            # AutomatedML Model and add it to new_Args
+            if isinstance(var, EconAutoMLConfig):
+                var = self._get_automated_ml_model(kwarg, key)
+            new_args += (var,)
 
         for key in kwargs:
             kwarg = kwargs[key]
+            # If item is an automl config, get its corresponding
+            # AutomatedML Model and set it for this key in
+            # kwargs
             if isinstance(kwarg, EconAutoMLConfig):
                 kwargs[key] = self._get_automated_ml_model(kwarg, key)
 
@@ -334,25 +343,19 @@ class EconAutoMLConfig(AutoMLConfig):
             /azureml.train.automl.automlconfig.automlconfig?view=azure-ml-py
 
         """
-        if(linear_model_required):
-            kwargs["blacklist_models"] = ["LightGBM",
-                                          "GradientBoostingRegressor",
-                                          "RandomForestRegressor",
-                                          "RandomForestRegressor",
-                                          "ExtraTreesRegressor",
-                                          "DecisionTreeRegressor",
-                                          "KNeighborsRegressor",
-                                          "DNNRegressor",
-                                          "SGDRegressor",
-                                          "XGBoost"]
-        if(sample_weights_required):
-            kwargs["blacklist_models"] = ["GradientBoostingRegressor",
-                                          "SGDRegressor",
-                                          "RandomForestRegressor",
-                                          "ExtraTreesRegressor",
-                                          "DNNRegressor",
-                                          "LinearRegressor",
-                                          "FastLinearRegressor"]
+        whitelist_models = None
+        if linear_model_required and sample_weights_required:
+            # Take the intersect of the white for sample
+            # weights and linear models
+            whitelist_models = list(LINEAR_MODELS_SET.intersection(SAMPLE_WEIGHTS_MODELS_SET))
+
+        else:
+            if(linear_model_required):
+                whitelist_models = list(LINEAR_MODELS_SET)
+            if(sample_weights_required):
+                whitelist_models = list(SAMPLE_WEIGHTS_MODELS_SET)
+
+        kwargs['whitelist_models'] = whitelist_models
 
         # show output is not stored in the config in AutomatedML, so we need to make it a field.
         self._show_output = show_output

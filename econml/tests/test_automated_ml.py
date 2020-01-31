@@ -50,17 +50,6 @@ AutomatedNonParamDMLCateEstimator = \
     addAutomatedML(NonParamDMLCateEstimator)
 AutomatedForestDMLCateEstimator = addAutomatedML(ForestDMLCateEstimator)
 
-# all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
-# note that if Ax=b is overdetermined, this will raise an assertion error
-
-
-def rand_sol(A, b):
-    """Generate a random solution to the equation Ax=b."""
-    assert np.linalg.matrix_rank(A) <= len(b)
-    A_plus = np.linalg.pinv(A)
-    x = A_plus @ b
-    return x + (np.eye(x.shape[0]) - A_plus @ A) @ np.random.normal(size=x.shape)
-
 
 AUTOML_SETTINGS_REG = {
     'experiment_timeout_minutes': 1,
@@ -101,11 +90,13 @@ AUTOML_CONFIG_CLF = EconAutoMLConfig(task='classification',
 
 AUTOML_CONFIG_LINEAR_REG = EconAutoMLConfig(task='regression',
                                             debug_log='automl_errors.log',
+                                            linear_model_required=True,
                                             enable_onnx_compatible_models=True, model_explainability=True,
                                             **AUTOML_SETTINGS_REG)
 
 AUTOML_CONFIG_SAMPLE_WEIGHT_REG = EconAutoMLConfig(task='regression',
                                                    debug_log='automl_errors.log',
+                                                   linear_model_required=True,
                                                    enable_onnx_compatible_models=True, model_explainability=True,
                                                    **AUTOML_SETTINGS_REG)
 
@@ -135,7 +126,7 @@ Y, T, X, _ = ihdp_surface_B()
 
 
 @pytest.mark.automl
-class TestDML(unittest.TestCase):
+class TestAutomatedDML(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -150,51 +141,46 @@ class TestDML(unittest.TestCase):
                                 resource_group=resource_group, workspace_name=workspace_name)
 
     def test_nonparam(self):
+        """Testing the completion of the fit and effect estimation of an automated Nonparametic DMLCateEstimator"""
         Y, T, X, _ = ihdp_surface_B()
-        est = \
-            AutomatedNonParamDMLCateEstimator(model_y=automl_model_reg(),
-                                              model_t=automl_model_clf(),
-                                              model_final=automl_model_reg(), featurizer=None,
-                                              discrete_treatment=True)
+        est = AutomatedNonParamDMLCateEstimator(model_y=automl_model_reg(),
+                                                model_t=automl_model_clf(),
+                                                model_final=automl_model_sample_weight_reg(), featurizer=None,
+                                                discrete_treatment=True)
         est.fit(Y, T, X)
         _ = est.effect(X)
 
     def test_param(self):
+        """Testing the completion of the fit and effect estimation of an automated Parametric DMLCateEstimator"""
         Y, T, X, _ = ihdp_surface_B()
-        est = \
-            AutomatedDMLCateEstimator(model_y=automl_model_reg(),
-                                      model_t=GradientBoostingClassifier(),
-                                      model_final=RandomForestRegressor(),
-                                      featurizer=None,
-                                      discrete_treatment=True)
+        est = AutomatedLinearDMLCateEstimator(model_y=automl_model_reg(),
+                                              model_t=GradientBoostingClassifier(),
+                                              featurizer=None,
+                                              discrete_treatment=True)
         est.fit(Y, T, X)
         _ = est.effect(X)
 
     def test_forest_dml(self):
-        """Testing accuracy of forest DML is reasonable"""
+        """Testing the completion of the fit and effect estimation of an AutomatedForestDMLCateEstimator"""
 
         Y, T, X, _ = ihdp_surface_B()
-        est = \
-            AutomatedForestDMLCateEstimator(model_y=automl_model_reg(),
-                                            model_t=GradientBoostingClassifier(),
-                                            discrete_treatment=True,
-                                            n_estimators=1000,
-                                            subsample_fr=.8,
-                                            min_samples_leaf=10,
-                                            min_impurity_decrease=0.001,
-                                            verbose=0, min_weight_fraction_leaf=.01)
+        est = AutomatedForestDMLCateEstimator(model_y=automl_model_reg(),
+                                              model_t=GradientBoostingClassifier(),
+                                              discrete_treatment=True,
+                                              n_estimators=1000,
+                                              subsample_fr=.8,
+                                              min_samples_leaf=10,
+                                              min_impurity_decrease=0.001,
+                                              verbose=0, min_weight_fraction_leaf=.01)
         est.fit(Y, T, X)
         _ = est.effect(X)
 
 
 @pytest.mark.automl
-class TestMetalearners(unittest.TestCase):
+class TestAutomatedMetalearners(unittest.TestCase):
 
     def test_TLearner(self):
-        """Tests whether the TLearner can accurately estimate constant and heterogeneous
-           treatment effects.
-        """
-
+        """Testing the completion of the fit and effect estimation of an AutomatedTLearner"""
         # TLearner test
         # Instantiate TLearner
         Y, T, X, _ = ihdp_surface_B()
@@ -206,9 +192,7 @@ class TestMetalearners(unittest.TestCase):
         _ = est.effect(X)
 
     def test_SLearner(self):
-        """Tests whether the SLearner can accurately estimate constant and heterogeneous
-           treatment effects.
-        """
+        """Testing the completion of the fit and effect estimation of an AutomatedSLearner"""
         # Test constant treatment effect with multi output Y
         # Test heterogeneous treatment effect
         # Need interactions between T and features
@@ -221,15 +205,12 @@ class TestMetalearners(unittest.TestCase):
         # Test heterogeneous treatment effect with multi output Y
 
     def test_DALearner(self):
-        """Tests whether the DomainAdaptationLearner can accurately estimate constant and
-           heterogeneous treatment effects.
-        """
+        """Testing the completion of the fit and effect estimation of an AutomatedDomainAdaptationLearner"""
 
         # Instantiate DomainAdaptationLearner
 
-        est = \
-            AutomatedDomainAdaptationLearner(models=automl_model_reg(),
-                                             final_models=automl_model_reg())
+        est = AutomatedDomainAdaptationLearner(models=automl_model_reg(),
+                                               final_models=automl_model_reg())
 
         est.fit(Y, T, X)
         _ = est.effect(X)
