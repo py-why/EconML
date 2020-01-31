@@ -32,7 +32,7 @@ import copy
 import logging
 from econml.data.dgps import ihdp_surface_B
 from azureml.train.automl.exceptions import ClientException
-from azureml.core.authentication import ServicePrincipalAuthentication
+from azureml.core.authentication import AzureCliAuthentication
 import os
 
 AutomatedTLearner = addAutomatedML(TLearner)
@@ -142,16 +142,10 @@ class TestDML(unittest.TestCase):
         subscription_id = os.getenv("SUBSCRIPTION_ID")
         resource_group = os.getenv("RESOURCE_GROUP")
         workspace_name = os.getenv("WORKSPACE_NAME")
-        tenant_id = os.getenv("TENANT_ID")
-        service_principal_id = os.getenv("SERVICE_PRINCIPAL_ID")
-        svc_pr_password = os.getenv("SVR_PR_PASSWORD")
 
-        svc_pr = ServicePrincipalAuthentication(
-            tenant_id=tenant_id,
-            service_principal_id=service_principal_id,
-            service_principal_password=svc_pr_password)
+        auth = AzureCliAuthentication()
 
-        setAutomatedMLWorkspace(auth=svc_pr,
+        setAutomatedMLWorkspace(auth=auth,
                                 subscription_id=subscription_id,
                                 resource_group=resource_group, workspace_name=workspace_name)
 
