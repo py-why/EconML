@@ -113,18 +113,14 @@ jobs:
   - template: azure-pipelines-steps.yml
     parameters:
       body:
-        - task: AzurePowershell@4
+        - task: AzureCLI@2
           displayName: 'AutoML tests'
           inputs:
             azureSubscription: 'automl'
-            azurePowerShellVersion: 'latestVersion'
-            scriptType: 'inlineScript'
-            inline: |
-              $ctx = Get-AzContext
-              $env:SUBSCRIPTION_ID = $ctx.Subscription.Id
-              $env:TENANT_ID = $ctx.Tentant.Id
-              $env:SERVICE_PRINCIPAL_ID = $ctx.Account.Id
-              $env:SVR_PR_PASSWORD = $ctx.Account.Credential
+            scriptLocation: 'inlineScript'
+            scriptType: 'pscore'
+            inlineScript: |
+              $env:SUBSCRIPTION_ID = az account show --query id -o tsv
               python setup.py pytest
               exit $LASTEXITCODE
           env:
