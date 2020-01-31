@@ -119,10 +119,10 @@ jobs:
             azureSubscription: 'automl'
             scriptLocation: 'inlineScript'
             scriptType: 'pscore'
+            powerShellIgnoreLASTEXITCODE: '' # string for now due to https://github.com/microsoft/azure-pipelines-tasks/issues/12266
             inlineScript: |
               $env:SUBSCRIPTION_ID = az account show --query id -o tsv
               python setup.py pytest
-              exit $LASTEXITCODE
           env:
             WORKSPACE_NAME: 'testWorkspace'
             RESOURCE_GROUP: 'testingAutoMLEconML'
