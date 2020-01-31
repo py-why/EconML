@@ -23,7 +23,7 @@ steps:
   condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
 # Install the package
-- script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools && pip install -e .[automl]'
+- script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools && pip install azureml-train-automl-runtime && pip install -e .[automl]'
   displayName: 'Install dependencies'
 
 - ${{ parameters.body }}
