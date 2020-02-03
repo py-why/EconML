@@ -18,7 +18,6 @@ Public Module Reference
     econml.two_stage_least_squares
     econml.utilities
     econml.automated_ml
-    ecibnk
 
 Private Module Reference
 ========================
