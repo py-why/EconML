@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
@@ -14,7 +11,6 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, \
 from sklearn.model_selection import KFold
 from econml.dml import *
 from econml.metalearners import *
-from econml.automated_ml import *
 from econml.drlearner import DRLearner
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, \
@@ -31,98 +27,95 @@ import econml.tests.utilities  # bugfix for assertWarns
 import copy
 import logging
 from econml.data.dgps import ihdp_surface_B
-from azureml.train.automl.exceptions import ClientException
-from azureml.core.authentication import AzureCliAuthentication
 import os
 
-AutomatedTLearner = addAutomatedML(TLearner)
-AutomatedSLearner = addAutomatedML(SLearner)
-AutomatedXLearner = addAutomatedML(XLearner)
-AutomatedDomainAdaptationLearner = \
-    addAutomatedML(DomainAdaptationLearner)
-AutomatedDRLearner = addAutomatedML(DRLearner)
-AutomatedDMLCateEstimator = addAutomatedML(DMLCateEstimator)
-AutomatedLinearDMLCateEstimator = addAutomatedML(LinearDMLCateEstimator)
-AutomatedSparseLinearDMLCateEstimator = \
-    addAutomatedML(SparseLinearDMLCateEstimator)
-AutomatedKernelDMLCateEstimator = addAutomatedML(KernelDMLCateEstimator)
-AutomatedNonParamDMLCateEstimator = \
-    addAutomatedML(NonParamDMLCateEstimator)
-AutomatedForestDMLCateEstimator = addAutomatedML(ForestDMLCateEstimator)
+try:
+    from azureml.train.automl.exceptions import ClientException
+    from azureml.core.authentication import AzureCliAuthentication
+    from econml.automated_ml import *
+    AutomatedTLearner = addAutomatedML(TLearner)
+    AutomatedSLearner = addAutomatedML(SLearner)
+    AutomatedXLearner = addAutomatedML(XLearner)
+    AutomatedDomainAdaptationLearner = \
+        addAutomatedML(DomainAdaptationLearner)
+    AutomatedDRLearner = addAutomatedML(DRLearner)
+    AutomatedDMLCateEstimator = addAutomatedML(DMLCateEstimator)
+    AutomatedLinearDMLCateEstimator = addAutomatedML(LinearDMLCateEstimator)
+    AutomatedSparseLinearDMLCateEstimator = \
+        addAutomatedML(SparseLinearDMLCateEstimator)
+    AutomatedKernelDMLCateEstimator = addAutomatedML(KernelDMLCateEstimator)
+    AutomatedNonParamDMLCateEstimator = \
+        addAutomatedML(NonParamDMLCateEstimator)
+    AutomatedForestDMLCateEstimator = addAutomatedML(ForestDMLCateEstimator)
 
+    AUTOML_SETTINGS_REG = {
+        'experiment_timeout_minutes': 1,
+        'enable_early_stopping': True,
+        'iteration_timeout_minutes': 1,
+        'max_cores_per_iteration': 1,
+        'n_cross_validations': 2,
+        'preprocess': False,
+        'featurization': 'off',
+        'enable_stack_ensemble': False,
+        'enable_voting_ensemble': False,
+        'primary_metric': 'normalized_mean_absolute_error',
+    }
 
-AUTOML_SETTINGS_REG = {
-    'experiment_timeout_minutes': 1,
-    'enable_early_stopping': True,
-    'iteration_timeout_minutes': 1,
-    'max_cores_per_iteration': 1,
-    'n_cross_validations': 2,
-    'preprocess': False,
-    'featurization': 'off',
-    'enable_stack_ensemble': False,
-    'enable_voting_ensemble': False,
-    'primary_metric': 'normalized_mean_absolute_error',
-}
+    AUTOML_SETTINGS_CLF = {
+        'experiment_timeout_minutes': 1,
+        'enable_early_stopping': True,
+        'iteration_timeout_minutes': 1,
+        'max_cores_per_iteration': 1,
+        'n_cross_validations': 2,
+        'enable_stack_ensemble': False,
+        'preprocess': False,
+        'enable_voting_ensemble': False,
+        'featurization': 'off',
+        'primary_metric': 'AUC_weighted',
+    }
 
-AUTOML_SETTINGS_CLF = {
-    'experiment_timeout_minutes': 1,
-    'enable_early_stopping': True,
-    'iteration_timeout_minutes': 1,
-    'max_cores_per_iteration': 1,
-    'n_cross_validations': 2,
-    'enable_stack_ensemble': False,
-    'preprocess': False,
-    'enable_voting_ensemble': False,
-    'featurization': 'off',
-    'primary_metric': 'AUC_weighted',
-}
+    AUTOML_CONFIG_REG = EconAutoMLConfig(task='regression',
+                                         debug_log='automl_errors.log',
+                                         enable_onnx_compatible_models=True, model_explainability=True,
+                                         **AUTOML_SETTINGS_REG)
 
+    AUTOML_CONFIG_CLF = EconAutoMLConfig(task='classification',
+                                         debug_log='automl_errors.log',
+                                         enable_onnx_compatible_models=True, model_explainability=True,
+                                         **AUTOML_SETTINGS_CLF)
 
-AUTOML_CONFIG_REG = EconAutoMLConfig(task='regression',
-                                     debug_log='automl_errors.log',
-                                     enable_onnx_compatible_models=True, model_explainability=True,
-                                     **AUTOML_SETTINGS_REG)
+    AUTOML_CONFIG_LINEAR_REG = EconAutoMLConfig(task='regression',
+                                                debug_log='automl_errors.log',
+                                                linear_model_required=True,
+                                                enable_onnx_compatible_models=True, model_explainability=True,
+                                                **AUTOML_SETTINGS_REG)
 
-AUTOML_CONFIG_CLF = EconAutoMLConfig(task='classification',
-                                     debug_log='automl_errors.log',
-                                     enable_onnx_compatible_models=True, model_explainability=True,
-                                     **AUTOML_SETTINGS_CLF)
+    AUTOML_CONFIG_SAMPLE_WEIGHT_REG = EconAutoMLConfig(task='regression',
+                                                       debug_log='automl_errors.log',
+                                                       linear_model_required=True,
+                                                       enable_onnx_compatible_models=True, model_explainability=True,
+                                                       **AUTOML_SETTINGS_REG)
 
-AUTOML_CONFIG_LINEAR_REG = EconAutoMLConfig(task='regression',
-                                            debug_log='automl_errors.log',
-                                            linear_model_required=True,
-                                            enable_onnx_compatible_models=True, model_explainability=True,
-                                            **AUTOML_SETTINGS_REG)
+    def automl_model_reg():
+        return copy.deepcopy(AUTOML_CONFIG_REG)
 
-AUTOML_CONFIG_SAMPLE_WEIGHT_REG = EconAutoMLConfig(task='regression',
-                                                   debug_log='automl_errors.log',
-                                                   linear_model_required=True,
-                                                   enable_onnx_compatible_models=True, model_explainability=True,
-                                                   **AUTOML_SETTINGS_REG)
+    def automl_model_clf():
+        return copy.deepcopy(AUTOML_CONFIG_CLF)
 
+    # Linear models are required for parametric dml
 
-def automl_model_reg():
-    return copy.deepcopy(AUTOML_CONFIG_REG)
+    def automl_model_linear_reg():
+        return copy.deepcopy(AUTOML_CONFIG_LINEAR_REG)
 
+    # sample weighting models are required for nonparametric dml
 
-def automl_model_clf():
-    return copy.deepcopy(AUTOML_CONFIG_CLF)
+    def automl_model_sample_weight_reg():
+        return copy.deepcopy(AUTOML_CONFIG_SAMPLE_WEIGHT_REG)
 
-
-# Linear models are required for parametric dml
-
-def automl_model_linear_reg():
-    return copy.deepcopy(AUTOML_CONFIG_LINEAR_REG)
-
-
-# sample weighting models are required for nonparametric dml
-
-def automl_model_sample_weight_reg():
-    return copy.deepcopy(AUTOML_CONFIG_SAMPLE_WEIGHT_REG)
-
-
-# Test values
-Y, T, X, _ = ihdp_surface_B()
+    # Test values
+    Y, T, X, _ = ihdp_surface_B()
+except ModuleNotFoundError:
+    pass  # automl not installed
 
 
 @pytest.mark.automl
