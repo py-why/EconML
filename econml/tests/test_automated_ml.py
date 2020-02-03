@@ -21,7 +21,6 @@ from sklearn.ensemble import RandomForestRegressor, \
     GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
 from econml.sklearn_extensions.linear_model import WeightedLasso
-from econml.automated_ml import addAutomatedML
 from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 import copy

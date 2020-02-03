@@ -75,6 +75,7 @@ jobs:
 
         - script: 'python setup.py build_sphinx -b doctest'
           displayName: 'Run doctests'
+      package: '.[automl]'
 
 - job: 'Notebooks'
   dependsOn: 'EvalChanges'
