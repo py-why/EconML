@@ -113,7 +113,7 @@ try:
 
     # Test values
     Y, T, X, _ = ihdp_surface_B()
-except ModuleNotFoundError:
+except ImportError:
     pass  # automl not installed
 
 
