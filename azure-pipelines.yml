@@ -135,6 +135,7 @@ jobs:
             testResultsFiles: '**/test-results.xml'
             testRunTitle: 'AutoML'
           condition: succeededOrFailed()
+      package: '.[automl]'
 
 - job: 'Linting'
   dependsOn: 'EvalChanges'
