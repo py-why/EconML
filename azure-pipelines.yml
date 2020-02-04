@@ -127,7 +127,7 @@ jobs:
           env:
             WORKSPACE_NAME: 'testWorkspace'
             RESOURCE_GROUP: 'testingAutoMLEconML'
-            PYTEST_ADDOPTS: '-m "automl"'
+            PYTEST_ADDOPTS: '-m "automl" -n 0'
             COVERAGE_PROCESS_START: 'setup.cfg'
 
         - task: PublishTestResults@2
