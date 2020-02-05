@@ -153,6 +153,8 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
     def effect_inference(self, X, *, T0, T1):
         # We can write effect inference as a function of const_marginal_effect_inference for a single treatment
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        if (T0 == T1).all():
+            raise AttributeError("T0 is the same with T1, please input different treatment!")
         cme_pred = self.const_marginal_effect_inference(X).point_estimate
         cme_stderr = self.const_marginal_effect_inference(X).stderr
         dT = T1 - T0
@@ -197,6 +199,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
         # We can write effect inference as a function of prediction and prediction standard error of
         # the final method for linear models
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        if (T0 == T1).all():
+            raise AttributeError("T0 is the same with T1, please input different treatment!")
         if X is None:
             X = np.ones((T0.shape[0], 1))
         elif self.featurizer is not None:
@@ -319,6 +323,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
         self.fitted_models_final = estimator.fitted_models_final
         self.d_t = self._d_t[0] if self._d_t else 1
         self.d_y = self._d_y[0] if self._d_y else 1
+        if hasattr(estimator, 'fit_cate_intercept'):
+            self.fit_cate_intercept = estimator.fit_cate_intercept
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if (X is not None) and (self.featurizer is not None):
@@ -351,17 +357,21 @@ class GenericModelFinalInferenceDiscrete(Inference):
 
     def effect_inference(self, X, *, T0, T1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
+        if (T0 == T1).all():
+            raise AttributeError("T0 is the same with T1, please input different treatment!")
         if np.any(np.any(T0 > 0, axis=1)):
             raise AttributeError("Can only calculate inference of effects with respect to baseline treatment!")
         ind = (T1 @ np.arange(1, T1.shape[1] + 1)).astype(int)
         pred = self.const_marginal_effect_inference(X).point_estimate
+        pred = np.hstack([np.zeros((pred.shape[0], 1)), pred])
         pred_stderr = self.const_marginal_effect_inference(X).stderr
+        pred_stderr = np.hstack([np.zeros((pred_stderr.shape[0], 1)), pred_stderr])
         if X is None:  # Then const_marginal_effect_interval will return a single row
             pred = np.tile(pred, (T0.shape[0], 1))
             pred_stderr = np.tile(pred_stderr, (T0.shape[0], 1))
         # d_t=1 here since we measure the effect across all Ts
-        return InferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ind - 1],
-                                pred_stderr=pred_stderr[np.arange(T0.shape[0]), ind - 1],
+        return InferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ind],
+                                pred_stderr=pred_stderr[np.arange(T0.shape[0]), ind],
                                 inf_type='effect', pred_dist=None, fname_transformer=None)
 
 
@@ -395,12 +405,16 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
                                 inf_type='coefficient', pred_dist=None, fname_transformer=fname_transformer)
 
     def intercept__interval(self, T, *, alpha=0.1):
+        if not self.fit_cate_intercept:
+            raise AttributeError("No intercept was fitted!")
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
         return self.fitted_models_final[ind].intercept__interval(alpha)
 
     def intercept__inference(self, T):
+        if not self.fit_cate_intercept:
+            raise AttributeError("No intercept was fitted!")
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
