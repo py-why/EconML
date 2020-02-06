@@ -1340,3 +1340,33 @@ class Summary:
         if self.extra_txt is not None:
             html = html + '<br/><br/>' + self.extra_txt.replace('\n', '<br/>')
         return html
+
+
+class SeparateModel:
+    """
+    Splits the data based on the last feature and trains
+    a separate model for each subsample. At predict time, it
+    uses the last feature to choose which model to use
+    to predict.
+    """
+
+    def __init__(self, *models):
+        self.models = [clone(model) for model in models]
+
+    def fit(self, XZ, T):
+        for (i, m) in enumerate(self.models):
+            inds = (XZ[:, -1] == i)
+            m.fit(XZ[inds, :-1], T[inds])
+        return self
+
+    def predict(self, XZ):
+        t_pred = np.zeros(XZ.shape[0])
+        for (i, m) in enumerate(self.models):
+            inds = (XZ[:, -1] == i)
+            if np.any(inds):
+                t_pred[inds] = m.predict(XZ[inds, :-1])
+        return t_pred
+
+    @property
+    def coef_(self):
+        return np.concatenate((model.coef_ for model in self.models))

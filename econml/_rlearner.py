@@ -270,7 +270,11 @@ class _RLearner(_OrthoLearner):
                     return np.mean((Y_res - Y_res_pred)**2)
 
         super().__init__(ModelNuisance(model_y, model_t),
-                         ModelFinal(model_final), discrete_treatment, n_splits, random_state)
+                         ModelFinal(model_final),
+                         discrete_treatment=discrete_treatment,
+                         discrete_instrument=False,  # no instrument, so doesn't matter
+                         n_splits=n_splits,
+                         random_state=random_state)
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """

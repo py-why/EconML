@@ -246,6 +246,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    discrete_instrument: bool
+        Whether the instrument values should be treated as categorical, rather than continuous, quantities
+
     n_splits: int, cross-validation generator or an iterable
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -310,7 +313,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()),
                             ModelFinal(),
-                            n_splits=2, discrete_treatment=False, random_state=None)
+                            n_splits=2, discrete_treatment=False, discrete_instrument=False, 
+                            random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
@@ -372,7 +376,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = np.random.binomial(1, scipy.special.expit(W[:, 0]))
         y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
         est = _OrthoLearner(ModelNuisance(LogisticRegression(solver='lbfgs'), LinearRegression()),
-                            ModelFinal(), n_splits=2, discrete_treatment=True, random_state=None)
+                            ModelFinal(), n_splits=2, discrete_treatment=True, discrete_instrument=False, 
+                            random_state=None)
         est.fit(y, T, W=W)
 
     >>> est.score_
@@ -399,13 +404,14 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         of the final CATE model.
     """
 
-    def __init__(self, model_nuisance, model_final,
-                 discrete_treatment, n_splits, random_state):
+    def __init__(self, model_nuisance, model_final, *,
+                 discrete_treatment, discrete_instrument, n_splits, random_state):
         self._model_nuisance = clone(model_nuisance, safe=False)
         self._models_nuisance = None
         self._model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
+        self._discrete_instrument = discrete_instrument
         self._random_state = check_random_state(random_state)
         if discrete_treatment:
             self._label_encoder = LabelEncoder()
@@ -490,7 +496,19 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         # use a binary array to get stratified split in case of discrete treatment
-        splitter = check_cv(self._n_splits, [0], classifier=self._discrete_treatment)
+        stratify = self._discrete_treatment or self._discrete_instrument
+        splitter = check_cv(self._n_splits, [0], classifier=stratify)
+        if self._discrete_treatment:
+            self._label_encoder.fit(T.ravel())
+        if self._discrete_instrument:
+            if self._discrete_treatment:  # need to stratify on combination of Z and T
+                Z_enc = LabelEncoder().fit(Z)
+                to_split = self._label_encoder.transform(T) + Z_enc.transform(Z) * len(self._label_encoder.classes_)
+            else:
+                to_split = Z  # just stratify on Z
+        else:
+            to_split = T  # stratify on T if discrete, and fine to pass T as second arg to KFold.split even when not
+
         # if check_cv produced a new KFold or StratifiedKFold object, we need to set shuffle and random_state
         if splitter != self._n_splits and isinstance(splitter, (KFold, StratifiedKFold)):
             splitter.shuffle = True
@@ -499,12 +517,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         all_vars = [var if np.ndim(var) == 2 else var.reshape(-1, 1) for var in [Z, W, X] if var is not None]
         if all_vars:
             all_vars = np.hstack(all_vars)
-            folds = splitter.split(all_vars, T)
+            folds = splitter.split(all_vars, to_split)
         else:
-            folds = splitter.split(np.ones((T.shape[0], 1)), T)
+            folds = splitter.split(np.ones((T.shape[0], 1)), to_split)
 
         if self._discrete_treatment:
-            T = self._label_encoder.fit_transform(T.ravel())
+            T = self._label_encoder.transform(T.ravel())
             # drop first column since all columns sum to one
             T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))[:, 1:]
             self._d_t = shape(T)[1:]
