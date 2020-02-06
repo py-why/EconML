@@ -101,7 +101,6 @@ class TestDRLearner(unittest.TestCase):
                             (n if d_x else 1) * (d_y if d_y > 0 else 1),
                             6 * (d_t_final if d_t_final > 0 else 1))
 
-
                         for est in [LinearDRLearner(model_propensity=LogisticRegression(C=1000, solver='lbfgs',
                                                                                         multi_class='auto')),
                                     DRLearner(model_propensity=LogisticRegression(multi_class='auto'),
@@ -143,8 +142,8 @@ class TestDRLearner(unittest.TestCase):
                                                          (2,) + const_marginal_effect_shape)
                                         self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                          (2,) + effect_shape)
-                                        
-                                         # test const marginal inference
+
+                                        # test const marginal inference
                                         self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
                                                          const_marginal_effect_summaryframe_shape)
                                         self.assertEqual(shape(const_marg_effect_inf.point_estimate),
@@ -182,7 +181,7 @@ class TestDRLearner(unittest.TestCase):
                                                                              [0], est.effect_interval(X, T0=T0, T1=T1)
                                                                              [0], decimal=5)
                                         effect_inf.population_summary()._repr_html_()
-                                        
+
                                         # test marginal effect inference
                                         self.assertEqual(shape(marg_effect_inf.summary_frame()),
                                                          marginal_effect_summaryframe_shape)

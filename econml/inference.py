@@ -335,13 +335,14 @@ class GenericModelFinalInferenceDiscrete(Inference):
     def const_marginal_effect_inference(self, X):
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.fit_transform(X)
-        pred = np.array([mdl.predict(X) for mdl in self.fitted_models_final]).T
+        pred = np.array([mdl.predict(X) for mdl in self.fitted_models_final])
         if not hasattr(self.fitted_models_final[0], 'prediction_stderr'):
             raise AttributeError("Final model doesn't support prediction standard eror, "
                                  "please call const_marginal_effect_interval to get confidence interval.")
-        pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final]).T
-        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
+        pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final])
+        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
+                                pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect',
+                                pred_dist=None, fname_transformer=None)
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -361,17 +362,17 @@ class GenericModelFinalInferenceDiscrete(Inference):
             raise AttributeError("T0 is the same with T1, please input different treatment!")
         if np.any(np.any(T0 > 0, axis=1)):
             raise AttributeError("Can only calculate inference of effects with respect to baseline treatment!")
-        ind = (T1 @ np.arange(1, T1.shape[1] + 1)).astype(int)
+        ind = inverse_onehot(T1)
         pred = self.const_marginal_effect_inference(X).point_estimate
-        pred = np.hstack([np.zeros((pred.shape[0], 1)), pred])
+        pred = np.concatenate([np.zeros(pred.shape[0:-1] + (1,)), pred], -1)
         pred_stderr = self.const_marginal_effect_inference(X).stderr
-        pred_stderr = np.hstack([np.zeros((pred_stderr.shape[0], 1)), pred_stderr])
+        pred_stderr = np.concatenate([np.zeros(pred_stderr.shape[0:-1] + (1,)), pred_stderr], -1)
         if X is None:  # Then const_marginal_effect_interval will return a single row
-            pred = np.tile(pred, (T0.shape[0], 1))
-            pred_stderr = np.tile(pred_stderr, (T0.shape[0], 1))
+            pred = np.repeat(pred, T0.shape[0], axis=0)
+            pred_stderr = np.repeat(pred_stderr, T0.shape[0], axis=0)
         # d_t=1 here since we measure the effect across all Ts
-        return InferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ind],
-                                pred_stderr=pred_stderr[np.arange(T0.shape[0]), ind],
+        return InferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ..., ind],
+                                pred_stderr=pred_stderr[np.arange(T0.shape[0]), ..., ind],
                                 inf_type='effect', pred_dist=None, fname_transformer=None)
 
 
