@@ -29,15 +29,14 @@ Tsiatis AA (2006).
 
 import numpy as np
 from warnings import warn
-from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
-from econml.utilities import inverse_onehot, check_high_dimensional
-from econml.sklearn_extensions.linear_model import WeightedLassoCV, DebiasedLasso
-from econml.sklearn_extensions.ensemble import SubsampledHonestForest
+
 from sklearn.base import clone
+from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
+from econml.utilities import inverse_onehot, check_high_dimensional, StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper, DebiasedLasso
+from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from econml._ortho_learner import _OrthoLearner
 from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin, DebiasedLassoCateEstimatorDiscreteMixin
-from econml.utilities import StatsModelsLinearRegression
-from sklearn.preprocessing import PolynomialFeatures
 from econml.inference import GenericModelFinalInferenceDiscrete
 
 
@@ -243,7 +242,7 @@ class DRLearner(_OrthoLearner):
     """
 
     def __init__(self, model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
-                 model_regression=WeightedLassoCV(cv=3),
+                 model_regression=WeightedLassoCVWrapper(cv=3),
                  model_final=StatsModelsLinearRegression(),
                  multitask_model_final=False,
                  featurizer=None,
@@ -258,8 +257,9 @@ class DRLearner(_OrthoLearner):
                 return np.hstack([arr for arr in [X, W] if arr is not None])
 
             def fit(self, Y, T, X=None, W=None, *, sample_weight=None):
-                # TODO Allow for non-vector y, i.e. of shape (n, 1)
-                assert np.ndim(Y) == 1, "Can only accept single dimensional outcomes Y! Use Y.ravel()."
+                if Y.ndim != 1 and (Y.ndim != 2 or Y.shape[1] != 1):
+                    raise ValueError("The outcome matrix must be of shape ({0}, ) or ({0}, 1), "
+                                     "instead got {1}.".format(len(X), Y.shape))
                 if (X is None) and (W is None):
                     raise AttributeError("At least one of X or W has to not be None!")
                 if np.any(np.all(T == 0, axis=0)) or (not np.any(np.all(T == 0, axis=1))):
@@ -274,16 +274,17 @@ class DRLearner(_OrthoLearner):
             def predict(self, Y, T, X=None, W=None, *, sample_weight=None):
                 XW = self._combine(X, W)
                 propensities = self._model_propensity.predict_proba(XW)
+                n = T.shape[0]
                 Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
                 T_counter = np.zeros(T.shape)
-                Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter]))
-                Y_pred[:, 0] += (Y - Y_pred[:, 0]) * np.all(T == 0, axis=1) / propensities[:, 0]
+                Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
+                Y_pred[:, 0] += (Y.reshape(n) - Y_pred[:, 0]) * np.all(T == 0, axis=1) / propensities[:, 0]
                 for t in np.arange(T.shape[1]):
                     T_counter = np.zeros(T.shape)
                     T_counter[:, t] = 1
-                    Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter]))
-                    Y_pred[:, t + 1] += (Y - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
-                return Y_pred
+                    Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
+                    Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
+                return Y_pred.reshape(Y.shape + (T.shape[1] + 1,))
 
         class ModelFinal:
             # Coding Remark: The reasoning around the multitask_model_final could have been simplified if
@@ -299,36 +300,45 @@ class DRLearner(_OrthoLearner):
 
             def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
                 Y_pred, = nuisances
+                self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
                 if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.fit_transform(X)
                 filtered_kwargs = _filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var)
                 if self._multitask_model_final:
-                    self.model_cate = self._model_final.fit(X, Y_pred[:, 1:] - Y_pred[:, [0]], **filtered_kwargs)
+                    ys = Y_pred[..., 1:] - Y_pred[..., [0]]  # subtract control results from each other arm
+                    if self.d_y:  # need to squeeze out singleton so that we fit on 2D array
+                        ys = ys.squeeze(1)
+                    self.model_cate = self._model_final.fit(X, ys, **filtered_kwargs)
                 else:
-                    self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[:, t] - Y_pred[:, 0],
+                    self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[..., t] - Y_pred[..., 0],
                                                                                  **filtered_kwargs)
-                                        for t in np.arange(1, Y_pred.shape[1])]
+                                        for t in np.arange(1, Y_pred.shape[-1])]
                 return self
 
             def predict(self, X=None):
                 if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.transform(X)
                 if self._multitask_model_final:
-                    return self.model_cate.predict(X)
+                    pred = self.model_cate.predict(X)
+                    if self.d_y:  # need to reintroduce singleton Y dimension
+                        return pred[:, np.newaxis, :]
+                    return pred
                 else:
-                    return np.array([mdl.predict(X) for mdl in self.models_cate]).T
+                    preds = np.array([mdl.predict(X) for mdl in self.models_cate])
+                    return np.moveaxis(preds, 0, -1)  # move treatment dim to end
 
             def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
                 if (X is not None) and (self._featurizer is not None):
                     X = self._featurizer.transform(X)
                 Y_pred, = nuisances
                 if self._multitask_model_final:
-                    return np.mean(np.average((Y_pred[:, 1:] - Y_pred[:, [0]] - self.model_cate.predict(X))**2,
+                    return np.mean(np.average((Y_pred[..., 1:] - Y_pred[..., [0]] - self.model_cate.predict(X))**2,
                                               weights=sample_weight, axis=0))
                 else:
-                    return np.mean([np.average((Y_pred[:, t] - Y_pred[:, 0] - self.models_cate[t - 1].predict(X))**2,
+                    return np.mean([np.average((Y_pred[..., t] - Y_pred[..., 0] -
+                                                self.models_cate[t - 1].predict(X))**2,
                                                weights=sample_weight, axis=0)
-                                    for t in np.arange(1, Y_pred.shape[1])])
+                                    for t in np.arange(1, Y_pred.shape[-1])])
 
         self._multitask_model_final = multitask_model_final
         super().__init__(ModelNuisance(model_propensity, model_regression),
@@ -615,7 +625,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     def __init__(self,
                  model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
-                 model_regression=WeightedLassoCV(cv=3),
+                 model_regression=WeightedLassoCVWrapper(cv=3),
                  featurizer=None,
                  fit_cate_intercept=True,
                  n_splits=2, random_state=None):
@@ -807,7 +817,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     def __init__(self,
                  model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
-                 model_regression=WeightedLassoCV(cv=3),
+                 model_regression=WeightedLassoCVWrapper(cv=3),
                  featurizer=None,
                  fit_cate_intercept=True,
                  alpha='auto',
