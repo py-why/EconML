@@ -313,7 +313,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()),
                             ModelFinal(),
-                            n_splits=2, discrete_treatment=False, discrete_instrument=False, 
+                            n_splits=2, discrete_treatment=False, discrete_instrument=False,
                             random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
@@ -376,7 +376,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = np.random.binomial(1, scipy.special.expit(W[:, 0]))
         y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
         est = _OrthoLearner(ModelNuisance(LogisticRegression(solver='lbfgs'), LinearRegression()),
-                            ModelFinal(), n_splits=2, discrete_treatment=True, discrete_instrument=False, 
+                            ModelFinal(), n_splits=2, discrete_treatment=True, discrete_instrument=False,
                             random_state=None)
         est.fit(y, T, W=W)
 
