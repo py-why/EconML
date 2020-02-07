@@ -267,6 +267,16 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         return options
 
     def _pointwise_effect(self, X_single, stderr=False):
+        """Calculate the effect for a one data point with features X_single.
+
+        Parameters
+        ----------
+        X_single : array-like, shape (d_x, )
+            Feature vector that captures heterogeneity for one sample.
+
+        stderr : boolean (default=False)
+            Whether to calculate the covariance matrix via bootstrap-of-little-bags.
+        """
         w1, w2 = self._get_weights(X_single)
         mask_w1 = (w1 != 0)
         mask_w2 = (w2 != 0)
@@ -345,8 +355,11 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                 self.random_state.randint(MAX_RAND_SEED)) for s in subsample_ind)
 
     def _get_weights(self, X_single, tree_slice=None):
-        # Calculates weights for an input feature vector for a slice of trees
-        # defined by the `tree_slice` tuple (start, end)
+        """Calculate weights for a single input feature vector over a subset of trees.
+
+        The subset of trees is defined by the `tree_slice` tuple (start, end).
+        The (start, end) tuple includes all trees from `start` to `end`-1.
+        """
         w1 = np.zeros(self.Y_one.shape[0])
         w2 = np.zeros(self.Y_two.shape[0])
         if tree_slice is None:
@@ -383,6 +396,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         if not self.bootstrap:
             if self.subsample_ratio > 1.0:
                 # Safety check
+                warnings.warn("The argument 'subsample_ratio' must be between 0.0 and 1.0, " +
+                              "however a value of {} was provided. The 'subsample_ratio' will be changed to 1.0.")
                 self.subsample_ratio = 1.0
             subsample_size = int(self.subsample_ratio * subsample_size)
         subsample_ind = []
@@ -392,7 +407,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                 X.shape[0], X.shape[0] // 2, replace=False)
             for _ in np.arange(it * self.slice_len, min((it + 1) * self.slice_len, self.n_trees)):
                 subsample_ind.append(half_sample_inds[self.random_state.choice(
-                    X.shape[0] // 2, subsample_size, replace=False)])
+                    X.shape[0] // 2, subsample_size, replace=self.bootstrap)])
         return np.asarray(subsample_ind)
 
 
@@ -568,9 +583,13 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
-                                     sample_weight=None,
-                                     X_single=None):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+                                     sample_weight,
+                                     X_single):
+            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
+
+            The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
+            local corrections on a preliminary parameter estimate.
+            """
             # Compute residuals
             Y_hat, T_hat = nuisance_estimates
             Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
@@ -841,9 +860,13 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
-                                     sample_weight=None,
-                                     X_single=None):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+                                     sample_weight,
+                                     X_single):
+            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
+
+            The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
+            local corrections on a preliminary parameter estimate.
+            """
             # Compute partial moments
             pointwise_params = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)
             X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
@@ -929,13 +952,15 @@ class BLBInference(Inference):
         This is called after the estimator's fit.
         """
         self._estimator = estimator
+        # Test whether the input estimator is supported
+        if not hasattr(self._estimator, "_pointwise_effect"):
+            raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
+                            " Estimators must implement the '_pointwise_effect' method with the correct signature.")
         # Test expansion of treatment
         # If expanded treatments are a vector, flatten const_marginal_effect_interval
         _, T0, _ = self._estimator._expand_treatments(None, 0, 1)
-        self._T_vec = False
-        if T0.ndim == 1:
-            # Treatments are vectors
-            self._T_vec = True
+        self._T_vec = (T0.ndim == 1)
+        return self
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\theta(X)` produced
