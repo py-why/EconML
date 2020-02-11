@@ -574,6 +574,19 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         """
         pass
 
+    @BaseCateEstimator._defer_to_inference
+    def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None):
+        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
+        """
+        pass
+
 
 class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
     """
@@ -722,6 +735,19 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         InferenceResults: object
             The inference of the intercept in the final linear model
 
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None):
+        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Returns
+        -------
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
         """
         pass
 

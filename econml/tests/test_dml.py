@@ -260,6 +260,9 @@ class TestDML(unittest.TestCase):
                                                         self.assertEqual(
                                                             shape(est.coef__inference().summary_frame()),
                                                             coef_summaryframe_shape)
+                                                        np.testing.assert_array_almost_equal(
+                                                            est.coef__inference().conf_int()
+                                                            [0], est.coef__interval()[0], decimal=5)
 
                                                     if fit_cate_intercept:
                                                         cm = ExitStack()
@@ -270,6 +273,11 @@ class TestDML(unittest.TestCase):
                                                         self.assertEqual(shape(est.intercept__inference().
                                                                                summary_frame()),
                                                                          intercept_summaryframe_shape)
+                                                        np.testing.assert_array_almost_equal(
+                                                            est.intercept__inference().conf_int()
+                                                            [0], est.intercept__interval()[0], decimal=5)
+
+                                                    est.summary()
 
                                             est.score(Y, T, X, W)
 

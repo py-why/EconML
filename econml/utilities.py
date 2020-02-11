@@ -871,12 +871,14 @@ class MultiModelWrapper:
 
 
 def _safe_norm_ppf(q, loc=0, scale=1):
-    prelim = loc.copy()
-    if hasattr(prelim, "__len__"):
+    if hasattr(loc, "__len__"):
+        prelim = loc.copy()
         if np.any(scale > 0):
             prelim[scale > 0] = scipy.stats.norm.ppf(q, loc=loc[scale > 0], scale=scale[scale > 0])
     elif scale > 0:
         prelim = scipy.stats.norm.ppf(q, loc=loc, scale=scale)
+    else:
+        prelim = loc
     return prelim
 
 

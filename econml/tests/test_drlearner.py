@@ -555,6 +555,8 @@ class TestDRLearner(unittest.TestCase):
                                                 TestDRLearner._check_with_interval(truth, point, lower, upper)
                                                 # test coef__inference function works
                                                 est.coef__inference(t).summary_frame()
+                                                np.testing.assert_array_almost_equal(
+                                                    est.coef__inference(t).conf_int()[0], lower, decimal=5)
                                         for t in [1, 2]:
                                             lower, upper = est.model_cate(T=t).intercept__interval()
                                             point = est.model_cate(T=t).intercept_
@@ -567,6 +569,10 @@ class TestDRLearner(unittest.TestCase):
                                             TestDRLearner._check_with_interval(truth, point, lower, upper)
                                             # test intercept__inference function works
                                             est.intercept__inference(t).summary_frame()
+                                            np.testing.assert_array_almost_equal(
+                                                est.intercept__inference(t).conf_int()[0], lower, decimal=5)
+                                            # test summary function works
+                                            est.summary(t)
 
     @staticmethod
     def _check_with_interval(truth, point, lower, upper):

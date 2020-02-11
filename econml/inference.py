@@ -242,8 +242,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
                 return self._est.cate_feature_names(x)
         else:
             fname_transformer = None
-        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=reshape_coef(coef),
-                                pred_stderr=reshape_coef(coef_stderr),
+        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=coef,
+                                pred_stderr=coef_stderr,
                                 inf_type='coefficient', pred_dist=None, fname_transformer=fname_transformer)
 
     def intercept__interval(self, *, alpha=0.1):
@@ -272,10 +272,36 @@ class LinearModelFinalInference(GenericModelFinalInference):
         intercept_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
                                                     self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                                     self.fit_cate_intercept)[1]
-        intercept = np.array([intercept]) if np.isscalar(intercept) else intercept
-        intercept_stderr = np.array([intercept_stderr]) if np.isscalar(intercept_stderr) else intercept_stderr
         return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
                                 inf_type='intercept', pred_dist=None, fname_transformer=None)
+
+    def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None):
+        smry = Summary()
+        try:
+            coef_table = self.coef__inference().summary_frame(alpha=alpha,
+                                                              value=value, decimals=decimals, feat_name=feat_name)
+            coef_array = coef_table.values
+            coef_headers = [i + '\n' +
+                            j for (i, j) in coef_table.columns] if self.d_t > 1 else coef_table.columns.tolist()
+            coef_stubs = [i + ' | ' + j for (i, j) in coef_table.index] if self.d_y > 1 else coef_table.index.tolist()
+            coef_title = 'Coefficient Results'
+            smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
+        except Exception as e:
+            print("Coefficient Results: ", str(e))
+        try:
+            intercept_table = self.intercept__inference().summary_frame(alpha=alpha,
+                                                                        value=value, decimals=decimals, feat_name=None)
+            intercept_array = intercept_table.values
+            intercept_headers = [i + '\n' + j for (i, j)
+                                 in intercept_table.columns] if self.d_t > 1 else intercept_table.columns.tolist()
+            intercept_stubs = [i + ' | ' + j for (i, j)
+                               in intercept_table.index] if self.d_y > 1 else intercept_table.index.tolist()
+            intercept_title = 'Intercept Results'
+            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
+        except Exception as e:
+            print("Intercept Results: ", str(e))
+        if len(smry.tables) > 0:
+            return smry
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -393,8 +419,8 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
-        coef = np.array([self.fitted_models_final[ind].coef_])
-        coef_stderr = np.array([self.fitted_models_final[ind].coef_stderr_])
+        coef = self.fitted_models_final[ind].coef_
+        coef_stderr = self.fitted_models_final[ind].coef_stderr_
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
         if callable(self._est.cate_feature_names):
@@ -419,9 +445,35 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
-        return InferenceResults(d_t=1, d_y=self.d_y, pred=np.array([self.fitted_models_final[ind].intercept_]),
-                                pred_stderr=np.array([self.fitted_models_final[ind].intercept_stderr_]),
+        return InferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
+                                pred_stderr=self.fitted_models_final[ind].intercept_stderr_,
                                 inf_type='intercept', pred_dist=None, fname_transformer=None)
+
+    def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None):
+        smry = Summary()
+        try:
+            coef_table = self.coef__inference(T).summary_frame(
+                alpha=alpha, value=value, decimals=decimals, feat_name=feat_name)
+            coef_array = coef_table.values
+            coef_headers = coef_table.columns.tolist()
+            coef_stubs = coef_table.index.tolist()
+            coef_title = 'Coefficient Results'
+            smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
+        except Exception as e:
+            print("Coefficient Results: ", e)
+        try:
+            intercept_table = self.intercept__inference(T).summary_frame(
+                alpha=alpha, value=value, decimals=decimals, feat_name=None)
+            intercept_array = intercept_table.values
+            intercept_headers = intercept_table.columns.tolist()
+            intercept_stubs = intercept_table.index.tolist()
+            intercept_title = 'Intercept Results'
+            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
+        except Exception as e:
+            print("Intercept Results: ", e)
+
+        if len(smry.tables) > 0:
+            return smry
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
@@ -552,11 +604,14 @@ class InferenceResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.pred, self.pred_stderr)]),\
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip(self.pred, self.pred_stderr)])
+        if np.isscalar(self.pred):
+            return _safe_norm_ppf(alpha / 2, loc=self.pred, scale=self.pred_stderr),\
+                _safe_norm_ppf(1 - alpha / 2, loc=self.pred, scale=self.pred_stderr)
+        else:
+            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                             for p, err in zip(self.pred, self.pred_stderr)]),\
+                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                          for p, err in zip(self.pred, self.pred_stderr)])
 
     def pvalue(self, value=0):
         """
@@ -673,10 +728,17 @@ class InferenceResults:
             The population summary results instance contains the different summary analysis of point estimate
             for sample X on each treatment and outcome.
         """
-        return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y,
-                                        alpha=alpha, value=value, decimals=decimals, tol=tol)
+        if self.inf_type == 'effect':
+            return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y,
+                                            alpha=alpha, value=value, decimals=decimals, tol=tol)
+        else:
+            raise AttributeError(self.inf_type + " inference doesn't support population_summary function!")
 
     def _array_to_frame(self, d_t, d_y, arr):
+        if np.isscalar(arr):
+            arr = np.array([arr])
+        if self.inf_type == 'coefficient':
+            arr = reshape_coef(arr)
         arr = arr.reshape((-1, d_y, d_t))
         df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
         df.index = df.index.set_levels(['Y' + str(i) for i in range(d_y)], level=1)
