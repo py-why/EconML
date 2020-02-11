@@ -136,6 +136,27 @@ and the :class:`.ForestDRLearner`. You can enable such intervals by setting ``in
 This inference is enabled by our implementation of the :class:`.SubsampledHonestForest` extension to the scikit-learn
 :class:`~sklearn.ensemble.RandomForestRegressor`.
 
+
+OrthoForest Bootstrap of Little Bags Inference
+==============================================
+
+For the Orthogonal Random Forest estimators (see :class:`.ContinuousTreatmentOrthoForest`, :class:`.DiscreteTreatmentOrthoForest`), 
+we provide confidence intervals built via the bootstrap-of-little-bags approach ([Athey2019]_). This technique is well suited for
+estimating the uncertainty of the honest causal forests underlying the OrthoForest estimators. You can enable such intervals by setting
+``inference='blb'``, e.g.:
+
+.. testcode::
+
+    from econml.ortho_forest import ContinuousTreatmentOrthoForest
+    from econml.sklearn_extensions.linear_model import WeightedLasso
+    est = ContinuousTreatmentOrthoForest(n_trees=10,
+                                         min_leaf_size=3,
+                                         model_T=WeightedLasso(alpha=0.01),
+                                         model_Y=WeightedLasso(alpha=0.01))
+    est.fit(y, t, X, W, inference='blb')
+    point = est.const_marginal_effect(X)
+    lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
+
 .. todo::    
     * Subsampling
     * Doubly Robust Gradient Inference

@@ -40,7 +40,6 @@ class TestOrthoForest(unittest.TestCase):
         # Remove warnings that might be raised by the models passed into the ORF
         warnings.filterwarnings("ignore")
 
-    @pytest.mark.slow
     def test_continuous_treatments(self):
         np.random.seed(123)
         # Generate data with continuous treatments
@@ -64,7 +63,7 @@ class TestOrthoForest(unittest.TestCase):
                           TestOrthoForest.X, TestOrthoForest.W)
         # Check that outputs have the correct shape
         out_te = est.const_marginal_effect(TestOrthoForest.x_test)
-        self.assertSequenceEqual((TestOrthoForest.x_test.shape[0], 1), out_te.shape)
+        self.assertEqual(TestOrthoForest.x_test.shape[0], out_te.shape[0])
         # Test continuous treatments with controls
         est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
                                              max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
@@ -72,15 +71,16 @@ class TestOrthoForest(unittest.TestCase):
                                              model_Y=Lasso(alpha=0.024),
                                              model_T_final=WeightedLassoCVWrapper(),
                                              model_Y_final=WeightedLassoCVWrapper())
-        est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W)
+        est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W, inference="blb")
         self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5)
+        self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5)
         # Test continuous treatments without controls
         T = TestOrthoForest.eta_sample(TestOrthoForest.n)
         Y = T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-        est.fit(Y, T, TestOrthoForest.X)
+        est.fit(Y, T, TestOrthoForest.X, inference="blb")
         self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5)
+        self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5)
 
-    @pytest.mark.slow
     def test_binary_treatments(self):
         np.random.seed(123)
         # Generate data with binary treatments
@@ -117,21 +117,23 @@ class TestOrthoForest(unittest.TestCase):
         # Test binary treatments with controls
         est = DiscreteTreatmentOrthoForest(n_trees=100, min_leaf_size=10,
                                            max_depth=30, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
-                                           propensity_model=LogisticRegression(C=1 / 0.024, penalty='l1'),
+                                           propensity_model=LogisticRegression(
+                                               C=1 / 0.024, penalty='l1', solver='saga'),
                                            model_Y=Lasso(alpha=0.024),
                                            propensity_model_final=LogisticRegressionCV(penalty='l1', solver='saga'),
                                            model_Y_final=WeightedLassoCVWrapper())
-        est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W)
+        est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W, inference="blb")
         self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.7, treatment_type='discrete')
+        self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5, treatment_type='discrete')
         # Test binary treatments without controls
         log_odds = TestOrthoForest.eta_sample(TestOrthoForest.n)
         T_sigmoid = 1 / (1 + np.exp(-log_odds))
         T = np.array([np.random.binomial(1, p) for p in T_sigmoid])
         Y = T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-        est.fit(Y, T, TestOrthoForest.X)
+        est.fit(Y, T, TestOrthoForest.X, inference="blb")
         self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5, treatment_type='discrete')
+        self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5, treatment_type='discrete')
 
-    @pytest.mark.slow
     def test_multiple_treatments(self):
         np.random.seed(123)
         # Only applicable to continuous treatments
@@ -150,9 +152,10 @@ class TestOrthoForest(unittest.TestCase):
                                              model_Y=Lasso(alpha=0.024),
                                              model_T_final=WeightedLassoCVWrapper(),
                                              model_Y_final=WeightedLassoCVWrapper())
-        est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W)
+        est.fit(Y, T, TestOrthoForest.X, TestOrthoForest.W, inference="blb")
         expected_te = np.array([TestOrthoForest.expected_exp_te, TestOrthoForest.expected_const_te]).T
         self._test_te(est, expected_te, tol=0.5, treatment_type='multi')
+        self._test_ci(est, expected_te, tol=2.0, treatment_type='multi')
 
     def test_effect_shape(self):
         import scipy.special
@@ -206,7 +209,7 @@ class TestOrthoForest(unittest.TestCase):
         )
         # Compute treatment effect residuals
         if treatment_type == 'continuous':
-            te_res = np.abs(expected_te - te_hat[:, 0])
+            te_res = np.abs(expected_te - te_hat)
         elif treatment_type == 'discrete':
             te_res = np.abs(expected_te - te_hat[:, 0])
         else:
@@ -214,6 +217,29 @@ class TestOrthoForest(unittest.TestCase):
             te_res = np.abs(expected_te - te_hat)
         # Allow at most 10% test points to be outside of the tolerance interval
         self.assertLessEqual(np.mean(te_res > tol), 0.1)
+
+    def _test_ci(self, learner_instance, expected_te, tol, treatment_type='continuous'):
+        # Compute the treatment effect on test points
+        te_lower, te_upper = learner_instance.const_marginal_effect_interval(
+            TestOrthoForest.x_test
+        )
+        # Compute treatment effect residuals
+        if treatment_type == 'continuous':
+            delta_ci_upper = te_upper - expected_te
+            delta_ci_lower = expected_te - te_lower
+        elif treatment_type == 'discrete':
+            delta_ci_upper = te_upper[:, 0] - expected_te
+            delta_ci_lower = expected_te - te_lower[:, 0]
+        else:
+            # Multiple treatments
+            delta_ci_upper = te_upper - expected_te
+            delta_ci_lower = expected_te - te_lower
+        # Allow at most 20% test points to be outside of the confidence interval
+        # Check that the intervals are not too wide
+        self.assertLessEqual(np.mean(delta_ci_upper < 0), 0.2)
+        self.assertLessEqual(np.mean(np.abs(delta_ci_upper) > tol), 0.2)
+        self.assertLessEqual(np.mean(delta_ci_lower < 0), 0.2)
+        self.assertLessEqual(np.mean(np.abs(delta_ci_lower) > tol), 0.2)
 
     @classmethod
     def _const_te(cls, x):
