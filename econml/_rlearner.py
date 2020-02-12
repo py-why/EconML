@@ -28,19 +28,9 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
-                        broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        StatsModelsLinearRegression, LassoCVWrapper)
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv
-from sklearn.linear_model import LinearRegression, LassoCV
-from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
-                                   FunctionTransformer)
-from sklearn.base import clone, TransformerMixin
-from sklearn.pipeline import Pipeline
-from sklearn.utils import check_random_state
-from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin)
-from .inference import StatsModelsInference
+from .utilities import (shape, reshape, ndim, hstack)
+from sklearn.linear_model import LinearRegression
+from sklearn.base import clone
 from ._ortho_learner import _OrthoLearner
 
 
