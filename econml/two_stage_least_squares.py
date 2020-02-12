@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-"""Provides a non - parametric two - stage least squares instrumental variable estimator."""
+"""Provides a non-parametric two-stage least squares instrumental variable estimator."""
 
 import numpy as np
 from copy import deepcopy
@@ -11,6 +11,7 @@ from .utilities import shape, transpose, reshape, cross_product, ndim, size
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator
 from numpy.polynomial.hermite_e import hermeval
 from sklearn.base import TransformerMixin
+from sklearn.preprocessing import PolynomialFeatures
 from itertools import product
 
 
@@ -83,6 +84,77 @@ class HermiteFeatures(TransformerMixin):
                 else:
                     columns.append(np.zeros((n, (self._degree + 1) * ncols)))
         return reshape(np.hstack(columns), (n,) + (ncols,) * self._shift + (-1,))
+
+
+class DPolynomialFeatures(TransformerMixin):
+    """
+    Featurizer that returns the derivatives of :class:`~sklearn.preprocessing.PolynomialFeatures` features in
+    a way that's compativle with the expectations of :class:`.NonparametricTwoStageLeastSquares`'s
+    `dt_featurizer` parameter.
+
+    If the input has shape `(n, x)` and
+    :meth:`PolynomialFeatures.transform<sklearn.preprocessing.PolynomialFeatures.transform>` returns an output
+    of shape `(n, f)`, then :meth:`.transform` will return an array of shape `(n, x, f)`.
+
+    Parameters
+    ----------
+    degree: integer, default = 2
+        The degree of the polynomial features.
+
+    interaction_only: boolean, default = False
+        If true, only derivatives of interaction features are produced: features that are products of at most degree
+        distinct input features (so not `x[1] ** 2`, `x[0] * x[2] ** 3`, etc.).
+
+    include_bias: boolean, default = True
+        If True (default), then include the derivative of a bias column, the feature in which all polynomial powers
+        are zero.
+    """
+
+    def __init__(self, degree=2, interaction_only=False, include_bias=True):
+        self.F = PolynomialFeatures(degree=degree, interaction_only=interaction_only, include_bias=include_bias)
+
+    def fit(self, X, y=None):
+        """
+        Compute number of output features.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            The data.
+        y : array, optional
+            Not used
+
+        Returns
+        -------
+        self : instance
+        """
+        return self
+
+    def transform(self, X):
+        """
+        Transform data to derivatives of polynomial features
+
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_features)
+            The data to transform, row by row.
+
+        Returns
+        -------
+        XP: array-like, shape (n_samples, n_features, n_output_features)
+            The matrix of features, where `n_output_features` is the number of features that
+            would be returned from :class:`~sklearn.preprocessing.PolynomialFeatures`.
+        """
+        self.F.fit(X)
+        powers = self.F.powers_
+        result = np.zeros(X.shape + (self.F.n_output_features_,))
+        for i in range(X.shape[1]):
+            p = powers.copy()
+            c = powers[:, i]
+            p[:, i] -= 1
+            M = np.float_power(X[:, np.newaxis, :], p[np.newaxis, :, :])
+            result[:, i, :] = c[np.newaxis, :] * np.prod(M, axis=-1)
+        return result
 
 
 def _add_ones(arr):
@@ -166,6 +238,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         # store number of columns of W so that we can create correctly shaped zero array in effect and marginal effect
         self._d_w = shape(W)[1]
         # store number of columns of T so that we can pass scalars to effect
+        # TODO: support vector T and Y
         self._d_t = shape(T)[1]
 
         # two stage approximation
@@ -173,6 +246,13 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         ft_X = self._x_featurizer.fit_transform(X)
         ft_Z = self._z_featurizer.fit_transform(Z)
         ft_T = self._t_featurizer.fit_transform(T)
+        # TODO: is it right that the effective number of intruments is the
+        #       product of ft_X and ft_Z, not just ft_Z?
+        assert shape(ft_T)[1] <= shape(ft_X)[1] * shape(ft_Z)[1], ("There can be no more T features than the product "
+                                                                   "of the number of X and Z features; otherwise "
+                                                                   "there is not enough information to identify their "
+                                                                   "structure")
+
         # regress T expansion on X,Z expansions concatenated with W
         features = _add_ones(np.hstack([W, cross_product(ft_X, ft_Z)]))
         self._model_T.fit(features, ft_T)
@@ -223,7 +303,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
 
     def marginal_effect(self, T, X=None):
         """
-        Calculate the heterogeneous marginal effect ∂τ(·,·).
+        Calculate the heterogeneous marginal effect ∂τ(·, ·).
 
         The marginal effect is calculated around a base treatment
         point conditional on a vector of features on a set of m test samples {Tᵢ, Xᵢ}.
@@ -232,7 +312,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         ----------
         T: (m × dₜ) matrix
             Base treatments for each sample
-        X: optional (m × dₓ) matrix
+        X: optional(m × dₓ) matrix
             Features for each sample
 
         Returns
@@ -250,7 +330,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         ft_X = self._x_featurizer.fit_transform(X)
         n = shape(T)[0]
         dT = self._dt_featurizer.fit_transform(T)
-        W = np.zeros((n, self._d_w))
+        W = np.zeros((size(T), self._d_w))
         # dT should be an n×dₜ×fₜ array (but if T was a vector, or if there is only one feature,
         # dT may be only 2-dimensional)
         # promote dT to 3D if necessary (e.g. if T was a vector)
