@@ -256,7 +256,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._d_t = (len(self._label_encoder.classes_) - 1,)
         self.models = check_models(self.models, self._d_t[0] + 1)
         if self.cate_models is None:
-            self.cate_models = self.models
+            self.cate_models = [clone(model, safe=False) for model in self.models]
         else:
             self.cate_models = check_models(self.cate_models, self._d_t[0] + 1)
         self.propensity_models = []

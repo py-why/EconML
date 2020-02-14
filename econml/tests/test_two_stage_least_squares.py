@@ -9,8 +9,9 @@ import warnings
 import pytest
 
 from econml.utilities import shape, reshape
-from econml.two_stage_least_squares import NonparametricTwoStageLeastSquares, HermiteFeatures
+from econml.two_stage_least_squares import (NonparametricTwoStageLeastSquares, HermiteFeatures, DPolynomialFeatures)
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
 
 
 class Test2SLS(unittest.TestCase):
@@ -53,11 +54,64 @@ class Test2SLS(unittest.TestCase):
             hf = HermiteFeatures(k, joint=j)
             m = LinearRegression()
             m.fit(hf.fit_transform(x[:n // 2, :]), y[:n // 2])
-            return ((y[n // 2:] - m.predict(hf.fit_transform(x[n // 2:, :])))**2).mean()
+            return ((y[n // 2:] - m.predict(hf.fit_transform(x[n // 2:, :]))) ** 2).mean()
+        # TODO: test something rather than just print...
         print([(k, j, err(k, j)) for k in range(2, 15) for j in [False, True]])
 
     def test_2sls_shape(self):
-        pass
+        n = 100
+
+        def make_random(d):
+            sz = (n, d) if d >= 0 else (n,)
+            return np.random.normal(size=sz)
+
+        for d_t in [1, 2]:
+            n_t = d_t if d_t > 0 else 1
+            for d_y in [1, 2]:
+                for d_x in [1, 5]:
+                    for d_z in [1, 2]:
+                        d_w = 1
+                        if d_z >= n_t:
+                            T, Y, X, Z, W = [make_random(d) for d in [d_t, d_y, d_x, d_z, d_w]]
+                            est = NonparametricTwoStageLeastSquares(
+                                t_featurizer=PolynomialFeatures(),
+                                x_featurizer=PolynomialFeatures(),
+                                z_featurizer=PolynomialFeatures(),
+                                dt_featurizer=DPolynomialFeatures())
+
+                            est.fit(Y, T, X, W, Z)
+                            eff = est.effect(X)
+                            marg_eff = est.marginal_effect(T, X)
+
+    def test_marg_eff(self):
+        X = np.random.normal(size=(5000, 2))
+        Z = np.random.normal(size=(5000, 2))
+        W = np.random.normal(size=(5000, 1))
+        # Note: no noise, just testing that we can exactly recover when we ought to be able to
+        T = np.hstack([np.cross(X, Z).reshape(-1, 1) + W, (np.prod(X, axis=1) + np.prod(Z, axis=1)).reshape(-1, 1)])
+        Y = X * T + X**2
+
+        est = NonparametricTwoStageLeastSquares(
+            t_featurizer=PolynomialFeatures(degree=2, interaction_only=False, include_bias=True),
+            x_featurizer=PolynomialFeatures(degree=2, interaction_only=False, include_bias=True),
+            z_featurizer=PolynomialFeatures(degree=2, interaction_only=False, include_bias=True),
+            dt_featurizer=DPolynomialFeatures(degree=2, interaction_only=False, include_bias=True))
+
+        est.fit(Y, T, X, W, Z)
+
+        # pick some arbitrary X
+        X_test = np.array([[0.3, 0.7],
+                           [0.2, 0.1]])
+        eff = est.effect(X_test)  # effect = (X * 1 + X^2) - (X * 0 + X^2) = X
+        np.testing.assert_almost_equal(eff, X_test)
+
+        # pick some arbitrary T
+        T_test = np.array([[-0.3, 0.1],
+                           [0.6, -1.2]])
+        marg_eff = est.marginal_effect(T_test, X_test)  # marg effect_{i,j} = X_i if i=j, 0 otherwise
+        marg_eff_truth = np.zeros((X_test.shape[0], Y.shape[1], T.shape[1]))
+        marg_eff_truth[:, range(X.shape[1]), range(X.shape[1])] = X_test[:, :]
+        np.testing.assert_almost_equal(marg_eff, marg_eff_truth)
 
     # TODO: this tests that we can run the method; how do we test that the results are reasonable?
     def test_2sls(self):

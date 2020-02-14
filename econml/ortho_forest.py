@@ -26,6 +26,7 @@ import numpy as np
 import warnings
 from joblib import Parallel, delayed
 from sklearn import clone
+from scipy.stats import norm
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import LassoCV, Lasso, LinearRegression, LogisticRegression, \
     LogisticRegressionCV, ElasticNet
@@ -36,6 +37,7 @@ from sklearn.utils import check_random_state, check_array, column_or_1d
 from .sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
+from .inference import Inference
 from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, cross_product
 
 
@@ -174,6 +176,9 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.forest_two_trees = None
         self.forest_one_subsample_ind = None
         self.forest_two_subsample_ind = None
+        # Auxiliary attributes
+        self.n_slices = int(np.ceil((self.n_trees)**(1 / 2)))
+        self.slice_len = int(np.ceil(self.n_trees / self.n_slices))
         # Fit check
         self.model_is_fitted = False
         super().__init__()
@@ -198,7 +203,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
 
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of :class:`.BootstrapInference`)
+            (or an instance of :class:`.BootstrapInference`) and 'blb' (or an instance of :class:`BLBInference`)
 
         Returns
         -------
@@ -231,6 +236,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                                                                                 X=self.X_two,
                                                                                 W=self.W_two)
         self.model_is_fitted = True
+        return self
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
@@ -253,7 +259,24 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         # TODO: Check performance
         return np.asarray(results)
 
-    def _pointwise_effect(self, X_single):
+    def _get_inference_options(self):
+        # Override the CATE inference options
+        # Add blb inference to parent's options
+        options = super()._get_inference_options()
+        options.update(blb=BLBInference)
+        return options
+
+    def _pointwise_effect(self, X_single, stderr=False):
+        """Calculate the effect for a one data point with features X_single.
+
+        Parameters
+        ----------
+        X_single : array-like, shape (d_x, )
+            Feature vector that captures heterogeneity for one sample.
+
+        stderr : boolean (default=False)
+            Whether to calculate the covariance matrix via bootstrap-of-little-bags.
+        """
         w1, w2 = self._get_weights(X_single)
         mask_w1 = (w1 != 0)
         mask_w2 = (w2 != 0)
@@ -278,23 +301,49 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
             np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
             np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
             nuisance_estimates,
-            w_nonzero
+            w_nonzero,
+            X_single
         )
+        # -------------------------------------------------------------------------------
+        # Calculate the covariance matrix corresponding to the BLB inference
+        #
+        # 1. Calculate the moments and gradient of the training data w.r.t the test point
+        # 2. Calculate the weighted moments for each tree slice to create a matrix
+        #    U = (n_slices, n_T). The V = (U x grad^{-1}) matrix represents the deviation
+        #    in that slice from the overall parameter estimate.
+        # 3. Calculate the covariance matrix (V.T x V) / n_slices
+        # -------------------------------------------------------------------------------
+        if stderr:
+            moments, mean_grad = self.moment_and_mean_gradient_estimator(
+                np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
+                np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
+                np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
+                np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])) if self.W_one is not None else None,
+                nuisance_estimates,
+                parameter_estimate)
+            # Calclulate covariance matrix through BLB
+            slices = [
+                (it * self.slice_len, min((it + 1) * self.slice_len, self.n_trees)) for it in range(self.n_slices)
+            ]
+            slice_weighted_moment_one = []
+            slice_weighted_moment_two = []
+            for slice_it in slices:
+                slice_weights_one, slice_weights_two = self._get_weights(X_single, tree_slice=slice_it)
+                slice_weighted_moment_one.append(
+                    np.average(moments[:len(w1_nonzero)], axis=0, weights=slice_weights_one[mask_w1])
+                )
+                slice_weighted_moment_two.append(
+                    np.average(moments[len(w1_nonzero):], axis=0, weights=slice_weights_two[mask_w2])
+                )
+            U = np.vstack(slice_weighted_moment_one + slice_weighted_moment_two)
+            inverse_grad = np.linalg.inv(mean_grad)
+            cov_mat = inverse_grad.T @ U.T @ U @ inverse_grad / (2 * self.n_slices)
+            return parameter_estimate, cov_mat
         return parameter_estimate
 
     def _fit_forest(self, Y, T, X, W=None):
         # Generate subsample indices
-        if self.bootstrap:
-            subsample_ind = self.random_state.choice(X.shape[0], size=(self.n_trees, X.shape[0]), replace=True)
-        else:
-            if self.subsample_ratio > 1.0:
-                # Safety check
-                self.subsample_ratio = 1.0
-            subsample_size = int(self.subsample_ratio * X.shape[0])
-            subsample_ind = np.zeros((self.n_trees, subsample_size))
-            for t in range(self.n_trees):
-                subsample_ind[t] = self.random_state.choice(X.shape[0], size=subsample_size, replace=False)
-            subsample_ind = subsample_ind.astype(int)
+        subsample_ind = self._get_blb_indices(X)
         # Build trees in parallel
         return subsample_ind, Parallel(n_jobs=self.n_jobs, verbose=3, max_nbytes=None)(
             delayed(_build_tree_in_parallel)(
@@ -305,12 +354,20 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                 self.min_leaf_size, self.max_depth,
                 self.random_state.randint(MAX_RAND_SEED)) for s in subsample_ind)
 
-    def _get_weights(self, X_single):
-        # Calculates weights
+    def _get_weights(self, X_single, tree_slice=None):
+        """Calculate weights for a single input feature vector over a subset of trees.
+
+        The subset of trees is defined by the `tree_slice` tuple (start, end).
+        The (start, end) tuple includes all trees from `start` to `end`-1.
+        """
         w1 = np.zeros(self.Y_one.shape[0])
         w2 = np.zeros(self.Y_two.shape[0])
-        for t, tree in enumerate(self.forest_one_trees):
-            leaf = tree.find_split(X_single)
+        if tree_slice is None:
+            tree_range = range(self.n_trees)
+        else:
+            tree_range = range(*tree_slice)
+        for t in tree_range:
+            leaf = self.forest_one_trees[t].find_split(X_single)
             weight_indexes = self.forest_one_subsample_ind[t][leaf.est_sample_inds]
             leaf_weight = 1 / len(leaf.est_sample_inds)
             if self.bootstrap:
@@ -319,8 +376,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                 w1[unique] += leaf_weight * counts
             else:
                 w1[weight_indexes] += leaf_weight
-        for t, tree in enumerate(self.forest_two_trees):
-            leaf = tree.find_split(X_single)
+        for t in tree_range:
+            leaf = self.forest_two_trees[t].find_split(X_single)
             # Similar for `a` weights
             weight_indexes = self.forest_two_subsample_ind[t][leaf.est_sample_inds]
             leaf_weight = 1 / len(leaf.est_sample_inds)
@@ -330,7 +387,28 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                 w2[unique] += leaf_weight * counts
             else:
                 w2[weight_indexes] += leaf_weight
-        return (w1 / self.n_trees, w2 / self.n_trees)
+        return (w1 / len(tree_range), w2 / len(tree_range))
+
+    def _get_blb_indices(self, X):
+        """Get  data indices for every tree under the little bags split."""
+        # Define subsample size
+        subsample_size = X.shape[0] // 2
+        if not self.bootstrap:
+            if self.subsample_ratio > 1.0:
+                # Safety check
+                warnings.warn("The argument 'subsample_ratio' must be between 0.0 and 1.0, " +
+                              "however a value of {} was provided. The 'subsample_ratio' will be changed to 1.0.")
+                self.subsample_ratio = 1.0
+            subsample_size = int(self.subsample_ratio * subsample_size)
+        subsample_ind = []
+        # Draw points to create little bags
+        for it in range(self.n_slices):
+            half_sample_inds = self.random_state.choice(
+                X.shape[0], X.shape[0] // 2, replace=False)
+            for _ in np.arange(it * self.slice_len, min((it + 1) * self.slice_len, self.n_trees)):
+                subsample_ind.append(half_sample_inds[self.random_state.choice(
+                    X.shape[0] // 2, subsample_size, replace=self.bootstrap)])
+        return np.asarray(subsample_ind)
 
 
 class ContinuousTreatmentOrthoForest(BaseOrthoForest):
@@ -441,18 +519,14 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             n_jobs=n_jobs,
             random_state=random_state)
 
-    def _pointwise_effect(self, X_single):
-        """
-        We need to post-process the parameters returned by the _pointwise_effect
-        of the BaseOrthoForest class due to the local linear correction. The
-        base class function will return the intercept and the coefficient of the
-        local linear fit. We multiply it with the input co-variate to get the
-        predicted effect.
-        """
-        parameter = super(ContinuousTreatmentOrthoForest, self)._pointwise_effect(X_single)
-        X_aug = np.append([1], X_single)
-        parameter = parameter.reshape((X_aug.shape[0], -1)).T
-        return np.dot(parameter, X_aug)
+    def const_marginal_effect(self, X):
+        # Override to flatten output if T is flat
+        effects = super(ContinuousTreatmentOrthoForest, self).const_marginal_effect(X=X)
+        if not self._d_t:
+            # T is flat
+            return effects.flatten()
+        return effects
+    const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
 
     @staticmethod
     def nuisance_estimator_generator(model_T, model_Y, random_state=None, second_stage=True):
@@ -509,8 +583,13 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
-                                     sample_weight=None):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+                                     sample_weight,
+                                     X_single):
+            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
+
+            The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
+            local corrections on a preliminary parameter estimate.
+            """
             # Compute residuals
             Y_hat, T_hat = nuisance_estimates
             Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
@@ -526,11 +605,13 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             diagonal[:T_res.shape[1]] = 0
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
-            param_estimate = np.linalg.lstsq(np.matmul(weighted_XT_res.T, XT_res) + reg,
-                                             np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)),
-                                             rcond=None)[0].flatten()
-            # Parameter returned by LinearRegression is (d_T, )
-            return param_estimate
+            linear_coef_estimate = np.linalg.lstsq(np.matmul(weighted_XT_res.T, XT_res) + reg,
+                                                   np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)),
+                                                   rcond=None)[0].flatten()
+            X_aug = np.append([1], X_single)
+            linear_coef_estimate = linear_coef_estimate.reshape((X_aug.shape[0], -1)).T
+            # Parameter returned is of shape (d_T, )
+            return np.dot(linear_coef_estimate, X_aug)
 
         return parameter_estimator_func
 
@@ -716,19 +797,6 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         # Call `fit` from parent class
         return super().fit(Y, T, X, W=W, inference=inference)
 
-    def _pointwise_effect(self, X_single):
-        """
-        We need to post-process the parameters returned by the _pointwise_effect
-        of the BaseOrthoForest class due to the local linear correction. The
-        base class function will return the intercept and the coefficient of the
-        local linear fit. We multiply it with the input co-variate to get the
-        predicted effect.
-        """
-        parameter = super(DiscreteTreatmentOrthoForest, self)._pointwise_effect(X_single)
-        X_aug = np.append([1], X_single)
-        parameter = parameter.reshape((X_aug.shape[0], -1)).T
-        return np.dot(parameter, X_aug)
-
     @staticmethod
     def nuisance_estimator_generator(propensity_model, model_Y, n_T, random_state=None, second_stage=False):
         """Generate nuissance estimator given model inputs from the class."""
@@ -792,8 +860,13 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         """
         def parameter_estimator_func(Y, T, X,
                                      nuisance_estimates,
-                                     sample_weight=None):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+                                     sample_weight,
+                                     X_single):
+            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
+
+            The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
+            local corrections on a preliminary parameter estimate.
+            """
             # Compute partial moments
             pointwise_params = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)
             X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
@@ -807,10 +880,13 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             diagonal[0] = 0
             reg = lambda_reg * np.diag(diagonal)
             # Ridge regression estimate
-            param_estimate = np.linalg.lstsq(np.matmul(weighted_X_aug.T, X_aug) + reg,
-                                             np.matmul(weighted_X_aug.T, pointwise_params), rcond=None)[0].flatten()
-            # Parameter returned by LinearRegression is (d_T, )
-            return param_estimate
+            linear_coef_estimate = np.linalg.lstsq(np.matmul(weighted_X_aug.T, X_aug) + reg,
+                                                   np.matmul(weighted_X_aug.T, pointwise_params),
+                                                   rcond=None)[0].flatten()
+            X_aug = np.append([1], X_single)
+            linear_coef_estimate = linear_coef_estimate.reshape((X_aug.shape[0], -1)).T
+            # Parameter returned is of shape (d_T, )
+            return np.dot(linear_coef_estimate, X_aug)
 
         return parameter_estimator_func
 
@@ -855,3 +931,115 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         except Exception as exc:
             raise ValueError("Expected numeric array but got non-numeric types.")
         return T
+
+
+class BLBInference(Inference):
+    """
+    Bootstrap-of-Little-Bags inference implementation for the OrthoForest classes.
+
+    This class can only be used for inference with any estimator derived from :class:`BaseOrthoForest`.
+
+    Parameters
+    ----------
+    estimator : :class:`BaseOrthoForest`
+        Estimator to perform inference on. Must be a child class of :class:`BaseOrthoForest`.
+    """
+
+    def fit(self, estimator, *args, **kwargs):
+        """
+        Fits the inference model.
+
+        This is called after the estimator's fit.
+        """
+        self._estimator = estimator
+        # Test whether the input estimator is supported
+        if not hasattr(self._estimator, "_pointwise_effect"):
+            raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
+                            " Estimators must implement the '_pointwise_effect' method with the correct signature.")
+        # Test expansion of treatment
+        # If expanded treatments are a vector, flatten const_marginal_effect_interval
+        _, T0, _ = self._estimator._expand_treatments(None, 0, 1)
+        self._T_vec = (T0.ndim == 1)
+        return self
+
+    def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\theta(X)` produced
+        by the model. Available only when ``inference`` is ``blb``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`const_marginal_effect(X)<const_marginal_effect>` ,\
+                             type of :meth:`const_marginal_effect(X)<const_marginal_effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        params_and_cov = self._predict_wrapper(X)
+        # Calculate confidence intervals for the parameter (marginal effect)
+        lower = alpha / 2
+        upper = 1 - alpha / 2
+        param_lower = [param + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, np.sqrt(np.diag(cov_mat)))
+                       for (param, cov_mat) in params_and_cov]
+        param_upper = [param + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, np.sqrt(np.diag(cov_mat)))
+                       for (param, cov_mat) in params_and_cov]
+        param_lower, param_upper = np.asarray(param_lower), np.asarray(param_upper)
+        if self._T_vec:
+            # If T is a vector, preserve shape of the effect interval
+            return param_lower.flatten(), param_upper.flatten()
+        return param_lower, param_upper
+
+    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
+        by the model. Available only when ``inference`` is ``blb``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        X, T0, T1 = self._estimator._expand_treatments(X, T0, T1)
+        dT = (T1 - T0) if T0.ndim == 2 else (T1 - T0).reshape(-1, 1)
+        params_and_cov = self._predict_wrapper(X)
+        # Calculate confidence intervals for the effect
+        lower = alpha / 2
+        upper = 1 - alpha / 2
+        # Calculate the effects
+        eff = np.asarray([np.dot(params_and_cov[i][0], dT[i]) for i in range(X.shape[0])])
+        # Calculate the standard deviations for the effects
+        scales = [np.sqrt(dT[i] @ params_and_cov[i][1] @ dT[i]) for i in range(X.shape[0])]
+        effect_lower = eff + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, scales)
+        effect_upper = eff + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, scales)
+        return effect_lower, effect_upper
+
+    def _predict_wrapper(self, X=None):
+        if not self._estimator.model_is_fitted:
+            raise NotFittedError('This {0} instance is not fitted yet.'.format(self._estimator.__class__.__name__))
+        X = check_array(X)
+        # Get a list of (parameter, covariance matrix) pairs
+        params_and_cov = Parallel(n_jobs=self._estimator.n_jobs, verbose=3, backend='threading')(
+            delayed(self._estimator._pointwise_effect)(X_single, stderr=True) for X_single in X)
+        return params_and_cov
