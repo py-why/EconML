@@ -15,6 +15,7 @@ Public Module Reference
     econml.inference
     econml.ortho_forest
     econml.metalearners
+    econml.ortho_iv
     econml.two_stage_least_squares
     econml.utilities
     econml.automated_ml
