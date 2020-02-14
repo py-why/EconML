@@ -9,7 +9,7 @@ import pandas as pd
 from collections import OrderedDict
 from statsmodels.iolib.table import SimpleTable
 from .bootstrap import BootstrapEstimator
-from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, reshape_coef,
+from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects,
                         ndim, inverse_onehot, parse_final_model_params, _safe_norm_ppf, Summary)
 
 
@@ -154,7 +154,7 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         # We can write effect inference as a function of const_marginal_effect_inference for a single treatment
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if (T0 == T1).all():
-            raise AttributeError("T0 is the same with T1, please input different treatment!")
+            raise AttributeError("T0 is the same as T1, please input different treatment!")
         cme_pred = self.const_marginal_effect_inference(X).point_estimate
         cme_stderr = self.const_marginal_effect_inference(X).stderr
         dT = T1 - T0
@@ -200,7 +200,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         # the final method for linear models
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if (T0 == T1).all():
-            raise AttributeError("T0 is the same with T1, please input different treatment!")
+            raise AttributeError("T0 is the same as T1, please input different treatment!")
         if X is None:
             X = np.ones((T0.shape[0], 1))
         elif self.featurizer is not None:
@@ -367,6 +367,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final])
         return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
+                                # send treatment to the end, pull bounds to the front
                                 pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect',
                                 pred_dist=None, fname_transformer=None)
 
@@ -738,7 +739,7 @@ class InferenceResults:
         if np.isscalar(arr):
             arr = np.array([arr])
         if self.inf_type == 'coefficient':
-            arr = reshape_coef(arr)
+            arr = np.moveaxis(arr, -1, 0)
         arr = arr.reshape((-1, d_y, d_t))
         df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
         df.index = df.index.set_levels(['Y' + str(i) for i in range(d_y)], level=1)

@@ -575,29 +575,6 @@ def reshape_treatmentwise_effects(A, d_t, d_y):
         return A
 
 
-def reshape_coef(A):
-    """
-    Given an coefficient matrix with shape (d_y,d_t,# of coef), transform it to be ordered by number of coef.
-
-    Parameters
-    ----------
-    A : array
-        The array of effects, of shape (d_y,d_t,# of coef)
-
-    Returns
-    -------
-    A : array (shape (# of coef, d_y, d_t))
-        The transformed array.  Note that singleton dimensions will be dropped for any inputs which
-        were vectors.
-    """
-    if A.ndim == 3:
-        return transpose(A, (2, 0, 1))
-    elif A.ndim == 2:
-        return A.T
-    else:
-        return A
-
-
 def einsum_sparse(subscripts, *arrs):
     """
     Evaluate the Einstein summation convention on the operands.

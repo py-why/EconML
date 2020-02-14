@@ -579,6 +579,18 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect.
 
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        feat_name: optional list of strings or None (default is None)
+            The input of the feature names
+
         Returns
         -------
         smry : Summary instance
@@ -742,6 +754,18 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        feat_name: optional list of strings or None (default is None)
+            The input of the feature names
 
         Returns
         -------
