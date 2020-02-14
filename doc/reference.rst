@@ -17,6 +17,7 @@ Public Module Reference
     econml.metalearners
     econml.two_stage_least_squares
     econml.utilities
+    econml.automated_ml
 
 Private Module Reference
 ========================
