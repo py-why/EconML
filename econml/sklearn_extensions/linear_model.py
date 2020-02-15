@@ -606,10 +606,10 @@ class DebiasedLasso(WeightedLasso):
     selected_alpha_ : float
         Penalty chosen through cross-validation, if alpha='auto'.
 
-    coef_std_err_ : array, shape (n_features,)
+    coef_stderr_ : array, shape (n_features,)
         Estimated standard errors for coefficients (see ``coef_`` attribute).
 
-    intercept_std_err_ : float
+    intercept_stderr_ : float
         Estimated standard error intercept (see ``intercept_`` attribute).
 
     """
@@ -682,14 +682,14 @@ class DebiasedLasso(WeightedLasso):
         self.coef_ += coef_correction
 
         # Set coefficients and intercept standard errors
-        self.coef_std_err_ = np.sqrt(np.diag(self._coef_variance))
+        self.coef_stderr_ = np.sqrt(np.diag(self._coef_variance))
         if self.fit_intercept:
-            self.intercept_std_err_ = np.sqrt(
+            self.intercept_stderr_ = np.sqrt(
                 self._X_offset @ self._coef_variance @ self._X_offset +
                 self._mean_error_variance
             )
         else:
-            self.intercept_std_err_ = 0
+            self.intercept_stderr_ = 0
 
         # Set intercept
         self._set_intercept(X_offset, y_offset, X_scale)
@@ -697,6 +697,29 @@ class DebiasedLasso(WeightedLasso):
         if self.selected_alpha_ is not None:
             self.alpha = 'auto'
         return self
+
+    def prediction_stderr(self, X):
+        """Get the standard error of the predictions using the debiased lasso.
+
+        Parameters
+        ----------
+        X : ndarray or scipy.sparse matrix, (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        prediction_stderr : array like, shape (n_samples, )
+            The standard error of each coordinate of the output at each point we predict
+        """
+        # Note that in the case of no intercept, X_offset is 0
+        if self.fit_intercept:
+            X = X - self._X_offset
+        # Calculate the variance of the predictions
+        var_pred = np.sum(np.matmul(X, self._coef_variance) * X, axis=1)
+        if self.fit_intercept:
+            var_pred += self._mean_error_variance
+        pred_stderr = np.sqrt(var_pred)
+        return pred_stderr
 
     def predict_interval(self, X, alpha=0.1):
         """Build prediction confidence intervals using the debiased lasso.
@@ -754,8 +777,8 @@ class DebiasedLasso(WeightedLasso):
         """
         lower = alpha / 2
         upper = 1 - alpha / 2
-        return self.coef_ + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, self.coef_std_err_), \
-            self.coef_ + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, self.coef_std_err_)
+        return self.coef_ + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, self.coef_stderr_), \
+            self.coef_ + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, self.coef_stderr_)
 
     def intercept__interval(self, alpha=0.1):
         """Get a confidence interval bounding the fitted intercept.
@@ -774,8 +797,8 @@ class DebiasedLasso(WeightedLasso):
         lower = alpha / 2
         upper = 1 - alpha / 2
         if self.fit_intercept:
-            return self.intercept_ + norm.ppf(lower, scale=self.intercept_std_err_), self.intercept_ + \
-                norm.ppf(upper, scale=self.intercept_std_err_),
+            return self.intercept_ + norm.ppf(lower, scale=self.intercept_stderr_), self.intercept_ + \
+                norm.ppf(upper, scale=self.intercept_stderr_),
         else:
             return 0.0, 0.0
 
@@ -917,10 +940,10 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
     selected_alpha_ : array, shape (n_targets, ) or float
         Penalty chosen through cross-validation, if alpha='auto'.
 
-    coef_std_err_ : array, shape (n_targets, n_features) or (n_features, )
+    coef_stderr_ : array, shape (n_targets, n_features) or (n_features, )
         Estimated standard errors for coefficients (see ``coef_`` attribute).
 
-    intercept_std_err_ : array, shape (n_targets, ) or float
+    intercept_stderr_ : array, shape (n_targets, ) or float
         Estimated standard error intercept (see ``intercept_`` attribute).
 
     """
@@ -966,11 +989,52 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         # Set selected_alpha_ attribute
         self._set_attribute("selected_alpha_",
                             condition=(self.estimators_[0].alpha == 'auto'))
-        # Set coef_std_err_
-        self._set_attribute("coef_std_err_")
-        # intercept_std_err_
-        self._set_attribute("intercept_std_err_")
+        # Set coef_stderr_
+        self._set_attribute("coef_stderr_")
+        # intercept_stderr_
+        self._set_attribute("intercept_stderr_")
         return self
+
+    def predict(self, X):
+        """Get the prediction using the debiased lasso.
+
+        Parameters
+        ----------
+        X : ndarray or scipy.sparse matrix, (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        prediction : array like, shape (n_samples, ) or (n_samples, n_targets)
+            The prediction at each point.
+
+        """
+        pred = super().predict(X)
+        if self.flat_target:
+            pred = pred.flatten()
+        return pred
+
+    def prediction_stderr(self, X):
+        """Get the standard error of the predictions using the debiased lasso.
+
+        Parameters
+        ----------
+        X : ndarray or scipy.sparse matrix, (n_samples, n_features)
+            Samples.
+
+        Returns
+        -------
+        prediction_stderr : array like, shape (n_samples, ) or (n_samples, n_targets)
+            The standard error of each coordinate of the output at each point we predict
+        """
+        n_estimators = len(self.estimators_)
+        X = check_array(X)
+        pred_stderr = np.empty((X.shape[0], n_estimators))
+        for i, estimator in enumerate(self.estimators_):
+            pred_stderr[:, i] = estimator.prediction_stderr(X)
+        if self.flat_target:
+            pred_stderr = pred_stderr.flatten()
+        return pred_stderr
 
     def predict_interval(self, X, alpha=0.1):
         """Build prediction confidence intervals using the debiased lasso.

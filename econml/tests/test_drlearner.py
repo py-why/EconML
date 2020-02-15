@@ -86,14 +86,21 @@ class TestDRLearner(unittest.TestCase):
                         d_t_final = 2 if is_discrete else d_t
 
                         effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
+                        effect_summaryframe_shape = (
+                            n * (d_y if d_y > 0 else 1), 6)
                         marginal_effect_shape = ((n,) +
                                                  ((d_y,) if d_y > 0 else ()) +
                                                  ((d_t_final,) if d_t_final > 0 else ()))
+                        marginal_effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),
+                                                              6 * (d_t_final if d_t_final > 0 else 1))
 
                         # since T isn't passed to const_marginal_effect, defaults to one row if X is None
                         const_marginal_effect_shape = ((n if d_x else 1,) +
                                                        ((d_y,) if d_y > 0 else ()) +
                                                        ((d_t_final,) if d_t_final > 0 else()))
+                        const_marginal_effect_summaryframe_shape = (
+                            (n if d_x else 1) * (d_y if d_y > 0 else 1),
+                            6 * (d_t_final if d_t_final > 0 else 1))
 
                         for est in [LinearDRLearner(model_propensity=LogisticRegression(C=1000, solver='lbfgs',
                                                                                         multi_class='auto')),
@@ -112,10 +119,13 @@ class TestDRLearner(unittest.TestCase):
                                                   is_discrete=is_discrete, est=est, inf=inf):
                                     est.fit(Y, T, X, W, inference=inf)
                                     # make sure we can call the marginal_effect and effect methods
-                                    const_marg_eff = est.const_marginal_effect(X)
+                                    const_marg_eff = est.const_marginal_effect(
+                                        X)
                                     marg_eff = est.marginal_effect(T, X)
-                                    self.assertEqual(shape(marg_eff), marginal_effect_shape)
-                                    self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
+                                    self.assertEqual(
+                                        shape(marg_eff), marginal_effect_shape)
+                                    self.assertEqual(
+                                        shape(const_marg_eff), const_marginal_effect_shape)
 
                                     np.testing.assert_array_equal(
                                         marg_eff if d_x else marg_eff[0:1], const_marg_eff)
@@ -124,14 +134,82 @@ class TestDRLearner(unittest.TestCase):
                                     eff = est.effect(X, T0=T0, T1=T)
                                     self.assertEqual(shape(eff), effect_shape)
                                     if inf is not None:
-                                        const_marg_eff_int = est.const_marginal_effect_interval(X)
-                                        marg_eff_int = est.marginal_effect_interval(T, X)
+                                        const_marg_eff_int = est.const_marginal_effect_interval(
+                                            X)
+                                        marg_eff_int = est.marginal_effect_interval(
+                                            T, X)
+                                        const_marg_effect_inf = est.const_marginal_effect_inference(
+                                            X)
+                                        T1 = np.full_like(T, 'b')
+                                        effect_inf = est.effect_inference(
+                                            X, T0=T0, T1=T1)
+                                        marg_effect_inf = est.marginal_effect_inference(
+                                            T, X)
                                         self.assertEqual(shape(marg_eff_int),
                                                          (2,) + marginal_effect_shape)
                                         self.assertEqual(shape(const_marg_eff_int),
                                                          (2,) + const_marginal_effect_shape)
                                         self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                          (2,) + effect_shape)
+
+                                        # test const marginal inference
+                                        self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
+                                                         const_marginal_effect_summaryframe_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.point_estimate),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.stderr),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.var),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.pvalue()),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.zstat()),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.conf_int()),
+                                                         (2,) + const_marginal_effect_shape)
+                                        np.testing.assert_array_almost_equal(const_marg_effect_inf.conf_int()
+                                                                             [0], const_marg_eff_int[0], decimal=5)
+                                        const_marg_effect_inf.population_summary()._repr_html_()
+
+                                        # test effect inference
+                                        self.assertEqual(shape(effect_inf.summary_frame()),
+                                                         effect_summaryframe_shape)
+                                        self.assertEqual(shape(effect_inf.point_estimate),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.stderr),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.var),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.pvalue()),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.zstat()),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.conf_int()),
+                                                         (2,) + effect_shape)
+                                        np.testing.assert_array_almost_equal(effect_inf.conf_int()
+                                                                             [0], est.effect_interval(
+                                                                                 X, T0=T0, T1=T1)
+                                                                             [0], decimal=5)
+                                        effect_inf.population_summary()._repr_html_()
+
+                                        # test marginal effect inference
+                                        self.assertEqual(shape(marg_effect_inf.summary_frame()),
+                                                         marginal_effect_summaryframe_shape)
+                                        self.assertEqual(shape(marg_effect_inf.point_estimate),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.stderr),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.var),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.pvalue()),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.zstat()),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.conf_int()),
+                                                         (2,) + marginal_effect_shape)
+                                        np.testing.assert_array_almost_equal(marg_effect_inf.conf_int()
+                                                                             [0], marg_eff_int[0], decimal=5)
+                                        marg_effect_inf.population_summary()._repr_html_()
 
                                     est.score(Y, T, X, W)
 
@@ -142,9 +220,11 @@ class TestDRLearner(unittest.TestCase):
                                     else:
                                         cm = ExitStack()  # ExitStack can be used as a "do nothing" ContextManager
                                     with cm:
-                                        effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
+                                        effect_shape2 = (
+                                            n if d_x else 1,) + ((d_y,) if d_y > 0 else())
                                         eff = est.effect(X, T0='a', T1='b')
-                                        self.assertEqual(shape(eff), effect_shape2)
+                                        self.assertEqual(
+                                            shape(eff), effect_shape2)
 
     def test_can_use_vectors(self):
         """
@@ -152,10 +232,12 @@ class TestDRLearner(unittest.TestCase):
         Test that we can pass vectors for T and Y (not only 2-dimensional arrays).
         """
         dml = LinearDRLearner(model_regression=LinearRegression(),
-                              model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
+                              model_propensity=LogisticRegression(
+                                  C=1000, solver='lbfgs', multi_class='auto'),
                               fit_cate_intercept=False,
                               featurizer=FunctionTransformer(validate=True))
-        dml.fit(np.array([1, 2, 1, 2]), np.array([1, 2, 1, 2]), X=np.ones((4, 1)))
+        dml.fit(np.array([1, 2, 1, 2]), np.array(
+            [1, 2, 1, 2]), X=np.ones((4, 1)))
         self.assertAlmostEqual(dml.coef_(T=2).reshape(())[()], 1)
 
     def test_can_use_sample_weights(self):
@@ -164,7 +246,8 @@ class TestDRLearner(unittest.TestCase):
         Test that we can pass sample weights to an estimator.
         """
         dml = LinearDRLearner(model_regression=LinearRegression(),
-                              model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
+                              model_propensity=LogisticRegression(
+                                  C=1000, solver='lbfgs', multi_class='auto'),
                               featurizer=FunctionTransformer(validate=True))
         dml.fit(np.array([1, 2, 1, 2]), np.array([1, 2, 1, 2]), W=np.ones((4, 1)),
                 sample_weight=np.ones((4, )))
@@ -176,7 +259,8 @@ class TestDRLearner(unittest.TestCase):
         Test that we can use discrete treatments
         """
         dml = LinearDRLearner(model_regression=LinearRegression(),
-                              model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
+                              model_propensity=LogisticRegression(
+                                  C=1000, solver='lbfgs', multi_class='auto'),
                               featurizer=FunctionTransformer(validate=True))
         # create a simple artificial setup where effect of moving from treatment
         #     1 -> 2 is 2,
@@ -185,12 +269,15 @@ class TestDRLearner(unittest.TestCase):
         # Using an uneven number of examples from different classes,
         # and having the treatments in non-lexicographic order,
         # Should rule out some basic issues.
-        dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+        dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
+            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
         np.testing.assert_almost_equal(dml.effect(np.ones((9, 1)),
-                                                  T0=np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
+                                                  T0=np.array(
+                                                      [1, 1, 1, 2, 2, 2, 3, 3, 3]),
                                                   T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3])),
                                        [0, 2, 1, -2, 0, -1, -1, 1, 0])
-        dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+        dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
+            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
     def test_can_custom_splitter(self):
         """
@@ -198,17 +285,23 @@ class TestDRLearner(unittest.TestCase):
         """
         # test that we can fit with a KFold instance
         dml = LinearDRLearner(model_regression=LinearRegression(),
-                              model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
+                              model_propensity=LogisticRegression(
+                                  C=1000, solver='lbfgs', multi_class='auto'),
                               n_splits=KFold(n_splits=3))
-        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
-        dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
+            [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
+            [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
         # test that we can fit with a train/test iterable
         dml = LinearDRLearner(model_regression=LinearRegression(),
-                              model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'),
+                              model_propensity=LogisticRegression(
+                                  C=1000, solver='lbfgs', multi_class='auto'),
                               n_splits=[([0, 1, 2], [3, 4, 5])])
-        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
-        dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
+            [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
+            [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
     def test_can_use_statsmodel_inference(self):
         """
@@ -220,8 +313,10 @@ class TestDRLearner(unittest.TestCase):
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
             [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)), inference='statsmodels')
         interval = dml.effect_interval(np.ones((9, 1)),
-                                       T0=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1]),
-                                       T1=np.array([2, 2, 3, 2, 2, 3, 2, 2, 3]),
+                                       T0=np.array(
+                                           [1, 1, 1, 1, 1, 1, 1, 1, 1]),
+                                       T1=np.array(
+                                           [2, 2, 3, 2, 2, 3, 2, 2, 3]),
                                        alpha=0.05)
         point = dml.effect(np.ones((9, 1)),
                            T0=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1]),
@@ -231,16 +326,19 @@ class TestDRLearner(unittest.TestCase):
         assert lo.shape == hi.shape == point.shape
         assert (lo <= point).all()
         assert (point <= hi).all()
-        assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
+        # for at least some of the examples, the CI should have nonzero width
+        assert (lo < hi).any()
 
-        interval = dml.const_marginal_effect_interval(np.ones((9, 1)), alpha=0.05)
+        interval = dml.const_marginal_effect_interval(
+            np.ones((9, 1)), alpha=0.05)
         point = dml.const_marginal_effect(np.ones((9, 1)))
         assert len(interval) == 2
         lo, hi = interval
         assert lo.shape == hi.shape == point.shape
         assert (lo <= point).all()
         assert (point <= hi).all()
-        assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
+        # for at least some of the examples, the CI should have nonzero width
+        assert (lo < hi).any()
 
         interval = dml.coef__interval(T=2, alpha=0.05)
         point = dml.coef_(T=2)
@@ -249,7 +347,8 @@ class TestDRLearner(unittest.TestCase):
         assert lo.shape == hi.shape == point.shape
         assert (lo <= point).all()
         assert (point <= hi).all()
-        assert (lo < hi).any()  # for at least some of the examples, the CI should have nonzero width
+        # for at least some of the examples, the CI should have nonzero width
+        assert (lo < hi).any()
 
     def test_drlearner_all_attributes(self):
         from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
@@ -260,7 +359,8 @@ class TestDRLearner(unittest.TestCase):
         controls = np.random.uniform(-1, 1, size=(5000, 3))
         T = np.random.binomial(2, scipy.special.expit(controls[:, 0]))
         sigma = 0.01
-        y = (1 + .5 * controls[:, 0]) * T + controls[:, 0] + np.random.normal(0, sigma, size=(5000,))
+        y = (1 + .5 * controls[:, 0]) * T + controls[:,
+                                                     0] + np.random.normal(0, sigma, size=(5000,))
         for X in [controls]:
             for W in [None, controls]:
                 for sample_weight in [None, 1 + np.random.randint(10, size=X.shape[0])]:
@@ -291,7 +391,8 @@ class TestDRLearner(unittest.TestCase):
                                                 est.fit(y, T, X=X, W=W,
                                                         sample_weight=sample_weight, sample_var=sample_var)
                                             continue
-                                        est.fit(y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
+                                        est.fit(
+                                            y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
                                         np.testing.assert_allclose(est.effect(X[:3], T0=0, T1=1), 1 + .5 * X[:3, 0],
                                                                    rtol=0, atol=.15)
                                         np.testing.assert_allclose(est.const_marginal_effect(X[:3]),
@@ -305,13 +406,16 @@ class TestDRLearner(unittest.TestCase):
                                                                                   2 * (1 + .5 * X[:3, [0]])]),
                                                                        rtol=0, atol=.15)
                                         assert isinstance(est.score_, float)
-                                        assert isinstance(est.score(y, T, X=X, W=W), float)
+                                        assert isinstance(
+                                            est.score(y, T, X=X, W=W), float)
 
                                         feat_names = ['A', 'B', 'C']
                                         out_feat_names = feat_names
                                         if featurizer is not None:
-                                            out_feat_names = featurizer.fit(X).get_feature_names(feat_names)
-                                            np.testing.assert_array_equal(est.featurizer.n_input_features_, 3)
+                                            out_feat_names = featurizer.fit(
+                                                X).get_feature_names(feat_names)
+                                            np.testing.assert_array_equal(
+                                                est.featurizer.n_input_features_, 3)
                                         np.testing.assert_array_equal(est.cate_feature_names(feat_names),
                                                                       out_feat_names)
 
@@ -342,7 +446,8 @@ class TestDRLearner(unittest.TestCase):
                                                 np.testing.assert_equal(np.argsort(
                                                     est.multitask_model_cate.feature_importances_)[-1], 0)
                                             else:
-                                                true_coef = np.zeros((2, len(out_feat_names)))
+                                                true_coef = np.zeros(
+                                                    (2, len(out_feat_names)))
                                                 true_coef[:, 0] = [.5, 1]
                                                 np.testing.assert_allclose(
                                                     est.multitask_model_cate.coef_, true_coef, rtol=0, atol=.15)
@@ -354,7 +459,8 @@ class TestDRLearner(unittest.TestCase):
                                                     np.testing.assert_equal(np.argsort(
                                                         est.model_cate(T=t).feature_importances_)[-1], 0)
                                                 else:
-                                                    true_coef = np.zeros(len(out_feat_names))
+                                                    true_coef = np.zeros(
+                                                        len(out_feat_names))
                                                     true_coef[0] = .5 * t
                                                     np.testing.assert_allclose(
                                                         est.model_cate(T=t).coef_, true_coef, rtol=0, atol=.15)
@@ -366,7 +472,8 @@ class TestDRLearner(unittest.TestCase):
         controls = np.random.uniform(-1, 1, size=(10000, 2))
         T = np.random.binomial(2, scipy.special.expit(controls[:, 0]))
         sigma = 0.01
-        y = (1 + .5 * controls[:, 0]) * T + controls[:, 0] + np.random.normal(0, sigma, size=(10000,))
+        y = (1 + .5 * controls[:, 0]) * T + controls[:,
+                                                     0] + np.random.normal(0, sigma, size=(10000,))
         for X in [None, controls]:
             for W in [None, controls]:
                 for sample_weight, sample_var in [(None, None), (np.ones(T.shape[0]), np.zeros(T.shape[0]))]:
@@ -377,7 +484,8 @@ class TestDRLearner(unittest.TestCase):
                             for est_class,\
                                 inference in [(ForestDRLearner, 'blb'),
                                               (LinearDRLearner, 'statsmodels'),
-                                              (LinearDRLearner, StatsModelsInferenceDiscrete(cov_type='nonrobust')),
+                                              (LinearDRLearner, StatsModelsInferenceDiscrete(
+                                                  cov_type='nonrobust')),
                                               (SparseLinearDRLearner, 'debiasedlasso')]:
                                 with self.subTest(X=X, W=W, sample_weight=sample_weight, sample_var=sample_var,
                                                   featurizer=featurizer, models=models,
@@ -399,42 +507,59 @@ class TestDRLearner(unittest.TestCase):
 
                                     if (X is None) and (W is None):
                                         with pytest.raises(AttributeError) as e_info:
-                                            est.fit(y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
+                                            est.fit(
+                                                y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
                                         continue
                                     est.fit(y, T, X=X, W=W, sample_weight=sample_weight,
                                             sample_var=sample_var, inference=inference)
                                     if X is not None:
-                                        lower, upper = est.effect_interval(X[:3], T0=0, T1=1)
+                                        lower, upper = est.effect_interval(
+                                            X[:3], T0=0, T1=1)
                                         point = est.effect(X[:3], T0=0, T1=1)
                                         truth = 1 + .5 * X[:3, 0]
-                                        TestDRLearner._check_with_interval(truth, point, lower, upper)
-                                        lower, upper = est.const_marginal_effect_interval(X[:3])
-                                        point = est.const_marginal_effect(X[:3])
-                                        truth = np.hstack([1 + .5 * X[:3, [0]], 2 * (1 + .5 * X[:3, [0]])])
-                                        TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                        TestDRLearner._check_with_interval(
+                                            truth, point, lower, upper)
+                                        lower, upper = est.const_marginal_effect_interval(
+                                            X[:3])
+                                        point = est.const_marginal_effect(
+                                            X[:3])
+                                        truth = np.hstack(
+                                            [1 + .5 * X[:3, [0]], 2 * (1 + .5 * X[:3, [0]])])
+                                        TestDRLearner._check_with_interval(
+                                            truth, point, lower, upper)
                                     else:
-                                        lower, upper = est.effect_interval(T0=0, T1=1)
+                                        lower, upper = est.effect_interval(
+                                            T0=0, T1=1)
                                         point = est.effect(T0=0, T1=1)
                                         truth = np.array([1])
-                                        TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                        TestDRLearner._check_with_interval(
+                                            truth, point, lower, upper)
                                         lower, upper = est.const_marginal_effect_interval()
                                         point = est.const_marginal_effect()
                                         truth = np.array([[1, 2]])
-                                        TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                        TestDRLearner._check_with_interval(
+                                            truth, point, lower, upper)
 
                                     for t in [1, 2]:
                                         if X is not None:
-                                            lower, upper = est.marginal_effect_interval(t, X[:3])
-                                            point = est.marginal_effect(t, X[:3])
-                                            truth = np.hstack([1 + .5 * X[:3, [0]], 2 * (1 + .5 * X[:3, [0]])])
-                                            TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                            lower, upper = est.marginal_effect_interval(
+                                                t, X[:3])
+                                            point = est.marginal_effect(
+                                                t, X[:3])
+                                            truth = np.hstack(
+                                                [1 + .5 * X[:3, [0]], 2 * (1 + .5 * X[:3, [0]])])
+                                            TestDRLearner._check_with_interval(
+                                                truth, point, lower, upper)
                                         else:
-                                            lower, upper = est.marginal_effect_interval(t)
+                                            lower, upper = est.marginal_effect_interval(
+                                                t)
                                             point = est.marginal_effect(t)
                                             truth = np.array([[1, 2]])
-                                            TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                            TestDRLearner._check_with_interval(
+                                                truth, point, lower, upper)
                                     assert isinstance(est.score_, float)
-                                    assert isinstance(est.score(y, T, X=X, W=W), float)
+                                    assert isinstance(
+                                        est.score(y, T, X=X, W=W), float)
 
                                     if X is not None:
                                         feat_names = ['A', 'B']
@@ -443,8 +568,10 @@ class TestDRLearner(unittest.TestCase):
                                     out_feat_names = feat_names
                                     if X is not None:
                                         if (featurizer is not None):
-                                            out_feat_names = featurizer.fit(X).get_feature_names(feat_names)
-                                            np.testing.assert_array_equal(est.featurizer.n_input_features_, 2)
+                                            out_feat_names = featurizer.fit(
+                                                X).get_feature_names(feat_names)
+                                            np.testing.assert_array_equal(
+                                                est.featurizer.n_input_features_, 2)
                                         np.testing.assert_array_equal(est.cate_feature_names(feat_names),
                                                                       out_feat_names)
 
@@ -474,27 +601,50 @@ class TestDRLearner(unittest.TestCase):
                                     if isinstance(est, LinearDRLearner) or isinstance(est, SparseLinearDRLearner):
                                         if X is not None:
                                             for t in [1, 2]:
-                                                true_coef = np.zeros(len(out_feat_names))
+                                                true_coef = np.zeros(
+                                                    len(out_feat_names))
                                                 true_coef[0] = .5 * t
-                                                lower, upper = est.model_cate(T=t).coef__interval()
-                                                point = est.model_cate(T=t).coef_
+                                                lower, upper = est.model_cate(
+                                                    T=t).coef__interval()
+                                                point = est.model_cate(
+                                                    T=t).coef_
                                                 truth = true_coef
-                                                TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                                TestDRLearner._check_with_interval(
+                                                    truth, point, lower, upper)
 
-                                                lower, upper = est.coef__interval(t)
+                                                lower, upper = est.coef__interval(
+                                                    t)
                                                 point = est.coef_(t)
                                                 truth = true_coef
-                                                TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                                TestDRLearner._check_with_interval(
+                                                    truth, point, lower, upper)
+                                                # test coef__inference function works
+                                                est.coef__inference(
+                                                    t).summary_frame()
+                                                np.testing.assert_array_almost_equal(
+                                                    est.coef__inference(t).conf_int()[0], lower, decimal=5)
                                         for t in [1, 2]:
-                                            lower, upper = est.model_cate(T=t).intercept__interval()
-                                            point = est.model_cate(T=t).intercept_
+                                            lower, upper = est.model_cate(
+                                                T=t).intercept__interval()
+                                            point = est.model_cate(
+                                                T=t).intercept_
                                             truth = t
-                                            TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                            TestDRLearner._check_with_interval(
+                                                truth, point, lower, upper)
 
-                                            lower, upper = est.intercept__interval(t)
+                                            lower, upper = est.intercept__interval(
+                                                t)
                                             point = est.intercept_(t)
                                             truth = t
-                                            TestDRLearner._check_with_interval(truth, point, lower, upper)
+                                            TestDRLearner._check_with_interval(
+                                                truth, point, lower, upper)
+                                            # test intercept__inference function works
+                                            est.intercept__inference(
+                                                t).summary_frame()
+                                            np.testing.assert_array_almost_equal(
+                                                est.intercept__inference(t).conf_int()[0], lower, decimal=5)
+                                            # test summary function works
+                                            est.summary(t)
 
     @staticmethod
     def _check_with_interval(truth, point, lower, upper):
@@ -513,7 +663,8 @@ class TestDRLearner(unittest.TestCase):
         # Test constant treatment effect
         self._test_te(DR_learner, tol=0.5, te_type="const")
         # Test heterogeneous treatment effect
-        outcome_model = Pipeline([('poly', PolynomialFeatures()), ('model', LinearRegression())])
+        outcome_model = Pipeline(
+            [('poly', PolynomialFeatures()), ('model', LinearRegression())])
         DR_learner = DRLearner(model_regression=outcome_model,
                                model_final=LinearRegression())
         self._test_te(DR_learner, tol=0.5, te_type="heterogeneous")
@@ -564,22 +715,14 @@ class TestDRLearner(unittest.TestCase):
         # Check that a majority of true effects lie in the 5-95% CI
         self.assertTrue(in_CI.mean() > 0.8)
 
-    def test_drlearner_clipping(self):
-        X = np.linspace(0, 1, 200).reshape(-1, 1)
-        T = np.random.binomial(1, X)
-        Y = np.random.normal(size=T.shape)
-        X[0] = -1000  # one split will have only X values between 0 and 1,
-        # so the predicted propensity for this point will be extremely low
-        learner = DRLearner()
-        learner.fit(Y, T, X)
-        effect = learner.const_marginal_effect(np.array([[0.5]]))
-        assert not(np.any(np.isnan(effect)))
-
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:
-            raise ValueError("Type of treatment effect must be 'const' or 'heterogeneous'.")
-        X, T, Y = getattr(TestDRLearner, "{te_type}_te_data".format(te_type=te_type))
-        te_func = getattr(TestDRLearner, "_{te_type}_te".format(te_type=te_type))
+            raise ValueError(
+                "Type of treatment effect must be 'const' or 'heterogeneous'.")
+        X, T, Y = getattr(
+            TestDRLearner, "{te_type}_te_data".format(te_type=te_type))
+        te_func = getattr(
+            TestDRLearner, "_{te_type}_te".format(te_type=te_type))
         # Fit learner and get the effect
         learner_instance.fit(Y, T, X)
         te_hat = learner_instance.effect(TestDRLearner.X_test)
@@ -594,10 +737,13 @@ class TestDRLearner(unittest.TestCase):
         # Only for heterogeneous TE
         X, T, Y = TestDRLearner.heterogeneous_te_data
         # Fit learner on X and W and get the effect
-        learner_instance.fit(Y, T, X=X[:, [TestDRLearner.heterogeneity_index]], W=X)
-        te_hat = learner_instance.effect(TestDRLearner.X_test[:, [TestDRLearner.heterogeneity_index]])
+        learner_instance.fit(
+            Y, T, X=X[:, [TestDRLearner.heterogeneity_index]], W=X)
+        te_hat = learner_instance.effect(
+            TestDRLearner.X_test[:, [TestDRLearner.heterogeneity_index]])
         # Get the true treatment effect
-        te = np.apply_along_axis(TestDRLearner._heterogeneous_te, 1, TestDRLearner.X_test)
+        te = np.apply_along_axis(
+            TestDRLearner._heterogeneous_te, 1, TestDRLearner.X_test)
         # Compute treatment effect residuals (absolute)
         te_res = np.abs(te - te_hat)
         # Check that at least 90% of predictions are within tolerance interval
@@ -609,13 +755,16 @@ class TestDRLearner(unittest.TestCase):
         learner_instance.fit(list(Y), list(T), list(X))
         learner_instance.effect(list(TestDRLearner.X_test))
         # Check that it fails correctly if lists of different shape are passed in
-        self.assertRaises(ValueError, learner_instance.fit, Y, T, X[:TestDRLearner.n // 2])
-        self.assertRaises(ValueError, learner_instance.fit, Y[:TestDRLearner.n // 2], T, X)
+        self.assertRaises(ValueError, learner_instance.fit,
+                          Y, T, X[:TestDRLearner.n // 2])
+        self.assertRaises(ValueError, learner_instance.fit,
+                          Y[:TestDRLearner.n // 2], T, X)
         # Check that it fails when T contains values other than 0 and 1
         self.assertRaises(ValueError, learner_instance.fit, Y, T + 1, X)
         # Check that it works when T, Y have shape (n, 1)
         self.assertWarns(DataConversionWarning,
-                         learner_instance.fit, Y.reshape(-1, 1), T.reshape(-1, 1), X
+                         learner_instance.fit, Y.reshape(-1,
+                                                         1), T.reshape(-1, 1), X
                          )
 
     @classmethod
@@ -643,9 +792,11 @@ class TestDRLearner(unittest.TestCase):
             propensity (func): probability of treatment conditional on covariates
         """
         # Generate covariates
-        X = cls.random_state.multivariate_normal(np.zeros(d), np.diag(np.ones(d)), n)
+        X = cls.random_state.multivariate_normal(
+            np.zeros(d), np.diag(np.ones(d)), n)
         # Generate treatment
-        T = np.apply_along_axis(lambda x: cls.random_state.binomial(1, propensity(x), 1)[0], 1, X)
+        T = np.apply_along_axis(
+            lambda x: cls.random_state.binomial(1, propensity(x), 1)[0], 1, X)
         # Calculate outcome
         Y0 = np.apply_along_axis(lambda x: untreated_outcome(x), 1, X)
         treat_effect = np.apply_along_axis(lambda x: treatment_effect(x), 1, X)
