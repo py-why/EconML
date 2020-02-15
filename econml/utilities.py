@@ -21,6 +21,10 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from collections.abc import Iterable
 from sklearn.utils.multiclass import type_of_target
 import numbers
+from statsmodels.iolib.table import SimpleTable
+from statsmodels.iolib.summary import summary_return
+from statsmodels.compat.python import lmap
+import copy
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -844,12 +848,14 @@ class MultiModelWrapper:
 
 
 def _safe_norm_ppf(q, loc=0, scale=1):
-    prelim = loc.copy()
-    if hasattr(prelim, "__len__"):
+    if hasattr(loc, "__len__"):
+        prelim = loc.copy()
         if np.any(scale > 0):
             prelim[scale > 0] = scipy.stats.norm.ppf(q, loc=loc[scale > 0], scale=scale[scale > 0])
     elif scale > 0:
         prelim = scipy.stats.norm.ppf(q, loc=loc, scale=scale)
+    else:
+        prelim = loc
     return prelim
 
 
@@ -1224,3 +1230,113 @@ class LassoCVWrapper:
     def predict(self, X):
         predictions = self.model.predict(X)
         return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
+
+
+class Summary:
+    # This class is mainly derived from statsmodels.iolib.summary.Summary
+    """
+    Result summary
+
+    Construction does not take any parameters. Tables and text can be added
+    with the `add_` methods.
+
+    Attributes
+    ----------
+    tables : list of tables
+        Contains the list of SimpleTable instances, horizontally concatenated
+        tables are not saved separately.
+    extra_txt : str
+        extra lines that are added to the text output, used for warnings
+        and explanations.
+    """
+
+    def __init__(self):
+        self.tables = []
+        self.extra_txt = None
+
+    def __str__(self):
+        return self.as_text()
+
+    def __repr__(self):
+        return str(type(self)) + '\n"""\n' + self.__str__() + '\n"""'
+
+    def _repr_html_(self):
+        '''Display as HTML in IPython notebook.'''
+        return self.as_html()
+
+    def add_table(self, res, header, index, title):
+        table = SimpleTable(res, header, index, title)
+        self.tables.append(table)
+
+    def add_extra_txt(self, etext):
+        '''add additional text that will be added at the end in text format
+
+        Parameters
+        ----------
+        etext : list[str]
+            string with lines that are added to the text output.
+
+        '''
+        self.extra_txt = '\n'.join(etext)
+
+    def as_text(self):
+        '''return tables as string
+
+        Returns
+        -------
+        txt : str
+            summary tables and extra text as one string
+
+        '''
+        txt = summary_return(self.tables, return_fmt='text')
+        if self.extra_txt is not None:
+            txt = txt + '\n\n' + self.extra_txt
+        return txt
+
+    def as_latex(self):
+        '''return tables as string
+
+        Returns
+        -------
+        latex : str
+            summary tables and extra text as string of Latex
+
+        Notes
+        -----
+        This currently merges tables with different number of columns.
+        It is recommended to use `as_latex_tabular` directly on the individual
+        tables.
+
+        '''
+        latex = summary_return(self.tables, return_fmt='latex')
+        if self.extra_txt is not None:
+            latex = latex + '\n\n' + self.extra_txt.replace('\n', ' \\newline\n ')
+        return latex
+
+    def as_csv(self):
+        '''return tables as string
+
+        Returns
+        -------
+        csv : str
+            concatenated summary tables in comma delimited format
+
+        '''
+        csv = summary_return(self.tables, return_fmt='csv')
+        if self.extra_txt is not None:
+            csv = csv + '\n\n' + self.extra_txt
+        return csv
+
+    def as_html(self):
+        '''return tables as string
+
+        Returns
+        -------
+        html : str
+            concatenated summary tables in HTML format
+
+        '''
+        html = summary_return(self.tables, return_fmt='html')
+        if self.extra_txt is not None:
+            html = html + '<br/><br/>' + self.extra_txt.replace('\n', '<br/>')
+        return html

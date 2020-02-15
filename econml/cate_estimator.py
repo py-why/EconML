@@ -12,7 +12,7 @@ from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
-    LinearModelFinalInferenceDiscrete
+    LinearModelFinalInferenceDiscrete, InferenceResults
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -198,6 +198,30 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         pass
 
     @_defer_to_inference
+    def effect_inference(self, X=None, *, T0=0, T1=1):
+        """ Inference results for the quantities :math:`\\tau(X, T0, T1)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
+        pass
+
+    @_defer_to_inference
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\partial \\tau(T, X)` produced
         by the model. Available only when ``inference`` is not ``None``, when
@@ -218,6 +242,28 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         lower, upper : tuple(type of :meth:`marginal_effect(T, X)<marginal_effect>`, \
                              type of :meth:`marginal_effect(T, X)<marginal_effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @_defer_to_inference
+    def marginal_effect_inference(self, T, X=None):
+        """ Inference results for the quantities :math:`\\partial \\tau(T, X)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
         """
         pass
 
@@ -324,6 +370,18 @@ class LinearCateEstimator(BaseCateEstimator):
                      for eff in effs)
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
+    def marginal_effect_inference(self, T, X=None):
+        X, T = self._expand_treatments(X, T)
+        cme_inf = self.const_marginal_effect_inference(X=X)
+        pred = cme_inf.point_estimate
+        pred_stderr = cme_inf.stderr
+        if X is None:
+            pred = np.repeat(pred, shape(T)[0], axis=0)
+            pred_stderr = np.repeat(pred_stderr, shape(T)[0], axis=0)
+        return InferenceResults(d_t=cme_inf.d_t, d_y=cme_inf.d_y, pred=pred,
+                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
+    marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
+
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\theta(X)` produced
@@ -343,6 +401,26 @@ class LinearCateEstimator(BaseCateEstimator):
         lower, upper : tuple(type of :meth:`const_marginal_effect(X)<const_marginal_effect>` ,\
                              type of :meth:`const_marginal_effect(X)<const_marginal_effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def const_marginal_effect_inference(self, X=None):
+        """ Inference results for the quantities :math:`\\theta(X)` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
         """
         pass
 
@@ -455,6 +533,18 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         pass
 
     @BaseCateEstimator._defer_to_inference
+    def coef__inference(self):
+        """ The inference of coefficients in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference of the coefficients in the final linear model
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, *, alpha=0.1):
         """ The intercept in the linear model of the constant marginal treatment
         effect.
@@ -469,6 +559,43 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         -------
         lower, upper: tuple(type of :meth:`intercept_()<intercept_>`, type of :meth:`intercept_()<intercept_>`)
             The lower and upper bounds of the confidence interval.
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def intercept__inference(self):
+        """ The inference of intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference of the intercept in the final linear model
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None):
+        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        feat_name: optional list of strings or None (default is None)
+            The input of the feature names
+
+        Returns
+        -------
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
         """
         pass
 
@@ -569,6 +696,23 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         pass
 
     @BaseCateEstimator._defer_to_inference
+    def coef__inference(self, T):
+        """ The inference for the coefficients in the linear model of the
+        constant marginal treatment effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference of the coefficients in the final linear model
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, T, *, alpha=0.1):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
@@ -585,6 +729,49 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         -------
         lower, upper: tuple(type of :meth:`intercept_(T)<intercept_>`, type of :meth:`intercept_(T)<intercept_>`)
             The lower and upper bounds of the confidence interval.
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def intercept__inference(self, T):
+        """ The inference of the intercept in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        T: alphanumeric
+            The input treatment for which we want the coefficients.
+
+        Returns
+        -------
+        InferenceResults: object
+            The inference of the intercept in the final linear model
+
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None):
+        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
+        effect associated with treatment T.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        feat_name: optional list of strings or None (default is None)
+            The input of the feature names
+
+        Returns
+        -------
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
         """
         pass
 
