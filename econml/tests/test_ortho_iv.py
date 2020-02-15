@@ -23,18 +23,21 @@ class TestDML(unittest.TestCase):
 
     def test_cate_api(self):
         """Test that we correctly implement the CATE API."""
-        n = 20
+        n = 30
+
+        def size(n, d):
+            return (n, d) if d >= 0 else (n,)
 
         def make_random(is_discrete, d):
             if d is None:
                 return None
-            sz = (n, d) if d >= 0 else (n,)
+            sz = size(n, d)
             if is_discrete:
                 while True:
                     arr = np.random.choice(['a', 'b', 'c'], size=sz)
-                    # ensure that we've got at least two of every element
-                    _, counts = np.unique(arr, return_counts=True)
-                    if len(counts) == 3 and counts.min() > 1:
+                    # ensure that we've got at least two of every row
+                    _, counts = np.unique(arr, return_counts=True, axis=0)
+                    if len(counts) == 3**(d if d > 0 else 1) and counts.min() > 1:
                         return arr
             else:
                 return np.random.normal(size=sz)
@@ -61,12 +64,18 @@ class TestDML(unittest.TestCase):
                         for d_z in [2, 1]:
                             if d_z < n_t:
                                 continue
-                            for discrete_z in [True, False] if d_z == 1 else [False]:
+                            for discrete_z in [True, False] if d_z == 1 else[False]:
                                 Z1, Q, Y, T1 = [make_random(is_discrete, d)
                                                 for is_discrete, d in [(discrete_z, d_z),
                                                                        (False, d_q),
                                                                        (False, d_y),
                                                                        (discrete_t, d_t)]]
+                                if discrete_t and discrete_z:
+                                    # need to make sure we get all *joint* combinations
+                                    arr = make_random(True, 2)
+                                    Z1 = arr[:, 0].reshape(size(n, d_z))
+                                    T1 = arr[:, 0].reshape(size(n, d_t))
+
                                 d_t_final1 = 2 if discrete_t else d_t
 
                                 if discrete_t:
