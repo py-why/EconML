@@ -4,6 +4,7 @@ Public Module Reference
 .. autosummary::
     :toctree: _autosummary
 
+    econml.automated_ml
     econml.bootstrap
     econml.cate_estimator
     econml.cate_interpreter
@@ -18,7 +19,6 @@ Public Module Reference
     econml.ortho_iv
     econml.two_stage_least_squares
     econml.utilities
-    econml.automated_ml
 
 Private Module Reference
 ========================

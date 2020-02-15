@@ -549,32 +549,61 @@ class DMLIV(_BaseDMLIV):
     The features are created by a provided featurizer that supports fit_transform.
     Then an arbitrary model fits on the composite set of features.
 
-    Concretely, it assumes that theta(X)=<theta, phi(X)> for some features phi(X)
+    Concretely, it assumes that :math:`\\theta(X)=<\\theta, \\phi(X)>` for some features :math:`\\phi(X)`
     and runs a linear model regression of :math:`Y-\\E[Y|X]` on :math:`phi(X)*(\\E[T|X,Z]-\\E[T|X])`.
     The features are created by the featurizer provided by the user. The particular
     linear model regression is also specified by the user (e.g. Lasso, ElasticNet)
+
+    Parameters
+    ----------
+    model_Y_X : estimator
+        model to predict :math:`\\E[Y | X]`
+
+    model_T_X : estimator
+        model to predict :math:`\\E[T | X]`
+
+    model_T_XZ : estimator
+        model to predict :math:`\\E[T | X, Z]`
+
+    model_final : estimator
+        final linear model for predicting :math:`(Y-\\E[Y|X])` from :math:`\\phi(X) \\cdot (\\E[T|X,Z]-\\E[T|X])`
+        Method is incorrect if this model is not linear (e.g. Lasso, ElasticNet, LinearRegression).
+
+    featurizer: :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
+
+    n_splits: int, cross-validation generator or an iterable, optional, default 2
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    discrete_instrument: bool, optional, default False
+        Whether the instrument values should be treated as categorical, rather than continuous, quantities
+
+    discrete_treatment: bool, optional, default False
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
     """
 
     def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final, featurizer=None,
                  fit_cate_intercept=True,
                  n_splits=2, discrete_instrument=False, discrete_treatment=False, random_state=None):
-        """
-        Parameters
-        ----------
-        model_Y_X : model to predict :math:`\\E[Y | X]`
-        model_T_X : model to predict :math:`\\E[T | X]`
-        model_T_XZ : model to predict :math:`\\E[T | X, Z]`
-        model_final : final linear model for predicting :math:`(Y-\\E[Y|X])` from \
-            :math:`\\phi(X) \\cdot (\\E[T|X,Z]-\\E[T|X])`
-            Method is incorrect if this model is not linear (e.g. Lasso, ElasticNet, LinearRegression).
-        featurizer : object that creates features of X to use for effect model. Must have a method
-            fit_transform that is applied on X to create phi(X).
-        n_splits : number of splits to use in cross-fitting
-        discrete_instrument : bool
-            Whether to stratify cross-fitting splits by instrument
-        discrete_treatment : bool
-            whether to stratify cross-fitting splits by treatment
-        """
         self.bias_part_of_coef = fit_cate_intercept
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(_FirstStageWrapper(model_Y_X, False),
@@ -597,34 +626,65 @@ class NonParamDMLIV(_BaseDMLIV):
     sample weights and the fit method has to take as input sample_weights (e.g. random forests), i.e.
     fit(X, y, sample_weight=None)
     It achieves this by re-writing the final stage square loss of the DMLIV algorithm as:
+
     .. math ::
         \\sum_i (\\E[T|X_i, Z_i] - \\E[T|X_i])^2 * ((Y_i - \\E[Y|X_i])/(\\E[T|X_i, Z_i] - \\E[T|X_i]) - \\theta(X))^2
 
     Then this can be viewed as a weighted square loss regression, where the target label is
+
     .. math ::
         \\tilde{Y}_i = (Y_i - \\E[Y|X_i])/(\\E[T|X_i, Z_i] - \\E[T|X_i])
 
     and each sample has a weight of
+
     .. math ::
         V(X_i) = (\\E[T|X_i, Z_i] - \\E[T|X_i])^2
+
     Thus we can call any regression model with inputs:
-        fit(X, :math:`\\tilde{Y}_i`, sample_weight=:math:`V(X_i)`)
+
+        fit(X, :math:`\\tilde{Y}_i`, sample_weight= :math:`V(X_i)`)
+
+    Parameters
+    ----------
+    model_Y_X : estimator
+        model to predict :math:`\\E[Y | X]`
+
+    model_T_X : estimator
+        model to predict :math:`\\E[T | X]`
+
+    model_T_XZ : estimator
+        model to predict :math:`\\E[T | X, Z]`
+
+    model_final : estimator
+        final model for predicting :math:`\\tilde{Y}` from X with sample weights V(X)
+
+    n_splits: int, cross-validation generator or an iterable, optional, default 2
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    discrete_instrument: bool, optional, default False
+        Whether the instrument values should be treated as categorical, rather than continuous, quantities
+
+    discrete_treatment: bool, optional, default False
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
     """
 
     def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final,
                  featurizer=None, fit_cate_intercept=True,
                  n_splits=2, discrete_instrument=False, discrete_treatment=False):
-        """
-        Parameters
-        ----------
-        model_Y_X : model to predict :math:`\\E[Y | X]`
-        model_T_X : model to predict :math:`\\E[T | X]`
-        model_T_XZ : model to predict :math:`\\E[T | X, Z]`
-        model_final : final model for predicting \tilde{Y} from X with sample weights V(X)
-        n_splits : number of splits to use in cross-fitting
-        discrete_instrument : whether to stratify cross-fitting splits by instrument
-        discrete_treatment : whether to stratify cross-fitting splits by treatment
-        """
         super().__init__(_FirstStageWrapper(model_Y_X, False),
                          _FirstStageWrapper(model_T_X, discrete_treatment),
                          _FirstStageWrapper(model_T_XZ, discrete_treatment),
@@ -885,6 +945,51 @@ class _DummyCATE:
 class IntentToTreatDRIV(_IntentToTreatDRIV):
     """
     Implements the DRIV algorithm for the intent-to-treat A/B test setting
+
+    Parameters
+    ----------
+
+    Parameters
+    ----------
+    model_Y_X : estimator
+        model to predict :math:`\\E[Y | X]`
+
+    model_T_XZ : estimator
+        model to predict :math:`\\E[T | X, Z]`
+
+    flexible_model_effect : estimator
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+
+    final_model_effect : estimator, optional
+        a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
+
+    cov_clip : float, optional, default 0.1
+        clipping of the covariate for regions with low "overlap", to reduce variance
+
+    n_splits: int, cross-validation generator or an iterable, optional, default 3
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    opt_reweighted : bool, optional, default False
+        Whether to reweight the samples to minimize variance. If True then
+        final_model_effect.fit must accept sample_weight as a kw argument (WeightWrapper from
+        utilities can be used for any linear model to enable sample_weights). If True then
+        assumes the final_model_effect is flexible enough to fit the true CATE model. Otherwise,
+        it method will return a biased projection to the model_effect space, biased
+        to give more weight on parts of the feature space where the instrument is strong.
     """
 
     def __init__(self, model_Y_X, model_T_XZ,
@@ -893,25 +998,6 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  cov_clip=.1,
                  n_splits=3,
                  opt_reweighted=False):
-        """
-        Parameters
-        ----------
-        model_Y_X : model to predict :math:`\\E[Y | X]`
-        model_T_XZ : model to predict :math:`\\E[T | X, Z]`
-        flexible_model_effect : a flexible model for a preliminary version of the CATE, must accept
-            sample_weight at fit time.
-        final_model_effect : a final model for the CATE and projections. If None, then
-            flexible_model_effect is also used as a final model
-        cov_clip : clipping of the covariate for regions with low "overlap",
-            so as to reduce variance
-        n_splits : number of splits to use in cross-fitting
-        opt_reweighted : whether to reweight the samples to minimize variance. If True then
-            final_model_effect.fit must accept sample_weight as a kw argument (WeightWrapper from
-            utilities can be used for any linear model to enable sample_weights). If True then
-            assumes the final_model_effect is flexible enough to fit the true CATE model. Otherwise,
-            it method will return a biased projection to the model_effect space, biased
-            to give more weight on parts of the feature space where the instrument is strong.
-        """
         model_Y_X = _FirstStageWrapper(model_Y_X, discrete_target=False)
         model_T_XZ = _FirstStageWrapper(model_T_XZ, discrete_target=True)
         prel_model_effect = _IntentToTreatDRIV(model_Y_X,
@@ -929,6 +1015,52 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
 
 class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
+    """
+    Implements the DRIV algorithm for the intent-to-treat A/B test setting
+
+    Parameters
+    ----------
+    model_Y_X : estimator
+        model to predict :math:`\\E[Y | X]`
+
+    model_T_XZ : estimator
+        model to predict :math:`\\E[T | X, Z]`
+
+    flexible_model_effect : estimator
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+
+    final_model_effect : estimator, optional
+        a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
+
+    cov_clip : float, optional, default 0.1
+        clipping of the covariate for regions with low "overlap", to reduce variance
+
+    n_splits: int, cross-validation generator or an iterable, optional, default 3
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    opt_reweighted : bool, optional, default False
+        Whether to reweight the samples to minimize variance. If True then
+        final_model_effect.fit must accept sample_weight as a kw argument (WeightWrapper from
+        utilities can be used for any linear model to enable sample_weights). If True then
+        assumes the final_model_effect is flexible enough to fit the true CATE model. Otherwise,
+        it method will return a biased projection to the model_effect space, biased
+        to give more weight on parts of the feature space where the instrument is strong.
+    """
+
     def __init__(self, model_Y_X, model_T_XZ,
                  flexible_model_effect,
                  featurizer=None,
