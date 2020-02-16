@@ -16,6 +16,9 @@ https://arxiv.org/abs/1905.10176
 import numpy as np
 from sklearn.base import clone
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.pipeline import Pipeline
+
 from ._ortho_learner import _OrthoLearner
 from .dml import _FinalWrapper
 from .utilities import (hstack, StatsModelsLinearRegression, inverse_onehot)
@@ -802,7 +805,7 @@ class _BaseDRIV(_OrthoLearner):
 
             def predict(self, X=None):
                 if (X is not None) and (self._featurizer is not None):
-                    X = self._featurizer.fit_transform(X)
+                    X = self._featurizer.transform(X)
                 return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
 
             def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
@@ -814,7 +817,7 @@ class _BaseDRIV(_OrthoLearner):
                 if T_res.ndim == 1:
                     T_res = T_res.reshape((-1, 1))
                 if (X is not None) and (self._featurizer is not None):
-                    X = self._featurizer.fit_transform(X)
+                    X = self._featurizer.transform(X)
                 effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
                 Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
 
@@ -878,6 +881,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
     def __init__(self, model_Y_X, model_T_XZ,
                  prel_model_effect,
                  model_effect,
+                 featurizer=None,
                  cov_clip=.1,
                  n_splits=3,
                  opt_reweighted=False):
@@ -919,6 +923,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
                 return prel_theta, T_res, Y_res, 2 * Z - 1, delta
         # TODO: check that Y, T, Z do not have multiple columns
         super().__init__(ModelNuisance(model_Y_X, model_T_XZ, prel_model_effect), model_effect,
+                         featurizer=featurizer,
                          cov_clip=cov_clip,
                          n_splits=n_splits,
                          discrete_instrument=True, discrete_treatment=True,
@@ -995,6 +1000,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     def __init__(self, model_Y_X, model_T_XZ,
                  flexible_model_effect,
                  final_model_effect=None,
+                 featurizer=None,
                  cov_clip=.1,
                  n_splits=3,
                  opt_reweighted=False):
@@ -1009,6 +1015,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
             final_model_effect = flexible_model_effect
         super().__init__(model_Y_X, model_T_XZ, prel_model_effect,
                          final_model_effect,
+                         featurizer=featurizer,
                          cov_clip=cov_clip,
                          n_splits=n_splits,
                          opt_reweighted=opt_reweighted)
@@ -1069,10 +1076,21 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  n_splits=3,
                  opt_reweighted=False):
         self.fit_cate_intercept = fit_cate_intercept
-        self.bias_part_of_coef = False
+        self.bias_part_of_coef = fit_cate_intercept
+        featurizer = clone(featurizer, safe=False)
+        if fit_cate_intercept:
+            add_intercept = FunctionTransformer(lambda F:
+                                                hstack([np.ones((F.shape[0], 1)), F]),
+                                                validate=True)
+            if featurizer:
+                featurizer = Pipeline([('featurize', featurizer),
+                                       ('add_intercept', add_intercept)])
+            else:
+                featurizer = add_intercept
         super().__init__(model_Y_X, model_T_XZ,
                          flexible_model_effect=flexible_model_effect,
-                         final_model_effect=StatsModelsLinearRegression(fit_intercept=fit_cate_intercept),
+                         featurizer=featurizer,
+                         final_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                          cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=opt_reweighted)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
