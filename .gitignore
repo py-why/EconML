@@ -116,3 +116,8 @@ double_ml/proto/*.jpg
 
 # sphinx autosummaries 
 doc/_autosummary/
+/.vs
+/Website/.vs/EconMLWeb
+/Website/EconMLWeb/bin/Debug/netcoreapp3.1
+/Website/EconMLWeb/bin/Release/netcoreapp3.1
+/Website/EconMLWeb/obj

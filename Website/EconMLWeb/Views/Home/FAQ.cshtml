@@ -1,0 +1,65 @@
+﻿
+@{
+    ViewData["Title"] = "Frequently Asked Questions";
+}
+
+<script type="text/javascript">
+    $(document).ready(function () {
+        $('.faqlink').click(function () {
+            $('.content').hide();
+            $(this).next('.content').show();
+        });
+    });
+</script>
+
+
+<h1>@ViewData["Title"]</h1>
+
+<div class="faqSection">
+    <ul class="faqList">
+
+
+
+
+        <li class="faqItem">
+            <div class="v-expansion-panel__header">
+                <div>
+                    <a class="faqlink" href="#"><span class="pl-2">What is Casusation? </span></a>
+                    <div class="v-expansion-panel__header__icon custom_icon" style="display: block !important;"><i aria-hidden="true" class="v-icon add material-icons theme--light">add</i> <i aria-hidden="true" class="v-icon remove material-icons theme--light">remove</i></div>
+                </div>
+            </div>
+            <div class="content" style="">
+                <div class="v-card v-sheet theme--light">
+                    <div class="v-card__text">
+                        <ul>
+                            <li>Tuesday, March 10, 10:00 AM to 2:00 PM - Opening keynote, exhibits and talks</li>
+                            <li>Wednesday, March 11, 10:00 AM to 3:00 PM - Exhibits and talks</li>
+                            <li>Thursday, March 12, 9:00 AM to 5:00 PM - Workshops</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </li>
+
+        <li class="faqItem">
+            <div class="v-expansion-panel__header">
+                <div>
+                    <span class="pl-2">What is Casusation? </span>
+                    <div class="v-expansion-panel__header__icon custom_icon" style="display: block !important;"><i aria-hidden="true" class="v-icon add material-icons theme--light">add</i> <i aria-hidden="true" class="v-icon remove material-icons theme--light">remove</i></div>
+                </div>
+            </div>
+            <div class="v-expansion-panel__body" style="">
+                <div class="v-card v-sheet theme--light">
+                    <div class="v-card__text">
+                        <ul>
+                            <li>Tuesday, March 10, 10:00 AM to 2:00 PM - Opening keynote, exhibits and talks</li>
+                            <li>Wednesday, March 11, 10:00 AM to 3:00 PM - Exhibits and talks</li>
+                            <li>Thursday, March 12, 9:00 AM to 5:00 PM - Workshops</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </li>
+    </ul>
+
+</div>
