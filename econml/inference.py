@@ -326,6 +326,8 @@ class StatsModelsInference(LinearModelFinalInference):
 
     def prefit(self, estimator, *args, **kwargs):
         super().prefit(estimator, *args, **kwargs)
+        assert not (self.model_final.fit_intercept), ("Inference can only be performed on models linear in "
+                                                      "their features, but here fit_intercept is True")
         self.model_final.cov_type = self.cov_type
 
 

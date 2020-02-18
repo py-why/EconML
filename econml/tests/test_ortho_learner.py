@@ -149,7 +149,7 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
-                            n_splits=2, discrete_treatment=False, random_state=None)
+                            n_splits=2, discrete_treatment=False, discrete_instrument=False, random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
@@ -164,7 +164,7 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
-                            n_splits=2, discrete_treatment=False, random_state=None)
+                            n_splits=2, discrete_treatment=False, discrete_instrument=False, random_state=None)
         est.fit(y, X[:, 0], None, X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
@@ -179,7 +179,8 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
-                            n_splits=KFold(n_splits=3), discrete_treatment=False, random_state=None)
+                            n_splits=KFold(n_splits=3),
+                            discrete_treatment=False, discrete_instrument=False, random_state=None)
         est.fit(y, X[:, 0], None, X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
@@ -195,7 +196,8 @@ class TestOrthoLearner(unittest.TestCase):
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         folds = [(np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
-                            n_splits=KFold(n_splits=3), discrete_treatment=False, random_state=None)
+                            n_splits=KFold(n_splits=3), discrete_treatment=False,
+                            discrete_instrument=False, random_state=None)
         est.fit(y, X[:, 0], None, X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
@@ -236,7 +238,7 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
-                            n_splits=2, discrete_treatment=False, random_state=None)
+                            n_splits=2, discrete_treatment=False, discrete_instrument=False, random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
@@ -284,7 +286,7 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.01
         y = T + X[:, 0] + np.random.normal(0, sigma, size=(10000,))
         est = _OrthoLearner(ModelNuisance(LogisticRegression(solver='lbfgs'), LinearRegression()), ModelFinal(),
-                            n_splits=2, discrete_treatment=True, random_state=None)
+                            n_splits=2, discrete_treatment=True, discrete_instrument=False, random_state=None)
         est.fit(y, T, W=X)
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
