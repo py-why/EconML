@@ -7,7 +7,8 @@ from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
 from sklearn.model_selection import KFold
-from econml.ortho_iv import (DMLATEIV, ProjectedDMLATEIV, DMLIV, IntentToTreatDRIV, LinearIntentToTreatDRIV)
+from econml.ortho_iv import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV,
+                             IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference
@@ -244,7 +245,25 @@ class TestDML(unittest.TestCase):
         #       where we don't have all of the required information to do this;
         #       we'd probably need to add it to _crossfit instead
 
-    # TODO: test that multidimensional arrays fail where they should
+    def test_multidim_arrays_fail(self):
+
+        Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
+        three_class = np.array([1, 2, 3, 1, 2, 3, 1, 2])
+        two_class = np.array([1, 2, 1, 1, 2, 1, 1, 2])
+
+        est = NonParamDMLIV(Lasso(), LogisticRegression(), LogisticRegression(),
+                            WeightedLasso(), discrete_treatment=True)
+
+        with pytest.raises(AttributeError):
+            est.fit(Y, T=three_class, Z=two_class)
+
+        est = IntentToTreatDRIV(Lasso(), LogisticRegression(), WeightedLasso())
+
+        with pytest.raises(AttributeError):
+            est.fit(Y, T=three_class, Z=two_class)
+
+        with pytest.raises(AttributeError):
+            est.fit(Y, T=two_class, Z=three_class)
 
     # TODO: make IV related
     def test_access_to_internal_models(self):

@@ -289,8 +289,8 @@ class _BaseDMLIV(_OrthoLearner):
         model to predict :math:`\\E[T | X, Z]`
 
     model_final : estimator
-        final model that at fit time takes as input :math:`(Y-\\E[Y|X]), (\\E[T|X,Z]-\\E[T|X]) and X
-        and supports method .effect(X) that produces the cate at X
+        final model that at fit time takes as input :math:`(Y-\\E[Y|X])`, :math:`(\\E[T|X,Z]-\\E[T|X])` and X
+        and supports method predict(X) that produces the CATE at X
 
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
@@ -691,7 +691,10 @@ class NonParamDMLIV(_BaseDMLIV):
         super().__init__(_FirstStageWrapper(model_Y_X, False),
                          _FirstStageWrapper(model_T_X, discrete_treatment),
                          _FirstStageWrapper(model_T_XZ, discrete_treatment),
-                         _FinalWrapper(model_final, fit_cate_intercept, featurizer, True),
+                         _FinalWrapper(model_final,
+                                       fit_cate_intercept=fit_cate_intercept,
+                                       featurizer=featurizer,
+                                       use_weight_trick=True),
                          n_splits=n_splits,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment)
@@ -791,6 +794,25 @@ class _BaseDRIV(_OrthoLearner):
             def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
                 self.d_y = Y.shape[1:]
                 self.d_t = nuisances[1].shape[1:]
+                self.d_z = nuisances[3].shape[1:]
+
+                # TODO: if opt_reweighted is False, we could change the logic to support multidimensional treatments,
+                #       instruments, and outcomes
+                if self.d_y and self.d_y[0] > 2:
+                    raise AttributeError("DRIV only supports a single outcome")
+
+                if self.d_t and self.d_t[0] > 1:
+                    if discrete_treatment:
+                        raise AttributeError("DRIV only supports binary treatments")
+                    else:
+                        raise AttributeError("DRIV only supports single-dimensional continuous treatments")
+
+                if self.d_z and self.d_z[0] > 1:
+                    if discrete_instrument:
+                        raise AttributeError("DRIV only supports binary instruments")
+                    else:
+                        raise AttributeError("DRIV only supports single-dimensional continuous instruments")
+
                 theta_dr, clipped_cov = self._effect_estimate(nuisances)
 
                 if (X is not None) and (self._featurizer is not None):
