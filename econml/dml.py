@@ -652,7 +652,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'debiasedlasso'
-            (or an instance of :class:`.LinearCateInference`)
+            (or an instance of :class:`.LinearModelFinalInference`)
 
         Returns
         -------
