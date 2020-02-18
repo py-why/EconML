@@ -693,6 +693,30 @@ class TestDML(unittest.TestCase):
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
+    def test_can_use_featurizer(self):
+        "Test that we can use a featurizer, and that fit is only called during training"
+        dml = LinearDMLCateEstimator(LinearRegression(), LinearRegression(),
+                                     fit_cate_intercept=False, featurizer=OneHotEncoder(n_values='auto', sparse=False))
+
+        T = np.tile([1, 2, 3], 6)
+        Y = np.array([1, 2, 3, 1, 2, 3])
+        Y = np.concatenate([Y, 0 * Y, -Y])
+        X = np.repeat([[7, 8, 9]], 6, axis=1).T
+
+        dml.fit(Y, T, X=X, inference='statsmodels')
+
+        # because there is one fewer unique element in the test set, fit_transform would return the wrong number of fts
+        X_test = np.array([[7, 8]]).T
+
+        np.testing.assert_equal(dml.effect(X_test)[::-1], dml.effect(X_test[::-1]))
+        eff_int = np.array(dml.effect_interval(X_test))
+        eff_int_rev = np.array(dml.effect_interval(X_test[::-1]))
+        np.testing.assert_equal(eff_int[:, ::-1], eff_int_rev)
+
+        eff_int = np.array(dml.const_marginal_effect_interval(X_test))
+        eff_int_rev = np.array(dml.const_marginal_effect_interval(X_test[::-1]))
+        np.testing.assert_equal(eff_int[:, ::-1], eff_int_rev)
+
     def test_can_use_statsmodel_inference(self):
         """Test that we can use statsmodels to generate confidence intervals"""
         dml = LinearDMLCateEstimator(LinearRegression(), LogisticRegression(C=1000),
