@@ -348,6 +348,7 @@ class DRLearner(_OrthoLearner):
         super().__init__(ModelNuisance(model_propensity, model_regression),
                          ModelFinal(model_final, featurizer, multitask_model_final),
                          n_splits=n_splits, discrete_treatment=True,
+                         discrete_instrument=False,  # no instrument, so doesn't matter
                          random_state=random_state)
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):

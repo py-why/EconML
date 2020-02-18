@@ -28,19 +28,9 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
-                        broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        StatsModelsLinearRegression, LassoCVWrapper)
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv
-from sklearn.linear_model import LinearRegression, LassoCV
-from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
-                                   FunctionTransformer)
-from sklearn.base import clone, TransformerMixin
-from sklearn.pipeline import Pipeline
-from sklearn.utils import check_random_state
-from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin)
-from .inference import StatsModelsInference
+from .utilities import (shape, reshape, ndim, hstack)
+from sklearn.linear_model import LinearRegression
+from sklearn.base import clone
 from ._ortho_learner import _OrthoLearner
 
 
@@ -270,7 +260,11 @@ class _RLearner(_OrthoLearner):
                     return np.mean((Y_res - Y_res_pred)**2)
 
         super().__init__(ModelNuisance(model_y, model_t),
-                         ModelFinal(model_final), discrete_treatment, n_splits, random_state)
+                         ModelFinal(model_final),
+                         discrete_treatment=discrete_treatment,
+                         discrete_instrument=False,  # no instrument, so doesn't matter
+                         n_splits=n_splits,
+                         random_state=random_state)
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
