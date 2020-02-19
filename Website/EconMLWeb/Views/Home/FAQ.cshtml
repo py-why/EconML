@@ -4,12 +4,10 @@
 }
 
 <script type="text/javascript">
-    $(document).ready(function () {
-        $('.faqlink').click(function () {
-            $('.content').hide();
-            $(this).next('.content').show();
-        });
-    });
+    function toggleContents(elm) {
+        var contentContainer = elm.parentNode.getElementsByTagName("div")[1];
+        contentContainer.style.display = (contentContainer.style.display == 'block') ? 'none' : 'block';
+    }
 </script>
 
 
@@ -20,44 +18,30 @@
 
 
 
-
         <li class="faqItem">
-            <div class="v-expansion-panel__header">
-                <div>
-                    <a class="faqlink" href="#"><span class="pl-2">What is Casusation? </span></a>
-                    <div class="v-expansion-panel__header__icon custom_icon" style="display: block !important;"><i aria-hidden="true" class="v-icon add material-icons theme--light">add</i> <i aria-hidden="true" class="v-icon remove material-icons theme--light">remove</i></div>
-                </div>
-            </div>
-            <div class="content" style="">
-                <div class="v-card v-sheet theme--light">
-                    <div class="v-card__text">
-                        <ul>
-                            <li>Tuesday, March 10, 10:00 AM to 2:00 PM - Opening keynote, exhibits and talks</li>
-                            <li>Wednesday, March 11, 10:00 AM to 3:00 PM - Exhibits and talks</li>
-                            <li>Thursday, March 12, 9:00 AM to 5:00 PM - Workshops</li>
-                        </ul>
-                    </div>
-                </div>
+            <div class="titleContainer" onclick="toggleContents(this)">What is Casusation?</div>
+            <div class="fqacontentContainer" style="display:none">
+                <p>
+                    Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
+                </p>
             </div>
         </li>
 
         <li class="faqItem">
-            <div class="v-expansion-panel__header">
-                <div>
-                    <span class="pl-2">What is Casusation? </span>
-                    <div class="v-expansion-panel__header__icon custom_icon" style="display: block !important;"><i aria-hidden="true" class="v-icon add material-icons theme--light">add</i> <i aria-hidden="true" class="v-icon remove material-icons theme--light">remove</i></div>
-                </div>
+            <div class="titleContainer" onclick="toggleContents(this)">What is Casusation?</div>
+            <div class="contentContainer" style="display:none">
+                <p>
+                    Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
+                </p>
             </div>
-            <div class="v-expansion-panel__body" style="">
-                <div class="v-card v-sheet theme--light">
-                    <div class="v-card__text">
-                        <ul>
-                            <li>Tuesday, March 10, 10:00 AM to 2:00 PM - Opening keynote, exhibits and talks</li>
-                            <li>Wednesday, March 11, 10:00 AM to 3:00 PM - Exhibits and talks</li>
-                            <li>Thursday, March 12, 9:00 AM to 5:00 PM - Workshops</li>
-                        </ul>
-                    </div>
-                </div>
+        </li>
+
+        <li class="faqItem">
+            <div class="titleContainer" onclick="toggleContents(this)">What is Casusation?</div>
+            <div class="contentContainer" style="display:none">
+                <p>
+                    Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
+                </p>
             </div>
         </li>
     </ul>
