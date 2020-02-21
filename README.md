@@ -289,6 +289,7 @@ To install from source, see [For Developers](#for-developers) section below.
   intrp.plot(feature_names=['A', 'B', 'C', 'D'], fontsize=12)
   plt.show()
   ```
+  ![image](notebooks/images/dr_cate_tree.png)
 
 * Policy Interpreter of the CATE model
   ```Python
@@ -301,6 +302,7 @@ To install from source, see [For Developers](#for-developers) section below.
   intrp.plot(feature_names=['A', 'B', 'C', 'D'], fontsize=12)
   plt.show()
   ```
+  ![image](notebooks/images/dr_policy_tree.png)
 
 ### Inference
   ```Python
