@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta property="og:description" content="ALICE Automated Learning and Intelligence for Causation and Economics Alice is a project to direct Artificial Intelligence towards economic decision making.&nbsp; We are building tools that combine state-of-the-art machine learning with econometrics – the measurement of economic systems — in order to bring automation to economic decision making.&nbsp;&nbsp; The heart of this project is a …">
-    <title>@ViewData["Title"] - ALICE - Microsoft Research</title>
+    <title>@ViewData["Title"] - EconML - Microsoft Research</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" />
 
@@ -24,6 +24,8 @@
     <link rel="stylesheet" href="https://www.microsoft.com/onerfstatics/marketingsites-eus-prod/west-european/shell/_scrf/css/themes=default.device=uplevel_web_pc/31-9d5f3f/79-6aa410/c6-ce4cc7/f3-7d8ce1/18-6a72f8/26-12908c/88-de543b/18-e17dee?ver=2.0" type="text/css" media="all">
     <link rel="stylesheet" href="https://statics-marketingsites-eus-ms-com.akamaized.net/statics/override.css?c=7" type="text/css">
     <link rel="stylesheet" href="https://c.s-microsoft.com/mscc/statics/mscc-0.4.2.min.css" type="text/css">
+
+
     <!--
        <style type="text/css" id="wp-custom-css">
            .single-msr-research-lab #trp-floater-ls {
@@ -47,6 +49,52 @@
 </head>
 <body>
     <main class="picchu project" data-bi-area="body" awa-sitesection="project single" id="main" role="main">
+        <header>
+            
+            
+            
+            <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+                <div class="container">
+                    <a id="uhfLogo" class="c-logo c-sgl-stk-uhfLogo" itemprop="url" href="https://www.microsoft.com" aria-label="Microsoft" data-m="{&quot;cN&quot;:&quot;GlobalNav_Logo_cont&quot;,&quot;cT&quot;:&quot;Container&quot;,&quot;id&quot;:&quot;c3c4c1m1r1a1&quot;,&quot;sN&quot;:3,&quot;aN&quot;:&quot;c4c1m1r1a1&quot;}">
+                        <img alt="" itemprop="logo" itemscope="itemscope" class="c-image" src="https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31" role="presentation" aria-hidden="true">
+                        <span role="presentation" aria-hidden="true">Microsoft</span>
+                    </a>
+
+                    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                            aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
+                        <ul class="navbar-nav flex-grow-1">
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Overview</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="GetStarted">Get Started</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="HowTo">Causal How To</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Publications">Publications</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="CaseStudies">Case Studies</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="News">News</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="FAQ">FAQ</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="People">People</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+        </header>
         <header class="picchu project msr-banner bg-center margin-bottom-sp6" style="background-image: url(&#39;https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/MSR-ALICE-HeaderGraphic-1920x720_1.jpg&#39;)" data-bi-name="hero" aria-label="msr-banner">
             <img class="msr-banner-mobile-img mobile-only db" src="~/img/MSR-ALICE-HeaderGraphic-1920x720_1-800x550.jpg" alt="ALICE">
 
@@ -57,11 +105,8 @@
 
 
                             <h1 class="headline" style="color: #ffffff">
-                                EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation
+                                @ViewData["Title"]
                             </h1>
-                            <p class="title no-margin-bottom">
-                                Established: March 6, 2019
-                            </p>
 
 
                         </div>
@@ -69,49 +114,14 @@
                 </div>
             </div>
         </header>
-        <header>
-        </header>
         <div class="ms-grid margin-bottom-sp6">
             <div class="ms-row">
                 <section class="l-col-17-24 margin-bottom-sp5 l-no-margin-bottom" data-bi-name="content">
                     <div>
                         <div class="ms-tabs-wrap">
                             <div class="c-tabs .c-tabs__activated" data-header="h2" data-bi-name="tabs">
-                                <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-                                    <div class="container">
-                                        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                                                aria-expanded="false" aria-label="Toggle navigation">
-                                            <span class="navbar-toggler-icon"></span>
-                                        </button>
-                                        <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
-                                            <ul class="navbar-nav flex-grow-1">
-                                                <li class="nav-item">
-                                                    <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Overview</a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="GetStarted">Get Started</a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="HowTo">Causal How To</a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Publications">Publications</a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="CaseStudies">Case Studies</a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="News">News</a>
-                                                </li>
-                                                <li class="nav-item">
-                                                    <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="FAQ">FAQ</a>
-                                                </li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                </nav>
 
-                                <div class="container">
+                                <div class="econmlcontainer">
                                     <main role="main" class="pb-3">
                                         @RenderBody()
                                     </main>
@@ -120,45 +130,6 @@
                         </div>
                     </div>
                 </section><!--/.l-col-16-24-->
-
-                <div class="l-col-6-24 l-col-24-offset-1" data-bi-name="people">
-                    <h2 class="subheader xloose">People</h2>
-
-                    <h4 class="msr-underline-gray margin-bottom-sp4">Core Team</h4>
-
-                    <ul class="msr-people-list stripped ms-row no-margin-bottom">
-                        <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/glewis/" class="person-avatar"><img alt="Portrait of Greg Lewis" src="//www.microsoft.com/en-us/research/wp-content/uploads/2017/06/avatar_user__1496930436-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2017/06/avatar_user__1496930436-360x360.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/glewis/" class="semibold">Greg Lewis</a></h3><p class="body-alt no-margin-bottom">Senior Principal Researcher</p></div></li>
-                        <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/vasy/" class="person-avatar"><img alt="Portrait of Vasilis Syrgkanis" src="//www.microsoft.com/en-us/research/wp-content/uploads/2017/06/avatar_user_34499_1498508511-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2017/06/avatar_user_34499_1498508511.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/vasy/" class="semibold">Vasilis Syrgkanis</a></h3><p class="body-alt no-margin-bottom">Principal Researcher</p></div></li>
-                        <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/pauloka/" class="person-avatar"><img alt="Portrait of Paul Oka" src="//www.microsoft.com/en-us/research/wp-content/uploads/2016/06/avatar_user__1466629520-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2016/06/avatar_user__1466629520-360x360.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/pauloka/" class="semibold">Paul Oka</a></h3><p class="body-alt no-margin-bottom">Director of Engineering</p></div></li>
-                        <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/kebatt/" class="person-avatar"><img alt="Portrait of Keith Battocchi" src="//www.microsoft.com/en-us/research/wp-content/uploads/2017/09/avatar_user_36548_1504713615-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2017/09/avatar_user_36548_1504713615-360x360.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/kebatt/" class="semibold">Keith Battocchi</a></h3><p class="body-alt no-margin-bottom">Senior Research Software Development Engineer</p></div></li>
-                        <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/moprescu/" class="person-avatar"><img alt="Portrait of Miruna Oprescu" src="//www.microsoft.com/en-us/research/uploads/prod/2018/02/2017_09_24_IMG_1940-Edit_LinkedIn.jpg" srcset="//www.microsoft.com/en-us/research/uploads/prod/2018/02/2017_09_24_IMG_1940-Edit_LinkedIn.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/moprescu/" class="semibold">Miruna Oprescu</a></h3><p class="body-alt no-margin-bottom">Senior Data and Applied Scientist</p></div></li>
-                        <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/mehei/" class="person-avatar"><img alt="Portrait of Maggie Hei" src="//www.microsoft.com/en-us/research/uploads/prod/2019/03/IMG_1425.jpg" srcset="//www.microsoft.com/en-us/research/uploads/prod/2019/03/IMG_1425.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/mehei/" class="semibold">Maggie Hei</a></h3><p class="body-alt no-margin-bottom">Data &amp; Applied Scientist II</p></div></li>
-                        <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/eldillon/" class="person-avatar"><img alt="Portrait of Eleanor Dillon" src="//www.microsoft.com/en-us/research/uploads/prod/2019/07/DillonE_edSq.png" srcset="//www.microsoft.com/en-us/research/uploads/prod/2019/07/DillonE_edSq.png 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/eldillon/" class="semibold">Eleanor Dillon</a></h3><p class="body-alt no-margin-bottom">Senior Economist</p></div></li>
-                    </ul>
-                    <!--
-                        <h4 class="msr-underline-gray margin-bottom-sp4">Affiliates </h4>
-
-                        <ul class="msr-people-list stripped ms-row no-margin-bottom">
-                            <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/bquist/" class="person-avatar"><img alt="Portrait of Brian Quistorff" src="//www.microsoft.com/en-us/research/wp-content/uploads/2016/09/Quistorff_angle.avatar-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2016/09/Quistorff_angle.avatar-360x360.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/bquist/" class="semibold">Brian Quistorff</a></h3><p class="body-alt no-margin-bottom">Research Economist</p></div></li>
-                            <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/jlariv/" class="person-avatar"><img alt="Portrait of Jacob LaRiviere" src="//www.microsoft.com/en-us/research/wp-content/uploads/2016/06/avatar_user__1466706471-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2016/06/avatar_user__1466706471-360x360.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/jlariv/" class="semibold">Jacob LaRiviere</a></h3><p class="body-alt no-margin-bottom">Senior Researcher Economist</p></div></li>
-                            <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/sidpeng/" class="person-avatar"><img alt="Portrait of Sida Peng" src="//www.microsoft.com/en-us/research/wp-content/uploads/2017/10/Sida-Peng_7047_Revised-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2017/10/Sida-Peng_7047_Revised-360x360.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/sidpeng/" class="semibold">Sida Peng</a></h3><p class="body-alt no-margin-bottom">Research Economist </p></div></li>
-                            <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/mobius/" class="person-avatar"><img alt="Portrait of Markus Mobius" src="//www.microsoft.com/en-us/research/wp-content/uploads/2016/09/avatar_user__1475042713-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2016/09/avatar_user__1475042713.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/mobius/" class="semibold">Markus Mobius</a></h3><p class="body-alt no-margin-bottom">Principal Researcher</p></div></li>
-                            <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/nicimm/" class="person-avatar"><img alt="Portrait of Nicole Immorlica" src="//www.microsoft.com/en-us/research/wp-content/uploads/2016/09/avatar_user__1475096651-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2016/09/avatar_user__1475096651-360x360.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/nicimm/" class="semibold">Nicole Immorlica</a></h3><p class="body-alt no-margin-bottom">Senior Principal Researcher</p></div></li>
-                            <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5"><div class="msr-people-list__person"><a href="https://www.microsoft.com/en-us/research/people/brlucier/" class="person-avatar"><img alt="Portrait of Brendan Lucier" src="//www.microsoft.com/en-us/research/wp-content/uploads/2017/07/Brendan-Lucier-small-2-180x180.jpg" srcset="//www.microsoft.com/en-us/research/wp-content/uploads/2017/07/Brendan-Lucier-small-2-360x360.jpg 2x" class="avatar avatar-180 photo msr-profile-image margin-bottom-sp1 avatar" height="180" width="180"></a><h3 class="body-alt no-margin-bottom" data-no-translation=""><a href="https://www.microsoft.com/en-us/research/people/brlucier/" class="semibold">Brendan Lucier</a></h3><p class="body-alt no-margin-bottom">Principal Researcher</p></div></li>
-                            <li class="xs-col-12-24 m-col-8-24 l-col-12-24 margin-bottom-sp5">
-                                <div class="msr-people-list__person">
-                                    <span class="person-avatar"><img src="https://www.microsoft.com/en-us/research/wp-content/themes/microsoft-research-theme/images/blank-avatar.png" alt="Portrait of Tomas Singliar" class="msr-profile-image margin-bottom-sp1 avatar"></span><h3 class="body-alt no-margin-bottom" data-no-translation=""><span class="semibold-people-title">Tomas Singliar</span></h3><p class="body-alt no-margin-bottom">Sr Data Scientist</p>			<p class="body-alt no-margin-bottom gray-d2-c">
-                                        <em>Cloud AI</em>
-                                    </p>
-                                </div>
-                            </li>
-                        </ul>
-
-
-
-                    -->
-                </div>
-
             </div>
         </div>
 
