@@ -1,41 +1,59 @@
 ﻿
 @{
-    ViewData["Title"] = "GetStarted";
+    ViewData["Title"] = "Getting Started";
 }
+<style type="text/css" id="getstartedcss">
+    .econmlcontainer code {
+        font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+        padding: .2em .4em;
+        margin: 0;
+        font-size: 85%;
+        background-color: #f6f8fa;
+        color: #000000;
+        border-radius: 3px;
+    }
 
-<h1>@ViewData["Title"]</h1>
+    .econmlcontainer pre {
+        padding: 16px;
+        overflow: auto;
+        font-size: 85%;
+        line-height: 1.45;
+        background-color: #f6f8fa;
+        border-radius: 3px;
+        display: block;
+        white-space: pre;
+        margin: 1em 0px;
+    }
+</style>
+
+<div class="getstarted">
+    <h2>Quick Installation</h2>
+    <p>Install the lastest release for <a href="https://pypi.org/project/econml/" rel="nofollow">PyPI</a>:</p>
+    <pre>
+        <code>pip install econml</code>
+    </pre>
 
 
-
-<div class="news">
+    <h2>For Devlopers</h2>
     <p>
-        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
+        You can get started by cloning this repository. We use
+        <a href="https://setuptools.readthedocs.io/en/latest/index.html" rel="nofollow">setuptools</a> for building and distributing our package.
+        We rely on some recent features of setuptools, so make sure to upgrade to a recent version with
+        <code>pip install setuptools --upgrade</code>.  Then from your local copy of the repository you can run <code>python setup.py develop</code> to get started.
     </p>
+    
+    <h2>Running the Tests</h2>
     <p>
-        Cu duo clita dicam, illud probatus ei est. Et est aperiri quaestio necessitatibus, cu mnesarchum deterruisset eos. Duo essent volutpat et, et mel appareat maluisset. Malis euripidis hendrerit cum et, appetere corrumpit eu has. Graece evertitur ea est, te possit dissentias est. Vim no fuisset elaboraret, no eos utamur iudicabit patrioque.
+        This project uses <a href="https://docs.pytest.org/" rel="nofollow">pytest</a> for testing.  To run tests locally after installing the package,
+        you can use <code>python setup.py pytest</code>.
     </p>
+    <h2>Generating the documentation</h2>
     <p>
-        Ex vim vero graece similique, sit vituperata scripserit ea, insolens interesset id mel. Ea eripuit indoctum maluisset sed. Pro audiam luptatum nominati ei, usu at elit prodesset efficiantur, ei his autem accusata. At eum quando everti hendrerit, ut quas nostro concludaturque sea. Laoreet eloquentiam mea ea, no sit dolore inermis deserunt, vel cu porro aliquid. Cu pri suas voluptaria.
+        This project's documentation is generated via <a href="https://www.sphinx-doc.org/en/master/index.html" rel="nofollow">Sphinx</a>.  Note that we use <a href="https://graphviz.org/" rel="nofollow">graphviz</a>'s
+        <code>dot</code> application to produce some of the images in our documentation, so you should make sure that <code>dot</code> is installed and in your path.
     </p>
+    <h2>Enviroment</h2>
     <p>
-        Vitae sapientem ut sed, te his ullum liber. Nisl facer dolorum quo ut, cu sale appellantur his. Vix erant percipit disputando et, eu vis quaestio scriptorem. Id eius deleniti mea, nam te tale duis, hinc scaevola ut mel. Autem libris ut sit.
-    </p>
-    <p>
-        Eam ridens oblique ut, nec ne vide essent. Ad ridens laoreet indoctum sea. Putant aliquip argumentum ne nam. Errem tempor scribentur sed te, mei atqui tractatos similique et. Legere epicurei conclusionemque sed at, has aeque possim torquatos at.
-    </p>
-    <p>
-        Per agam possim euismod ei, debet dicam et est, an sea melius vidisse. Per in menandri forensibus complectitur. Eum omnis inani libris at, ad vim modus latine equidem. Mel putent feugiat utroque an, an munere nonumy philosophia mea. His te facer dicit. Bonorum perpetua ei eos.
-    </p>
-    <p>
-        Mei at iusto periculis. Id nam altera putant, populo partiendo moderatius quo id. Vim te adolescens delicatissimi. In duo feugiat deserunt moderatius. Cum et stet novum recusabo, zril dissentias no pri, ea saperet appareat sed.
-    </p>
-    <p>
-        Per id suas summo detraxit. Ancillae tractatos deseruisse ne ius, has et prompta antiopam. Ludus vocibus est ad, quem sanctus ancillae vim ex. At vis prima urbanitas, vel iuvaret nusquam pertinacia eu. Per no omittam insolens lobortis. In eum nonumy scriptorem, ne alienum disputando mea, eam omnes alienum nostrum no.
-    </p>
-    <p>
-        Cu verterem consectetuer est, ne ocurreret expetendis qui, has zril recusabo in. Facilis sensibus disputationi eam ei, eum admodum moderatius signiferumque at, eam feugait legendos voluptatum eu. Usu copiosae eloquentiam intellegebat et, mel eu alienum deleniti. Ex nam laoreet incorrupte, impedit fuisset lucilius eu qui. Eu pri altera possit civibus, tale meis quas ei mel.
-    </p>
-    <p>
-        Ad fugit patrioque consequat eam. Usu ex amet mutat, pro quem perpetua et. Causae splendide interpretaris et per, at vix alii gubergren. An pri putant nostrum, vero simul et sit, ludus impetus qui an. Id labitur posidonium vim, his populo oporteat accommodare ex. Ei vim nemore tritani, vocent audiam sit te, dolor soluta sadipscing vim te. Ignota feugait interpretaris in nam, nec quis dicunt imperdiet cu.
+        The econml package works on macOS, Windows, and Linux, and supports Python versions 3.5-3.7.  The econml package relies on numpy, scipy, and scikit-learn for most of its underlying numerical computation and machine learning routines, and uses keras for the components built on deep neural networks.  If you don’t already have these dependencies installed locally, then installing the econml package from PyPI via pip will also install them.
     </p>
 </div>
