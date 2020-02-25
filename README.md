@@ -294,7 +294,7 @@ To install from source, see [For Developers](#for-developers) section below.
 * Policy Interpreter of the CATE model
   ```Python
   from econml.cate_interpreter import SingleTreePolicyInterpreter
-  # We find a tree based treatment policy based on the CATE model
+  # We find a tree-based treatment policy based on the CATE model
   intrp = SingleTreePolicyInterpreter(risk_level=0.05, max_depth=2, min_samples_leaf=1,min_impurity_decrease=.001)
   intrp.interpret(est, X, sample_treatment_costs=0.2)
   # Plot the tree
