@@ -718,6 +718,14 @@ class _BaseDRIV(_OrthoLearner):
     model_final : estimator
         model compatible with the sklearn regression API, used to fit the effect on X
 
+    featurizer : :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
+
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
@@ -762,6 +770,7 @@ class _BaseDRIV(_OrthoLearner):
                  nuisance_models,
                  model_final,
                  featurizer=None,
+                 fit_cate_intercept=True,
                  cov_clip=0.1, opt_reweighted=False,
                  discrete_instrument=False, discrete_treatment=False,
                  n_splits=2, random_state=None):
@@ -777,9 +786,21 @@ class _BaseDRIV(_OrthoLearner):
             residual on residual regression.
             """
 
-            def __init__(self, model_final, featurizer):
+            def __init__(self, model_final, featurizer, fit_cate_intercept):
                 self._model_final = clone(model_final, safe=False)
-                self._featurizer = clone(featurizer, safe=False)
+                self._fit_cate_intercept = fit_cate_intercept
+                self._original_featurizer = clone(featurizer, safe=False)
+                if self._fit_cate_intercept:
+                    add_intercept = FunctionTransformer(lambda F:
+                                                        hstack([np.ones((F.shape[0], 1)), F]),
+                                                        validate=True)
+                    if featurizer:
+                        self._featurizer = Pipeline([('featurize', self._original_featurizer),
+                                                     ('add_intercept', add_intercept)])
+                    else:
+                        self._featurizer = add_intercept
+                else:
+                    self._featurizer = self._original_featurizer
 
             @staticmethod
             def _effect_estimate(nuisances):
@@ -851,10 +872,14 @@ class _BaseDRIV(_OrthoLearner):
                 if sample_weight is not None:
                     return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
                 else:
-                    return np.mean((Y_res - Y_res_pred)**2)
+                    return np.mean((Y_res - Y_res_pred) ** 2)
+
+        self.fit_cate_intercept = fit_cate_intercept
+        self.bias_part_of_coef = fit_cate_intercept
+
         self.cov_clip = cov_clip
         self.opt_reweighted = opt_reweighted
-        super().__init__(nuisance_models, ModelFinal(model_final, featurizer),
+        super().__init__(nuisance_models, ModelFinal(model_final, featurizer, fit_cate_intercept),
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
                          n_splits=n_splits, random_state=random_state)
 
@@ -889,6 +914,10 @@ class _BaseDRIV(_OrthoLearner):
                            sample_weight=sample_weight, sample_var=sample_var, inference=inference)
 
     @property
+    def original_featurizer(self):
+        return super().model_final._original_featurizer
+
+    @property
     def featurizer(self):
         # NOTE This is used by the inference methods and has to be the overall featurizer. intended
         # for internal use by the library
@@ -898,6 +927,30 @@ class _BaseDRIV(_OrthoLearner):
     def model_final(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
         return super().model_final._model_final
+
+    def cate_feature_names(self, input_feature_names=None):
+        """
+        Get the output feature names.
+
+        Parameters
+        ----------
+        input_feature_names: list of strings of length X.shape[1] or None
+            The names of the input features
+
+        Returns
+        -------
+        out_feature_names: list of strings or None
+            The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
+            final constant marginal CATE model is linear. It is the names of the features that are associated
+            with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
+            does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+        """
+        if self.original_featurizer is None:
+            return input_feature_names
+        elif hasattr(self.original_featurizer, 'get_feature_names'):
+            return self.original_featurizer.get_feature_names(input_feature_names)
+        else:
+            raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
 class _IntentToTreatDRIV(_BaseDRIV):
@@ -909,6 +962,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  prel_model_effect,
                  model_effect,
                  featurizer=None,
+                 fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
                  opt_reweighted=False):
@@ -951,6 +1005,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
         # TODO: check that Y, T, Z do not have multiple columns
         super().__init__(ModelNuisance(model_Y_X, model_T_XZ, prel_model_effect), model_effect,
                          featurizer=featurizer,
+                         fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          n_splits=n_splits,
                          discrete_instrument=True, discrete_treatment=True,
@@ -992,6 +1047,14 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     final_model_effect : estimator, optional
         a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
 
+    featurizer : :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
+
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
@@ -1025,6 +1088,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  flexible_model_effect,
                  final_model_effect=None,
                  featurizer=None,
+                 fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
                  opt_reweighted=False):
@@ -1040,9 +1104,18 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         super().__init__(model_Y_X, model_T_XZ, prel_model_effect,
                          final_model_effect,
                          featurizer=featurizer,
+                         fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          n_splits=n_splits,
                          opt_reweighted=opt_reweighted)
+
+    @property
+    def models_Y_X(self):
+        return [mdl._model_Y_X._model for mdl in super().models_nuisance]
+
+    @property
+    def models_T_XZ(self):
+        return [mdl._model_T_XZ._model for mdl in super().models_nuisance]
 
 
 class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
@@ -1059,6 +1132,14 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
 
     flexible_model_effect : estimator
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+
+    featurizer : :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default True
+        Whether the linear CATE model should have a constant term.
 
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
@@ -1096,21 +1177,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  cov_clip=.1,
                  n_splits=3,
                  opt_reweighted=False):
-        self.fit_cate_intercept = fit_cate_intercept
-        self.bias_part_of_coef = fit_cate_intercept
-        self.original_featurizer = clone(featurizer, safe=False)
-        if fit_cate_intercept:
-            add_intercept = FunctionTransformer(lambda F:
-                                                hstack([np.ones((F.shape[0], 1)), F]),
-                                                validate=True)
-            if self.original_featurizer:
-                featurizer = Pipeline([('featurize', self.original_featurizer),
-                                       ('add_intercept', add_intercept)])
-            else:
-                featurizer = add_intercept
         super().__init__(model_Y_X, model_T_XZ,
                          flexible_model_effect=flexible_model_effect,
                          featurizer=featurizer,
+                         fit_cate_intercept=True,
                          final_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                          cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=opt_reweighted)
 
@@ -1143,27 +1213,3 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         self : instance
         """
         return super().fit(Y, T, Z, X=X, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
-
-    def cate_feature_names(self, input_feature_names=None):
-        """
-        Get the output feature names.
-
-        Parameters
-        ----------
-        input_feature_names: list of strings of length X.shape[1] or None
-            The names of the input features
-
-        Returns
-        -------
-        out_feature_names: list of strings or None
-            The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
-            final constant marginal CATE model is linear. It is the names of the features that are associated
-            with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
-            does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
-        """
-        if self.original_featurizer is None:
-            return input_feature_names
-        elif hasattr(self.original_featurizer, 'get_feature_names'):
-            return self.original_featurizer.get_feature_names(input_feature_names)
-        else:
-            raise AttributeError("Featurizer does not have a method: get_feature_names!")
