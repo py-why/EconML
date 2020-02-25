@@ -237,7 +237,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
 
-        if callable(self._est.cate_feature_names):
+        if hasattr(self._est, 'cate_feature_names') and callable(self._est.cate_feature_names):
             def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
@@ -426,7 +426,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         coef_stderr = self.fitted_models_final[ind].coef_stderr_
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
-        if callable(self._est.cate_feature_names):
+        if hasattr(self._est, 'cate_feature_names') and callable(self._est.cate_feature_names):
             def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
@@ -692,7 +692,7 @@ class InferenceResults:
         if self.d_y == 1:
             res.index = res.index.droplevel(1)
         if self.inf_type == 'coefficient':
-            if feat_name and self.fname_transformer:
+            if feat_name is not None and self.fname_transformer:
                 ind = self.fname_transformer(feat_name)
             else:
                 ct = res.shape[0] // self.d_y
