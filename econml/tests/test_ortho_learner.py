@@ -165,7 +165,8 @@ class TestOrthoLearner(unittest.TestCase):
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
                             n_splits=2, discrete_treatment=False, discrete_instrument=False, random_state=None)
-        est.fit(y, X[:, 0], None, X[:, 1:])
+        # test non-array inputs
+        est.fit(list(y), list(X[:, 0]), None, X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)
