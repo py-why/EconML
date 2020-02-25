@@ -310,7 +310,7 @@ To install from source, see [For Developers](#for-developers) section below.
   est.effect_inference(X_test).summary_frame(alpha=0.05, value=0, decimals=3)
   # Get the population inference given sample X
   est.effect_inference(X_test).population_summary(alpha=0.1, value=0, decimals=3, tol=0.001)
-  #  Get the summary of final model
+  #  Get the inference summary for the final model
   est.summary()
   ```
 
