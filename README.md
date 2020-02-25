@@ -282,7 +282,7 @@ To install from source, see [For Developers](#for-developers) section below.
   ```Python
   from econml.cate_interpreter import SingleTreeCateInterpreter
   intrp = SingleTreeCateInterpreter(include_model_uncertainty=True, max_depth=2, min_samples_leaf=10)
-  # We interpret the CATE models behavior on the distribution of heterogeneity features
+  # We interpret the CATE model's behavior based on the features used for heterogeneity
   intrp.interpret(est, X)
   # Plot the tree
   plt.figure(figsize=(25, 5))
