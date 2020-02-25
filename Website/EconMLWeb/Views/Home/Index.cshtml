@@ -1,46 +1,83 @@
-﻿@{
+﻿<style type="text/css" id="overviewcss">
+    .overviewtbl td {
+        width:33%;
+    }
+    .overviewtbl table{
+        width:100%;
+    }
+
+</style>
+
+@{
     ViewData["Title"] = "Overview";
 }
 <section id="overview" class="c-tabs__tabpanel padding-top-sp3 tab-overview" data-bi-name="overview" role="tabpanel" aria-labelledby="overview_tab" aria-hidden="false" style="visibility: visible;">
-    <h2>Overview</h2>
-
     <div class="ms-row">
         <div class="l-col-24-24 xl-col-24-24">
-
-
             <p>
-                <b>EconML</b> is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and built as part of the <a href="https://www.microsoft.com/en-us/research/project/alice/">ALICE project</a>
-                at Microsoft Research with the goal to combine state-of-the-art machine learning techniques with econometrics to bring automation to complex causal inference problems. The promise of EconML:
+                <b>EconML</b> is a Python package that applies the power of machine learning techniques to estimate individualized causal responses from observational or experimental data. The suite
+                of estimation methods provided in EconML represents the latest advances in causal machine learning. By incorporating individual machine learning steps into interpretable causal
+                models, these methods improve the reliability of what-if predictions and make causal analysis quicker and easier for a broad set of users.
             </p>
-
-            <ul style="list-style-type:circle">
-                <li>Implement recent techniques in the literature at the intersection of econometrics and machine learning</li>
-                <li>Maintain flexibility in modeling the effect heterogeneity (via techniques such as random forests, boosting, lasso and neural nets), while preserving the causal interpretation of the learned model and often offering valid confidence intervals</li>
-                <li>Use a unified API</li>
-                <li>Build on standard Python packages for Machine Learning and Data Analysis</li>
-            </ul>
-
             <p>
-                In a nutshell, this
-                toolkit is designed to measure the causal effect of some treatment variable(s) `T` on an outcome
-                variable `Y`, controlling for a set of features `X`. For detailed information about the package,
-                consult the documentation at <a href="https://econml.azurewebsites.net/">https://econml.azurewebsites.net/</a>.
+                EconML is open source software developed by the <a href="https://www.microsoft.com/en-us/research/project/alice/" target="_blank">ALICE team</a> at Microsoft Research
             </p>
 
 
-            <h2>Introduction</h2>
-            <h3>About Treatment Effect Estimation</h3>
-            <p>
-                One of the biggest promises of machine learning is to automate decision making in a multitude of domains. At the core of many data-driven personalized decision scenarios is the estimation of heterogeneous treatment 
-                effects: what is the causal effect of an intervention on an outcome of interest for a sample with a particular set of features?
-            </p>
-            <p>
-                Such questions arise frequently in customer segmentation (what is the effect of placing a customer in a tier over another tier), dynamic pricing (what is the effect of a pricing policy on demand) and medical 
-                studies (what is the effect of a treatment on a patient). In many such settings we have an abundance of observational data, where the treatment was chosen via some unknown policy, but the ability to run control A/B tests is limited.
-            </p>
+            <table class="overviewtbl">
+                <tr>
+                    <td>image1</td>
+                    <td>image2</td>
+                    <td>image3</td>
+                </tr>
+                <tr>
+                    <td>
+                        <p>
+                            Flexible
+                        </p>
+                    </td>
+                    <td>
+                        <p>
+                            Unified
+                        </p>
+                    </td>
+                    <td>
+                        <p>
+                            Familiar Interface
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <p>
+                            Allows for flexible model forms that do not impose strong assumptions, including models of heterogenous responses to treatment.
+                        </p>
+                    </td>
+                    <td>
+                        <p>
+                            Broad set of methods representing latest advances in the econometrics and machine learning literature within a unified API.
+                        </p>
+                    </td>
+                    <td>
+                        <p>
+                            Built on standard Python packages for machine learning and data analysis.
+                        </p>
+                    </td>
+                </tr>
+            </table>
 
-            <h3>Example Applications</h3>
+            <h3>Case Studies</h3>
+            <p>
+                This toolkit is designed to measure the causal effect of some treatment variable(s) T on an outcome variable Y, controlling for a set of features X. Use cases include:
 
+            </p>
+            <table class="overviewtbl">
+                <tr>
+                    <td><p>Recomendation A/B testing </p></td>
+                    <td><p>Customer segmentation </p></td>
+                    <td><p>Multi-investmetn Attribution </p></td>
+                </tr>
+            </table>
         </div>
     </div>
 </section>
