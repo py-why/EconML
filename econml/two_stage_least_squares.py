@@ -294,9 +294,9 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         assert shape(T0)[0] == shape(X)[0]
 
         W = np.zeros((shape(T0)[0], self._d_w))  # can set arbitrarily since values will cancel
-        ft_X = self._x_featurizer.fit_transform(X)
-        ft_T0 = self._t_featurizer.fit_transform(T0)
-        ft_T1 = self._t_featurizer.fit_transform(T1)
+        ft_X = self._x_featurizer.transform(X)
+        ft_T0 = self._t_featurizer.transform(T0)
+        ft_T1 = self._t_featurizer.transform(T1)
         Y0 = self._model_Y.predict(_add_ones(np.hstack([W, cross_product(ft_T0, ft_X)])))
         Y1 = self._model_Y.predict(_add_ones(np.hstack([W, cross_product(ft_T1, ft_X)])))
         return Y1 - Y0
@@ -327,9 +327,9 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
             X = np.empty((shape(T)[0], 0))
         assert shape(T)[0] == shape(X)[0]
 
-        ft_X = self._x_featurizer.fit_transform(X)
+        ft_X = self._x_featurizer.transform(X)
         n = shape(T)[0]
-        dT = self._dt_featurizer.fit_transform(T)
+        dT = self._dt_featurizer.transform(T)
         W = np.zeros((size(T), self._d_w))
         # dT should be an n×dₜ×fₜ array (but if T was a vector, or if there is only one feature,
         # dT may be only 2-dimensional)

@@ -92,7 +92,7 @@ class GenericModelFinalInference(Inference):
         if X is None:
             X = np.ones((1, 1))
         elif self.featurizer is not None:
-            X = self.featurizer.fit_transform(X)
+            X = self.featurizer.transform(X)
         X, T = broadcast_unit_treatments(X, self.d_t)
         preds = self._predict_interval(cross_product(X, T), alpha=alpha)
         return tuple(reshape_treatmentwise_effects(pred, self._d_t, self._d_y)
@@ -102,7 +102,7 @@ class GenericModelFinalInference(Inference):
         if X is None:
             X = np.ones((1, 1))
         elif self.featurizer is not None:
-            X = self.featurizer.fit_transform(X)
+            X = self.featurizer.transform(X)
         X, T = broadcast_unit_treatments(X, self.d_t)
         pred = reshape_treatmentwise_effects(self._predict(cross_product(X, T)), self._d_t, self._d_y)
         if not hasattr(self.model_final, 'prediction_stderr'):
@@ -237,7 +237,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
 
-        if callable(self._est.cate_feature_names):
+        if hasattr(self._est, 'cate_feature_names') and callable(self._est.cate_feature_names):
             def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
@@ -356,13 +356,13 @@ class GenericModelFinalInferenceDiscrete(Inference):
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if (X is not None) and (self.featurizer is not None):
-            X = self.featurizer.fit_transform(X)
+            X = self.featurizer.transform(X)
         preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self.fitted_models_final])
         return tuple(np.moveaxis(preds, [0, 1], [-1, 0]))  # send treatment to the end, pull bounds to the front
 
     def const_marginal_effect_inference(self, X):
         if (X is not None) and (self.featurizer is not None):
-            X = self.featurizer.fit_transform(X)
+            X = self.featurizer.transform(X)
         pred = np.array([mdl.predict(X) for mdl in self.fitted_models_final])
         if not hasattr(self.fitted_models_final[0], 'prediction_stderr'):
             raise AttributeError("Final model doesn't support prediction standard eror, "
@@ -426,7 +426,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         coef_stderr = self.fitted_models_final[ind].coef_stderr_
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
-        if callable(self._est.cate_feature_names):
+        if hasattr(self._est, 'cate_feature_names') and callable(self._est.cate_feature_names):
             def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
@@ -692,7 +692,7 @@ class InferenceResults:
         if self.d_y == 1:
             res.index = res.index.droplevel(1)
         if self.inf_type == 'coefficient':
-            if feat_name and self.fname_transformer:
+            if feat_name is not None and self.fname_transformer:
                 ind = self.fname_transformer(feat_name)
             else:
                 ct = res.shape[0] // self.d_y

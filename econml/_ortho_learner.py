@@ -132,7 +132,7 @@ def _crossfit(model, folds, *args, **kwargs):
             nuisances = (nuisances,)
 
         first_arr = args[0] if args else kwargs.items()[0][1]
-        return nuisances, model_list, range(first_arr.shape[0])
+        return nuisances, model_list, np.arange(first_arr.shape[0])
 
     for idx, (train_idxs, test_idxs) in enumerate(folds):
         model_list.append(clone(model, safe=False))
@@ -425,6 +425,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
         super().__init__()
 
+    @staticmethod
+    def _asarray(A):
+        return None if A is None else np.asarray(A)
+
     def _check_input_dims(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None):
         assert shape(Y)[0] == shape(T)[0], "Dimension mis-match!"
         for arr in [X, W, Z, sample_weight, sample_var]:
@@ -489,6 +493,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self : _OrthoLearner instance
         """
+        Y, T, X, W, Z, sample_weight, sample_var = [self._asarray(A)
+                                                    for A in (Y, T, X, W, Z, sample_weight, sample_var)]
         self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var)
         nuisances, fitted_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
         self._fit_final(self._subinds_check_none(Y, fitted_inds),
