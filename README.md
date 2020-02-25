@@ -115,7 +115,7 @@ pip install econml
 To install from source, see [For Developers](#for-developers) section below.
 
 ## Usage Examples
-
+### Estimation Methods
 * [Double Machine Learning](#references)
 
   ```Python
@@ -275,6 +275,43 @@ To install from source, see [For Developers](#for-developers) section below.
                         )
   est.fit(Y, T, X, Z) # Z -> instrumental variables
   treatment_effects = est.effect(X_test)
+  ```
+
+### Interpretability
+* Tree Interpreter of the CATE model
+  ```Python
+  from econml.cate_interpreter import SingleTreeCateInterpreter
+  intrp = SingleTreeCateInterpreter(include_model_uncertainty=True, max_depth=2, min_samples_leaf=10)
+  # We interpret the CATE model's behavior based on the features used for heterogeneity
+  intrp.interpret(est, X)
+  # Plot the tree
+  plt.figure(figsize=(25, 5))
+  intrp.plot(feature_names=['A', 'B', 'C', 'D'], fontsize=12)
+  plt.show()
+  ```
+  ![image](notebooks/images/dr_cate_tree.png)
+
+* Policy Interpreter of the CATE model
+  ```Python
+  from econml.cate_interpreter import SingleTreePolicyInterpreter
+  # We find a tree-based treatment policy based on the CATE model
+  intrp = SingleTreePolicyInterpreter(risk_level=0.05, max_depth=2, min_samples_leaf=1,min_impurity_decrease=.001)
+  intrp.interpret(est, X, sample_treatment_costs=0.2)
+  # Plot the tree
+  plt.figure(figsize=(25, 5))
+  intrp.plot(feature_names=['A', 'B', 'C', 'D'], fontsize=12)
+  plt.show()
+  ```
+  ![image](notebooks/images/dr_policy_tree.png)
+
+### Inference
+  ```Python
+  # Get the effect inference summary, which includes the standard error, z test score, p value, and confidence interval given each sample X[i]
+  est.effect_inference(X_test).summary_frame(alpha=0.05, value=0, decimals=3)
+  # Get the population summary for the entire sample X
+  est.effect_inference(X_test).population_summary(alpha=0.1, value=0, decimals=3, tol=0.001)
+  #  Get the inference summary for the final model
+  est.summary()
   ```
 
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
