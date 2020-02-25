@@ -280,13 +280,14 @@ class _BaseDMLIV(_OrthoLearner):
     Parameters
     ----------
     model_Y_X : estimator
-        model to predict :math:`\\E[Y | X]`
+        model to estimate :math:`\\E[Y | X]`.  Must support `fit` and `predict` methods.
 
     model_T_X : estimator
-        model to predict :math:`\\E[T | X]`
+        model to estimate :math:`\\E[T | X]`.  Must support `fit` and `predict` methods
 
     model_T_XZ : estimator
-        model to predict :math:`\\E[T | X, Z]`
+        model to estimate :math:`\\E[T | X, Z]`.  Must support `fit(X, Z, T, *, sample_weights)`
+        and `predict(X, Z)` methods.
 
     model_final : estimator
         final model that at fit time takes as input :math:`(Y-\\E[Y|X])`, :math:`(\\E[T|X,Z]-\\E[T|X])` and X
@@ -560,13 +561,15 @@ class DMLIV(_BaseDMLIV):
     Parameters
     ----------
     model_Y_X : estimator
-        model to predict :math:`\\E[Y | X]`
+        model to estimate :math:`\\E[Y | X]`.  Must support `fit` and `predict` methods.
 
     model_T_X : estimator
-        model to predict :math:`\\E[T | X]`
+        model to estimate :math:`\\E[T | X]`.  Must support `fit` and either `predict` or `predict_proba` methods,
+        depending on whether the treatment is discrete.
 
     model_T_XZ : estimator
-        model to predict :math:`\\E[T | X, Z]`
+        model to estimate :math:`\\E[T | X, Z]`.  Must support `fit` and either `predict` or `predict_proba` methods,
+        depending on whether the treatment is discrete.
 
     model_final : estimator
         final linear model for predicting :math:`(Y-\\E[Y|X])` from :math:`\\phi(X) \\cdot (\\E[T|X,Z]-\\E[T|X])`
@@ -650,13 +653,15 @@ class NonParamDMLIV(_BaseDMLIV):
     Parameters
     ----------
     model_Y_X : estimator
-        model to predict :math:`\\E[Y | X]`
+        model to estimate :math:`\\E[Y | X]`.  Must support `fit` and `predict` methods.
 
     model_T_X : estimator
-        model to predict :math:`\\E[T | X]`
+        model to estimate :math:`\\E[T | X]`.  Must support `fit` and either `predict` or `predict_proba` methods,
+        depending on whether the treatment is discrete.
 
     model_T_XZ : estimator
-        model to predict :math:`\\E[T | X, Z]`
+        model to estimate :math:`\\E[T | X, Z]`.  Must support `fit` and either `predict` or `predict_proba` methods,
+        depending on whether the treatment is discrete.
 
     model_final : estimator
         final model for predicting :math:`\\tilde{Y}` from X with sample weights V(X)
@@ -975,14 +980,11 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     Parameters
     ----------
-
-    Parameters
-    ----------
     model_Y_X : estimator
-        model to predict :math:`\\E[Y | X]`
+        model to estimate :math:`\\E[Y | X]`.  Must support `fit` and `predict` methods.
 
     model_T_XZ : estimator
-        model to predict :math:`\\E[T | X, Z]`
+        model to estimate :math:`\\E[T | X, Z]`.  Must support `fit` and `predict_proba` methods.
 
     flexible_model_effect : estimator
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
@@ -1050,16 +1052,13 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     Parameters
     ----------
     model_Y_X : estimator
-        model to predict :math:`\\E[Y | X]`
+        model to estimate :math:`\\E[Y | X]`.  Must support `fit` and `predict` methods.
 
     model_T_XZ : estimator
-        model to predict :math:`\\E[T | X, Z]`
+        model to estimate :math:`\\E[T | X, Z]`.  Must support `fit` and `predict_proba` methods.
 
     flexible_model_effect : estimator
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
-
-    final_model_effect : estimator, optional
-        a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
 
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
@@ -1099,13 +1098,13 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  opt_reweighted=False):
         self.fit_cate_intercept = fit_cate_intercept
         self.bias_part_of_coef = fit_cate_intercept
-        featurizer = clone(featurizer, safe=False)
+        self.original_featurizer = clone(featurizer, safe=False)
         if fit_cate_intercept:
             add_intercept = FunctionTransformer(lambda F:
                                                 hstack([np.ones((F.shape[0], 1)), F]),
                                                 validate=True)
-            if featurizer:
-                featurizer = Pipeline([('featurize', featurizer),
+            if self.original_featurizer:
+                featurizer = Pipeline([('featurize', self.original_featurizer),
                                        ('add_intercept', add_intercept)])
             else:
                 featurizer = add_intercept
@@ -1126,7 +1125,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        Z: (n, d_z) matrix
+        Z: (n, d_z) matrix or vector of length n
             Instruments for each sample
         X: optional(n, d_x) matrix or None (Default=None)
             Features for each sample
@@ -1144,3 +1143,27 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         self : instance
         """
         return super().fit(Y, T, Z, X=X, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+
+    def cate_feature_names(self, input_feature_names=None):
+        """
+        Get the output feature names.
+
+        Parameters
+        ----------
+        input_feature_names: list of strings of length X.shape[1] or None
+            The names of the input features
+
+        Returns
+        -------
+        out_feature_names: list of strings or None
+            The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
+            final constant marginal CATE model is linear. It is the names of the features that are associated
+            with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
+            does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+        """
+        if self.original_featurizer is None:
+            return input_feature_names
+        elif hasattr(self.original_featurizer, 'get_feature_names'):
+            return self.original_featurizer.get_feature_names(input_feature_names)
+        else:
+            raise AttributeError("Featurizer does not have a method: get_feature_names!")
