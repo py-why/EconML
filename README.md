@@ -306,7 +306,7 @@ To install from source, see [For Developers](#for-developers) section below.
 
 ### Inference
   ```Python
-  # Get the effect inference includes standard error, z test score, p value and confidence interval given each sample X[i]
+  # Get the effect inference summary, which includes the standard error, z test score, p value, and confidence interval given each sample X[i]
   est.effect_inference(X_test).summary_frame(alpha=0.05, value=0, decimals=3)
   # Get the population summary for the entire sample X
   est.effect_inference(X_test).population_summary(alpha=0.1, value=0, decimals=3, tol=0.001)
