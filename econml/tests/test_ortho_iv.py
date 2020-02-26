@@ -10,7 +10,7 @@ from sklearn.model_selection import KFold
 from econml.ortho_iv import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV,
                              IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
-from econml.utilities import shape, hstack, vstack, reshape, cross_product
+from econml.utilities import shape, hstack, vstack, reshape, cross_product, StatsModelsLinearRegression
 from econml.inference import BootstrapInference
 from contextlib import ExitStack
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, GradientBoostingClassifier
@@ -265,45 +265,36 @@ class TestDML(unittest.TestCase):
         with pytest.raises(AttributeError):
             est.fit(Y, T=two_class, Z=three_class)
 
-    # TODO: make IV related
     def test_access_to_internal_models(self):
         """
         Test that API related to accessing the nuisance models, cate_model and featurizer is working.
         """
-        from econml.dml import DMLCateEstimator
-
-        Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
-        T = np.array([3, 2, 1, 2, 1, 2, 1, 3])
-        X = np.ones((8, 1))
-        est = DMLCateEstimator(model_y=WeightedLasso(),
-                               model_t=LogisticRegression(),
-                               model_final=WeightedLasso(),
-                               featurizer=PolynomialFeatures(degree=2, include_bias=False),
-                               fit_cate_intercept=True,
-                               discrete_treatment=True)
-        est.fit(Y, T, X)
+        est = LinearIntentToTreatDRIV(LinearRegression(), LogisticRegression(C=1000), WeightedLasso(),
+                                      featurizer=PolynomialFeatures(degree=2, include_bias=False))
+        Y = np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2])
+        T = np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2])
+        Z = np.array([1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2])
+        X = np.array([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]).reshape(-1, 1)
+        est.fit(Y, T, Z, X=X)
         assert isinstance(est.original_featurizer, PolynomialFeatures)
         assert isinstance(est.featurizer, Pipeline)
-        assert isinstance(est.model_cate, WeightedLasso)
-        for mdl in est.models_y:
-            assert isinstance(mdl, WeightedLasso)
-        for mdl in est.models_t:
+        assert isinstance(est.model_final, StatsModelsLinearRegression)
+        for mdl in est.models_Y_X:
+            assert isinstance(mdl, LinearRegression)
+        for mdl in est.models_T_XZ:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
         np.testing.assert_array_equal(est.cate_feature_names(), ['x0', 'x0^2'])
-        est = DMLCateEstimator(model_y=WeightedLasso(),
-                               model_t=LogisticRegression(),
-                               model_final=WeightedLasso(),
-                               featurizer=None,
-                               fit_cate_intercept=True,
-                               discrete_treatment=True)
-        est.fit(Y, T, X)
+
+        est = LinearIntentToTreatDRIV(LinearRegression(), LogisticRegression(C=1000), WeightedLasso(),
+                                      featurizer=None)
+        est.fit(Y, T, Z, X=X)
         assert est.original_featurizer is None
         assert isinstance(est.featurizer, FunctionTransformer)
-        assert isinstance(est.model_cate, WeightedLasso)
-        for mdl in est.models_y:
-            assert isinstance(mdl, WeightedLasso)
-        for mdl in est.models_t:
+        assert isinstance(est.model_final, StatsModelsLinearRegression)
+        for mdl in est.models_Y_X:
+            assert isinstance(mdl, LinearRegression)
+        for mdl in est.models_T_XZ:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 
