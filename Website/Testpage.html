@@ -1,0 +1,202 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>Test Page</title>
+    <style type="text/css">
+        .ovrvwgrid {
+            display:grid;
+            grid-gap: 16px 16px;
+            grid-template-columns: 1fr 1fr 1fr;
+        }
+        .gridclmn {
+            display:inline-flex;
+            position:relative;
+            min-width: 32px;
+            min-height: 32px;
+        }
+        .col-m0{
+            margin:0,0,0,0;
+        }
+        .col-align{
+            align-items:stretch;
+            justify-content: start;
+        }
+        .col-brd-p16
+        {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            overflow: hidden;
+            background: transparent;
+            box-sizing: border-box;
+            transition: all 0.1s ease-in-out;
+            flex-direction: column;
+            font-size: 14px;
+            line-height: 20px;
+            border-radius: 2px;
+            padding: 16px;
+        }
+    </style>
+
+</head>
+<body>
+
+
+    <section id="overview" class="c-tabs__tabpanel padding-top-sp3 tab-overview" data-bi-name="overview" role="tabpanel" aria-labelledby="overview_tab" aria-hidden="false" style="visibility: visible;">
+        <div class="ms-row">
+            <div class="l-col-24-24 xl-col-24-24">
+                <h1>Overview</h1>
+                <p>
+                    <b>EconML</b> is a Python dddddpackage that applies the power of machine learning techniques to estimate individualized causal responses from observational or experimental data. The suite
+                    of estimation methods provided in EconML represents the latest advances in causal machine learning. By incorporating individual machine learning steps into interpretable causal
+                    models, these methods improve the reliability of what-if predictions and make causal analysis quicker and easier for a broad set of users.
+                </p>
+                <p>
+                    EconML is open source software developed by the <a href="https://www.microsoft.com/en-us/research/project/alice/" target="_blank">ALICE team</a> at Microsoft Research
+                </p>
+
+
+                <div class="ovrvwgrid">
+                    <div class="gridclmn col-m0 col-align">
+                        <div class="col-brd-p16">
+                            <div>
+                                <img src="~/img/imgFlexible.png" alt="Flexible"/>
+                            </div>
+                            <div>
+                                <p>
+                                    <b>Flexible</b>
+                                </p>
+                            </div>
+                            <div>
+                                <p>
+                                    Allows for flexible model forms that do not impose strong assumptions, including models of heterogenous responses to treatment.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="gridclmn col-m0 col-align">
+                            <div class="col-brd-p16">
+                                <div>
+                                    Column1
+                                </div>
+                            </div>
+                    </div>
+                    <div class="gridclmn col-m0 col-align">
+                            <div class="col-brd-p16">
+                                <div>
+                                    Column1
+                                </div>
+                            </div>
+                    </div>
+                </div>
+
+
+
+
+
+
+
+
+
+
+                <table class="ovrvwtbl">
+                    <tr>
+                        <td class="ovrvwclmn">
+                            <div class="tblclmn">
+                                <table class="tblclmn">
+                                    <tr>
+                                        <td><img src="~/img/imgFlexible.png" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <p>
+                                                <b>Flexible</b>
+                                            </p>
+                                        </td>
+
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <p>
+                                                Allows for flexible model forms that do not impose strong assumptions, including models of heterogenous responses to treatment.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                            </div>
+                        </td>
+                        <td class="ovrvwclmn">
+                            <div class="tblclmn">
+                                <table class="tblclmn">
+                                    <tr>
+                                        <td><img src="~/img/imgUnified.png" /></td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <p>
+                                                <b>Unified</b>
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <p>
+                                                Broad set of methods representing latest advances in the econometrics and machine learning literature within a unified API.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+
+
+                            </div>
+                        </td>
+                        <td class="ovrvwclmn">
+                            <div class="tblclmn">
+                                <table class="tblclmn">
+                                    <tr>         <td><img src="~/img/imgFamiliar.png" /></td>                       </tr>
+                                    <tr>
+                                        <td>
+                                            <p>
+                                                <b>Familiar Interface</b>
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <p>
+                                                Built on standard Python packages for machine learning and data analysis.
+                                            </p>
+                                            <br />
+                                            <br />
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                </table>
+
+                <h1>Use Cases</h1>
+                <p>
+                    This toolkit is designed to measure the causal effect of some treatment variable(s) T on an outcome variable Y, controlling for a set of features X. Use cases include:
+
+                </p>
+                <table class="overviewtbl">
+                    <tr>
+                        <td><p>Recomendation A/B testing </p></td>
+                        <td><p>Customer segmentation </p></td>
+                        <td><p>Multi-investmetn Attribution </p></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </section>
+
+
+
+
+</body>
+</html>

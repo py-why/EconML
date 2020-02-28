@@ -18,7 +18,7 @@ namespace AliceWeb.Controllers
             _logger = logger;
         }
 
-        public IActionResult Index()
+        public IActionResult Overview()
         {
             return View();
         }
@@ -40,7 +40,7 @@ namespace AliceWeb.Controllers
             return View();
         }
 
-        public IActionResult CaseStudies()
+        public IActionResult UseCases()
         {
             return View();
         }
