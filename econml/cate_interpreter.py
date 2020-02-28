@@ -480,6 +480,18 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         left child, and ``N_t_R`` is the number of samples in the right child.
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
+
+    Attributes
+    ----------
+    tree_model : :class:`~sklearn.tree.DecisionTreeClassifier`
+        The classifier that determines whether units should be treated; available only after
+        :meth:`interpret` has been called.
+    policy_value : float
+        The value of applying the learned policy, applied to the sample used with :meth:`interpret`
+    always_treat_value : float
+        The value of the policy that always treats all units, applied to the sample used with :meth:`interpret`
+    treatment_names : list
+        The list of treatment names that were passed to :meth:`interpret`
     """
 
     def __init__(self,
@@ -565,6 +577,24 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         self.always_treat_value = np.mean(y_pred)
         self.treatment_names = treatment_names
         return self
+
+    def treat(self, X):
+        """
+        Using the policy model learned by a call to :meth:`interpret`, assign treatment to a set of units
+
+        Parameters
+        ----------
+        X : array-like
+            The features for the units to treat;
+            must be compatible shape-wise with the features used during interpretation
+
+        Returns
+        -------
+        T : array-like
+            The treatments implied by the policy learned by the interpreter
+        """
+        assert self.tree_model is not None, "Interpret must be called prior to trying to assign treatment."
+        return self.tree_model.predict(X)
 
     def _make_dot_exporter(self, *, out_file, feature_names, filled,
                            leaves_parallel, rotate, rounded,
