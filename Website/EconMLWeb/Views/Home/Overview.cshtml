@@ -1,0 +1,140 @@
+﻿<style type="text/css" id="overviewcss">
+    div.ovrvwgrid {
+        display: grid;
+        grid-gap: 16px 16px;
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    div.gridclmn {
+        display: inline-flex;
+        position: relative;
+        min-width: 32px;
+        min-height: 32px;
+    }
+
+    div.col-m0 {
+        margin: 0,0,0,0;
+    }
+
+    div.col-align {
+        align-items: stretch;
+        justify-content: start;
+    }
+
+    div.col-brd-p16 {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        overflow: hidden;
+        background: transparent;
+        box-sizing: border-box !important;
+        flex-direction: column;
+        line-height: 20px;
+        border-radius: 2px;
+        padding: 16px;
+        border: 1px solid gray;
+    }
+    div.pd00005000 {
+        padding: 0px 0px 50px 0px;
+    }
+</style>
+
+@{
+    ViewData["Title"] = "Overview";
+    ViewData["Headline"] = "EconML"; 
+}
+<section id="overview" class="c-tabs__tabpanel padding-top-sp3 tab-overview" data-bi-name="overview" role="tabpanel" aria-labelledby="overview_tab" aria-hidden="false" style="visibility: visible;">
+    <div class="ms-row">
+        <div class="l-col-24-24 xl-col-24-24">
+            <h1>Overview</h1>
+            <p>
+                <b>EconML</b> is a Python package that applies the power of machine learning techniques to estimate individualized causal responses from observational or experimental data. The suite
+                of estimation methods provided in EconML represents the latest advances in causal machine learning. By incorporating individual machine learning steps into interpretable causal
+                models, these methods improve the reliability of what-if predictions and make causal analysis quicker and easier for a broad set of users.
+            </p>
+            <p>
+                EconML is open source software developed by the <a href="https://www.microsoft.com/en-us/research/project/alice/" target="_blank">ALICE team</a> at Microsoft Research
+            </p>
+
+            <div class="ovrvwgrid">
+                <div class="gridclmn col-m0 col-align">
+                    <div class="col-brd-p16">
+                        <div class="pd00005000">
+                            <img src="~/img/imgFlexible.png" alt="Flexible" />
+                        </div>
+                        <div class="">
+                            <p>
+                                <b>Flexible</b>
+                            </p>
+                        </div>
+                        <div>
+                            <p>
+                                Allows for flexible model forms that do not impose strong assumptions, including models of heterogenous responses to treatment.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="gridclmn col-m0 col-align">
+                    <div class="col-brd-p16">
+                        <div class="pd00005000">
+                            <img src="~/img/imgUnified.png" alt="Unified" />
+                        </div>
+                        <div>
+                            <p>
+                                <b>Unified</b>
+                            </p>
+
+                        </div>
+                        <div>
+                            <p>
+                                Broad set of methods representing latest advances in the econometrics and machine learning literature within a unified API.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="gridclmn col-m0 col-align">
+                    <div class="col-brd-p16">
+                        <div class="pd00005000">
+                            <img src="~/img/imgFamiliar.png" alt="Familiar" />
+                        </div>
+                        <div>
+                            <p>
+                                <b>Familiar Interface</b>
+                            </p>
+                        </div>
+                        <div>
+                            <p>
+                                Built on standard Python packages for machine learning and data analysis.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <br />
+            <br />
+            <h1>Use Cases</h1>
+            <p>
+                This toolkit is designed to measure the causal effect of some treatment variable(s) T on an outcome variable Y, controlling for a set of features X. Use cases include:
+
+            </p>
+            <div class="ovrvwgrid">
+                <div class="gridclmn col-m0 col-align">
+
+                    <div>
+                        <img src="~/img/Recomendation.png" alt="Recomendation" />
+                    </div>
+                </div>
+                <div class="gridclmn col-m0 col-align">
+                    <div>
+                        <img src="~/img/Segmentation.png" alt="Segmentation" />
+                    </div>
+                </div>
+                <div class="gridclmn col-m0 col-align">
+                    <div>
+                        <img src="~/img/Attribution.png" alt="Attribution" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

@@ -2,72 +2,278 @@
 for details on configuring this project to bundle and minify static web assets. */
 
 a.navbar-brand {
-  white-space: normal;
-  text-align: center;
-  word-break: break-all;
+    white-space: normal;
+    text-align: center;
+    word-break: break-all;
 }
 
 /* Provide sufficient contrast against white background */
 a {
-  color: #0366d6;
+    color: #0366d6;
 }
 
 .btn-primary {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+    color: #fff;
+    background-color: #1b6ec2;
+    border-color: #1861ac;
 }
 
 .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
-  color: #fff;
-  background-color: #1b6ec2;
-  border-color: #1861ac;
+    color: #fff;
+    background-color: #1b6ec2;
+    border-color: #1861ac;
 }
 
 /* Sticky footer styles
 -------------------------------------------------- */
 html {
-  font-size: 14px;
+    font-size: 14px;
 }
+
 @media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
+    html {
+        font-size: 16px;
+    }
 }
 
 .border-top {
-  border-top: 1px solid #e5e5e5;
+    border-top: 1px solid #e5e5e5;
 }
+
 .border-bottom {
-  border-bottom: 1px solid #e5e5e5;
+    border-bottom: 1px solid #e5e5e5;
 }
 
 .box-shadow {
-  box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
+    box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
 }
 
 button.accept-policy {
-  font-size: 1rem;
-  line-height: inherit;
+    font-size: 1rem;
+    line-height: inherit;
 }
 
 /* Sticky footer styles
 -------------------------------------------------- */
 html {
-  position: relative;
-  min-height: 100%;
+    position: relative;
+    min-height: 100%;
 }
 
 body {
-  /* Margin bottom by footer height */
-  margin-bottom: 60px;
+    /* Margin bottom by footer height */
+    margin-bottom: 60px;
 }
+
 .footer {
     position: absolute;
     bottom: 0;
     width: 100%;
     white-space: nowrap;
     line-height: 60px; /* Vertically center the text there */
+    background: #F6F6F6;
 }
-/* FAQ */
+
+.footermenu {
+    align-content: center;
+    text-align: right;
+}
+
+.footermenu a {
+        font-family: Segoe UI;
+        font-style: normal;
+        font-weight: normal;
+        font-size: 12px;
+        line-height: 16px;
+        padding: 5px 0 5px 0;
+    }
+
+
+#cpywrght {
+    font-family: Segoe UI;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 12px;
+    line-height: 16px;
+}
+
+.econMLgitnav a {
+    color: #ffffff;
+    border: solid;
+    font-size: 85%;
+    padding: 2px 7px 2px 7px;
+}
+
+.econMLgitnav a:link {
+        text-decoration: none;
+    }
+
+.ftrgitnav {
+    float: left;
+}
+
+.ftrgitnav a:link {
+        text-decoration: none;
+    }
+
+.ftrgitnav a {
+        color: #000000;
+        border: solid;
+        font-size: 85%;
+        padding: 2px 7px 2px 7px;
+        align-content: center;
+        text-align: left;
+    }
+
+
+.ftrgitnav img {
+        height: 16px;
+        width: 16px;
+        align-content: center;
+    }
+
+div.econMLgitnav img {
+    height: 16px;
+    width: 16px;
+    align-content: center;
+}
+
+div.econMLgitnav {
+    padding-bottom: 8px;
+}
+
+img.econMLgitnav {
+    height: 16px;
+    width: 16px;
+    align-content: center;
+}
+
+img.c-image {
+    width: 108px;
+    padding: 12px 4px 12px 4px;
+}
+
+
+.econmlnavbar ul, button {
+    margin-bottom: 0px;
+}
+
+.econmlnavbar {
+    float: right;
+}
+
+.econmlnavbar button {
+        margin-bottom: 0px;
+    }
+
+.c-show-pipe::before {
+    content: "|";
+    display: block;
+    font-size: 24px;
+    font-weight: normal;
+    margin-left: -13px;
+    padding-left: 18px;
+    position: absolute;
+    top: 7px;
+}
+
+.nav-item a {
+    font-family: Segoe UI;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 14px;
+    line-height: 20px;
+}
+
+h1.headline {
+    font-family: Segoe UI !important;
+    font-style: normal !important;
+    font-weight: normal !important;
+    font-size: 68px !important;
+    line-height: 76px !important;
+}
+
+.ovrvwtbl td {
+    width: 33%;
+}
+
+.ovrvwtbl table {
+    width: 100%;
+}
+
+.tblclmn img {
+    padding-bottom: 50px;
+}
+
+td.ovrvwclmn {
+    padding: 10px 10px 10px 10px;
+}
+
+div.tblclmn {
+    padding: 10px 10px 10px 10px;
+    border-top-color: #E5E5E5;
+    border-top-style: solid;
+    border-top-width: 1px;
+    border-right-color: #E5E5E5;
+    border-right-style: solid;
+    border-right-width: 1px;
+    border-bottom-color: #E5E5E5;
+    border-bottom-style: solid;
+    border-bottom-width: 1px;
+    border-left-color: #E5E5E5;
+    border-left-style: solid;
+    border-left-width: 1px;
+    box-sizing: border-box;
+    border-radius 4px;
+}
+
+table.tblclmn {
+    height: 100%;
+}
+
+.ms-row h1 {
+    font-family: Segoe UI;
+    font-style: normal;
+    font-weight: 600;
+    font-size: 28px;
+    line-height: 36px
+}
+
+.ms-row p {
+    font-family: Segoe UI;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 20px;
+    line-height: 28px;
+}
+
+.econmlcontainer code {
+    font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+    padding: .2em .4em;
+    margin: 0;
+    font-size: 85%;
+    background-color: #f6f8fa;
+    color: #000000;
+    border-radius: 3px;
+}
+
+.econmlcontainer pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    background-color: #f6f8fa;
+    border-radius: 3px;
+    display: block;
+    white-space: pre;
+    margin: 1em 0px;
+}
+
+div.fqacontentContainer {
+    display: none;
+}
+
+.fqacontentContainer p {
+    margin-left: 20px;
+}
 

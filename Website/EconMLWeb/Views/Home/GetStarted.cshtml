@@ -1,6 +1,7 @@
 ﻿
 @{
     ViewData["Title"] = "Getting Started";
+    ViewData["Headline"] = "Getting Started";
 }
 <style type="text/css" id="getstartedcss">
     .econmlcontainer code {
@@ -27,14 +28,14 @@
 </style>
 
 <div class="getstarted">
-    <h2>Quick Installation</h2>
+    <h1>Quick Installation</h1>
     <p>Install the lastest release for <a href="https://pypi.org/project/econml/" rel="nofollow">PyPI</a>:</p>
     <pre>
         <code>pip install econml</code>
     </pre>
 
 
-    <h2>For Devlopers</h2>
+    <h1>For Devlopers</h1>
     <p>
         You can get started by cloning this repository. We use
         <a href="https://setuptools.readthedocs.io/en/latest/index.html" rel="nofollow">setuptools</a> for building and distributing our package.
@@ -42,17 +43,17 @@
         <code>pip install setuptools --upgrade</code>.  Then from your local copy of the repository you can run <code>python setup.py develop</code> to get started.
     </p>
     
-    <h2>Running the Tests</h2>
+    <h1>Running the Tests</h1>
     <p>
         This project uses <a href="https://docs.pytest.org/" rel="nofollow">pytest</a> for testing.  To run tests locally after installing the package,
         you can use <code>python setup.py pytest</code>.
     </p>
-    <h2>Generating the documentation</h2>
+    <h1>Generating the documentation</h1>
     <p>
         This project's documentation is generated via <a href="https://www.sphinx-doc.org/en/master/index.html" rel="nofollow">Sphinx</a>.  Note that we use <a href="https://graphviz.org/" rel="nofollow">graphviz</a>'s
         <code>dot</code> application to produce some of the images in our documentation, so you should make sure that <code>dot</code> is installed and in your path.
     </p>
-    <h2>Enviroment</h2>
+    <h1>Enviroment</h1>
     <p>
         The econml package works on macOS, Windows, and Linux, and supports Python versions 3.5-3.7.  The econml package relies on numpy, scipy, and scikit-learn for most of its underlying numerical computation and machine learning routines, and uses keras for the components built on deep neural networks.  If you don’t already have these dependencies installed locally, then installing the econml package from PyPI via pip will also install them.
     </p>
