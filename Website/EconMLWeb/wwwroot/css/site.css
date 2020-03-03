@@ -148,42 +148,6 @@ img.econMLgitnav {
     align-content: center;
 }
 
-img.c-image {
-    width: 108px;
-    padding: 12px 4px 12px 4px;
-}
-
-
-.econmlnavbar ul, button {
-    margin-bottom: 0px;
-}
-
-.econmlnavbar {
-    float: right;
-}
-
-.econmlnavbar button {
-        margin-bottom: 0px;
-    }
-
-.c-show-pipe::before {
-    content: "|";
-    display: block;
-    font-size: 24px;
-    font-weight: normal;
-    margin-left: -13px;
-    padding-left: 18px;
-    position: absolute;
-    top: 7px;
-}
-
-.nav-item a {
-    font-family: Segoe UI;
-    font-style: normal;
-    font-weight: normal;
-    font-size: 14px;
-    line-height: 20px;
-}
 
 h1.headline {
     font-family: Segoe UI !important;
@@ -224,7 +188,7 @@ div.tblclmn {
     border-left-style: solid;
     border-left-width: 1px;
     box-sizing: border-box;
-    border-radius 4px;
+    border-radius: 4px;
 }
 
 table.tblclmn {
