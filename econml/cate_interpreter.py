@@ -555,6 +555,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         else:
             _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
 
+        # TODO: generalize to multiple treatment case?
         assert all(d == 1 for d in y_pred.shape[1:]), ("Interpretation is only available for "
                                                        "single-dimensional treatments and outcomes")
 
@@ -564,16 +565,22 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
             assert np.ndim(sample_treatment_costs) < 2, "Sample treatment costs should be a vector or scalar"
             y_pred -= sample_treatment_costs
 
-        if np.all(y_pred > 0):
-            raise AttributeError("All samples should be treated with the given treatment costs. " +
-                                 "Consider increasing the cost!")
+        # get index of best treatment
+        all_y = np.hstack([np.zeros((y_pred.shape[0], 1)), y_pred.reshape(-1, 1)])
+        best_y = np.argmax(all_y, axis=-1)
 
-        if np.all(y_pred < 0):
-            raise AttributeError("All samples should not be treated with the given treatment costs. " +
-                                 "Consider decreasing the cost!")
+        used_t = np.unique(best_y)
+        if len(used_t) == 1:
+            best_y, = used_t
+            if best_y > 0:
+                raise AttributeError("All samples should be treated with the given treatment costs. " +
+                                     "Consider increasing the cost!")
+            else:
+                raise AttributeError("No samples should be treated with the given treatment costs. " +
+                                     "Consider decreasing the cost!")
 
-        self.tree_model.fit(X, np.sign(y_pred).flatten(), sample_weight=np.abs(y_pred))
-        self.policy_value = np.mean(y_pred * (self.tree_model.predict(X) == 1))
+        self.tree_model.fit(X, best_y, sample_weight=np.abs(y_pred))
+        self.policy_value = np.mean(all_y[:, self.tree_model.predict(X)])
         self.always_treat_value = np.mean(y_pred)
         self.treatment_names = treatment_names
         return self

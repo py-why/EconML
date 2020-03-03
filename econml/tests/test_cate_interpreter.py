@@ -187,4 +187,4 @@ class TestCateInterpreter(unittest.TestCase):
                     intrp.render('outfile', **render_kwargs)
                     intrp.export_graphviz(**export_kwargs)
                 except AttributeError as e:
-                    assert str(e).find("All samples should") >= 0
+                    assert str(e).find("samples should") >= 0
