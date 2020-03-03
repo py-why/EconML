@@ -65,71 +65,91 @@
     </script>
 
     <style type="text/css" id="econmlnav">
+
+        .econmlnavbar {
+            float: right;
+        }
+
+
+        .nav-item a {
+            font-family: Segoe UI;
+            font-style: normal;
+            font-weight: normal;
+            font-size: 16px;
+            line-height: 20px;
+        }
     </style>
 </head>
 
 <body>
-    <main class="picchu project" data-bi-area="body" awa-sitesection="project single" id="main" role="main">
-        <header class="bg-white">
-            <div class="ms-grid">
-                <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-                    <div class="container">
-                        <a id="uhfLogo" class="c-logo c-sgl-stk-uhfLogo" itemprop="url" href="https://www.microsoft.com" aria-label="Microsoft" data-m="{&quot;cN&quot;:&quot;GlobalNav_Logo_cont&quot;,&quot;cT&quot;:&quot;Container&quot;,&quot;id&quot;:&quot;c3c4c1m1r1a1&quot;,&quot;sN&quot;:3,&quot;aN&quot;:&quot;c4c1m1r1a1&quot;}">
-                            <img alt="" itemprop="logo" itemscope="itemscope" class="c-image" src="https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31" role="presentation" aria-hidden="true">
-                            <span role="presentation" aria-hidden="true">Microsoft</span>
-                        </a>
-                        <div class="c-show-pipe x-hidden-vp-mobile-st">
-                            <a id="uhfCatLogo" class="c-logo c-cat-logo" href="https://aka.ms/econml/" aria-label="EconML" itemprop="url">
-                                <span>EconML</span>
-                            </a>
-                        </div>
-                        <div class="econmlnavbar">
-                            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                                    aria-expanded="false" aria-label="Toggle navigation">
-                                <span class="navbar-toggler-icon"></span>
-                            </button>
-                            <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
-                                <ul class="navbar-nav flex-grow-1" style="vertical-align:baseline">
-                                    <li class="nav-item">
-                                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Overview">Overview</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="GetStarted">Get Started</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="HowTo">How To</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Publications">Publications</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="UseCases">Use Cases</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="News">News</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="FAQ">FAQ</a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="People">People</a>
-                                    </li>
-                                </ul>
-                            </div>
+    <header class="c-uhfh context-uhf c-sgl-stck c-category-headerjs bg-white">
+
+
+        <div class="theme-light js-global-head f-closed global-head-cont">
+            <div class="c-uhfh-gcontainer-st">
+                <a id="uhfLogo" class="c-logo c-sgl-stk-uhfLogo" itemprop="url" href="https://www.microsoft.com" aria-label="Microsoft" data-m="{&quot;cN&quot;:&quot;GlobalNav_Logo_cont&quot;,&quot;cT&quot;:&quot;Container&quot;,&quot;id&quot;:&quot;c3c4c1m1r1a1&quot;,&quot;sN&quot;:3,&quot;aN&quot;:&quot;c4c1m1r1a1&quot;}">
+                    <img alt="" itemprop="logo" itemscope="itemscope" class="c-image" src="https://img-prod-cms-rt-microsoft-com.akamaized.net/cms/api/am/imageFileData/RE1Mu3b?ver=5c31" role="presentation" aria-hidden="true">
+                    <span role="presentation" aria-hidden="true">Microsoft</span>
+                </a>
+                <div class="f-mobile-title">
+                    <button type="button" class="c-action-trigger c-glyph glyph-chevron-left" aria-label="See more menu options" data-m="{&quot;cN&quot;:&quot;Mobile back button_nonnav&quot;,&quot;id&quot;:&quot;nn4c4c1m1r1a1&quot;,&quot;sN&quot;:4,&quot;aN&quot;:&quot;c4c1m1r1a1&quot;}"></button>
+                    <span data-global-title="Microsoft home" class="js-mobile-title">Microsoft home</span>
+                    <button type="button" class="c-action-trigger c-glyph glyph-chevron-right" aria-label="See more menu options" data-m="{&quot;cN&quot;:&quot;Mobile forward button_nonnav&quot;,&quot;id&quot;:&quot;nn5c4c1m1r1a1&quot;,&quot;sN&quot;:5,&quot;aN&quot;:&quot;c4c1m1r1a1&quot;}"></button>
+                </div>
+                <div class="c-show-pipe x-hidden-vp-mobile-st">
+                    <a id="uhfCatLogo" class="c-logo c-cat-logo" href="https://aka.ms/econml/" aria-label="EconML" itemprop="url">
+                        <span>EconML</span>
+                    </a>
+                </div>
+                <!--                     <nav class="c-uhfh-gnav navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white mb-3">
+    -->
+                <nav class="c-uhfh-gnav navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white mb-3">
+                    <div class="econmlnavbar">
+                        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                                aria-expanded="false" aria-label="Toggle navigation">
+                            <span class="navbar-toggler-icon"></span>
+                        </button>
+                        <div class="navbar-collapse collapse d-sm-inline-flex flex-sm-row-reverse">
+                            <ul class="navbar-nav flex-grow-1 js-paddle-items" style="vertical-align:baseline">
+                                <li class="single-link uhf-menu-item">
+                                    <a class="c-uhf-nav-link" asp-area="" asp-controller="Home" asp-action="Overview">Overview</a>
+                                </li>
+                                <li class="single-link uhf-menu-item">
+                                    <a class="c-uhf-nav-link " asp-area="" asp-controller="Home" asp-action="GetStarted">Get Started</a>
+                                </li>
+                                <li class="single-link uhf-menu-item">
+                                    <a class="c-uhf-nav-link nav-link text-dark" asp-area="" asp-controller="Home" asp-action="HowTo">How To</a>
+                                </li>
+                                <li class="single-link uhf-menu-item">
+                                    <a class="c-uhf-nav-link nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Publications">Publications</a>
+                                </li>
+                                <li class="single-link uhf-menu-item">
+                                    <a class="c-uhf-nav-link nav-link text-dark" asp-area="" asp-controller="Home" asp-action="UseCases">Use Cases</a>
+                                </li>
+                                <li class="single-link uhf-menu-item">
+                                    <a class="c-uhf-nav-link nav-link text-dark" asp-area="" asp-controller="Home" asp-action="News">News</a>
+                                </li>
+                                <li class="single-link uhf-menu-item">
+                                    <a class="c-uhf-nav-link nav-link text-dark" asp-area="" asp-controller="Home" asp-action="FAQ">FAQ</a>
+                                </li>
+                                <li class="single-link uhf-menu-item">
+                                    <a class="c-uhf-nav-link nav-link text-dark" asp-area="" asp-controller="Home" asp-action="People">People</a>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </nav>
             </div>
-        </header>
+        </div>
+    </header>
+    <main class="picchu project" data-bi-area="body" awa-sitesection="project single" id="main" role="main">
         <header class="picchu project msr-banner bg-center margin-bottom-sp6" style="background-image: url(&#39;https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/MSR-ALICE-HeaderGraphic-1920x720_1.jpg&#39;)" data-bi-name="hero" aria-label="msr-banner">
             <img class="msr-banner-mobile-img mobile-only db" src="~/img/MSR-ALICE-HeaderGraphic-1920x720_1-800x550.jpg" alt="ALICE">
 
             <div class="gray-d2-bgc msr-banner-content">
                 <div class="ms-grid msr-banner-grid padding-vertical-sp6">
                     <div class="ms-row msr-banner-row vc x-hidden-focus">
-                        <div class="l-col-16-24">
-
-
+                        <div class="l-col-24-24"> <!-- Full screen width-->
                             <h1 class="headline" style="color: #ffffff">
                                 @ViewData["Headline"]
                             </h1>
@@ -145,7 +165,7 @@
         </header>
         <div class="ms-grid margin-bottom-sp6">
             <div class="ms-row">
-                <section class="l-col-17-24 margin-bottom-sp5 l-no-margin-bottom" data-bi-name="content">
+                <section class="l-col-22-24 margin-bottom-sp5 l-no-margin-bottom" data-bi-name="content"> <!-- 91% screen width -->
                     <div>
                         <div class="ms-tabs-wrap">
                             <div class="c-tabs .c-tabs__activated" data-header="h2" data-bi-name="tabs">
@@ -158,20 +178,22 @@
                             </div>
                         </div>
                     </div>
-                </section><!--/.l-col-16-24-->
+                </section>
             </div>
         </div>
 
         <footer class="border-top footer text-muted ">
             <div class="ms-grid">
-                <div class="container">
-                    <div class="footermenu">
-                        <span class="ftrgitnav">
-                            <a href="https://github.com/Microsoft/EconML" target="_blank">EconML on GitHub &nbsp;<img src="~/img/GitHub-Mark-32px.png"></a> <a href="https://econml.azurewebsites.net/" target="_blank">Documentation on EconML</a>
-                        </span>
-                        <a href="https://go.microsoft.com/fwlink/?LinkId=521839">Privacy &amp; cookies</a> &nbsp;-&nbsp;
-                        <a href="https://www.microsoft.com/en-us/research/">Microsoft Research</a> &nbsp;-&nbsp;
-                        <span id="cpywrght">&copy;2020 Microsoft</span>
+                <div class="l-col-22-24">
+                    <div class="container">
+                        <div class="footermenu">
+                            <span class="ftrgitnav">
+                                <a href="https://github.com/Microsoft/EconML" target="_blank">EconML on GitHub &nbsp;<img src="~/img/GitHub-Mark-32px.png"></a> <a href="https://econml.azurewebsites.net/" target="_blank">Documentation on EconML</a>
+                            </span>
+                            <a href="https://go.microsoft.com/fwlink/?LinkId=521839">Privacy &amp; cookies</a> &nbsp;-&nbsp;
+                            <a href="https://www.microsoft.com/en-us/research/">Microsoft Research</a> &nbsp;-&nbsp;
+                            <span id="cpywrght">&copy; Microsoft 2020</span>
+                        </div>
                     </div>
                 </div>
             </div>
