@@ -60,9 +60,6 @@ jobs:
   - template: azure-pipelines-steps.yml
     parameters:
       body:
-        - script: 'sudo apt-get -yq install graphviz'
-          displayName: 'Install graphviz'
-
         - script: 'pip install sklearn-contrib-lightning'
           displayName: 'Install lightning'
 
@@ -230,9 +227,6 @@ jobs:
   - template: azure-pipelines-steps.yml
     parameters:
       body:
-        - script: 'sudo apt-get -yq install graphviz'
-          displayName: 'Install graphviz'
-
         - script: 'pip install sklearn-contrib-lightning'
           displayName: 'Install lightning'
 
