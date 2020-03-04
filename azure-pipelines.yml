@@ -212,3 +212,56 @@ jobs:
           inputs:
             codeCoverageTool: Cobertura
             summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+
+- job: 'PublishSite'
+  displayName: 'Publish the site'  
+  dependsOn: 
+  - EvalChanges
+  #- Docs
+  #- Notebooks
+  #- Linting
+  #- Tests
+  # TODO: set correct condition
+  pool: 
+    vmImage: 'ubuntu-16.04'
+  variables:
+    python.version: '3.6'
+  steps:
+  - template: azure-pipelines-steps.yml
+    parameters:
+      body:
+        - script: 'sudo apt-get -yq install graphviz'
+          displayName: 'Install graphviz'
+
+        - script: 'pip install sklearn-contrib-lightning'
+          displayName: 'Install lightning'
+
+        - script: 'python setup.py build_sphinx -W'
+          displayName: 'Build documentation'
+
+        - task: CopyFiles@2
+          displayName: 'Copy docs to web project'
+          inputs:
+            sourceFolder: 'build/sphinx/html'
+            targetFolder: 'Website/EconMLWeb/wwwroot/docs'
+
+        - task: DotNetCoreCLI@2
+          displayName: 'Build ASP.NET solution'
+          inputs:
+            command: build
+            projects: 'Website/EconMLWeb/EconMLWeb.csproj'
+
+        - task: DotNetCoreCLI@2
+          displayName: 'Publish solution'
+          inputs:
+            command: publish
+            projects: 'Website/EconMLWeb/EconMLWeb.csproj'
+            publishWebProjects: True
+            zipAfterPublish: True
+
+        - task: AzureWebApp@1
+          displayName: 'Deploy web app to development site'
+          inputs:
+            azureSubscription: 'econmldev'
+            appName: econml-dev
+            package: $(System.DefaultWorkingDirectory)/Website/EconMLWeb/**/*.zip
