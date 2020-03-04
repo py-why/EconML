@@ -265,3 +265,4 @@ jobs:
             azureSubscription: 'econmldev'
             appName: econml-dev
             package: $(System.DefaultWorkingDirectory)/Website/EconMLWeb/**/*.zip
+      package: '.[automl]'
