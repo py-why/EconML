@@ -65,6 +65,24 @@ class TestCateInterpreter(unittest.TestCase):
         est.fit(Y, T, X, inference='statsmodels')
         intrp.interpret(est, X)
 
+    def test_can_assign_treatment(self):
+        n = 100
+        X = np.random.normal(size=(n, 4))
+        T = np.random.binomial(1, 0.5, size=(n,))
+        Y = np.random.normal(size=(n,))
+        est = LinearDMLCateEstimator(discrete_treatment=True)
+        est.fit(Y, T, X)
+
+        # can interpret without uncertainty
+        intrp = SingleTreePolicyInterpreter()
+        with self.assertRaises(Exception):
+            # can't treat before interpreting
+            intrp.treat(X)
+
+        intrp.interpret(est, X)
+        T_policy = intrp.treat(X)
+        assert T.shape == T_policy.shape
+
     def test_random_cate_settings(self):
         """Verify that we can call methods on the CATE interpreter with various combinations of inputs"""
         n = 100
@@ -169,4 +187,4 @@ class TestCateInterpreter(unittest.TestCase):
                     intrp.render('outfile', **render_kwargs)
                     intrp.export_graphviz(**export_kwargs)
                 except AttributeError as e:
-                    assert str(e).find("All samples should") >= 0
+                    assert str(e).find("samples should") >= 0

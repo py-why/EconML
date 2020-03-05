@@ -480,6 +480,18 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         left child, and ``N_t_R`` is the number of samples in the right child.
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
+
+    Attributes
+    ----------
+    tree_model : :class:`~sklearn.tree.DecisionTreeClassifier`
+        The classifier that determines whether units should be treated; available only after
+        :meth:`interpret` has been called.
+    policy_value : float
+        The value of applying the learned policy, applied to the sample used with :meth:`interpret`
+    always_treat_value : float
+        The value of the policy that always treats all units, applied to the sample used with :meth:`interpret`
+    treatment_names : list
+        The list of treatment names that were passed to :meth:`interpret`
     """
 
     def __init__(self,
@@ -543,6 +555,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         else:
             _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
 
+        # TODO: generalize to multiple treatment case?
         assert all(d == 1 for d in y_pred.shape[1:]), ("Interpretation is only available for "
                                                        "single-dimensional treatments and outcomes")
 
@@ -552,19 +565,43 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
             assert np.ndim(sample_treatment_costs) < 2, "Sample treatment costs should be a vector or scalar"
             y_pred -= sample_treatment_costs
 
-        if np.all(y_pred > 0):
-            raise AttributeError("All samples should be treated with the given treatment costs. " +
-                                 "Consider increasing the cost!")
+        # get index of best treatment
+        all_y = np.hstack([np.zeros((y_pred.shape[0], 1)), y_pred.reshape(-1, 1)])
+        best_y = np.argmax(all_y, axis=-1)
 
-        if np.all(y_pred < 0):
-            raise AttributeError("All samples should not be treated with the given treatment costs. " +
-                                 "Consider decreasing the cost!")
+        used_t = np.unique(best_y)
+        if len(used_t) == 1:
+            best_y, = used_t
+            if best_y > 0:
+                raise AttributeError("All samples should be treated with the given treatment costs. " +
+                                     "Consider increasing the cost!")
+            else:
+                raise AttributeError("No samples should be treated with the given treatment costs. " +
+                                     "Consider decreasing the cost!")
 
-        self.tree_model.fit(X, np.sign(y_pred).flatten(), sample_weight=np.abs(y_pred))
-        self.policy_value = np.mean(y_pred * (self.tree_model.predict(X) == 1))
+        self.tree_model.fit(X, best_y, sample_weight=np.abs(y_pred))
+        self.policy_value = np.mean(all_y[:, self.tree_model.predict(X)])
         self.always_treat_value = np.mean(y_pred)
         self.treatment_names = treatment_names
         return self
+
+    def treat(self, X):
+        """
+        Using the policy model learned by a call to :meth:`interpret`, assign treatment to a set of units
+
+        Parameters
+        ----------
+        X : array-like
+            The features for the units to treat;
+            must be compatible shape-wise with the features used during interpretation
+
+        Returns
+        -------
+        T : array-like
+            The treatments implied by the policy learned by the interpreter
+        """
+        assert self.tree_model is not None, "Interpret must be called prior to trying to assign treatment."
+        return self.tree_model.predict(X)
 
     def _make_dot_exporter(self, *, out_file, feature_names, filled,
                            leaves_parallel, rotate, rounded,
