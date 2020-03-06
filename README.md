@@ -30,6 +30,9 @@ consult the documentation at https://econml.azurewebsites.net/.
 - [Getting Started](#getting-started)
   - [Installation](#installation)
   - [Usage Examples](#usage-examples)
+    - [Estimation Methods](#estimation-methods)
+    - [Interpretability](#interpretability)
+    - [Inference](#inference)
 - [For Developers](#for-developers)
   - [Running the tests](#running-the-tests)
   - [Generating the documentation](#generating-the-documentation)
@@ -92,6 +95,8 @@ Such questions arise frequently in customer segmentation (what is the effect of 
 
 **January 10, 2020:** Release v0.6.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.6.1)
 
+<details><summary>Previous releases</summary>
+
 **December 6, 2019:** Release v0.6, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.6)
 
 **November 21, 2019:** Release v0.5, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.5). 
@@ -103,6 +108,8 @@ Such questions arise frequently in customer segmentation (what is the effect of 
 **April 10, 2019:** Release v0.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.2).
 
 **March 6, 2019:** Release v0.1, welcome to have a try and provide feedback.
+
+</details>
 
 # Getting Started
 
@@ -116,17 +123,11 @@ To install from source, see [For Developers](#for-developers) section below.
 
 ## Usage Examples
 ### Estimation Methods
-* [Double Machine Learning](#references)
 
-  ```Python
-  from econml.dml import LinearDMLCateEstimator
-  from sklearn.linear_model import LassoCV
+<details>
+  <summary><a href="#references">Double Machine Learning</a> (click to expand)</summary>
 
-  est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
-  est.fit(Y, T, X, W, inference='statsmodels') # W -> high-dimensional confounders, X -> features
-  treatment_effects = est.effect(X_test)
-  lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via OLS asymptotics
-  ```
+  * Linear final stage
 
   ```Python
   from econml.dml import LinearDMLCateEstimator
@@ -134,11 +135,18 @@ To install from source, see [For Developers](#for-developers) section below.
   from econml.inference import BootstrapInference
 
   est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
+  ### Estimate with OLS confidence intervals
+  est.fit(Y, T, X, W, inference='statsmodels') # W -> high-dimensional confounders, X -> features
+  treatment_effects = est.effect(X_test)
+  lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
+
+  ### Estimate with bootstrap confidence intervals
   est.fit(Y, T, X, W, inference='bootstrap')  # with default bootstrap parameters
   est.fit(Y, T, X, W, inference=BootstrapInference(n_bootstrap_samples=100))  # or customized
-  treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Bootstrap confidence intervals
   ```
+
+  * Sparse linear final stage
 
   ```Python
   from econml.dml import SparseLinearDMLCateEstimator
@@ -150,6 +158,8 @@ To install from source, see [For Developers](#for-developers) section below.
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via debiased lasso
   ```
   
+  * Nonparametric last stage
+  
   ```Python
   from econml.dml import ForestDMLCateEstimator
   from sklearn.ensemble import GradientBoostingRegressor
@@ -160,8 +170,10 @@ To install from source, see [For Developers](#for-developers) section below.
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
   lb, ub = est.effect_interval(X_test, alpha=0.05)
   ```
+</details>
 
-* [Orthogonal Random Forests](#references)
+<details>
+  <summary><a href="#references">Orthogonal Random Forests</a> (click to expand)</summary>
 
   ```Python
   from econml.ortho_forest import ContinuousTreatmentOrthoForest
@@ -174,11 +186,18 @@ To install from source, see [For Developers](#for-developers) section below.
                                       lambda_reg=0.01,
                                       model_T=WeightedLasso(alpha=0.01), model_Y=WeightedLasso(alpha=0.01),
                                       model_T_final=WeightedLassoCV(cv=3), model_Y_final=WeightedLassoCV(cv=3))
-  est.fit(Y, T, X, W)
+  est.fit(Y, T, X, W, inference='blb')
   treatment_effects = est.effect(X_test)
+  # Confidence intervals via Bootstrap-of-Little-Bags for forests
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
   ```
+</details>
 
-* [Meta-Learners](#references)
+<details>
+
+<summary><a href="#references">Meta-Learners</a> (click to expand)</summary>
+  
+  * XLearner
 
   ```Python
   from econml.metalearners import XLearner
@@ -195,6 +214,8 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
   lb, ub = est.effect_interval(np.hstack([X_test, W_test]), alpha=0.05) # Bootstrap CIs
   ```
+  
+  * SLearner
 
   ```Python
   from econml.metalearners import SLearner
@@ -205,6 +226,8 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
   ```
 
+  * TLearner
+
   ```Python
   from econml.metalearners import TLearner
   from sklearn.ensemble import GradientBoostingRegressor
@@ -213,69 +236,118 @@ To install from source, see [For Developers](#for-developers) section below.
   est.fit(Y, T, np.hstack([X, W]))
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
   ```
+</details>
 
-* [Doubly Robust Learner](#references)
+<details>
+<summary><a href="#references">Doubly Robust Learners</a> (click to expand)
+</summary>
 
-  ```Python
-  from econml.drlearner import LinearDRLearner
-  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+* Linear final stage
 
-  est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
-                        model_regression=GradientBoostingRegressor())
-  est.fit(Y, T, X, W, inference='statsmodels')
-  treatment_effects = est.effect(X_test)
-  lb, ub = est.effect_interval(X_test, alpha=0.05)
-  ```
+```Python
+from econml.drlearner import LinearDRLearner
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 
-  ```Python
-  from econml.drlearner import SparseLinearDRLearner
-  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
+                      model_regression=GradientBoostingRegressor())
+est.fit(Y, T, X, W, inference='statsmodels')
+treatment_effects = est.effect(X_test)
+lb, ub = est.effect_interval(X_test, alpha=0.05)
+```
 
-  est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
-                              model_regression=GradientBoostingRegressor())
-  est.fit(Y, T, X, W, inference='debiasedlasso')
-  treatment_effects = est.effect(X_test)
-  lb, ub = est.effect_interval(X_test, alpha=0.05)
-  ```
+* Sparse linear final stage
 
-  ```Python
-  from econml.drlearner import ForestDRLearner
-  from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+```Python
+from econml.drlearner import SparseLinearDRLearner
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 
-  est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
-                        model_regression=GradientBoostingRegressor())
-  est.fit(Y, T, X, W, inference='blb') 
-  treatment_effects = est.effect(X_test)
-  lb, ub = est.effect_interval(X_test, alpha=0.05)
-  ```
+est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
+                            model_regression=GradientBoostingRegressor())
+est.fit(Y, T, X, W, inference='debiasedlasso')
+treatment_effects = est.effect(X_test)
+lb, ub = est.effect_interval(X_test, alpha=0.05)
+```
 
-* [Deep Instrumental Variables](#references)
-  
-  ```Python
-  import keras
-  from econml.deepiv import DeepIVEstimator
+* Nonparametric final stage
 
-  treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
-                                     keras.layers.Dropout(0.17),
-                                     keras.layers.Dense(64, activation='relu'),
-                                     keras.layers.Dropout(0.17),
-                                     keras.layers.Dense(32, activation='relu'),
-                                     keras.layers.Dropout(0.17)])
-  response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
+```Python
+from econml.drlearner import ForestDRLearner
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
+                      model_regression=GradientBoostingRegressor())
+est.fit(Y, T, X, W, inference='blb') 
+treatment_effects = est.effect(X_test)
+lb, ub = est.effect_interval(X_test, alpha=0.05)
+```
+</details>
+
+<details>
+<summary><a href="#references">Orthogonal Instrumental Variables</a> (click to expand)</summary>
+
+* Double Machine Learning IV
+
+```Python
+from econml.ortho_iv import DMLIV
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+from sklearn.linear_model import LinearRegression
+
+est = DMLIV(model_Y_X=GradientBoostingRegressor(),
+            model_T_X=GradientBoostingClassifier(),
+            model_T_XZ=GradientBoostingClassifier(),
+            model_final=LinearRegression(),
+            discrete_instrument=False, 
+            discrete_treatment=True)
+est.fit(Y, T, Z, X)
+treatment_effects = est.effect(X_test)
+```
+
+* Intent to Treat Doubly Robust Learner (discrete instrument, discrete treatment)
+
+```Python
+from econml.ortho_iv import LinearIntentToTreatDRIV
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+from sklearn.linear_model import LinearRegression
+
+est = LinearIntentToTreatDRIV(model_Y_X=GradientBoostingRegressor(),
+                              model_T_XZ=GradientBoostingClassifier(),
+                              flexible_model_effect=GradientBoostingRegressor())
+est.fit(Y, T, Z, X, inference='statsmodels') # OLS inference
+treatment_effects = est.effect(X_test)
+lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
+```
+
+</details>
+
+<details>
+<summary><a href="#references">Deep Instrumental Variables</a> (click to expand)</summary>
+
+```Python
+import keras
+from econml.deepiv import DeepIVEstimator
+
+treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
                                     keras.layers.Dropout(0.17),
                                     keras.layers.Dense(64, activation='relu'),
                                     keras.layers.Dropout(0.17),
                                     keras.layers.Dense(32, activation='relu'),
-                                    keras.layers.Dropout(0.17),
-                                    keras.layers.Dense(1)])
-  est = DeepIVEstimator(n_components=10, # Number of gaussians in the mixture density networks)
-                        m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])), # Treatment model
-                        h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
-                        n_samples=1 # Number of samples used to estimate the response
-                        )
-  est.fit(Y, T, X, Z) # Z -> instrumental variables
-  treatment_effects = est.effect(X_test)
-  ```
+                                    keras.layers.Dropout(0.17)])
+response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
+                                  keras.layers.Dropout(0.17),
+                                  keras.layers.Dense(64, activation='relu'),
+                                  keras.layers.Dropout(0.17),
+                                  keras.layers.Dense(32, activation='relu'),
+                                  keras.layers.Dropout(0.17),
+                                  keras.layers.Dense(1)])
+est = DeepIVEstimator(n_components=10, # Number of gaussians in the mixture density networks)
+                      m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])), # Treatment model
+                      h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
+                      n_samples=1 # Number of samples used to estimate the response
+                      )
+est.fit(Y, T, X, Z) # Z -> instrumental variables
+treatment_effects = est.effect(X_test)
+```
+</details>
 
 ### Interpretability
 * Tree Interpreter of the CATE model
