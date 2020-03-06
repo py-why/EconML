@@ -9,9 +9,12 @@ import nbconvert
 import traitlets
 
 _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
+_nbdir1 = os.path.join(_nbdir, 'CustomerScenarios')
 _notebooks = [path
               for path in os.listdir(_nbdir)
-              if path.endswith('.ipynb')]
+              if path.endswith('.ipynb')] + [path
+                                             for path in os.listdir(_nbdir1)
+                                             if path.endswith('.ipynb')]
 
 
 @pytest.mark.parametrize("file", _notebooks)
