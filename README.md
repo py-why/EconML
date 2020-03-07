@@ -127,7 +127,7 @@ To install from source, see [For Developers](#for-developers) section below.
 ### Estimation Methods
 
 <details>
-  <summary><a href="#references">Double Machine Learning</a> (click to expand)</summary>
+  <summary>Double Machine Learning (click to expand)</summary>
 
   * Linear final stage
 
@@ -172,10 +172,11 @@ To install from source, see [For Developers](#for-developers) section below.
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
   lb, ub = est.effect_interval(X_test, alpha=0.05)
   ```
+
 </details>
 
 <details>
-  <summary><a href="#references">Orthogonal Random Forests</a> (click to expand)</summary>
+  <summary>Orthogonal Random Forests (click to expand)</summary>
 
   ```Python
   from econml.ortho_forest import ContinuousTreatmentOrthoForest
@@ -197,7 +198,7 @@ To install from source, see [For Developers](#for-developers) section below.
 
 <details>
 
-<summary><a href="#references">Meta-Learners</a> (click to expand)</summary>
+<summary>Meta-Learners (click to expand)</summary>
   
   * XLearner
 
@@ -241,7 +242,7 @@ To install from source, see [For Developers](#for-developers) section below.
 </details>
 
 <details>
-<summary><a href="#references">Doubly Robust Learners</a> (click to expand)
+<summary>Doubly Robust Learners (click to expand)
 </summary>
 
 * Linear final stage
@@ -285,24 +286,7 @@ lb, ub = est.effect_interval(X_test, alpha=0.05)
 </details>
 
 <details>
-<summary><a href="#references">Orthogonal Instrumental Variables</a> (click to expand)</summary>
-
-* Double Machine Learning IV
-
-```Python
-from econml.ortho_iv import DMLIV
-from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
-from sklearn.linear_model import LinearRegression
-
-est = DMLIV(model_Y_X=GradientBoostingRegressor(),
-            model_T_X=GradientBoostingClassifier(),
-            model_T_XZ=GradientBoostingClassifier(),
-            model_final=LinearRegression(),
-            discrete_instrument=False, 
-            discrete_treatment=True)
-est.fit(Y, T, Z, X)
-treatment_effects = est.effect(X_test)
-```
+<summary>Orthogonal Instrumental Variables (click to expand)</summary>
 
 * Intent to Treat Doubly Robust Learner (discrete instrument, discrete treatment)
 
@@ -322,7 +306,7 @@ lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 </details>
 
 <details>
-<summary><a href="#references">Deep Instrumental Variables</a> (click to expand)</summary>
+<summary>Deep Instrumental Variables (click to expand)</summary>
 
 ```Python
 import keras
@@ -350,6 +334,8 @@ est.fit(Y, T, X, Z) # Z -> instrumental variables
 treatment_effects = est.effect(X_test)
 ```
 </details>
+
+ See the <a href="#references">References</a> section for more details.
 
 ### Interpretability
 * Tree Interpreter of the CATE model
@@ -468,6 +454,10 @@ D. Foster, V. Syrgkanis.
 M. Oprescu, V. Syrgkanis and Z. S. Wu.
 **Orthogonal Random Forest for Causal Inference.**
 [*Proceedings of the 36th International Conference on Machine Learning (ICML)*](http://proceedings.mlr.press/v97/oprescu19a.html), 2019.
+
+S. Künzel, J. Sekhon, J. Bickel and B. Yu.
+**Metalearners for estimating heterogeneous treatment effects using machine learning.**
+[*Proceedings of the national academy of sciences, 116(10), 4156-4165*](https://www.pnas.org/content/116/10/4156), 2019.
 
 V. Chernozhukov, D. Nekipelov, V. Semenova, V. Syrgkanis.
 **Plug-in Regularized Estimation of High-Dimensional Parameters in Nonlinear Semiparametric Models.**
