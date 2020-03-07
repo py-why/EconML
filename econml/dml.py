@@ -633,7 +633,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                          n_splits=n_splits,
                          random_state=random_state)
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, inference=None):
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -649,6 +649,9 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
+        sample_var: optional (n, n_y) vector
+            Variance of sample, in case it corresponds to summary of many samples. Currently
+            not in use by this method but will be supported in a future release.
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'debiasedlasso'
@@ -659,7 +662,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         self
         """
         # TODO: support sample_var
-        if sample_weight is not None and inference is not None:
+        if sample_var is not None and inference is not None:
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,

@@ -117,7 +117,8 @@ class TestDML(unittest.TestCase):
                                                                    fit_cate_intercept=fit_cate_intercept,
                                                                    discrete_treatment=is_discrete),
                                       True,
-                                      [None, 'debiasedlasso']),
+                                      [None, 'debiasedlasso'] +
+                                      ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
                                      (KernelDMLCateEstimator(model_y=WeightedLasso(),
                                                              model_t=model_t,
                                                              fit_cate_intercept=fit_cate_intercept,
