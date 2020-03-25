@@ -1,0 +1,40 @@
+﻿2020-03-25
+	*	Documentation on EconML icon
+	*	Getting Started Page
+			Need to implement design changes in Figma
+	*	Causal How To Page
+			Fix sharepoint online slide deck sign in for external users
+			Image map on Library Flow
+			Add expand/collapse design elements
+	*	Pubication Page
+			Add 2020 publications
+	*	Use Casees Page
+			Add links to Jupyter Notebooks
+			Add link to TP case study
+	*	New Page
+			Not implemented yet...
+	*	FAQ Page	
+			Add expand/collapse design elements
+			Add FAQ items
+
+	*	Compliance - Release Tracker
+			Accessibility
+				Run Automated Test
+					HTML Code Validator
+					Fast Past
+			Global Readiness
+				Language in Text and Code Check
+				Image and non-text content
+			License & Legal
+				Terms of Use...
+			Privacy 
+				Cookies
+				GDPR checkin
+			Publising
+				Final and Test URL
+			Security
+				Create a threat model
+				Source Code Handling
+				Code and Binary Static Analysis
+
+				
