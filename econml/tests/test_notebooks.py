@@ -12,7 +12,8 @@ _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
 _nbsubdirs = ['.', 'CustomerScenarios']  # TODO: add AutoML notebooks
 _notebooks = [
     os.path.join(subdir, path) for subdir
-    in _nbsubdirs for path in os.listdir(os.path.join(_nbdir, subdir)) if path.endswith('.ipynb')]
+    in _nbsubdirs for path in os.listdir(os.path.join(_nbdir, subdir)) if
+    (path.endswith('.ipynb') and "dowhy" not in path.lower())]  # TODO: test DoWhy notebooks
 
 
 @pytest.mark.parametrize("file", _notebooks)
