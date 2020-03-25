@@ -4,8 +4,9 @@
 from econml.bootstrap import BootstrapEstimator
 from econml.inference import BootstrapInference
 from econml.dml import LinearDMLCateEstimator
+from econml.ortho_iv import LinearIntentToTreatDRIV
 from econml.two_stage_least_squares import NonparametricTwoStageLeastSquares
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures
 import numpy as np
 import unittest
@@ -265,3 +266,31 @@ class TestBootstrap(unittest.TestCase):
 
         # TODO: test that the estimated effect is usually within the bounds
         #       and that the true effect is also usually within the bounds
+
+    def test_stratify(self):
+        """Test that we can properly stratify by treatment"""
+        T = [1, 0, 1, 2, 0, 2]
+        Y = [1, 2, 3, 4, 5, 6]
+        X = np.array([1, 1, 2, 2, 1, 2]).reshape(-1, 1)
+        est = LinearDMLCateEstimator(model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True)
+        inference = BootstrapInference(n_bootstrap_samples=5)
+        est.fit(Y, T, inference=inference)
+        est.const_marginal_effect_interval()
+
+        est.fit(Y, T, X=X, inference=inference)
+        est.const_marginal_effect_interval(X)
+
+        est.fit(Y, np.asarray(T).reshape(-1, 1), inference=inference)  # test stratifying 2D treatment
+        est.const_marginal_effect_interval()
+
+    def test_stratify_orthoiv(self):
+        """Test that we can properly stratify by treatment/instrument pair"""
+        T = [1, 0, 1, 1, 0, 0, 1, 0]
+        Z = [1, 0, 0, 1, 0, 1, 0, 1]
+        Y = [1, 2, 3, 4, 5, 6, 7, 8]
+        X = np.array([1, 1, 2, 2, 1, 2, 1, 2]).reshape(-1, 1)
+        est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(), model_T_XZ=LogisticRegression(),
+                                      flexible_model_effect=LinearRegression(), n_splits=2)
+        inference = BootstrapInference(n_bootstrap_samples=20)
+        est.fit(Y, T, Z, X=X, inference=inference)
+        est.const_marginal_effect_interval(X)

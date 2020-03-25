@@ -46,7 +46,8 @@ class BootstrapEstimator:
         This option only affects behavior if `compute_means` is set to ``True``.
     """
 
-    def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None, compute_means=True, prefer_wrapped=False):
+    def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None,
+                 compute_means=True, prefer_wrapped=False):
         self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
@@ -55,21 +56,49 @@ class BootstrapEstimator:
 
     # TODO: Add a __dir__ implementation?
 
+    @staticmethod
+    def __stratified_indices(arr):
+        assert 1 <= np.ndim(arr) <= 2
+        unique = np.unique(arr, axis=0)
+        indices = []
+        for el in unique:
+            ind, = np.where(np.all(arr == el, axis=1) if np.ndim(arr) == 2 else arr == el)
+            indices.append(ind)
+        return indices
+
     def fit(self, *args, **named_args):
         """
         Fit the model.
 
         The full signature of this method is the same as that of the wrapped object's `fit` method.
         """
-        n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
-        indices = np.random.choice(n_samples, size=(self._n_bootstrap_samples, n_samples), replace=True)
+        from .cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
+
+        index_chunks = None
+        if isinstance(self._instances[0], BaseCateEstimator):
+            index_chunks = self._instances[0]._strata(*args, **named_args)
+            if index_chunks is not None:
+                index_chunks = self.__stratified_indices(index_chunks)
+        if index_chunks is None:
+            n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
+            index_chunks = [np.arange(n_samples)]  # one chunk with all indices
+
+        indices = []
+        for chunk in index_chunks:
+            n_samples = len(chunk)
+            indices.append(chunk[np.random.choice(n_samples,
+                                                  size=(self._n_bootstrap_samples, n_samples),
+                                                  replace=True)])
+
+        indices = np.hstack(indices)
 
         def fit(x, *args, **kwargs):
             x.fit(*args, **kwargs)
             return x  # Explicitly return x in case fit fails to return its target
 
         def convertArg(arg, inds):
-            return arg[inds] if arg is not None else None
+            return np.asarray(arg)[inds] if arg is not None else None
+
         self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
             delayed(fit)(obj,
                          *[convertArg(arg, inds) for arg in args],
@@ -84,6 +113,11 @@ class BootstrapEstimator:
 
         Additionally, the suffix "_interval" is supported for getting an interval instead of a point estimate.
         """
+
+        # don't proxy special methods
+        if name.startswith('__'):
+            raise AttributeError(name)
+
         def proxy(make_call, name, summary):
             def summarize_with(f):
                 return summary(np.array(Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(

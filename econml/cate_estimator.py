@@ -8,7 +8,6 @@ import numpy as np
 from functools import wraps
 from copy import deepcopy
 from warnings import warn
-from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
@@ -41,6 +40,21 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         #   est1.effect_interval(...)
         # because inf now stores state from fitting est2
         return deepcopy(inference)
+
+    def _strata(self, Y, T, *args, **kwargs):
+        """
+        Get an array of values representing strata that should be preserved by bootstrapping.  For example,
+        if treatment is discrete, then each bootstrapped estimator needs to be given at least one instance
+        with each treatment type.  For estimators like DRIV, then the same is true of the combination of
+        treatment and instrument.  The arguments to this method will match those to fit.
+
+        Returns
+        -------
+        strata : array or None
+            A vector with the same number of rows as the inputs, where the unique values represent
+            the strata that need to be preserved by bootstrapping, or None if no preservation is necessary.
+        """
+        return None
 
     def _prefit(self, Y, T, *args, **kwargs):
         self._d_y = np.shape(Y)[1:]

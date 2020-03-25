@@ -103,11 +103,7 @@ class TestDML(unittest.TestCase):
 
                                 model_t = LogisticRegression() if is_discrete else Lasso()
 
-                                # TODO: add stratification to bootstrap so that we can use it
-                                # even with discrete treatments
-                                all_infs = [None, 'statsmodels']
-                                if not is_discrete:
-                                    all_infs.append(BootstrapInference(1))
+                                all_infs = [None, 'statsmodels', BootstrapInference(1)]
 
                                 for est, multi, infs in\
                                     [(DMLCateEstimator(model_y=Lasso(),
