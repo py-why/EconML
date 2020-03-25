@@ -52,6 +52,7 @@ class BootstrapInference(Inference):
         self._n_jobs = n_jobs
 
     def fit(self, estimator, *args, **kwargs):
+        discrete_treatment = estimator._discrete_treatment if hasattr(estimator, '_discrete_treatment') else False
         est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, compute_means=False)
         est.fit(*args, **kwargs)
         self._est = est

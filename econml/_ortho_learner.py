@@ -494,6 +494,22 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 non_none_kwargs[key] = value
         return non_none_kwargs
 
+    def _strata(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None):
+        if self._discrete_instrument:
+            Z = LabelEncoder().fit_transform(np.ravel(Z))
+
+        if self._discrete_treatment:
+            enc = LabelEncoder()
+            T = enc.fit_transform(np.ravel(T))
+            if self._discrete_instrument:
+                return T + Z * len(enc.classes_)
+            else:
+                return T
+        elif self._discrete_instrument:
+            return Z
+        else:
+            return None
+
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, *, inference=None):
         """
@@ -540,6 +556,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         # use a binary array to get stratified split in case of discrete treatment
         stratify = self._discrete_treatment or self._discrete_instrument
+        strata = self._strata(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
+        if strata is None:
+            strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
 
         if self._discrete_treatment:
             T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
@@ -547,20 +566,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if self._discrete_instrument:
             z_enc = LabelEncoder()
             Z = z_enc.fit_transform(Z.ravel())
-
-            if self._discrete_treatment:  # need to stratify on combination of Z and T
-                to_split = inverse_onehot(T) + Z * len(self._one_hot_encoder.categories_[0])
-            else:
-                to_split = Z  # just stratify on Z
-
             z_ohe = OneHotEncoder(categories='auto', sparse=False, drop='first')
             Z = z_ohe.fit_transform(reshape(Z, (-1, 1)))
             self.z_transformer = FunctionTransformer(
                 func=_EncoderWrapper(z_ohe, z_enc).encode,
                 validate=False)
         else:
-            # stratify on T if discrete, and fine to pass T as second arg to KFold.split even when not
-            to_split = inverse_onehot(T) if self._discrete_treatment else T
             self.z_transformer = None
 
         if self._n_splits == 1:  # special case, no cross validation
@@ -575,9 +586,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             all_vars = [var if np.ndim(var) == 2 else var.reshape(-1, 1) for var in [Z, W, X] if var is not None]
             if all_vars:
                 all_vars = np.hstack(all_vars)
-                folds = splitter.split(all_vars, to_split)
+                folds = splitter.split(all_vars, strata)
             else:
-                folds = splitter.split(np.ones((T.shape[0], 1)), to_split)
+                folds = splitter.split(np.ones((T.shape[0], 1)), strata)
 
         if self._discrete_treatment:
             self._d_t = shape(T)[1:]
