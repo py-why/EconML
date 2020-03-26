@@ -1,5 +1,5 @@
 ﻿2020-03-25
-	*	Documentation on EconML icon
+	*	Documentation on EconML icon - Done
 	*	Getting Started Page
 			Need to implement design changes in Figma
 	*	Causal How To Page

@@ -12,6 +12,21 @@ a {
     color: #0366d6;
 }
 
+p {
+    font-family: Segoe UI;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 20px;
+}
+
+h1 {
+    font-family: Segoe UI;
+    font-style: normal;
+    font-weight: 600;
+    font-size: 24px;
+}
+
+
 .btn-primary {
     color: #fff;
     background-color: #1b6ec2;
@@ -193,10 +208,9 @@ table.tblclmn {
 }
 
 .econmlcontainer code {
-    font-family: SFMono-Regular,Consolas,Liberation Mono,Menlo,monospace;
+    font-family: IBM Plex Mono;
     padding: .2em .4em;
     margin: 0;
-    font-size: 85%;
     background-color: #f6f8fa;
     color: #000000;
     border-radius: 3px;
@@ -222,3 +236,62 @@ div.fqacontentContainer {
     margin-left: 20px;
 }
 
+div.qicontainer {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    background: rgba(255, 147, 73, 0.08);
+    border: 1px solid rgba(255, 147, 73, 0.4);
+    box-sizing: border-box;
+    border-radius: 4px;
+}
+
+div.qicol {
+    position: relative;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+div.qitext {
+    min-width: 300px;
+    width: 100%;
+    padding: 30px 0px 0px 0px;
+}
+
+div.qiicon {
+    width: 130px;
+    padding: 35px 35px 35px 35px;
+}
+
+.qitext a:link {
+    color: #F47218;
+}
+.qitext {
+    color: #F47218;
+}
+
+.qitext code {
+    font-family: IBM Plex Mono;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 20px;
+    line-height: 28px;
+    /* Orange */
+    color: #F47218;
+    background-color: #FFEADC;
+    /* Inside Auto Layout */
+    flex: none;
+    order: 0;
+    align-self: center;
+    margin: 0px 3px;
+    border-radius: 2px;
+}
+
+div.envcontainer {
+    padding: 30px 30px 30px 30px;
+    background: #F2F9FF;
+    border: 1px solid #9AD3FE;
+    box-sizing: border-box;
+    border-radius: 4px;
+    /* Link */
+    color: #0078D4;
+}
