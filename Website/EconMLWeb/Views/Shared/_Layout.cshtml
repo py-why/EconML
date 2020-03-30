@@ -56,35 +56,22 @@
     <!--
     -- Toggle then next div visiable
     -->
+    <script src="~/js/util.js"></script>
     <script type="text/javascript">
         function toggleContents(elm) {
             var contentContainer = elm.parentNode.getElementsByTagName("div")[1];
             contentContainer.style.display = (contentContainer.style.display == 'block') ? 'none' : 'block';
+            Util.toggleClass(elm, 'faq_item-visible', (contentContainer.style.display == 'block'));
         }
 
     </script>
 
     <style type="text/css" id="econmlnav">
 
-        .econmlnavbar {
-            float: right;
-        }
-
-
-        .nav-item a {
-            font-family: Segoe UI;
-            font-style: normal;
-            font-weight: normal;
-            font-size: 16px;
-            line-height: 20px;
-        }
     </style>
 </head>
-
 <body>
     <header class="c-uhfh context-uhf c-sgl-stck c-category-headerjs bg-white">
-
-
         <div class="theme-light js-global-head f-closed global-head-cont">
             <div class="c-uhfh-gcontainer-st">
                 <a id="uhfLogo" class="c-logo c-sgl-stk-uhfLogo" itemprop="url" href="https://www.microsoft.com" aria-label="Microsoft" data-m="{&quot;cN&quot;:&quot;GlobalNav_Logo_cont&quot;,&quot;cT&quot;:&quot;Container&quot;,&quot;id&quot;:&quot;c3c4c1m1r1a1&quot;,&quot;sN&quot;:3,&quot;aN&quot;:&quot;c4c1m1r1a1&quot;}">
@@ -165,7 +152,7 @@
                     </div>
                 </nav>
             </div>
-            </div>
+        </div>
     </header>
     <main class="picchu project" data-bi-area="body" awa-sitesection="project single" id="main" role="main">
         <header class="picchu project msr-banner bg-center margin-bottom-sp6" style="background-image: url(&#39;https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/MSR-ALICE-HeaderGraphic-1920x720_1.jpg&#39;)" data-bi-name="hero" aria-label="msr-banner">
@@ -183,7 +170,8 @@
                 </div>
                 <div class="econMLgitnav ms-grid">
                     <p class="linkbutton">
-                        <a href="https://github.com/Microsoft/EconML" target="_blank">EconML on GitHub &nbsp;<img src="~/img/GitHub-Mark-Light-32px.png" alt="Github"></a> <a href="~/docs/" target="_blank">Documentation on EconML &nbsp;<img src="~/img/imgLightDocument.png" alt="Documentation"></a>
+                        <a href="https://github.com/Microsoft/EconML" target="_blank">EconML on GitHub &nbsp;<img src="~/img/GitHub-Mark-Light-32px.png" alt="Github"></a> 
+                        <a href="~/docs/index.html" target="_blank">Documentation on EconML &nbsp;<img src="~/img/imgLightDocument.png" alt="Documentation"></a>
                     </p>
                 </div>
             </div>
@@ -206,17 +194,17 @@
                 </section>
             </div>
         </div>
-
         <footer class="border-top footer">
             <div class="ms-grid">
                 <div class="l-col-22-24">
                     <div class="container">
                         <div class="footermenu">
                             <span class="ftrgitnav linkbutton">
-                                <a href="https://github.com/Microsoft/EconML" target="_blank">EconML on GitHub &nbsp;<img src="~/img/GitHub-Mark-32px.png" alt="Github"></a> <a href="~/docs/" target="_blank">Documentation on EconML &nbsp; <img src="~/img/imgDocumentation.png" alt="Documentation" /></a>
+                                <a href="https://github.com/Microsoft/EconML" target="_blank">EconML on GitHub &nbsp;<img src="~/img/GitHub-Mark-32px.png" alt="Github"></a> 
+                                <a href="~/docs/index.html" target="_blank">Documentation on EconML &nbsp; <img src="~/img/imgDocumentation.png" alt="Documentation" /></a>
                             </span>
-                            <a href="https://go.microsoft.com/fwlink/?LinkId=521839">Privacy &amp; cookies</a> &nbsp;-&nbsp;
-                            <a href="https://www.microsoft.com/en-us/research/">Microsoft Research</a> &nbsp;-&nbsp;
+                            <a href="https://go.microsoft.com/fwlink/?LinkId=521839" target="_blank">Privacy &amp; cookies</a> &nbsp;-&nbsp;
+                            <a href="https://www.microsoft.com/en-us/research/" target="_blank">Microsoft Research</a> &nbsp;-&nbsp;
                             <span id="cpywrght">&copy; Microsoft 2020</span>
                         </div>
                     </div>

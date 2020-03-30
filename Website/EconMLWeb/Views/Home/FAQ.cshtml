@@ -3,47 +3,31 @@
     ViewData["Title"] = "FAQ";
     ViewData["Headline"] = "FAQ";
 }
-<!-- 
-  -- Toggle then next div visiable 
-  -->
-<script type="text/javascript">
-    function toggleContents(elm) {
-        var contentContainer = elm.parentNode.getElementsByTagName("div")[1];
-        contentContainer.style.display = (contentContainer.style.display == 'block') ? 'none' : 'block';
-    }
-</script>
 <!--
-  -- CSS Styles for this specific page    
+  -- CSS Styles for this specific page
 -->
 <style type="text/css" id="faqcss">
 
-div.fqacontentContainer {
-    display: none;
-}
-.fqacontentContainer p {
-    margin-left: 20px;
-}
 </style>
 
-
-    <h1 > Frequently Asked Questions</h1 >
-
-    <div class="faqSection" >
-        <ul class="faqList">
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)">
-                    What if I don’t have a good instrument, can’t run an experiment, and don’t observe all confounders?
-                </div>
+<h1> Frequently Asked Questions</h1>
+<div class="faqSection">
+    <ul class="faqList">
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What if I don’t have a good instrument, can’t run an experiment, and don’t observe all confounders?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         In this case, no statistical approach can perfectly isolate the causal effect of the treatment on the outcome. DML, OrthoForest, or MetaLearners, all including all the confounders you can observe, will deliver the best approximation of the causal effect that minimizes the bias from confounders. Be aware of some remaining bias when using these estimates
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)">How do I give feedback?</div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>How do I give feedback?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         This project welcomes contributions and suggestions.  Most contributions require you to agree to a
@@ -61,78 +45,87 @@ div.fqacontentContainer {
                         contact <a href="mailto:opencode@microsoft.com">opencode@microsoft.com</a> with any additional questions or comments.
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)"> What is EconML?</div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)"> Who is Alice?</div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)"> How do I get help?</div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)"> What is a cofounder?</div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)"> What is EconML?</div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)"> What is EconML?</div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)"> What is EconML?</div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
                     </p>
                 </div>
-            </li>
-            <!-- ------------------------------------------------------------------------------ -->
-            <li class="faqItem">
-                <div class="faqtitleContainer" onclick="toggleContents(this)"> What is EconML?</div>
-                <div class="fqacontentContainer">
-                    <p>
-                        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-                    </p>
-                </div>
-            </li>
-        </ul>
-    </div >
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <!-- ------------------------------------------------------------------------------ -->
+    </ul>
+</div>
+
