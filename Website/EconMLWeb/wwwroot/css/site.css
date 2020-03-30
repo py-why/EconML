@@ -8,24 +8,6 @@ a.navbar-brand {
 }
 
 /* Provide sufficient contrast against white background */
-a {
-    color: #0366d6;
-}
-
-p {
-    font-family: Segoe UI;
-    font-style: normal;
-    font-weight: normal;
-    font-size: 20px;
-}
-
-h1 {
-    font-family: Segoe UI;
-    font-style: normal;
-    font-weight: 600;
-    font-size: 24px;
-}
-
 
 .btn-primary {
     color: #fff;
@@ -68,6 +50,9 @@ button.accept-policy {
     line-height: inherit;
 }
 
+
+/* Shared _Layout Page CSS*/
+
 /* Sticky footer styles
 -------------------------------------------------- */
 html {
@@ -88,7 +73,16 @@ body {
     line-height: 60px; /* Vertically center the text there */
     background: #F6F6F6;
 }
-
+.econmlnavbar {
+    float: right;
+}
+.nav-item a {
+    font-family: Segoe UI;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 16px;
+    line-height: 20px;
+}
 .footermenu {
     align-content: center;
     text-align: right;
@@ -143,8 +137,6 @@ div.econMLgitnav {
     padding-bottom: 8px;
 }
 
-
-
 h1.headline {
     font-family: Segoe UI !important;
     font-style: normal !important;
@@ -152,45 +144,6 @@ h1.headline {
     font-size: 68px !important;
     line-height: 76px !important;
 }
-
-.ovrvwtbl td {
-    width: 33%;
-}
-
-.ovrvwtbl table {
-    width: 100%;
-}
-
-.tblclmn img {
-    padding-bottom: 50px;
-}
-
-td.ovrvwclmn {
-    padding: 10px 10px 10px 10px;
-}
-
-div.tblclmn {
-    padding: 10px 10px 10px 10px;
-    border-top-color: #E5E5E5;
-    border-top-style: solid;
-    border-top-width: 1px;
-    border-right-color: #E5E5E5;
-    border-right-style: solid;
-    border-right-width: 1px;
-    border-bottom-color: #E5E5E5;
-    border-bottom-style: solid;
-    border-bottom-width: 1px;
-    border-left-color: #E5E5E5;
-    border-left-style: solid;
-    border-left-width: 1px;
-    box-sizing: border-box;
-    border-radius: 4px;
-}
-
-table.tblclmn {
-    height: 100%;
-}
-
 .ms-row h1 {
     font-family: Segoe UI;
     font-style: normal;
@@ -219,7 +172,6 @@ table.tblclmn {
 .econmlcontainer pre {
     padding: 16px;
     overflow: auto;
-    font-size: 85%;
     line-height: 1.45;
     background-color: #f6f8fa;
     border-radius: 3px;
@@ -228,6 +180,66 @@ table.tblclmn {
     margin: 1em 0px;
 }
 
+/* ******************/
+/* Overview Page CSS*/
+/* ******************/
+div.usecasegrid {
+    display: grid;
+    grid-gap: 16px 16px;
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+a.usecasegrid {
+    color: black;
+}
+
+div.ovrvwgrid {
+    display: grid;
+    grid-gap: 16px 16px;
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+div.gridclmn {
+    display: inline-flex;
+    position: relative;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+div.col-m0 {
+    margin: 0,0,0,0;
+}
+
+div.col-align {
+    align-items: stretch;
+    justify-content: start;
+}
+
+div.col-brd-p16 {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    padding: 16px;
+    overflow: hidden;
+    background: transparent;
+    flex-direction: column;
+    line-height: 20px;
+    box-sizing: border-box !important;
+    border-radius: 4px;
+    border: 1px solid #e5e5e5;
+}
+
+div.pd00005000 {
+    padding: 0px 0px 50px 0px;
+}
+
+
+
+table.tblclmn {
+    height: 100%;
+}
+
+/* FAQ Page CSS */
 div.fqacontentContainer {
     display: none;
 }
@@ -235,7 +247,7 @@ div.fqacontentContainer {
 .fqacontentContainer p {
     margin-left: 20px;
 }
-
+/* Getting Started CSS */
 div.qicontainer {
     display: grid;
     grid-template-columns: 130px 1fr;
@@ -295,3 +307,86 @@ div.envcontainer {
     /* Link */
     color: #0078D4;
 }
+/* 
+-- CSS Styles for FAQ page
+-->
+*/
+.faqList a {
+    color: #323130;
+}
+
+.faqList a:link {
+    text-decoration: none;
+}
+
+li.faqItem {
+    list-style-type: none;
+    padding: 24px 30px 24px 30px;
+    border: 1px solid #E5E5E5;
+    box-sizing: border-box;
+    border-radius: 4px;
+}
+
+.faqItem {
+    padding: 10px 20px 10px 20px;
+}
+
+
+
+div.faqtitleContainer {
+}
+
+div.fqacontentContainer {
+    display: none;
+}
+
+.fqacontentContainer p {
+    margin-left: 20px;
+}
+.faq_trigger {
+    font-family: Segoe UI;
+    font-style: normal;
+    font-weight: normal;
+    font-size: 20px;
+    line-height: 28px;
+}
+.faq_trigger::before, .faq_trigger::after {
+    content: '';
+    position: absolute;
+    right: 24px;
+    height: 2px;
+    width: 13px;
+    background-color: black;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transition: -webkit-transform .2s;
+    transition: transform .2s;
+    transition: transform .2s, -webkit-transform .2s
+}
+
+.faq_trigger::before {
+    -webkit-transform: rotate(45deg);
+    -ms-transform: rotate(45deg);
+    transform: rotate(45deg);
+    right: 32px
+}
+
+.faq_trigger::after {
+    -webkit-transform: rotate(-45deg);
+    -ms-transform: rotate(-45deg);
+    transform: rotate(-45deg)
+}
+
+.faq_item-visible .faq_trigger::before {
+    -webkit-transform: rotate(-45deg);
+    -ms-transform: rotate(-45deg);
+    transform: rotate(-45deg)
+}
+
+.faq_item-visible .faq_trigger::after {
+    -webkit-transform: rotate(45deg);
+    -ms-transform: rotate(45deg);
+    transform: rotate(45deg)
+}
+/******************************************************************/
+

@@ -1,27 +1,27 @@
 ﻿2020-03-25
 	*	Documentation on EconML icon - Done
-	*	Getting Started Page
-			Need to implement design changes in Figma
+	*	Getting Started Page - Done
+			Need to implement design changes in Figma -Done
 	*	Causal How To Page
 			Fix sharepoint online slide deck sign in for external users
 			Image map on Library Flow
-			Add expand/collapse design elements
+			Add expand/collapse design elements - Done
 	*	Pubication Page
-			Add 2020 publications
+			Add 2020 publications - NA
 	*	Use Casees Page
 			Add links to Jupyter Notebooks
 			Add link to TP case study
-	*	New Page
+	*	News Page
 			Not implemented yet...
 	*	FAQ Page	
-			Add expand/collapse design elements
+			Add expand/collapse design elements - Done
 			Add FAQ items
 
 	*	Compliance - Release Tracker
 			Accessibility
 				Run Automated Test
 					HTML Code Validator
-					Fast Past
+					Fast Past - Started...
 			Global Readiness
 				Language in Text and Code Check
 				Image and non-text content
@@ -31,10 +31,10 @@
 				Cookies
 				GDPR checkin
 			Publising
-				Final and Test URL
+				Final and Test URL - Done
 			Security
 				Create a threat model
 				Source Code Handling
 				Code and Binary Static Analysis
-
-				
+2020-03-27 
+		* Fix Documentation link to https://econml-dev.azurewebsites.net/docs/index.html
