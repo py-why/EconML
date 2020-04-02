@@ -3,38 +3,177 @@
     ViewData["Title"] = "News";
     ViewData["Headline"] = "News";
 }
+<!--
+  -- CSS Styles for this specific page
+-->
+<style type="text/css" id="newscss">
+    div.newscontainer {
+        border: 1px solid #E5E5E5;
+        box-sizing: border-box;
+        border-radius: 4px;
+        max-width: 1020px;
+        margin-bottom: 20px;
+    }
+    .newsdate {
+        font-size: 20px !important;
+        line-height: 28px;
+        padding: 2px,2px,2px 2px;
+    }
+   
+    div.newsitem {
+        padding: 40px 40px 40px 40px;
+    }
 
-<h1>News</h1>
+    .newsheader {
+    }
+    .newstitlecontainer{
+        display: grid;
+        grid-template-columns: 130px 1fr;
+    }
+    .newstitleicon {
+            position: relative;
+            min-width: 32px;
+            min-height: 32px;
+    }
+    .newstitle {
+        min-width: 300px;
+        width: 100%;
+        padding: 30px 0px 0px 0px;
+        font-weight: 600;
+    }
+    .newsdate {
+        padding-top: 10px; 
+    }
+    .newscontent {
+        margin-top: 20px;
+    }
+</style>
+<section id="news" class="c-tabs__tabpanel padding-top-sp3 tab-overview" data-bi-name="news" role="tabpanel" aria-labelledby="news" aria-hidden="false" style="visibility: visible;">
+    <div class="newssection">
+        <!-- News Article ************************************************* -->
+        <div class="newscontainer n-type-code">
+            <div class="newsimage">
+                <img src="~/img/imgCodeAnnouncement.png" />
+            </div>
+            <div class="newsitem">
+                <div class="newsheader">
+                    <div class="newstitlecontainer">
+                        <div class="newstitleicon">
+                            <img src="~/img/imgCurlyBrackets.png" alt="Curly Brackets" />
+                        </div>
+                        <div class="newstitle">
+                            <h1>
+                                EconML Code Release v0.7.0
+                            </h1>
+                        </div>
+                    </div>
+                    <div class="newsdateloc">
+                        <img src="~/img/imgDate.png" />&nbsp;
+                        <span class="newsdate">
+                            March 06, 2020
+                        </span>
+                    </div>
+                </div>
+                <div class="newscontent">
+                    <p>
+                        This is a major release, see release notes <a href="https://github.com/Microsoft/EconML/releases/tag/v0.7.0" target="_blank">here.</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <!-- News Article ************************************************* -->
+        <div class="newscontainer n-type-ref">
+            <div class="newsimage"></div>
+            <div class="newsitem">
+                <div class="newsheader">
+                    <div class="newstitlecontainer">
+                        <div class="newstitleicon">
+                            <img src="~/img/imgWeb.png" alt="WWW Symbol" />
+                        </div>
+                        <div class="newstitle">
+                            <h1>
+                                Introduction to EconML Packages (meta-learners)
+                            </h1>
+                            <p>via https://usaito.hatenablog.com/ </p>
+                        </div>
+                    </div>
+                    <div class="newsdateloc">
+                        <img src="~/img/imgDate.png" />&nbsp;
+                        <span class="newsdate">
+                            April 07, 2019
+                        </span>
+                   
+                    </div>
+                </div>
+                <div class="newscontent">
+                    <p>
+                        In recent years, research in the fusion of econometrics and machine learning has been booming. For example, related Tutorials are held in KDD2018 and NeurIPS2018.
+                        As one of the trends, Microsoft Research has published a package called EconML, and I thought it would be very useful, so I'll briefly introduce it. <a href="https://usaito.hatenablog.com/entry/2019/04/07/205756" target="_blank">More...</a>
+                    </p>
+                </div>
+            </div>
 
-<div class="news">
-    <p>
-        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-    </p>
-    <p>
-        Cu duo clita dicam, illud probatus ei est. Et est aperiri quaestio necessitatibus, cu mnesarchum deterruisset eos. Duo essent volutpat et, et mel appareat maluisset. Malis euripidis hendrerit cum et, appetere corrumpit eu has. Graece evertitur ea est, te possit dissentias est. Vim no fuisset elaboraret, no eos utamur iudicabit patrioque.
-    </p>
-    <p>
-        Ex vim vero graece similique, sit vituperata scripserit ea, insolens interesset id mel. Ea eripuit indoctum maluisset sed. Pro audiam luptatum nominati ei, usu at elit prodesset efficiantur, ei his autem accusata. At eum quando everti hendrerit, ut quas nostro concludaturque sea. Laoreet eloquentiam mea ea, no sit dolore inermis deserunt, vel cu porro aliquid. Cu pri suas voluptaria.
-    </p>
-    <p>
-        Vitae sapientem ut sed, te his ullum liber. Nisl facer dolorum quo ut, cu sale appellantur his. Vix erant percipit disputando et, eu vis quaestio scriptorem. Id eius deleniti mea, nam te tale duis, hinc scaevola ut mel. Autem libris ut sit.
-    </p>
-    <p>
-        Eam ridens oblique ut, nec ne vide essent. Ad ridens laoreet indoctum sea. Putant aliquip argumentum ne nam. Errem tempor scribentur sed te, mei atqui tractatos similique et. Legere epicurei conclusionemque sed at, has aeque possim torquatos at.
-    </p>
-    <p>
-        Per agam possim euismod ei, debet dicam et est, an sea melius vidisse. Per in menandri forensibus complectitur. Eum omnis inani libris at, ad vim modus latine equidem. Mel putent feugiat utroque an, an munere nonumy philosophia mea. His te facer dicit. Bonorum perpetua ei eos.
-    </p>
-    <p>
-        Mei at iusto periculis. Id nam altera putant, populo partiendo moderatius quo id. Vim te adolescens delicatissimi. In duo feugiat deserunt moderatius. Cum et stet novum recusabo, zril dissentias no pri, ea saperet appareat sed.
-    </p>
-    <p>
-        Per id suas summo detraxit. Ancillae tractatos deseruisse ne ius, has et prompta antiopam. Ludus vocibus est ad, quem sanctus ancillae vim ex. At vis prima urbanitas, vel iuvaret nusquam pertinacia eu. Per no omittam insolens lobortis. In eum nonumy scriptorem, ne alienum disputando mea, eam omnes alienum nostrum no.
-    </p>
-    <p>
-        Cu verterem consectetuer est, ne ocurreret expetendis qui, has zril recusabo in. Facilis sensibus disputationi eam ei, eum admodum moderatius signiferumque at, eam feugait legendos voluptatum eu. Usu copiosae eloquentiam intellegebat et, mel eu alienum deleniti. Ex nam laoreet incorrupte, impedit fuisset lucilius eu qui. Eu pri altera possit civibus, tale meis quas ei mel.
-    </p>
-    <p>
-        Ad fugit patrioque consequat eam. Usu ex amet mutat, pro quem perpetua et. Causae splendide interpretaris et per, at vix alii gubergren. An pri putant nostrum, vero simul et sit, ludus impetus qui an. Id labitur posidonium vim, his populo oporteat accommodare ex. Ei vim nemore tritani, vocent audiam sit te, dolor soluta sadipscing vim te. Ignota feugait interpretaris in nam, nec quis dicunt imperdiet cu.
-    </p>
-</div>
+        </div>
+        <!-- News Article Template ************************************************* -->
+        <div class="newscontainer n-type-announcement">
+            <div class="newsimage">
+            </div>
+            <div class="newsitem">
+                <div class="newsheader">
+                    <div class="newstitlecontainer">
+                        <div class="newstitleicon">
+                            <img src="~/img/imgMike2.png" alt="Speaker Mike" />
+                        </div>
+                        <div class="newstitle">
+                            <h1>
+                                Machine Learning Estimation of Heterogeneouse Treatement Effects: the Microsoft EconML Library Talk 
+                            </h1>
+                        </div>
+                    </div>
+                    <div class="newsdateloc">
+                        <img src="~/img/imgDate.png" />&nbsp;
+                        <span class="newsdate">
+                            May 03, 2019
+                        </span>
+                    </div>
+                </div>
+                <div class="newscontent">
+                    <p>
+                        One of the biggest promises of machine learning is the automation of decision making in a multitude of application domains.
+                        A core problem that arises in most data-driven personalized decision scenarios is the estimation of heterogeneous
+                        treatment effects: what is the effect of an intervention on an outcome of interest as a function of a set of observable
+                        characteristics of the treated sample? For instance, <a href="https://odsc.com/speakers/machine-learning-estimation-of-heterogeneous-treatment-effect-the-microsoft-econml-library/" target="_blank">More ...</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- News Article Template *************************************************
+    <div class="newscontainer n-type-announcement">
+        <div class="newsimage">
+        </div>
+        <div class="newsitem">
+            <div class="newsheader">
+                <div class="newstitlecontainer">
+                    <div class="newstitleicon">
+                    </div>
+                    <div class="newstitle">
+                        <h1>
+                        </h1>
+                    </div>
+                </div>
+                <div class="newsdateloc">
+                    <img src="~/img/imgDate.png" />&nbsp;
+                    <span class="newsdate">
+                    </span>
+                </div>
+            </div>
+            <div class="newscontent">
+                <p>
+                </p>
+            </div>
+        </div>
+    </div>
+    -->
+    </div>
+</section>
