@@ -389,4 +389,94 @@ div.fqacontentContainer {
     transform: rotate(45deg)
 }
 /******************************************************************/
+/* 
+-- CSS Styles for News page
+-->
+/******************************************************************/
 
+div.newscontainer {
+    border: 1px solid #E5E5E5;
+    box-sizing: border-box;
+    border-radius: 4px;
+    max-width: 1020px;
+    margin-bottom: 20px;
+}
+
+.newsdate {
+    font-size: 20px !important;
+    line-height: 28px;
+    padding: 2px,2px,2px 2px;
+}
+
+div.newsitem {
+    padding: 40px 40px 40px 40px;
+}
+
+.newsheader {
+}
+
+.newstitlecontainer {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+}
+
+.newstitleicon {
+    position: relative;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+.newstitle {
+    min-width: 300px;
+    width: 100%;
+    padding: 30px 0px 0px 0px;
+    font-weight: 600;
+}
+
+.newsdate {
+    padding-top: 10px;
+}
+
+.newscontent {
+    margin-top: 20px;
+}
+/******************************************************************/
+/* 
+-- CSS Styles for Usecases page
+-->
+/******************************************************************/
+div.uccontainer {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+}
+
+
+div.uccolumn {
+    display: inline-flex;
+    position: relative;
+    min-width: 32px;
+    min-height: 32px;
+}
+
+div.col-m0 {
+    margin: 0,0,0,0;
+}
+
+div.col-align {
+    align-items: stretch;
+    justify-content: start;
+}
+
+div.ucimg {
+    padding-top: 10px;
+    padding-left: 40px;
+}
+
+p.subtitletxt {
+    font-style: italic;
+    padding-top: -5px;
+}
+
+div.uccontent {
+    padding-bottom: 100px;
+}
