@@ -11,7 +11,7 @@ from warnings import warn
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
-    LinearModelFinalInferenceDiscrete, InferenceResults
+    LinearModelFinalInferenceDiscrete, NormalInferenceResults
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -380,20 +380,17 @@ class LinearCateEstimator(BaseCateEstimator):
     def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
         X, T = self._expand_treatments(X, T)
         effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
-        return tuple(np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
-                     for eff in effs)
+        if X is None:  # need to repeat by the number of rows of T to ensure the right shape
+            effs = tuple(np.repeat(eff, shape(T)[0], axis=0) for eff in effs)
+        return effs
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
     def marginal_effect_inference(self, T, X=None):
         X, T = self._expand_treatments(X, T)
         cme_inf = self.const_marginal_effect_inference(X=X)
-        pred = cme_inf.point_estimate
-        pred_stderr = cme_inf.stderr
         if X is None:
-            pred = np.repeat(pred, shape(T)[0], axis=0)
-            pred_stderr = np.repeat(pred_stderr, shape(T)[0], axis=0)
-        return InferenceResults(d_t=cme_inf.d_t, d_y=cme_inf.d_y, pred=pred,
-                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
+            cme_inf = cme_inf._expand_outputs(shape(T)[0])
+        return cme_inf
     marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
     @BaseCateEstimator._defer_to_inference

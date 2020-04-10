@@ -6,6 +6,7 @@ import unittest
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from econml.dml import LinearDMLCateEstimator
+from econml.inference import BootstrapInference
 
 
 class TestInference(unittest.TestCase):
@@ -26,21 +27,23 @@ class TestInference(unittest.TestCase):
     def test_inference_results(self):
         """Tests the inference results summary."""
         # Test inference results when `cate_feature_names` doesn not exist
-        cate_est = LinearDMLCateEstimator(
-            featurizer=PolynomialFeatures(degree=1,
-                                          include_bias=False)
-        )
-        wrapped_est = self._NoFeatNamesEst(cate_est)
-        wrapped_est.fit(
-            TestInference.Y,
-            TestInference.T,
-            TestInference.X,
-            TestInference.W,
-            inference='statsmodels'
-        )
-        summary_results = wrapped_est.summary()
-        coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-        np.testing.assert_array_equal(coef_rows, ['X{}'.format(i) for i in range(TestInference.d_x)])
+
+        for inference in [BootstrapInference(n_bootstrap_samples=5), 'statsmodels']:
+            cate_est = LinearDMLCateEstimator(
+                featurizer=PolynomialFeatures(degree=1,
+                                              include_bias=False)
+            )
+            wrapped_est = self._NoFeatNamesEst(cate_est)
+            wrapped_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            summary_results = wrapped_est.summary()
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            np.testing.assert_array_equal(coef_rows, ['X{}'.format(i) for i in range(TestInference.d_x)])
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):
