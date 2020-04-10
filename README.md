@@ -401,7 +401,7 @@ The reStructuredText files that make up the documentation are stored in the [doc
 
 * June 2019: [Treatment Effects with Instruments paper](https://arxiv.org/pdf/1905.10176.pdf)
 
-* May 2019: [Open Data Science Conference Workshop](https://staging5.odsc.com/training/portfolio/machine-learning-estimation-of-heterogeneous-treatment-effect-the-microsoft-econml-library) 
+* May 2019: [Open Data Science Conference Workshop](https://odsc.com/speakers/machine-learning-estimation-of-heterogeneous-treatment-effect-the-microsoft-econml-library/) 
 
 * 2018: [Orthogonal Random Forests paper](http://proceedings.mlr.press/v97/oprescu19a.html)
 
