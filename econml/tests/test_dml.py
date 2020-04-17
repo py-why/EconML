@@ -153,6 +153,12 @@ class TestDML(unittest.TestCase):
                                             np.testing.assert_array_equal(
                                                 marg_eff if d_x else marg_eff[0:1], const_marg_eff)
 
+                                            assert isinstance(est.score_, float)
+                                            for score in est.nuisance_scores_y:
+                                                assert isinstance(score, float)
+                                            for score in est.nuisance_scores_t:
+                                                assert isinstance(score, float)
+
                                             T0 = np.full_like(T, 'a') if is_discrete else np.zeros_like(T)
                                             eff = est.effect(X, T0=T0, T1=T)
                                             self.assertEqual(shape(eff), effect_shape)
@@ -911,3 +917,13 @@ class TestDML(unittest.TestCase):
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
+
+    def test_nuisance_scores(self):
+        X = np.random.choice(np.arange(5), size=(100, 3))
+        y = np.random.normal(size=(100,))
+        T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
+        W = np.random.normal(size=(100, 2))
+        for n_splits in [1, 2, 3]:
+            est = LinearDMLCateEstimator(n_splits=n_splits)
+            est.fit(y, T, X, W)
+            assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == n_splits

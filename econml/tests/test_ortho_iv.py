@@ -20,7 +20,7 @@ from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 
 
-class TestDML(unittest.TestCase):
+class TestOrthoIV(unittest.TestCase):
 
     def test_cate_api(self):
         """Test that we correctly implement the CATE API."""
