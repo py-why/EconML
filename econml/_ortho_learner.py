@@ -76,7 +76,7 @@ def _crossfit(model, folds, *args, **kwargs):
     -------
     nuisances : tuple of numpy matrices
         Each entry in the tuple is a nuisance parameter matrix. Each row i-th in the
-        matric corresponds to the value of the nuisancee parameter for the i-th input
+        matrix corresponds to the value of the nuisance parameter for the i-th input
         sample.
     model_list : list of objects of same type as input model
         The cloned and fitted models for each fold. Can be used for inspection of the
@@ -85,6 +85,8 @@ def _crossfit(model, folds, *args, **kwargs):
         The indices of the arrays for which the nuisance value was calculated. This
         corresponds to the union of the indices of the test part of each fold in
         the input fold list.
+    scores : tuple of list of float or None
+        The out-of-sample model scores for each nuisance model
 
     Examples
     --------
@@ -108,7 +110,7 @@ def _crossfit(model, folds, *args, **kwargs):
         y = X[:, 0] + np.random.normal(size=(5000,))
         folds = list(KFold(2).split(X, y))
         model = Lasso(alpha=0.01)
-        nuisance, model_list, fitted_inds = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
+        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
 
     >>> nuisance
     (array([-1.105728... , -1.537566..., -2.451827... , ...,  1.106287...,
@@ -121,18 +123,25 @@ def _crossfit(model, folds, *args, **kwargs):
     """
     model_list = []
     fitted_inds = []
+    calculate_scores = hasattr(model, 'score')
 
     if folds is None:  # skip crossfitting
         model_list.append(clone(model, safe=False))
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
         model_list[0].fit(*args, **kwargs)
         nuisances = model_list[0].predict(*args, **kwargs)
+        scores = model_list[0].score(*args, **kwargs) if calculate_scores else None
 
         if not isinstance(nuisances, tuple):
             nuisances = (nuisances,)
+        if not isinstance(scores, tuple):
+            scores = (scores,)
+
+        # scores entries should be lists of scores, so make each entry a singleton list
+        scores = tuple([s] for s in scores)
 
         first_arr = args[0] if args else kwargs.items()[0][1]
-        return nuisances, model_list, np.arange(first_arr.shape[0])
+        return nuisances, model_list, np.arange(first_arr.shape[0]), scores
 
     for idx, (train_idxs, test_idxs) in enumerate(folds):
         model_list.append(clone(model, safe=False))
@@ -162,7 +171,19 @@ def _crossfit(model, folds, *args, **kwargs):
         for it, nuis in enumerate(nuisance_temp):
             nuisances[it][test_idxs] = nuis
 
-    return nuisances, model_list, np.sort(fitted_inds.astype(int))
+        if calculate_scores:
+            score_temp = model_list[idx].score(*args_test, **kwargs_test)
+
+            if not isinstance(score_temp, tuple):
+                score_temp = (score_temp,)
+
+            if idx == 0:
+                scores = tuple([] for _ in score_temp)
+
+            for it, score in enumerate(score_temp):
+                scores[it].append(score)
+
+    return nuisances, model_list, np.sort(fitted_inds.astype(int)), (scores if calculate_scores else None)
 
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -234,6 +255,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         This can be enforced in child classes by re-implementing the fit and the various effect
         methods. If ``discrete_treatment=True``, then the input ``T`` to both above calls will be the
         one-hot encoding of the original input ``T``, excluding the first column of the one-hot.
+
+        If the estimator also provides a score method with the same arguments as fit, it will be used to
+        calculate scores during training.
 
     model_final: estimator for fitting the response residuals to the features and treatment residuals
         Must implement `fit` and `predict` methods that must have signatures::
@@ -408,6 +432,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If the model_final has a score method, then `score_` contains the outcome of the final model
         score when evaluated on the fitted nuisances from the first stage. Represents goodness of fit,
         of the final CATE model.
+    nuisance_scores_ : tuple of lists of floats or None
+        The out-of-sample scores from training each nuisance model
     """
 
     def __init__(self, model_nuisance, model_final, *,
@@ -560,9 +586,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                           reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
                 validate=False)
 
-        nuisances, fitted_models, fitted_inds = _crossfit(self._model_nuisance, folds,
-                                                          Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
+        nuisances, fitted_models, fitted_inds, scores = _crossfit(self._model_nuisance, folds,
+                                                                  Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
         self._models_nuisance = fitted_models
+        self.nuisance_scores_ = scores
         return nuisances, fitted_inds
 
     def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):

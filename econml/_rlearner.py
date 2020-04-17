@@ -177,7 +177,11 @@ class _RLearner(_OrthoLearner):
     model_final : object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float
-        The MSE in the final residual on residual regression, i.e.
+        The MSE in the final residual on residual regression
+    nuisance_scores_y : list of float
+        The out-of-sample scores for each outcome model
+    nuisance_scores_t : list of float
+        The out-of-sample scores for each treatment model
 
         .. math::
             \\frac{1}{n} \\sum_{i=1}^n (Y_i - \\hat{E}[Y|X_i, W_i]\
@@ -205,6 +209,17 @@ class _RLearner(_OrthoLearner):
                 self._model_t.fit(X, W, T, sample_weight=sample_weight)
                 self._model_y.fit(X, W, Y, sample_weight=sample_weight)
                 return self
+
+            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+                if hasattr(self._model_y, 'score'):
+                    Y_score = self._model_y.score(X, W, Y, sample_weight=sample_weight)
+                else:
+                    Y_score = None
+                if hasattr(self._model_t, 'score'):
+                    T_score = self._model_t.score(X, W, T, sample_weight=sample_weight)
+                else:
+                    T_score = None
+                return Y_score, T_score
 
             def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
                 Y_pred = self._model_y.predict(X, W)
@@ -327,3 +342,11 @@ class _RLearner(_OrthoLearner):
     @property
     def models_t(self):
         return [mdl._model_t for mdl in super().models_nuisance]
+
+    @property
+    def nuisance_scores_y(self):
+        return self.nuisance_scores_[0]
+
+    @property
+    def nuisance_scores_t(self):
+        return self.nuisance_scores_[1]

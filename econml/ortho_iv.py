@@ -61,6 +61,29 @@ class _FirstStageWrapper:
         else:
             self._model.fit(self._combine(X, Z, Target.shape[0]), Target)
 
+    def score(self, X, *args, sample_weight=None):
+        if hasattr(self._model, 'score'):
+            if len(args) == 1:
+                Target, = args
+                Z = None
+            else:
+                (Z, Target) = args
+            if self._discrete_target:
+                # In this case, the Target is the one-hot-encoding of the treatment variable
+                # We need to go back to the label representation of the one-hot so as to call
+                # the classifier.
+                if np.any(np.all(Target == 0, axis=0)) or (not np.any(np.all(Target == 0, axis=1))):
+                    raise AttributeError("Provided crossfit folds contain training splits that " +
+                                         "don't contain all treatments")
+                Target = inverse_onehot(Target)
+
+            if sample_weight is not None:
+                return self._model.score(self._combine(X, Z, Target.shape[0]), Target, sample_weight=sample_weight)
+            else:
+                return self._model.score(self._combine(X, Z, Target.shape[0]), Target)
+        else:
+            return None
+
     def predict(self, X, Z=None):
         n_samples = X.shape[0] if X is not None else (Z.shape[0] if Z is not None else 1)
         if self._discrete_target:
@@ -203,6 +226,21 @@ class DMLATEIV(_BaseDMLATEIV):
                 self._model_Z_X.fit(W, Z, sample_weight=sample_weight)
                 return self
 
+            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+                if hasattr(self._model_Y_X, 'score'):
+                    Y_X_score = self._model_Y_X.score(W, Y, sample_weight=sample_weight)
+                else:
+                    Y_X_score = None
+                if hasattr(self._model_T_X, 'score'):
+                    T_X_score = self._model_T_X.score(W, T, sample_weight=sample_weight)
+                else:
+                    T_X_score = None
+                if hasattr(self._model_Z_X, 'score'):
+                    Z_X_score = self._model_Z_X.score(W, Z, sample_weight=sample_weight)
+                else:
+                    Z_X_score = None
+                return Y_X_score, T_X_score, Z_X_score
+
             def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
                 Y_pred = self._model_Y_X.predict(W)
                 T_pred = self._model_T_X.predict(W)
@@ -238,6 +276,21 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
                 self._model_T_X.fit(W, T, sample_weight=sample_weight)
                 self._model_T_XZ.fit(W, Z, T, sample_weight=sample_weight)
                 return self
+
+            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+                if hasattr(self._model_Y_X, 'score'):
+                    Y_X_score = self._model_Y_X.score(W, Y, sample_weight=sample_weight)
+                else:
+                    Y_X_score = None
+                if hasattr(self._model_T_X, 'score'):
+                    T_X_score = self._model_T_X.score(W, T, sample_weight=sample_weight)
+                else:
+                    T_X_score = None
+                if hasattr(self._model_T_XZ, 'score'):
+                    T_XZ_score = self._model_T_XZ.score(W, Z, T, sample_weight=sample_weight)
+                else:
+                    T_XZ_score = None
+                return Y_X_score, T_X_score, T_XZ_score
 
             def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
                 Y_pred = self._model_Y_X.predict(W)
@@ -343,6 +396,21 @@ class _BaseDMLIV(_OrthoLearner):
                 self._model_T_X.fit(X, T, sample_weight=sample_weight)
                 self._model_T_XZ.fit(X, Z, T, sample_weight=sample_weight)
                 return self
+
+            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+                if hasattr(self._model_Y_X, 'score'):
+                    Y_X_score = self._model_Y_X.score(X, Y, sample_weight=sample_weight)
+                else:
+                    Y_X_score = None
+                if hasattr(self._model_T_X, 'score'):
+                    T_X_score = self._model_T_X.score(X, T, sample_weight=sample_weight)
+                else:
+                    T_X_score = None
+                if hasattr(self._model_T_XZ, 'score'):
+                    T_XZ_score = self._model_T_XZ.score(X, Z, T, sample_weight=sample_weight)
+                else:
+                    T_XZ_score = None
+                return Y_X_score, T_X_score, T_XZ_score
 
             def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
                 Y_pred = self._model_Y_X.predict(X)
@@ -520,6 +588,27 @@ class _BaseDMLIV(_OrthoLearner):
             fold and is the model instance that was fitted for that training fold.
         """
         return [mdl._model for mdl in super().models_T_XZ]
+
+    @property
+    def nuisance_scores_Y_X(self):
+        """
+        Get the scores for Y_X model on the out-of-sample training data
+        """
+        return self.nuisance_scores_[0]
+
+    @property
+    def nuisance_scores_T_X(self):
+        """
+        Get the scores for T_X model on the out-of-sample training data
+        """
+        return self.nuisance_scores_[1]
+
+    @property
+    def nuisance_scores_T_XZ(self):
+        """
+        Get the scores for T_XZ model on the out-of-sample training data
+        """
+        return self.nuisance_scores_[2]
 
     def cate_feature_names(self, input_feature_names=None):
         """
@@ -913,6 +1002,36 @@ class _BaseDRIV(_OrthoLearner):
         return super().fit(Y, T, X=X, W=None, Z=Z,
                            sample_weight=sample_weight, sample_var=sample_var, inference=inference)
 
+    def score(self, Y, T, Z, X=None):
+        """
+        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        for the new data set based on the fitted nuisance models created at fit time.
+        It uses the mean prediction of the models fitted by the different crossfit folds.
+        Then calls the score function of the model_final and returns the calculated score.
+        The model_final model must have a score method.
+
+        If model_final does not have a score method, then it raises an :exc:`.AttributeError`
+
+        Parameters
+        ----------
+        Y: (n, d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n, d_t) matrix or vector of length n
+            Treatments for each sample
+        Z: (n, d_z) matrix or None (Default=None)
+            Instruments for each sample
+        X: optional (n, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        score : float or (array of float)
+            The score of the final CATE model on the new data. Same type as the return
+            type of the model_final.score method.
+        """
+        # Replacing score from _OrthoLearner, to enforce W=None and improve the docstring
+        return super().score(Y, T, X=X, W=None, Z=Z)
+
     @property
     def original_featurizer(self):
         return super().model_final._original_featurizer
@@ -988,6 +1107,24 @@ class _IntentToTreatDRIV(_BaseDRIV):
                 # since it expects raw values
                 self._prel_model_effect.fit(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
                 return self
+
+            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+                if hasattr(self._model_Y_X, 'score'):
+                    Y_X_score = self._model_Y_X.score(X, Y, sample_weight=sample_weight)
+                else:
+                    Y_X_score = None
+                if hasattr(self._model_T_XZ, 'score'):
+                    T_XZ_score = self._model_T_XZ.score(X, Z, T, sample_weight=sample_weight)
+                else:
+                    T_XZ_score = None
+                if hasattr(self._prel_model_effect, 'score'):
+                    # we need to undo the one-hot encoding for calling effect,
+                    # since it expects raw values
+                    effect_score = self._prel_model_effect.score(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
+                else:
+                    effect_score = None
+
+                return Y_X_score, T_XZ_score, effect_score
 
             def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
                 Y_pred = self._model_Y_X.predict(X)
@@ -1116,6 +1253,18 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     @property
     def models_T_XZ(self):
         return [mdl._model_T_XZ._model for mdl in super().models_nuisance]
+
+    @property
+    def nuisance_scores_Y_X(self):
+        return self.nuisance_scores_[0]
+
+    @property
+    def nuisance_scores_T_XZ(self):
+        return self.nuisance_scores_[1]
+
+    @property
+    def nuisance_scores_effect(self):
+        return self.nuisance_scores_[2]
 
 
 class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):

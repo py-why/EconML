@@ -275,6 +275,21 @@ class DRLearner(_OrthoLearner):
                 self._model_regression.fit(np.hstack([XW, T]), Y, **filtered_kwargs)
                 return self
 
+            def score(self, Y, T, X=None, W=None, *, sample_weight=None):
+                XW = self._combine(X, W)
+                filtered_kwargs = _filter_none_kwargs(sample_weight=sample_weight)
+
+                if hasattr(self._model_propensity, 'score'):
+                    propensity_score = self._model_propensity.score(XW, inverse_onehot(T), **filtered_kwargs)
+                else:
+                    propensity_score = None
+                if hasattr(self._model_regression, 'score'):
+                    regression_score = self._model_regression.score(np.hstack([XW, T]), Y, **filtered_kwargs)
+                else:
+                    regression_score = None
+
+                return propensity_score, regression_score
+
             def predict(self, Y, T, X=None, W=None, *, sample_weight=None):
                 XW = self._combine(X, W)
                 propensities = np.maximum(self._model_propensity.predict_proba(XW), min_propensity)
@@ -471,6 +486,16 @@ class DRLearner(_OrthoLearner):
             fold and is the model instance that was fitted for that training fold.
         """
         return [mdl._model_regression for mdl in super().models_nuisance]
+
+    @property
+    def nuisance_scores_propensity(self):
+        """Gets the score for the propensity model on out-of-sample training data"""
+        return self.nuisance_scores_[0]
+
+    @property
+    def nuisance_scores_regression(self):
+        """Gets the score for the regression model on out-of-sample training data"""
+        return self.nuisance_scores_[1]
 
     @property
     def featurizer(self):

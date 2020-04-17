@@ -100,6 +100,20 @@ class _FirstStageWrapper:
         else:
             return self._model.predict(self._combine(X, W, n_samples, fitting=False))
 
+    def score(self, X, W, Target, sample_weight=None):
+        if hasattr(self._model, 'score'):
+            if (not self._is_Y) and self._discrete_treatment:
+                # In this case, the Target is the one-hot-encoding of the treatment variable
+                # We need to go back to the label representation of the one-hot so as to call
+                # the classifier.
+                Target = inverse_onehot(Target)
+            if sample_weight is not None:
+                return self._model.score(self._combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
+            else:
+                return self._model.score(self._combine(X, W, Target.shape[0]), Target)
+        else:
+            return None
+
 
 class _FinalWrapper:
     def __init__(self, model_final, fit_cate_intercept, featurizer, use_weight_trick):
