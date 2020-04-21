@@ -16,10 +16,77 @@
         <!-- ------------------------------------------------------------------------------ -->
         <li class="faqItem">
             <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>When should I use EconML?</span></a>
+                <div class="fqacontentContainer">
+                    <p>
+                        EconML is designed to answer causal questions: what will happen in response to some change in behavior, prices, or conditions? These questions require different methods than forecasting questions: what will happen next if everything continues as it has been?
+                    </p>
+                </div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0"><span>What are the advantages of EconML?</span></a>
+                <div class="fqacontentContainer">
+                    <p>
+                        EconML offers the broadest range of cutting-edge AI models designed specifically to answer causal questions. The EconML models also build on familiar Python packages, allowing users to easily select the best model for their question. Finally, EconML includes custom interpreters to create presentation-ready output.
+                    </p>
+                </div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0">
+                    <span>
+                        How do I know if the results make sense?
+                    </span>
+                </a>
+                <div class="fqacontentContainer">
+                    <p>
+                        Try comparing the consistency of your estimates across multiple models, including some that make stronger structural assumptions like linear relationships and some that do not. Pay attention to the standard errors as well as the point estimates—imprecise estimates should be interpreted accordingly. While researchers can introduce bias by narrowly fishing for estimates that match their prior, it is also important to use your expertise to evaluate results. If you estimate that a 5% decrease in price generates an implausible 5000% increase in sales you should carefully review your code!
+                    </p>
+                </div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0">
+                    <span>
+                        I’m getting causal estimates that make no sense. What next?
+                    </span>
+                </a>
+                <div class="fqacontentContainer">
+                    <p>
+                        First carefully check your code for errors and try several causal models. If your estimates are consistent, but implausible, you may have a confounding variable that hasn’t been measured in your data. Think carefully about the source of the data you are using: was there something unusual going on during the period when the data were collected (for example a holiday or an economic downturn)? Is there something unusual about your sample (for example, all men with pre-existing heart conditions)?
+                    </p>
+                </div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
                 <a class="faq_trigger" href="#0"><span>What if I don’t have a good instrument, can’t run an experiment, and don’t observe all confounders?</span></a>
                 <div class="fqacontentContainer">
                     <p>
                         In this case, no statistical approach can perfectly isolate the causal effect of the treatment on the outcome. DML, OrthoForest, or MetaLearners, all including all the confounders you can observe, will deliver the best approximation of the causal effect that minimizes the bias from confounders. Be aware of some remaining bias when using these estimates
+                    </p>
+                </div>
+            </div>
+        </li>
+        <!-- ------------------------------------------------------------------------------ -->
+        <li class="faqItem">
+            <div class="faqtitleContainer" onclick="toggleContents(this)">
+                <a class="faq_trigger" href="#0">
+                    <span>
+                        How can I test whether I'm identifying the causal effect?
+                    </span>
+                </a>
+                <div class="fqacontentContainer">
+                    <p>
+                        You can’t. You must have faith.
                     </p>
                 </div>
             </div>
@@ -48,84 +115,23 @@
             </div>
         </li>
         <!-- ------------------------------------------------------------------------------ -->
-        <li class="faqItem">
-            <div class="faqtitleContainer" onclick="toggleContents(this)">
-                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
-                <div class="fqacontentContainer">
-                    <p>
-                        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-                    </p>
-                </div>
+        <!-- ------------------------------------------------------------------------------ --
+    <li class="faqItem">
+        <div class="faqtitleContainer" onclick="toggleContents(this)">
+            <a class="faq_trigger" href="#0">
+                <span>
+
+                </span>
+            </a>
+            <div class="fqacontentContainer">
+                <p>
+
+                </p>
             </div>
-        </li>
-        <!-- ------------------------------------------------------------------------------ -->
-        <li class="faqItem">
-            <div class="faqtitleContainer" onclick="toggleContents(this)">
-                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
-                <div class="fqacontentContainer">
-                    <p>
-                        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-                    </p>
-                </div>
-            </div>
-        </li>
-        <!-- ------------------------------------------------------------------------------ -->
-        <li class="faqItem">
-            <div class="faqtitleContainer" onclick="toggleContents(this)">
-                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
-                <div class="fqacontentContainer">
-                    <p>
-                        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-                    </p>
-                </div>
-            </div>
-        </li>
-        <!-- ------------------------------------------------------------------------------ -->
-        <li class="faqItem">
-            <div class="faqtitleContainer" onclick="toggleContents(this)">
-                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
-                <div class="fqacontentContainer">
-                    <p>
-                        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-                    </p>
-                </div>
-            </div>
-        </li>
-        <!-- ------------------------------------------------------------------------------ -->
-        <li class="faqItem">
-            <div class="faqtitleContainer" onclick="toggleContents(this)">
-                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
-                <div class="fqacontentContainer">
-                    <p>
-                        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-                    </p>
-                </div>
-            </div>
-        </li>
-        <!-- ------------------------------------------------------------------------------ -->
-        <li class="faqItem">
-            <div class="faqtitleContainer" onclick="toggleContents(this)">
-                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
-                <div class="fqacontentContainer">
-                    <p>
-                        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-                    </p>
-                </div>
-            </div>
-        </li>
-        <!-- ------------------------------------------------------------------------------ -->
-        <li class="faqItem">
-            <div class="faqtitleContainer" onclick="toggleContents(this)">
-                <a class="faq_trigger" href="#0"><span>What is EconML?</span></a>
-                <div class="fqacontentContainer">
-                    <p>
-                        Lorem ipsum dolor sit amet, ius graecis admodum eu, quodsi dolorem maluisset te mea. Ad mea veniam principes democritum, ius ex malis clita posidonium. Eu fabulas utroque duo, illum congue his ut, hinc quando intellegat ut nam. Mei quem erat sanctus no, id alii falli delicatissimi cum, debitis adolescens definitiones et vix.
-                    </p>
-                </div>
-            </div>
-        </li>
-        <!-- ------------------------------------------------------------------------------ -->
-        <!-- ------------------------------------------------------------------------------ -->
+        </div>
+    </li>
+
+    <!-- ------------------------------------------------------------------------------ -->
     </ul>
 </div>
 
