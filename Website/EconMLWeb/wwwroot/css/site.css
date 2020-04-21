@@ -239,14 +239,6 @@ table.tblclmn {
     height: 100%;
 }
 
-/* FAQ Page CSS */
-div.fqacontentContainer {
-    display: none;
-}
-
-.fqacontentContainer p {
-    margin-left: 20px;
-}
 /* Getting Started CSS */
 div.qicontainer {
     display: grid;
@@ -311,7 +303,13 @@ div.envcontainer {
 -- CSS Styles for FAQ page
 -->
 */
-.faqList a {
+div.fqacontentContainer {
+    display: none;
+}
+
+.fqacontentContainer p {
+    margin-left: 20px;
+}.faqList a {
     color: #323130;
 }
 
