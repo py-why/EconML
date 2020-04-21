@@ -10,7 +10,7 @@ jobs:
 - job: 'EvalChanges'
   displayName: 'Analyze changed files to determine which job to run'
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.15'
   steps:
   # We want to enforce the following rules for PRs:
   # * if all modifications are to README.md
@@ -144,7 +144,7 @@ jobs:
   variables:
     python.version: '3.6'
   pool:
-    vmImage: 'macOS-10.13'
+    vmImage: 'macOS-10.15'
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
@@ -162,7 +162,7 @@ jobs:
         imageName: 'ubuntu-16.04'
         python.version: '3.5'
       macOS, Python 3.5:
-        imageName: 'macOS-10.13'
+        imageName: 'macOS-10.15'
         python.version: '3.5'
       Windows, Python 3.5:
         imageName: 'vs2017-win2016'
@@ -171,7 +171,7 @@ jobs:
         imageName: 'ubuntu-16.04'
         python.version: '3.6'
       macOS, Python 3.6:
-        imageName: 'macOS-10.13'
+        imageName: 'macOS-10.15'
         python.version: '3.6'
       Windows, Python 3.6:
         imageName: 'vs2017-win2016'
@@ -180,7 +180,7 @@ jobs:
         imageName: 'ubuntu-16.04'
         python.version: '3.7'
       macOS, Python 3.7:
-        imageName: 'macOS-10.13'
+        imageName: 'macOS-10.15'
         python.version: '3.7'
       Windows, Python 3.7:
         imageName: 'vs2017-win2016'
