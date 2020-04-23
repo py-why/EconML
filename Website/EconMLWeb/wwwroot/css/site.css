@@ -299,6 +299,9 @@ div.envcontainer {
     /* Link */
     color: #0078D4;
 }
+div.htcontentsContainer{
+    display:block;
+}
 /* 
 -- CSS Styles for FAQ page
 -->

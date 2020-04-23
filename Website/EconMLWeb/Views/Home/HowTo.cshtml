@@ -14,8 +14,11 @@
             If you are new to causal inference, our guide will introduce you to the biggest challenges in answering causal questions, how EconML addresses those challenges, and the standard causal terminology we use throughout our SDK and documentation.
         </p>
 
-        <iframe aria-label="Causal Inference with EconML" src="https://microsoft.sharepoint.com/teams/AlicePlanning/_layouts/15/Doc.aspx?sourcedoc={9361fcc9-58c1-41e7-8072-f16a4cdda06b}&amp;action=embedview&amp;wdAr=1.7777777777777777" width="962px" height="565px" frameborder="0">This is an embedded Microsoft Office presentation, powered by Office.</iframe>
-
+        <iframe aria-label="Causal Inference with EconML" src="https://microsoft.sharepoint.com/teams/AlicePlanning/_layouts/15/Doc.aspx?sourcedoc={9361fcc9-58c1-41e7-8072-f16a4cdda06b}&amp;action=embedview&amp;wdAr=1.7777777777777777" width="962px" height="565px" frameborder="0">
+        This is an embedded Microsoft Office presentation, powered by Office.</iframe>
+        
+        <br />
+        
         <h1>Have a Question in Mind?</h1>
 
         <p>
@@ -23,8 +26,23 @@
         </p>
 
         <h1>Library Flow</h1>
-        <img src="~/img/FlowChart.png" alt="Library Flow Chart" />
+        <img src="~/img/FlowChart.png" alt="Library Flow Chart" usemap="#flowchartmap" />
+        <map name="flowchartmap">
+            <area shape="circle" coords="48, 14, 25" href="#experiment" title="Experiment" alt="Circle" />
+            <area shape="circle" coords="153, 246, 25" href="#compliance" title="Compliance" alt="Circle" />
+            <area shape="circle" coords="759, 14, 25" href="#treatmentassignment" title="Treatment Assignment" alt="Circle" />
+            <area shape="circle" coords="481, 247, 25" href="#setw" title="Set W" alt="Circle" />
+            <area shape="circle" coords="455, 697, 25" href="#caution" title="Caution" alt="Circle" />
+            <area shape="circle" coords="153, 479, 25" href="#setz" title="Set Z" alt="Circle" />
+            <area shape="circle" coords="834, 247, 25" href="#treatmentresponsiveness" title="Treatment Responsiveness" alt="Circle" />
+            <area shape="circle" coords="455, 448, 25" href="#instrument" title="Instrument" alt="Circle" />
+            <area shape="circle" coords="153, 737, 25" href="#lineartreatmenteffects" title="Linear Treatment Effects" alt="Circle" />
+            <area shape="circle" coords="854, 480, 25" href="#linearheterogeneity" title="Linear Heterogeneity" alt="Circle" />
+            <area shape="circle" coords="854, 746, 25" href="#confidenceintervals" title="Confidence Intervals" alt="Circle" />
 
+        </map>
+
+        <br />
         <br />
 
         <div class="faqSection">
@@ -33,7 +51,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="experiment">
                                 Experiment
                             </span>
                         </a>
@@ -48,7 +66,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="compliance">
                                 Compliance
                             </span>
                         </a>
@@ -64,7 +82,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="treatmentassignment">
                                 Treatment assignement
                             </span>
                         </a>
@@ -81,7 +99,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="setw">
                                 Can set W
                             </span>
                         </a>
@@ -96,7 +114,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="caution">
                                 Caution
                             </span>
                         </a>
@@ -111,7 +129,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="setz">
                                 Set Z to intended treatment
                             </span>
                         </a>
@@ -126,7 +144,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="treatmentresponsiveness">
                                 Treatment responsiveness
                             </span>
                         </a>
@@ -141,7 +159,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="instrument">
                                 Instrument
                             </span>
                         </a>
@@ -156,7 +174,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="lineartreatmenteffects">
                                 Linear treatment effects
                             </span>
                         </a>
@@ -171,7 +189,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="linearheterogeneity">
                                 Linear Heterogeneity
                             </span>
                         </a>
@@ -186,7 +204,7 @@
                 <li class="faqItem">
                     <div class="faqtitleContainer" onclick="toggleContents(this)">
                         <a class="faq_trigger" href="#0">
-                            <span>
+                            <span id="confidenceintervals">
                                 Confidence intervals/model selection
                             </span>
                         </a>
