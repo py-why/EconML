@@ -185,6 +185,15 @@ jobs:
       Windows, Python 3.7:
         imageName: 'vs2017-win2016'
         python.version: '3.7'
+      Linux, Python 3.8:
+        imageName: 'ubuntu-16.04'
+        python.version: '3.8'
+      macOS, Python 3.8:
+        imageName: 'macOS-10.15'
+        python.version: '3.8'
+      Windows, Python 3.8:
+        imageName: 'vs2017-win2016'
+        python.version: '3.8'
 
   pool:
     vmImage: $(imageName)
