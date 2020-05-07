@@ -388,6 +388,10 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -418,6 +422,7 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
                  fit_cate_intercept=True,
                  linear_first_stages=False,
                  discrete_treatment=False,
+                 categories='auto',
                  n_splits=2,
                  random_state=None):
 
@@ -436,6 +441,7 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
                                                     featurizer, linear_first_stages, discrete_treatment),
                          model_final=_FinalWrapper(model_final, fit_cate_intercept, featurizer, False),
                          discrete_treatment=discrete_treatment,
+                         categories=categories,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -472,6 +478,10 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -502,6 +512,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
                  fit_cate_intercept=True,
                  linear_first_stages=True,
                  discrete_treatment=False,
+                 categories='auto',
                  n_splits=2,
                  random_state=None):
         super().__init__(model_y=model_y,
@@ -511,6 +522,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
+                         categories=categories,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -598,6 +610,10 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -630,6 +646,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                  fit_cate_intercept=True,
                  linear_first_stages=True,
                  discrete_treatment=False,
+                 categories='auto',
                  n_splits=2,
                  random_state=None):
         model_final = MultiOutputDebiasedLasso(
@@ -644,6 +661,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
+                         categories=categories,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -717,6 +735,10 @@ class KernelDMLCateEstimator(DMLCateEstimator):
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -741,7 +763,7 @@ class KernelDMLCateEstimator(DMLCateEstimator):
     """
 
     def __init__(self, model_y=WeightedLassoCVWrapper(), model_t='auto', fit_cate_intercept=True,
-                 dim=20, bw=1.0, discrete_treatment=False, n_splits=2, random_state=None):
+                 dim=20, bw=1.0, discrete_treatment=False, categories='auto', n_splits=2, random_state=None):
         class RandomFeatures(TransformerMixin):
             def __init__(self, random_state):
                 self._random_state = check_random_state(random_state)
@@ -758,7 +780,9 @@ class KernelDMLCateEstimator(DMLCateEstimator):
                          model_final=ElasticNetCV(fit_intercept=False),
                          featurizer=RandomFeatures(random_state),
                          fit_cate_intercept=fit_cate_intercept,
-                         discrete_treatment=discrete_treatment, n_splits=n_splits, random_state=random_state)
+                         discrete_treatment=discrete_treatment,
+                         categories=categories,
+                         n_splits=n_splits, random_state=random_state)
 
 
 class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
@@ -790,6 +814,10 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -818,6 +846,7 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
                  model_y, model_t, model_final,
                  featurizer=None,
                  discrete_treatment=False,
+                 categories='auto',
                  n_splits=2,
                  random_state=None):
 
@@ -830,6 +859,7 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
                                                     featurizer, False, discrete_treatment),
                          model_final=_FinalWrapper(model_final, False, featurizer, True),
                          discrete_treatment=discrete_treatment,
+                         categories=categories,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -851,6 +881,10 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
 
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
 
     n_crossfit_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
@@ -986,6 +1020,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
     def __init__(self,
                  model_y, model_t,
                  discrete_treatment=False,
+                 categories='auto',
                  n_crossfit_splits=2,
                  n_estimators=100,
                  criterion="mse",
@@ -1018,6 +1053,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
         super().__init__(model_y=model_y, model_t=model_t,
                          model_final=model_final, featurizer=None,
                          discrete_treatment=discrete_treatment,
+                         categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
     def _get_inference_options(self):

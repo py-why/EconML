@@ -27,7 +27,7 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose,
+from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
                         StatsModelsLinearRegression, LassoCVWrapper)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
@@ -280,6 +280,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     discrete_instrument: bool
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
+    categories: 'auto' or list
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -345,7 +349,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()),
                             ModelFinal(),
                             n_splits=2, discrete_treatment=False, discrete_instrument=False,
-                            random_state=None)
+                            categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
@@ -407,7 +411,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
         est = _OrthoLearner(ModelNuisance(LogisticRegression(solver='lbfgs'), LinearRegression()),
                             ModelFinal(), n_splits=2, discrete_treatment=True, discrete_instrument=False,
-                            random_state=None)
+                            categories='auto', random_state=None)
         est.fit(y, T, W=W)
 
     >>> est.score_
@@ -437,7 +441,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
 
     def __init__(self, model_nuisance, model_final, *,
-                 discrete_treatment, discrete_instrument, n_splits, random_state):
+                 discrete_treatment, discrete_instrument, categories, n_splits, random_state):
         self._model_nuisance = clone(model_nuisance, safe=False)
         self._models_nuisance = None
         self._model_final = clone(model_final, safe=False)
@@ -446,8 +450,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._discrete_instrument = discrete_instrument
         self._random_state = check_random_state(random_state)
         if discrete_treatment:
-            self._label_encoder = LabelEncoder()
-            self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
+            if categories != 'auto':
+                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+            self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         super().__init__()
 
     @staticmethod
@@ -537,14 +542,14 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         stratify = self._discrete_treatment or self._discrete_instrument
 
         if self._discrete_treatment:
-            T = self._label_encoder.fit_transform(T.ravel())
+            T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
 
         if self._discrete_instrument:
             z_enc = LabelEncoder()
             Z = z_enc.fit_transform(Z.ravel())
 
             if self._discrete_treatment:  # need to stratify on combination of Z and T
-                to_split = T + Z * len(self._label_encoder.classes_)
+                to_split = inverse_onehot(T) + Z * len(self._one_hot_encoder.categories_[0])
             else:
                 to_split = Z  # just stratify on Z
 
@@ -556,7 +561,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                           reshape(z_enc.transform(Z.ravel()), (-1, 1)))[:, 1:]),
                 validate=False)
         else:
-            to_split = T  # stratify on T if discrete, and fine to pass T as second arg to KFold.split even when not
+            # stratify on T if discrete, and fine to pass T as second arg to KFold.split even when not
+            to_split = inverse_onehot(T) if self._discrete_treatment else T
             self.z_transformer = None
 
         if self._n_splits == 1:  # special case, no cross validation
@@ -576,14 +582,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 folds = splitter.split(np.ones((T.shape[0], 1)), to_split)
 
         if self._discrete_treatment:
-            # drop first column since all columns sum to one
-            T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))[:, 1:]
-
             self._d_t = shape(T)[1:]
             self.transformer = FunctionTransformer(
                 func=(lambda T:
                       self._one_hot_encoder.transform(
-                          reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
+                          reshape(T, (-1, 1)))),
                 validate=False)
 
         nuisances, fitted_models, fitted_inds, scores = _crossfit(self._model_nuisance, folds,

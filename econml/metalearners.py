@@ -14,8 +14,9 @@ from sklearn import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array, check_X_y
-from sklearn.preprocessing import OneHotEncoder, LabelEncoder, FunctionTransformer
-from .utilities import check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects, transpose
+from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
+from .utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
+                        inverse_onehot, transpose)
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -28,16 +29,19 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         estimators with one estimator per treatment (including control).
         Must implement `fit` and `predict` methods.
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
     """
 
-    def __init__(self, models):
+    def __init__(self, models, categories='auto'):
         self.models = clone(models, safe=False)
-        self._label_encoder = LabelEncoder()
-        self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         self.transformer = FunctionTransformer(
             func=(lambda T:
-                  self._one_hot_encoder.transform(
-                      self._label_encoder.transform(T).reshape(-1, 1))[:, 1:]),
+                  self._one_hot_encoder.transform(T.reshape(-1, 1))),
             validate=False)
         super().__init__()
 
@@ -68,9 +72,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        T = self._label_encoder.fit_transform(T)
-        self._one_hot_encoder.fit(T.reshape(-1, 1))
-        self._d_t = (len(self._label_encoder.classes_) - 1,)
+        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self._d_t = T.shape[1:]
+        T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
 
         for ind in range(self._d_t[0] + 1):
@@ -111,16 +115,21 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Model will be trained on X|T where '|' denotes concatenation.
         Must implement `fit` and `predict` methods.
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
     """
 
-    def __init__(self, overall_model):
+    def __init__(self, overall_model, categories='auto'):
         self.overall_model = clone(overall_model, safe=False)
-        self._label_encoder = LabelEncoder()
-        self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        # Note: unlike other Metalearners, we don't drop the first column because
+        # we concatenate all treatments to the other features;
+        # We might want to revisit, though, since it's linearly determined by the others
+        self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False)
         self.transformer = FunctionTransformer(
-            func=(lambda T:
-                  self._one_hot_encoder.transform(
-                      self._label_encoder.transform(T).reshape(-1, 1))[:, 1:]),
+            func=(lambda T: self._one_hot_encoder.transform(T.reshape(-1, 1))[:, 1:]),
             validate=False)
         super().__init__()
 
@@ -152,7 +161,6 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if X is None:
             X = np.zeros((Y.shape[0], 1))
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        T = self._label_encoder.fit_transform(T)
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
         self._d_t = (T.shape[1] - 1,)
         feat_arr = np.concatenate((X, T), axis=1)
@@ -208,20 +216,25 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
     propensity_model : estimator for the propensity function
         Must implement `fit` and `predict_proba` methods. The `fit` method must
         be able to accept X and T, where T is a shape (n, ) array.
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
     """
 
     def __init__(self, models,
                  cate_models=None,
-                 propensity_model=LogisticRegression()):
+                 propensity_model=LogisticRegression(),
+                 categories='auto'):
         self.models = clone(models, safe=False)
         self.cate_models = clone(cate_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
-        self._label_encoder = LabelEncoder()
-        self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         self.transformer = FunctionTransformer(
             func=(lambda T:
-                  self._one_hot_encoder.transform(
-                      self._label_encoder.transform(T).reshape(-1, 1))[:, 1:]),
+                  self._one_hot_encoder.transform(T.reshape(-1, 1))),
             validate=False)
         super().__init__()
 
@@ -251,9 +264,9 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        T = self._label_encoder.fit_transform(T)
-        self._one_hot_encoder.fit(T.reshape(-1, 1))
-        self._d_t = (len(self._label_encoder.classes_) - 1,)
+        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self._d_t = T.shape[1:]
+        T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
         if self.cate_models is None:
             self.cate_models = [clone(model, safe=False) for model in self.models]
@@ -328,20 +341,23 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Must implement `fit` and `predict_proba` methods. The `fit` method must
         be able to accept X and T, where T is a shape (n, 1) array.
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
     """
 
     def __init__(self, models,
                  final_models,
-                 propensity_model=LogisticRegression()):
+                 propensity_model=LogisticRegression(),
+                 categories='auto'):
         self.models = clone(models, safe=False)
         self.final_models = clone(final_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
-        self._label_encoder = LabelEncoder()
-        self._one_hot_encoder = OneHotEncoder(categories='auto', sparse=False)
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         self.transformer = FunctionTransformer(
-            func=(lambda T:
-                  self._one_hot_encoder.transform(
-                      self._label_encoder.transform(T).reshape(-1, 1))[:, 1:]),
+            func=(lambda T: self._one_hot_encoder.transform(T.reshape(-1, 1))),
             validate=False)
         super().__init__()
 
@@ -371,9 +387,9 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        T = self._label_encoder.fit_transform(T)
-        self._one_hot_encoder.fit(T.reshape(-1, 1))
-        self._d_t = (len(self._label_encoder.classes_) - 1,)
+        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self._d_t = T.shape[1:]
+        T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
         self.final_models = check_models(self.final_models, self._d_t[0])
         self.propensity_models = []
