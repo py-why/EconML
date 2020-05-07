@@ -95,6 +95,7 @@ class _FirstStageWrapper:
 class _BaseDMLATEIV(_OrthoLearner):
     def __init__(self, model_nuisance,
                  discrete_instrument=False, discrete_treatment=False,
+                 categories='auto',
                  n_splits=2, random_state=None):
         class ModelFinal:
             def __init__(self):
@@ -134,6 +135,7 @@ class _BaseDMLATEIV(_OrthoLearner):
 
         super().__init__(model_nuisance, ModelFinal(),
                          discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
+                         categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
     def fit(self, Y, T, Z, W=None, *, sample_weight=None, sample_var=None, inference=None):
@@ -212,6 +214,7 @@ class DMLATEIV(_BaseDMLATEIV):
 
     def __init__(self, model_Y_X, model_T_X, model_Z_X,
                  discrete_treatment=False, discrete_instrument=False,
+                 categories='auto',
                  n_splits=2, random_state=None):
         class ModelNuisance:
             def __init__(self, model_Y_X, model_T_X, model_Z_X):
@@ -257,12 +260,14 @@ class DMLATEIV(_BaseDMLATEIV):
                                        model_T_X=_FirstStageWrapper(model_T_X, discrete_target=discrete_treatment),
                                        model_Z_X=_FirstStageWrapper(model_Z_X, discrete_target=discrete_instrument)),
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
+                         categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
 
 class ProjectedDMLATEIV(_BaseDMLATEIV):
     def __init__(self, model_Y_X, model_T_X, model_T_XZ,
                  discrete_treatment=False, discrete_instrument=False,
+                 categories='auto',
                  n_splits=2, random_state=None):
         class ModelNuisance:
             def __init__(self, model_Y_X, model_T_X, model_T_XZ):
@@ -308,6 +313,7 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
                                        model_T_X=_FirstStageWrapper(model_T_X, discrete_target=discrete_treatment),
                                        model_T_XZ=_FirstStageWrapper(model_T_XZ, discrete_target=discrete_treatment)),
                          discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
+                         categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
 
@@ -352,6 +358,10 @@ class _BaseDMLIV(_OrthoLearner):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -377,7 +387,8 @@ class _BaseDMLIV(_OrthoLearner):
     """
 
     def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final,
-                 discrete_instrument=False, discrete_treatment=False, n_splits=2, random_state=None):
+                 discrete_instrument=False, discrete_treatment=False, categories='auto',
+                 n_splits=2, random_state=None):
         class ModelNuisance:
             """
             Nuisance model fits the three models at fit time and at predict time
@@ -461,6 +472,7 @@ class _BaseDMLIV(_OrthoLearner):
 
         super().__init__(ModelNuisance(model_Y_X, model_T_X, model_T_XZ), ModelFinal(model_final),
                          discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
+                         categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
     def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, inference=None):
@@ -694,11 +706,16 @@ class DMLIV(_BaseDMLIV):
 
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
     """
 
     def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final, featurizer=None,
                  fit_cate_intercept=True,
-                 n_splits=2, discrete_instrument=False, discrete_treatment=False, random_state=None):
+                 n_splits=2, discrete_instrument=False, discrete_treatment=False,
+                 categories='auto', random_state=None):
         self.bias_part_of_coef = fit_cate_intercept
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(_FirstStageWrapper(model_Y_X, False),
@@ -711,6 +728,7 @@ class DMLIV(_BaseDMLIV):
                          n_splits=n_splits,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         categories=categories,
                          random_state=random_state)
 
 
@@ -777,11 +795,16 @@ class NonParamDMLIV(_BaseDMLIV):
 
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     """
 
     def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final,
                  featurizer=None, fit_cate_intercept=True,
-                 n_splits=2, discrete_instrument=False, discrete_treatment=False):
+                 n_splits=2, discrete_instrument=False, discrete_treatment=False, categories='auto'):
         super().__init__(_FirstStageWrapper(model_Y_X, False),
                          _FirstStageWrapper(model_T_X, discrete_treatment),
                          _FirstStageWrapper(model_T_XZ, discrete_treatment),
@@ -791,7 +814,8 @@ class NonParamDMLIV(_BaseDMLIV):
                                        use_weight_trick=True),
                          n_splits=n_splits,
                          discrete_instrument=discrete_instrument,
-                         discrete_treatment=discrete_treatment)
+                         discrete_treatment=discrete_treatment,
+                         categories=categories)
 
 
 class _BaseDRIV(_OrthoLearner):
@@ -831,6 +855,10 @@ class _BaseDRIV(_OrthoLearner):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -862,6 +890,7 @@ class _BaseDRIV(_OrthoLearner):
                  fit_cate_intercept=True,
                  cov_clip=0.1, opt_reweighted=False,
                  discrete_instrument=False, discrete_treatment=False,
+                 categories='auto',
                  n_splits=2, random_state=None):
         class ModelFinal:
             """
@@ -970,7 +999,7 @@ class _BaseDRIV(_OrthoLearner):
         self.opt_reweighted = opt_reweighted
         super().__init__(nuisance_models, ModelFinal(model_final, featurizer, fit_cate_intercept),
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
-                         n_splits=n_splits, random_state=random_state)
+                         categories=categories, n_splits=n_splits, random_state=random_state)
 
     def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, inference=None):
         """
@@ -1084,7 +1113,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
-                 opt_reweighted=False):
+                 opt_reweighted=False,
+                 categories='auto'):
         """
         """
 
@@ -1146,6 +1176,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          cov_clip=cov_clip,
                          n_splits=n_splits,
                          discrete_instrument=True, discrete_treatment=True,
+                         categories=categories,
                          opt_reweighted=opt_reweighted)
 
 
@@ -1219,6 +1250,10 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         assumes the final_model_effect is flexible enough to fit the true CATE model. Otherwise,
         it method will return a biased projection to the model_effect space, biased
         to give more weight on parts of the feature space where the instrument is strong.
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
     """
 
     def __init__(self, model_Y_X, model_T_XZ,
@@ -1228,7 +1263,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
-                 opt_reweighted=False):
+                 opt_reweighted=False,
+                 categories='auto'):
         model_Y_X = _FirstStageWrapper(model_Y_X, discrete_target=False)
         model_T_XZ = _FirstStageWrapper(model_T_XZ, discrete_target=True)
         prel_model_effect = _IntentToTreatDRIV(model_Y_X,
@@ -1244,7 +1280,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          n_splits=n_splits,
-                         opt_reweighted=opt_reweighted)
+                         opt_reweighted=opt_reweighted,
+                         categories=categories)
 
     @property
     def models_Y_X(self):
@@ -1317,6 +1354,11 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         assumes the final_model_effect is flexible enough to fit the true CATE model. Otherwise,
         it method will return a biased projection to the model_effect space, biased
         to give more weight on parts of the feature space where the instrument is strong.
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     """
 
     def __init__(self, model_Y_X, model_T_XZ,
@@ -1325,13 +1367,15 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
-                 opt_reweighted=False):
+                 opt_reweighted=False,
+                 categories='auto'):
         super().__init__(model_Y_X, model_T_XZ,
                          flexible_model_effect=flexible_model_effect,
                          featurizer=featurizer,
                          fit_cate_intercept=True,
                          final_model_effect=StatsModelsLinearRegression(fit_intercept=False),
-                         cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=opt_reweighted)
+                         cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=opt_reweighted,
+                         categories=categories)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     def fit(self, Y, T, Z, X=None, sample_weight=None, sample_var=None, inference=None):

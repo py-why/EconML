@@ -126,6 +126,10 @@ class DRLearner(_OrthoLearner):
     min_propensity : float, optional, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional (default is 2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -250,6 +254,7 @@ class DRLearner(_OrthoLearner):
                  multitask_model_final=False,
                  featurizer=None,
                  min_propensity=1e-6,
+                 categories='auto',
                  n_splits=2,
                  random_state=None):
         class ModelNuisance:
@@ -364,6 +369,7 @@ class DRLearner(_OrthoLearner):
                          ModelFinal(model_final, featurizer, multitask_model_final),
                          n_splits=n_splits, discrete_treatment=True,
                          discrete_instrument=False,  # no instrument, so doesn't matter
+                         categories=categories,
                          random_state=random_state)
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
@@ -586,9 +592,12 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     fit_cate_intercept : bool, optional, default True
         Whether the linear CATE model should have a constant term.
 
-
     min_propensity : float, optional, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
 
     n_splits: int, cross-validation generator or an iterable, optional (default is 2)
         Determines the cross-validation splitting strategy.
@@ -662,6 +671,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  featurizer=None,
                  fit_cate_intercept=True,
                  min_propensity=1e-6,
+                 categories='auto',
                  n_splits=2, random_state=None):
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(model_propensity=model_propensity,
@@ -670,6 +680,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          featurizer=featurizer,
                          multitask_model_final=False,
                          min_propensity=min_propensity,
+                         categories=categories,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -785,6 +796,10 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     min_propensity : float, optional, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
 
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_splits: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -860,6 +875,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  max_iter=1000,
                  tol=1e-4,
                  min_propensity=1e-6,
+                 categories='auto',
                  n_splits=2, random_state=None):
         self.fit_cate_intercept = fit_cate_intercept
         model_final = DebiasedLasso(
@@ -873,6 +889,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          featurizer=featurizer,
                          multitask_model_final=False,
                          min_propensity=min_propensity,
+                         categories=categories,
                          n_splits=n_splits,
                          random_state=random_state)
 
@@ -948,6 +965,10 @@ class ForestDRLearner(DRLearner):
 
     min_propensity : float, optional, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
 
     n_crossfit_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
@@ -1083,6 +1104,7 @@ class ForestDRLearner(DRLearner):
     def __init__(self,
                  model_regression, model_propensity,
                  min_propensity=1e-6,
+                 categories='auto',
                  n_crossfit_splits=2,
                  n_estimators=1000,
                  criterion="mse",
@@ -1116,6 +1138,7 @@ class ForestDRLearner(DRLearner):
                          model_final=model_final, featurizer=None,
                          multitask_model_final=False,
                          min_propensity=min_propensity,
+                         categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
     def _get_inference_options(self):

@@ -38,7 +38,7 @@ from .sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
 from .inference import Inference
-from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, cross_product
+from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, cross_product, inverse_onehot
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -687,6 +687,10 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         helper class. The model(s) must implement `fit` and `predict` methods.
         If parameter is set to ``None``, it defaults to the value of `model_Y` parameter.
 
+    categories: 'auto' or list
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
     n_jobs : int, optional (default=-1)
         The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
         ``-1`` means using all processors. Since OrthoForest methods are
@@ -712,6 +716,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                  model_Y=WeightedLassoCVWrapper(cv=3),
                  propensity_model_final=None,
                  model_Y_final=None,
+                 categories='auto',
                  n_jobs=-1,
                  random_state=None):
         # Copy and/or define models
@@ -723,6 +728,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             self.propensity_model_final = clone(self.propensity_model, safe=False)
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y, safe=False)
+
         # Nuisance estimators shall be defined during fitting because they need to know the number of distinct
         # treatments
         nuisance_estimator = None
@@ -734,8 +740,10 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         # Define moment and mean gradient estimator
         moment_and_mean_gradient_estimator =\
             DiscreteTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
-        # Define autoencoder
-        self._label_encoder = LabelEncoder()
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
+
         super(DiscreteTreatmentOrthoForest, self).__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -781,18 +789,17 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         # Check T is numeric
         T = self._check_treatment(T)
         # Train label encoder
-        T = self._label_encoder.fit_transform(T)
-        self._one_hot_encoder = OneHotEncoder(sparse=False, categories='auto').fit(T.reshape(-1, 1))
+        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
         # Define number of classes
-        self.n_T = self._label_encoder.classes_.shape[0]
+        self.n_T = T.shape[1] + 1  # add one to compensate for dropped first
+        T = inverse_onehot(T)
         self.nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model, self.model_Y, self.n_T, self.random_state, second_stage=False)
         self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model_final, self.model_Y_final, self.n_T, self.random_state, second_stage=True)
         self.transformer = FunctionTransformer(
             func=(lambda T:
-                  self._one_hot_encoder.transform(
-                      reshape(self._label_encoder.transform(T.ravel()), (-1, 1)))[:, 1:]),
+                  self._one_hot_encoder.transform(T.reshape(-1, 1))),
             validate=False)
         # Call `fit` from parent class
         return super().fit(Y, T, X, W=W, inference=inference)

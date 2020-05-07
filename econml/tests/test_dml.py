@@ -927,3 +927,47 @@ class TestDML(unittest.TestCase):
             est = LinearDMLCateEstimator(n_splits=n_splits)
             est.fit(y, T, X, W)
             assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == n_splits
+
+    def test_categories(self):
+        dmls = [LinearDMLCateEstimator, SparseLinearDMLCateEstimator]
+        for ctor in dmls:
+            dml1 = ctor(LinearRegression(), LogisticRegression(C=1000),
+                        fit_cate_intercept=False, discrete_treatment=True)
+            dml2 = ctor(LinearRegression(), LogisticRegression(C=1000),
+                        fit_cate_intercept=False, discrete_treatment=True, categories=['c', 'b', 'a'])
+
+            # create a simple artificial setup where effect of moving from treatment
+            #     a -> b is 2,
+            #     a -> c is 1, and
+            #     b -> c is -1 (necessarily, by composing the previous two effects)
+            # Using an uneven number of examples from different classes,
+            # and having the treatments in non-lexicographic order,
+            # should rule out some basic issues.
+
+            # Note that explicitly specifying the dtype as object is necessary until
+            # there's a fix for https://github.com/scikit-learn/scikit-learn/issues/15616
+
+            for dml in [dml1, dml2]:
+                dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]),
+                        np.array(['c', 'b', 'a', 'b', 'c', 'a', 'a', 'a'], dtype='object'), np.ones((8, 1)))
+
+            # estimated effects should be identical when treatment is explicitly given
+            np.testing.assert_almost_equal(
+                dml1.effect(
+                    np.ones((9, 1)),
+                    T0=np.array(['a', 'a', 'a', 'b', 'b', 'b', 'c', 'c', 'c'], dtype='object'),
+                    T1=np.array(['a', 'b', 'c', 'a', 'b', 'c', 'a', 'b', 'c'], dtype='object')
+                ),
+                dml2.effect(
+                    np.ones((9, 1)),
+                    T0=np.array(['a', 'a', 'a', 'b', 'b', 'b', 'c', 'c', 'c'], dtype='object'),
+                    T1=np.array(['a', 'b', 'c', 'a', 'b', 'c', 'a', 'b', 'c'], dtype='object')
+                ),
+                decimal=4)
+
+            # but const_marginal_effect should be reordered based on the explicit cagetories
+            cme1 = dml1.const_marginal_effect(np.ones((1, 1))).reshape(-1)
+            cme2 = dml2.const_marginal_effect(np.ones((1, 1))).reshape(-1)
+            self.assertAlmostEqual(cme1[1], -cme2[1], places=4)  # 1->3 in original ordering; 3->1 in new ordering
+            # 1-> 2 in original ordering; combination of 3->1 and 3->2
+            self.assertAlmostEqual(cme1[0], -cme2[1] + cme2[0], places=4)
