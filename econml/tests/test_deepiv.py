@@ -481,8 +481,8 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         l2 = keras.layers.Dense(10, activation='relu')
         l3 = keras.layers.Dense(10, activation='relu')
 
-        def norm(l):
-            return l  # keras.layers.BatchNormalization()
+        def norm(lr):
+            return lr  # keras.layers.BatchNormalization()
 
         x_network = l3(norm(l2(norm(l1(x_input)))))
 
