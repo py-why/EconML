@@ -678,7 +678,7 @@ class TestDRLearner(unittest.TestCase):
         n_x = 50
         n_nonzero = 1
         n_w = 5
-        n = 1000
+        n = 2000
         # Treatment effect coef
         a = np.zeros(n_x)
         nonzero_idx = np.random.choice(n_x, size=n_nonzero, replace=False)
@@ -713,7 +713,7 @@ class TestDRLearner(unittest.TestCase):
         y_lower, y_upper = sparse_dml.effect_interval(x_test, T0=0, T1=1)
         in_CI = ((y_lower < true_eff) & (true_eff < y_upper))
         # Check that a majority of true effects lie in the 5-95% CI
-        self.assertTrue(in_CI.mean() > 0.8)
+        self.assertGreater(in_CI.mean(), 0.8)
 
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:
