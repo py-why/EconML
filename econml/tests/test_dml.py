@@ -34,18 +34,22 @@ class TestDML(unittest.TestCase):
 
     def test_cate_api(self):
         """Test that we correctly implement the CATE API."""
-        n = 20
+        n_c = 20  # number of rows for continuous models
+        n_d = 30  # number of rows for discrete models
 
-        def make_random(is_discrete, d):
+        def make_random(n, is_discrete, d):
             if d is None:
                 return None
             sz = (n, d) if d >= 0 else (n,)
             if is_discrete:
                 while True:
                     arr = np.random.choice(['a', 'b', 'c'], size=sz)
-                    # ensure that we've got at least two of every element
+                    # ensure that we've got at least 6 of every element
+                    # 2 outer splits, 3 inner splits when model_t is 'auto' and treatment is discrete
+                    # NOTE: this number may need to change if the default number of folds in
+                    #       WeightedStratifiedKFold changes
                     _, counts = np.unique(arr, return_counts=True)
-                    if len(counts) == 3 and counts.min() > 1:
+                    if len(counts) == 3 and counts.min() > 5:
                         return arr
             else:
                 return np.random.normal(size=sz)
@@ -55,7 +59,8 @@ class TestDML(unittest.TestCase):
                 for d_y in [3, 1, -1]:
                     for d_x in [2, None]:
                         for d_w in [2, None]:
-                            W, X, Y, T = [make_random(is_discrete, d)
+                            n = n_d if is_discrete else n_c
+                            W, X, Y, T = [make_random(n, is_discrete, d)
                                           for is_discrete, d in [(False, d_w),
                                                                  (False, d_x),
                                                                  (False, d_y),
@@ -699,7 +704,7 @@ class TestDML(unittest.TestCase):
     def test_can_use_featurizer(self):
         "Test that we can use a featurizer, and that fit is only called during training"
         dml = LinearDMLCateEstimator(LinearRegression(), LinearRegression(),
-                                     fit_cate_intercept=False, featurizer=OneHotEncoder(n_values='auto', sparse=False))
+                                     fit_cate_intercept=False, featurizer=OneHotEncoder(sparse=False))
 
         T = np.tile([1, 2, 3], 6)
         Y = np.array([1, 2, 3, 1, 2, 3])
