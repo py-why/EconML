@@ -127,8 +127,8 @@ class Test2SLS(unittest.TestCase):
         a = np.random.normal(size=(d_w, d_t))
         b = np.random.normal(size=(d_w, d_y))
         x = np.random.uniform(size=(n, d_x)) + e
-        p = x + z * e + w@a + np.random.uniform(size=(n, d_t))
-        y = p * x + e + w@b
+        p = x + z * e + w @ a + np.random.uniform(size=(n, d_t))
+        y = p * x + e + w @ b
 
         losses = []
         marg_effs = []
