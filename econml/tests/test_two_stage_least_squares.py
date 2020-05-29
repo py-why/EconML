@@ -65,9 +65,9 @@ class Test2SLS(unittest.TestCase):
             sz = (n, d) if d >= 0 else (n,)
             return np.random.normal(size=sz)
 
-        for d_t in [1, 2]:
+        for d_t in [-1, 1, 2]:
             n_t = d_t if d_t > 0 else 1
-            for d_y in [1, 2]:
+            for d_y in [-1, 1, 2]:
                 for d_x in [1, 5]:
                     for d_z in [1, 2]:
                         d_w = 1
@@ -80,8 +80,17 @@ class Test2SLS(unittest.TestCase):
                                 dt_featurizer=DPolynomialFeatures())
 
                             est.fit(Y, T, X, W, Z)
+
                             eff = est.effect(X)
                             marg_eff = est.marginal_effect(T, X)
+
+                            effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
+                            marginal_effect_shape = ((n if d_x else 1,) +
+                                                     ((d_y,) if d_y > 0 else ()) +
+                                                     ((d_t,) if d_t > 0 else()))
+
+                            self.assertEqual(shape(marg_eff), marginal_effect_shape)
+                            self.assertEqual(shape(eff), effect_shape)
 
     def test_marg_eff(self):
         X = np.random.normal(size=(5000, 2))
