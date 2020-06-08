@@ -380,7 +380,7 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -464,7 +464,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -590,7 +590,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -709,7 +709,7 @@ class KernelDMLCateEstimator(DMLCateEstimator):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -782,7 +782,7 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -844,7 +844,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete

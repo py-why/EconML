@@ -284,12 +284,6 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     estimators_ : list of DecisionTreeRegressor
         The collection of fitted sub-estimators.
 
-    feature_importances_ : array of shape = [n_features]
-        The feature importances (the higher, the more important the feature).
-        Feature importances are calculate based on the reduction in the
-        splitting criterion among the split samples (not the estimation samples).
-        So it might contain some upwards bias.
-
     n_features_ : int
         The number of features when ``fit`` is performed.
 
