@@ -132,7 +132,7 @@ class DRLearner(_OrthoLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -571,7 +571,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -767,7 +767,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -933,7 +933,7 @@ class ForestDRLearner(DRLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`CV splitter`
+        - :term:`cv splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
