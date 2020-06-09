@@ -103,40 +103,40 @@ jobs:
             testRunTitle: 'Notebooks'
           condition: succeededOrFailed()
 
-- job: 'AutoML'
-  dependsOn: 'EvalChanges'
-  condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
-  variables:
-    python.version: '3.6'
-  pool:
-    vmImage: 'ubuntu-16.04'
-  steps:
-  - template: azure-pipelines-steps.yml
-    parameters:
-      body:
-        - task: AzureCLI@2
-          displayName: 'AutoML tests'
-          inputs:
-            azureSubscription: 'automl'
-            scriptLocation: 'inlineScript'
-            scriptType: 'pscore'
-            powerShellIgnoreLASTEXITCODE: '' # string for now due to https://github.com/microsoft/azure-pipelines-tasks/issues/12266
-            inlineScript: |
-              $env:SUBSCRIPTION_ID = az account show --query id -o tsv
-              python setup.py pytest
-          env:
-            WORKSPACE_NAME: 'testWorkspace'
-            RESOURCE_GROUP: 'testingAutoMLEconML'
-            PYTEST_ADDOPTS: '-m "automl" -n 0'
-            COVERAGE_PROCESS_START: 'setup.cfg'
+# - job: 'AutoML'
+#   dependsOn: 'EvalChanges'
+#   condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
+#   variables:
+#     python.version: '3.6'
+#   pool:
+#     vmImage: 'ubuntu-16.04'
+#   steps:
+#   - template: azure-pipelines-steps.yml
+#     parameters:
+#       body:
+#         - task: AzureCLI@2
+#           displayName: 'AutoML tests'
+#           inputs:
+#             azureSubscription: 'automl'
+#             scriptLocation: 'inlineScript'
+#             scriptType: 'pscore'
+#             powerShellIgnoreLASTEXITCODE: '' # string for now due to https://github.com/microsoft/azure-pipelines-tasks/issues/12266
+#             inlineScript: |
+#               $env:SUBSCRIPTION_ID = az account show --query id -o tsv
+#               python setup.py pytest
+#           env:
+#             WORKSPACE_NAME: 'testWorkspace'
+#             RESOURCE_GROUP: 'testingAutoMLEconML'
+#             PYTEST_ADDOPTS: '-m "automl" -n 0'
+#             COVERAGE_PROCESS_START: 'setup.cfg'
 
-        - task: PublishTestResults@2
-          displayName: 'Publish Test Results **/test-results.xml'
-          inputs:
-            testResultsFiles: '**/test-results.xml'
-            testRunTitle: 'AutoML'
-          condition: succeededOrFailed()
-      package: '.[automl]'
+#         - task: PublishTestResults@2
+#           displayName: 'Publish Test Results **/test-results.xml'
+#           inputs:
+#             testResultsFiles: '**/test-results.xml'
+#             testRunTitle: 'AutoML'
+#           condition: succeededOrFailed()
+#       package: '.[automl]'
 
 - job: 'Linting'
   dependsOn: 'EvalChanges'
