@@ -587,7 +587,8 @@ class TestDML(unittest.TestCase):
                                              subsample_fr=.8,
                                              min_samples_leaf=min_samples_leaf,
                                              min_impurity_decrease=0.001,
-                                             verbose=0, min_weight_fraction_leaf=.03)
+                                             verbose=0, min_weight_fraction_leaf=.03,
+                                             random_state=12345)
                 if summarized:
                     if sample_var:
                         est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
@@ -613,7 +614,8 @@ class TestDML(unittest.TestCase):
                                              subsample_fr=.8,
                                              min_samples_leaf=min_samples_leaf,
                                              min_impurity_decrease=0.001,
-                                             verbose=0, min_weight_fraction_leaf=.03)
+                                             verbose=0, min_weight_fraction_leaf=.03,
+                                             random_state=12345)
                 if summarized:
                     if sample_var:
                         est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],

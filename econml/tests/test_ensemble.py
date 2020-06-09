@@ -98,3 +98,21 @@ class TestSubsampledHonestForest(unittest.TestCase):
             np.testing.assert_allclose(point, 1. * (X_test[:, [0, 0]] > 0), rtol=0, atol=.2)
             np.testing.assert_array_less(lb, 1. * (X_test[:, [0, 0]] > 0) + .05)
             np.testing.assert_array_less(1. * (X_test[:, [0, 0]] > 0), ub + .05)
+
+    def test_random_state(self):
+        np.random.seed(123)
+        n = 5000
+        d = 5
+        x_grid = np.linspace(-1, 1, 10)
+        X_test = np.hstack([x_grid.reshape(-1, 1), np.random.normal(size=(10, d - 1))])
+        X = np.random.normal(0, 1, size=(n, d))
+        y = X[:, 0] + np.random.normal(0, .1, size=(n,))
+        est = SubsampledHonestForest(n_estimators=100, max_depth=5, min_samples_leaf=10, verbose=0, random_state=12345)
+        est.fit(X, y)
+        point1 = est.predict(X_test)
+        est = SubsampledHonestForest(n_estimators=100, max_depth=5,
+                                     min_samples_leaf=10, verbose=0, random_state=12345)
+        est.fit(X, y)
+        point2 = est.predict(X_test)
+        # Check that the point estimates are the same
+        np.testing.assert_equal(point1, point2)

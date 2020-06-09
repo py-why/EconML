@@ -42,7 +42,7 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
     if forest.honest:
         X_split, X_est, y_split, y_est,\
             sample_weight_split, sample_weight_est = train_test_split(
-                X, y, sample_weight, test_size=.5, shuffle=True)
+                X, y, sample_weight, test_size=.5, shuffle=True, random_state=tree.random_state)
     else:
         X_split, X_est, y_split, y_est, sample_weight_split, sample_weight_est =\
             X, X, y, y, sample_weight, sample_weight
@@ -319,11 +319,11 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         n_estimators=1000, n_jobs=None, random_state=0,
         subsample_fr='auto', verbose=0, warm_start=False)
     >>> regr.feature_importances_
-    array([0.39..., 0.34..., 0.12..., 0.12...])
+    array([0.40..., 0.35..., 0.11..., 0.11...])
     >>> regr.predict(np.ones((1, 4)))
-    array([110.4...])
+    array([112.9...])
     >>> regr.predict_interval(np.ones((1, 4)), alpha=.05)
-    (array([93.0...]), array([127.7...]))
+    (array([94.9...]), array([130.9...]))
     >>> regr.score(X_test, y_test)
     0.94...
 
@@ -405,6 +405,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         self.min_impurity_decrease = min_impurity_decrease
         self.subsample_fr = subsample_fr
         self.honest = honest
+        self.random_state = random_state
         self.estimators_ = None
         self.vars_ = None
         self.subsample_fr_ = None
@@ -520,13 +521,13 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             # TODO. This slicing should ultimately be done inside the parallel function
             # so that we don't need to create a matrix of size roughly n_samples * n_estimators
             for it in range(self.n_slices):
-                half_sample_inds = np.random.choice(
+                half_sample_inds = random_state.choice(
                     X.shape[0], X.shape[0] // 2, replace=False)
                 for _ in np.arange(it * self.slice_len, min((it + 1) * self.slice_len, self.n_estimators)):
-                    s_inds.append(half_sample_inds[np.random.choice(X.shape[0] // 2,
-                                                                    int(np.ceil(self.subsample_fr_ *
-                                                                                (X.shape[0] // 2))),
-                                                                    replace=False)])
+                    s_inds.append(half_sample_inds[random_state.choice(X.shape[0] // 2,
+                                                                       int(np.ceil(self.subsample_fr_ *
+                                                                                   (X.shape[0] // 2))),
+                                                                       replace=False)])
             trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
                              **_joblib_parallel_args(prefer='threads'))(
                 delayed(_parallel_add_trees)(
