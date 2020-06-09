@@ -319,11 +319,11 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         n_estimators=1000, n_jobs=None, random_state=0,
         subsample_fr='auto', verbose=0, warm_start=False)
     >>> regr.feature_importances_
-    array([0.39..., 0.34..., 0.12..., 0.12...])
+    array([0.40..., 0.35..., 0.11..., 0.11...])
     >>> regr.predict(np.ones((1, 4)))
-    array([110.4...])
+    array([112.9...])
     >>> regr.predict_interval(np.ones((1, 4)), alpha=.05)
-    (array([93.0...]), array([127.7...]))
+    (array([94.9...]), array([130.9...]))
     >>> regr.score(X_test, y_test)
     0.94...
 
