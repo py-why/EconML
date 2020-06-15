@@ -38,7 +38,8 @@ from .sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
 from .inference import Inference
-from .utilities import reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, cross_product, inverse_onehot
+from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
+                        cross_product, inverse_onehot, _EncoderWrapper)
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -798,8 +799,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model_final, self.model_Y_final, self.n_T, self.random_state, second_stage=True)
         self.transformer = FunctionTransformer(
-            func=(lambda T:
-                  self._one_hot_encoder.transform(T.reshape(-1, 1))),
+            func=_EncoderWrapper(self._one_hot_encoder).encode,
             validate=False)
         # Call `fit` from parent class
         return super().fit(Y, T, X, W=W, inference=inference)

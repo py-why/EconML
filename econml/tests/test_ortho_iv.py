@@ -3,6 +3,7 @@
 
 import unittest
 import pytest
+import pickle
 from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
@@ -133,6 +134,9 @@ class TestOrthoIV(unittest.TestCase):
                                     if not(multi) and d_y > 1 or d_t > 1 or d_z > 1:
                                         continue
 
+                                    # ensure we can serialize unfit estimator
+                                    pickle.dumps(est)
+
                                     for inf in infs:
                                         with self.subTest(d_z=d_z, d_x=d_q, d_y=d_y, d_t=d_t,
                                                           discrete_t=discrete_t, discrete_z=discrete_z,
@@ -174,6 +178,10 @@ class TestOrthoIV(unittest.TestCase):
                                             const_marginal_effect_shape = const_marg_eff_shape(n, d_x, d_y, d_t_final)
 
                                             fit()
+
+                                            # ensure we can serialize fit estimator
+                                            pickle.dumps(est)
+
                                             # make sure we can call the marginal_effect and effect methods
                                             const_marg_eff = est.const_marginal_effect(X)
                                             marg_eff = est.marginal_effect(T, X)

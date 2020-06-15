@@ -411,6 +411,23 @@ def transpose(X, axes=None):
     return _apply(t, X)
 
 
+def add_intercept(X):
+    """
+    Adds an intercept feature to an array by prepending a column of ones.
+
+    Parameters
+    ----------
+    X : array-like
+        Input array.  Must be 2D.
+
+    Returns
+    -------
+    arr : ndarray
+        `X` with a column of ones prepended
+    """
+    return hstack([np.ones((X.shape[0], 1)), X])
+
+
 def reshape_Y_T(Y, T):
     """
     Reshapes Y and T when Y.ndim = 2 and/or T.ndim = 1.
@@ -1371,3 +1388,24 @@ class SeparateModel:
     @property
     def coef_(self):
         return np.concatenate((model.coef_ for model in self.models))
+
+
+class _EncoderWrapper:
+    """
+    Wraps a OneHotEncoder (and optionally also a LabelEncoder).
+
+    Useful mainly so that the `encode` method can be used in a FunctionTransformer,
+    which would otherwise need a lambda (which can't be pickled).
+    """
+
+    def __init__(self, one_hot_encoder, label_encoder=None, drop_first=False):
+        self._label_encoder = label_encoder
+        self._one_hot_encoder = one_hot_encoder
+        self._drop_first = drop_first
+
+    def encode(self, arr):
+        if self._label_encoder:
+            arr = self._label_encoder.transform(arr.ravel())
+
+        result = self._one_hot_encoder.transform(reshape(arr, (-1, 1)))
+        return result[:, 1:] if self._drop_first else result

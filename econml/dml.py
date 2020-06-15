@@ -37,7 +37,7 @@ import numpy as np
 import copy
 from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
-                        broadcast_unit_treatments, reshape_treatmentwise_effects,
+                        broadcast_unit_treatments, reshape_treatmentwise_effects, add_intercept,
                         StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional)
 from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso, WeightedLassoCVWrapper
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
@@ -126,14 +126,13 @@ class _FinalWrapper:
         else:
             self._fit_cate_intercept = fit_cate_intercept
             if self._fit_cate_intercept:
-                add_intercept = FunctionTransformer(lambda F:
-                                                    hstack([np.ones((F.shape[0], 1)), F]),
-                                                    validate=True)
+                add_intercept_trans = FunctionTransformer(add_intercept,
+                                                          validate=True)
                 if featurizer:
                     self._featurizer = Pipeline([('featurize', self._original_featurizer),
-                                                 ('add_intercept', add_intercept)])
+                                                 ('add_intercept', add_intercept_trans)])
                 else:
-                    self._featurizer = add_intercept
+                    self._featurizer = add_intercept_trans
             else:
                 self._featurizer = self._original_featurizer
 
@@ -704,6 +703,21 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
 
 
+class _RandomFeatures(TransformerMixin):
+    def __init__(self, dim, bw, random_state):
+        self._dim = dim
+        self._bw = bw
+        self._random_state = check_random_state(random_state)
+
+    def fit(self, X):
+        self.omegas = self._random_state.normal(0, 1 / self._bw, size=(shape(X)[1], self._dim))
+        self.biases = self._random_state.uniform(0, 2 * np.pi, size=(1, self._dim))
+        return self
+
+    def transform(self, X):
+        return np.sqrt(2 / self._dim) * np.cos(np.matmul(X, self.omegas) + self.biases)
+
+
 class KernelDMLCateEstimator(DMLCateEstimator):
     """
     A specialized version of the linear Double ML Estimator that uses random fourier features.
@@ -764,21 +778,9 @@ class KernelDMLCateEstimator(DMLCateEstimator):
 
     def __init__(self, model_y=WeightedLassoCVWrapper(), model_t='auto', fit_cate_intercept=True,
                  dim=20, bw=1.0, discrete_treatment=False, categories='auto', n_splits=2, random_state=None):
-        class RandomFeatures(TransformerMixin):
-            def __init__(self, random_state):
-                self._random_state = check_random_state(random_state)
-
-            def fit(self, X):
-                self.omegas = self._random_state.normal(0, 1 / bw, size=(shape(X)[1], dim))
-                self.biases = self._random_state.uniform(0, 2 * np.pi, size=(1, dim))
-                return self
-
-            def transform(self, X):
-                return np.sqrt(2 / dim) * np.cos(np.matmul(X, self.omegas) + self.biases)
-
         super().__init__(model_y=model_y, model_t=model_t,
                          model_final=ElasticNetCV(fit_intercept=False),
-                         featurizer=RandomFeatures(random_state),
+                         featurizer=_RandomFeatures(dim, bw, random_state),
                          fit_cate_intercept=fit_cate_intercept,
                          discrete_treatment=discrete_treatment,
                          categories=categories,

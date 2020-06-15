@@ -16,7 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from .utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        inverse_onehot, transpose)
+                        inverse_onehot, transpose, _EncoderWrapper)
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -40,8 +40,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         self.transformer = FunctionTransformer(
-            func=(lambda T:
-                  self._one_hot_encoder.transform(T.reshape(-1, 1))),
+            func=_EncoderWrapper(self._one_hot_encoder).encode,
             validate=False)
         super().__init__()
 
@@ -129,7 +128,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         # We might want to revisit, though, since it's linearly determined by the others
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False)
         self.transformer = FunctionTransformer(
-            func=(lambda T: self._one_hot_encoder.transform(T.reshape(-1, 1))[:, 1:]),
+            func=_EncoderWrapper(self._one_hot_encoder, drop_first=True).encode,
             validate=False)
         super().__init__()
 
@@ -233,8 +232,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         self.transformer = FunctionTransformer(
-            func=(lambda T:
-                  self._one_hot_encoder.transform(T.reshape(-1, 1))),
+            func=_EncoderWrapper(self._one_hot_encoder).encode,
             validate=False)
         super().__init__()
 
@@ -357,7 +355,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         self.transformer = FunctionTransformer(
-            func=(lambda T: self._one_hot_encoder.transform(T.reshape(-1, 1))),
+            func=_EncoderWrapper(self._one_hot_encoder).encode,
             validate=False)
         super().__init__()
 

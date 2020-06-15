@@ -29,7 +29,7 @@ import copy
 from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        StatsModelsLinearRegression, LassoCVWrapper)
+                        StatsModelsLinearRegression, _EncoderWrapper)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
@@ -553,12 +553,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             else:
                 to_split = Z  # just stratify on Z
 
-            z_ohe = OneHotEncoder(categories='auto', sparse=False)
-            Z = z_ohe.fit_transform(reshape(Z, (-1, 1)))[:, 1:]
+            z_ohe = OneHotEncoder(categories='auto', sparse=False, drop='first')
+            Z = z_ohe.fit_transform(reshape(Z, (-1, 1)))
             self.z_transformer = FunctionTransformer(
-                func=(lambda Z:
-                      z_ohe.transform(
-                          reshape(z_enc.transform(Z.ravel()), (-1, 1)))[:, 1:]),
+                func=_EncoderWrapper(z_ohe, z_enc).encode,
                 validate=False)
         else:
             # stratify on T if discrete, and fine to pass T as second arg to KFold.split even when not
@@ -584,9 +582,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if self._discrete_treatment:
             self._d_t = shape(T)[1:]
             self.transformer = FunctionTransformer(
-                func=(lambda T:
-                      self._one_hot_encoder.transform(
-                          reshape(T, (-1, 1)))),
+                func=_EncoderWrapper(self._one_hot_encoder).encode,
                 validate=False)
 
         nuisances, fitted_models, fitted_inds, scores = _crossfit(self._model_nuisance, folds,

@@ -3,6 +3,7 @@
 
 import unittest
 import pytest
+import pickle
 from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
@@ -134,6 +135,9 @@ class TestDML(unittest.TestCase):
                                     if not(multi) and d_y > 1:
                                         continue
 
+                                    # ensure we can serialize the unfit estimator
+                                    pickle.dumps(est)
+
                                     for inf in infs:
                                         with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
                                                           is_discrete=is_discrete, est=est, inf=inf):
@@ -144,6 +148,10 @@ class TestDML(unittest.TestCase):
                                                 continue
 
                                             est.fit(Y, T, X, W, inference=inf)
+
+                                            # ensure we can pickle the fit estimator
+                                            pickle.dumps(est)
+
                                             # make sure we can call the marginal_effect and effect methods
                                             const_marg_eff = est.const_marginal_effect(X)
                                             marg_eff = est.marginal_effect(T, X)
