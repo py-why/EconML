@@ -21,7 +21,7 @@ from sklearn.pipeline import Pipeline
 
 from ._ortho_learner import _OrthoLearner
 from .dml import _FinalWrapper
-from .utilities import (hstack, StatsModelsLinearRegression, inverse_onehot)
+from .utilities import (hstack, StatsModelsLinearRegression, inverse_onehot, add_intercept)
 from .inference import StatsModelsInference
 from .cate_estimator import StatsModelsCateEstimatorMixin
 
@@ -92,48 +92,50 @@ class _FirstStageWrapper:
             return self._model.predict(self._combine(X, Z, n_samples, fitting=False))
 
 
+class _BaseDMLATEIVModelFinal:
+    def __init__(self):
+        self._first_stage = LinearRegression(fit_intercept=False)
+        self._model_final = _FinalWrapper(LinearRegression(fit_intercept=False),
+                                          fit_cate_intercept=True, featurizer=None, use_weight_trick=False)
+
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+        Y_res, T_res, Z_res = nuisances
+        if Z_res.ndim == 1:
+            Z_res = Z_res.reshape(-1, 1)
+        # DMLATEIV is just like 2SLS; first regress T_res on Z_res, then regress Y_res on predicted T_res
+        T_res_pred = self._first_stage.fit(Z_res, T_res,
+                                           sample_weight=sample_weight).predict(Z_res)
+        # TODO: allow the final model to actually use X? Then we'd need to rename the class
+        #       since we would actually be calculating a CATE rather than ATE.
+        self._model_final.fit(X=None, T_res=T_res_pred, Y_res=Y_res, sample_weight=sample_weight)
+        return self
+
+    def predict(self, X=None):
+        # TODO: allow the final model to actually use X?
+        return self._model_final.predict(X=None)
+
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+        Y_res, T_res, Z_res = nuisances
+        if Y_res.ndim == 1:
+            Y_res = Y_res.reshape((-1, 1))
+        if T_res.ndim == 1:
+            T_res = T_res.reshape((-1, 1))
+        # TODO: allow the final model to actually use X?
+        effects = self._model_final.predict(X=None).reshape((-1, Y_res.shape[1], T_res.shape[1]))
+        Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
+        if sample_weight is not None:
+            return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
+        else:
+            return np.mean((Y_res - Y_res_pred) ** 2)
+
+
 class _BaseDMLATEIV(_OrthoLearner):
     def __init__(self, model_nuisance,
                  discrete_instrument=False, discrete_treatment=False,
                  categories='auto',
                  n_splits=2, random_state=None):
-        class ModelFinal:
-            def __init__(self):
-                self._first_stage = LinearRegression(fit_intercept=False)
-                self._model_final = _FinalWrapper(LinearRegression(fit_intercept=False),
-                                                  fit_cate_intercept=True, featurizer=None, use_weight_trick=False)
 
-            def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                Y_res, T_res, Z_res = nuisances
-                if Z_res.ndim == 1:
-                    Z_res = Z_res.reshape(-1, 1)
-                # DMLATEIV is just like 2SLS; first regress T_res on Z_res, then regress Y_res on predicted T_res
-                T_res_pred = self._first_stage.fit(Z_res, T_res,
-                                                   sample_weight=sample_weight).predict(Z_res)
-                # TODO: allow the final model to actually use X? Then we'd need to rename the class
-                #       since we would actually be calculating a CATE rather than ATE.
-                self._model_final.fit(X=None, T_res=T_res_pred, Y_res=Y_res, sample_weight=sample_weight)
-                return self
-
-            def predict(self, X=None):
-                # TODO: allow the final model to actually use X?
-                return self._model_final.predict(X=None)
-
-            def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                Y_res, T_res, Z_res = nuisances
-                if Y_res.ndim == 1:
-                    Y_res = Y_res.reshape((-1, 1))
-                if T_res.ndim == 1:
-                    T_res = T_res.reshape((-1, 1))
-                # TODO: allow the final model to actually use X?
-                effects = self._model_final.predict(X=None).reshape((-1, Y_res.shape[1], T_res.shape[1]))
-                Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
-                if sample_weight is not None:
-                    return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
-                else:
-                    return np.mean((Y_res - Y_res_pred) ** 2)
-
-        super().__init__(model_nuisance, ModelFinal(),
+        super().__init__(model_nuisance, _BaseDMLATEIVModelFinal(),
                          discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
@@ -198,6 +200,48 @@ class _BaseDMLATEIV(_OrthoLearner):
         return super().score(Y, T, W=W, Z=Z)
 
 
+class _DMLATEIVModelNuisance:
+    def __init__(self, model_Y_X, model_T_X, model_Z_X):
+        self._model_Y_X = clone(model_Y_X, safe=False)
+        self._model_T_X = clone(model_T_X, safe=False)
+        self._model_Z_X = clone(model_Z_X, safe=False)
+
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        assert X is None, "DML ATE IV does not accept features"
+        self._model_Y_X.fit(W, Y, sample_weight=sample_weight)
+        self._model_T_X.fit(W, T, sample_weight=sample_weight)
+        self._model_Z_X.fit(W, Z, sample_weight=sample_weight)
+        return self
+
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        if hasattr(self._model_Y_X, 'score'):
+            Y_X_score = self._model_Y_X.score(W, Y, sample_weight=sample_weight)
+        else:
+            Y_X_score = None
+        if hasattr(self._model_T_X, 'score'):
+            T_X_score = self._model_T_X.score(W, T, sample_weight=sample_weight)
+        else:
+            T_X_score = None
+        if hasattr(self._model_Z_X, 'score'):
+            Z_X_score = self._model_Z_X.score(W, Z, sample_weight=sample_weight)
+        else:
+            Z_X_score = None
+        return Y_X_score, T_X_score, Z_X_score
+
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        Y_pred = self._model_Y_X.predict(W)
+        T_pred = self._model_T_X.predict(W)
+        Z_pred = self._model_Z_X.predict(W)
+        if W is None:  # In this case predict above returns a single row
+            Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
+            T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
+            Z_pred = np.tile(Z_pred.reshape(1, -1), (Z.shape[0], 1))
+        Y_res = Y - Y_pred.reshape(Y.shape)
+        T_res = T - T_pred.reshape(T.shape)
+        Z_res = Z - Z_pred.reshape(Z.shape)
+        return Y_res, T_res, Z_res
+
+
 class DMLATEIV(_BaseDMLATEIV):
     """
     Implementation of the orthogonal/double ml method for ATE estimation with
@@ -216,52 +260,56 @@ class DMLATEIV(_BaseDMLATEIV):
                  discrete_treatment=False, discrete_instrument=False,
                  categories='auto',
                  n_splits=2, random_state=None):
-        class ModelNuisance:
-            def __init__(self, model_Y_X, model_T_X, model_Z_X):
-                self._model_Y_X = clone(model_Y_X, safe=False)
-                self._model_T_X = clone(model_T_X, safe=False)
-                self._model_Z_X = clone(model_Z_X, safe=False)
 
-            def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                assert X is None, "DML ATE IV does not accept features"
-                self._model_Y_X.fit(W, Y, sample_weight=sample_weight)
-                self._model_T_X.fit(W, T, sample_weight=sample_weight)
-                self._model_Z_X.fit(W, Z, sample_weight=sample_weight)
-                return self
-
-            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                if hasattr(self._model_Y_X, 'score'):
-                    Y_X_score = self._model_Y_X.score(W, Y, sample_weight=sample_weight)
-                else:
-                    Y_X_score = None
-                if hasattr(self._model_T_X, 'score'):
-                    T_X_score = self._model_T_X.score(W, T, sample_weight=sample_weight)
-                else:
-                    T_X_score = None
-                if hasattr(self._model_Z_X, 'score'):
-                    Z_X_score = self._model_Z_X.score(W, Z, sample_weight=sample_weight)
-                else:
-                    Z_X_score = None
-                return Y_X_score, T_X_score, Z_X_score
-
-            def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                Y_pred = self._model_Y_X.predict(W)
-                T_pred = self._model_T_X.predict(W)
-                Z_pred = self._model_Z_X.predict(W)
-                if W is None:  # In this case predict above returns a single row
-                    Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
-                    T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
-                    Z_pred = np.tile(Z_pred.reshape(1, -1), (Z.shape[0], 1))
-                Y_res = Y - Y_pred.reshape(Y.shape)
-                T_res = T - T_pred.reshape(T.shape)
-                Z_res = Z - Z_pred.reshape(Z.shape)
-                return Y_res, T_res, Z_res
-        super().__init__(ModelNuisance(model_Y_X=_FirstStageWrapper(model_Y_X, discrete_target=False),
-                                       model_T_X=_FirstStageWrapper(model_T_X, discrete_target=discrete_treatment),
-                                       model_Z_X=_FirstStageWrapper(model_Z_X, discrete_target=discrete_instrument)),
+        super().__init__(_DMLATEIVModelNuisance(model_Y_X=_FirstStageWrapper(model_Y_X, discrete_target=False),
+                                                model_T_X=_FirstStageWrapper(
+                                                    model_T_X, discrete_target=discrete_treatment),
+                                                model_Z_X=_FirstStageWrapper(
+                                                    model_Z_X, discrete_target=discrete_instrument)),
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
+
+
+class _ProjectedDMLATEIVModelNuisance:
+    def __init__(self, model_Y_X, model_T_X, model_T_XZ):
+        self._model_Y_X = clone(model_Y_X, safe=False)
+        self._model_T_X = clone(model_T_X, safe=False)
+        self._model_T_XZ = clone(model_T_XZ, safe=False)
+
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        assert X is None, "DML ATE IV does not accept features"
+        self._model_Y_X.fit(W, Y, sample_weight=sample_weight)
+        self._model_T_X.fit(W, T, sample_weight=sample_weight)
+        self._model_T_XZ.fit(W, Z, T, sample_weight=sample_weight)
+        return self
+
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        if hasattr(self._model_Y_X, 'score'):
+            Y_X_score = self._model_Y_X.score(W, Y, sample_weight=sample_weight)
+        else:
+            Y_X_score = None
+        if hasattr(self._model_T_X, 'score'):
+            T_X_score = self._model_T_X.score(W, T, sample_weight=sample_weight)
+        else:
+            T_X_score = None
+        if hasattr(self._model_T_XZ, 'score'):
+            T_XZ_score = self._model_T_XZ.score(W, Z, T, sample_weight=sample_weight)
+        else:
+            T_XZ_score = None
+        return Y_X_score, T_X_score, T_XZ_score
+
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        Y_pred = self._model_Y_X.predict(W)
+        TX_pred = self._model_T_X.predict(W)
+        TXZ_pred = self._model_T_XZ.predict(W, Z)
+        if W is None:  # In this case predict above returns a single row
+            Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
+            TX_pred = np.tile(TX_pred.reshape(1, -1), (T.shape[0], 1))
+        Y_res = Y - Y_pred.reshape(Y.shape)
+        T_res = T - TX_pred.reshape(T.shape)
+        Z_res = TXZ_pred.reshape(T.shape) - TX_pred.reshape(T.shape)
+        return Y_res, T_res, Z_res
 
 
 class ProjectedDMLATEIV(_BaseDMLATEIV):
@@ -269,52 +317,100 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
                  discrete_treatment=False, discrete_instrument=False,
                  categories='auto',
                  n_splits=2, random_state=None):
-        class ModelNuisance:
-            def __init__(self, model_Y_X, model_T_X, model_T_XZ):
-                self._model_Y_X = clone(model_Y_X, safe=False)
-                self._model_T_X = clone(model_T_X, safe=False)
-                self._model_T_XZ = clone(model_T_XZ, safe=False)
 
-            def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                assert X is None, "DML ATE IV does not accept features"
-                self._model_Y_X.fit(W, Y, sample_weight=sample_weight)
-                self._model_T_X.fit(W, T, sample_weight=sample_weight)
-                self._model_T_XZ.fit(W, Z, T, sample_weight=sample_weight)
-                return self
+        super().__init__(_ProjectedDMLATEIVModelNuisance(
+            model_Y_X=_FirstStageWrapper(
+                model_Y_X, discrete_target=False),
+            model_T_X=_FirstStageWrapper(
+                model_T_X, discrete_target=discrete_treatment),
+            model_T_XZ=_FirstStageWrapper(
+                model_T_XZ, discrete_target=discrete_treatment)),
+            discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
+            categories=categories,
+            n_splits=n_splits, random_state=random_state)
 
-            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                if hasattr(self._model_Y_X, 'score'):
-                    Y_X_score = self._model_Y_X.score(W, Y, sample_weight=sample_weight)
-                else:
-                    Y_X_score = None
-                if hasattr(self._model_T_X, 'score'):
-                    T_X_score = self._model_T_X.score(W, T, sample_weight=sample_weight)
-                else:
-                    T_X_score = None
-                if hasattr(self._model_T_XZ, 'score'):
-                    T_XZ_score = self._model_T_XZ.score(W, Z, T, sample_weight=sample_weight)
-                else:
-                    T_XZ_score = None
-                return Y_X_score, T_X_score, T_XZ_score
 
-            def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                Y_pred = self._model_Y_X.predict(W)
-                TX_pred = self._model_T_X.predict(W)
-                TXZ_pred = self._model_T_XZ.predict(W, Z)
-                if W is None:  # In this case predict above returns a single row
-                    Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
-                    TX_pred = np.tile(TX_pred.reshape(1, -1), (T.shape[0], 1))
-                Y_res = Y - Y_pred.reshape(Y.shape)
-                T_res = T - TX_pred.reshape(T.shape)
-                Z_res = TXZ_pred.reshape(T.shape) - TX_pred.reshape(T.shape)
-                return Y_res, T_res, Z_res
+class _BaseDMLIVModelNuisance:
+    """
+    Nuisance model fits the three models at fit time and at predict time
+    returns :math:`Y-\\E[Y|X]` and :math:`\\E[T|X,Z]-\\E[T|X]` as residuals.
+    """
 
-        super().__init__(ModelNuisance(model_Y_X=_FirstStageWrapper(model_Y_X, discrete_target=False),
-                                       model_T_X=_FirstStageWrapper(model_T_X, discrete_target=discrete_treatment),
-                                       model_T_XZ=_FirstStageWrapper(model_T_XZ, discrete_target=discrete_treatment)),
-                         discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
-                         categories=categories,
-                         n_splits=n_splits, random_state=random_state)
+    def __init__(self, model_Y_X, model_T_X, model_T_XZ):
+        self._model_Y_X = clone(model_Y_X, safe=False)
+        self._model_T_X = clone(model_T_X, safe=False)
+        self._model_T_XZ = clone(model_T_XZ, safe=False)
+
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        # TODO: would it be useful to extend to handle controls ala vanilla DML?
+        assert W is None, "DML IV does not accept controls"
+        self._model_Y_X.fit(X, Y, sample_weight=sample_weight)
+        self._model_T_X.fit(X, T, sample_weight=sample_weight)
+        self._model_T_XZ.fit(X, Z, T, sample_weight=sample_weight)
+        return self
+
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        if hasattr(self._model_Y_X, 'score'):
+            Y_X_score = self._model_Y_X.score(X, Y, sample_weight=sample_weight)
+        else:
+            Y_X_score = None
+        if hasattr(self._model_T_X, 'score'):
+            T_X_score = self._model_T_X.score(X, T, sample_weight=sample_weight)
+        else:
+            T_X_score = None
+        if hasattr(self._model_T_XZ, 'score'):
+            T_XZ_score = self._model_T_XZ.score(X, Z, T, sample_weight=sample_weight)
+        else:
+            T_XZ_score = None
+        return Y_X_score, T_X_score, T_XZ_score
+
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        Y_pred = self._model_Y_X.predict(X)
+        TXZ_pred = self._model_T_XZ.predict(X, Z)
+        TX_pred = self._model_T_X.predict(X)
+        if X is None:  # In this case predict above returns a single row
+            Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
+            TX_pred = np.tile(TX_pred.reshape(1, -1), (T.shape[0], 1))
+        Y_res = Y - Y_pred.reshape(Y.shape)
+        T_res = TXZ_pred.reshape(T.shape) - TX_pred.reshape(T.shape)
+        return Y_res, T_res
+
+
+class _BaseDMLIVModelFinal:
+    """
+    Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
+    that depends on X, i.e.
+
+        .. math ::
+            Y - \\E[Y | X] = \\theta(X) \\cdot (\\E[T | X, Z] - \\E[T | X]) + \\epsilon
+
+    and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
+    residual on residual regression.
+    """
+
+    def __init__(self, model_final):
+        self._model_final = clone(model_final, safe=False)
+
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+        Y_res, T_res = nuisances
+        self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
+        return self
+
+    def predict(self, X=None):
+        return self._model_final.predict(X)
+
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+        Y_res, T_res = nuisances
+        if Y_res.ndim == 1:
+            Y_res = Y_res.reshape((-1, 1))
+        if T_res.ndim == 1:
+            T_res = T_res.reshape((-1, 1))
+        effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
+        Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
+        if sample_weight is not None:
+            return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
+        else:
+            return np.mean((Y_res - Y_res_pred)**2)
 
 
 class _BaseDMLIV(_OrthoLearner):
@@ -389,88 +485,8 @@ class _BaseDMLIV(_OrthoLearner):
     def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final,
                  discrete_instrument=False, discrete_treatment=False, categories='auto',
                  n_splits=2, random_state=None):
-        class ModelNuisance:
-            """
-            Nuisance model fits the three models at fit time and at predict time
-            returns :math:`Y-\\E[Y|X]` and :math:`\\E[T|X,Z]-\\E[T|X]` as residuals.
-            """
-
-            def __init__(self, model_Y_X, model_T_X, model_T_XZ):
-                self._model_Y_X = clone(model_Y_X, safe=False)
-                self._model_T_X = clone(model_T_X, safe=False)
-                self._model_T_XZ = clone(model_T_XZ, safe=False)
-
-            def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                # TODO: would it be useful to extend to handle controls ala vanilla DML?
-                assert W is None, "DML IV does not accept controls"
-                self._model_Y_X.fit(X, Y, sample_weight=sample_weight)
-                self._model_T_X.fit(X, T, sample_weight=sample_weight)
-                self._model_T_XZ.fit(X, Z, T, sample_weight=sample_weight)
-                return self
-
-            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                if hasattr(self._model_Y_X, 'score'):
-                    Y_X_score = self._model_Y_X.score(X, Y, sample_weight=sample_weight)
-                else:
-                    Y_X_score = None
-                if hasattr(self._model_T_X, 'score'):
-                    T_X_score = self._model_T_X.score(X, T, sample_weight=sample_weight)
-                else:
-                    T_X_score = None
-                if hasattr(self._model_T_XZ, 'score'):
-                    T_XZ_score = self._model_T_XZ.score(X, Z, T, sample_weight=sample_weight)
-                else:
-                    T_XZ_score = None
-                return Y_X_score, T_X_score, T_XZ_score
-
-            def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                Y_pred = self._model_Y_X.predict(X)
-                TXZ_pred = self._model_T_XZ.predict(X, Z)
-                TX_pred = self._model_T_X.predict(X)
-                if X is None:  # In this case predict above returns a single row
-                    Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
-                    TX_pred = np.tile(TX_pred.reshape(1, -1), (T.shape[0], 1))
-                Y_res = Y - Y_pred.reshape(Y.shape)
-                T_res = TXZ_pred.reshape(T.shape) - TX_pred.reshape(T.shape)
-                return Y_res, T_res
-
-        class ModelFinal:
-            """
-            Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
-            that depends on X, i.e.
-
-                .. math ::
-                    Y - \\E[Y | X] = \\theta(X) \\cdot (\\E[T | X, Z] - \\E[T | X]) + \\epsilon
-
-            and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
-            residual on residual regression.
-            """
-
-            def __init__(self, model_final):
-                self._model_final = clone(model_final, safe=False)
-
-            def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                Y_res, T_res = nuisances
-                self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
-                return self
-
-            def predict(self, X=None):
-                return self._model_final.predict(X)
-
-            def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                Y_res, T_res = nuisances
-                if Y_res.ndim == 1:
-                    Y_res = Y_res.reshape((-1, 1))
-                if T_res.ndim == 1:
-                    T_res = T_res.reshape((-1, 1))
-                effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
-                Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
-                if sample_weight is not None:
-                    return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
-                else:
-                    return np.mean((Y_res - Y_res_pred)**2)
-
-        super().__init__(ModelNuisance(model_Y_X, model_T_X, model_T_XZ), ModelFinal(model_final),
+        super().__init__(_BaseDMLIVModelNuisance(model_Y_X, model_T_X, model_T_XZ),
+                         _BaseDMLIVModelFinal(model_final),
                          discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
@@ -818,6 +834,111 @@ class NonParamDMLIV(_BaseDMLIV):
                          categories=categories)
 
 
+class _BaseDRIVModelFinal:
+    """
+    Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
+    that depends on X, i.e.
+
+        .. math ::
+            Y - \\E[Y | X] = \\theta(X) \\cdot (\\E[T | X, Z] - \\E[T | X]) + \\epsilon
+
+    and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
+    residual on residual regression.
+    """
+
+    def __init__(self, model_final, featurizer,
+                 discrete_treatment, discrete_instrument,
+                 fit_cate_intercept, cov_clip, opt_reweighted):
+        self._model_final = clone(model_final, safe=False)
+        self._fit_cate_intercept = fit_cate_intercept
+        self._original_featurizer = clone(featurizer, safe=False)
+        self._discrete_treatment = discrete_treatment
+        self._discrete_instrument = discrete_instrument
+        if self._fit_cate_intercept:
+            add_intercept_trans = FunctionTransformer(add_intercept,
+                                                      validate=True)
+            if featurizer:
+                self._featurizer = Pipeline([('featurize', self._original_featurizer),
+                                             ('add_intercept', add_intercept_trans)])
+            else:
+                self._featurizer = add_intercept_trans
+        else:
+            self._featurizer = self._original_featurizer
+        self._cov_clip = cov_clip
+        self._opt_reweighted = opt_reweighted
+
+    def _effect_estimate(self, nuisances):
+        prel_theta, res_t, res_y, res_z, cov = [nuisance.reshape(nuisances[0].shape) for nuisance in nuisances]
+
+        # Estimate final model of theta(X) by minimizing the square loss:
+        # (prel_theta(X) + (Y_res - prel_theta(X) * T_res) * Z_res / cov[T,Z | X] - theta(X))^2
+        # We clip the covariance so that it is bounded away from zero, so as to reduce variance
+        # at the expense of some small bias. For points with very small covariance we revert
+        # to the model-based preliminary estimate and do not add the correction term.
+        cov_sign = np.sign(cov)
+        cov_sign[cov_sign == 0] = 1
+        clipped_cov = cov_sign * np.clip(np.abs(cov),
+                                         self._cov_clip, np.inf)
+        return prel_theta + (res_y - prel_theta * res_t) * res_z / clipped_cov, clipped_cov
+
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+        self.d_y = Y.shape[1:]
+        self.d_t = nuisances[1].shape[1:]
+        self.d_z = nuisances[3].shape[1:]
+
+        # TODO: if opt_reweighted is False, we could change the logic to support multidimensional treatments,
+        #       instruments, and outcomes
+        if self.d_y and self.d_y[0] > 2:
+            raise AttributeError("DRIV only supports a single outcome")
+
+        if self.d_t and self.d_t[0] > 1:
+            if self._discrete_treatment:
+                raise AttributeError("DRIV only supports binary treatments")
+            else:
+                raise AttributeError("DRIV only supports single-dimensional continuous treatments")
+
+        if self.d_z and self.d_z[0] > 1:
+            if self._discrete_instrument:
+                raise AttributeError("DRIV only supports binary instruments")
+            else:
+                raise AttributeError("DRIV only supports single-dimensional continuous instruments")
+
+        theta_dr, clipped_cov = self._effect_estimate(nuisances)
+
+        if (X is not None) and (self._featurizer is not None):
+            X = self._featurizer.fit_transform(X)
+        # TODO: how do we incorporate the sample_weight and sample_var passed into this method
+        #       as arguments?
+        if self._opt_reweighted:
+            self._model_final.fit(X, theta_dr, sample_weight=clipped_cov.ravel()**2)
+        else:
+            self._model_final.fit(X, theta_dr)
+        return self
+
+    def predict(self, X=None):
+        if (X is not None) and (self._featurizer is not None):
+            X = self._featurizer.transform(X)
+        return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
+
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+        # TODO: is there a good way to incorporate the other nuisance terms in the score?
+        _, T_res, Y_res, _, _ = nuisances
+
+        if Y_res.ndim == 1:
+            Y_res = Y_res.reshape((-1, 1))
+        if T_res.ndim == 1:
+            T_res = T_res.reshape((-1, 1))
+        if (X is not None) and (self._featurizer is not None):
+            X = self._featurizer.transform(X)
+        effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
+        Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
+
+        if sample_weight is not None:
+            return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
+        else:
+            return np.mean((Y_res - Y_res_pred) ** 2)
+
+
 class _BaseDRIV(_OrthoLearner):
 
     """
@@ -892,112 +1013,19 @@ class _BaseDRIV(_OrthoLearner):
                  discrete_instrument=False, discrete_treatment=False,
                  categories='auto',
                  n_splits=2, random_state=None):
-        class ModelFinal:
-            """
-            Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
-            that depends on X, i.e.
-
-                .. math ::
-                    Y - \\E[Y | X] = \\theta(X) \\cdot (\\E[T | X, Z] - \\E[T | X]) + \\epsilon
-
-            and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
-            residual on residual regression.
-            """
-
-            def __init__(self, model_final, featurizer, fit_cate_intercept):
-                self._model_final = clone(model_final, safe=False)
-                self._fit_cate_intercept = fit_cate_intercept
-                self._original_featurizer = clone(featurizer, safe=False)
-                if self._fit_cate_intercept:
-                    add_intercept = FunctionTransformer(lambda F:
-                                                        hstack([np.ones((F.shape[0], 1)), F]),
-                                                        validate=True)
-                    if featurizer:
-                        self._featurizer = Pipeline([('featurize', self._original_featurizer),
-                                                     ('add_intercept', add_intercept)])
-                    else:
-                        self._featurizer = add_intercept
-                else:
-                    self._featurizer = self._original_featurizer
-
-            @staticmethod
-            def _effect_estimate(nuisances):
-                prel_theta, res_t, res_y, res_z, cov = [nuisance.reshape(nuisances[0].shape) for nuisance in nuisances]
-
-                # Estimate final model of theta(X) by minimizing the square loss:
-                # (prel_theta(X) + (Y_res - prel_theta(X) * T_res) * Z_res / cov[T,Z | X] - theta(X))^2
-                # We clip the covariance so that it is bounded away from zero, so as to reduce variance
-                # at the expense of some small bias. For points with very small covariance we revert
-                # to the model-based preliminary estimate and do not add the correction term.
-                cov_sign = np.sign(cov)
-                cov_sign[cov_sign == 0] = 1
-                clipped_cov = cov_sign * np.clip(np.abs(cov),
-                                                 self.cov_clip, np.inf)
-                return prel_theta + (res_y - prel_theta * res_t) * res_z / clipped_cov, clipped_cov
-
-            def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                self.d_y = Y.shape[1:]
-                self.d_t = nuisances[1].shape[1:]
-                self.d_z = nuisances[3].shape[1:]
-
-                # TODO: if opt_reweighted is False, we could change the logic to support multidimensional treatments,
-                #       instruments, and outcomes
-                if self.d_y and self.d_y[0] > 2:
-                    raise AttributeError("DRIV only supports a single outcome")
-
-                if self.d_t and self.d_t[0] > 1:
-                    if discrete_treatment:
-                        raise AttributeError("DRIV only supports binary treatments")
-                    else:
-                        raise AttributeError("DRIV only supports single-dimensional continuous treatments")
-
-                if self.d_z and self.d_z[0] > 1:
-                    if discrete_instrument:
-                        raise AttributeError("DRIV only supports binary instruments")
-                    else:
-                        raise AttributeError("DRIV only supports single-dimensional continuous instruments")
-
-                theta_dr, clipped_cov = self._effect_estimate(nuisances)
-
-                if (X is not None) and (self._featurizer is not None):
-                    X = self._featurizer.fit_transform(X)
-                # TODO: how do we incorporate the sample_weight and sample_var passed into this method
-                #       as arguments?
-                if opt_reweighted:
-                    self._model_final.fit(X, theta_dr, sample_weight=clipped_cov.ravel()**2)
-                else:
-                    self._model_final.fit(X, theta_dr)
-                return self
-
-            def predict(self, X=None):
-                if (X is not None) and (self._featurizer is not None):
-                    X = self._featurizer.transform(X)
-                return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
-
-            def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                # TODO: is there a good way to incorporate the other nuisance terms in the score?
-                _, T_res, Y_res, _, _ = nuisances
-
-                if Y_res.ndim == 1:
-                    Y_res = Y_res.reshape((-1, 1))
-                if T_res.ndim == 1:
-                    T_res = T_res.reshape((-1, 1))
-                if (X is not None) and (self._featurizer is not None):
-                    X = self._featurizer.transform(X)
-                effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
-                Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
-
-                if sample_weight is not None:
-                    return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
-                else:
-                    return np.mean((Y_res - Y_res_pred) ** 2)
 
         self.fit_cate_intercept = fit_cate_intercept
         self.bias_part_of_coef = fit_cate_intercept
 
         self.cov_clip = cov_clip
         self.opt_reweighted = opt_reweighted
-        super().__init__(nuisance_models, ModelFinal(model_final, featurizer, fit_cate_intercept),
+        super().__init__(nuisance_models, _BaseDRIVModelFinal(model_final,
+                                                              featurizer,
+                                                              discrete_treatment,
+                                                              discrete_instrument,
+                                                              fit_cate_intercept,
+                                                              cov_clip,
+                                                              opt_reweighted),
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
                          categories=categories, n_splits=n_splits, random_state=random_state)
 
@@ -1101,6 +1129,59 @@ class _BaseDRIV(_OrthoLearner):
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
+class _IntentToTreatDRIVModelNuisance:
+    """
+    Nuisance model fits the three models at fit time and at predict time
+    returns :math:`Y-\\E[Y|X]` and :math:`\\E[T|X,Z]-\\E[T|X]` as residuals.
+    """
+
+    def __init__(self, model_Y_X, model_T_XZ, prel_model_effect):
+        self._model_Y_X = clone(model_Y_X, safe=False)
+        self._model_T_XZ = clone(model_T_XZ, safe=False)
+        self._prel_model_effect = clone(prel_model_effect, safe=False)
+
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        assert W is None, "IntentToTreatDRIV does not accept controls"
+        self._model_Y_X.fit(X, Y, sample_weight=sample_weight)
+        self._model_T_XZ.fit(X, Z, T, sample_weight=sample_weight)
+        # we need to undo the one-hot encoding for calling effect,
+        # since it expects raw values
+        self._prel_model_effect.fit(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
+        return self
+
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        if hasattr(self._model_Y_X, 'score'):
+            Y_X_score = self._model_Y_X.score(X, Y, sample_weight=sample_weight)
+        else:
+            Y_X_score = None
+        if hasattr(self._model_T_XZ, 'score'):
+            T_XZ_score = self._model_T_XZ.score(X, Z, T, sample_weight=sample_weight)
+        else:
+            T_XZ_score = None
+        if hasattr(self._prel_model_effect, 'score'):
+            # we need to undo the one-hot encoding for calling effect,
+            # since it expects raw values
+            effect_score = self._prel_model_effect.score(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
+        else:
+            effect_score = None
+
+        return Y_X_score, T_XZ_score, effect_score
+
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        Y_pred = self._model_Y_X.predict(X)
+        T_pred_zero = self._model_T_XZ.predict(X, np.zeros(Z.shape))
+        T_pred_one = self._model_T_XZ.predict(X, np.ones(Z.shape))
+        delta = (T_pred_one - T_pred_zero) / 2
+        T_pred_mean = (T_pred_one + T_pred_zero) / 2
+        prel_theta = self._prel_model_effect.effect(X)
+        if X is None:  # In this case predict above returns a single row
+            Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
+            prel_theta = np.tile(prel_theta.reshape(1, -1), (T.shape[0], 1))
+        Y_res = Y - Y_pred.reshape(Y.shape)
+        T_res = T - T_pred_mean.reshape(T.shape)
+        return prel_theta, T_res, Y_res, 2 * Z - 1, delta
+
+
 class _IntentToTreatDRIV(_BaseDRIV):
     """
     Helper class for the DRIV algorithm for the intent-to-treat A/B test setting
@@ -1118,59 +1199,9 @@ class _IntentToTreatDRIV(_BaseDRIV):
         """
         """
 
-        class ModelNuisance:
-            """
-            Nuisance model fits the three models at fit time and at predict time
-            returns :math:`Y-\\E[Y|X]` and :math:`\\E[T|X,Z]-\\E[T|X]` as residuals.
-            """
-
-            def __init__(self, model_Y_X, model_T_XZ, prel_model_effect):
-                self._model_Y_X = clone(model_Y_X, safe=False)
-                self._model_T_XZ = clone(model_T_XZ, safe=False)
-                self._prel_model_effect = clone(prel_model_effect, safe=False)
-
-            def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                assert W is None, "IntentToTreatDRIV does not accept controls"
-                self._model_Y_X.fit(X, Y, sample_weight=sample_weight)
-                self._model_T_XZ.fit(X, Z, T, sample_weight=sample_weight)
-                # we need to undo the one-hot encoding for calling effect,
-                # since it expects raw values
-                self._prel_model_effect.fit(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
-                return self
-
-            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                if hasattr(self._model_Y_X, 'score'):
-                    Y_X_score = self._model_Y_X.score(X, Y, sample_weight=sample_weight)
-                else:
-                    Y_X_score = None
-                if hasattr(self._model_T_XZ, 'score'):
-                    T_XZ_score = self._model_T_XZ.score(X, Z, T, sample_weight=sample_weight)
-                else:
-                    T_XZ_score = None
-                if hasattr(self._prel_model_effect, 'score'):
-                    # we need to undo the one-hot encoding for calling effect,
-                    # since it expects raw values
-                    effect_score = self._prel_model_effect.score(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
-                else:
-                    effect_score = None
-
-                return Y_X_score, T_XZ_score, effect_score
-
-            def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                Y_pred = self._model_Y_X.predict(X)
-                T_pred_zero = self._model_T_XZ.predict(X, np.zeros(Z.shape))
-                T_pred_one = self._model_T_XZ.predict(X, np.ones(Z.shape))
-                delta = (T_pred_one - T_pred_zero) / 2
-                T_pred_mean = (T_pred_one + T_pred_zero) / 2
-                prel_theta = self._prel_model_effect.effect(X)
-                if X is None:  # In this case predict above returns a single row
-                    Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
-                    prel_theta = np.tile(prel_theta.reshape(1, -1), (T.shape[0], 1))
-                Y_res = Y - Y_pred.reshape(Y.shape)
-                T_res = T - T_pred_mean.reshape(T.shape)
-                return prel_theta, T_res, Y_res, 2 * Z - 1, delta
         # TODO: check that Y, T, Z do not have multiple columns
-        super().__init__(ModelNuisance(model_Y_X, model_T_XZ, prel_model_effect), model_effect,
+        super().__init__(_IntentToTreatDRIVModelNuisance(model_Y_X, model_T_XZ, prel_model_effect),
+                         model_effect,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,

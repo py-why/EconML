@@ -34,6 +34,82 @@ from sklearn.base import clone
 from ._ortho_learner import _OrthoLearner
 
 
+class _ModelNuisance:
+    """
+    Nuisance model fits the model_y and model_t at fit time and at predict time
+    calculates the residual Y and residual T based on the fitted models and returns
+    the residuals as two nuisance parameters.
+    """
+
+    def __init__(self, model_y, model_t):
+        self._model_y = clone(model_y, safe=False)
+        self._model_t = clone(model_t, safe=False)
+
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        assert Z is None, "Cannot accept instrument!"
+        self._model_t.fit(X, W, T, sample_weight=sample_weight)
+        self._model_y.fit(X, W, Y, sample_weight=sample_weight)
+        return self
+
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        if hasattr(self._model_y, 'score'):
+            Y_score = self._model_y.score(X, W, Y, sample_weight=sample_weight)
+        else:
+            Y_score = None
+        if hasattr(self._model_t, 'score'):
+            T_score = self._model_t.score(X, W, T, sample_weight=sample_weight)
+        else:
+            T_score = None
+        return Y_score, T_score
+
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        Y_pred = self._model_y.predict(X, W)
+        T_pred = self._model_t.predict(X, W)
+        if (X is None) and (W is None):  # In this case predict above returns a single row
+            Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
+            T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
+        Y_res = Y - Y_pred.reshape(Y.shape)
+        T_res = T - T_pred.reshape(T.shape)
+        return Y_res, T_res
+
+
+class _ModelFinal:
+    """
+    Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
+    that depends on X, i.e.
+
+        .. math ::
+            Y - E[Y | X, W] = \\theta(X) \\cdot (T - E[T | X, W]) + \\epsilon
+
+    and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
+    residual on residual regression.
+    """
+
+    def __init__(self, model_final):
+        self._model_final = clone(model_final, safe=False)
+
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+        Y_res, T_res = nuisances
+        self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
+        return self
+
+    def predict(self, X=None):
+        return self._model_final.predict(X)
+
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+        Y_res, T_res = nuisances
+        if Y_res.ndim == 1:
+            Y_res = Y_res.reshape((-1, 1))
+        if T_res.ndim == 1:
+            T_res = T_res.reshape((-1, 1))
+        effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
+        Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
+        if sample_weight is not None:
+            return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
+        else:
+            return np.mean((Y_res - Y_res_pred) ** 2)
+
+
 class _RLearner(_OrthoLearner):
     """
     Base class for CATE learners that residualize treatment and outcome and run residual on residual regression.
@@ -197,82 +273,9 @@ class _RLearner(_OrthoLearner):
 
     def __init__(self, model_y, model_t, model_final,
                  discrete_treatment, categories, n_splits, random_state):
-        class ModelNuisance:
-            """
-            Nuisance model fits the model_y and model_t at fit time and at predict time
-            calculates the residual Y and residual T based on the fitted models and returns
-            the residuals as two nuisance parameters.
-            """
 
-            def __init__(self, model_y, model_t):
-                self._model_y = clone(model_y, safe=False)
-                self._model_t = clone(model_t, safe=False)
-
-            def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                assert Z is None, "Cannot accept instrument!"
-                self._model_t.fit(X, W, T, sample_weight=sample_weight)
-                self._model_y.fit(X, W, Y, sample_weight=sample_weight)
-                return self
-
-            def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                if hasattr(self._model_y, 'score'):
-                    Y_score = self._model_y.score(X, W, Y, sample_weight=sample_weight)
-                else:
-                    Y_score = None
-                if hasattr(self._model_t, 'score'):
-                    T_score = self._model_t.score(X, W, T, sample_weight=sample_weight)
-                else:
-                    T_score = None
-                return Y_score, T_score
-
-            def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-                Y_pred = self._model_y.predict(X, W)
-                T_pred = self._model_t.predict(X, W)
-                if (X is None) and (W is None):  # In this case predict above returns a single row
-                    Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
-                    T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
-                Y_res = Y - Y_pred.reshape(Y.shape)
-                T_res = T - T_pred.reshape(T.shape)
-                return Y_res, T_res
-
-        class ModelFinal:
-            """
-            Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
-            that depends on X, i.e.
-
-                .. math ::
-                    Y - E[Y | X, W] = \\theta(X) \\cdot (T - E[T | X, W]) + \\epsilon
-
-            and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
-            residual on residual regression.
-            """
-
-            def __init__(self, model_final):
-                self._model_final = clone(model_final, safe=False)
-
-            def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                Y_res, T_res = nuisances
-                self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
-                return self
-
-            def predict(self, X=None):
-                return self._model_final.predict(X)
-
-            def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-                Y_res, T_res = nuisances
-                if Y_res.ndim == 1:
-                    Y_res = Y_res.reshape((-1, 1))
-                if T_res.ndim == 1:
-                    T_res = T_res.reshape((-1, 1))
-                effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
-                Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
-                if sample_weight is not None:
-                    return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
-                else:
-                    return np.mean((Y_res - Y_res_pred)**2)
-
-        super().__init__(ModelNuisance(model_y, model_t),
-                         ModelFinal(model_final),
+        super().__init__(_ModelNuisance(model_y, model_t),
+                         _ModelFinal(model_final),
                          discrete_treatment=discrete_treatment,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,

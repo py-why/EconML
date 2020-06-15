@@ -4,6 +4,7 @@
 import numpy as np
 import unittest
 import pytest
+import pickle
 from sklearn.base import TransformerMixin
 from numpy.random import normal, multivariate_normal, binomial
 from sklearn.exceptions import DataConversionWarning
@@ -109,6 +110,9 @@ class TestDRLearner(unittest.TestCase):
                                               model_final=StatsModelsLinearRegression(),
                                               multitask_model_final=True)]:
 
+                            # ensure that we can serialize unfit estimator
+                            pickle.dumps(est)
+
                             # TODO: add stratification to bootstrap so that we can use it even with discrete treatments
                             infs = [None]
                             if isinstance(est, LinearDRLearner):
@@ -118,6 +122,10 @@ class TestDRLearner(unittest.TestCase):
                                 with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
                                                   is_discrete=is_discrete, est=est, inf=inf):
                                     est.fit(Y, T, X, W, inference=inf)
+
+                                    # ensure that we can serialize fit estimator
+                                    pickle.dumps(est)
+
                                     # make sure we can call the marginal_effect and effect methods
                                     const_marg_eff = est.const_marginal_effect(
                                         X)
