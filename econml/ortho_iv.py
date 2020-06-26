@@ -26,27 +26,33 @@ from .inference import StatsModelsInference
 from .cate_estimator import StatsModelsCateEstimatorMixin
 
 
-# A cut-down version of the DML first stage wrapper, since we don't need to support W or linear first stages
+# A cut-down version of the DML first stage wrapper, since we don't need to support linear first stages
 class _FirstStageWrapper:
     def __init__(self, model, discrete_target):
         self._model = clone(model, safe=False)
         self._discrete_target = discrete_target
 
-    def _combine(self, X, Z, n_samples, fitting=True):
+    def _combine(self, X, W, Z, n_samples, fitting=True):
+        # output is
+        #   * a column of ones if X, W, and Z are all None
+        #   * just X or W or Z if both of the others are None
+        #   * hstack([arrs]) for whatever subset are not None otherwise
+
+        # ensure Z is 2D
         if Z is not None:
             Z = Z.reshape(n_samples, -1)
-        if X is None:
-            # if both X and Z are None, just return a column of ones
-            return (Z if Z is not None else np.ones((n_samples, 1)))
-        XZ = hstack([X, Z]) if Z is not None else X
-        return XZ
 
-    def fit(self, X, *args, sample_weight=None):
-        if len(args) == 1:
-            Target, = args
-            Z = None
+        if X is None and W is None and Z is None:
+            return np.ones((n_samples, 1))
+
+        arrs = [arr for arr in [X, W, Z] if arr is not None]
+
+        if len(arrs) == 1:
+            return arrs[0]
         else:
-            (Z, Target) = args
+            return hstack(arrs)
+
+    def fit(self, *, X, W, Target, Z=None, sample_weight=None):
         if self._discrete_target:
             # In this case, the Target is the one-hot-encoding of the treatment variable
             # We need to go back to the label representation of the one-hot so as to call
@@ -57,17 +63,12 @@ class _FirstStageWrapper:
             Target = inverse_onehot(Target)
 
         if sample_weight is not None:
-            self._model.fit(self._combine(X, Z, Target.shape[0]), Target, sample_weight=sample_weight)
+            self._model.fit(self._combine(X, W, Z, Target.shape[0]), Target, sample_weight=sample_weight)
         else:
-            self._model.fit(self._combine(X, Z, Target.shape[0]), Target)
+            self._model.fit(self._combine(X, W, Z, Target.shape[0]), Target)
 
-    def score(self, X, *args, sample_weight=None):
+    def score(self, *, X, W, Target, Z=None, sample_weight=None):
         if hasattr(self._model, 'score'):
-            if len(args) == 1:
-                Target, = args
-                Z = None
-            else:
-                (Z, Target) = args
             if self._discrete_target:
                 # In this case, the Target is the one-hot-encoding of the treatment variable
                 # We need to go back to the label representation of the one-hot so as to call
@@ -78,18 +79,19 @@ class _FirstStageWrapper:
                 Target = inverse_onehot(Target)
 
             if sample_weight is not None:
-                return self._model.score(self._combine(X, Z, Target.shape[0]), Target, sample_weight=sample_weight)
+                return self._model.score(self._combine(X, W, Z, Target.shape[0]), Target, sample_weight=sample_weight)
             else:
-                return self._model.score(self._combine(X, Z, Target.shape[0]), Target)
+                return self._model.score(self._combine(X, W, Z, Target.shape[0]), Target)
         else:
             return None
 
-    def predict(self, X, Z=None):
-        n_samples = X.shape[0] if X is not None else (Z.shape[0] if Z is not None else 1)
+    def predict(self, X, W, Z=None):
+        arrs = [arr for arr in [X, W, Z] if arr is not None]
+        n_samples = arrs[0].shape[0] if arrs else 1
         if self._discrete_target:
-            return self._model.predict_proba(self._combine(X, Z, n_samples, fitting=False))[:, 1:]
+            return self._model.predict_proba(self._combine(X, W, Z, n_samples, fitting=False))[:, 1:]
         else:
-            return self._model.predict(self._combine(X, Z, n_samples, fitting=False))
+            return self._model.predict(self._combine(X, W, Z, n_samples, fitting=False))
 
 
 class _BaseDMLATEIVModelFinal:
@@ -201,37 +203,39 @@ class _BaseDMLATEIV(_OrthoLearner):
 
 
 class _DMLATEIVModelNuisance:
-    def __init__(self, model_Y_X, model_T_X, model_Z_X):
-        self._model_Y_X = clone(model_Y_X, safe=False)
-        self._model_T_X = clone(model_T_X, safe=False)
-        self._model_Z_X = clone(model_Z_X, safe=False)
+    def __init__(self, model_Y_W, model_T_W, model_Z_W):
+        self._model_Y_W = clone(model_Y_W, safe=False)
+        self._model_T_W = clone(model_T_W, safe=False)
+        self._model_Z_W = clone(model_Z_W, safe=False)
 
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         assert X is None, "DML ATE IV does not accept features"
-        self._model_Y_X.fit(W, Y, sample_weight=sample_weight)
-        self._model_T_X.fit(W, T, sample_weight=sample_weight)
-        self._model_Z_X.fit(W, Z, sample_weight=sample_weight)
+        self._model_Y_W.fit(X=X, W=W, Target=Y, sample_weight=sample_weight)
+        self._model_T_W.fit(X=X, W=W, Target=T, sample_weight=sample_weight)
+        self._model_Z_W.fit(X=X, W=W, Target=Z, sample_weight=sample_weight)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-        if hasattr(self._model_Y_X, 'score'):
-            Y_X_score = self._model_Y_X.score(W, Y, sample_weight=sample_weight)
+        assert X is None, "DML ATE IV does not accept features"
+        if hasattr(self._model_Y_W, 'score'):
+            Y_X_score = self._model_Y_W.score(X=X, W=W, Target=Y, sample_weight=sample_weight)
         else:
             Y_X_score = None
-        if hasattr(self._model_T_X, 'score'):
-            T_X_score = self._model_T_X.score(W, T, sample_weight=sample_weight)
+        if hasattr(self._model_T_W, 'score'):
+            T_X_score = self._model_T_W.score(X=X, W=W, Target=T, sample_weight=sample_weight)
         else:
             T_X_score = None
-        if hasattr(self._model_Z_X, 'score'):
-            Z_X_score = self._model_Z_X.score(W, Z, sample_weight=sample_weight)
+        if hasattr(self._model_Z_W, 'score'):
+            Z_X_score = self._model_Z_W.score(X=X, W=W, Target=Z, sample_weight=sample_weight)
         else:
             Z_X_score = None
         return Y_X_score, T_X_score, Z_X_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-        Y_pred = self._model_Y_X.predict(W)
-        T_pred = self._model_T_X.predict(W)
-        Z_pred = self._model_Z_X.predict(W)
+        assert X is None, "DML ATE IV does not accept features"
+        Y_pred = self._model_Y_W.predict(X=X, W=W)
+        T_pred = self._model_T_W.predict(X=X, W=W)
+        Z_pred = self._model_Z_W.predict(X=X, W=W)
         if W is None:  # In this case predict above returns a single row
             Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
             T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
@@ -256,53 +260,55 @@ class DMLATEIV(_BaseDMLATEIV):
     a biased ATE.
     """
 
-    def __init__(self, model_Y_X, model_T_X, model_Z_X,
+    def __init__(self, model_Y_W, model_T_W, model_Z_W,
                  discrete_treatment=False, discrete_instrument=False,
                  categories='auto',
                  n_splits=2, random_state=None):
 
-        super().__init__(_DMLATEIVModelNuisance(model_Y_X=_FirstStageWrapper(model_Y_X, discrete_target=False),
-                                                model_T_X=_FirstStageWrapper(
-                                                    model_T_X, discrete_target=discrete_treatment),
-                                                model_Z_X=_FirstStageWrapper(
-                                                    model_Z_X, discrete_target=discrete_instrument)),
+        super().__init__(_DMLATEIVModelNuisance(model_Y_W=_FirstStageWrapper(model_Y_W, discrete_target=False),
+                                                model_T_W=_FirstStageWrapper(
+                                                    model_T_W, discrete_target=discrete_treatment),
+                                                model_Z_W=_FirstStageWrapper(
+                                                    model_Z_W, discrete_target=discrete_instrument)),
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
 
 class _ProjectedDMLATEIVModelNuisance:
-    def __init__(self, model_Y_X, model_T_X, model_T_XZ):
-        self._model_Y_X = clone(model_Y_X, safe=False)
-        self._model_T_X = clone(model_T_X, safe=False)
-        self._model_T_XZ = clone(model_T_XZ, safe=False)
+    def __init__(self, model_Y_W, model_T_W, model_T_WZ):
+        self._model_Y_W = clone(model_Y_W, safe=False)
+        self._model_T_W = clone(model_T_W, safe=False)
+        self._model_T_WZ = clone(model_T_WZ, safe=False)
 
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         assert X is None, "DML ATE IV does not accept features"
-        self._model_Y_X.fit(W, Y, sample_weight=sample_weight)
-        self._model_T_X.fit(W, T, sample_weight=sample_weight)
-        self._model_T_XZ.fit(W, Z, T, sample_weight=sample_weight)
+        self._model_Y_W.fit(X=X, W=W, Target=Y, sample_weight=sample_weight)
+        self._model_T_W.fit(X=X, W=W, Target=T, sample_weight=sample_weight)
+        self._model_T_WZ.fit(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-        if hasattr(self._model_Y_X, 'score'):
-            Y_X_score = self._model_Y_X.score(W, Y, sample_weight=sample_weight)
+        assert X is None, "DML ATE IV does not accept features"
+        if hasattr(self._model_Y_W, 'score'):
+            Y_X_score = self._model_Y_W.score(X=X, W=W, Target=Y, sample_weight=sample_weight)
         else:
             Y_X_score = None
-        if hasattr(self._model_T_X, 'score'):
-            T_X_score = self._model_T_X.score(W, T, sample_weight=sample_weight)
+        if hasattr(self._model_T_W, 'score'):
+            T_X_score = self._model_T_W.score(X=X, W=W, Target=T, sample_weight=sample_weight)
         else:
             T_X_score = None
-        if hasattr(self._model_T_XZ, 'score'):
-            T_XZ_score = self._model_T_XZ.score(W, Z, T, sample_weight=sample_weight)
+        if hasattr(self._model_T_WZ, 'score'):
+            T_XZ_score = self._model_T_WZ.score(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight)
         else:
             T_XZ_score = None
         return Y_X_score, T_X_score, T_XZ_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-        Y_pred = self._model_Y_X.predict(W)
-        TX_pred = self._model_T_X.predict(W)
-        TXZ_pred = self._model_T_XZ.predict(W, Z)
+        assert X is None, "DML ATE IV does not accept features"
+        Y_pred = self._model_Y_W.predict(X, W)
+        TX_pred = self._model_T_W.predict(X, W)
+        TXZ_pred = self._model_T_WZ.predict(X, W, Z)
         if W is None:  # In this case predict above returns a single row
             Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
             TX_pred = np.tile(TX_pred.reshape(1, -1), (T.shape[0], 1))
@@ -313,18 +319,18 @@ class _ProjectedDMLATEIVModelNuisance:
 
 
 class ProjectedDMLATEIV(_BaseDMLATEIV):
-    def __init__(self, model_Y_X, model_T_X, model_T_XZ,
+    def __init__(self, model_Y_W, model_T_W, model_T_WZ,
                  discrete_treatment=False, discrete_instrument=False,
                  categories='auto',
                  n_splits=2, random_state=None):
 
         super().__init__(_ProjectedDMLATEIVModelNuisance(
-            model_Y_X=_FirstStageWrapper(
-                model_Y_X, discrete_target=False),
-            model_T_X=_FirstStageWrapper(
-                model_T_X, discrete_target=discrete_treatment),
-            model_T_XZ=_FirstStageWrapper(
-                model_T_XZ, discrete_target=discrete_treatment)),
+            model_Y_W=_FirstStageWrapper(
+                model_Y_W, discrete_target=False),
+            model_T_W=_FirstStageWrapper(
+                model_T_W, discrete_target=discrete_treatment),
+            model_T_WZ=_FirstStageWrapper(
+                model_T_WZ, discrete_target=discrete_treatment)),
             discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
             categories=categories,
             n_splits=n_splits, random_state=random_state)
@@ -344,30 +350,32 @@ class _BaseDMLIVModelNuisance:
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         # TODO: would it be useful to extend to handle controls ala vanilla DML?
         assert W is None, "DML IV does not accept controls"
-        self._model_Y_X.fit(X, Y, sample_weight=sample_weight)
-        self._model_T_X.fit(X, T, sample_weight=sample_weight)
-        self._model_T_XZ.fit(X, Z, T, sample_weight=sample_weight)
+        self._model_Y_X.fit(X=X, W=None, Target=Y, sample_weight=sample_weight)
+        self._model_T_X.fit(X=X, W=None, Target=T, sample_weight=sample_weight)
+        self._model_T_XZ.fit(X=X, W=None, Z=Z, Target=T, sample_weight=sample_weight)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+        assert W is None, "DML IV does not accept controls"
         if hasattr(self._model_Y_X, 'score'):
-            Y_X_score = self._model_Y_X.score(X, Y, sample_weight=sample_weight)
+            Y_X_score = self._model_Y_X.score(X=X, W=W, Target=Y, sample_weight=sample_weight)
         else:
             Y_X_score = None
         if hasattr(self._model_T_X, 'score'):
-            T_X_score = self._model_T_X.score(X, T, sample_weight=sample_weight)
+            T_X_score = self._model_T_X.score(X=X, W=W, Target=T, sample_weight=sample_weight)
         else:
             T_X_score = None
         if hasattr(self._model_T_XZ, 'score'):
-            T_XZ_score = self._model_T_XZ.score(X, Z, T, sample_weight=sample_weight)
+            T_XZ_score = self._model_T_XZ.score(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight)
         else:
             T_XZ_score = None
         return Y_X_score, T_X_score, T_XZ_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-        Y_pred = self._model_Y_X.predict(X)
-        TXZ_pred = self._model_T_XZ.predict(X, Z)
-        TX_pred = self._model_T_X.predict(X)
+        assert W is None, "DML IV does not accept controls"
+        Y_pred = self._model_Y_X.predict(X, W)
+        TXZ_pred = self._model_T_XZ.predict(X, W, Z)
+        TX_pred = self._model_T_X.predict(X, W)
         if X is None:  # In this case predict above returns a single row
             Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
             TX_pred = np.tile(TX_pred.reshape(1, -1), (T.shape[0], 1))
@@ -1029,7 +1037,7 @@ class _BaseDRIV(_OrthoLearner):
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
                          categories=categories, n_splits=n_splits, random_state=random_state)
 
-    def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, inference=None):
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1043,6 +1051,8 @@ class _BaseDRIV(_OrthoLearner):
             Instruments for each sample
         X: optional(n, d_x) matrix or None (Default=None)
             Features for each sample
+        W: optional(n, d_w) matrix or None (Default=None)
+            Controls for each sample
         sample_weight: optional(n,) vector or None (Default=None)
             Weights for each samples
         sample_var: optional(n,) vector or None (Default=None)
@@ -1055,11 +1065,11 @@ class _BaseDRIV(_OrthoLearner):
         -------
         self: _BaseDRIV instance
         """
-        # Replacing fit from _OrthoLearner, to enforce W=None and improve the docstring
-        return super().fit(Y, T, X=X, W=None, Z=Z,
+        # Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
+        return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, sample_var=sample_var, inference=inference)
 
-    def score(self, Y, T, Z, X=None):
+    def score(self, Y, T, Z, X=None, W=None):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted nuisance models created at fit time.
@@ -1079,6 +1089,8 @@ class _BaseDRIV(_OrthoLearner):
             Instruments for each sample
         X: optional (n, d_x) matrix or None (Default=None)
             Features for each sample
+        W: optional(n, d_w) matrix or None (Default=None)
+            Controls for each sample
 
         Returns
         -------
@@ -1086,8 +1098,8 @@ class _BaseDRIV(_OrthoLearner):
             The score of the final CATE model on the new data. Same type as the return
             type of the model_final.score method.
         """
-        # Replacing score from _OrthoLearner, to enforce W=None and improve the docstring
-        return super().score(Y, T, X=X, W=None, Z=Z)
+        # Replacing score from _OrthoLearner, to reorder arguments and improve the docstring
+        return super().score(Y, T, X=X, W=W, Z=Z)
 
     @property
     def original_featurizer(self):
@@ -1141,9 +1153,8 @@ class _IntentToTreatDRIVModelNuisance:
         self._prel_model_effect = clone(prel_model_effect, safe=False)
 
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-        assert W is None, "IntentToTreatDRIV does not accept controls"
-        self._model_Y_X.fit(X, Y, sample_weight=sample_weight)
-        self._model_T_XZ.fit(X, Z, T, sample_weight=sample_weight)
+        self._model_Y_X.fit(X=X, W=W, Target=Y, sample_weight=sample_weight)
+        self._model_T_XZ.fit(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight)
         # we need to undo the one-hot encoding for calling effect,
         # since it expects raw values
         self._prel_model_effect.fit(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
@@ -1151,11 +1162,11 @@ class _IntentToTreatDRIVModelNuisance:
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         if hasattr(self._model_Y_X, 'score'):
-            Y_X_score = self._model_Y_X.score(X, Y, sample_weight=sample_weight)
+            Y_X_score = self._model_Y_X.score(X=X, W=W, Target=Y, sample_weight=sample_weight)
         else:
             Y_X_score = None
         if hasattr(self._model_T_XZ, 'score'):
-            T_XZ_score = self._model_T_XZ.score(X, Z, T, sample_weight=sample_weight)
+            T_XZ_score = self._model_T_XZ.score(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight)
         else:
             T_XZ_score = None
         if hasattr(self._prel_model_effect, 'score'):
@@ -1168,9 +1179,9 @@ class _IntentToTreatDRIVModelNuisance:
         return Y_X_score, T_XZ_score, effect_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-        Y_pred = self._model_Y_X.predict(X)
-        T_pred_zero = self._model_T_XZ.predict(X, np.zeros(Z.shape))
-        T_pred_one = self._model_T_XZ.predict(X, np.ones(Z.shape))
+        Y_pred = self._model_Y_X.predict(X, W)
+        T_pred_zero = self._model_T_XZ.predict(X, W, np.zeros(Z.shape))
+        T_pred_one = self._model_T_XZ.predict(X, W, np.ones(Z.shape))
         delta = (T_pred_one - T_pred_zero) / 2
         T_pred_mean = (T_pred_one + T_pred_zero) / 2
         prel_theta = self._prel_model_effect.effect(X)
@@ -1409,7 +1420,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          categories=categories)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    def fit(self, Y, T, Z, X=None, sample_weight=None, sample_var=None, inference=None):
+    def fit(self, Y, T, Z, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1423,6 +1434,8 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             Instruments for each sample
         X: optional(n, d_x) matrix or None (Default=None)
             Features for each sample
+        W: optional(n, d_w) matrix or None (Default=None)
+            Controls for each sample
         sample_weight: optional(n,) vector or None (Default=None)
             Weights for each samples
         sample_var: optional(n,) vector or None (Default=None)
@@ -1436,4 +1449,4 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         -------
         self : instance
         """
-        return super().fit(Y, T, Z, X=X, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+        return super().fit(Y, T, Z, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)

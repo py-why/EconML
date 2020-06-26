@@ -101,16 +101,16 @@ class TestOrthoIV(unittest.TestCase):
                                 if not (discrete_t or discrete_z):
                                     all_infs.append(BootstrapInference(1))
 
-                                estimators = [(DMLATEIV(model_Y_X=Lasso(),
-                                                        model_T_X=model_t,
-                                                        model_Z_X=model_z,
+                                estimators = [(DMLATEIV(model_Y_W=Lasso(),
+                                                        model_T_W=model_t,
+                                                        model_Z_W=model_z,
                                                         discrete_treatment=discrete_t,
                                                         discrete_instrument=discrete_z),
                                                True,
                                                all_infs),
-                                              (ProjectedDMLATEIV(model_Y_X=Lasso(),
-                                                                 model_T_X=model_t,
-                                                                 model_T_XZ=model_t,
+                                              (ProjectedDMLATEIV(model_Y_W=Lasso(),
+                                                                 model_T_W=model_t,
+                                                                 model_T_WZ=model_t,
                                                                  discrete_treatment=discrete_t,
                                                                  discrete_instrument=discrete_z),
                                                False,
@@ -137,93 +137,107 @@ class TestOrthoIV(unittest.TestCase):
                                     # ensure we can serialize unfit estimator
                                     pickle.dumps(est)
 
-                                    for inf in infs:
-                                        with self.subTest(d_z=d_z, d_x=d_q, d_y=d_y, d_t=d_t,
-                                                          discrete_t=discrete_t, discrete_z=discrete_z,
-                                                          est=est, inf=inf):
-                                            Z = Z1
-                                            T = T1
-                                            d_t_final = d_t_final1
-                                            X = Q
-                                            d_x = d_q
-                                            W = None
+                                    d_ws = [None]
+                                    if isinstance(est, LinearIntentToTreatDRIV):
+                                        d_ws.append(2)
 
-                                            if isinstance(est, (DMLATEIV, ProjectedDMLATEIV)):
-                                                # these support only W but not X
-                                                W = Q
-                                                X = None
-                                                d_x = None
+                                    for d_w in d_ws:
+                                        W = make_random(False, d_w)
 
-                                                def fit():
-                                                    return est.fit(Y, T, Z=Z, W=W, inference=inf)
+                                        for inf in infs:
+                                            with self.subTest(d_z=d_z, d_x=d_q, d_y=d_y, d_t=d_t,
+                                                              discrete_t=discrete_t, discrete_z=discrete_z,
+                                                              est=est, inf=inf):
+                                                Z = Z1
+                                                T = T1
+                                                d_t_final = d_t_final1
+                                                X = Q
+                                                d_x = d_q
 
-                                                def score():
-                                                    return est.score(Y, T, Z=Z, W=W)
-                                            else:
-                                                # these support only binary, not general discrete T and Z
-                                                if discrete_t:
-                                                    T = T2
-                                                    d_t_final = d_t_final2
+                                                if isinstance(est, (DMLATEIV, ProjectedDMLATEIV)):
+                                                    # these support only W but not X
+                                                    W = Q
+                                                    X = None
+                                                    d_x = None
 
-                                                if discrete_z:
-                                                    Z = Z2
+                                                    def fit():
+                                                        return est.fit(Y, T, Z=Z, W=W, inference=inf)
 
-                                                def fit():
-                                                    return est.fit(Y, T, Z=Z, X=X, inference=inf)
+                                                    def score():
+                                                        return est.score(Y, T, Z=Z, W=W)
+                                                else:
+                                                    # these support only binary, not general discrete T and Z
+                                                    if discrete_t:
+                                                        T = T2
+                                                        d_t_final = d_t_final2
 
-                                                def score():
-                                                    return est.score(Y, T, Z=Z, X=X)
+                                                    if discrete_z:
+                                                        Z = Z2
 
-                                            marginal_effect_shape = marg_eff_shape(n, d_y, d_t_final)
-                                            const_marginal_effect_shape = const_marg_eff_shape(n, d_x, d_y, d_t_final)
+                                                    if isinstance(est, LinearIntentToTreatDRIV):
+                                                        def fit():
+                                                            return est.fit(Y, T, Z=Z, X=X, W=W, inference=inf)
 
-                                            fit()
+                                                        def score():
+                                                            return est.score(Y, T, Z=Z, X=X, W=W)
+                                                    else:
+                                                        def fit():
+                                                            return est.fit(Y, T, Z=Z, X=X, inference=inf)
 
-                                            # ensure we can serialize fit estimator
-                                            pickle.dumps(est)
+                                                        def score():
+                                                            return est.score(Y, T, Z=Z, X=X)
 
-                                            # make sure we can call the marginal_effect and effect methods
-                                            const_marg_eff = est.const_marginal_effect(X)
-                                            marg_eff = est.marginal_effect(T, X)
-                                            self.assertEqual(shape(marg_eff), marginal_effect_shape)
-                                            self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
+                                                marginal_effect_shape = marg_eff_shape(n, d_y, d_t_final)
+                                                const_marginal_effect_shape = const_marg_eff_shape(
+                                                    n, d_x, d_y, d_t_final)
 
-                                            np.testing.assert_array_equal(
-                                                marg_eff if d_x else marg_eff[0:1], const_marg_eff)
+                                                fit()
 
-                                            T0 = np.full_like(T, 'a') if discrete_t else np.zeros_like(T)
-                                            eff = est.effect(X, T0=T0, T1=T)
-                                            self.assertEqual(shape(eff), effect_shape)
+                                                # ensure we can serialize fit estimator
+                                                pickle.dumps(est)
 
-                                            # TODO: add tests for extra properties like coef_ where they exist
+                                                # make sure we can call the marginal_effect and effect methods
+                                                const_marg_eff = est.const_marginal_effect(X)
+                                                marg_eff = est.marginal_effect(T, X)
+                                                self.assertEqual(shape(marg_eff), marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
 
-                                            if inf is not None:
-                                                const_marg_eff_int = est.const_marginal_effect_interval(X)
-                                                marg_eff_int = est.marginal_effect_interval(T, X)
-                                                self.assertEqual(shape(marg_eff_int),
-                                                                 (2,) + marginal_effect_shape)
-                                                self.assertEqual(shape(const_marg_eff_int),
-                                                                 (2,) + const_marginal_effect_shape)
-                                                self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
-                                                                 (2,) + effect_shape)
+                                                np.testing.assert_array_equal(
+                                                    marg_eff if d_x else marg_eff[0:1], const_marg_eff)
 
-                                            # TODO: add tests for extra properties like coef_ where they exist
+                                                T0 = np.full_like(T, 'a') if discrete_t else np.zeros_like(T)
+                                                eff = est.effect(X, T0=T0, T1=T)
+                                                self.assertEqual(shape(eff), effect_shape)
 
-                                            score()
+                                                # TODO: add tests for extra properties like coef_ where they exist
 
-                                            # make sure we can call effect with implied scalar treatments,
-                                            # no matter the dimensions of T, and also that we warn when there
-                                            # are multiple treatments
-                                            if d_t > 1:
-                                                cm = self.assertWarns(Warning)
-                                            else:
-                                                # ExitStack can be used as a "do nothing" ContextManager
-                                                cm = ExitStack()
-                                            with cm:
-                                                effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
-                                                eff = est.effect(X) if not discrete_t else est.effect(
-                                                    X, T0='a', T1='b')
-                                                self.assertEqual(shape(eff), effect_shape2)
+                                                if inf is not None:
+                                                    const_marg_eff_int = est.const_marginal_effect_interval(X)
+                                                    marg_eff_int = est.marginal_effect_interval(T, X)
+                                                    self.assertEqual(shape(marg_eff_int),
+                                                                     (2,) + marginal_effect_shape)
+                                                    self.assertEqual(shape(const_marg_eff_int),
+                                                                     (2,) + const_marginal_effect_shape)
+                                                    self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
+                                                                     (2,) + effect_shape)
+
+                                                # TODO: add tests for extra properties like coef_ where they exist
+
+                                                score()
+
+                                                # make sure we can call effect with implied scalar treatments,
+                                                # no matter the dimensions of T, and also that we warn when there
+                                                # are multiple treatments
+                                                if d_t > 1:
+                                                    cm = self.assertWarns(Warning)
+                                                else:
+                                                    # ExitStack can be used as a "do nothing" ContextManager
+                                                    cm = ExitStack()
+                                                with cm:
+                                                    effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
+                                                    eff = est.effect(X) if not discrete_t else est.effect(
+                                                        X, T0='a', T1='b')
+                                                    self.assertEqual(shape(eff), effect_shape2)
 
     def test_bad_splits_discrete(self):
         """
