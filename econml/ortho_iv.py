@@ -1414,7 +1414,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         super().__init__(model_Y_X, model_T_XZ,
                          flexible_model_effect=flexible_model_effect,
                          featurizer=featurizer,
-                         fit_cate_intercept=True,
+                         fit_cate_intercept=fit_cate_intercept,
                          final_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                          cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=opt_reweighted,
                          categories=categories)
