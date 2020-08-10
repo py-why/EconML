@@ -335,8 +335,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     >>> est.score(y, X[:, 0], W=X[:, 1:])
     0.00727995...
     >>> est.model_final.model
-    LinearRegression(copy_X=True, fit_intercept=False, n_jobs=None,
-         normalize=False)
+    LinearRegression(fit_intercept=False)
     >>> est.model_final.model.coef_
     array([1.023649...])
 
@@ -388,15 +387,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         est.fit(y, T, W=W)
 
     >>> est.score_
-    0.00316040...
+    0.00673015...
     >>> est.const_marginal_effect()
-    array([[1.001231...]])
+    array([[1.008401...]])
     >>> est.effect()
-    array([1.001231...])
+    array([1.008401...])
     >>> est.score(y, T, W=W)
-    0.00256958...
+    0.00310431...
     >>> est.model_final.model.coef_[0]
-    1.00123158...
+    1.00840170...
 
     Attributes
     ----------

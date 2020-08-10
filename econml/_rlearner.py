@@ -156,22 +156,15 @@ class _RLearner(_OrthoLearner):
     >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
     9.73638006...e-05
     >>> est.model_final.model
-    LinearRegression(copy_X=True, fit_intercept=False, n_jobs=None,
-         normalize=False)
+    LinearRegression(fit_intercept=False)
     >>> est.model_final.model.coef_
     array([0.999631...])
     >>> est.score_
     9.82623204...e-05
     >>> [mdl._model for mdl in est.models_y]
-    [LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
-          normalize=False),
-     LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
-          normalize=False)]
+    [LinearRegression(), LinearRegression()]
     >>> [mdl._model for mdl in est.models_t]
-    [LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
-          normalize=False),
-     LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None,
-          normalize=False)]
+    [LinearRegression(), LinearRegression()]
 
     Attributes
     ----------

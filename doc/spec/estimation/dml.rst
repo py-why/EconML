@@ -696,9 +696,7 @@ the case where this matrix has low rank: all the products can be embedded in som
 space and the cross-price elasticities is a linear function of these low dimensional embeddings. This corresponds
 to well-studied latent factor models in pricing. Our framework can easily handle this by using 
 a nuclear norm regularized multi-task regression in the final stage. For instance the 
-lightning package implements such a class:
-
-.. testcode::
+lightning package implements such a class::
 
     from econml.dml import DMLCateEstimator
     from sklearn.preprocessing import PolynomialFeatures
@@ -714,8 +712,3 @@ lightning package implements such a class:
     te_pred = est.const_marginal_effect(np.median(X, axis=0, keepdims=True))
     print(te_pred)
     print(np.linalg.svd(te_pred[0]))
-
-.. testoutput::
-    :hide:
-
-    ...
