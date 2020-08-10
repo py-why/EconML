@@ -722,7 +722,7 @@ class WeightedModelWrapper:
     model_instance : estimator
         Model that requires weights.
 
-    sample_type : string, optional (default=`weighted`)
+    sample_type : string, default `weighted`
         Method for adding weights to the model. `weighted` for linear regression models
         where the weights can be incorporated in the matrix multiplication,
         `sampled` for other models. `sampled` samples the training set according
@@ -869,9 +869,9 @@ class StatsModelsLinearRegression(BaseEstimator):
 
     Parameters
     ----------
-    fit_intercept : bool (optional, default=True)
+    fit_intercept : bool, default ``True``
         Whether to fit an intercept in this model
-    fit_args : dict (optional, default=`{}`)
+    fit_args : dict, default ``{}``
         The statsmodels-style fit arguments; keys can include 'cov_type'
     """
 

@@ -359,22 +359,22 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
         The estimator for fitting the response residuals to the treatment residuals. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
-    featurizer: :term:`transformer`, optional, default None
+    featurizer: :term:`transformer`, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    n_splits: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -391,7 +391,7 @@ class DMLCateEstimator(_BaseDMLCateEstimator):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -432,30 +432,30 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`.WeightedLassoCVWrapper`)
+    model_y: estimator, default :class:`.WeightedLassoCVWrapper`
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
-    model_t: estimator or 'auto', optional (default is 'auto')
+    model_t: estimator or 'auto', default 'auto'
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be applied for discrete treatment,
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
@@ -474,7 +474,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -541,12 +541,12 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`WeightedLassoCVWrapper()
+    model_y: estimator, default :class:`WeightedLassoCVWrapper(
         <econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
-    model_t: estimator or 'auto', optional (default is 'auto')
+    model_t: estimator or 'auto', default 'auto'
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods, and must be a
         linear model for correctness;
@@ -556,32 +556,32 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         :class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
-    alpha: string | float, optional. Default='auto'.
+    alpha: string or float, default 'auto'
         CATE L1 regularization applied through the debiased lasso in the final model.
         'auto' corresponds to a CV form of the :class:`MultiOutputDebiasedLasso`.
 
-    max_iter : int, optional, default=1000
+    max_iter : int, default 1000
         The maximum number of iterations in the Debiased Lasso
 
-    tol : float, optional, default=1e-4
+    tol : float, default 1e-4
         The tolerance for the optimization: if the updates are
         smaller than ``tol``, the optimization code checks the
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
@@ -600,7 +600,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -678,11 +678,11 @@ class KernelDMLCateEstimator(DMLCateEstimator):
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`<econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
+    model_y: estimator, default :class:`<econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
 
-    model_t: estimator or 'auto', optional (default is 'auto')
+    model_t: estimator or 'auto', default 'auto'
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
@@ -691,16 +691,16 @@ class KernelDMLCateEstimator(DMLCateEstimator):
         :class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    dim: int, optional (default is 20)
+    dim: int, default 20
         The number of random Fourier features to generate
 
-    bw: float, optional (default is 1.0)
+    bw: float, default 1.0
         The bandwidth of the Gaussian used to generate features
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
@@ -719,7 +719,7 @@ class KernelDMLCateEstimator(DMLCateEstimator):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -773,7 +773,7 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     n_splits: int, cross-validation generator or an iterable, optional (Default=2)
@@ -793,7 +793,7 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -821,7 +821,8 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
 
 
 class ForestDMLCateEstimator(NonParamDMLCateEstimator):
-    """ Instance of NonParamDMLCateEstimator with a
+    """ 
+    Instance of NonParamDMLCateEstimator with a
     :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
 
@@ -835,7 +836,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     n_crossfit_splits: int, cross-validation generator or an iterable, optional (Default=2)
@@ -855,23 +856,23 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    n_estimators : integer, optional (default=100)
+    n_estimators : integer, default 100
         The total number of trees in the forest. The forest consists of a
         forest of sqrt(n_estimators) sub-forests, where each sub-forest
         contains sqrt(n_estimators) trees.
 
-    criterion : string, optional (default="mse")
+    criterion : string, default "mse"
         The function to measure the quality of a split. Supported criteria
         are "mse" for the mean squared error, which is equal to variance
         reduction as feature selection criterion, and "mae" for the mean
         absolute error.
 
-    max_depth : integer or None, optional (default=None)
+    max_depth : integer or None, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional (default=2)
+    min_samples_split : int, float, default 2
         The minimum number of splitting samples required to split an internal node.
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -879,7 +880,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional (default=1)
+    min_samples_leaf : int, float, default 1
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` splitting samples in each of the left and
@@ -893,7 +894,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional (default=0.)
+    min_weight_fraction_leaf : float, default 0
         The minimum weighted fraction of the sum total of weights (of all
         splitting samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided. After construction
@@ -901,7 +902,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
         of the estimation samples contained in each leaf node is at
         least min_weight_fraction_leaf
 
-    max_features : int, float, string or None, optional (default="auto")
+    max_features : int, float, string or None, default "auto"
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -917,12 +918,12 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    max_leaf_nodes : int or None, optional (default=None)
+    max_leaf_nodes : int or None, default None
         Grow trees with ``max_leaf_nodes`` in best-first fashion.
         Best nodes are defined as relative reduction in impurity.
         If None then unlimited number of leaf nodes.
 
-    min_impurity_decrease : float, optional (default=0.)
+    min_impurity_decrease : float, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -938,7 +939,7 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    subsample_fr : float or 'auto', optional (default='auto')
+    subsample_fr : float or 'auto', default 'auto'
         The fraction of the half-samples that are used on each tree. Each tree
         will be built on subsample_fr * n_samples/2.
 
@@ -948,21 +949,21 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
 
         which is sufficient to guarantee asympotitcally valid inference.
 
-    honest : boolean, optional (default=True)
+    honest : boolean, default True
         Whether to use honest trees, i.e. half of the samples are used for
         creating the tree structure and the other half for the estimation at
         the leafs. If False, then all samples are used for both parts.
 
-    n_jobs : int or None, optional (default=None)
+    n_jobs : int or None, default None
         The number of jobs to run in parallel for both `fit` and `predict`.
         ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
 
-    verbose : int, optional (default=0)
+    verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used

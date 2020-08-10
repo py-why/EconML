@@ -161,23 +161,23 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
     Parameters
     ----------
-    n_estimators : integer, optional (default=100)
+    n_estimators : integer, default 100
         The total number of trees in the forest. The forest consists of a
         forest of sqrt(n_estimators) sub-forests, where each sub-forest
         contains sqrt(n_estimators) trees.
 
-    criterion : string, optional (default="mse")
+    criterion : string, default "mse"
         The function to measure the quality of a split. Supported criteria
         are "mse" for the mean squared error, which is equal to variance
         reduction as feature selection criterion, and "mae" for the mean
         absolute error.
 
-    max_depth : integer or None, optional (default=None)
+    max_depth : integer or None, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional (default=2)
+    min_samples_split : int, float, default 2
         The minimum number of splitting samples required to split an internal node.
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -185,7 +185,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional (default=1)
+    min_samples_leaf : int, float, default 1
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` splitting samples in each of the left and
@@ -199,7 +199,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional (default=0.)
+    min_weight_fraction_leaf : float, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         splitting samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided. After construction
@@ -207,7 +207,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         of the estimation samples contained in each leaf node is at
         least min_weight_fraction_leaf
 
-    max_features : int, float, string or None, optional (default="auto")
+    max_features : int, float, string or None, default "auto"
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -223,12 +223,12 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    max_leaf_nodes : int or None, optional (default=None)
+    max_leaf_nodes : int or None, default None
         Grow trees with ``max_leaf_nodes`` in best-first fashion.
         Best nodes are defined as relative reduction in impurity.
         If None then unlimited number of leaf nodes.
 
-    min_impurity_decrease : float, optional (default=0.)
+    min_impurity_decrease : float, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -244,7 +244,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    subsample_fr : float or 'auto', optional (default='auto')
+    subsample_fr : float or 'auto', default 'auto'
         The fraction of the half-samples that are used on each tree. Each tree
         will be built on subsample_fr * n_samples/2.
 
@@ -254,27 +254,27 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
         which is sufficient to guarantee asympotitcally valid inference.
 
-    honest : boolean, optional (default=True)
+    honest : boolean, default True
         Whether to use honest trees, i.e. half of the samples are used for
         creating the tree structure and the other half for the estimation at
         the leafs. If False, then all samples are used for both parts.
 
-    n_jobs : int or None, optional (default=None)
+    n_jobs : int or None, default None
         The number of jobs to run in parallel for both `fit` and `predict`.
         `None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
 
-    random_state : int, RandomState instance or None, optional (default=None)
+    random_state : int, RandomState instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
 
-    verbose : int, optional (default=0)
+    verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
-    warm_start : bool, optional (default=False)
+    warm_start : bool, default False
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
         new forest. See :term:`the Glossary <warm_start>`.
@@ -643,7 +643,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         ----------
         X : (n, d_x) array
             The target samples
-        stderr : bool, optional (default=2)
+        stderr : bool, default 2
             Whether to return stderr information for each prediction
 
         Returns

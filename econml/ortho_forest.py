@@ -419,52 +419,52 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
 
     Parameters
     ----------
-    n_trees : integer, optional (default=500)
+    n_trees : integer, default 500
         Number of causal estimators in the forest.
 
-    min_leaf_size : integer, optional (default=10)
+    min_leaf_size : integer, default 10
         The minimum number of samples in a leaf.
 
-    max_depth : integer, optional (default=10)
+    max_depth : integer, default 10
         The maximum number of splits to be performed when expanding the tree.
 
-    subsample_ratio : float, optional (default=0.7)
+    subsample_ratio : float, default 0.7
         The ratio of the total sample to be used when training a causal tree.
         Values greater than 1.0 will be considered equal to 1.0.
         Parameter is ignored when bootstrap=True.
 
-    bootstrap : boolean, optional (default=False)
+    bootstrap : boolean, default False
         Whether to use bootstrap subsampling.
 
-    lambda_reg : float, optional (default=0.01)
+    lambda_reg : float, default 0.01
         The regularization coefficient in the ell_2 penalty imposed on the
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
-    model_T : estimator, optional (default=sklearn.linear_model.LassoCV(cv=3))
+    model_T : estimator, default ``sklearn.linear_model.LassoCV(cv=3)``
         The estimator for residualizing the continuous treatment at each leaf.
         Must implement `fit` and `predict` methods.
 
-    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV(cv=3)
+    model_Y :  estimator, default ``sklearn.linear_model.LassoCV(cv=3)``
         The estimator for residualizing the outcome at each leaf. Must implement
         `fit` and `predict` methods.
 
-    model_T_final : estimator, optional (default=None)
+    model_T_final : estimator, default None
         The estimator for residualizing the treatment at prediction time. Must implement
         `fit` and `predict` methods. If parameter is set to ``None``, it defaults to the
         value of `model_T` parameter.
 
-    model_Y_final : estimator, optional (default=None)
+    model_Y_final : estimator, default None
         The estimator for residualizing the outcome at prediction time. Must implement
         `fit` and `predict` methods. If parameter is set to ``None``, it defaults to the
         value of `model_Y` parameter.
 
-    n_jobs : int, optional (default=-1)
+    n_jobs : int, default -1
         The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
         ``-1`` means using all processors. Since OrthoForest methods are
         computationally heavy, it is recommended to set `n_jobs` to -1.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -641,58 +641,58 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
 
     Parameters
     ----------
-    n_trees : integer, optional (default=500)
+    n_trees : integer, default 500
         Number of causal estimators in the forest.
 
-    min_leaf_size : integer, optional (default=10)
+    min_leaf_size : integer, default 10
         The minimum number of samples in a leaf.
 
-    max_depth : integer, optional (default=10)
+    max_depth : integer, default 10
         The maximum number of splits to be performed when expanding the tree.
 
-    subsample_ratio : float, optional (default=0.7)
+    subsample_ratio : float, default 0.7
         The ratio of the total sample to be used when training a causal tree.
         Values greater than 1.0 will be considered equal to 1.0.
         Parameter is ignored when bootstrap=True.
 
-    bootstrap : boolean, optional (default=False)
+    bootstrap : boolean, default False
         Whether to use bootstrap subsampling.
 
-    lambda_reg : float, optional (default=0.01)
+    lambda_reg : float, default 0.01
         The regularization coefficient in the ell_2 penalty imposed on the
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
-    propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression(penalty='l1',\
+    propensity_model : estimator, default ``sklearn.linear_model.LogisticRegression(penalty='l1',\
                                                                                              solver='saga',\
-                                                                                             multi_class='auto'))
+                                                                                             multi_class='auto')``
         Model for estimating propensity of treatment at each leaf.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
 
-    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV(cv=3))
+    model_Y :  estimator, default ``sklearn.linear_model.LassoCV(cv=3)``
         Estimator for learning potential outcomes at each leaf.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
         If different models per treatment arm are desired, see the :class:`.MultiModelWrapper`
         helper class. The model(s) must implement `fit` and `predict` methods.
 
-    propensity_model_final : estimator, optional (default=None)
+    propensity_model_final : estimator, default None
         Model for estimating propensity of treatment at at prediction time.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
         If parameter is set to ``None``, it defaults to the value of `propensity_model` parameter.
 
-    model_Y_final : estimator, optional (default=None)
+    model_Y_final : estimator, default None
         Estimator for learning potential outcomes at prediction time.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
         If different models per treatment arm are desired, see the :class:`.MultiModelWrapper`
         helper class. The model(s) must implement `fit` and `predict` methods.
         If parameter is set to ``None``, it defaults to the value of `model_Y` parameter.
 
-    n_jobs : int, optional (default=-1)
+    n_jobs : int, default -1
         The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
         ``-1`` means using all processors. Since OrthoForest methods are
         computationally heavy, it is recommended to set `n_jobs` to -1.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
