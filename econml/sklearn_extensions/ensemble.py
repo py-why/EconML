@@ -312,12 +312,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                                       n_estimators=1000)
 
     >>> regr.fit(X_train, y_train)
-    SubsampledHonestForest(criterion='mse', honest=True, max_depth=None,
-        max_features='auto', max_leaf_nodes=None,
-        min_impurity_decrease=0.0, min_samples_leaf=1,
-        min_samples_split=2, min_weight_fraction_leaf=0.0,
-        n_estimators=1000, n_jobs=None, random_state=0,
-        subsample_fr='auto', verbose=0, warm_start=False)
+    SubsampledHonestForest(n_estimators=1000, random_state=0)
     >>> regr.feature_importances_
     array([0.40..., 0.35..., 0.11..., 0.11...])
     >>> regr.predict(np.ones((1, 4)))
