@@ -708,8 +708,9 @@ def einsum_sparse(subscripts, *arrs):
         for (c, d) in l:
             results[tuple(c[i] for i in coordMap)] += d
 
-    return sp.COO(np.array([k for k in results.keys()]).T,
-                  np.array([v for v in results.values()]),
+    return sp.COO(np.array(list(results.keys())).T if results else
+                  np.empty((len(outputs), 0)),
+                  np.array(list(results.values())),
                   [arrs[indMap[c][0][0]].shape[indMap[c][0][1]] for c in outputs])
 
 
