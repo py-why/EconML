@@ -1130,6 +1130,8 @@ class WeightedLassoCVWrapper:
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
+        # set model to WeightedLassoCV by default so that cv is accessible pre-fit
+        self.model = WeightedLassoCV(*args, **kwargs)
 
     def fit(self, X, y, sample_weight=None):
         self.needs_unravel = False
@@ -1159,6 +1161,14 @@ class WeightedLassoCVWrapper:
 
     def score(self, X, y, sample_weight=None):
         return self.model.score(X, y, sample_weight)
+
+    @property
+    def cv(self):
+        return self.model.cv
+
+    @cv.setter
+    def cv(self, value):
+        self.model.cv = value
 
 
 class SelectiveRegularization:

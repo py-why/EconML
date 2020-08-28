@@ -21,7 +21,7 @@ from sklearn.pipeline import Pipeline
 
 from ._ortho_learner import _OrthoLearner
 from .dml import _FinalWrapper
-from .utilities import (hstack, StatsModelsLinearRegression, inverse_onehot, add_intercept)
+from .utilities import (hstack, StatsModelsLinearRegression, inverse_onehot, add_intercept, fit_with_groups)
 from .inference import StatsModelsInference
 from .cate_estimator import StatsModelsCateEstimatorMixin
 
@@ -52,7 +52,7 @@ class _FirstStageWrapper:
         else:
             return hstack(arrs)
 
-    def fit(self, *, X, W, Target, Z=None, sample_weight=None):
+    def fit(self, *, X, W, Target, Z=None, sample_weight=None, groups=None):
         if self._discrete_target:
             # In this case, the Target is the one-hot-encoding of the treatment variable
             # We need to go back to the label representation of the one-hot so as to call
@@ -63,9 +63,11 @@ class _FirstStageWrapper:
             Target = inverse_onehot(Target)
 
         if sample_weight is not None:
-            self._model.fit(self._combine(X, W, Z, Target.shape[0]), Target, sample_weight=sample_weight)
+            fit_with_groups(self._model, self._combine(X, W, Z, Target.shape[0]), Target,
+                            groups=groups, sample_weight=sample_weight)
         else:
-            self._model.fit(self._combine(X, W, Z, Target.shape[0]), Target)
+            fit_with_groups(self._model, self._combine(X, W, Z, Target.shape[0]), Target,
+                            groups=groups)
 
     def score(self, *, X, W, Target, Z=None, sample_weight=None):
         if hasattr(self._model, 'score'):
@@ -142,7 +144,7 @@ class _BaseDMLATEIV(_OrthoLearner):
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
-    def fit(self, Y, T, Z, W=None, *, sample_weight=None, sample_var=None, inference=None):
+    def fit(self, Y, T, Z, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -160,6 +162,10 @@ class _BaseDMLATEIV(_OrthoLearner):
             Weights for each samples
         sample_var: optional(n,) vector or None (Default=None)
             Sample variance for each sample
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -170,7 +176,8 @@ class _BaseDMLATEIV(_OrthoLearner):
         """
         # Replacing fit from _OrthoLearner, to enforce W=None and improve the docstring
         return super().fit(Y, T, W=W, Z=Z,
-                           sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           inference=inference)
 
     def score(self, Y, T, Z, W=None):
         """
@@ -208,11 +215,11 @@ class _DMLATEIVModelNuisance:
         self._model_T_W = clone(model_T_W, safe=False)
         self._model_Z_W = clone(model_Z_W, safe=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         assert X is None, "DML ATE IV does not accept features"
-        self._model_Y_W.fit(X=X, W=W, Target=Y, sample_weight=sample_weight)
-        self._model_T_W.fit(X=X, W=W, Target=T, sample_weight=sample_weight)
-        self._model_Z_W.fit(X=X, W=W, Target=Z, sample_weight=sample_weight)
+        self._model_Y_W.fit(X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+        self._model_T_W.fit(X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+        self._model_Z_W.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
@@ -281,11 +288,11 @@ class _ProjectedDMLATEIVModelNuisance:
         self._model_T_W = clone(model_T_W, safe=False)
         self._model_T_WZ = clone(model_T_WZ, safe=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         assert X is None, "DML ATE IV does not accept features"
-        self._model_Y_W.fit(X=X, W=W, Target=Y, sample_weight=sample_weight)
-        self._model_T_W.fit(X=X, W=W, Target=T, sample_weight=sample_weight)
-        self._model_T_WZ.fit(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight)
+        self._model_Y_W.fit(X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+        self._model_T_W.fit(X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+        self._model_T_WZ.fit(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight, groups=groups)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
@@ -347,12 +354,12 @@ class _BaseDMLIVModelNuisance:
         self._model_T_X = clone(model_T_X, safe=False)
         self._model_T_XZ = clone(model_T_XZ, safe=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         # TODO: would it be useful to extend to handle controls ala vanilla DML?
         assert W is None, "DML IV does not accept controls"
-        self._model_Y_X.fit(X=X, W=None, Target=Y, sample_weight=sample_weight)
-        self._model_T_X.fit(X=X, W=None, Target=T, sample_weight=sample_weight)
-        self._model_T_XZ.fit(X=X, W=None, Z=Z, Target=T, sample_weight=sample_weight)
+        self._model_Y_X.fit(X=X, W=None, Target=Y, sample_weight=sample_weight, groups=groups)
+        self._model_T_X.fit(X=X, W=None, Target=T, sample_weight=sample_weight, groups=groups)
+        self._model_T_XZ.fit(X=X, W=None, Z=Z, Target=T, sample_weight=sample_weight, groups=groups)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
@@ -499,7 +506,7 @@ class _BaseDMLIV(_OrthoLearner):
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
-    def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, inference=None):
+    def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -517,6 +524,10 @@ class _BaseDMLIV(_OrthoLearner):
             Weights for each samples
         sample_var: optional(n,) vector or None (Default=None)
             Sample variance for each sample
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -527,7 +538,8 @@ class _BaseDMLIV(_OrthoLearner):
         """
         # Replacing fit from _OrthoLearner, to enforce W=None and improve the docstring
         return super().fit(Y, T, X=X, Z=Z,
-                           sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           inference=inference)
 
     def score(self, Y, T, Z, X=None):
         """
@@ -1037,7 +1049,7 @@ class _BaseDRIV(_OrthoLearner):
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
                          categories=categories, n_splits=n_splits, random_state=random_state)
 
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1057,6 +1069,10 @@ class _BaseDRIV(_OrthoLearner):
             Weights for each samples
         sample_var: optional(n,) vector or None (Default=None)
             Sample variance for each sample
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -1067,7 +1083,8 @@ class _BaseDRIV(_OrthoLearner):
         """
         # Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
         return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           inference=inference)
 
     def score(self, Y, T, Z, X=None, W=None):
         """
@@ -1152,12 +1169,12 @@ class _IntentToTreatDRIVModelNuisance:
         self._model_T_XZ = clone(model_T_XZ, safe=False)
         self._prel_model_effect = clone(prel_model_effect, safe=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
-        self._model_Y_X.fit(X=X, W=W, Target=Y, sample_weight=sample_weight)
-        self._model_T_XZ.fit(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight)
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        self._model_Y_X.fit(X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+        self._model_T_XZ.fit(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight, groups=groups)
         # we need to undo the one-hot encoding for calling effect,
         # since it expects raw values
-        self._prel_model_effect.fit(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
+        self._prel_model_effect.fit(Y, inverse_onehot(T), inverse_onehot(Z), X=X, groups=groups)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
@@ -1230,7 +1247,7 @@ class _DummyCATE:
     def __init__(self):
         return
 
-    def fit(self, y, T, Z, X):
+    def fit(self, y, T, Z, X, groups=None):
         return self
 
     def effect(self, X):
@@ -1411,7 +1428,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          categories=categories)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    def fit(self, Y, T, Z, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
+    def fit(self, Y, T, Z, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1431,6 +1448,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             Weights for each samples
         sample_var: optional(n,) vector or None (Default=None)
             Sample variance for each sample
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`) and 'statsmodels'
@@ -1440,4 +1461,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         -------
         self : instance
         """
-        return super().fit(Y, T, Z, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+        return super().fit(Y, T, Z, X=X, W=W,
+                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           inference=inference)

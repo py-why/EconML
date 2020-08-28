@@ -28,7 +28,7 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack)
+from .utilities import (shape, reshape, ndim, hstack, filter_none_kwargs)
 from sklearn.linear_model import LinearRegression
 from sklearn.base import clone
 from ._ortho_learner import _OrthoLearner
@@ -45,24 +45,26 @@ class _ModelNuisance:
         self._model_y = clone(model_y, safe=False)
         self._model_t = clone(model_t, safe=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         assert Z is None, "Cannot accept instrument!"
-        self._model_t.fit(X, W, T, sample_weight=sample_weight)
-        self._model_y.fit(X, W, Y, sample_weight=sample_weight)
+        self._model_t.fit(X, W, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._model_y.fit(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         if hasattr(self._model_y, 'score'):
-            Y_score = self._model_y.score(X, W, Y, sample_weight=sample_weight)
+            # note that groups are not passed to score because they are only used for fitting
+            Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight))
         else:
             Y_score = None
         if hasattr(self._model_t, 'score'):
-            T_score = self._model_t.score(X, W, T, sample_weight=sample_weight)
+            # note that groups are not passed to score because they are only used for fitting
+            T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight))
         else:
             T_score = None
         return Y_score, T_score
 
-    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         Y_pred = self._model_y.predict(X, W)
         T_pred = self._model_t.predict(X, W)
         if (X is None) and (W is None):  # In this case predict above returns a single row
@@ -282,7 +284,7 @@ class _RLearner(_OrthoLearner):
                          n_splits=n_splits,
                          random_state=random_state)
 
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, inference=None):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -300,6 +302,10 @@ class _RLearner(_OrthoLearner):
             Weights for each samples
         sample_var: optional(n,) vector or None (Default=None)
             Sample variance for each sample
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -309,7 +315,9 @@ class _RLearner(_OrthoLearner):
         self: _RLearner instance
         """
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           inference=inference)
 
     def score(self, Y, T, X=None, W=None):
         """
