@@ -49,8 +49,8 @@ from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin, LinearModelFinalCateEstimatorMixin,
-                             DebiasedLassoCateEstimatorMixin)
+                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin,
+                             LinearModelFinalCateEstimatorMixin, DebiasedLassoCateEstimatorMixin)
 from .inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from ._rlearner import _RLearner
 from .sklearn_extensions.model_selection import WeightedStratifiedKFold
