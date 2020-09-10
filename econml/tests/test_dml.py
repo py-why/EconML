@@ -199,12 +199,8 @@ class TestDML(unittest.TestCase):
                                                                  (2,) + const_marginal_effect_shape)
                                                 self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                                  (2,) + effect_shape)
-                                                if (isinstance(est,
-                                                               DMLCateEstimator) or
-                                                    isinstance(est,
-                                                               LinearDMLCateEstimator) or
-                                                    isinstance(est,
-                                                               SparseLinearDMLCateEstimator)):
+                                                if isinstance(est,
+                                                               (DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator)):
                                                     self.assertEqual(shape(est.coef__interval()),
                                                                      (2,) + coef_shape)
                                                     if fit_cate_intercept:
