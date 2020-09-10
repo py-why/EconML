@@ -180,9 +180,7 @@ class TestDML(unittest.TestCase):
                                             eff = est.effect(X, T0=T0, T1=T)
                                             self.assertEqual(shape(eff), effect_shape)
 
-                                            if isinstance(est, DMLCateEstimator) or\
-                                                    isinstance(est, LinearDMLCateEstimator) or\
-                                                    isinstance(est, SparseLinearDMLCateEstimator):
+                                            if isinstance(est, (DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator)):
                                                 self.assertEqual(shape(est.coef_), coef_shape)
                                                 if fit_cate_intercept:
                                                     self.assertEqual(shape(est.intercept_), intercept_shape)
