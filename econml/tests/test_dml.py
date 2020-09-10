@@ -273,12 +273,7 @@ class TestDML(unittest.TestCase):
                                                 marg_effect_inf.population_summary()._repr_html_()
 
                                                 # test coef__inference and intercept__inference
-                                                if (isinstance(est,
-                                                               DMLCateEstimator) or
-                                                    isinstance(est,
-                                                               LinearDMLCateEstimator) or
-                                                    isinstance(est,
-                                                               SparseLinearDMLCateEstimator)):
+                                                if isinstance(est, (DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator)):
                                                     if X is None:
                                                         cm = pytest.raises(AttributeError)
                                                     else:
