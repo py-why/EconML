@@ -180,7 +180,8 @@ class TestDML(unittest.TestCase):
                                             eff = est.effect(X, T0=T0, T1=T)
                                             self.assertEqual(shape(eff), effect_shape)
 
-                                            if isinstance(est, (DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator)):
+                                            if isinstance(est, (DMLCateEstimator,
+                                                                LinearDMLCateEstimator, SparseLinearDMLCateEstimator)):
                                                 self.assertEqual(shape(est.coef_), coef_shape)
                                                 if fit_cate_intercept:
                                                     self.assertEqual(shape(est.intercept_), intercept_shape)
@@ -198,7 +199,8 @@ class TestDML(unittest.TestCase):
                                                 self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                                  (2,) + effect_shape)
                                                 if isinstance(est,
-                                                               (DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator)):
+                                                              (DMLCateEstimator,
+                                                               LinearDMLCateEstimator, SparseLinearDMLCateEstimator)):
                                                     self.assertEqual(shape(est.coef__interval()),
                                                                      (2,) + coef_shape)
                                                     if fit_cate_intercept:
@@ -273,7 +275,8 @@ class TestDML(unittest.TestCase):
                                                 marg_effect_inf.population_summary()._repr_html_()
 
                                                 # test coef__inference and intercept__inference
-                                                if isinstance(est, (DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator)):
+                                                if isinstance(est, (DMLCateEstimator, LinearDMLCateEstimator,
+                                                                    SparseLinearDMLCateEstimator)):
                                                     if X is None:
                                                         cm = pytest.raises(AttributeError)
                                                     else:
