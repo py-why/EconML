@@ -110,7 +110,16 @@ class TestDML(unittest.TestCase):
                                     all_infs.append(BootstrapInference(1))
 
                                 for est, multi, infs in\
-                                    [(LinearDMLCateEstimator(model_y=Lasso(),
+                                    [(DMLCateEstimator(model_y=Lasso(),
+                                                       model_t=model_t,
+                                                       model_final=Lasso(alpha=0.1, fit_intercept=False),
+                                                       featurizer=featurizer,
+                                                       fit_cate_intercept=fit_cate_intercept,
+                                                       discrete_treatment=is_discrete),
+                                      True,
+                                      [None] +
+                                      ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
+                                     (LinearDMLCateEstimator(model_y=Lasso(),
                                                              model_t='auto',
                                                              featurizer=featurizer,
                                                              fit_cate_intercept=fit_cate_intercept,
@@ -171,8 +180,7 @@ class TestDML(unittest.TestCase):
                                             eff = est.effect(X, T0=T0, T1=T)
                                             self.assertEqual(shape(eff), effect_shape)
 
-                                            if isinstance(est, LinearDMLCateEstimator) or\
-                                                    isinstance(est, SparseLinearDMLCateEstimator):
+                                            if not isinstance(est, KernelDMLCateEstimator):
                                                 self.assertEqual(shape(est.coef_), coef_shape)
                                                 if fit_cate_intercept:
                                                     self.assertEqual(shape(est.intercept_), intercept_shape)
@@ -189,10 +197,7 @@ class TestDML(unittest.TestCase):
                                                                  (2,) + const_marginal_effect_shape)
                                                 self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                                  (2,) + effect_shape)
-                                                if (isinstance(est,
-                                                               LinearDMLCateEstimator) or
-                                                    isinstance(est,
-                                                               SparseLinearDMLCateEstimator)):
+                                                if not isinstance(est, KernelDMLCateEstimator):
                                                     self.assertEqual(shape(est.coef__interval()),
                                                                      (2,) + coef_shape)
                                                     if fit_cate_intercept:
@@ -267,10 +272,7 @@ class TestDML(unittest.TestCase):
                                                 marg_effect_inf.population_summary()._repr_html_()
 
                                                 # test coef__inference and intercept__inference
-                                                if (isinstance(est,
-                                                               LinearDMLCateEstimator) or
-                                                    isinstance(est,
-                                                               SparseLinearDMLCateEstimator)):
+                                                if not isinstance(est, KernelDMLCateEstimator):
                                                     if X is None:
                                                         cm = pytest.raises(AttributeError)
                                                     else:

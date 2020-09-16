@@ -50,7 +50,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                              TreatmentExpansionMixin, StatsModelsCateEstimatorMixin,
-                             DebiasedLassoCateEstimatorMixin)
+                             LinearModelFinalCateEstimatorMixin, DebiasedLassoCateEstimatorMixin)
 from .inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from ._rlearner import _RLearner
 from .sklearn_extensions.model_selection import WeightedStratifiedKFold
@@ -296,7 +296,7 @@ class _BaseDMLCateEstimator(_RLearner):
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
-class DMLCateEstimator(_BaseDMLCateEstimator):
+class DMLCateEstimator(LinearModelFinalCateEstimatorMixin, _BaseDMLCateEstimator):
     """
     The base class for parametric Double ML estimators. The estimator is a special
     case of an :class:`._RLearner` estimator, which in turn is a special case
