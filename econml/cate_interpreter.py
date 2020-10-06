@@ -543,6 +543,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
                                                  splitter=self.splitter,
                                                  max_depth=self.max_depth,
                                                  min_samples_split=self.min_samples_split,
+                                                 min_samples_leaf=self.min_samples_leaf,
                                                  min_weight_fraction_leaf=self.min_weight_fraction_leaf,
                                                  max_features=self.max_features,
                                                  random_state=self.random_state,
