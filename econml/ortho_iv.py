@@ -1389,14 +1389,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    opt_reweighted : bool, optional, default False
-        Whether to reweight the samples to minimize variance. If True then
-        final_model_effect.fit must accept sample_weight as a kw argument (WeightWrapper from
-        utilities can be used for any linear model to enable sample_weights). If True then
-        assumes the final_model_effect is flexible enough to fit the true CATE model. Otherwise,
-        it method will return a biased projection to the model_effect space, biased
-        to give more weight on parts of the feature space where the instrument is strong.
-
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -1409,14 +1401,13 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
-                 opt_reweighted=False,
                  categories='auto'):
         super().__init__(model_Y_X, model_T_XZ,
                          flexible_model_effect=flexible_model_effect,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          final_model_effect=StatsModelsLinearRegression(fit_intercept=False),
-                         cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=opt_reweighted,
+                         cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=False,
                          categories=categories)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
