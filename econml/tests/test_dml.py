@@ -1128,3 +1128,15 @@ class TestDML(unittest.TestCase):
         est.discrete_treatment = False
         est.fit(y, T, X=X, W=W)
         est.effect(X)
+
+    def test_montecarlo(self):
+        """Test that we can perform nuisance averaging, and that it reduces the variance in a simple example."""
+        y = np.random.normal(size=30) + [0, 1] * 15
+        T = np.random.normal(size=(30,)) + y
+        W = np.random.normal(size=(30, 3))
+        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
+        # Run ten experiments, recomputing the variance of 10 estimates of the effect in each experiment
+        v2s = [np.var([est.fit(y, T, W=W, monte_carlo_iterations=2).effect() for _ in range(10)]) for _ in range(10)]
+        v1s = [np.var([est.fit(y, T, W=W).effect() for _ in range(10)]) for _ in range(10)]
+        # The average variance should be lower when using monte carlo iterations
+        assert np.mean(v2s) < np.mean(v1s)

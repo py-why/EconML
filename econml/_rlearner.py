@@ -286,7 +286,7 @@ class _RLearner(_OrthoLearner):
     @_deprecate_positional("X, and should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
+            cache_values=False, monte_carlo_iterations=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -310,6 +310,8 @@ class _RLearner(_OrthoLearner):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
+        monte_carlo_iterations: int, optional
+            The number of times to rerun the first stage models to reduce the variance of the nuisances.
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -321,7 +323,8 @@ class _RLearner(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
+                           cache_values=cache_values, monte_carlo_iterations=monte_carlo_iterations,
+                           inference=inference)
 
     def score(self, Y, T, X=None, W=None):
         """
