@@ -8,7 +8,8 @@ import pytest
 import unittest
 import warnings
 from econml.sklearn_extensions.linear_model import (WeightedLasso, WeightedLassoCV, WeightedMultiTaskLassoCV,
-                                                    DebiasedLasso, MultiOutputDebiasedLasso, SelectiveRegularization)
+                                                    WeightedLassoCVWrapper, DebiasedLasso, MultiOutputDebiasedLasso,
+                                                    SelectiveRegularization)
 from econml.sklearn_extensions.model_selection import WeightedKFold
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV, Ridge
 from sklearn.model_selection import KFold
@@ -266,9 +267,36 @@ class TestLassoExtensions(unittest.TestCase):
                                     sample_weight=sample_weight, alphas=alphas,
                                     lasso_cv=lasso_cv, wlasso_cv=wlasso_cv, params=params)
 
+    ##########################
+    # WeightedLassoCVWrapper #
+    ##########################
+    def test_wrapper_attributes(self):
+        """Test that attributes are properly maintained across calls to fit that switch between 1- and 2-D"""
+        wrapper = WeightedLassoCVWrapper(alphas=[5, 10], max_iter=100)
+        wrapper.tol = 0.01  # set an attribute manually as well
+
+        assert wrapper.alphas == [5, 10]
+        assert wrapper.max_iter == 100
+        assert wrapper.tol == 0.01
+
+        # perform 1D fit
+        wrapper.fit(np.random.normal(size=(100, 3)), np.random.normal(size=100))
+
+        assert wrapper.alphas == [5, 10]
+        assert wrapper.max_iter == 100
+        assert wrapper.tol == 0.01
+
+        # perform 2D fit
+        wrapper.fit(np.random.normal(size=(100, 3)), np.random.normal(size=(100, 2)))
+
+        assert wrapper.alphas == [5, 10]
+        assert wrapper.max_iter == 100
+        assert wrapper.tol == 0.01
+
     #################
     # DebiasedLasso #
     #################
+
     def test_debiased_lasso_one_DGP(self):
         """Test DebiasedLasso with one set of coefficients."""
         # Test DebiasedLasso without weights
