@@ -103,7 +103,7 @@ class TestDML(unittest.TestCase):
 
                                 model_t = LogisticRegression() if is_discrete else Lasso()
 
-                                all_infs = [None, 'statsmodels', BootstrapInference(1)]
+                                all_infs = [None, 'statsmodels', BootstrapInference(2)]
 
                                 for est, multi, infs in\
                                     [(DMLCateEstimator(model_y=Lasso(),
@@ -203,7 +203,7 @@ class TestDML(unittest.TestCase):
                                                         with pytest.raises(AttributeError):
                                                             self.assertEqual(shape(est.intercept__interval()),
                                                                              (2,) + intercept_shape)
-                                            if inf in ['statsmodels', 'debiasedlasso', 'blb']:
+
                                                 const_marg_effect_inf = est.const_marginal_effect_inference(X)
                                                 T1 = np.full_like(T, 'b') if is_discrete else T
                                                 effect_inf = est.effect_inference(X, T0=T0, T1=T1)
@@ -269,12 +269,7 @@ class TestDML(unittest.TestCase):
 
                                                 # test coef__inference and intercept__inference
                                                 if not isinstance(est, KernelDMLCateEstimator):
-                                                    if X is None:
-                                                        cm = pytest.raises(AttributeError)
-                                                    else:
-                                                        cm = ExitStack()
-                                                        # ExitStack can be used as a "do nothing" ContextManager
-                                                    with cm:
+                                                    if X is not None:
                                                         self.assertEqual(
                                                             shape(est.coef__inference().summary_frame()),
                                                             coef_summaryframe_shape)

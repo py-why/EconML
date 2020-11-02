@@ -103,6 +103,12 @@ class TestDRLearner(unittest.TestCase):
                             (n if d_x else 1) * (d_y if d_y > 0 else 1),
                             6 * (d_t_final if d_t_final > 0 else 1))
 
+                        coef_shape = ((d_y,) if d_y > 0 else ()) + (d_x or 1,)
+                        coef_summaryframe_shape = ((d_y or 1) * (d_x or 1), 6)
+
+                        intercept_shape = (d_y,) if d_y > 0 else ()
+                        intercept_summaryframe_shape = (d_y if d_y > 0 else 1, 6)
+
                         for est in [LinearDRLearner(model_propensity=LogisticRegression(C=1000, solver='lbfgs',
                                                                                         multi_class='auto')),
                                     DRLearner(model_propensity=LogisticRegression(multi_class='auto'),
@@ -113,10 +119,13 @@ class TestDRLearner(unittest.TestCase):
                             # ensure that we can serialize unfit estimator
                             pickle.dumps(est)
 
-                            # TODO: add stratification to bootstrap so that we can use it even with discrete treatments
-                            infs = [None, BootstrapInference(1)]
+                            infs = [None, BootstrapInference(2)]
+
+                            test_linear_attrs = False
+
                             if isinstance(est, LinearDRLearner):
                                 infs.append('statsmodels')
+                                test_linear_attrs = True
 
                             for inf in infs:
                                 with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
@@ -155,73 +164,91 @@ class TestDRLearner(unittest.TestCase):
                                         self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                          (2,) + effect_shape)
 
-                                        # TODO: once bootstrap supports _inference methods, remove this check
-                                        if inf == 'statsmodels':
-                                            const_marg_effect_inf = est.const_marginal_effect_inference(
-                                                X)
-                                            effect_inf = est.effect_inference(
-                                                X, T0=T0, T1=T1)
-                                            marg_effect_inf = est.marginal_effect_inference(
-                                                T, X)
+                                        const_marg_effect_inf = est.const_marginal_effect_inference(
+                                            X)
+                                        effect_inf = est.effect_inference(
+                                            X, T0=T0, T1=T1)
+                                        marg_effect_inf = est.marginal_effect_inference(
+                                            T, X)
 
-                                            # test const marginal inference
-                                            self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
-                                                             const_marginal_effect_summaryframe_shape)
-                                            self.assertEqual(shape(const_marg_effect_inf.point_estimate),
-                                                             const_marginal_effect_shape)
-                                            self.assertEqual(shape(const_marg_effect_inf.stderr),
-                                                             const_marginal_effect_shape)
-                                            self.assertEqual(shape(const_marg_effect_inf.var),
-                                                             const_marginal_effect_shape)
-                                            self.assertEqual(shape(const_marg_effect_inf.pvalue()),
-                                                             const_marginal_effect_shape)
-                                            self.assertEqual(shape(const_marg_effect_inf.zstat()),
-                                                             const_marginal_effect_shape)
-                                            self.assertEqual(shape(const_marg_effect_inf.conf_int()),
-                                                             (2,) + const_marginal_effect_shape)
-                                            np.testing.assert_array_almost_equal(const_marg_effect_inf.conf_int()
-                                                                                 [0], const_marg_eff_int[0], decimal=5)
-                                            const_marg_effect_inf.population_summary()._repr_html_()
+                                        # test const marginal inference
+                                        self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
+                                                         const_marginal_effect_summaryframe_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.point_estimate),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.stderr),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.var),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.pvalue()),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.zstat()),
+                                                         const_marginal_effect_shape)
+                                        self.assertEqual(shape(const_marg_effect_inf.conf_int()),
+                                                         (2,) + const_marginal_effect_shape)
+                                        np.testing.assert_array_almost_equal(const_marg_effect_inf.conf_int()
+                                                                             [0], const_marg_eff_int[0], decimal=5)
+                                        const_marg_effect_inf.population_summary()._repr_html_()
 
-                                            # test effect inference
-                                            self.assertEqual(shape(effect_inf.summary_frame()),
-                                                             effect_summaryframe_shape)
-                                            self.assertEqual(shape(effect_inf.point_estimate),
-                                                             effect_shape)
-                                            self.assertEqual(shape(effect_inf.stderr),
-                                                             effect_shape)
-                                            self.assertEqual(shape(effect_inf.var),
-                                                             effect_shape)
-                                            self.assertEqual(shape(effect_inf.pvalue()),
-                                                             effect_shape)
-                                            self.assertEqual(shape(effect_inf.zstat()),
-                                                             effect_shape)
-                                            self.assertEqual(shape(effect_inf.conf_int()),
-                                                             (2,) + effect_shape)
-                                            np.testing.assert_array_almost_equal(effect_inf.conf_int()[0],
-                                                                                 est.effect_interval(
-                                                                                     X, T0=T0, T1=T1)[0],
-                                                                                 decimal=5)
-                                            effect_inf.population_summary()._repr_html_()
+                                        # test effect inference
+                                        self.assertEqual(shape(effect_inf.summary_frame()),
+                                                         effect_summaryframe_shape)
+                                        self.assertEqual(shape(effect_inf.point_estimate),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.stderr),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.var),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.pvalue()),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.zstat()),
+                                                         effect_shape)
+                                        self.assertEqual(shape(effect_inf.conf_int()),
+                                                         (2,) + effect_shape)
+                                        np.testing.assert_array_almost_equal(effect_inf.conf_int()[0],
+                                                                             est.effect_interval(
+                                            X, T0=T0, T1=T1)[0],
+                                            decimal=5)
+                                        effect_inf.population_summary()._repr_html_()
 
-                                            # test marginal effect inference
-                                            self.assertEqual(shape(marg_effect_inf.summary_frame()),
-                                                             marginal_effect_summaryframe_shape)
-                                            self.assertEqual(shape(marg_effect_inf.point_estimate),
-                                                             marginal_effect_shape)
-                                            self.assertEqual(shape(marg_effect_inf.stderr),
-                                                             marginal_effect_shape)
-                                            self.assertEqual(shape(marg_effect_inf.var),
-                                                             marginal_effect_shape)
-                                            self.assertEqual(shape(marg_effect_inf.pvalue()),
-                                                             marginal_effect_shape)
-                                            self.assertEqual(shape(marg_effect_inf.zstat()),
-                                                             marginal_effect_shape)
-                                            self.assertEqual(shape(marg_effect_inf.conf_int()),
-                                                             (2,) + marginal_effect_shape)
-                                            np.testing.assert_array_almost_equal(marg_effect_inf.conf_int()[0],
-                                                                                 marg_eff_int[0], decimal=5)
-                                            marg_effect_inf.population_summary()._repr_html_()
+                                        # test marginal effect inference
+                                        self.assertEqual(shape(marg_effect_inf.summary_frame()),
+                                                         marginal_effect_summaryframe_shape)
+                                        self.assertEqual(shape(marg_effect_inf.point_estimate),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.stderr),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.var),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.pvalue()),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.zstat()),
+                                                         marginal_effect_shape)
+                                        self.assertEqual(shape(marg_effect_inf.conf_int()),
+                                                         (2,) + marginal_effect_shape)
+                                        np.testing.assert_array_almost_equal(marg_effect_inf.conf_int()[0],
+                                                                             marg_eff_int[0], decimal=5)
+                                        marg_effect_inf.population_summary()._repr_html_()
+
+                                        # test coef_ and intercept_ inference
+                                        if test_linear_attrs:
+                                            if X is not None:
+                                                self.assertEqual(shape(est.coef_('b')), coef_shape)
+                                                coef_inf = est.coef__inference('b')
+                                                self.assertEqual(shape(coef_inf.summary_frame()),
+                                                                 coef_summaryframe_shape)
+                                                np.testing.assert_array_almost_equal(
+                                                    coef_inf.conf_int()[0], est.coef__interval('b')[0])
+
+                                            self.assertEqual(shape(est.intercept_('b')), intercept_shape)
+                                            int_inf = est.intercept__inference('b')
+                                            self.assertEqual(shape(int_inf.summary_frame()),
+                                                             intercept_summaryframe_shape)
+                                            np.testing.assert_array_almost_equal(
+                                                int_inf.conf_int()[0], est.intercept__interval('b')[0])
+
+                                            # verify we can generate the summary
+                                            est.summary('b')
 
                                     est.score(Y, T, X, W)
 
