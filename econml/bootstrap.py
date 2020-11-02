@@ -43,11 +43,6 @@ class BootstrapEstimator:
         Whether to pass calls through to the underlying collection and return the mean.  Setting this
         to ``False`` can avoid ambiguities if the wrapped object itself has method names with an `_interval` suffix.
 
-    prefer_wrapped: bool, default: False
-        In case a method ending in '_interval' exists on the wrapped object, whether
-        that should be preferred (meaning this wrapper will compute the mean of it).
-        This option only affects behavior if `compute_means` is set to ``True``.
-
     bootstrap_type: 'percentile', 'pivot', or 'normal', default 'pivot'
         Bootstrap method used to compute results.  'percentile' will result in using the empiracal CDF of
         the replicated computations of the statistics.   'pivot' will also use the replicates but create a pivot
@@ -55,13 +50,11 @@ class BootstrapEstimator:
         assuming the replicates are normally distributed.
     """
 
-    def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None, compute_means=True, prefer_wrapped=False,
-                 bootstrap_type='pivot'):
+    def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None, compute_means=True, bootstrap_type='pivot'):
         self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
         self._compute_means = compute_means
-        self._prefer_wrapped = prefer_wrapped
         self._bootstrap_type = bootstrap_type
         self._wrapped = wrapped
 
@@ -187,24 +180,38 @@ class BootstrapEstimator:
                 return call
 
         def get_inference():
-            # can't import from econml.inference at top level without creating mutual dependencies
-            from .inference import EmpiricalInferenceResults
+            # can't import from econml.inference at top level without creating cyclical dependencies
+            from .inference import EmpiricalInferenceResults, NormalInferenceResults
+            from .cate_estimator import LinearModelFinalCateEstimatorDiscreteMixin
 
             prefix = name[: - len("_inference")]
+
+            def fname_transformer(x):
+                return x
+
             if prefix in ['const_marginal_effect', 'marginal_effect', 'effect']:
                 inf_type = 'effect'
             elif prefix == 'coef_':
                 inf_type = 'coefficient'
+                if (hasattr(self._instances[0], 'cate_feature_names') and
+                        callable(self._instances[0].cate_feature_names)):
+                    def fname_transformer(x):
+                        return self._instances[0].cate_feature_names(x)
             elif prefix == 'intercept_':
                 inf_type = 'intercept'
             else:
                 raise AttributeError("Unsupported inference: " + name)
 
             d_t = self._wrapped._d_t[0] if self._wrapped._d_t else 1
-            d_t = 1 if prefix == 'effect' else d_t
+            if prefix == 'effect' or (isinstance(self._wrapped, LinearModelFinalCateEstimatorDiscreteMixin) and
+                                      (inf_type == 'coefficient' or inf_type == 'intercept')):
+                d_t = 1
             d_y = self._wrapped._d_y[0] if self._wrapped._d_y else 1
 
-            def get_inference_nonparametric(kind):
+            can_call = callable(getattr(self._instances[0], prefix))
+
+            kind = self._bootstrap_type
+            if kind == 'percentile' or kind == 'pivot':
                 def get_dist(est, arr):
                     if kind == 'percentile':
                         return arr
@@ -212,21 +219,35 @@ class BootstrapEstimator:
                         return 2 * est - arr
                     else:
                         raise ValueError("Invalid kind, must be either 'percentile' or 'pivot'")
-                return proxy(callable(getattr(self._instances[0], prefix)), prefix,
-                             lambda arr, est: EmpiricalInferenceResults(d_t=d_t, d_y=d_y,
-                                                                        pred=est, pred_dist=get_dist(est, arr),
-                                                                        inf_type=inf_type, fname_transformer=None))
 
-            def get_inference_parametric():
-                pred = getattr(self._wrapped, prefix)
-                stderr = getattr(self, prefix + '_std')
-                return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=pred,
-                                              pred_stderr=stderr, inf_type=inf_type,
-                                              pred_dist=None, fname_transformer=None)
+                def get_result():
+                    return proxy(can_call, prefix,
+                                 lambda arr, est: EmpiricalInferenceResults(d_t=d_t, d_y=d_y,
+                                                                            pred=est, pred_dist=get_dist(est, arr),
+                                                                            inf_type=inf_type,
+                                                                            fname_transformer=fname_transformer))
 
-            return {'normal': get_inference_parametric,
-                    'percentile': lambda: get_inference_nonparametric('percentile'),
-                    'pivot': lambda: get_inference_nonparametric('pivot')}[self._bootstrap_type]
+                # Note that inference results are always methods even if the inference is for a property
+                # (e.g. coef__inference() is a method but coef_ is a property)
+                # Therefore we must insert a lambda if getting inference for a non-callable
+                return get_result() if can_call else get_result
+
+            else:
+                assert kind == 'normal'
+
+                def normal_inference(*args, **kwargs):
+                    pred = getattr(self._wrapped, prefix)
+                    if can_call:
+                        pred = pred(*args, **kwargs)
+                    stderr = getattr(self, prefix + '_std')
+                    if can_call:
+                        stderr = stderr(*args, **kwargs)
+                    return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=pred,
+                                                  pred_stderr=stderr, inf_type=inf_type,
+                                                  fname_transformer=fname_transformer)
+
+                # If inference is for a property, create a fresh lambda to avoid passing args through
+                return normal_inference if can_call else lambda: normal_inference()
 
         caught = None
         m = None
@@ -236,22 +257,15 @@ class BootstrapEstimator:
             m = get_std
         elif name.endswith("_inference"):
             m = get_inference
-        if self._compute_means and self._prefer_wrapped:
+
+        # try to get interval/std first if appropriate,
+        # since we don't prefer a wrapped method with this name
+        if m is not None:
             try:
-                return get_mean()
+                return m()
             except AttributeError as err:
                 caught = err
-            if m is not None:
-                m()
-        else:
-            # try to get interval/std first if appropriate,
-            # since we don't prefer a wrapped method with this name
-            if m is not None:
-                try:
-                    return m()
-                except AttributeError as err:
-                    caught = err
-            if self._compute_means:
-                return get_mean()
+        if self._compute_means:
+            return get_mean()
 
         raise (caught if caught else AttributeError(name))

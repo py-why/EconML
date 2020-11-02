@@ -32,37 +32,7 @@ class Inference(metaclass=abc.ABCMeta):
         pass
 
 
-class _SummaryMixin:
-    def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None):
-        smry = Summary()
-        try:
-            coef_table = self.coef__inference().summary_frame(alpha=alpha,
-                                                              value=value, decimals=decimals, feat_name=feat_name)
-            coef_array = coef_table.values
-            coef_headers = [i + '\n' +
-                            j for (i, j) in coef_table.columns] if self.d_t > 1 else coef_table.columns.tolist()
-            coef_stubs = [i + ' | ' + j for (i, j) in coef_table.index] if self.d_y > 1 else coef_table.index.tolist()
-            coef_title = 'Coefficient Results'
-            smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
-        except Exception as e:
-            print("Coefficient Results: ", str(e))
-        try:
-            intercept_table = self.intercept__inference().summary_frame(alpha=alpha,
-                                                                        value=value, decimals=decimals, feat_name=None)
-            intercept_array = intercept_table.values
-            intercept_headers = [i + '\n' + j for (i, j)
-                                 in intercept_table.columns] if self.d_t > 1 else intercept_table.columns.tolist()
-            intercept_stubs = [i + ' | ' + j for (i, j)
-                               in intercept_table.index] if self.d_y > 1 else intercept_table.index.tolist()
-            intercept_title = 'Intercept Results'
-            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
-        except Exception as e:
-            print("Intercept Results: ", str(e))
-        if len(smry.tables) > 0:
-            return smry
-
-
-class BootstrapInference(_SummaryMixin, Inference):
+class BootstrapInference(Inference):
     """
     Inference instance to perform bootstrapping.
 
@@ -155,7 +125,7 @@ class GenericModelFinalInference(Inference):
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)), self._d_t, self._d_y)
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, inf_type='effect', fname_transformer=None)
+                                      pred_stderr=pred_stderr, inf_type='effect')
 
     def _predict_interval(self, X, alpha):
         return self.model_final.predict_interval(X, alpha=alpha)
@@ -213,10 +183,10 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect', fname_transformer=None)
+                                      pred_stderr=e_stderr, inf_type='effect')
 
 
-class LinearModelFinalInference(_SummaryMixin, GenericModelFinalInference):
+class LinearModelFinalInference(GenericModelFinalInference):
     """
     Inference based on predict_interval of the model_final model. Assumes that estimator
     class has a model_final method and that model is linear. Thus, the predict(cross_product(X, T1 - T0)) gives
@@ -255,7 +225,7 @@ class LinearModelFinalInference(_SummaryMixin, GenericModelFinalInference):
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect', fname_transformer=None)
+                                      pred_stderr=e_stderr, inf_type='effect')
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -286,7 +256,8 @@ class LinearModelFinalInference(_SummaryMixin, GenericModelFinalInference):
             def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
-            fname_transformer = None
+            def fname_transformer(x):
+                return x
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer)
 
@@ -317,7 +288,7 @@ class LinearModelFinalInference(_SummaryMixin, GenericModelFinalInference):
                                                     self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                                     self.fit_cate_intercept)[1]
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
-                                      inf_type='intercept', fname_transformer=None)
+                                      inf_type='intercept')
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -386,8 +357,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
         pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final])
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
                                       # send treatment to the end, pull bounds to the front
-                                      pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect',
-                                      fname_transformer=None)
+                                      pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect')
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -418,7 +388,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ..., ind],
                                       pred_stderr=pred_stderr[np.arange(T0.shape[0]), ..., ind],
-                                      inf_type='effect', fname_transformer=None)
+                                      inf_type='effect')
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
@@ -446,7 +416,8 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
-            fname_transformer = None
+            def fname_transformer(x):
+                return x
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer)
 
@@ -466,33 +437,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         assert ind >= 0, "No model was fitted for the control"
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
                                       pred_stderr=self.fitted_models_final[ind].intercept_stderr_,
-                                      inf_type='intercept', fname_transformer=None)
-
-    def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None):
-        smry = Summary()
-        try:
-            coef_table = self.coef__inference(T).summary_frame(
-                alpha=alpha, value=value, decimals=decimals, feat_name=feat_name)
-            coef_array = coef_table.values
-            coef_headers = coef_table.columns.tolist()
-            coef_stubs = coef_table.index.tolist()
-            coef_title = 'Coefficient Results'
-            smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
-        except Exception as e:
-            print("Coefficient Results: ", e)
-        try:
-            intercept_table = self.intercept__inference(T).summary_frame(
-                alpha=alpha, value=value, decimals=decimals, feat_name=None)
-            intercept_array = intercept_table.values
-            intercept_headers = intercept_table.columns.tolist()
-            intercept_stubs = intercept_table.index.tolist()
-            intercept_title = 'Intercept Results'
-            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
-        except Exception as e:
-            print("Intercept Results: ", e)
-
-        if len(smry.tables) > 0:
-            return smry
+                                      inf_type='intercept')
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
@@ -542,7 +487,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=None):
+    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=lambda nm: nm):
         self.d_t = d_t
         self.d_y = d_y
         self.pred = pred
@@ -653,7 +598,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        return (self.point_estimate - value) / self.stderr
+        return (value - self.point_estimate) / self.stderr
 
     def summary_frame(self, alpha=0.1, value=0, decimals=3, feat_name=None):
         """
@@ -692,7 +637,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         if self.d_y == 1:
             res.index = res.index.droplevel(1)
         if self.inf_type == 'coefficient':
-            if feat_name is not None and self.fname_transformer:
+            if feat_name is not None:
                 ind = self.fname_transformer(feat_name)
             else:
                 ct = res.shape[0] // self.d_y
@@ -795,7 +740,7 @@ class NormalInferenceResults(InferenceResults):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=None):
+    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=lambda nm: nm):
         self.pred_stderr = pred_stderr
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer)
 
@@ -891,9 +836,9 @@ class EmpiricalInferenceResults(InferenceResults):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer):
+    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=lambda nm: nm):
         self.pred_dist = pred_dist
-        super().__init__(d_y, d_t, pred, inf_type, fname_transformer)
+        super().__init__(d_t, d_y, pred, inf_type, fname_transformer)
 
     @property
     def stderr(self):
@@ -930,7 +875,7 @@ class EmpiricalInferenceResults(InferenceResults):
         """
         lower = alpha / 2
         upper = 1 - alpha / 2
-        return np.percentile(self.pred_dist, lower, axis=0), np.percentile(self.pred_dist, upper, axis=0)
+        return np.percentile(self.pred_dist, lower * 100, axis=0), np.percentile(self.pred_dist, upper * 100, axis=0)
 
     def pvalue(self, value=0):
         """
@@ -949,7 +894,10 @@ class EmpiricalInferenceResults(InferenceResults):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        return min((self.pred_dist < value).sum(), (self.pred_dist > value).sum()) / self.pred_dist.shape[0]
+        pvalues = np.minimum((self.pred_dist <= value).sum(axis=0),
+                             (self.pred_dist >= value).sum(axis=0)) / self.pred_dist.shape[0]
+        # in the degenerate case where every point in the distribution is equal to the value tested, return nan
+        return np.where(np.all(self.pred_dist == value, axis=0), np.nan, pvalues)
 
     def _expand_outputs(self, n_rows):
         assert shape(self.pred)[0] == shape(self.pred_dist)[1] == 1
@@ -1216,11 +1164,16 @@ class PopulationSummaryResults:
         """
         Helper function to get the confidence interval of mixture gaussian distribution
         """
-        done = False
+        # if stderr is zero, ppf will return nans and the loop below would never terminate
+        # so bail out early; note that it might be possible to correct the algorithm for
+        # this scenario, but since scipy's cdf returns nan whenever scale is zero it won't
+        # be clean
+        if (np.any(stderr == 0)):
+            return np.full(shape(mean)[1:], np.nan)
         mix_ppf = scipy.stats.norm.ppf(alpha, loc=mean, scale=stderr)
         lower = np.min(mix_ppf, axis=0)
         upper = np.max(mix_ppf, axis=0)
-        while not done:
+        while True:
             cur = (lower + upper) / 2
             cur_mean = np.mean(scipy.stats.norm.cdf(cur, loc=mean, scale=stderr), axis=0)
             if np.isscalar(cur):

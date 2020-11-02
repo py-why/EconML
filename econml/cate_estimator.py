@@ -9,7 +9,7 @@ from functools import wraps
 from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
-from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot
+from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot, Summary
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults
 
@@ -585,7 +585,6 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         """
         pass
 
-    @BaseCateEstimator._defer_to_inference
     def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect.
@@ -608,7 +607,34 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
         """
-        pass
+        smry = Summary()
+        d_t = self._d_t[0] if self._d_t else 1
+        d_y = self._d_y[0] if self._d_y else 1
+        try:
+            coef_table = self.coef__inference().summary_frame(alpha=alpha,
+                                                              value=value, decimals=decimals, feat_name=feat_name)
+            coef_array = coef_table.values
+            coef_headers = [i + '\n' +
+                            j for (i, j) in coef_table.columns] if d_t > 1 else coef_table.columns.tolist()
+            coef_stubs = [i + ' | ' + j for (i, j) in coef_table.index] if d_y > 1 else coef_table.index.tolist()
+            coef_title = 'Coefficient Results'
+            smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
+        except Exception as e:
+            print("Coefficient Results: ", str(e))
+        try:
+            intercept_table = self.intercept__inference().summary_frame(alpha=alpha,
+                                                                        value=value, decimals=decimals, feat_name=None)
+            intercept_array = intercept_table.values
+            intercept_headers = [i + '\n' + j for (i, j)
+                                 in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
+            intercept_stubs = [i + ' | ' + j for (i, j)
+                               in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
+            intercept_title = 'Intercept Results'
+            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
+        except Exception as e:
+            print("Intercept Results: ", str(e))
+        if len(smry.tables) > 0:
+            return smry
 
 
 class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
@@ -684,7 +710,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         _, T = self._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
-        return self.fitted_models_final[ind].intercept_
+        return self.fitted_models_final[ind].intercept_.reshape(self._d_y)
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, T, *, alpha=0.1):
@@ -761,7 +787,6 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         pass
 
-    @BaseCateEstimator._defer_to_inference
     def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
@@ -784,7 +809,30 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
         """
-        pass
+        smry = Summary()
+        try:
+            coef_table = self.coef__inference(T).summary_frame(
+                alpha=alpha, value=value, decimals=decimals, feat_name=feat_name)
+            coef_array = coef_table.values
+            coef_headers = coef_table.columns.tolist()
+            coef_stubs = coef_table.index.tolist()
+            coef_title = 'Coefficient Results'
+            smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
+        except Exception as e:
+            print("Coefficient Results: ", e)
+        try:
+            intercept_table = self.intercept__inference(T).summary_frame(
+                alpha=alpha, value=value, decimals=decimals, feat_name=None)
+            intercept_array = intercept_table.values
+            intercept_headers = intercept_table.columns.tolist()
+            intercept_stubs = intercept_table.index.tolist()
+            intercept_title = 'Intercept Results'
+            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
+        except Exception as e:
+            print("Intercept Results: ", e)
+
+        if len(smry.tables) > 0:
+            return smry
 
 
 class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscreteMixin):
