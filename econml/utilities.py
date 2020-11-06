@@ -4,7 +4,6 @@
 """Utility methods."""
 
 import numpy as np
-import pandas as pd
 import scipy.sparse
 import sparse as sp
 import itertools
@@ -512,11 +511,10 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
 
 
 def check_input_arrays(*args, validate_len=True):
-    """
-    Cast input sequences into numpy arrays. 
+    """Cast input sequences into numpy arrays.
 
     Only inputs that are sequence-like will be converted, all other inputs will be left as is.
-    When `validate_len` is True, the sequences will be checked for equal length. 
+    When `validate_len` is True, the sequences will be checked for equal length.
 
     Parameters
     ----------
@@ -532,7 +530,6 @@ def check_input_arrays(*args, validate_len=True):
         List of inputs where sequence-like objects have been cast to numpy arrays.
 
     """
-    # Check arrays for all sequence-like objects
     args = [check_array(arg, dtype=None, ensure_2d=False, accept_sparse=True)
             if np.ndim(arg) > 0 else arg for arg in args]
     if validate_len:
