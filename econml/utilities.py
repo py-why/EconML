@@ -511,9 +511,19 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     return Y, T, X, W
 
 
-def check_input_arrays(*args):
+def check_input_arrays(*args, validate_len=True):
     # Check arrays for all sequence-like objects
-    args = [check_array(arg, ensure_2d=False, accept_sparse=True) if np.ndim(arg) > 0 else arg for arg in args]
+    args = [check_array(arg, dtype=None, ensure_2d=False, accept_sparse=True)
+            if np.ndim(arg) > 0 else arg for arg in args]
+    if validate_len:
+        n = None
+        for arg in args:
+            if np.ndim(arg) > 0:
+                m = arg.shape[0]
+                if n is None:
+                    n = m
+                else:
+                    assert (m == n), "Input arrays have incompatible lengths: {} and {}".format(n, m)
     return args
 
 
