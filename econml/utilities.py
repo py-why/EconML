@@ -4,7 +4,6 @@
 """Utility methods."""
 
 import numpy as np
-import pandas as pd
 import scipy.sparse
 import sparse as sp
 import itertools
