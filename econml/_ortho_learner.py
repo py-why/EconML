@@ -40,6 +40,7 @@ from sklearn.utils import check_random_state
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                              TreatmentExpansionMixin, StatsModelsCateEstimatorMixin)
 from .inference import StatsModelsInference
+from .utilities import check_input_arrays
 
 
 def _crossfit(model, folds, *args, **kwargs):
@@ -455,10 +456,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         super().__init__()
 
-    @staticmethod
-    def _asarray(A):
-        return None if A is None else np.asarray(A)
-
     def _check_input_dims(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None):
         assert shape(Y)[0] == shape(T)[0], "Dimension mis-match!"
         for arr in [X, W, Z, sample_weight, sample_var]:
@@ -523,8 +520,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self : _OrthoLearner instance
         """
-        Y, T, X, W, Z, sample_weight, sample_var = [self._asarray(A)
-                                                    for A in (Y, T, X, W, Z, sample_weight, sample_var)]
+        Y, T, X, W, Z, sample_weight, sample_var = check_input_arrays(Y, T, X, W, Z, sample_weight, sample_var)
         self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var)
         nuisances, fitted_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
         self._fit_final(self._subinds_check_none(Y, fitted_inds),
@@ -603,6 +599,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                                                    sample_var=sample_var))
 
     def const_marginal_effect(self, X=None):
+        X, = check_input_arrays(X)
         self._check_fitted_dims(X)
         if X is None:
             return self._model_final.predict()
@@ -611,21 +608,25 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+        X, = check_input_arrays(X)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
     const_marginal_effect_interval.__doc__ = LinearCateEstimator.const_marginal_effect_interval.__doc__
 
     def const_marginal_effect_inference(self, X=None):
+        X, = check_input_arrays(X)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_inference(X)
     const_marginal_effect_inference.__doc__ = LinearCateEstimator.const_marginal_effect_inference.__doc__
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        X, T0, T1 = check_input_arrays(X, T0, T1)
         self._check_fitted_dims(X)
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
     effect_interval.__doc__ = LinearCateEstimator.effect_interval.__doc__
 
     def effect_inference(self, X=None, *, T0=0, T1=1):
+        X, T0, T1 = check_input_arrays(X, T0, T1)
         self._check_fitted_dims(X)
         return super().effect_inference(X, T0=T0, T1=T1)
     effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
@@ -661,6 +662,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         if not hasattr(self._model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
+        Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
         self._check_fitted_dims(X)
         self._check_fitted_dims_w_z(W, Z)
         X, T = self._expand_treatments(X, T)

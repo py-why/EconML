@@ -4,6 +4,7 @@
 """Utility methods."""
 
 import numpy as np
+import pandas as pd
 import scipy.sparse
 import sparse as sp
 import itertools
@@ -508,6 +509,12 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     if W is not None:
         W, _ = check_X_y(W, Y)
     return Y, T, X, W
+
+
+def check_input_arrays(*args):
+    # Check arrays for all sequence-like objects
+    args = [check_array(arg, ensure_2d=False, accept_sparse=True) if np.ndim(arg) > 0 else arg for arg in args]
+    return args
 
 
 def check_models(models, n):

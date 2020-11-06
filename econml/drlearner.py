@@ -32,7 +32,7 @@ from warnings import warn
 
 from sklearn.base import clone
 from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
-from econml.utilities import inverse_onehot, check_high_dimensional, StatsModelsLinearRegression
+from econml.utilities import inverse_onehot, check_high_dimensional, StatsModelsLinearRegression, check_input_arrays
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper, DebiasedLasso
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from econml._ortho_learner import _OrthoLearner
@@ -928,6 +928,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         if sample_weight is not None and inference is not None:
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
+        Y, T, X, W, sample_weight, sample_var = check_input_arrays(Y, T, X, W, sample_weight, sample_var)
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self._discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "

@@ -5,8 +5,10 @@
 
 import abc
 import numpy as np
+import pandas as pd
 from functools import wraps
 from copy import deepcopy
+from sklearn.utils import check_array
 from warnings import warn
 from .bootstrap import BootstrapEstimator
 from .inference import BootstrapInference
