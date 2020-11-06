@@ -81,7 +81,7 @@ jobs:
   dependsOn: 'EvalChanges'
   condition: eq(dependencies.EvalChanges.outputs['output.buildNbs'], 'True')
   variables:
-    python.version: '3.6'
+    python.version: '3.8'
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
@@ -142,7 +142,7 @@ jobs:
   dependsOn: 'EvalChanges'
   condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
   variables:
-    python.version: '3.6'
+    python.version: '3.8'
   pool:
     vmImage: 'macOS-10.15'
   steps:
@@ -158,15 +158,6 @@ jobs:
   condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
   strategy:
     matrix:
-      Linux, Python 3.5:
-        imageName: 'ubuntu-16.04'
-        python.version: '3.5'
-      macOS, Python 3.5:
-        imageName: 'macOS-10.15'
-        python.version: '3.5'
-      Windows, Python 3.5:
-        imageName: 'vs2017-win2016'
-        python.version: '3.5'
       Linux, Python 3.6:
         imageName: 'ubuntu-16.04'
         python.version: '3.6'
