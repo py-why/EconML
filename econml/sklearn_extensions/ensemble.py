@@ -71,8 +71,8 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
     children_left = tree.tree_.children_left
     children_right = tree.tree_.children_right
     stack = [(0, -1)]  # seed is the root node id and its parent depth
-    numerator = tree.tree_.value.copy()
-    denominator = tree.tree_.weighted_n_node_samples.copy()
+    numerator = np.empty_like(tree.tree_.value)
+    denominator = np.empty_like(tree.tree_.weighted_n_node_samples)
     while len(stack) > 0:
         node_id, parent_id = stack.pop()
         # If minimum weight requirement or minimum leaf size requirement is not satisfied on estimation
