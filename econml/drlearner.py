@@ -36,7 +36,8 @@ from econml.utilities import inverse_onehot, check_high_dimensional, StatsModels
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper, DebiasedLasso
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from econml._ortho_learner import _OrthoLearner
-from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin, DebiasedLassoCateEstimatorDiscreteMixin
+from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin, DebiasedLassoCateEstimatorDiscreteMixin,\
+    ForestModelFinalCateEstimatorDiscreteMixin
 from econml.inference import GenericModelFinalInferenceDiscrete
 
 
@@ -949,7 +950,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         return super().model_final.models_cate
 
 
-class ForestDRLearner(DRLearner):
+class ForestDRLearner(DRLearner, ForestModelFinalCateEstimatorDiscreteMixin):
     """ Instance of DRLearner with a :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
 
@@ -1143,12 +1144,6 @@ class ForestDRLearner(DRLearner):
                          min_propensity=min_propensity,
                          categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
-
-    def _get_inference_options(self):
-        # add statsmodels to parent's options
-        options = super()._get_inference_options()
-        options.update(blb=GenericModelFinalInferenceDiscrete)
-        return options
 
     def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
         """
