@@ -71,6 +71,8 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
     children_left = tree.tree_.children_left
     children_right = tree.tree_.children_right
     stack = [(0, -1)]  # seed is the root node id and its parent depth
+    numerator = tree.tree_.value.copy()
+    denominator = tree.tree_.weighted_n_node_samples.copy()
     while len(stack) > 0:
         node_id, parent_id = stack.pop()
         # If minimum weight requirement or minimum leaf size requirement is not satisfied on estimation
@@ -81,17 +83,22 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
             tree.tree_.children_right[parent_id] = -1
         else:
             for i in range(tree.n_outputs_):
-                # Set the value of the node to: \sum_{i} sample_weight[i] 1{i \\in node} Y_i / |node|
-                tree.tree_.value[node_id, i] = value_est[i, node_id] / count_est[0, node_id]
-            # Set the weight of the node to: \sum_{i} sample_weight[i] 1{i \\in node} / |node|
-            tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id] / count_est[0, node_id]
+                # Set the numerator of the node to: \sum_{i} sample_weight[i] 1{i \\in node} Y_i / |node|
+                numerator[node_id, i] = value_est[i, node_id] / count_est[0, node_id]
+                # Set the value of the node to:
+                # \sum_{i} sample_weight[i] 1{i \\in node} Y_i / \sum_{i} sample_weight[i] 1{i \\in node}
+                tree.tree_.value[node_id, i] = value_est[i, node_id] / weight_est[0, node_id]
+            # Set the denominator of the node to: \sum_{i} sample_weight[i] 1{i \\in node} / |node|
+            denominator[node_id] = weight_est[0, node_id] / count_est[0, node_id]
+            # Set the weight of the node to: \sum_{i} sample_weight[i] 1{i \\in node}
+            tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id]
             # Set the count to the estimation split count
             tree.tree_.n_node_samples[node_id] = count_est[0, node_id]
             if (children_left[node_id] != children_right[node_id]):
                 stack.append((children_left[node_id], node_id))
                 stack.append((children_right[node_id], node_id))
 
-    return tree
+    return tree, numerator, denominator
 
 
 class SubsampledHonestForest(ForestRegressor, RegressorMixin):
@@ -483,6 +490,8 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         if not self.warm_start or not hasattr(self, "estimators_"):
             # Free allocated memory, if any
             self.estimators_ = []
+            self.numerators_ = []
+            self.denominators_ = []
 
         n_more_estimators = self.n_estimators - len(self.estimators_)
 
@@ -523,21 +532,27 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                                                                        int(np.ceil(self.subsample_fr_ *
                                                                                    (X.shape[0] // 2))),
                                                                        replace=False)])
-            trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
-                             **_joblib_parallel_args(prefer='threads'))(
+            res = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
+                           **_joblib_parallel_args(prefer='threads'))(
                 delayed(_parallel_add_trees)(
                     t, self, X, y, sample_weight, s_inds[i], i, len(trees),
                     verbose=self.verbose)
                 for i, t in enumerate(trees))
+            trees = [t[0] for t in res]
+            numerators = [t[1] for t in res]
+            denominators = [t[2] for t in res]
             # Collect newly grown trees
             self.estimators_.extend(trees)
+            self.numerators_.extend(numerators)
+            self.denominators_.extend(denominators)
 
         return self
 
     def _mean_fn(self, X, fn, acc, slice=None):
         # Helper class that accumulates an arbitrary function in parallel on the accumulator acc
         # and calls the function fn on each tree e and returns the mean output. The function fn
-        # should take as input a tree e, and return another function g_e, which takes as input X, check_input
+        # should take as input a tree e and associated numerator n and denominator d structures and
+        # return another function g_e, which takes as input X, check_input
         # If slice is not None, but rather a tuple (start, end), then a subset of the trees from
         # index start to index end will be used. The returned result is essentially:
         # (mean over e in slice)(g_e(X)).
@@ -546,18 +561,21 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         X = self._validate_X_predict(X)
 
         if slice is None:
-            estimator_slice = self.estimators_
+            estimator_slice = zip(self.estimators_, self.numerators_, self.denominators_)
+            n_estimators = len(self.estimators_)
         else:
-            estimator_slice = self.estimators_[slice[0]:slice[1]]
+            estimator_slice = zip(self.estimators_[slice[0]:slice[1]], self.numerators_[slice[0]:slice[1]],
+                                  self.denominators_[slice[0]:slice[1]])
+            n_estimators = slice[1] - slice[0]
 
         # Assign chunk of trees to jobs
-        n_jobs, _, _ = _partition_estimators(len(estimator_slice), self.n_jobs)
+        n_jobs, _, _ = _partition_estimators(n_estimators, self.n_jobs)
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose,
                  **_joblib_parallel_args(require="sharedmem"))(
-            delayed(_accumulate_prediction)(fn(e), X, [acc], lock)
-            for e in estimator_slice)
-        acc /= len(estimator_slice)
+            delayed(_accumulate_prediction)(fn(e, n, d), X, [acc], lock)
+            for e, n, d in estimator_slice)
+        acc /= n_estimators
         return acc
 
     def _weight(self, X, slice=None):
@@ -582,7 +600,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         # Check data
         X = self._validate_X_predict(X)
         weight_hat = np.zeros((X.shape[0]), dtype=np.float64)
-        return self._mean_fn(X, lambda e: (lambda x, check_input: e.tree_.weighted_n_node_samples[e.apply(x)]),
+        return self._mean_fn(X, lambda e, n, d: (lambda x, check_input: d[e.apply(x)]),
                              weight_hat, slice=slice)
 
     def _predict(self, X, slice=None):
@@ -610,12 +628,12 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         # Check data
         X = self._validate_X_predict(X)
         # avoid storing the output of every estimator by summing them here
-        if self.n_outputs_ > 1:
-            y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
-        else:
-            y_hat = np.zeros((X.shape[0]), dtype=np.float64)
+        y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+        y_hat = self._mean_fn(X, lambda e, n, d: (lambda x, check_input: n[e.apply(x), :, 0]), y_hat, slice=slice)
+        if self.n_outputs_ == 1:
+            y_hat = y_hat.flatten()
 
-        return self._mean_fn(X, lambda e: e.predict, y_hat, slice=slice)
+        return y_hat
 
     def _inference(self, X, stderr=False):
         """
