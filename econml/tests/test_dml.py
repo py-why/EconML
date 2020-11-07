@@ -406,7 +406,8 @@ class TestDML(unittest.TestCase):
                                         self.assertEqual(shape(eff), effect_shape)
 
                                         if isinstance(est, ForestDMLCateEstimator):
-                                            np.testing.assert_array_equal(est.feature_importances_, [X.shape[1]])
+                                            np.testing.assert_array_equal(est.feature_importances_.shape,
+                                                                          [X.shape[1]])
 
                                         if inf is not None:
                                             const_marg_eff_int = est.const_marginal_effect_interval(X)
