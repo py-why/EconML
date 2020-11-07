@@ -321,7 +321,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     >>> regr.fit(X_train, y_train)
     SubsampledHonestForest(n_estimators=1000, random_state=0)
     >>> regr.feature_importances_
-    array([0.40..., 0.35..., 0.11..., 0.11...])
+    array([0.67..., 0.30..., 0.00...  , 0.00...])
     >>> regr.predict(np.ones((1, 4)))
     array([112.9...])
     >>> regr.predict_interval(np.ones((1, 4)), alpha=.05)
