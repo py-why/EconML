@@ -721,6 +721,8 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         -------
         intercept: float or (n_y,) array like
         """
+        if not self.fit_cate_intercept:
+            raise AttributeError("No intercept was fitted!")
         _, T = self._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"

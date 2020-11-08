@@ -637,8 +637,10 @@ class InferenceResults(metaclass=abc.ABCMeta):
         if self.d_y == 1:
             res.index = res.index.droplevel(1)
         if self.inf_type == 'coefficient':
+            if self.fname_transformer is not None:
+                feat_name = self.fname_transformer(feat_name)
             if feat_name is not None:
-                ind = self.fname_transformer(feat_name)
+                ind = feat_name
             else:
                 ct = res.shape[0] // self.d_y
                 ind = ['X' + str(i) for i in range(ct)]
