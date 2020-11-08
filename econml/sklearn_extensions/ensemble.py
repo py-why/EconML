@@ -3,12 +3,6 @@
 
 """ Subsampled honest forest extension to scikit-learn's forest methods. Contains pieces of code from
 scikit-learn's random forest implementation.
-
-TODO. Currently the node.impurity entry of every node is the impurity based on the split half-sample and not
-the estimation half-sample. This slightly affects the `feature_importances_` calcualtion as the impurity is based
-on the split half-sample, but the weighted_n_node_samples is based on the estimation half-sample. Identify
-whether there is a fast way to also re-calculate impurities, even if it means restricting only to the MSE
-criterion.
 """
 
 import numpy as np
@@ -71,8 +65,30 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
     count_est = np.sum(path_est, axis=0)
     # Calculate the weighted sum of responses on the estimation sample on each node:
     # \sum_{i} sample_weight[i] 1{i \\in node} Y_i
-    value_est = scipy.sparse.csr_matrix(
+    num_est = scipy.sparse.csr_matrix(
         (sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
+    # Calculate the predicted value on each node based on the estimation sample:
+    # weighted sum of responses / total weight
+    value_est = num_est.multiply(weight_est.power(-1))
+
+    # Calculate the criterion on each node based on the estimation sample and for each output dimension,
+    # summing the impurity across dimensions.
+    # First we calculate the difference of observed label y of each node and predicted value for each
+    # node that the sample falls in: y[i] - value_est[node]
+    impurity_est = np.zeros((1, path_est.shape[1]))
+    for i in range(tree.n_outputs_):
+        diff = path_est.multiply(y_est[:, [i]]) - path_est.multiply(value_est[[i], :])
+        if tree.criterion == 'mse':
+            # If criterion is mse then calculate weighted sum of squared differences for each node
+            impurity_est_i = scipy.sparse.csr_matrix(sample_weight_est.reshape(1, -1)).dot(diff.power(2))
+        elif tree.criterion == 'mae':
+            # If criterion is mae then calculate weighted sum of absolute differences for each node
+            impurity_est_i = scipy.sparse.csr_matrix(sample_weight_est.reshape(1, -1)).dot(np.abs(diff))
+        else:
+            raise AttributeError("Criterion {} not yet supported by SubsampledHonestForest!".format(tree.criterion))
+        # Normalize each weighted sum of criterion for each node by the total weight of each node
+        impurity_est += impurity_est_i / weight_est
+
     # Prune tree to remove leafs that don't satisfy the leaf requirements on the estimation sample
     # and for each un-pruned tree set the value and the weight appropriately.
     children_left = tree.tree_.children_left
@@ -91,16 +107,18 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
         else:
             for i in range(tree.n_outputs_):
                 # Set the numerator of the node to: \sum_{i} sample_weight[i] 1{i \\in node} Y_i / |node|
-                numerator[node_id, i] = value_est[i, node_id] / count_est[0, node_id]
+                numerator[node_id, i] = num_est[i, node_id] / count_est[0, node_id]
                 # Set the value of the node to:
                 # \sum_{i} sample_weight[i] 1{i \\in node} Y_i / \sum_{i} sample_weight[i] 1{i \\in node}
-                tree.tree_.value[node_id, i] = value_est[i, node_id] / weight_est[0, node_id]
+                tree.tree_.value[node_id, i] = value_est[i, node_id]
             # Set the denominator of the node to: \sum_{i} sample_weight[i] 1{i \\in node} / |node|
             denominator[node_id] = weight_est[0, node_id] / count_est[0, node_id]
             # Set the weight of the node to: \sum_{i} sample_weight[i] 1{i \\in node}
             tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id]
             # Set the count to the estimation split count
             tree.tree_.n_node_samples[node_id] = count_est[0, node_id]
+            # Set the node impurity to the estimation split impurity
+            tree.tree_.impurity[node_id] = impurity_est[0, node_id]
             if (children_left[node_id] != children_right[node_id]):
                 stack.append((children_left[node_id], node_id))
                 stack.append((children_right[node_id], node_id))
@@ -328,7 +346,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     >>> regr.fit(X_train, y_train)
     SubsampledHonestForest(n_estimators=1000, random_state=0)
     >>> regr.feature_importances_
-    array([0.67..., 0.30..., 0.00...  , 0.00...])
+    array([0.64..., 0.33..., 0.01...  , 0.01...])
     >>> regr.predict(np.ones((1, 4)))
     array([112.9...])
     >>> regr.predict_interval(np.ones((1, 4)), alpha=.05)
@@ -761,38 +779,3 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         lower_pred = scipy.stats.norm.ppf(
             alpha / 2, loc=y_point_pred, scale=pred_stderr)
         return lower_pred, upper_pred
-
-    @property
-    def feature_importances_(self):
-        """
-        The impurity-based feature importances.
-
-        The higher, the more important the feature.
-        The importance of a feature is computed as the (normalized)
-        total reduction of the criterion brought by that feature.  It is also
-        known as the Gini importance.
-
-        Returns
-        -------
-        feature_importances_ : ndarray of shape (n_features,)
-            The values of this array sum to 1, unless all trees are single node
-            trees consisting of only the root node, in which case it will be an
-            array of zeros.
-        """
-        check_is_fitted(self)
-
-        def unnormalized_importances(tree):
-            return tree.tree_.compute_feature_importances(normalize=False)
-
-        all_importances = Parallel(n_jobs=self.n_jobs,
-                                   **_joblib_parallel_args(prefer='threads'))(
-            delayed(unnormalized_importances)(tree)
-            for tree in self.estimators_ if tree.tree_.node_count > 1)
-
-        if not all_importances:
-            return np.zeros(self.n_features_, dtype=np.float64)
-
-        all_importances = np.mean(all_importances,
-                                  axis=0, dtype=np.float64)
-        all_importances = np.clip(all_importances, 0, np.inf)
-        return all_importances / np.sum(all_importances)
