@@ -1,7 +1,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-""" Subsampled honest forest extension to scikit-learn's forest methods.
+""" Subsampled honest forest extension to scikit-learn's forest methods. Contains pieces of code from
+scikit-learn's random forest implementation.
+
+TODO. Currently the node.impurity entry of every node is the impurity based on the split half-sample and not
+the estimation half-sample. This slightly affects the feature_importance_ calcualtion as the impurity is based
+on the split half-sample, but the weighted_n_node_samples is based on the estimation half-sample. Identify
+whether there is a fast way to also re-calculate impurities, even if it means restricting only to the MSE
+criterion.
 """
 
 import numpy as np
@@ -754,3 +761,38 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         lower_pred = scipy.stats.norm.ppf(
             alpha / 2, loc=y_point_pred, scale=pred_stderr)
         return lower_pred, upper_pred
+
+    @property
+    def feature_importances_(self):
+        """
+        The impurity-based feature importances.
+
+        The higher, the more important the feature.
+        The importance of a feature is computed as the (normalized)
+        total reduction of the criterion brought by that feature.  It is also
+        known as the Gini importance.
+
+        Returns
+        -------
+        feature_importances_ : ndarray of shape (n_features,)
+            The values of this array sum to 1, unless all trees are single node
+            trees consisting of only the root node, in which case it will be an
+            array of zeros.
+        """
+        check_is_fitted(self)
+
+        def unnormalized_importances(tree):
+            return tree.tree_.compute_feature_importances(normalize=False)
+
+        all_importances = Parallel(n_jobs=self.n_jobs,
+                                   **_joblib_parallel_args(prefer='threads'))(
+            delayed(unnormalized_importances)(tree)
+            for tree in self.estimators_ if tree.tree_.node_count > 1)
+
+        if not all_importances:
+            return np.zeros(self.n_features_, dtype=np.float64)
+
+        all_importances = np.mean(all_importances,
+                                  axis=0, dtype=np.float64)
+        all_importances = np.clip(all_importances, 0, np.inf)
+        return all_importances / np.sum(all_importances)
