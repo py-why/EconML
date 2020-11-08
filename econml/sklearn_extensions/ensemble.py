@@ -5,7 +5,7 @@
 scikit-learn's random forest implementation.
 
 TODO. Currently the node.impurity entry of every node is the impurity based on the split half-sample and not
-the estimation half-sample. This slightly affects the feature_importance_ calcualtion as the impurity is based
+the estimation half-sample. This slightly affects the `feature_importances_` calcualtion as the impurity is based
 on the split half-sample, but the weighted_n_node_samples is based on the estimation half-sample. Identify
 whether there is a fast way to also re-calculate impurities, even if it means restricting only to the MSE
 criterion.
