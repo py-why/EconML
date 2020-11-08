@@ -950,7 +950,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         return super().model_final.models_cate
 
 
-class ForestDRLearner(DRLearner, ForestModelFinalCateEstimatorDiscreteMixin):
+class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     """ Instance of DRLearner with a :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
 

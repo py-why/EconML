@@ -867,7 +867,7 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
                          random_state=random_state)
 
 
-class ForestDMLCateEstimator(NonParamDMLCateEstimator, ForestModelFinalCateEstimatorMixin):
+class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCateEstimator):
     """ Instance of NonParamDMLCateEstimator with a
     :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
