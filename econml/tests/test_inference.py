@@ -5,6 +5,7 @@ import numpy as np
 import unittest
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from econml.dml import LinearDMLCateEstimator
 from econml.drlearner import LinearDRLearner
 from econml.inference import (BootstrapInference, NormalInferenceResults,
@@ -18,23 +19,80 @@ class TestInference(unittest.TestCase):
         np.random.seed(123)
         # DGP constants
         cls.n = 1000
-        cls.d_w = 30
-        cls.d_x = 5
+        cls.d_w = 3
+        cls.d_x = 3
         # Generate data
         cls.X = np.random.uniform(0, 1, size=(cls.n, cls.d_x))
         cls.W = np.random.normal(0, 1, size=(cls.n, cls.d_w))
-        cls.T = np.random.normal(0, 1, size=(cls.n, ))
+        cls.T = np.random.binomial(1, .5, size=(cls.n,))
         cls.Y = np.random.normal(0, 1, size=(cls.n, ))
 
-    def test_inference_results(self):
-        """Tests the inference results summary."""
+    def test_summary(self):
+        """Tests the inference results summary for continuous treatment estimators."""
         # Test inference results when `cate_feature_names` doesn not exist
 
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'statsmodels']:
-            cate_est = LinearDMLCateEstimator(
-                featurizer=PolynomialFeatures(degree=1,
-                                              include_bias=False)
+            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(),
+                                              featurizer=PolynomialFeatures(degree=2,
+                                                                            include_bias=False)
+                                              )
+            cate_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
             )
+            summary_results = cate_est.summary()
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
+            np.testing.assert_array_equal(coef_rows, fnames)
+            intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
+            np.testing.assert_array_equal(intercept_rows, ['intercept'])
+
+            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(),
+                                              featurizer=PolynomialFeatures(degree=2,
+                                                                            include_bias=False)
+                                              )
+            cate_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
+            summary_results = cate_est.summary(feat_name=fnames)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
+                TestInference.X).get_feature_names(input_features=fnames)
+            np.testing.assert_array_equal(coef_rows, fnames)
+            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
+            cate_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            summary_results = cate_est.summary()
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
+
+            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
+            cate_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
+            summary_results = cate_est.summary(feat_name=fnames)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            np.testing.assert_array_equal(coef_rows, fnames)
+
+            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
             wrapped_est = self._NoFeatNamesEst(cate_est)
             wrapped_est.fit(
                 TestInference.Y,
@@ -47,9 +105,119 @@ class TestInference(unittest.TestCase):
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
 
+            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
+            wrapped_est = self._NoFeatNamesEst(cate_est)
+            wrapped_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
+            summary_results = wrapped_est.summary(feat_name=fnames)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            np.testing.assert_array_equal(coef_rows, fnames)
+
+    def test_summary_discrete(self):
+        """Tests the inference results summary for discrete treatment estimators."""
+        # Test inference results when `cate_feature_names` doesn not exist
+
+        for inference in [BootstrapInference(n_bootstrap_samples=5), 'statsmodels']:
+            cate_est = LinearDRLearner(model_regression=LinearRegression(), model_propensity=LogisticRegression(),
+                                       featurizer=PolynomialFeatures(degree=2,
+                                                                     include_bias=False)
+                                       )
+            cate_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            summary_results = cate_est.summary(T=1)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
+            np.testing.assert_array_equal(coef_rows, fnames)
+            intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
+            np.testing.assert_array_equal(intercept_rows, ['intercept'])
+
+            cate_est = LinearDRLearner(model_regression=LinearRegression(),
+                                       model_propensity=LogisticRegression(),
+                                       featurizer=PolynomialFeatures(degree=2,
+                                                                     include_bias=False)
+                                       )
+            cate_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
+            summary_results = cate_est.summary(T=1, feat_name=fnames)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
+                TestInference.X).get_feature_names(input_features=fnames)
+            np.testing.assert_array_equal(coef_rows, fnames)
+            cate_est = LinearDRLearner(model_regression=LinearRegression(),
+                                       model_propensity=LogisticRegression(), featurizer=None)
+            cate_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            summary_results = cate_est.summary(T=1)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
+
+            cate_est = LinearDRLearner(model_regression=LinearRegression(),
+                                       model_propensity=LogisticRegression(), featurizer=None)
+            cate_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
+            summary_results = cate_est.summary(T=1, feat_name=fnames)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            np.testing.assert_array_equal(coef_rows, fnames)
+
+            cate_est = LinearDRLearner(model_regression=LinearRegression(),
+                                       model_propensity=LogisticRegression(), featurizer=None)
+            wrapped_est = self._NoFeatNamesEst(cate_est)
+            wrapped_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            summary_results = wrapped_est.summary(T=1)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
+
+            cate_est = LinearDRLearner(model_regression=LinearRegression(),
+                                       model_propensity=LogisticRegression(), featurizer=None)
+            wrapped_est = self._NoFeatNamesEst(cate_est)
+            wrapped_est.fit(
+                TestInference.Y,
+                TestInference.T,
+                TestInference.X,
+                TestInference.W,
+                inference=inference
+            )
+            fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
+            summary_results = wrapped_est.summary(T=1, feat_name=fnames)
+            coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
+            np.testing.assert_array_equal(coef_rows, fnames)
+
     def test_degenerate_cases(self):
         """Test that we return the correct values when our distribution doesn't vary"""
-
         predictions = np.array([[1, 0], [1, 1]])  # first component is always 1
         for inf in [EmpiricalInferenceResults(d_t=1, d_y=2,
                                               pred=np.mean(predictions, axis=0), pred_dist=predictions,
@@ -93,7 +261,7 @@ class TestInference(unittest.TestCase):
             pop.print()  # verify that we can access all attributes even in degenerate case
 
     def test_can_summarize(self):
-        LinearDMLCateEstimator().fit(
+        LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression()).fit(
             TestInference.Y,
             TestInference.T,
             TestInference.X,
@@ -101,7 +269,8 @@ class TestInference(unittest.TestCase):
             inference='statsmodels'
         ).summary()
 
-        LinearDRLearner(fit_cate_intercept=False).fit(
+        LinearDRLearner(model_regression=LinearRegression(),
+                        model_propensity=LogisticRegression(), fit_cate_intercept=False).fit(
             TestInference.Y,
             TestInference.T > 0,
             TestInference.X,
