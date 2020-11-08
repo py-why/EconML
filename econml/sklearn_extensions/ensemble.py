@@ -538,9 +538,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                     t, self, X, y, sample_weight, s_inds[i], i, len(trees),
                     verbose=self.verbose)
                 for i, t in enumerate(trees))
-            trees = [t[0] for t in res]
-            numerators = [t[1] for t in res]
-            denominators = [t[2] for t in res]
+            trees, numerators, denominators = zip(*res)
             # Collect newly grown trees
             self.estimators_.extend(trees)
             self.numerators_.extend(numerators)
