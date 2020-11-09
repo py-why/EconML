@@ -20,7 +20,7 @@ import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
 from econml.sklearn_extensions.model_selection import WeightedKFold, WeightedStratifiedKFold
-from econml.utilities import ndim, shape, reshape
+from econml.utilities import ndim, shape, reshape, _safe_norm_ppf
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.metrics import r2_score
@@ -30,6 +30,10 @@ from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import check_is_fitted
+from sklearn.base import BaseEstimator
+from statsmodels.tools.tools import add_constant
+from statsmodels.api import RLM
+import statsmodels
 
 
 def _weighted_check_cv(cv=5, y=None, classifier=False):
@@ -1324,3 +1328,251 @@ class SelectiveRegularization:
         check_is_fitted(self, "coef_")
         X, y = check_X_y(X, y, multi_output=True, estimator=self)
         return r2_score(y, self.predict(X))
+
+
+class StatsModelsRLM(BaseEstimator):
+    """
+    Class which mimics robust linear regression from the statsmodels package.
+
+    Parameters
+    ----------
+    t : float (optional, default=1.345)
+        The tuning constant for Huber’s t function
+    maxiter : int (optional, default=50)
+        The maximum number of iterations to try
+    tol : float (optional, default=1e-08)
+        The convergence tolerance of the estimate
+    fit_intercept : bool (optional, default=True)
+        Whether to fit an intercept in this model
+    cov_type : one of {'H1', 'H2', or 'H3'} (optional, default='H1')
+        Indicates how the covariance matrix is estimated. See statsmodels.robust.robust_linear_model.RLMResults
+        for more information.
+    """
+
+    def __init__(self, t=1.345,
+                 maxiter=50,
+                 tol=1e-08,
+                 fit_intercept=True,
+                 cov_type='H1'):
+        self.t = t
+        self.maxiter = maxiter
+        self.tol = tol
+        self.cov_type = cov_type
+        self.fit_intercept = fit_intercept
+        return
+
+    def _check_input(self, X, y):
+        """Check dimensions and other assertions."""
+        if X is None:
+            X = np.empty((y.shape[0], 0))
+
+        assert (X.shape[0] == y.shape[0]), "Input lengths not compatible!"
+        assert (len(y.shape) == 1),\
+            "Robust Linear Regression can only accept a single outcome. Use y.ravel()"
+
+        return X, y
+
+    def fit(self, X, y):
+        """
+        Fits the model.
+
+        Parameters
+        ----------
+        X : (N, d) nd array like
+            co-variates
+        y : (N,) nd array like
+            output variable
+
+        Returns
+        -------
+        self : StatsModelsRLM
+        """
+        X, y = self._check_input(X, y)
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
+
+        self.model = RLM(endog=y,
+                         exog=X,
+                         M=statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
+                                                                          maxiter=self.maxiter, tol=self.tol)
+        return self
+
+    def predict(self, X):
+        """
+        Predicts the output given an array of instances.
+
+        Parameters
+        ----------
+        X : (n, d) array like
+            The covariates on which to predict
+
+        Returns
+        -------
+        predictions : (n,) array
+            The predicted outcome
+        """
+        if X is None:
+            X = np.empty((1, 0))
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
+        return self.model.predict(X)
+
+    @property
+    def coef_(self):
+        """
+        Get the model's coefficients on the covariates.
+
+        Returns
+        -------
+        coef_ : (d,) nd array like
+            The coefficients of the variables in the linear regression.
+        """
+        if self.fit_intercept:
+            return self.model.params[1:]
+        else:
+            return self.model.params
+
+    @property
+    def intercept_(self):
+        """
+        Get the intercept (or 0 if no intercept was fit).
+
+        Returns
+        -------
+        intercept_ : float
+            The intercept of the linear regresion.
+        """
+        return self.model.params[0] if self.fit_intercept else 0
+
+    @property
+    def _param_var(self):
+        """
+        The covariance matrix of all the parameters in the regression (including the intercept as the first parameter).
+
+        Returns
+        -------
+        var : (d (+1), d (+1)) nd array like
+            The covariance matrix of all the parameters in the regression (including the intercept
+            as the first parameter).  If intercept was set to False then this is the covariance matrix
+            of the coefficients; otherwise, the intercept is treated as the first parameter of the regression
+            and the coefficients as the remaining. 
+        """
+        return self.model.cov_params()
+
+    @property
+    def _param_stderr(self):
+        """
+        The standard error of each parameter that was estimated.
+
+        Returns
+        -------
+        _param_stderr : (d (+1),) nd array like
+            The standard error of each parameter that was estimated.
+        """
+        return np.sqrt(np.clip(np.diag(self._param_var), 0, np.inf))
+
+    @property
+    def coef_stderr_(self):
+        """
+        Gets the standard error of the fitted coefficients.
+
+        Returns
+        -------
+        coef_stderr_ : (d,) nd array like
+            The standard error of the coefficients
+        """
+        return self._param_stderr[1:].T if self.fit_intercept else self._param_stderr.T
+
+    @property
+    def intercept_stderr_(self):
+        """
+        Gets the standard error of the intercept (or 0 if no intercept was fit).
+
+        Returns
+        -------
+        intercept_stderr_ : float
+            The standard error of the intercept
+        """
+        return self._param_stderr[0] if self.fit_intercept else 0
+
+    def prediction_stderr(self, X):
+        """
+        Gets the standard error of the predictions.
+
+        Parameters
+        ----------
+        X : (n, d) array like
+            The covariates at which to predict
+
+        Returns
+        -------
+        prediction_stderr : (n,) array like
+            The standard error the prediction at each point we predict
+        """
+        if X is None:
+            X = np.empty((1, 0))
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
+        return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1), 0, np.inf))
+
+    def coef__interval(self, alpha=.05):
+        """
+        Gets a confidence interval bounding the fitted coefficients.
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        coef__interval : tuple ((d,) array, (d,) array)
+            The lower and upper bounds of the confidence interval of the coefficients
+        """
+        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                         for p, err in zip(self.coef_, self.coef_stderr_)]),\
+            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                      for p, err in zip(self.coef_, self.coef_stderr_)])
+
+    def intercept__interval(self, alpha=.05):
+        """
+        Gets a confidence interval bounding the intercept (or 0 if no intercept was fit).
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        intercept__interval : tuple (float, float)
+            The lower and upper bounds of the confidence interval of the intercept
+        """
+        if not self.fit_intercept:
+            return 0, 0
+        return _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),\
+            _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
+
+    def predict_interval(self, X, alpha=.05):
+        """
+        Gets a confidence interval bounding the prediction.
+
+        Parameters
+        ----------
+        X : (n, d) array like
+            The covariates on which to predict
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        prediction_intervals : tuple ((n,) array, (n,) array)
+            The lower and upper bounds of the confidence intervals of the predicted mean outcomes
+        """
+        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                         for p, err in zip(self.predict(X), self.prediction_stderr(X))]),\
+            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                      for p, err in zip(self.predict(X), self.prediction_stderr(X))])
