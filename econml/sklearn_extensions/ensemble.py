@@ -59,17 +59,17 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
     # Calculate the total weight of estimation samples on each tree node:
     # \sum_i sample_weight[i] * 1{i \\in node}
     weight_est = scipy.sparse.csr_matrix(
-        sample_weight_est.reshape(1, -1)).dot(path_est)
+        sample_weight_est.reshape(1, -1)).dot(path_est).todense()
     # Calculate the total number of estimation samples on each tree node:
     # |node| = \sum_{i} 1{i \\in node}
-    count_est = np.sum(path_est, axis=0)
+    count_est = path_est.sum(axis=0)
     # Calculate the weighted sum of responses on the estimation sample on each node:
     # \sum_{i} sample_weight[i] 1{i \\in node} Y_i
     num_est = scipy.sparse.csr_matrix(
-        (sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
+        (sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est).todense()
     # Calculate the predicted value on each node based on the estimation sample:
     # weighted sum of responses / total weight
-    value_est = num_est.multiply(weight_est.power(-1))
+    value_est = num_est / weight_est
 
     # Calculate the criterion on each node based on the estimation sample and for each output dimension,
     # summing the impurity across dimensions.
