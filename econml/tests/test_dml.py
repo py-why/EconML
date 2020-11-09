@@ -356,10 +356,7 @@ class TestDML(unittest.TestCase):
 
                             model_t = LogisticRegression() if is_discrete else WeightedLasso()
 
-                            # TODO Add bootstrap inference, once discrete treatment issue is fixed
-                            base_infs = [None]
-                            if not is_discrete:
-                                base_infs += [BootstrapInference(2)]
+                            base_infs = [None, BootstrapInference(2)]
                             for est, multi, infs in [(NonParamDMLCateEstimator(model_y=WeightedLasso(),
                                                                                model_t=model_t,
                                                                                model_final=WeightedLasso(),
