@@ -1380,7 +1380,7 @@ class StatsModelsRLM(BaseEstimator):
         ----------
         X : (N, d) nd array like
             co-variates
-        y : (N,) nd array like
+        y : (N,) nd array like or (N, 1) array like
             output variable
 
         Returns
@@ -1410,7 +1410,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        predictions : (n,) array
+        predictions : (n,) array or (n, 1) array
             The predicted outcome
         """
         if X is None:
@@ -1426,7 +1426,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        coef_ : (d,) nd array like
+        coef_ : (d,) nd array like or (1, d) array like
             The coefficients of the variables in the linear regression.
         """
         if self.fit_intercept:
@@ -1441,7 +1441,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        intercept_ : float
+        intercept_ : float or (1,) array like
             The intercept of the linear regresion.
         """
         if self._n_out:
@@ -1483,7 +1483,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        coef_stderr_ : (d,) nd array like
+        coef_stderr_ : (d,) nd array like or (1, d) array like
             The standard error of the coefficients
         """
         return self._param_stderr[1:].T.reshape(self._n_out + (-1,))\
@@ -1496,7 +1496,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        intercept_stderr_ : float
+        intercept_stderr_ : float or (1,) array
             The standard error of the intercept
         """
         if self._n_out:
@@ -1515,7 +1515,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        prediction_stderr : (n,) array like
+        prediction_stderr : (n,) array like or (n, 1) array like
             The standard error the prediction at each point we predict
         """
         if X is None:
@@ -1537,7 +1537,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        coef__interval : tuple ((d,) array, (d,) array)
+        coef__interval : tuple ((d,) array, (d,) array) or tuple ((1, d) array, (1, d) array)
             The lower and upper bounds of the confidence interval of the coefficients
         """
         return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
@@ -1557,7 +1557,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        intercept__interval : tuple (float, float)
+        intercept__interval : tuple (float, float) or tuple ((1,) array, (1,) array)
             The lower and upper bounds of the confidence interval of the intercept
         """
         if not self.fit_intercept:
@@ -1582,7 +1582,7 @@ class StatsModelsRLM(BaseEstimator):
 
         Returns
         -------
-        prediction_intervals : tuple ((n,) array, (n,) array)
+        prediction_intervals : tuple ((n,) array, (n,) array) or tuple ((n, 1) array, (n, 1) array)
             The lower and upper bounds of the confidence intervals of the predicted mean outcomes
         """
         return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
