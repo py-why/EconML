@@ -58,15 +58,13 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
     path_est = tree.decision_path(X_est)
     # Calculate the total weight of estimation samples on each tree node:
     # \sum_i sample_weight[i] * 1{i \\in node}
-    weight_est = scipy.sparse.csr_matrix(
-        sample_weight_est.reshape(1, -1)).dot(path_est).todense()
+    weight_est = sample_weight_est.reshape(1, -1) @ path_est
     # Calculate the total number of estimation samples on each tree node:
     # |node| = \sum_{i} 1{i \\in node}
     count_est = path_est.sum(axis=0)
     # Calculate the weighted sum of responses on the estimation sample on each node:
     # \sum_{i} sample_weight[i] 1{i \\in node} Y_i
-    num_est = scipy.sparse.csr_matrix(
-        (sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est).todense()
+    num_est = (sample_weight_est.reshape(-1, 1) * y_est).T @ path_est
     # Calculate the predicted value on each node based on the estimation sample:
     # weighted sum of responses / total weight
     value_est = num_est / weight_est
@@ -80,10 +78,10 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
         diff = path_est.multiply(y_est[:, [i]]) - path_est.multiply(value_est[[i], :])
         if tree.criterion == 'mse':
             # If criterion is mse then calculate weighted sum of squared differences for each node
-            impurity_est_i = scipy.sparse.csr_matrix(sample_weight_est.reshape(1, -1)).dot(diff.power(2))
+            impurity_est_i = sample_weight_est.reshape(1, -1) @ diff.power(2)
         elif tree.criterion == 'mae':
             # If criterion is mae then calculate weighted sum of absolute differences for each node
-            impurity_est_i = scipy.sparse.csr_matrix(sample_weight_est.reshape(1, -1)).dot(np.abs(diff))
+            impurity_est_i = sample_weight_est.reshape(1, -1) @ np.abs(diff)
         else:
             raise AttributeError("Criterion {} not yet supported by SubsampledHonestForest!".format(tree.criterion))
         # Normalize each weighted sum of criterion for each node by the total weight of each node
