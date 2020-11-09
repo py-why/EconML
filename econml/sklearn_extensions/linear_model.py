@@ -1460,7 +1460,7 @@ class StatsModelsRLM(BaseEstimator):
             The covariance matrix of all the parameters in the regression (including the intercept
             as the first parameter).  If intercept was set to False then this is the covariance matrix
             of the coefficients; otherwise, the intercept is treated as the first parameter of the regression
-            and the coefficients as the remaining. 
+            and the coefficients as the remaining.
         """
         return self.model.cov_params()
 
