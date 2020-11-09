@@ -1367,8 +1367,8 @@ class StatsModelsRLM(BaseEstimator):
             X = np.empty((y.shape[0], 0))
 
         assert (X.shape[0] == y.shape[0]), "Input lengths not compatible!"
-        assert (len(y.shape) == 1),\
-            "Robust Linear Regression can only accept a single outcome. Use y.ravel()"
+        assert ((len(y.shape) == 1) or (y.shape[1] == 1)),\
+            "Robust Linear Regression can only accept a single outcome."
 
         return X, y
 
@@ -1390,6 +1390,8 @@ class StatsModelsRLM(BaseEstimator):
         X, y = self._check_input(X, y)
         if self.fit_intercept:
             X = add_constant(X, has_constant='add')
+
+        self._n_out = () if len(y.shape) == 1 else (y.shape[1],)
 
         self.model = RLM(endog=y,
                          exog=X,
@@ -1415,7 +1417,7 @@ class StatsModelsRLM(BaseEstimator):
             X = np.empty((1, 0))
         if self.fit_intercept:
             X = add_constant(X, has_constant='add')
-        return self.model.predict(X)
+        return self.model.predict(X).reshape((-1,) + self._n_out)
 
     @property
     def coef_(self):
@@ -1428,9 +1430,9 @@ class StatsModelsRLM(BaseEstimator):
             The coefficients of the variables in the linear regression.
         """
         if self.fit_intercept:
-            return self.model.params[1:]
+            return self.model.params[1:].reshape(self._n_out + (-1,))
         else:
-            return self.model.params
+            return self.model.params.reshape(self._n_out + (-1,))
 
     @property
     def intercept_(self):
@@ -1442,7 +1444,10 @@ class StatsModelsRLM(BaseEstimator):
         intercept_ : float
             The intercept of the linear regresion.
         """
-        return self.model.params[0] if self.fit_intercept else 0
+        if self._n_out:
+            return self.model.params[[0]] if self.fit_intercept else np.zeros(self._n_out)
+        else:
+            return self.model.params[0] if self.fit_intercept else 0
 
     @property
     def _param_var(self):
@@ -1481,7 +1486,8 @@ class StatsModelsRLM(BaseEstimator):
         coef_stderr_ : (d,) nd array like
             The standard error of the coefficients
         """
-        return self._param_stderr[1:].T if self.fit_intercept else self._param_stderr.T
+        return self._param_stderr[1:].T.reshape(self._n_out + (-1,))\
+            if self.fit_intercept else self._param_stderr.T.reshape(self._n_out + (-1,))
 
     @property
     def intercept_stderr_(self):
@@ -1493,7 +1499,10 @@ class StatsModelsRLM(BaseEstimator):
         intercept_stderr_ : float
             The standard error of the intercept
         """
-        return self._param_stderr[0] if self.fit_intercept else 0
+        if self._n_out:
+            return self._param_stderr[[0]] if self.fit_intercept else np.zeros(self._n_out)
+        else:
+            return self._param_stderr[0] if self.fit_intercept else 0
 
     def prediction_stderr(self, X):
         """
@@ -1513,7 +1522,8 @@ class StatsModelsRLM(BaseEstimator):
             X = np.empty((1, 0))
         if self.fit_intercept:
             X = add_constant(X, has_constant='add')
-        return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1), 0, np.inf))
+        return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1),
+                               0, np.inf)).reshape((-1,) + self._n_out)
 
     def coef__interval(self, alpha=.05):
         """
@@ -1531,9 +1541,9 @@ class StatsModelsRLM(BaseEstimator):
             The lower and upper bounds of the confidence interval of the coefficients
         """
         return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.coef_, self.coef_stderr_)]),\
+                         for p, err in zip(self.coef_, self.coef_stderr_)]).reshape((-1,) + self._n_out),\
             np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip(self.coef_, self.coef_stderr_)])
+                      for p, err in zip(self.coef_, self.coef_stderr_)]).reshape((-1,) + self._n_out)
 
     def intercept__interval(self, alpha=.05):
         """
@@ -1551,9 +1561,12 @@ class StatsModelsRLM(BaseEstimator):
             The lower and upper bounds of the confidence interval of the intercept
         """
         if not self.fit_intercept:
+            if self._n_out:
+                return np.zeros(self._n_out), np.zeros(self._n_out)
             return 0, 0
-        return _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),\
-            _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
+        lb = _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
+        ub = _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
+        return lb, ub
 
     def predict_interval(self, X, alpha=.05):
         """
