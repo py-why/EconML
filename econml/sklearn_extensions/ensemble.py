@@ -1,7 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-""" Subsampled honest forest extension to scikit-learn's forest methods.
+""" Subsampled honest forest extension to scikit-learn's forest methods. Contains pieces of code from
+scikit-learn's random forest implementation.
 """
 
 import numpy as np
@@ -57,20 +58,42 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
     path_est = tree.decision_path(X_est)
     # Calculate the total weight of estimation samples on each tree node:
     # \sum_i sample_weight[i] * 1{i \\in node}
-    weight_est = scipy.sparse.csr_matrix(
-        sample_weight_est.reshape(1, -1)).dot(path_est)
+    weight_est = sample_weight_est.reshape(1, -1) @ path_est
     # Calculate the total number of estimation samples on each tree node:
     # |node| = \sum_{i} 1{i \\in node}
-    count_est = np.sum(path_est, axis=0)
+    count_est = path_est.sum(axis=0)
     # Calculate the weighted sum of responses on the estimation sample on each node:
     # \sum_{i} sample_weight[i] 1{i \\in node} Y_i
-    value_est = scipy.sparse.csr_matrix(
-        (sample_weight_est.reshape(-1, 1) * y_est).T).dot(path_est)
+    num_est = (sample_weight_est.reshape(-1, 1) * y_est).T @ path_est
+    # Calculate the predicted value on each node based on the estimation sample:
+    # weighted sum of responses / total weight
+    value_est = num_est / weight_est
+
+    # Calculate the criterion on each node based on the estimation sample and for each output dimension,
+    # summing the impurity across dimensions.
+    # First we calculate the difference of observed label y of each node and predicted value for each
+    # node that the sample falls in: y[i] - value_est[node]
+    impurity_est = np.zeros((1, path_est.shape[1]))
+    for i in range(tree.n_outputs_):
+        diff = path_est.multiply(y_est[:, [i]]) - path_est.multiply(value_est[[i], :])
+        if tree.criterion == 'mse':
+            # If criterion is mse then calculate weighted sum of squared differences for each node
+            impurity_est_i = sample_weight_est.reshape(1, -1) @ diff.power(2)
+        elif tree.criterion == 'mae':
+            # If criterion is mae then calculate weighted sum of absolute differences for each node
+            impurity_est_i = sample_weight_est.reshape(1, -1) @ np.abs(diff)
+        else:
+            raise AttributeError("Criterion {} not yet supported by SubsampledHonestForest!".format(tree.criterion))
+        # Normalize each weighted sum of criterion for each node by the total weight of each node
+        impurity_est += impurity_est_i / weight_est
+
     # Prune tree to remove leafs that don't satisfy the leaf requirements on the estimation sample
     # and for each un-pruned tree set the value and the weight appropriately.
     children_left = tree.tree_.children_left
     children_right = tree.tree_.children_right
     stack = [(0, -1)]  # seed is the root node id and its parent depth
+    numerator = np.empty_like(tree.tree_.value)
+    denominator = np.empty_like(tree.tree_.weighted_n_node_samples)
     while len(stack) > 0:
         node_id, parent_id = stack.pop()
         # If minimum weight requirement or minimum leaf size requirement is not satisfied on estimation
@@ -81,17 +104,24 @@ def _parallel_add_trees(tree, forest, X, y, sample_weight, s_inds, tree_idx, n_t
             tree.tree_.children_right[parent_id] = -1
         else:
             for i in range(tree.n_outputs_):
-                # Set the value of the node to: \sum_{i} sample_weight[i] 1{i \\in node} Y_i / |node|
-                tree.tree_.value[node_id, i] = value_est[i, node_id] / count_est[0, node_id]
-            # Set the weight of the node to: \sum_{i} sample_weight[i] 1{i \\in node} / |node|
-            tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id] / count_est[0, node_id]
+                # Set the numerator of the node to: \sum_{i} sample_weight[i] 1{i \\in node} Y_i / |node|
+                numerator[node_id, i] = num_est[i, node_id] / count_est[0, node_id]
+                # Set the value of the node to:
+                # \sum_{i} sample_weight[i] 1{i \\in node} Y_i / \sum_{i} sample_weight[i] 1{i \\in node}
+                tree.tree_.value[node_id, i] = value_est[i, node_id]
+            # Set the denominator of the node to: \sum_{i} sample_weight[i] 1{i \\in node} / |node|
+            denominator[node_id] = weight_est[0, node_id] / count_est[0, node_id]
+            # Set the weight of the node to: \sum_{i} sample_weight[i] 1{i \\in node}
+            tree.tree_.weighted_n_node_samples[node_id] = weight_est[0, node_id]
             # Set the count to the estimation split count
             tree.tree_.n_node_samples[node_id] = count_est[0, node_id]
+            # Set the node impurity to the estimation split impurity
+            tree.tree_.impurity[node_id] = impurity_est[0, node_id]
             if (children_left[node_id] != children_right[node_id]):
                 stack.append((children_left[node_id], node_id))
                 stack.append((children_right[node_id], node_id))
 
-    return tree
+    return tree, numerator, denominator
 
 
 class SubsampledHonestForest(ForestRegressor, RegressorMixin):
@@ -314,7 +344,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
     >>> regr.fit(X_train, y_train)
     SubsampledHonestForest(n_estimators=1000, random_state=0)
     >>> regr.feature_importances_
-    array([0.40..., 0.35..., 0.11..., 0.11...])
+    array([0.64..., 0.33..., 0.01..., 0.01...])
     >>> regr.predict(np.ones((1, 4)))
     array([112.9...])
     >>> regr.predict_interval(np.ones((1, 4)), alpha=.05)
@@ -483,6 +513,8 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         if not self.warm_start or not hasattr(self, "estimators_"):
             # Free allocated memory, if any
             self.estimators_ = []
+            self.numerators_ = []
+            self.denominators_ = []
 
         n_more_estimators = self.n_estimators - len(self.estimators_)
 
@@ -523,21 +555,25 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                                                                        int(np.ceil(self.subsample_fr_ *
                                                                                    (X.shape[0] // 2))),
                                                                        replace=False)])
-            trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
-                             **_joblib_parallel_args(prefer='threads'))(
+            res = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
+                           **_joblib_parallel_args(prefer='threads'))(
                 delayed(_parallel_add_trees)(
                     t, self, X, y, sample_weight, s_inds[i], i, len(trees),
                     verbose=self.verbose)
                 for i, t in enumerate(trees))
+            trees, numerators, denominators = zip(*res)
             # Collect newly grown trees
             self.estimators_.extend(trees)
+            self.numerators_.extend(numerators)
+            self.denominators_.extend(denominators)
 
         return self
 
     def _mean_fn(self, X, fn, acc, slice=None):
         # Helper class that accumulates an arbitrary function in parallel on the accumulator acc
         # and calls the function fn on each tree e and returns the mean output. The function fn
-        # should take as input a tree e, and return another function g_e, which takes as input X, check_input
+        # should take as input a tree e and associated numerator n and denominator d structures and
+        # return another function g_e, which takes as input X, check_input
         # If slice is not None, but rather a tuple (start, end), then a subset of the trees from
         # index start to index end will be used. The returned result is essentially:
         # (mean over e in slice)(g_e(X)).
@@ -546,18 +582,21 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         X = self._validate_X_predict(X)
 
         if slice is None:
-            estimator_slice = self.estimators_
+            estimator_slice = zip(self.estimators_, self.numerators_, self.denominators_)
+            n_estimators = len(self.estimators_)
         else:
-            estimator_slice = self.estimators_[slice[0]:slice[1]]
+            estimator_slice = zip(self.estimators_[slice[0]:slice[1]], self.numerators_[slice[0]:slice[1]],
+                                  self.denominators_[slice[0]:slice[1]])
+            n_estimators = slice[1] - slice[0]
 
         # Assign chunk of trees to jobs
-        n_jobs, _, _ = _partition_estimators(len(estimator_slice), self.n_jobs)
+        n_jobs, _, _ = _partition_estimators(n_estimators, self.n_jobs)
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose,
                  **_joblib_parallel_args(require="sharedmem"))(
-            delayed(_accumulate_prediction)(fn(e), X, [acc], lock)
-            for e in estimator_slice)
-        acc /= len(estimator_slice)
+            delayed(_accumulate_prediction)(fn(e, n, d), X, [acc], lock)
+            for e, n, d in estimator_slice)
+        acc /= n_estimators
         return acc
 
     def _weight(self, X, slice=None):
@@ -582,7 +621,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         # Check data
         X = self._validate_X_predict(X)
         weight_hat = np.zeros((X.shape[0]), dtype=np.float64)
-        return self._mean_fn(X, lambda e: (lambda x, check_input: e.tree_.weighted_n_node_samples[e.apply(x)]),
+        return self._mean_fn(X, lambda e, n, d: (lambda x, check_input: d[e.apply(x)]),
                              weight_hat, slice=slice)
 
     def _predict(self, X, slice=None):
@@ -610,12 +649,12 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         # Check data
         X = self._validate_X_predict(X)
         # avoid storing the output of every estimator by summing them here
-        if self.n_outputs_ > 1:
-            y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
-        else:
-            y_hat = np.zeros((X.shape[0]), dtype=np.float64)
+        y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+        y_hat = self._mean_fn(X, lambda e, n, d: (lambda x, check_input: n[e.apply(x), :, 0]), y_hat, slice=slice)
+        if self.n_outputs_ == 1:
+            y_hat = y_hat.flatten()
 
-        return self._mean_fn(X, lambda e: e.predict, y_hat, slice=slice)
+        return y_hat
 
     def _inference(self, X, stderr=False):
         """

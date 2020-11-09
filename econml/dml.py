@@ -50,7 +50,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils import check_random_state
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                              TreatmentExpansionMixin, StatsModelsCateEstimatorMixin,
-                             LinearModelFinalCateEstimatorMixin, DebiasedLassoCateEstimatorMixin)
+                             LinearModelFinalCateEstimatorMixin, DebiasedLassoCateEstimatorMixin,
+                             ForestModelFinalCateEstimatorMixin)
 from .inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from ._rlearner import _RLearner
 from .sklearn_extensions.model_selection import WeightedStratifiedKFold
@@ -866,7 +867,7 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
                          random_state=random_state)
 
 
-class ForestDMLCateEstimator(NonParamDMLCateEstimator):
+class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCateEstimator):
     """ Instance of NonParamDMLCateEstimator with a
     :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
@@ -1057,12 +1058,6 @@ class ForestDMLCateEstimator(NonParamDMLCateEstimator):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
-
-    def _get_inference_options(self):
-        # add statsmodels to parent's options
-        options = super()._get_inference_options()
-        options.update(blb=GenericSingleTreatmentModelFinalInference)
-        return options
 
     def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference=None):
         """

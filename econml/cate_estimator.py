@@ -11,7 +11,8 @@ from warnings import warn
 from .inference import BootstrapInference
 from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot, Summary
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
-    LinearModelFinalInferenceDiscrete, NormalInferenceResults
+    LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
+    GenericModelFinalInferenceDiscrete
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -664,6 +665,19 @@ class DebiasedLassoCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
         return options
 
 
+class ForestModelFinalCateEstimatorMixin(BaseCateEstimator):
+
+    def _get_inference_options(self):
+        # add blb to parent's options
+        options = super()._get_inference_options()
+        options.update(blb=GenericSingleTreatmentModelFinalInference)
+        return options
+
+    @property
+    def feature_importances_(self):
+        return self.model_final.feature_importances_
+
+
 class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     # TODO Share some logic with non-discrete version
     """
@@ -863,3 +877,18 @@ class DebiasedLassoCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscr
         options = super()._get_inference_options()
         options.update(debiasedlasso=LinearModelFinalInferenceDiscrete)
         return options
+
+
+class ForestModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
+
+    def _get_inference_options(self):
+        # add blb to parent's options
+        options = super()._get_inference_options()
+        options.update(blb=GenericModelFinalInferenceDiscrete)
+        return options
+
+    def feature_importances_(self, T):
+        _, T = self._expand_treatments(None, T)
+        ind = inverse_onehot(T).item() - 1
+        assert ind >= 0, "No model was fitted for the control"
+        return self.fitted_models_final[ind].feature_importances_

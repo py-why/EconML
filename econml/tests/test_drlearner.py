@@ -685,6 +685,11 @@ class TestDRLearner(unittest.TestCase):
                                             # test summary function works
                                             est.summary(t)
 
+                                    if isinstance(est, ForestDRLearner):
+                                        for t in [1, 2]:
+                                            np.testing.assert_array_equal(est.feature_importances_(t).shape,
+                                                                          [X.shape[1]])
+
     @staticmethod
     def _check_with_interval(truth, point, lower, upper):
         np.testing.assert_allclose(point, truth, rtol=0, atol=.2)
