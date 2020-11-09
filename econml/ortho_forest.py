@@ -265,6 +265,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         # Add blb inference to parent's options
         options = super()._get_inference_options()
         options.update(blb=BLBInference)
+        options.update(auto=BLBInference)
         return options
 
     def _pointwise_effect(self, X_single, stderr=False):
@@ -759,7 +760,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             n_jobs=n_jobs,
             random_state=random_state)
 
-    def fit(self, Y, T, X, W=None, inference=None):
+    def fit(self, Y, T, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters

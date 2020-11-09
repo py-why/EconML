@@ -486,6 +486,11 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         than as a separate ``intercept_``
     """
 
+    def _get_inference_options(self):
+        options = super()._get_inference_options()
+        options.update(auto=LinearModelFinalInference)
+        return options
+
     bias_part_of_coef = False
 
     @property
@@ -652,6 +657,7 @@ class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
         # add statsmodels to parent's options
         options = super()._get_inference_options()
         options.update(statsmodels=StatsModelsInference)
+        options.update(auto=StatsModelsInference)
         return options
 
 
@@ -662,6 +668,7 @@ class DebiasedLassoCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
         # add debiasedlasso to parent's options
         options = super()._get_inference_options()
         options.update(debiasedlasso=LinearModelFinalInference)
+        options.update(auto=LinearModelFinalInference)
         return options
 
 
@@ -671,6 +678,7 @@ class ForestModelFinalCateEstimatorMixin(BaseCateEstimator):
         # add blb to parent's options
         options = super()._get_inference_options()
         options.update(blb=GenericSingleTreatmentModelFinalInference)
+        options.update(auto=GenericSingleTreatmentModelFinalInference)
         return options
 
     @property
@@ -686,6 +694,11 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     Subclasses must expose a ``fitted_models_final`` attribute
     returning an array of the fitted models for each non-control treatment
     """
+
+    def _get_inference_options(self):
+        options = super()._get_inference_options()
+        options.update(auto=LinearModelFinalInferenceDiscrete)
+        return options
 
     def coef_(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
@@ -866,6 +879,7 @@ class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscret
         # add statsmodels to parent's options
         options = super()._get_inference_options()
         options.update(statsmodels=StatsModelsInferenceDiscrete)
+        options.update(auto=StatsModelsInferenceDiscrete)
         return options
 
 
@@ -876,6 +890,7 @@ class DebiasedLassoCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscr
         # add statsmodels to parent's options
         options = super()._get_inference_options()
         options.update(debiasedlasso=LinearModelFinalInferenceDiscrete)
+        options.update(auto=LinearModelFinalInferenceDiscrete)
         return options
 
 
@@ -885,6 +900,7 @@ class ForestModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         # add blb to parent's options
         options = super()._get_inference_options()
         options.update(blb=GenericModelFinalInferenceDiscrete)
+        options.update(auto=GenericModelFinalInferenceDiscrete)
         return options
 
     def feature_importances_(self, T):
