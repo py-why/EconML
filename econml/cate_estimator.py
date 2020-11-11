@@ -615,7 +615,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         """
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
-                            "$Y = \\Theta(X)\cdot T + g(X, W) + \\epsilon$",
+                            "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
                             "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:",
                             "$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$",
                             "where $\\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
