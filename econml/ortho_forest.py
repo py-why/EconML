@@ -39,7 +39,7 @@ from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExp
 from .causal_tree import CausalTree
 from .inference import Inference
 from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
-                        cross_product, inverse_onehot, _EncoderWrapper)
+                        cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays)
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -521,6 +521,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             random_state=random_state)
 
     def const_marginal_effect(self, X):
+        X = check_array(X)
         # Override to flatten output if T is flat
         effects = super(ContinuousTreatmentOrthoForest, self).const_marginal_effect(X=X)
         if not self._d_t:
@@ -566,8 +567,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                                  sample_weight=None):
         """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
         # Compute residuals
-        Y_hat, T_hat = nuisance_estimates
-        Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+        Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
         # Compute coefficient by OLS on residuals
         param_estimate = LinearRegression(fit_intercept=False).fit(
             T_res, Y_res, sample_weight=sample_weight
@@ -592,8 +592,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             local corrections on a preliminary parameter estimate.
             """
             # Compute residuals
-            Y_hat, T_hat = nuisance_estimates
-            Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+            Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
             X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
             XT_res = cross_product(T_res, X_aug)
             # Compute coefficient by OLS on residuals
@@ -623,14 +622,21 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
         # Return moments and gradients
         # Compute residuals
-        Y_hat, T_hat = nuisance_estimates
-        Y_res, T_res = reshape_Y_T(Y - Y_hat, T - T_hat)
+        Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
         # Compute moments
         # Moments shape is (n, d_T)
         moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
         # Compute moment gradients
         mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
         return moments, mean_gradient
+
+    @staticmethod
+    def _get_conforming_residuals(Y, T, nuisance_estimates):
+        # returns shape-conforming residuals
+        Y_hat, T_hat = reshape_Y_T(*nuisance_estimates)
+        Y, T = reshape_Y_T(Y, T)
+        Y_res, T_res = Y - Y_hat, T - T_hat
+        return Y_res, T_res
 
 
 class DiscreteTreatmentOrthoForest(BaseOrthoForest):
@@ -989,6 +995,7 @@ class BLBInference(Inference):
                              type of :meth:`const_marginal_effect(X)<const_marginal_effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
+        X = check_array(X)
         params_and_cov = self._predict_wrapper(X)
         # Calculate confidence intervals for the parameter (marginal effect)
         lower = alpha / 2
@@ -1028,7 +1035,7 @@ class BLBInference(Inference):
         lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
-        X, T0, T1 = self._estimator._expand_treatments(X, T0, T1)
+        X, T0, T1 = self._estimator._expand_treatments(*check_input_arrays(X, T0, T1))
         dT = (T1 - T0) if T0.ndim == 2 else (T1 - T0).reshape(-1, 1)
         params_and_cov = self._predict_wrapper(X)
         # Calculate confidence intervals for the effect

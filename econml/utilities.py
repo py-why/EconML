@@ -510,6 +510,40 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     return Y, T, X, W
 
 
+def check_input_arrays(*args, validate_len=True):
+    """Cast input sequences into numpy arrays.
+
+    Only inputs that are sequence-like will be converted, all other inputs will be left as is.
+    When `validate_len` is True, the sequences will be checked for equal length.
+
+    Parameters
+    ----------
+    args : scalar or array_like
+        Inputs to be checked.
+
+    validate_len : bool (default=True)
+        Whether to check if the input arrays have the same length.
+
+    Returns
+    -------
+    args: array-like
+        List of inputs where sequence-like objects have been cast to numpy arrays.
+
+    """
+    args = [check_array(arg, dtype=None, ensure_2d=False, accept_sparse=True)
+            if np.ndim(arg) > 0 else arg for arg in args]
+    if validate_len:
+        n = None
+        for arg in args:
+            if np.ndim(arg) > 0:
+                m = arg.shape[0]
+                if n is None:
+                    n = m
+                else:
+                    assert (m == n), "Input arrays have incompatible lengths: {} and {}".format(n, m)
+    return args
+
+
 def check_models(models, n):
     """
     Input validation for metalearner models.

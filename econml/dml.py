@@ -38,7 +38,8 @@ import copy
 from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects, add_intercept,
-                        StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional, fit_with_groups)
+                        StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional, check_input_arrays,
+                        fit_with_groups)
 from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso, WeightedLassoCVWrapper
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
@@ -710,6 +711,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         if sample_var is not None and inference is not None:
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
+        Y, T, X, W, sample_weight, sample_var = check_input_arrays(Y, T, X, W, sample_weight, sample_var)
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self._discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
