@@ -616,7 +616,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         smry = Summary()
         smry.add_extra_txt(["A linear parametric conditional average treatment effect (CATE) model was fitted:",
                             "$Y = \Theta(X)\cdot T + g(X, W) + \epsilon$",
-                            "where for every outcome $i$ and treatment $j$ the CATE $Theta_{ij}(X)$ has the form:",
+                            "where for every outcome $i$ and treatment $j$ the CATE $\Theta_{ij}(X)$ has the form:",
                             "$\Theta_{ij}(X) = \phi(X)' coef_{ij} + cate\_intercept_{ij}$",
                             "where $\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
                             "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
@@ -849,11 +849,11 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         smry = Summary()
         smry.add_extra_txt(["A linear parametric conditional average treatment effect (CATE) model was fitted:",
                             "$Y = \Theta(X)\cdot T + g(X, W) + \epsilon$",
-                            "where for every outcome $i$ and treatment $j$ the CATE $Theta_{ij}(X)$ has the form:",
+                            "where for every outcome $i$ and treatment $j$ the CATE $\Theta_{ij}(X)$ has the form:",
                             "$\Theta_{ij}(X) = \phi(X)' coef_{ij} + cate\_intercept_{ij}$",
                             "where $\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
                             "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
-                            "each outcome $i$ and the designated treatment $T=i$. "
+                            "each outcome $i$ and the designated treatment $T=j$. "
                             "Intercept Results table portrays the $cate\_intercept_{ij}$ parameter."])
         try:
             coef_table = self.coef__inference(T).summary_frame(
