@@ -1554,3 +1554,26 @@ def deprecated(message, category=FutureWarning):
                 return to_wrap(*args, **kwargs)
             return m
     return decorator
+
+
+def transpose_dictionary(d):
+    """
+    Transpose a dictionary of dictionaries, bringing the keys from the second level
+    to the top and vice versa
+
+    Parameters
+    ----------
+    d: dict
+        The dictionary to transpose; the values of this dictionary should all themselves
+        be dictionaries
+
+    Returns
+    -------
+    output: dict
+        The output dictionary with first- and second-level keys swapped
+    """
+    output = defaultdict(dict)
+    for key1, value in d.items():
+        for key2, val in value.items():
+            output[key2][key1] = val
+    return output
