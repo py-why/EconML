@@ -8,7 +8,8 @@ import random
 import numpy as np
 import sparse as sp
 import pytest
-from econml.utilities import einsum_sparse, todense, tocoo, transpose, inverse_onehot, cross_product
+from econml.utilities import (einsum_sparse, todense, tocoo, transpose,
+                              inverse_onehot, cross_product, transpose_dictionary)
 from sklearn.preprocessing import OneHotEncoder
 
 
@@ -124,3 +125,9 @@ class TestUtilities(unittest.TestCase):
                 print(" dense:  {0}".format(end - mid))
                 self.assertTrue(np.allclose(todense(spr),
                                             der))
+
+    def test_transpose_dictionary(self):
+        d1 = {1: {'a': '1a', 'b': '1b'}, 2: {'b': '2b', 'a': '2a', 'c': '2c'}}
+        d2 = {'a': {1: '1a', 2: '2a'}, 'b': {2: '2b', 1: '1b'}, 'c': {2: '2c'}}
+        assert d1 == transpose_dictionary(d2)
+        assert d2 == transpose_dictionary(d1)
