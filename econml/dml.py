@@ -1104,7 +1104,7 @@ class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCate
                          categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
