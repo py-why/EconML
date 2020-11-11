@@ -614,6 +614,14 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         smry = Summary()
+        smry.add_extra_txt(["A linear parametric conditional average treatment effect (CATE) model was fitted:",
+                            "$Y = \Theta(X)\cdot T + g(X, W) + \epsilon$",
+                            "where for every outcome $i$ and treatment $j$ the CATE $Theta_{ij}(X)$ has the form:",
+                            "$\Theta_{ij}(X) = \phi(X)' coef_{ij} + cate\_intercept_{ij}$",
+                            "where $\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
+                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                            "each outcome $i$ and treatment $j$. "
+                            "Intercept Results table portrays the $cate\_intercept_{ij}$ parameter."])
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
         try:
@@ -635,10 +643,10 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
                                  in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
             intercept_stubs = [i + ' | ' + j for (i, j)
                                in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
-            intercept_title = 'Intercept Results'
+            intercept_title = 'CATE Intercept Results'
             smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
         except Exception as e:
-            print("Intercept Results: ", str(e))
+            print("CATE Intercept Results: ", str(e))
         if len(smry.tables) > 0:
             return smry
 
@@ -839,6 +847,14 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             converted to various output formats.
         """
         smry = Summary()
+        smry.add_extra_txt(["A linear parametric conditional average treatment effect (CATE) model was fitted:",
+                            "$Y = \Theta(X)\cdot T + g(X, W) + \epsilon$",
+                            "where for every outcome $i$ and treatment $j$ the CATE $Theta_{ij}(X)$ has the form:",
+                            "$\Theta_{ij}(X) = \phi(X)' coef_{ij} + cate\_intercept_{ij}$",
+                            "where $\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
+                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                            "each outcome $i$ and the designated treatment $T=i$. "
+                            "Intercept Results table portrays the $cate\_intercept_{ij}$ parameter."])
         try:
             coef_table = self.coef__inference(T).summary_frame(
                 alpha=alpha, value=value, decimals=decimals, feat_name=feat_name)
@@ -855,10 +871,10 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             intercept_array = intercept_table.values
             intercept_headers = intercept_table.columns.tolist()
             intercept_stubs = intercept_table.index.tolist()
-            intercept_title = 'Intercept Results'
+            intercept_title = 'CATE Intercept Results'
             smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
         except Exception as e:
-            print("Intercept Results: ", e)
+            print("CATE Intercept Results: ", e)
 
         if len(smry.tables) > 0:
             return smry

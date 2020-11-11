@@ -50,7 +50,7 @@ class TestCateInterpreter(unittest.TestCase):
         T = np.random.binomial(1, 0.5, size=(n,))
         Y = np.random.normal(size=(n,))
         est = LinearDMLCateEstimator(discrete_treatment=True)
-        est.fit(Y, T, X)
+        est.fit(Y, T, X, inference=None)
 
         # can interpret without uncertainty
         intrp = SingleTreeCateInterpreter()

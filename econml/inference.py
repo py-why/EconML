@@ -598,7 +598,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        return (value - self.point_estimate) / self.stderr
+        return (self.point_estimate - value) / self.stderr
 
     def summary_frame(self, alpha=0.1, value=0, decimals=3, feat_name=None):
         """
@@ -651,9 +651,9 @@ class InferenceResults(metaclass=abc.ABCMeta):
                 res.index = ind
         elif self.inf_type == 'intercept':
             if self.d_y > 1:
-                res.index = res.index.set_levels(['intercept'], level=0)
+                res.index = res.index.set_levels(['cate_intercept'], level=0)
             else:
-                res.index = ['intercept']
+                res.index = ['cate_intercept']
         return res
 
     def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001):
