@@ -8,10 +8,10 @@ import pickle
 from sklearn.base import TransformerMixin
 from numpy.random import normal, multivariate_normal, binomial
 from sklearn.exceptions import DataConversionWarning
-from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
+from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, GroupKFold
 from sklearn.preprocessing import PolynomialFeatures
 from econml.drlearner import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
@@ -103,6 +103,12 @@ class TestDRLearner(unittest.TestCase):
                             (n if d_x else 1) * (d_y if d_y > 0 else 1),
                             6 * (d_t_final if d_t_final > 0 else 1))
 
+                        coef_shape = ((d_y,) if d_y > 0 else ()) + (d_x or 1,)
+                        coef_summaryframe_shape = ((d_y or 1) * (d_x or 1), 6)
+
+                        intercept_shape = (d_y,) if d_y > 0 else ()
+                        intercept_summaryframe_shape = (d_y if d_y > 0 else 1, 6)
+
                         for est in [LinearDRLearner(model_propensity=LogisticRegression(C=1000, solver='lbfgs',
                                                                                         multi_class='auto')),
                                     DRLearner(model_propensity=LogisticRegression(multi_class='auto'),
@@ -113,10 +119,13 @@ class TestDRLearner(unittest.TestCase):
                             # ensure that we can serialize unfit estimator
                             pickle.dumps(est)
 
-                            # TODO: add stratification to bootstrap so that we can use it even with discrete treatments
-                            infs = [None]
+                            infs = [None, BootstrapInference(2)]
+
+                            test_linear_attrs = False
+
                             if isinstance(est, LinearDRLearner):
                                 infs.append('statsmodels')
+                                test_linear_attrs = True
 
                             for inf in infs:
                                 with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
@@ -142,16 +151,11 @@ class TestDRLearner(unittest.TestCase):
                                     eff = est.effect(X, T0=T0, T1=T)
                                     self.assertEqual(shape(eff), effect_shape)
                                     if inf is not None:
+                                        T1 = np.full_like(T, 'b')
+
                                         const_marg_eff_int = est.const_marginal_effect_interval(
                                             X)
                                         marg_eff_int = est.marginal_effect_interval(
-                                            T, X)
-                                        const_marg_effect_inf = est.const_marginal_effect_inference(
-                                            X)
-                                        T1 = np.full_like(T, 'b')
-                                        effect_inf = est.effect_inference(
-                                            X, T0=T0, T1=T1)
-                                        marg_effect_inf = est.marginal_effect_inference(
                                             T, X)
                                         self.assertEqual(shape(marg_eff_int),
                                                          (2,) + marginal_effect_shape)
@@ -159,6 +163,13 @@ class TestDRLearner(unittest.TestCase):
                                                          (2,) + const_marginal_effect_shape)
                                         self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                          (2,) + effect_shape)
+
+                                        const_marg_effect_inf = est.const_marginal_effect_inference(
+                                            X)
+                                        effect_inf = est.effect_inference(
+                                            X, T0=T0, T1=T1)
+                                        marg_effect_inf = est.marginal_effect_inference(
+                                            T, X)
 
                                         # test const marginal inference
                                         self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
@@ -194,10 +205,10 @@ class TestDRLearner(unittest.TestCase):
                                                          effect_shape)
                                         self.assertEqual(shape(effect_inf.conf_int()),
                                                          (2,) + effect_shape)
-                                        np.testing.assert_array_almost_equal(effect_inf.conf_int()
-                                                                             [0], est.effect_interval(
-                                                                                 X, T0=T0, T1=T1)
-                                                                             [0], decimal=5)
+                                        np.testing.assert_array_almost_equal(effect_inf.conf_int()[0],
+                                                                             est.effect_interval(
+                                            X, T0=T0, T1=T1)[0],
+                                            decimal=5)
                                         effect_inf.population_summary()._repr_html_()
 
                                         # test marginal effect inference
@@ -215,9 +226,29 @@ class TestDRLearner(unittest.TestCase):
                                                          marginal_effect_shape)
                                         self.assertEqual(shape(marg_effect_inf.conf_int()),
                                                          (2,) + marginal_effect_shape)
-                                        np.testing.assert_array_almost_equal(marg_effect_inf.conf_int()
-                                                                             [0], marg_eff_int[0], decimal=5)
+                                        np.testing.assert_array_almost_equal(marg_effect_inf.conf_int()[0],
+                                                                             marg_eff_int[0], decimal=5)
                                         marg_effect_inf.population_summary()._repr_html_()
+
+                                        # test coef_ and intercept_ inference
+                                        if test_linear_attrs:
+                                            if X is not None:
+                                                self.assertEqual(shape(est.coef_('b')), coef_shape)
+                                                coef_inf = est.coef__inference('b')
+                                                self.assertEqual(shape(coef_inf.summary_frame()),
+                                                                 coef_summaryframe_shape)
+                                                np.testing.assert_array_almost_equal(
+                                                    coef_inf.conf_int()[0], est.coef__interval('b')[0])
+
+                                            self.assertEqual(shape(est.intercept_('b')), intercept_shape)
+                                            int_inf = est.intercept__inference('b')
+                                            self.assertEqual(shape(int_inf.summary_frame()),
+                                                             intercept_summaryframe_shape)
+                                            np.testing.assert_array_almost_equal(
+                                                int_inf.conf_int()[0], est.intercept__interval('b')[0])
+
+                                            # verify we can generate the summary
+                                            est.summary('b')
 
                                     est.score(Y, T, X, W)
 
@@ -654,6 +685,11 @@ class TestDRLearner(unittest.TestCase):
                                             # test summary function works
                                             est.summary(t)
 
+                                    if isinstance(est, ForestDRLearner):
+                                        for t in [1, 2]:
+                                            np.testing.assert_array_equal(est.feature_importances_(t).shape,
+                                                                          [X.shape[1]])
+
     @staticmethod
     def _check_with_interval(truth, point, lower, upper):
         np.testing.assert_allclose(point, truth, rtol=0, atol=.2)
@@ -722,6 +758,54 @@ class TestDRLearner(unittest.TestCase):
         in_CI = ((y_lower < true_eff) & (true_eff < y_upper))
         # Check that a majority of true effects lie in the 5-95% CI
         self.assertGreater(in_CI.mean(), 0.8)
+
+    def test_groups(self):
+        groups = [1, 2, 3, 4, 5, 6] * 10
+        t = [1, 2, 3] * 20
+        y = groups
+        w = np.random.normal(size=(60, 1))
+        est = LinearDRLearner()
+        with pytest.raises(Exception):  # can't pass groups without a compatible n_split
+            est.fit(y, t, W=w, groups=groups)
+
+        # test outer grouping
+        # NOTE: we should ideally use a stratified split with grouping, but sklearn doesn't have one yet
+        est = LinearDRLearner(LogisticRegression(), LinearRegression(), n_splits=GroupKFold(2))
+        est.fit(y, t, W=w, groups=groups)
+
+        # test nested grouping
+        class NestedModel(LassoCV):
+            def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
+                         precompute='auto', max_iter=1000, tol=1e-4, normalize=False,
+                         copy_X=True, cv=None, verbose=False, n_jobs=None,
+                         positive=False, random_state=None, selection='cyclic'):
+
+                super().__init__(
+                    eps=eps, n_alphas=n_alphas, alphas=alphas,
+                    fit_intercept=fit_intercept, normalize=normalize,
+                    precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
+                    cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
+                    random_state=random_state, selection=selection)
+
+            def fit(self, X, y):
+                # ensure that the grouping has worked correctly and we get all 10 copies of the items in
+                # whichever groups we saw
+                (yvals, cts) = np.unique(y, return_counts=True)
+                for (yval, ct) in zip(yvals, cts):
+                    if ct != 10:
+                        raise Exception("Grouping failed; received {0} copies of {1} instead of 10".format(ct, yval))
+                return super().fit(X, y)
+
+        # test nested grouping
+        est = LinearDRLearner(LogisticRegression(), NestedModel(cv=2), n_splits=GroupKFold(2))
+        est.fit(y, t, W=w, groups=groups)
+
+        # by default, we use 5 split cross-validation for our T and Y models
+        # but we don't have enough groups here to split both the outer and inner samples with grouping
+        # TODO: does this imply we should change some defaults to make this more likely to succeed?
+        est = LinearDRLearner(n_splits=GroupKFold(2))
+        with pytest.raises(Exception):
+            est.fit(y, t, W=w, groups=groups)
 
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:

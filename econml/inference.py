@@ -10,7 +10,8 @@ from collections import OrderedDict
 from statsmodels.iolib.table import SimpleTable
 from .bootstrap import BootstrapEstimator
 from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        ndim, inverse_onehot, parse_final_model_params, _safe_norm_ppf, Summary)
+                        ndim, shape, inverse_onehot, parse_final_model_params, _safe_norm_ppf, Summary,
+                        StatsModelsLinearRegression)
 
 
 """Options for performing inference in estimators."""
@@ -45,26 +46,40 @@ class BootstrapInference(Inference):
     n_jobs: int, optional (default -1)
         The maximum number of concurrently running jobs, as in joblib.Parallel.
 
+    bootstrap_type: 'percentile', 'pivot', or 'normal', default 'pivot'
+        Bootstrap method used to compute results.
+        'percentile' will result in using the empiracal CDF of the replicated computations of the statistics.
+        'pivot' will also use the replicates but create a pivot interval that also relies on the estimate
+        over the entire dataset.
+        'normal' will instead compute a pivot interval assuming the replicates are normally distributed.
     """
 
-    def __init__(self, n_bootstrap_samples=100, n_jobs=-1):
+    def __init__(self, n_bootstrap_samples=100, n_jobs=-1, bootstrap_type='pivot'):
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
+        self._bootstrap_type = bootstrap_type
 
     def fit(self, estimator, *args, **kwargs):
-        est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, compute_means=False)
+        est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, compute_means=False,
+                                 bootstrap_type=self._bootstrap_type)
         est.fit(*args, **kwargs)
         self._est = est
+        self._d_t = estimator._d_t
+        self._d_y = estimator._d_y
+        self.d_t = self._d_t[0] if self._d_t else 1
+        self.d_y = self._d_y[0] if self._d_y else 1
 
     def __getattr__(self, name):
         if name.startswith('__'):
             raise AttributeError()
 
         m = getattr(self._est, name)
-
-        def wrapped(*args, alpha=0.1, **kwargs):
-            return m(*args, lower=100 * alpha / 2, upper=100 * (1 - alpha / 2), **kwargs)
-        return wrapped
+        if name.endswith('_interval'):  # convert alpha to lower/upper
+            def wrapped(*args, alpha=0.1, **kwargs):
+                return m(*args, lower=100 * alpha / 2, upper=100 * (1 - alpha / 2), **kwargs)
+            return wrapped
+        else:
+            return m
 
 
 class GenericModelFinalInference(Inference):
@@ -109,8 +124,8 @@ class GenericModelFinalInference(Inference):
             raise AttributeError("Final model doesn't support prediction standard eror, "
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)), self._d_t, self._d_y)
-        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                pred_stderr=pred_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
+        return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
+                                      pred_stderr=pred_stderr, inf_type='effect')
 
     def _predict_interval(self, X, alpha):
         return self.model_final.predict_interval(X, alpha=alpha)
@@ -167,8 +182,8 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(dT))
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
-        return InferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                pred_stderr=e_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
+        return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
+                                      pred_stderr=e_stderr, inf_type='effect')
 
 
 class LinearModelFinalInference(GenericModelFinalInference):
@@ -209,8 +224,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
         e_stderr = self._prediction_stderr(cross_product(X, T1 - T0))
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
-        return InferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                pred_stderr=e_stderr, inf_type='effect', pred_dist=None, fname_transformer=None)
+        return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
+                                      pred_stderr=e_stderr, inf_type='effect')
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -241,10 +256,10 @@ class LinearModelFinalInference(GenericModelFinalInference):
             def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
-            fname_transformer = None
-        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=coef,
-                                pred_stderr=coef_stderr,
-                                inf_type='coefficient', pred_dist=None, fname_transformer=fname_transformer)
+            def fname_transformer(x):
+                return x
+        return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
+                                      inf_type='coefficient', fname_transformer=fname_transformer)
 
     def intercept__interval(self, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -272,36 +287,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
         intercept_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
                                                     self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                                     self.fit_cate_intercept)[1]
-        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
-                                inf_type='intercept', pred_dist=None, fname_transformer=None)
-
-    def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None):
-        smry = Summary()
-        try:
-            coef_table = self.coef__inference().summary_frame(alpha=alpha,
-                                                              value=value, decimals=decimals, feat_name=feat_name)
-            coef_array = coef_table.values
-            coef_headers = [i + '\n' +
-                            j for (i, j) in coef_table.columns] if self.d_t > 1 else coef_table.columns.tolist()
-            coef_stubs = [i + ' | ' + j for (i, j) in coef_table.index] if self.d_y > 1 else coef_table.index.tolist()
-            coef_title = 'Coefficient Results'
-            smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
-        except Exception as e:
-            print("Coefficient Results: ", str(e))
-        try:
-            intercept_table = self.intercept__inference().summary_frame(alpha=alpha,
-                                                                        value=value, decimals=decimals, feat_name=None)
-            intercept_array = intercept_table.values
-            intercept_headers = [i + '\n' + j for (i, j)
-                                 in intercept_table.columns] if self.d_t > 1 else intercept_table.columns.tolist()
-            intercept_stubs = [i + ' | ' + j for (i, j)
-                               in intercept_table.index] if self.d_y > 1 else intercept_table.index.tolist()
-            intercept_title = 'Intercept Results'
-            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
-        except Exception as e:
-            print("Intercept Results: ", str(e))
-        if len(smry.tables) > 0:
-            return smry
+        return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
+                                      inf_type='intercept')
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -368,10 +355,9 @@ class GenericModelFinalInferenceDiscrete(Inference):
             raise AttributeError("Final model doesn't support prediction standard eror, "
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final])
-        return InferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
-                                # send treatment to the end, pull bounds to the front
-                                pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect',
-                                pred_dist=None, fname_transformer=None)
+        return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
+                                      # send treatment to the end, pull bounds to the front
+                                      pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect')
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -400,9 +386,9 @@ class GenericModelFinalInferenceDiscrete(Inference):
             pred = np.repeat(pred, T0.shape[0], axis=0)
             pred_stderr = np.repeat(pred_stderr, T0.shape[0], axis=0)
         # d_t=1 here since we measure the effect across all Ts
-        return InferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ..., ind],
-                                pred_stderr=pred_stderr[np.arange(T0.shape[0]), ..., ind],
-                                inf_type='effect', pred_dist=None, fname_transformer=None)
+        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ..., ind],
+                                      pred_stderr=pred_stderr[np.arange(T0.shape[0]), ..., ind],
+                                      inf_type='effect')
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
@@ -430,9 +416,10 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             def fname_transformer(x):
                 return self._est.cate_feature_names(x)
         else:
-            fname_transformer = None
-        return InferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
-                                inf_type='coefficient', pred_dist=None, fname_transformer=fname_transformer)
+            def fname_transformer(x):
+                return x
+        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
+                                      inf_type='coefficient', fname_transformer=fname_transformer)
 
     def intercept__interval(self, T, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -448,35 +435,9 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
-        return InferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
-                                pred_stderr=self.fitted_models_final[ind].intercept_stderr_,
-                                inf_type='intercept', pred_dist=None, fname_transformer=None)
-
-    def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None):
-        smry = Summary()
-        try:
-            coef_table = self.coef__inference(T).summary_frame(
-                alpha=alpha, value=value, decimals=decimals, feat_name=feat_name)
-            coef_array = coef_table.values
-            coef_headers = coef_table.columns.tolist()
-            coef_stubs = coef_table.index.tolist()
-            coef_title = 'Coefficient Results'
-            smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
-        except Exception as e:
-            print("Coefficient Results: ", e)
-        try:
-            intercept_table = self.intercept__inference(T).summary_frame(
-                alpha=alpha, value=value, decimals=decimals, feat_name=None)
-            intercept_array = intercept_table.values
-            intercept_headers = intercept_table.columns.tolist()
-            intercept_stubs = intercept_table.index.tolist()
-            intercept_title = 'Intercept Results'
-            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
-        except Exception as e:
-            print("Intercept Results: ", e)
-
-        if len(smry.tables) > 0:
-            return smry
+        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
+                                      pred_stderr=self.fitted_models_final[ind].intercept_stderr_,
+                                      inf_type='intercept')
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
@@ -504,9 +465,259 @@ class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
         self.model_final.cov_type = self.cov_type
 
 
-class InferenceResults:
+class InferenceResults(metaclass=abc.ABCMeta):
     """
     Results class for inferences.
+
+    Parameters
+    ----------
+    d_t: int
+        Number of treatments
+    d_y: int
+        Number of outputs
+    pred : array-like, shape (m, d_y, d_t) or (m, d_y)
+        The prediction of the metric for each sample X[i].
+        Note that when Y or T is a vector rather than a 2-dimensional array,
+        the corresponding singleton dimensions should be collapsed
+        (e.g. if both are vectors, then the input of this argument will also be a vector)
+    inf_type: string
+        The type of inference result.
+        It could be either 'effect', 'coefficient' or 'intercept'.
+    fname_transformer: None or predefined function
+        The transform function to get the corresponding feature names from featurizer
+    """
+
+    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=lambda nm: nm):
+        self.d_t = d_t
+        self.d_y = d_y
+        self.pred = pred
+        self.inf_type = inf_type
+        self.fname_transformer = fname_transformer
+
+    @property
+    def point_estimate(self):
+        """
+        Get the point estimate of each treatment on each outcome for each sample X[i].
+
+        Returns
+        -------
+        prediction : array-like, shape (m, d_y, d_t) or (m, d_y)
+            The point estimate of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        return self.pred
+
+    @property
+    @abc.abstractmethod
+    def stderr(self):
+        """
+        Get the standard error of the metric of each treatment on each outcome for each sample X[i].
+
+        Returns
+        -------
+        stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
+            The standard error of the metric of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        pass
+
+    @property
+    def var(self):
+        """
+        Get the variance of the metric of each treatment on each outcome for each sample X[i].
+
+        Returns
+        -------
+        var : array-like, shape (m, d_y, d_t) or (m, d_y)
+            The variance of the metric of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        return self.stderr**2
+
+    @abc.abstractmethod
+    def conf_int(self, alpha=0.1):
+        """
+        Get the confidence interval of the metric of each treatment on each outcome for each sample X[i].
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper: tuple of arrays, shape (m, d_y, d_t) or (m, d_y)
+            The lower and the upper bounds of the confidence interval for each quantity.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        pass
+
+    @abc.abstractmethod
+    def pvalue(self, value=0):
+        """
+        Get the p value of the z test of each treatment on each outcome for each sample X[i].
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+
+        Returns
+        -------
+        pvalue : array-like, shape (m, d_y, d_t) or (m, d_y)
+            The p value of the z test of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        pass
+
+    def zstat(self, value=0):
+        """
+        Get the z statistic of the metric of each treatment on each outcome for each sample X[i].
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+
+        Returns
+        -------
+        zstat : array-like, shape (m, d_y, d_t) or (m, d_y)
+            The z statistic of the metric of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        return (value - self.point_estimate) / self.stderr
+
+    def summary_frame(self, alpha=0.1, value=0, decimals=3, feat_name=None):
+        """
+        Output the dataframe for all the inferences above.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        feat_name: optional list of strings or None (default is None)
+            The input of the feature names
+
+        Returns
+        -------
+        output: pandas dataframe
+            The output dataframe includes point estimate, standard error, z score, p value and confidence intervals
+            of the estimated metric of each treatment on each outcome for each sample X[i]
+        """
+
+        ci_mean = self.conf_int(alpha=alpha)
+        to_include = OrderedDict()
+        to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.point_estimate)
+        to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr)
+        to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value))
+        to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value))
+        to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0])
+        to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1])
+        res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
+        if self.d_t == 1:
+            res.columns = res.columns.droplevel(1)
+        if self.d_y == 1:
+            res.index = res.index.droplevel(1)
+        if self.inf_type == 'coefficient':
+            if self.fname_transformer is not None:
+                feat_name = self.fname_transformer(feat_name)
+            if feat_name is not None:
+                ind = feat_name
+            else:
+                ct = res.shape[0] // self.d_y
+                ind = ['X' + str(i) for i in range(ct)]
+
+            if self.d_y > 1:
+                res.index = res.index.set_levels(ind, level=0)
+            else:
+                res.index = ind
+        elif self.inf_type == 'intercept':
+            if self.d_y > 1:
+                res.index = res.index.set_levels(['intercept'], level=0)
+            else:
+                res.index = ['intercept']
+        return res
+
+    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001):
+        """
+        Output the object of population summary results.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        tol:  optinal float (default=0.001)
+            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+
+        Returns
+        -------
+        PopulationSummaryResults: object
+            The population summary results instance contains the different summary analysis of point estimate
+            for sample X on each treatment and outcome.
+        """
+        if self.inf_type == 'effect':
+            return PopulationSummaryResults(pred=self.point_estimate, pred_stderr=self.stderr,
+                                            d_t=self.d_t, d_y=self.d_y,
+                                            alpha=alpha, value=value, decimals=decimals, tol=tol)
+        else:
+            raise AttributeError(self.inf_type + " inference doesn't support population_summary function!")
+
+    def _array_to_frame(self, d_t, d_y, arr):
+        if np.isscalar(arr):
+            arr = np.array([arr])
+        if self.inf_type == 'coefficient':
+            arr = np.moveaxis(arr, -1, 0)
+        arr = arr.reshape((-1, d_y, d_t))
+        df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
+        df.index = df.index.set_levels(['Y' + str(i) for i in range(d_y)], level=1)
+        df.columns = ['T' + str(i) for i in range(d_t)]
+        return df
+
+    @abc.abstractmethod
+    def _expand_outputs(self, n_rows):
+        """
+        Expand the inference results from 1 row to n_rows identical rows.  This is used internally when
+        we move from constant effects when X is None to a marginal effect of a different dimension.
+
+        Parameters
+        ----------
+        n_rows: positive int
+            The number of rows to expand to
+
+        Returns
+        -------
+        results: InferenceResults
+            The expanded results
+        """
+        pass
+
+
+class NormalInferenceResults(InferenceResults):
+    """
+    Results class for inference assuming a normal distribution.
 
     Parameters
     ----------
@@ -527,37 +738,13 @@ class InferenceResults:
     inf_type: string
         The type of inference result.
         It could be either 'effect', 'coefficient' or 'intercept'.
-    pred_dist : array-like, shape (b, m, d_y, d_t) or (b, m, d_y)
-        the raw predictions of the metric using b times bootstrap.
-        Note that when Y or T is a vector rather than a 2-dimensional array,
-        the corresponding singleton dimensions should be collapsed
     fname_transformer: None or predefined function
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, pred_dist=None, fname_transformer=None):
-        self.d_t = d_t
-        self.d_y = d_y
-        self.pred = pred
+    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=lambda nm: nm):
         self.pred_stderr = pred_stderr
-        self.inf_type = inf_type
-        self.pred_dist = pred_dist
-        self.fname_transformer = fname_transformer
-
-    @property
-    def point_estimate(self):
-        """
-        Get the point estimate of each treatment on each outcome for each sample X[i].
-
-        Returns
-        -------
-        prediction : array-like, shape (m, d_y, d_t) or (m, d_y)
-            The point estimate of each treatment on each outcome for each sample X[i].
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will also be a vector)
-        """
-        return self.pred
+        super().__init__(d_t, d_y, pred, inf_type, fname_transformer)
 
     @property
     def stderr(self):
@@ -573,21 +760,6 @@ class InferenceResults:
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         return self.pred_stderr
-
-    @property
-    def var(self):
-        """
-        Get the variance of the metric of each treatment on each outcome for each sample X[i].
-
-        Returns
-        -------
-        var : array-like, shape (m, d_y, d_t) or (m, d_y)
-            The variance of the metric of each treatment on each outcome for each sample X[i].
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will also be a vector)
-        """
-        return self.pred_stderr**2
 
     def conf_int(self, alpha=0.1):
         """
@@ -636,117 +808,104 @@ class InferenceResults:
 
         return norm.sf(np.abs(self.zstat(value)), loc=0, scale=1) * 2
 
-    def zstat(self, value=0):
-        """
-        Get the z statistic of the metric of each treatment on each outcome for each sample X[i].
+    def _expand_outputs(self, n_rows):
+        assert shape(self.pred)[0] == shape(self.pred_stderr)[0] == 1
+        pred = np.repeat(self.pred, n_rows, axis=0)
+        pred_stderr = np.repeat(self.pred_stderr, n_rows, axis=0)
+        return NormalInferenceResults(self.d_t, self.d_y, pred, pred_stderr, self.inf_type, self.fname_transformer)
 
-        Parameters
-        ----------
-        value: optinal float (default=0)
-            The mean value of the metric you'd like to test under null hypothesis.
+
+class EmpiricalInferenceResults(InferenceResults):
+    """
+    Results class for inference with an empirical set of samples.
+
+    Parameters
+    ----------
+    pred : array-like, shape (m, d_y, d_t) or (m, d_y)
+        the point estimates of the metric using the full sample
+    pred_dist : array-like, shape (b, m, d_y, d_t) or (b, m, d_y)
+        the raw predictions of the metric sampled b times.
+        Note that when Y or T is a vector rather than a 2-dimensional array,
+        the corresponding singleton dimensions should be collapsed
+    d_t: int
+        Number of treatments
+    d_y: int
+        Number of outputs
+    inf_type: string
+        The type of inference result.
+        It could be either 'effect', 'coefficient' or 'intercept'.
+    fname_transformer: None or predefined function
+        The transform function to get the corresponding feature names from featurizer
+    """
+
+    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=lambda nm: nm):
+        self.pred_dist = pred_dist
+        super().__init__(d_t, d_y, pred, inf_type, fname_transformer)
+
+    @property
+    def stderr(self):
+        """
+        Get the standard error of the metric of each treatment on each outcome for each sample X[i].
 
         Returns
         -------
-        zstat : array-like, shape (m, d_y, d_t) or (m, d_y)
-            The z statistic of the metric of each treatment on each outcome for each sample X[i].
+        stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
+            The standard error of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        return (self.pred - value) / self.pred_stderr
+        return np.std(self.pred_dist, axis=0)
 
-    def summary_frame(self, alpha=0.1, value=0, decimals=3, feat_name=None):
+    def conf_int(self, alpha=0.1):
         """
-        Output the dataframe for all the inferences above.
+        Get the confidence interval of the metric of each treatment on each outcome for each sample X[i].
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.1)
+        alpha: optional float in [0, 1] (Default=0.1)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
-            The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
-            Number of decimal places to round each column to.
-        feat_name: optional list of strings or None (default is None)
-            The input of the feature names
 
         Returns
         -------
-        output: pandas dataframe
-            The output dataframe includes point estimate, standard error, z score, p value and confidence intervals
-            of the estimated metric of each treatment on each outcome for each sample X[i]
+        lower, upper: tuple of arrays, shape (m, d_y, d_t) or (m, d_y)
+            The lower and the upper bounds of the confidence interval for each quantity.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
         """
+        lower = alpha / 2
+        upper = 1 - alpha / 2
+        return np.percentile(self.pred_dist, lower * 100, axis=0), np.percentile(self.pred_dist, upper * 100, axis=0)
 
-        ci_mean = self.conf_int(alpha=alpha)
-        to_include = OrderedDict()
-        to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.pred)
-        to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.pred_stderr)
-        to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value))
-        to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value))
-        to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0])
-        to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1])
-        res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
-        if self.d_t == 1:
-            res.columns = res.columns.droplevel(1)
-        if self.d_y == 1:
-            res.index = res.index.droplevel(1)
-        if self.inf_type == 'coefficient':
-            if feat_name is not None and self.fname_transformer:
-                ind = self.fname_transformer(feat_name)
-            else:
-                ct = res.shape[0] // self.d_y
-                ind = ['X' + str(i) for i in range(ct)]
-
-            if self.d_y > 1:
-                res.index = res.index.set_levels(ind, level=0)
-            else:
-                res.index = ind
-        elif self.inf_type == 'intercept':
-            if self.d_y > 1:
-                res.index = res.index.set_levels(['intercept'], level=0)
-            else:
-                res.index = ['intercept']
-        return res
-
-    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001):
+    def pvalue(self, value=0):
         """
-        Output the object of population summary results.
+        Get the p value of the each treatment on each outcome for each sample X[i].
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.1)
-            The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported.
         value: optinal float (default=0)
             The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
-            Number of decimal places to round each column to.
-        tol:  optinal float (default=0.001)
-            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
 
         Returns
         -------
-        PopulationSummaryResults: object
-            The population summary results instance contains the different summary analysis of point estimate
-            for sample X on each treatment and outcome.
+        pvalue : array-like, shape (m, d_y, d_t) or (m, d_y)
+            The p value of of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        if self.inf_type == 'effect':
-            return PopulationSummaryResults(pred=self.pred, pred_stderr=self.pred_stderr, d_t=self.d_t, d_y=self.d_y,
-                                            alpha=alpha, value=value, decimals=decimals, tol=tol)
-        else:
-            raise AttributeError(self.inf_type + " inference doesn't support population_summary function!")
+        pvalues = np.minimum((self.pred_dist <= value).sum(axis=0),
+                             (self.pred_dist >= value).sum(axis=0)) / self.pred_dist.shape[0]
+        # in the degenerate case where every point in the distribution is equal to the value tested, return nan
+        return np.where(np.all(self.pred_dist == value, axis=0), np.nan, pvalues)
 
-    def _array_to_frame(self, d_t, d_y, arr):
-        if np.isscalar(arr):
-            arr = np.array([arr])
-        if self.inf_type == 'coefficient':
-            arr = np.moveaxis(arr, -1, 0)
-        arr = arr.reshape((-1, d_y, d_t))
-        df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
-        df.index = df.index.set_levels(['Y' + str(i) for i in range(d_y)], level=1)
-        df.columns = ['T' + str(i) for i in range(d_t)]
-        return df
+    def _expand_outputs(self, n_rows):
+        assert shape(self.pred)[0] == shape(self.pred_dist)[1] == 1
+        pred = np.repeat(self.pred, n_rows, axis=0)
+        pred_dist = np.repeat(self.pred_dist, n_rows, axis=1)
+        return EmpiricalInferenceResults(self.d_t, self.d_y, pred, pred_dist, self.inf_type, self.fname_transformer)
 
 
 class PopulationSummaryResults:
@@ -1007,11 +1166,16 @@ class PopulationSummaryResults:
         """
         Helper function to get the confidence interval of mixture gaussian distribution
         """
-        done = False
+        # if stderr is zero, ppf will return nans and the loop below would never terminate
+        # so bail out early; note that it might be possible to correct the algorithm for
+        # this scenario, but since scipy's cdf returns nan whenever scale is zero it won't
+        # be clean
+        if (np.any(stderr == 0)):
+            return np.full(shape(mean)[1:], np.nan)
         mix_ppf = scipy.stats.norm.ppf(alpha, loc=mean, scale=stderr)
         lower = np.min(mix_ppf, axis=0)
         upper = np.max(mix_ppf, axis=0)
-        while not done:
+        while True:
             cur = (lower + upper) / 2
             cur_mean = np.mean(scipy.stats.norm.cdf(cur, loc=mean, scale=stderr), axis=0)
             if np.isscalar(cur):

@@ -235,11 +235,12 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
             W = np.empty((shape(Y)[0], 0))
         assert shape(Y)[0] == shape(T)[0] == shape(X)[0] == shape(W)[0] == shape(Z)[0]
 
+        # make T 2D if if was a vector
+        if ndim(T) == 1:
+            T = reshape(T, (-1, 1))
+
         # store number of columns of W so that we can create correctly shaped zero array in effect and marginal effect
         self._d_w = shape(W)[1]
-        # store number of columns of T so that we can pass scalars to effect
-        # TODO: support vector T and Y
-        self._d_t = shape(T)[1]
 
         # two stage approximation
         # first, get basis expansions of T, X, and Z
@@ -285,9 +286,13 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
 
         """
         if ndim(T0) == 0:
-            T0 = np.full((1 if X is None else shape(X)[0], self._d_t), T0)
+            T0 = np.full((1 if X is None else shape(X)[0],) + self._d_t, T0)
         if ndim(T1) == 0:
-            T1 = np.full((1 if X is None else shape(X)[0], self._d_t), T1)
+            T1 = np.full((1 if X is None else shape(X)[0],) + self._d_t, T1)
+        if ndim(T0) == 1:
+            T0 = reshape(T0, (-1, 1))
+        if ndim(T1) == 1:
+            T1 = reshape(T1, (-1, 1))
         if X is None:
             X = np.empty((shape(T0)[0], 0))
         assert shape(T0) == shape(T1)
@@ -329,7 +334,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
 
         ft_X = self._x_featurizer.transform(X)
         n = shape(T)[0]
-        dT = self._dt_featurizer.transform(T)
+        dT = self._dt_featurizer.transform(T if ndim(T) == 2 else reshape(T, (-1, 1)))
         W = np.zeros((size(T), self._d_w))
         # dT should be an n×dₜ×fₜ array (but if T was a vector, or if there is only one feature,
         # dT may be only 2-dimensional)
@@ -342,4 +347,8 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         features = transpose(features, [0, 1, 3, 2])  # swap last two dims to match cross_product
         features = reshape(features, (size(T), -1))
         output = self._model_Y.predict(_add_zeros(np.hstack([W, features])))
-        return reshape(output, shape(T) + (shape(output)[-1],))
+        output = reshape(output, shape(T) + shape(output)[1:])
+        if ndim(output) == 3:
+            return transpose(output, (0, 2, 1))  # transpose trailing T and Y dims
+        else:
+            return output

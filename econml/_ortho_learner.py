@@ -28,7 +28,7 @@ import numpy as np
 import copy
 from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
-                        broadcast_unit_treatments, reshape_treatmentwise_effects,
+                        broadcast_unit_treatments, reshape_treatmentwise_effects, filter_none_kwargs,
                         StatsModelsLinearRegression, _EncoderWrapper)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.linear_model import LinearRegression, LassoCV
@@ -126,9 +126,11 @@ def _crossfit(model, folds, *args, **kwargs):
     fitted_inds = []
     calculate_scores = hasattr(model, 'score')
 
+    # remove None arguments
+    kwargs = filter_none_kwargs(**kwargs)
+
     if folds is None:  # skip crossfitting
         model_list.append(clone(model, safe=False))
-        kwargs = {k: v for k, v in kwargs.items() if v is not None}
         model_list[0].fit(*args, **kwargs)
         nuisances = model_list[0].predict(*args, **kwargs)
         scores = model_list[0].score(*args, **kwargs) if calculate_scores else None
@@ -156,8 +158,8 @@ def _crossfit(model, folds, *args, **kwargs):
         args_train = tuple(var[train_idxs] if var is not None else None for var in args)
         args_test = tuple(var[test_idxs] if var is not None else None for var in args)
 
-        kwargs_train = {key: var[train_idxs] for key, var in kwargs.items() if var is not None}
-        kwargs_test = {key: var[test_idxs] for key, var in kwargs.items() if var is not None}
+        kwargs_train = {key: var[train_idxs] for key, var in kwargs.items()}
+        kwargs_test = {key: var[test_idxs] for key, var in kwargs.items()}
 
         model_list[idx].fit(*args_train, **kwargs_train)
 
@@ -456,9 +458,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         super().__init__()
 
-    def _check_input_dims(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None):
+    def _check_input_dims(self, Y, T, X=None, W=None, Z=None, *other_arrays):
         assert shape(Y)[0] == shape(T)[0], "Dimension mis-match!"
-        for arr in [X, W, Z, sample_weight, sample_var]:
+        for arr in [X, W, Z, *other_arrays]:
             assert (arr is None) or (arr.shape[0] == Y.shape[0]), "Dimension mismatch"
         self._d_x = X.shape[1:] if X is not None else None
         self._d_w = W.shape[1:] if W is not None else None
@@ -484,15 +486,24 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _subinds_check_none(self, var, inds):
         return var[inds] if var is not None else None
 
-    def _filter_none_kwargs(self, **kwargs):
-        non_none_kwargs = {}
-        for key, value in kwargs.items():
-            if value is not None:
-                non_none_kwargs[key] = value
-        return non_none_kwargs
+    def _strata(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, groups=None):
+        if self._discrete_instrument:
+            Z = LabelEncoder().fit_transform(np.ravel(Z))
+
+        if self._discrete_treatment:
+            enc = LabelEncoder()
+            T = enc.fit_transform(np.ravel(T))
+            if self._discrete_instrument:
+                return T + Z * len(enc.classes_)
+            else:
+                return T
+        elif self._discrete_instrument:
+            return Z
+        else:
+            return None
 
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, *, inference=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, groups=None, *, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -512,6 +523,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Weights for each samples
         sample_var: optional (n,) vector or None (Default=None)
             Sample variance for each sample
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`).
@@ -520,9 +535,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self : _OrthoLearner instance
         """
-        Y, T, X, W, Z, sample_weight, sample_var = check_input_arrays(Y, T, X, W, Z, sample_weight, sample_var)
-        self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var)
-        nuisances, fitted_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight)
+        Y, T, X, W, Z, sample_weight, sample_var, groups = check_input_arrays(
+            Y, T, X, W, Z, sample_weight, sample_var, groups)
+        self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var, groups)
+        nuisances, fitted_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
         self._fit_final(self._subinds_check_none(Y, fitted_inds),
                         self._subinds_check_none(T, fitted_inds),
                         X=self._subinds_check_none(X, fitted_inds),
@@ -533,9 +549,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                         sample_var=self._subinds_check_none(sample_var, fitted_inds))
         return self
 
-    def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         # use a binary array to get stratified split in case of discrete treatment
         stratify = self._discrete_treatment or self._discrete_instrument
+        strata = self._strata(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, groups=groups)
+        if strata is None:
+            strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
 
         if self._discrete_treatment:
             T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
@@ -543,20 +562,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if self._discrete_instrument:
             z_enc = LabelEncoder()
             Z = z_enc.fit_transform(Z.ravel())
-
-            if self._discrete_treatment:  # need to stratify on combination of Z and T
-                to_split = inverse_onehot(T) + Z * len(self._one_hot_encoder.categories_[0])
-            else:
-                to_split = Z  # just stratify on Z
-
             z_ohe = OneHotEncoder(categories='auto', sparse=False, drop='first')
             Z = z_ohe.fit_transform(reshape(Z, (-1, 1)))
             self.z_transformer = FunctionTransformer(
                 func=_EncoderWrapper(z_ohe, z_enc).encode,
                 validate=False)
         else:
-            # stratify on T if discrete, and fine to pass T as second arg to KFold.split even when not
-            to_split = inverse_onehot(T) if self._discrete_treatment else T
             self.z_transformer = None
 
         if self._n_splits == 1:  # special case, no cross validation
@@ -564,16 +575,24 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             splitter = check_cv(self._n_splits, [0], classifier=stratify)
             # if check_cv produced a new KFold or StratifiedKFold object, we need to set shuffle and random_state
+            # TODO: ideally, we'd also infer whether we need a GroupKFold (if groups are passed)
+            #       however, sklearn doesn't support both stratifying and grouping (see
+            #       https://github.com/scikit-learn/scikit-learn/issues/13621), so for now the user needs to supply
+            #       their own object that supports grouping if they want to use groups.
             if splitter != self._n_splits and isinstance(splitter, (KFold, StratifiedKFold)):
                 splitter.shuffle = True
                 splitter.random_state = self._random_state
 
             all_vars = [var if np.ndim(var) == 2 else var.reshape(-1, 1) for var in [Z, W, X] if var is not None]
-            if all_vars:
-                all_vars = np.hstack(all_vars)
-                folds = splitter.split(all_vars, to_split)
+            to_split = np.hstack(all_vars) if all_vars else np.ones((T.shape[0], 1))
+
+            if groups is not None:
+                if isinstance(splitter, (KFold, StratifiedKFold)):
+                    raise TypeError("Groups were passed to fit while using a KFold or StratifiedKFold splitter. "
+                                    "Instead you must initialize this object with a splitter that can handle groups.")
+                folds = splitter.split(to_split, strata, groups=groups)
             else:
-                folds = splitter.split(np.ones((T.shape[0], 1)), to_split)
+                folds = splitter.split(to_split, strata)
 
         if self._discrete_treatment:
             self._d_t = shape(T)[1:]
@@ -582,21 +601,22 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 validate=False)
 
         nuisances, fitted_models, fitted_inds, scores = _crossfit(self._model_nuisance, folds,
-                                                                  Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
+                                                                  Y, T, X=X, W=W, Z=Z,
+                                                                  sample_weight=sample_weight, groups=groups)
         self._models_nuisance = fitted_models
         self.nuisance_scores_ = scores
         return nuisances, fitted_inds
 
     def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        self._model_final.fit(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z,
-                                                               nuisances=nuisances, sample_weight=sample_weight,
-                                                               sample_var=sample_var))
+        self._model_final.fit(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
+                                                         nuisances=nuisances, sample_weight=sample_weight,
+                                                         sample_var=sample_var))
         self.score_ = None
         if hasattr(self._model_final, 'score'):
-            self.score_ = self._model_final.score(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                                   nuisances=nuisances,
-                                                                                   sample_weight=sample_weight,
-                                                                                   sample_var=sample_var))
+            self.score_ = self._model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
+                                                                             nuisances=nuisances,
+                                                                             sample_weight=sample_weight,
+                                                                             sample_var=sample_var))
 
     def const_marginal_effect(self, X=None):
         X, = check_input_arrays(X)
@@ -670,7 +690,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Z = self.z_transformer.transform(Z)
         n_splits = len(self._models_nuisance)
         for idx, mdl in enumerate(self._models_nuisance):
-            nuisance_temp = mdl.predict(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z))
+            nuisance_temp = mdl.predict(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z))
             if not isinstance(nuisance_temp, tuple):
                 nuisance_temp = (nuisance_temp,)
 
@@ -683,7 +703,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
 
-        return self._model_final.score(Y, T, **self._filter_none_kwargs(X=X, W=W, Z=Z, nuisances=nuisances))
+        return self._model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z, nuisances=nuisances))
 
     @property
     def model_final(self):

@@ -4,10 +4,10 @@
 import unittest
 import pytest
 import pickle
-from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
+from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
-from sklearn.model_selection import KFold
+from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
 from econml.dml import NonParamDMLCateEstimator, ForestDMLCateEstimator
 import numpy as np
@@ -103,11 +103,7 @@ class TestDML(unittest.TestCase):
 
                                 model_t = LogisticRegression() if is_discrete else Lasso()
 
-                                # TODO: add stratification to bootstrap so that we can use it
-                                # even with discrete treatments
-                                all_infs = [None, 'statsmodels']
-                                if not is_discrete:
-                                    all_infs.append(BootstrapInference(1))
+                                all_infs = [None, 'statsmodels', BootstrapInference(2)]
 
                                 for est, multi, infs in\
                                     [(DMLCateEstimator(model_y=Lasso(),
@@ -207,7 +203,7 @@ class TestDML(unittest.TestCase):
                                                         with pytest.raises(AttributeError):
                                                             self.assertEqual(shape(est.intercept__interval()),
                                                                              (2,) + intercept_shape)
-                                            if inf in ['statsmodels', 'debiasedlasso', 'blb']:
+
                                                 const_marg_effect_inf = est.const_marginal_effect_inference(X)
                                                 T1 = np.full_like(T, 'b') if is_discrete else T
                                                 effect_inf = est.effect_inference(X, T0=T0, T1=T1)
@@ -273,12 +269,7 @@ class TestDML(unittest.TestCase):
 
                                                 # test coef__inference and intercept__inference
                                                 if not isinstance(est, KernelDMLCateEstimator):
-                                                    if X is None:
-                                                        cm = pytest.raises(AttributeError)
-                                                    else:
-                                                        cm = ExitStack()
-                                                        # ExitStack can be used as a "do nothing" ContextManager
-                                                    with cm:
+                                                    if X is not None:
                                                         self.assertEqual(
                                                             shape(est.coef__inference().summary_frame()),
                                                             coef_summaryframe_shape)
@@ -365,10 +356,7 @@ class TestDML(unittest.TestCase):
 
                             model_t = LogisticRegression() if is_discrete else WeightedLasso()
 
-                            # TODO Add bootstrap inference, once discrete treatment issue is fixed
-                            base_infs = [None]
-                            if not is_discrete:
-                                base_infs += [BootstrapInference(2)]
+                            base_infs = [None, BootstrapInference(2)]
                             for est, multi, infs in [(NonParamDMLCateEstimator(model_y=WeightedLasso(),
                                                                                model_t=model_t,
                                                                                model_final=WeightedLasso(),
@@ -413,6 +401,10 @@ class TestDML(unittest.TestCase):
                                         T0 = np.full_like(T, 'a') if is_discrete else np.zeros_like(T)
                                         eff = est.effect(X, T0=T0, T1=T)
                                         self.assertEqual(shape(eff), effect_shape)
+
+                                        if isinstance(est, ForestDMLCateEstimator):
+                                            np.testing.assert_array_equal(est.feature_importances_.shape,
+                                                                          [X.shape[1]])
 
                                         if inf is not None:
                                             const_marg_eff_int = est.const_marginal_effect_interval(X)
@@ -981,3 +973,49 @@ class TestDML(unittest.TestCase):
             self.assertAlmostEqual(cme1[1], -cme2[1], places=4)  # 1->3 in original ordering; 3->1 in new ordering
             # 1-> 2 in original ordering; combination of 3->1 and 3->2
             self.assertAlmostEqual(cme1[0], -cme2[1] + cme2[0], places=4)
+
+    def test_groups(self):
+        groups = [1, 2, 3, 4, 5, 6] * 10
+        t = groups
+        y = groups
+        est = LinearDMLCateEstimator()
+        with pytest.raises(Exception):  # can't pass groups without a compatible n_split
+            est.fit(y, t, groups=groups)
+
+        # test outer grouping
+        est = LinearDMLCateEstimator(LinearRegression(), LinearRegression(), n_splits=GroupKFold(2))
+        est.fit(y, t, groups=groups)
+
+        # test nested grouping
+        class NestedModel(LassoCV):
+            def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
+                         precompute='auto', max_iter=1000, tol=1e-4, normalize=False,
+                         copy_X=True, cv=None, verbose=False, n_jobs=None,
+                         positive=False, random_state=None, selection='cyclic'):
+
+                super().__init__(
+                    eps=eps, n_alphas=n_alphas, alphas=alphas,
+                    fit_intercept=fit_intercept, normalize=normalize,
+                    precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
+                    cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
+                    random_state=random_state, selection=selection)
+
+            def fit(self, X, y):
+                # ensure that the grouping has worked correctly and we get all 10 copies of the items in
+                # whichever groups we saw
+                (yvals, cts) = np.unique(y, return_counts=True)
+                for (yval, ct) in zip(yvals, cts):
+                    if ct != 10:
+                        raise Exception("Grouping failed; received {0} copies of {1} instead of 10".format(ct, yval))
+                return super().fit(X, y)
+
+        # test nested grouping
+        est = LinearDMLCateEstimator(NestedModel(cv=2), NestedModel(cv=2), n_splits=GroupKFold(2))
+        est.fit(y, t, groups=groups)
+
+        # by default, we use 5 split cross-validation for our T and Y models
+        # but we don't have enough groups here to split both the outer and inner samples with grouping
+        # TODO: does this imply we should change some defaults to make this more likely to succeed?
+        est = LinearDMLCateEstimator(n_splits=GroupKFold(2))
+        with pytest.raises(Exception):
+            est.fit(y, t, groups=groups)
