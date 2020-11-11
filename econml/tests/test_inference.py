@@ -227,8 +227,8 @@ class TestInference(unittest.TestCase):
                                            inf_type='coefficient')]:
             zs = inf.zstat()
             pv = inf.pvalue()
-            # test value 0 is less than estimate of 1 and variance is 0, so z score should be -inf
-            assert np.isneginf(zs[0])
+            # test value 0 is less than estimate of 1 and variance is 0, so z score should be inf
+            assert np.isposinf(zs[0])
             # predictions in column 1 have nonzero variance, so the zstat should always be some finite value
             assert np.isfinite(zs[1])
             assert pv[0] == 0  # pvalue should be zero when test value is greater or less than all samples
@@ -249,8 +249,8 @@ class TestInference(unittest.TestCase):
             test_point = np.array([2, 1])
             zs = inf.zstat(test_point)
             pv = inf.pvalue(test_point)
-            # test value 2 is greater than estimate of 1 and variance is 0, so z score should be inf
-            assert np.isposinf(zs[0])
+            # test value 2 is greater than estimate of 1 and variance is 0, so z score should be -inf
+            assert np.isneginf(zs[0])
             # predictions in column 1 have nonzero variance, so the zstat should always be some finite value
             assert np.isfinite(zs[1])
             # pvalue is also nan when variance is 0 and the point tested is equal to the point tested
