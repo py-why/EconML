@@ -38,7 +38,8 @@ import copy
 from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects, add_intercept,
-                        StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional)
+                        StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional, check_input_arrays,
+                        fit_with_groups)
 from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso, WeightedLassoCVWrapper
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
@@ -79,7 +80,7 @@ class _FirstStageWrapper:
         else:
             return XW
 
-    def fit(self, X, W, Target, sample_weight=None):
+    def fit(self, X, W, Target, sample_weight=None, groups=None):
         if (not self._is_Y) and self._discrete_treatment:
             # In this case, the Target is the one-hot-encoding of the treatment variable
             # We need to go back to the label representation of the one-hot so as to call
@@ -90,9 +91,10 @@ class _FirstStageWrapper:
             Target = inverse_onehot(Target)
 
         if sample_weight is not None:
-            self._model.fit(self._combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
+            fit_with_groups(self._model, self._combine(X, W, Target.shape[0]), Target, groups=groups,
+                            sample_weight=sample_weight)
         else:
-            self._model.fit(self._combine(X, W, Target.shape[0]), Target)
+            fit_with_groups(self._model, self._combine(X, W, Target.shape[0]), Target, groups=groups)
 
     def predict(self, X, W):
         n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
@@ -555,7 +557,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
                          random_state=random_state)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -571,6 +573,12 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
+        sample_var: (n,) vector, optional
+            Sample variance for each sample
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'statsmodels'
@@ -580,7 +588,9 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
         -------
         self
         """
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, inference=inference)
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           inference=inference)
 
 
 class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstimator):
@@ -693,7 +703,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                          n_splits=n_splits,
                          random_state=random_state)
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -712,6 +722,10 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         sample_var: optional (n, n_y) vector
             Variance of sample, in case it corresponds to summary of many samples. Currently
             not in use by this method but will be supported in a future release.
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'debiasedlasso'
@@ -725,11 +739,14 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         if sample_var is not None and inference is not None:
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
+        Y, T, X, W, sample_weight, sample_var = check_input_arrays(Y, T, X, W, sample_weight, sample_var)
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self._discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
                                "We recommend using the LinearDMLCateEstimator for this low-dimensional setting.")
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, sample_var=None, groups=groups,
+                           inference=inference)
 
 
 class _RandomFeatures(TransformerMixin):
@@ -1087,7 +1104,7 @@ class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCate
                          categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1106,6 +1123,10 @@ class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCate
         sample_var: optional (n, n_y) vector
             Variance of sample, in case it corresponds to summary of many samples. Currently
             not in use by this method (as inference method does not require sample variance info).
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'blb'
@@ -1115,4 +1136,6 @@ class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCate
         -------
         self
         """
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=None, inference=inference)
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, sample_var=None, groups=groups,
+                           inference=inference)

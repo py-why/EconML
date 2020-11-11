@@ -796,7 +796,7 @@ class TestStatsModels(unittest.TestCase):
         precision_int = .0001
         with np.printoptions(formatter={'float': '{:.4f}'.format}, suppress=True):
             for d in [2, 5]:  # n_feats + n_controls
-                for d_x in [2]:  # n_feats
+                for d_x in [1]:  # n_feats
                     for p in [1, 5]:  # n_outcomes
                         for q in [1, 5]:  # n_treatments
                             X = np.random.binomial(1, .5, size=(n, d))

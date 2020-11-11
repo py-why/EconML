@@ -16,7 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from .utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        inverse_onehot, transpose, _EncoderWrapper)
+                        inverse_onehot, transpose, _EncoderWrapper, check_input_arrays)
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -262,6 +262,8 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        if Y.ndim == 2 and Y.shape[1] == 1:
+            Y = Y.flatten()
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
