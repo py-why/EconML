@@ -6,6 +6,7 @@
 import numpy as np
 import keras
 from .cate_estimator import BaseCateEstimator
+from .utilities import deprecated
 from keras import backend as K
 import keras.layers as L
 from keras.models import Model
@@ -230,7 +231,7 @@ def response_loss_model(h, p, d_z, d_x, d_y, samples=1, use_upper_bound=False, g
     return Model([z, x, y], [expr])
 
 
-class DeepIVEstimator(BaseCateEstimator):
+class DeepIV(BaseCateEstimator):
     """
     The Deep IV Estimator (see http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf).
 
@@ -447,3 +448,9 @@ class DeepIVEstimator(BaseCateEstimator):
         """
         T, X = check_input_arrays(T, X)
         return self._effect_model.predict([T, X]).reshape((-1,) + self._d_y)
+
+
+@deprecated("The DeepIVEstimator class has been renamed to DeepIV; "
+            "an upcoming release will remove support for the old name")
+class DeepIVEstimator(DeepIV):
+    pass

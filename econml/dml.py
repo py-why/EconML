@@ -39,7 +39,7 @@ from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects, add_intercept,
                         StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional, check_input_arrays,
-                        fit_with_groups)
+                        fit_with_groups, deprecated)
 from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso, WeightedLassoCVWrapper
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
@@ -149,7 +149,7 @@ class _FinalWrapper:
             if not self._fit_cate_intercept:
                 if self._use_weight_trick:
                     raise AttributeError("Cannot use this method with X=None. Consider "
-                                         "using the LinearDMLCateEstimator.")
+                                         "using the LinearDML estimator.")
                 else:
                     raise AttributeError("Cannot have X=None and also not allow for a CATE intercept!")
             F = np.ones((T.shape[0], 1))
@@ -216,7 +216,7 @@ class _FinalWrapper:
                                              self._d_t, self._d_y)
 
 
-class _BaseDMLCateEstimator(_RLearner):
+class _BaseDML(_RLearner):
     # A helper class that access all the internal fitted objects of a DML Cate Estimator. Used by
     # both Parametric and Non Parametric DML.
 
@@ -299,7 +299,7 @@ class _BaseDMLCateEstimator(_RLearner):
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
-class DMLCateEstimator(LinearModelFinalCateEstimatorMixin, _BaseDMLCateEstimator):
+class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     """
     The base class for parametric Double ML estimators. The estimator is a special
     case of an :class:`._RLearner` estimator, which in turn is a special case
@@ -324,7 +324,7 @@ class DMLCateEstimator(LinearModelFinalCateEstimatorMixin, _BaseDMLCateEstimator
     Where :math:`\\tilde{Y}=Y - \\E[Y | X, W]` and :math:`\\tilde{T}=T-\\E[T | X, W]` denotes the
     residual outcome and residual treatment.
 
-    The DMLCateEstimator further assumes a linear parametric form for the cate, i.e. for each outcome
+    The DML estimator further assumes a linear parametric form for the cate, i.e. for each outcome
     :math:`i` and treatment :math:`j`:
 
     .. math ::
@@ -335,12 +335,12 @@ class DMLCateEstimator(LinearModelFinalCateEstimatorMixin, _BaseDMLCateEstimator
     interface :class:`~sklearn.base.TransformerMixin`).
 
     The second nuisance function :math:`q` is a simple regression problem and the
-    :class:`.DMLCateEstimator`
+    :class:`.DML`
     class takes as input the parameter `model_y`, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem.
 
     The problem of estimating the nuisance function :math:`f` is also a regression problem and
-    the :class:`.DMLCateEstimator`
+    the :class:`.DML`
     class takes as input the parameter `model_t`, which is an arbitrary scikit-learn regressor that
     is internally used to solve this regression problem. If the init flag `discrete_treatment` is set
     to `True`, then the parameter `model_t` is treated as a scikit-learn classifier. The input categorical
@@ -351,7 +351,7 @@ class DMLCateEstimator(LinearModelFinalCateEstimatorMixin, _BaseDMLCateEstimator
     The final stage is (potentially multi-task) linear regression problem with outcomes the labels
     :math:`\\tilde{Y}` and regressors the composite features
     :math:`\\tilde{T}\\otimes \\phi(X) = \\mathtt{vec}(\\tilde{T}\\cdot \\phi(X)^T)`.
-    The :class:`.DMLCateEstimator` takes as input parameter
+    The :class:`.DML` takes as input parameter
     ``model_final``, which is any linear scikit-learn regressor that is internally used to solve this
     (multi-task) linear regresion problem.
 
@@ -477,7 +477,7 @@ class DMLCateEstimator(LinearModelFinalCateEstimatorMixin, _BaseDMLCateEstimator
                            inference=inference)
 
 
-class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
+class LinearDML(StatsModelsCateEstimatorMixin, DML):
     """
     The Double ML Estimator with a low-dimensional linear final stage implemented as a statsmodel regression.
 
@@ -594,7 +594,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
                            inference=inference)
 
 
-class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstimator):
+class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
     """
     A specialized version of the Double ML estimator for the sparse linear case.
 
@@ -744,7 +744,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self._discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
-                               "We recommend using the LinearDMLCateEstimator for this low-dimensional setting.")
+                               "We recommend using the LinearDML estimator for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            inference=inference)
@@ -765,7 +765,7 @@ class _RandomFeatures(TransformerMixin):
         return np.sqrt(2 / self._dim) * np.cos(np.matmul(X, self.omegas) + self.biases)
 
 
-class KernelDMLCateEstimator(DMLCateEstimator):
+class KernelDML(DML):
     """
     A specialized version of the linear Double ML Estimator that uses random fourier features.
 
@@ -834,7 +834,7 @@ class KernelDMLCateEstimator(DMLCateEstimator):
                          n_splits=n_splits, random_state=random_state)
 
 
-class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
+class NonParamDML(_BaseDML):
     """
     The base class for non-parametric Double ML estimators, that can have arbitrary final ML models of the CATE.
     Works only for single-dimensional continuous treatment or for binary categorical treatment and uses
@@ -913,8 +913,8 @@ class NonParamDMLCateEstimator(_BaseDMLCateEstimator):
                          random_state=random_state)
 
 
-class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCateEstimator):
-    """ Instance of NonParamDMLCateEstimator with a
+class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
+    """ Instance of NonParamDML with a
     :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
 
@@ -1140,3 +1140,39 @@ class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCate
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            inference=inference)
+
+
+@deprecated("The DMLCateEstimator class has been renamed to DML; "
+            "an upcoming release will remove support for the old name")
+class DMLCateEstimator(DML):
+    pass
+
+
+@deprecated("The LinearDMLCateEstimator class has been renamed to LinearDML; "
+            "an upcoming release will remove support for the old name")
+class LinearDMLCateEstimator(LinearDML):
+    pass
+
+
+@deprecated("The SparseLinearDMLCateEstimator class has been renamed to SparseLinearDML; "
+            "an upcoming release will remove support for the old name")
+class SparseLinearDMLCateEstimator(SparseLinearDML):
+    pass
+
+
+@deprecated("The KernelDMLCateEstimator class has been renamed to KernelDML; "
+            "an upcoming release will remove support for the old name")
+class KernelDMLCateEstimator(KernelDML):
+    pass
+
+
+@deprecated("The NonParamDMLCateEstimator class has been renamed to NonParamDML; "
+            "an upcoming release will remove support for the old name")
+class NonParamDMLCateEstimator(NonParamDML):
+    pass
+
+
+@deprecated("The ForestDMLCateEstimator class has been renamed to ForestDML; "
+            "an upcoming release will remove support for the old name")
+class ForestDMLCateEstimator(ForestDML):
+    pass

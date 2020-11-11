@@ -1027,3 +1027,18 @@ class TestDML(unittest.TestCase):
         est = LinearDMLCateEstimator(n_splits=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, groups=groups)
+
+    def test_deprecation(self):
+
+        # make sure we warn when using old aliases
+        with self.assertWarns(FutureWarning):
+            est = LinearDMLCateEstimator()
+
+        # make sure we can use the old alias as a type
+        self.assertIsInstance(est, LinearDMLCateEstimator)
+
+        # make sure that we can still pickle the old aliases
+        import pickle
+
+        d = pickle.dumps(LinearDMLCateEstimator())
+        e = pickle.loads(d)
