@@ -11,12 +11,12 @@ from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import DMLCateEstimator, LinearDMLCateEstimator, SparseLinearDMLCateEstimator, KernelDMLCateEstimator
 from econml.dml import NonParamDMLCateEstimator, ForestDMLCateEstimator
 import numpy as np
-from econml.utilities import shape, hstack, vstack, reshape, cross_product
+from econml.utilities import shape, hstack, vstack, reshape, cross_product, StatsModelsLinearRegression
 from econml.inference import BootstrapInference
 from contextlib import ExitStack
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
 from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 
@@ -115,6 +115,14 @@ class TestDML(unittest.TestCase):
                                       True,
                                       [None] +
                                       ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
+                                     (DMLCateEstimator(model_y=Lasso(),
+                                                       model_t=model_t,
+                                                       model_final=StatsModelsRLM(fit_intercept=False),
+                                                       featurizer=featurizer,
+                                                       fit_cate_intercept=fit_cate_intercept,
+                                                       discrete_treatment=is_discrete),
+                                      False,
+                                      ['auto']),
                                      (LinearDMLCateEstimator(model_y=Lasso(),
                                                              model_t='auto',
                                                              featurizer=featurizer,
@@ -375,7 +383,7 @@ class TestDML(unittest.TestCase):
                                                                              model_t=model_t,
                                                                              discrete_treatment=is_discrete),
                                                       True,
-                                                      base_infs + ['blb'])]:
+                                                      base_infs + ['auto', 'blb'])]:
 
                                 if not(multi) and d_y > 1:
                                     continue

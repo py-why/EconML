@@ -1428,7 +1428,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          categories=categories)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    def fit(self, Y, T, Z, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference=None):
+    def fit(self, Y, T, Z, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 

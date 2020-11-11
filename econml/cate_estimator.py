@@ -486,6 +486,11 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         than as a separate ``intercept_``
     """
 
+    def _get_inference_options(self):
+        options = super()._get_inference_options()
+        options.update(auto=LinearModelFinalInference)
+        return options
+
     bias_part_of_coef = False
 
     @property
@@ -609,6 +614,14 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         smry = Summary()
+        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
+                            "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
+                            "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:",
+                            "$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$",
+                            "where $\\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
+                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                            "each outcome $i$ and treatment $j$. "
+                            "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
         try:
@@ -630,10 +643,10 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
                                  in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
             intercept_stubs = [i + ' | ' + j for (i, j)
                                in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
-            intercept_title = 'Intercept Results'
+            intercept_title = 'CATE Intercept Results'
             smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
         except Exception as e:
-            print("Intercept Results: ", str(e))
+            print("CATE Intercept Results: ", str(e))
         if len(smry.tables) > 0:
             return smry
 
@@ -652,6 +665,7 @@ class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
         # add statsmodels to parent's options
         options = super()._get_inference_options()
         options.update(statsmodels=StatsModelsInference)
+        options.update(auto=StatsModelsInference)
         return options
 
 
@@ -662,6 +676,7 @@ class DebiasedLassoCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
         # add debiasedlasso to parent's options
         options = super()._get_inference_options()
         options.update(debiasedlasso=LinearModelFinalInference)
+        options.update(auto=LinearModelFinalInference)
         return options
 
 
@@ -671,6 +686,7 @@ class ForestModelFinalCateEstimatorMixin(BaseCateEstimator):
         # add blb to parent's options
         options = super()._get_inference_options()
         options.update(blb=GenericSingleTreatmentModelFinalInference)
+        options.update(auto=GenericSingleTreatmentModelFinalInference)
         return options
 
     @property
@@ -686,6 +702,11 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
     Subclasses must expose a ``fitted_models_final`` attribute
     returning an array of the fitted models for each non-control treatment
     """
+
+    def _get_inference_options(self):
+        options = super()._get_inference_options()
+        options.update(auto=LinearModelFinalInferenceDiscrete)
+        return options
 
     def coef_(self, T):
         """ The coefficients in the linear model of the constant marginal treatment
@@ -826,6 +847,15 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             converted to various output formats.
         """
         smry = Summary()
+        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
+                            "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
+                            "where $T$ is the one-hot-encoding of the discrete treatment and "
+                            "for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:",
+                            "$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$",
+                            "where $\\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
+                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                            "each outcome $i$ and the designated treatment $j$ passed to summary. "
+                            "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
         try:
             coef_table = self.coef__inference(T).summary_frame(
                 alpha=alpha, value=value, decimals=decimals, feat_name=feat_name)
@@ -842,10 +872,10 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             intercept_array = intercept_table.values
             intercept_headers = intercept_table.columns.tolist()
             intercept_stubs = intercept_table.index.tolist()
-            intercept_title = 'Intercept Results'
+            intercept_title = 'CATE Intercept Results'
             smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
         except Exception as e:
-            print("Intercept Results: ", e)
+            print("CATE Intercept Results: ", e)
 
         if len(smry.tables) > 0:
             return smry
@@ -866,6 +896,7 @@ class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscret
         # add statsmodels to parent's options
         options = super()._get_inference_options()
         options.update(statsmodels=StatsModelsInferenceDiscrete)
+        options.update(auto=StatsModelsInferenceDiscrete)
         return options
 
 
@@ -876,6 +907,7 @@ class DebiasedLassoCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscr
         # add statsmodels to parent's options
         options = super()._get_inference_options()
         options.update(debiasedlasso=LinearModelFinalInferenceDiscrete)
+        options.update(auto=LinearModelFinalInferenceDiscrete)
         return options
 
 
@@ -885,6 +917,7 @@ class ForestModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         # add blb to parent's options
         options = super()._get_inference_options()
         options.update(blb=GenericModelFinalInferenceDiscrete)
+        options.update(auto=GenericModelFinalInferenceDiscrete)
         return options
 
     def feature_importances_(self, T):
