@@ -12,7 +12,7 @@ from collections import defaultdict, Counter
 from sklearn import clone
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
-from functools import reduce
+from functools import reduce, wraps
 from sklearn.utils import check_array, check_X_y
 from statsmodels.tools.tools import add_constant
 import warnings
@@ -1519,3 +1519,38 @@ class _EncoderWrapper:
 
         result = self._one_hot_encoder.transform(reshape(arr, (-1, 1)))
         return result[:, 1:] if self._drop_first else result
+
+
+def deprecated(message, category=FutureWarning):
+    """
+    Enables decorating a method or class to providing a warning when it is used.
+
+    Parameters
+    ----------
+    message: string
+        The deprecation message to use
+    category: optional :class:`type`, default :class:`FutureWarning`
+        The warning category to use
+    """
+    def decorator(to_wrap):
+
+        # if we're decorating a class, just update the __init__ method,
+        # so that the result is still a class instead of a wrapper method
+        if isinstance(to_wrap, type):
+            old_init = to_wrap.__init__
+
+            @wraps(to_wrap.__init__)
+            def new_init(*args, **kwargs):
+                warn(message, category, stacklevel=2)
+                old_init(*args, **kwargs)
+
+            to_wrap.__init__ = new_init
+
+            return to_wrap
+        else:
+            @wraps(to_wrap)
+            def m(*args, **kwargs):
+                warn(message, category, stacklevel=2)
+                return to_wrap(*args, **kwargs)
+            return m
+    return decorator
