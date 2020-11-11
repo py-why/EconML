@@ -558,7 +558,7 @@ class LinearDMLCateEstimator(StatsModelsCateEstimatorMixin, DMLCateEstimator):
                          random_state=random_state)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -704,7 +704,7 @@ class SparseLinearDMLCateEstimator(DebiasedLassoCateEstimatorMixin, DMLCateEstim
                          n_splits=n_splits,
                          random_state=random_state)
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1105,7 +1105,7 @@ class ForestDMLCateEstimator(ForestModelFinalCateEstimatorMixin, NonParamDMLCate
                          categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
