@@ -48,7 +48,7 @@ class TestInference(unittest.TestCase):
             fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
-            np.testing.assert_array_equal(intercept_rows, ['intercept'])
+            np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
 
             cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(),
                                               featurizer=PolynomialFeatures(degree=2,
@@ -140,7 +140,7 @@ class TestInference(unittest.TestCase):
             fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
-            np.testing.assert_array_equal(intercept_rows, ['intercept'])
+            np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
 
             cate_est = LinearDRLearner(model_regression=LinearRegression(),
                                        model_propensity=LogisticRegression(),
