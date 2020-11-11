@@ -614,14 +614,14 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         smry = Summary()
-        smry.add_extra_txt(["A linear parametric conditional average treatment effect (CATE) model was fitted:",
+        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
                             "$Y = \Theta(X)\cdot T + g(X, W) + \epsilon$",
                             "where for every outcome $i$ and treatment $j$ the CATE $\Theta_{ij}(X)$ has the form:",
                             "$\Theta_{ij}(X) = \phi(X)' coef_{ij} + cate\_intercept_{ij}$",
                             "where $\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
                             "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
                             "each outcome $i$ and treatment $j$. "
-                            "Intercept Results table portrays the $cate\_intercept_{ij}$ parameter."])
+                            "Intercept Results table portrays the $cate\_intercept_{ij}$ parameter.</sub>"])
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
         try:
@@ -847,7 +847,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             converted to various output formats.
         """
         smry = Summary()
-        smry.add_extra_txt(["A linear parametric conditional average treatment effect (CATE) model was fitted:",
+        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
                             "$Y = \Theta(X)\cdot T + g(X, W) + \epsilon$",
                             "where $T$ is the one-hot-encoding of the discrete treatment and "
                             "for every outcome $i$ and treatment $j$ the CATE $\Theta_{ij}(X)$ has the form:",
@@ -855,7 +855,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
                             "where $\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
                             "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
                             "each outcome $i$ and the designated treatment $j$ passed to summary. "
-                            "Intercept Results table portrays the $cate\_intercept_{ij}$ parameter."])
+                            "Intercept Results table portrays the $cate\_intercept_{ij}$ parameter.</sub>"])
         try:
             coef_table = self.coef__inference(T).summary_frame(
                 alpha=alpha, value=value, decimals=decimals, feat_name=feat_name)
