@@ -69,7 +69,7 @@ def setAutomatedMLWorkspace(create_workspace=False,
 
     subscription_id: String, required
        Definition of a class that will serve as the parent class of the
-       AutomatedMLMixin. This class must inherit from _BaseDMLCateEstimator.
+       AutomatedMLMixin. This class must inherit from _BaseDML.
 
     resource_group: String, required
        Name of resource group of workspace to be created or set.

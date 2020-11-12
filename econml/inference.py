@@ -294,7 +294,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
 class StatsModelsInference(LinearModelFinalInference):
     """Stores statsmodels covariance options.
 
-    This class can be used for inference by the LinearDMLCateEstimator.
+    This class can be used for inference by the LinearDML.
 
     Parameters
     ----------

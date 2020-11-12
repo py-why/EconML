@@ -134,11 +134,11 @@ To install from source, see [For Developers](#for-developers) section below.
   * Linear final stage
 
   ```Python
-  from econml.dml import LinearDMLCateEstimator
+  from econml.dml import LinearDML
   from sklearn.linear_model import LassoCV
   from econml.inference import BootstrapInference
 
-  est = LinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
+  est = LinearDML(model_y=LassoCV(), model_t=LassoCV())
   ### Estimate with OLS confidence intervals
   est.fit(Y, T, X, W, inference='statsmodels') # W -> high-dimensional confounders, X -> features
   treatment_effects = est.effect(X_test)
@@ -153,10 +153,10 @@ To install from source, see [For Developers](#for-developers) section below.
   * Sparse linear final stage
 
   ```Python
-  from econml.dml import SparseLinearDMLCateEstimator
+  from econml.dml import SparseLinearDML
   from sklearn.linear_model import LassoCV
 
-  est = SparseLinearDMLCateEstimator(model_y=LassoCV(), model_t=LassoCV())
+  est = SparseLinearDML(model_y=LassoCV(), model_t=LassoCV())
   est.fit(Y, T, X, W, inference='debiasedlasso') # X -> high dimensional features
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via debiased lasso
@@ -165,10 +165,10 @@ To install from source, see [For Developers](#for-developers) section below.
   * Nonparametric last stage
   
   ```Python
-  from econml.dml import ForestDMLCateEstimator
+  from econml.dml import ForestDML
   from sklearn.ensemble import GradientBoostingRegressor
 
-  est = ForestDMLCateEstimator(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
+  est = ForestDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
   est.fit(Y, T, X, W, inference='blb') 
   treatment_effects = est.effect(X_test)
   # Confidence intervals via Bootstrap-of-Little-Bags for forests

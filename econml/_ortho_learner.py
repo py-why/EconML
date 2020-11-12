@@ -316,7 +316,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     The example code below implements a very simple version of the double machine learning
     method on top of the :class:`._OrthoLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
-    :class:`._OrthoLearner` check out :class:`.DMLCateEstimator`
+    :class:`._OrthoLearner` check out :class:`.DML`
     and its child classes:
 
     .. testcode::

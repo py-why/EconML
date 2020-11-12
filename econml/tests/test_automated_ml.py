@@ -38,14 +38,14 @@ try:
     AutomatedDomainAdaptationLearner = \
         addAutomatedML(DomainAdaptationLearner)
     AutomatedDRLearner = addAutomatedML(DRLearner)
-    AutomatedDMLCateEstimator = addAutomatedML(DMLCateEstimator)
-    AutomatedLinearDMLCateEstimator = addAutomatedML(LinearDMLCateEstimator)
-    AutomatedSparseLinearDMLCateEstimator = \
-        addAutomatedML(SparseLinearDMLCateEstimator)
-    AutomatedKernelDMLCateEstimator = addAutomatedML(KernelDMLCateEstimator)
-    AutomatedNonParamDMLCateEstimator = \
-        addAutomatedML(NonParamDMLCateEstimator)
-    AutomatedForestDMLCateEstimator = addAutomatedML(ForestDMLCateEstimator)
+    AutomatedDML = addAutomatedML(DML)
+    AutomatedLinearDML = addAutomatedML(LinearDML)
+    AutomatedSparseLinearDML = \
+        addAutomatedML(SparseLinearDML)
+    AutomatedKernelDML = addAutomatedML(KernelDML)
+    AutomatedNonParamDML = \
+        addAutomatedML(NonParamDML)
+    AutomatedForestDML = addAutomatedML(ForestDML)
 
     AUTOML_SETTINGS_REG = {
         'experiment_timeout_minutes': 1,
@@ -133,37 +133,37 @@ class TestAutomatedDML(unittest.TestCase):
                                 resource_group=resource_group, workspace_name=workspace_name)
 
     def test_nonparam(self):
-        """Testing the completion of the fit and effect estimation of an automated Nonparametic DMLCateEstimator"""
+        """Testing the completion of the fit and effect estimation of an automated Nonparametic DML"""
         Y, T, X, _ = ihdp_surface_B()
-        est = AutomatedNonParamDMLCateEstimator(model_y=automl_model_reg(),
-                                                model_t=automl_model_clf(),
-                                                model_final=automl_model_sample_weight_reg(), featurizer=None,
-                                                discrete_treatment=True)
+        est = AutomatedNonParamDML(model_y=automl_model_reg(),
+                                   model_t=automl_model_clf(),
+                                   model_final=automl_model_sample_weight_reg(), featurizer=None,
+                                   discrete_treatment=True)
         est.fit(Y, T, X)
         _ = est.effect(X)
 
     def test_param(self):
-        """Testing the completion of the fit and effect estimation of an automated Parametric DMLCateEstimator"""
+        """Testing the completion of the fit and effect estimation of an automated Parametric DML"""
         Y, T, X, _ = ihdp_surface_B()
-        est = AutomatedLinearDMLCateEstimator(model_y=automl_model_reg(),
-                                              model_t=GradientBoostingClassifier(),
-                                              featurizer=None,
-                                              discrete_treatment=True)
+        est = AutomatedLinearDML(model_y=automl_model_reg(),
+                                 model_t=GradientBoostingClassifier(),
+                                 featurizer=None,
+                                 discrete_treatment=True)
         est.fit(Y, T, X)
         _ = est.effect(X)
 
     def test_forest_dml(self):
-        """Testing the completion of the fit and effect estimation of an AutomatedForestDMLCateEstimator"""
+        """Testing the completion of the fit and effect estimation of an AutomatedForestDML"""
 
         Y, T, X, _ = ihdp_surface_B()
-        est = AutomatedForestDMLCateEstimator(model_y=automl_model_reg(),
-                                              model_t=GradientBoostingClassifier(),
-                                              discrete_treatment=True,
-                                              n_estimators=1000,
-                                              subsample_fr=.8,
-                                              min_samples_leaf=10,
-                                              min_impurity_decrease=0.001,
-                                              verbose=0, min_weight_fraction_leaf=.01)
+        est = AutomatedForestDML(model_y=automl_model_reg(),
+                                 model_t=GradientBoostingClassifier(),
+                                 discrete_treatment=True,
+                                 n_estimators=1000,
+                                 subsample_fr=.8,
+                                 min_samples_leaf=10,
+                                 min_impurity_decrease=0.001,
+                                 verbose=0, min_weight_fraction_leaf=.01)
         est.fit(Y, T, X)
         _ = est.effect(X)
 

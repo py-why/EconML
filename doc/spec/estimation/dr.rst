@@ -309,7 +309,7 @@ Below we give a brief description of each of these classes:
           This method is related to the :class:`.DiscreteTreatmentOrthoForest` and you can check [Oprescu2019]_ for more technical details;
           the main difference being how the nuisance models are being constructed for the CATE estimation at some
           target :math:`X=x`. Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
-          alternatives to the :class:`.ForestDMLCateEstimator`.
+          alternatives to the :class:`.ForestDML`.
 
 
 Usage FAQs

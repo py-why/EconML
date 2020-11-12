@@ -6,7 +6,7 @@ import unittest
 import pytest
 import graphviz
 from econml.cate_interpreter import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
-from econml.dml import LinearDMLCateEstimator
+from econml.dml import LinearDML
 
 graphviz_works = True
 try:
@@ -28,7 +28,7 @@ class TestCateInterpreter(unittest.TestCase):
                 X = np.random.normal(size=(n, 4))
                 T = np.random.binomial(1, 0.5, size=t_shape)
                 Y = np.random.normal(size=y_shape)
-                est = LinearDMLCateEstimator(discrete_treatment=True)
+                est = LinearDML(discrete_treatment=True)
                 est.fit(Y, T, X)
                 for intrp in [SingleTreeCateInterpreter(), SingleTreePolicyInterpreter()]:
                     with self.subTest(t_shape=t_shape, y_shape=y_shape, intrp=intrp):
@@ -49,7 +49,7 @@ class TestCateInterpreter(unittest.TestCase):
         X = np.random.normal(size=(n, 4))
         T = np.random.binomial(1, 0.5, size=(n,))
         Y = np.random.normal(size=(n,))
-        est = LinearDMLCateEstimator(discrete_treatment=True)
+        est = LinearDML(discrete_treatment=True)
         est.fit(Y, T, X, inference=None)
 
         # can interpret without uncertainty
@@ -70,7 +70,7 @@ class TestCateInterpreter(unittest.TestCase):
         X = np.random.normal(size=(n, 4))
         T = np.random.binomial(1, 0.5, size=(n,))
         Y = np.random.normal(size=(n,))
-        est = LinearDMLCateEstimator(discrete_treatment=True)
+        est = LinearDML(discrete_treatment=True)
         est.fit(Y, T, X)
 
         # can interpret without uncertainty
@@ -95,7 +95,7 @@ class TestCateInterpreter(unittest.TestCase):
             T = np.random.binomial(1, 0.5, size=t_shape) if discrete_t else np.random.normal(size=t_shape)
             Y = np.random.normal(size=y_shape)
 
-            est = LinearDMLCateEstimator(discrete_treatment=discrete_t)
+            est = LinearDML(discrete_treatment=discrete_t)
 
             fit_kwargs = {}
             cate_init_kwargs = {}
