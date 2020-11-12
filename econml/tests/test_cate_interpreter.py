@@ -62,7 +62,7 @@ class TestCateInterpreter(unittest.TestCase):
             intrp.interpret(est, X)
 
         # can interpret with uncertainty if we refit
-        est.fit(Y, T, X, inference='statsmodels')
+        est.fit(Y, T, X)
         intrp.interpret(est, X)
 
     def test_can_assign_treatment(self):
@@ -108,9 +108,10 @@ class TestCateInterpreter(unittest.TestCase):
             export_kwargs = {}
 
             if self.coinflip():
-                fit_kwargs.update(inference='statsmodels')
                 cate_init_kwargs.update(include_model_uncertainty=True)
                 policy_init_kwargs.update(risk_level=0.1)
+            else:
+                fit_kwargs.update(inference=None)
 
             if self.coinflip():
                 cate_init_kwargs.update(uncertainty_level=0.01)

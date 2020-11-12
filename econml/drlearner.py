@@ -550,8 +550,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     Special case of the :class:`.DRLearner` where the final stage
     is a Linear Regression on a low dimensional set of features. In this case, inference
     can be performed via the asymptotic normal characterization of the estimated parameters.
-    This is computationally faster than bootstrap inference. Set ``inference='statsmodels'``
-    at fit time, to enable inference via asymptotic normality.
+    This is computationally faster than bootstrap inference. To do this, just leave the setting ``inference='auto'``
+    unchanged, or explicitly set ``inference='statsmodels'`` or alter the covariance type calculation via
+    ``inference=StatsModelsInferenceDiscrete(cov_type='HC1)``.
 
     More concretely, this estimator assumes that the final cate model for each treatment takes a linear form:
 
@@ -640,7 +641,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = LinearDRLearner()
-        est.fit(y, T, X=X, W=None, inference='statsmodels')
+        est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
     array([ 0.409743...,  0.312604..., -0.127394...])
@@ -744,8 +745,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     Special case of the :class:`.DRLearner` where the final stage
     is a Debiased Lasso Regression. In this case, inference can be performed via the debiased lasso approach
     and its asymptotic normal characterization of the estimated parameters. This is computationally
-    faster than bootstrap inference. Set ``inference='debiasedlasso'`` at fit time, to enable inference
-    via asymptotic normality.
+    faster than bootstrap inference. Leave the default ``inference='auto'`` unchanged, or explicitly set
+    ``inference='debiasedlasso'`` at fit time to enable inference via asymptotic normality.
 
     More concretely, this estimator assumes that the final cate model for each treatment takes a linear form:
 
@@ -847,7 +848,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = SparseLinearDRLearner()
-        est.fit(y, T, X=X, W=None, inference='debiasedlasso')
+        est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
     array([ 0.418400...,  0.306400..., -0.130733...])

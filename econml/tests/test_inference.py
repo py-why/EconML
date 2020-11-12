@@ -31,7 +31,7 @@ class TestInference(unittest.TestCase):
         """Tests the inference results summary for continuous treatment estimators."""
         # Test inference results when `cate_feature_names` doesn not exist
 
-        for inference in [BootstrapInference(n_bootstrap_samples=5), 'statsmodels']:
+        for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
             cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
                                  featurizer=PolynomialFeatures(degree=2,
                                                                include_bias=False)
@@ -123,7 +123,7 @@ class TestInference(unittest.TestCase):
         """Tests the inference results summary for discrete treatment estimators."""
         # Test inference results when `cate_feature_names` doesn not exist
 
-        for inference in [BootstrapInference(n_bootstrap_samples=5), 'statsmodels']:
+        for inference in [BootstrapInference(n_bootstrap_samples=5), 'auto']:
             cate_est = LinearDRLearner(model_regression=LinearRegression(), model_propensity=LogisticRegression(),
                                        featurizer=PolynomialFeatures(degree=2,
                                                                      include_bias=False)
@@ -265,8 +265,7 @@ class TestInference(unittest.TestCase):
             TestInference.Y,
             TestInference.T,
             TestInference.X,
-            TestInference.W,
-            inference='statsmodels'
+            TestInference.W
         ).summary()
 
         LinearDRLearner(model_regression=LinearRegression(),

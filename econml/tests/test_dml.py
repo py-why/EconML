@@ -103,7 +103,7 @@ class TestDML(unittest.TestCase):
 
                                 model_t = LogisticRegression() if is_discrete else Lasso()
 
-                                all_infs = [None, 'statsmodels', BootstrapInference(2)]
+                                all_infs = [None, 'auto', BootstrapInference(2)]
 
                                 for est, multi, infs in\
                                     [(DML(model_y=Lasso(),
@@ -136,7 +136,7 @@ class TestDML(unittest.TestCase):
                                                       fit_cate_intercept=fit_cate_intercept,
                                                       discrete_treatment=is_discrete),
                                       True,
-                                      [None, 'debiasedlasso'] +
+                                      [None, 'auto'] +
                                       ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
                                      (KernelDML(model_y=WeightedLasso(),
                                                 model_t=model_t,
@@ -423,7 +423,7 @@ class TestDML(unittest.TestCase):
                                                              (2,) + const_marginal_effect_shape)
                                             self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
                                                              (2,) + effect_shape)
-                                            if inf in ['statsmodels', 'debiasedlasso', 'blb']:
+                                            if inf in ['auto', 'statsmodels', 'debiasedlasso', 'blb']:
                                                 const_marg_effect_inf = est.const_marginal_effect_inference(X)
                                                 T1 = np.full_like(T, 'b') if is_discrete else T
                                                 effect_inf = est.effect_inference(X, T0=T0, T1=T1)
@@ -613,12 +613,12 @@ class TestDML(unittest.TestCase):
                 if summarized:
                     if sample_var:
                         est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
-                                sample_weight=n_sum, sample_var=var_sum, inference='blb')
+                                sample_weight=n_sum, sample_var=var_sum)
                     else:
                         est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
-                                sample_weight=n_sum, inference='blb')
+                                sample_weight=n_sum)
                 else:
-                    est.fit(y, T, X[:, :4], X[:, 4:], inference='blb')
+                    est.fit(y, T, X[:, :4], X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
                 truth = true_fn(X_test)
@@ -640,12 +640,12 @@ class TestDML(unittest.TestCase):
                 if summarized:
                     if sample_var:
                         est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
-                                sample_weight=n_sum, sample_var=var_sum, inference='blb')
+                                sample_weight=n_sum, sample_var=var_sum)
                     else:
                         est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
-                                sample_weight=n_sum, inference='blb')
+                                sample_weight=n_sum)
                 else:
-                    est.fit(y, T, X[:, :4], X[:, 4:], inference='blb')
+                    est.fit(y, T, X[:, :4], X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
                 truth = true_fn(X_test)
@@ -727,7 +727,7 @@ class TestDML(unittest.TestCase):
         Y = np.concatenate([Y, 0 * Y, -Y])
         X = np.repeat([[7, 8, 9]], 6, axis=1).T
 
-        dml.fit(Y, T, X=X, inference='statsmodels')
+        dml.fit(Y, T, X=X)
 
         # because there is one fewer unique element in the test set, fit_transform would return the wrong number of fts
         X_test = np.array([[7, 8]]).T
@@ -746,7 +746,7 @@ class TestDML(unittest.TestCase):
         dml = LinearDML(LinearRegression(), LogisticRegression(C=1000),
                         discrete_treatment=True)
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
-            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)), inference='statsmodels')
+            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
         interval = dml.effect_interval(np.ones((9, 1)),
                                        T0=np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
                                        T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]),
@@ -847,7 +847,7 @@ class TestDML(unittest.TestCase):
         # Test sparse estimator
         # --> test coef_, intercept_
         sparse_dml = SparseLinearDML(fit_cate_intercept=False)
-        sparse_dml.fit(Y, T, x, w, inference='debiasedlasso')
+        sparse_dml.fit(Y, T, x, w)
         np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
         with pytest.raises(AttributeError):
             sparse_dml.intercept_

@@ -124,7 +124,7 @@ class TestOrthoIV(unittest.TestCase):
                                                                 flexible_model_effect=WeightedLasso(),
                                                                 n_splits=2),
                                         False,
-                                        all_infs + ['statsmodels']))
+                                        all_infs + ['auto']))
 
                                 for est, multi, infs in estimators:
                                     if not(multi) and d_y > 1 or d_t > 1 or d_z > 1:
@@ -322,8 +322,7 @@ class TestOrthoIV(unittest.TestCase):
         est.fit(np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2]),
                 np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2]),
                 np.array([1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2]),
-                X=np.array([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]).reshape(-1, 1),
-                inference='statsmodels')
+                X=np.array([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]).reshape(-1, 1))
         interval = est.effect_interval(np.ones((9, 1)),
                                        T0=np.array([1, 1, 1, 2, 2, 2, 1, 1, 1]),
                                        T1=np.array([1, 2, 1, 1, 2, 2, 2, 2, 1]),
