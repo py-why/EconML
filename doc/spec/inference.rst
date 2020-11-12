@@ -27,9 +27,9 @@ For instance:
 
 .. testcode::
 
-    from econml.dml import NonParamDMLCateEstimator
+    from econml.dml import NonParamDML
     from sklearn.ensemble import RandomForestRegressor
-    est = NonParamDMLCateEstimator(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+    est = NonParamDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                 model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                 model_final=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
     est.fit(y, t, X, W, inference='bootstrap')
@@ -46,14 +46,14 @@ normality-based confidence intervals by setting ``inference='statsmodels'`` or d
 alter the covariance type calculation via
 ``inference=StatsModelsInference(cov_type='HC1)`` or ``inference=StatsModelsInferenceDiscrete(cov_type='HC1)``.
 See :class:`.StatsModelsInference` and :class:`.StatsModelsInferenceDiscrete` for more details.
-This for instance holds for the :class:`.LinearDMLCateEstimator` and the
+This for instance holds for the :class:`.LinearDML` and the
 :class:`.LinearDRLearner`, e.g.:
 
 .. testcode::
 
-    from econml.dml import LinearDMLCateEstimator
+    from econml.dml import LinearDML
     from sklearn.ensemble import RandomForestRegressor
-    est = LinearDMLCateEstimator(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+    est = LinearDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                  model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
     est.fit(y, t, X, W, inference='statsmodels')
     point = est.const_marginal_effect(X)
@@ -77,14 +77,14 @@ Debiased Lasso Inference
 
 For estimators where the final stage CATE estimate is based on a high dimensional linear model with a sparsity
 constraint, then we offer confidence intervals using the debiased lasso technique. This for instance
-holds for the :class:`.SparseLinearDMLCateEstimator` and the :class:`.SparseLinearDRLearner`. You can enable such
+holds for the :class:`.SparseLinearDML` and the :class:`.SparseLinearDRLearner`. You can enable such
 intervals by setting ``inference='debiasedlasso'``, e.g.:
 
 .. testcode::
 
-    from econml.dml import SparseLinearDMLCateEstimator
+    from econml.dml import SparseLinearDML
     from sklearn.ensemble import RandomForestRegressor
-    est = SparseLinearDMLCateEstimator(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+    est = SparseLinearDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                        model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
     est.fit(y, t, X, W, inference='debiasedlasso')
     point = est.const_marginal_effect(X)
@@ -110,14 +110,14 @@ Subsampled Honest Forest Inference
 
 For estimators where the final stage CATE estimate is a non-parametric model based on a Random Forest, we offer
 confidence intervals via the bootstrap-of-little-bags approach (see [Athey2019]_) for estimating the uncertainty of
-an Honest Random Forest. This for instance holds for the :class:`.ForestDMLCateEstimator`
+an Honest Random Forest. This for instance holds for the :class:`.ForestDML`
 and the :class:`.ForestDRLearner`. You can enable such intervals by setting ``inference='blb'``, e.g.:
 
 .. testcode::
 
-    from econml.dml import ForestDMLCateEstimator
+    from econml.dml import ForestDML
     from sklearn.ensemble import RandomForestRegressor
-    est = ForestDMLCateEstimator(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+    est = ForestDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                  model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
     est.fit(y, t, X, W, inference='blb')
     point = est.const_marginal_effect(X)

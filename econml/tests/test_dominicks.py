@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import urllib.request
 from econml.utilities import reshape, shape
-from econml.dml import LinearDMLCateEstimator
+from econml.dml import LinearDML
 from sklearn.base import TransformerMixin
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import RidgeCV, LinearRegression
@@ -98,10 +98,10 @@ def test_dominicks():
         ft = PriceFeaturizer(n_prods=3, own_price=op, cross_price_groups=xp_g,
                              cross_price_indiv=xp_i, per_product_effects=pp)
         names = ft.names
-        dml = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                     model_t=RandomForestRegressor(),
-                                     featurizer=ft,
-                                     n_splits=2)
+        dml = LinearDML(model_y=RandomForestRegressor(),
+                        model_t=RandomForestRegressor(),
+                        featurizer=ft,
+                        n_splits=2)
 
         effects = []
         for store in stores:
@@ -126,10 +126,10 @@ def test_dominicks():
     print("Vanilla HTE+XP")
 
     np.random.seed(42)
-    dml = LinearDMLCateEstimator(model_y=RandomForestRegressor(),
-                                 model_t=RandomForestRegressor(),
-                                 featurizer=ConstFt(),
-                                 n_splits=2)
+    dml = LinearDML(model_y=RandomForestRegressor(),
+                    model_t=RandomForestRegressor(),
+                    featurizer=ConstFt(),
+                    n_splits=2)
 
     effects = []
     for store in stores:

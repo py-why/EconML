@@ -6,7 +6,7 @@ import unittest
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from econml.dml import LinearDMLCateEstimator
+from econml.dml import LinearDML
 from econml.drlearner import LinearDRLearner
 from econml.inference import (BootstrapInference, NormalInferenceResults,
                               EmpiricalInferenceResults, PopulationSummaryResults)
@@ -32,10 +32,10 @@ class TestInference(unittest.TestCase):
         # Test inference results when `cate_feature_names` doesn not exist
 
         for inference in [BootstrapInference(n_bootstrap_samples=5), 'statsmodels']:
-            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(),
-                                              featurizer=PolynomialFeatures(degree=2,
-                                                                            include_bias=False)
-                                              )
+            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
+                                 featurizer=PolynomialFeatures(degree=2,
+                                                               include_bias=False)
+                                 )
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
@@ -50,10 +50,10 @@ class TestInference(unittest.TestCase):
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
 
-            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(),
-                                              featurizer=PolynomialFeatures(degree=2,
-                                                                            include_bias=False)
-                                              )
+            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
+                                 featurizer=PolynomialFeatures(degree=2,
+                                                               include_bias=False)
+                                 )
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
@@ -67,7 +67,7 @@ class TestInference(unittest.TestCase):
             fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
                 TestInference.X).get_feature_names(input_features=fnames)
             np.testing.assert_array_equal(coef_rows, fnames)
-            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
+            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
@@ -79,7 +79,7 @@ class TestInference(unittest.TestCase):
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
 
-            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
+            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
@@ -92,7 +92,7 @@ class TestInference(unittest.TestCase):
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, fnames)
 
-            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
+            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
             wrapped_est = self._NoFeatNamesEst(cate_est)
             wrapped_est.fit(
                 TestInference.Y,
@@ -105,7 +105,7 @@ class TestInference(unittest.TestCase):
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, ['X' + str(i) for i in range(TestInference.d_x)])
 
-            cate_est = LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
+            cate_est = LinearDML(model_t=LinearRegression(), model_y=LinearRegression(), featurizer=None)
             wrapped_est = self._NoFeatNamesEst(cate_est)
             wrapped_est.fit(
                 TestInference.Y,
@@ -261,7 +261,7 @@ class TestInference(unittest.TestCase):
             pop.print()  # verify that we can access all attributes even in degenerate case
 
     def test_can_summarize(self):
-        LinearDMLCateEstimator(model_t=LinearRegression(), model_y=LinearRegression()).fit(
+        LinearDML(model_t=LinearRegression(), model_y=LinearRegression()).fit(
             TestInference.Y,
             TestInference.T,
             TestInference.X,

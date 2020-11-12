@@ -3,7 +3,7 @@
 
 from econml.bootstrap import BootstrapEstimator
 from econml.inference import BootstrapInference
-from econml.dml import LinearDMLCateEstimator
+from econml.dml import LinearDML
 from econml.ortho_iv import LinearIntentToTreatDRIV
 from econml.two_stage_least_squares import NonparametricTwoStageLeastSquares
 from sklearn.linear_model import LinearRegression, LogisticRegression
@@ -81,7 +81,7 @@ class TestBootstrap(unittest.TestCase):
         t2 = np.random.normal(size=(1000, 1))
         y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
-        est = LinearDMLCateEstimator(LinearRegression(), LinearRegression())
+        est = LinearDML(LinearRegression(), LinearRegression())
         est.fit(y, t, x)
 
         bs = BootstrapEstimator(est, 50)
@@ -195,7 +195,7 @@ class TestBootstrap(unittest.TestCase):
         t2 = np.random.normal(size=(1000, 1))
         y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
-        est = LinearDMLCateEstimator(LinearRegression(), LinearRegression())
+        est = LinearDML(LinearRegression(), LinearRegression())
         est.fit(y, t, x, inference='bootstrap')
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
@@ -273,7 +273,7 @@ class TestBootstrap(unittest.TestCase):
         T = [1, 0, 1, 2, 0, 2]
         Y = [1, 2, 3, 4, 5, 6]
         X = np.array([1, 1, 2, 2, 1, 2]).reshape(-1, 1)
-        est = LinearDMLCateEstimator(model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True)
+        est = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True)
         inference = BootstrapInference(n_bootstrap_samples=5)
         est.fit(Y, T, inference=inference)
         est.const_marginal_effect_interval()
@@ -300,7 +300,7 @@ class TestBootstrap(unittest.TestCase):
         T = [1, 0, 1, 2, 0, 2] * 5
         Y = [1, 2, 3, 4, 5, 6] * 5
         X = np.array([1, 1, 2, 2, 1, 2] * 5).reshape(-1, 1)
-        est = LinearDMLCateEstimator(n_splits=2)
+        est = LinearDML(n_splits=2)
         for kind in ['percentile', 'pivot', 'normal']:
             with self.subTest(kind=kind):
                 inference = BootstrapInference(n_bootstrap_samples=5, bootstrap_type=kind)

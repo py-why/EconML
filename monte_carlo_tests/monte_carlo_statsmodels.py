@@ -1,5 +1,5 @@
 import numpy as np
-from econml.dml import LinearDMLCateEstimator
+from econml.dml import LinearDML
 from sklearn.linear_model import LinearRegression, MultiTaskLassoCV, MultiTaskLasso, Lasso
 from econml.inference import StatsModelsInference
 from econml.tests.test_statsmodels import _summarize
@@ -272,11 +272,11 @@ def run_all_mc(first_stage, folder, n_list, n_exp, hetero_coef_list, d_list,
                                                     (np.arange(first_half_sum, X.shape[0]),
                                                      np.arange(0, first_half_sum))]
 
-                                    est = LinearDMLCateEstimator(model_y=first_stage(),
-                                                                 model_t=first_stage(),
-                                                                 n_splits=SplitterSum(),
-                                                                 linear_first_stages=False,
-                                                                 discrete_treatment=False)
+                                    est = LinearDML(model_y=first_stage(),
+                                                    model_t=first_stage(),
+                                                    n_splits=SplitterSum(),
+                                                    linear_first_stages=False,
+                                                    discrete_treatment=False)
                                     est.fit(y_sum,
                                             X_final[:, -d_t:],
                                             X_final[:, :d_x],
@@ -293,11 +293,11 @@ def run_all_mc(first_stage, folder, n_list, n_exp, hetero_coef_list, d_list,
                                             return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
                                                     (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
 
-                                    lr = LinearDMLCateEstimator(model_y=first_stage(),
-                                                                model_t=first_stage(),
-                                                                n_splits=Splitter(),
-                                                                linear_first_stages=False,
-                                                                discrete_treatment=False)
+                                    lr = LinearDML(model_y=first_stage(),
+                                                   model_t=first_stage(),
+                                                   n_splits=Splitter(),
+                                                   linear_first_stages=False,
+                                                   discrete_treatment=False)
                                     lr.fit(y, X[:, -d_t:], X[:, :d_x], X[:, d_x:-d_t],
                                            inference=StatsModelsInference(cov_type=cov_type))
                                     for alpha in alpha_list:
@@ -382,9 +382,9 @@ def monte_carlo(first_stage=lambda: LinearRegression(), folder='lr'):
                d_list, d_x_list, p_list, t_list, cov_type_list, alpha_list)
 
 
-def monte_carlo_lasso(first_stage=lambda: WeightedLasso(alpha = 0.01,
-                                                        fit_intercept = True,
-                                                        tol = 1e-6, random_state = 123), folder='lasso'):
+def monte_carlo_lasso(first_stage=lambda: WeightedLasso(alpha=0.01,
+                                                        fit_intercept=True,
+                                                        tol=1e-6, random_state=123), folder='lasso'):
     n_exp = 1000
     n_list = [500]
     hetero_coef_list = [1]
@@ -398,8 +398,8 @@ def monte_carlo_lasso(first_stage=lambda: WeightedLasso(alpha = 0.01,
                d_list, d_x_list, p_list, t_list, cov_type_list, alpha_list)
 
 
-def monte_carlo_rf(first_stage=lambda: RandomForestRegressor(n_estimators = 100,
-                                                             max_depth = 3, min_samples_leaf = 10), folder='rf'):
+def monte_carlo_rf(first_stage=lambda: RandomForestRegressor(n_estimators=100,
+                                                             max_depth=3, min_samples_leaf=10), folder='rf'):
     n_exp = 1000
     n_list = [500, 5000]
     hetero_coef_list = [1]

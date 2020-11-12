@@ -39,7 +39,7 @@ class TestDMLMethods(unittest.TestCase):
                 n_samples, n_cov, n_treatments, Alpha, beta, effect)
 
             # Run dml estimation
-            reg = dml.LinearDMLCateEstimator(np.arange(X.shape[1]), [], np.arange(X.shape[1], X.shape[1] + T.shape[1]))
+            reg = dml.LinearDML(np.arange(X.shape[1]), [], np.arange(X.shape[1], X.shape[1] + T.shape[1]))
             reg.fit(np.concatenate((X, T), axis=1), y)
 
             T0 = np.zeros((1, T.shape[1]))
@@ -71,7 +71,7 @@ class TestDMLMethods(unittest.TestCase):
                 n_samples, n_cov, n_treatments, Alpha, beta, effect)
 
             # Run dml estimation
-            reg = dml.LinearDMLCateEstimator(np.arange(X.shape[1]), [], np.arange(X.shape[1], X.shape[1] + T.shape[1]))
+            reg = dml.LinearDML(np.arange(X.shape[1]), [], np.arange(X.shape[1], X.shape[1] + T.shape[1]))
             reg.fit(np.concatenate((X, T), axis=1), y)
 
             y, T, X = dgp.dgp_perfect_counterfactual_data_multiple_treatments(

@@ -11,7 +11,7 @@ What is it?
 Metalearners are discrete treatment CATE estimators that model either two response surfaces, :math:`Y(0)` and :math:`Y(1)`, or
 multiple response surfaces, :math:`Y(0)` to :math:`Y(K)` separately. For a detailed overview of these methods,
 see [Kunzel2017]_. We also describe here more generally all our estimator classes where each
-stage of estimation can be an arbitrary ML method (e.g. the DRLearner and the NonParamDMLCateEstimator).
+stage of estimation can be an arbitrary ML method (e.g. the DRLearner and the NonParamDML).
 Moreover, we also introduce a new meta-learner that uses ideas from Domain Adaptation in Machine Learning (the DomainAdaptationLearner).
 These methods fall into the meta-learner category because they simply combine ML methods in a black box manner
 so as to get a final stage estimate and do not introduce new estimation components.
@@ -25,7 +25,7 @@ What are the relevant estimator classes?
 ========================================
 
 This section describes the methodology implemented in the classes, :class:`.SLearner`,
-:class:`.TLearner`, :class:`.XLearner`, :class:`.DomainAdaptationLearner`, :class:`.NonParamDMLCateEstimator`, :class:`.DRLearner`.
+:class:`.TLearner`, :class:`.XLearner`, :class:`.DomainAdaptationLearner`, :class:`.NonParamDML`, :class:`.DRLearner`.
 Click on each of these links for a detailed module documentation and input parameters of each class.
 
 When should you use it?
@@ -135,7 +135,7 @@ See :ref:`Double Machine Learning User Guid <dmluserguide>`.
 Class Hierarchy Structure
 ==================================
 
-.. inheritance-diagram:: econml.metalearners.SLearner econml.metalearners.TLearner econml.metalearners.XLearner econml.metalearners.DomainAdaptationLearner econml.drlearner.DRLearner econml.dml.DMLCateEstimator
+.. inheritance-diagram:: econml.metalearners.SLearner econml.metalearners.TLearner econml.metalearners.XLearner econml.metalearners.DomainAdaptationLearner econml.drlearner.DRLearner econml.dml.DML
         :parts: 1
         :private-bases:
         :top-classes: econml._ortho_learner._OrthoLearner, econml.cate_estimator.LinearCateEstimator, econml.cate_estimator.TreatmentExpansionMixin
