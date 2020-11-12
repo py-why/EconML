@@ -140,7 +140,7 @@ To install from source, see [For Developers](#for-developers) section below.
 
   est = LinearDML(model_y=LassoCV(), model_t=LassoCV())
   ### Estimate with OLS confidence intervals
-  est.fit(Y, T, X, W, inference='statsmodels') # W -> high-dimensional confounders, X -> features
+  est.fit(Y, T, X, W) # W -> high-dimensional confounders, X -> features
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 
@@ -157,7 +157,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from sklearn.linear_model import LassoCV
 
   est = SparseLinearDML(model_y=LassoCV(), model_t=LassoCV())
-  est.fit(Y, T, X, W, inference='debiasedlasso') # X -> high dimensional features
+  est.fit(Y, T, X, W) # X -> high dimensional features
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via debiased lasso
   ```
@@ -169,7 +169,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from sklearn.ensemble import GradientBoostingRegressor
 
   est = ForestDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
-  est.fit(Y, T, X, W, inference='blb') 
+  est.fit(Y, T, X, W) 
   treatment_effects = est.effect(X_test)
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
   lb, ub = est.effect_interval(X_test, alpha=0.05)
@@ -191,7 +191,7 @@ To install from source, see [For Developers](#for-developers) section below.
                                       lambda_reg=0.01,
                                       model_T=WeightedLasso(alpha=0.01), model_Y=WeightedLasso(alpha=0.01),
                                       model_T_final=WeightedLassoCV(cv=3), model_Y_final=WeightedLassoCV(cv=3))
-  est.fit(Y, T, X, W, inference='blb')
+  est.fit(Y, T, X, W)
   treatment_effects = est.effect(X_test)
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
   lb, ub = est.effect_interval(X_test, alpha=0.05)
@@ -255,7 +255,7 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 
 est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
                       model_regression=GradientBoostingRegressor())
-est.fit(Y, T, X, W, inference='statsmodels')
+est.fit(Y, T, X, W)
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05)
 ```
@@ -268,7 +268,7 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 
 est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
                             model_regression=GradientBoostingRegressor())
-est.fit(Y, T, X, W, inference='debiasedlasso')
+est.fit(Y, T, X, W)
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05)
 ```
@@ -281,7 +281,7 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 
 est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
                       model_regression=GradientBoostingRegressor())
-est.fit(Y, T, X, W, inference='blb') 
+est.fit(Y, T, X, W) 
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05)
 ```
@@ -300,7 +300,7 @@ from sklearn.linear_model import LinearRegression
 est = LinearIntentToTreatDRIV(model_Y_X=GradientBoostingRegressor(),
                               model_T_XZ=GradientBoostingClassifier(),
                               flexible_model_effect=GradientBoostingRegressor())
-est.fit(Y, T, Z, X, inference='statsmodels') # OLS inference
+est.fit(Y, T, Z, X) # OLS inference by default
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 ```

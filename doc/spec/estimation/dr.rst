@@ -262,7 +262,7 @@ Below we give a brief description of each of these classes:
 
             from econml.drlearner import LinearDRLearner
             est = LinearDRLearner()
-            est.fit(y, T, X, W, inference='statsmodels')
+            est.fit(y, T, X, W)
             point = est.effect(X, T1=t1)
             lb, ub = est.effect_interval(X, T1=t1, alpha=0.05)
             # Get CATE for all treatments
@@ -283,7 +283,7 @@ Below we give a brief description of each of these classes:
 
             from econml.drlearner import SparseLinearDRLearner
             est = SparseLinearDRLearner()
-            est.fit(y, T, X, W, inference='debiasedlasso')
+            est.fit(y, T, X, W)
             point = est.effect(X, T1=T1)
             lb, ub = est.effect_interval(X, T1=T1, alpha=0.05)
             # Get CATE for all treatments
@@ -301,8 +301,8 @@ Below we give a brief description of each of these classes:
             from econml.drlearner import ForestDRLearner
             from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
             est = ForestDRLearner(model_regression=GradientBoostingRegressor(),
-                                model_propensity=GradientBoostingClassifier())
-            est.fit(y, T, X, W, inference='blb')
+                                  model_propensity=GradientBoostingClassifier())
+            est.fit(y, T, X, W)
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
@@ -325,7 +325,7 @@ Usage FAQs
 
         from econml.drlearner import LinearDRLearner
         est = LinearDRLearner()
-        est.fit(y, T, X, W, inference='statsmodels')
+        est.fit(y, T, X, W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
         lb, ub = est.coef__interval(T=1, alpha=.05)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=.05)
@@ -344,7 +344,7 @@ Usage FAQs
         from econml.drlearner import SparseLinearDRLearner
         from sklearn.preprocessing import PolynomialFeatures
         est = SparseLinearDRLearner(featurizer=PolynomialFeatures(degree=3, include_bias=False))
-        est.fit(y, T, X, W, inference='debiasedlasso')
+        est.fit(y, T, X, W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
         lb, ub = est.coef__interval(T=1, alpha=.05)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=.05)
@@ -359,7 +359,7 @@ Usage FAQs
         from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
         est = ForestDRLearner(model_regression=GradientBoostingRegressor(),
                               model_propensity=GradientBoostingClassifier())
-        est.fit(y, T, X, W, inference='blb')
+        est.fit(y, T, X, W)
         point = est.effect(X, T0=T0, T1=T1)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
         lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)

@@ -124,7 +124,7 @@ class TestDRLearner(unittest.TestCase):
                             test_linear_attrs = False
 
                             if isinstance(est, LinearDRLearner):
-                                infs.append('statsmodels')
+                                infs.append('auto')
                                 test_linear_attrs = True
 
                             for inf in infs:
@@ -350,7 +350,7 @@ class TestDRLearner(unittest.TestCase):
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'))
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
-            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)), inference='statsmodels')
+            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
         interval = dml.effect_interval(np.ones((9, 1)),
                                        T0=np.array(
                                            [1, 1, 1, 1, 1, 1, 1, 1, 1]),
@@ -521,11 +521,11 @@ class TestDRLearner(unittest.TestCase):
                                        (LogisticRegression(solver='lbfgs', multi_class='auto'),
                                         LinearRegression())]:
                             for est_class,\
-                                inference in [(ForestDRLearner, 'blb'),
-                                              (LinearDRLearner, 'statsmodels'),
+                                inference in [(ForestDRLearner, 'auto'),
+                                              (LinearDRLearner, 'auto'),
                                               (LinearDRLearner, StatsModelsInferenceDiscrete(
                                                   cov_type='nonrobust')),
-                                              (SparseLinearDRLearner, 'debiasedlasso')]:
+                                              (SparseLinearDRLearner, 'auto')]:
                                 with self.subTest(X=X, W=W, sample_weight=sample_weight, sample_var=sample_var,
                                                   featurizer=featurizer, models=models,
                                                   est_class=est_class, inference=inference):
@@ -744,7 +744,7 @@ class TestDRLearner(unittest.TestCase):
         # Test sparse estimator
         # --> test coef_, intercept_
         sparse_dml = SparseLinearDRLearner(featurizer=FunctionTransformer())
-        sparse_dml.fit(Y, T, x, w, inference='debiasedlasso')
+        sparse_dml.fit(Y, T, x, w)
         np.testing.assert_allclose(a, sparse_dml.coef_(T=1), atol=2e-1)
         np.testing.assert_allclose(sparse_dml.intercept_(T=1), 0, atol=2e-1)
         # --> test treatment effects

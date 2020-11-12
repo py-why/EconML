@@ -185,7 +185,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         super().__init__()
 
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, W=None, inference=None):
+    def fit(self, Y, T, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -521,6 +521,35 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             n_jobs=n_jobs,
             random_state=random_state)
 
+    # Need to redefine fit here for auto inference to work due to a quirk in how
+    # wrap_fit is defined
+    def fit(self, Y, T, X, W=None, inference='auto'):
+        """Build an orthogonal random forest from a training set (Y, T, X, W).
+
+        Parameters
+        ----------
+        Y : array-like, shape (n, )
+            Outcome for the treatment policy.
+
+        T : array-like, shape (n, d_t)
+            Treatment policy.
+
+        X : array-like, shape (n, d_x)
+            Feature vector that captures heterogeneity.
+
+        W : array-like, shape (n, d_w) or None (default=None)
+            High-dimensional controls.
+
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'blb' (or an instance of :class:`BLBInference`)
+
+        Returns
+        -------
+        self: an instance of self.
+        """
+        return super().fit(Y, T, X, W=W, inference=inference)
+
     def const_marginal_effect(self, X):
         X = check_array(X)
         # Override to flatten output if T is flat
@@ -787,7 +816,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
 
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of :class:`.BootstrapInference`)
+            (or an instance of :class:`.BootstrapInference`) and 'blb' (or an instance of :class:`BLBInference`)
 
         Returns
         -------

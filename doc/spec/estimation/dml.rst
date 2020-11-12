@@ -212,7 +212,7 @@ Below we give a brief description of each of these classes:
           .. testcode::
 
             est = LinearDML()
-            est.fit(y, T, X, W, inference='statsmodels')
+            est.fit(y, T, X, W)
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
@@ -229,7 +229,7 @@ Below we give a brief description of each of these classes:
 
             from econml.dml import SparseLinearDML
             est = SparseLinearDML()
-            est.fit(y, T, X, W, inference='debiasedlasso')
+            est.fit(y, T, X, W)
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
@@ -279,7 +279,7 @@ Below we give a brief description of each of these classes:
             from sklearn.ensemble import GradientBoostingRegressor
             est = ForestDML(model_y=GradientBoostingRegressor(),
                                          model_t=GradientBoostingRegressor())
-            est.fit(y, t, X, W, inference='blb')
+            est.fit(y, t, X, W)
             point = est.effect(X, T0=t0, T1=t1)
             lb, ub = est.effect_interval(X, T0=t0, T1=t1, alpha=0.05)
 
@@ -314,7 +314,7 @@ Usage FAQs
 
         from econml.dml import LinearDML
         est = LinearDML()
-        est.fit(y, T, X, W, inference='statsmodels')
+        est.fit(y, T, X, W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
         lb, ub = est.coef__interval(alpha=.05)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=.05)
@@ -375,7 +375,7 @@ Usage FAQs
         from econml.dml import SparseLinearDML
         from sklearn.preprocessing import PolynomialFeatures
         est = SparseLinearDML(featurizer=PolynomialFeatures(degree=4, include_bias=False))
-        est.fit(y, T, X, W, inference='debiasedlasso')
+        est.fit(y, T, X, W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
     Alternatively, you can also use a forest based estimator such as :class:`.ForestDML`. This 
@@ -388,7 +388,7 @@ Usage FAQs
         from sklearn.ensemble import GradientBoostingRegressor
         est = ForestDML(model_y=GradientBoostingRegressor(),
                                      model_t=GradientBoostingRegressor())
-        est.fit(y, t, X, W, inference='blb')
+        est.fit(y, t, X, W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
     Also the check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or the
@@ -580,7 +580,7 @@ A classical non-parametric regressor for the first stage estimates is a Random F
     from sklearn.ensemble import RandomForestRegressor
     est = LinearDML(model_y=RandomForestRegressor(),
                                  model_t=RandomForestRegressor())
-    est.fit(y, T, X, W, inference='statsmodels')
+    est.fit(y, T, X, W)
     pnt_effect = est.const_marginal_effect(X)
     lb_effect, ub_effect = est.const_marginal_effect_interval(X, alpha=.05)
     pnt_coef = est.coef_
