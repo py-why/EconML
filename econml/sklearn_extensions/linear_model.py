@@ -1363,6 +1363,30 @@ class SelectiveRegularization:
         X, y = check_X_y(X, y, multi_output=True, estimator=self)
         return r2_score(y, self.predict(X))
 
+    known_params = {'known_params', 'coef_', 'intercept_', 'penalized_model',
+                    '_unpenalized_inds_expr', '_fit_intercept', '_unpenalized_inds', '_penalized_inds', '_model_X1'}
+
+    def __getattr__(self, key):
+        # don't proxy special methods
+        if key.startswith('__'):
+            raise AttributeError(key)
+
+        # don't pass get_params through to model, because that will cause sklearn to clone this
+        # regressor incorrectly
+        if key != "get_params" and key not in self.known_params:
+            return getattr(self.penalized_model, key)
+        else:
+            # Note: for known attributes that have been set this method will not be called,
+            # so we should just throw here because this is an attribute belonging to this class
+            # but which hasn't yet been set on this instance
+            raise AttributeError("No attribute " + key)
+
+    def __setattr__(self, key, value):
+        if key not in self.known_params:
+            setattr(self.penalized_model, key, value)
+        else:
+            super().__setattr__(key, value)
+
 
 class StatsModelsRLM(BaseEstimator):
     """
