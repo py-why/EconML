@@ -174,13 +174,9 @@ def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights
         moments, mean_grad = moment_and_mean_gradient_estimator(Y, T, X, W, nuisance_estimates,
                                                                 parameter_estimate)
         # Calclulate covariance matrix through BLB
-        slices = [
-            (it * slice_len, min((it + 1) * slice_len, n_trees)) for it in range(n_slices)
-        ]
         slice_weighted_moment_one = []
         slice_weighted_moment_two = []
-        for slice_it, slice_weights in zip(slices, slice_weights_list):
-            slice_weights_one, slice_weights_two = slice_weights
+        for slice_weights_one, slice_weights_two in slice_weights_list:
             slice_weighted_moment_one.append(
                 np.average(moments[:len(split_inds[0])], axis=0, weights=slice_weights_one)
             )
