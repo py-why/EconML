@@ -82,11 +82,11 @@ class TestBootstrap(unittest.TestCase):
         y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
         est = LinearDML(LinearRegression(), LinearRegression())
-        est.fit(y, t, x)
+        est.fit(y, t, X=x)
 
         bs = BootstrapEstimator(est, 50)
         # test that we can fit with the same arguments as the base estimator
-        bs.fit(y, t, x)
+        bs.fit(y, t, X=x)
 
         # test that we can get the same attribute for the bootstrap as the original, with the same shape
         self.assertEqual(np.shape(est.coef_), np.shape(bs.coef_))
@@ -196,7 +196,7 @@ class TestBootstrap(unittest.TestCase):
         y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
         est = LinearDML(LinearRegression(), LinearRegression())
-        est.fit(y, t, x, inference='bootstrap')
+        est.fit(y, t, X=x, inference='bootstrap')
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
         # with the same shape for the lower and upper bounds
@@ -239,7 +239,7 @@ class TestBootstrap(unittest.TestCase):
                                                 PolynomialFeatures(2),
                                                 PolynomialFeatures(2),
                                                 None)
-        est.fit(y, t, x, None, z, inference=opts)
+        est.fit(y, t, X=x, W=None, Z=z, inference=opts)
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
         # with the same shape for the lower and upper bounds
@@ -293,7 +293,7 @@ class TestBootstrap(unittest.TestCase):
         est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(), model_T_XZ=LogisticRegression(),
                                       flexible_model_effect=LinearRegression(), n_splits=2)
         inference = BootstrapInference(n_bootstrap_samples=20)
-        est.fit(Y, T, Z, X=X, inference=inference)
+        est.fit(Y, T, Z=Z, X=X, inference=inference)
         est.const_marginal_effect_interval(X)
 
     def test_all_kinds(self):

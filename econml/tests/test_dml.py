@@ -157,10 +157,10 @@ class TestDML(unittest.TestCase):
 
                                             if X is None and (not fit_cate_intercept):
                                                 with pytest.raises(AttributeError):
-                                                    est.fit(Y, T, X, W, inference=inf)
+                                                    est.fit(Y, T, X=X, W=W, inference=inf)
                                                 continue
 
-                                            est.fit(Y, T, X, W, inference=inf)
+                                            est.fit(Y, T, X=X, W=W, inference=inf)
 
                                             # ensure we can pickle the fit estimator
                                             pickle.dumps(est)
@@ -393,10 +393,10 @@ class TestDML(unittest.TestCase):
                                                       is_discrete=is_discrete, est=est, inf=inf):
                                         if X is None:
                                             with pytest.raises(AttributeError):
-                                                est.fit(Y, T, X, W, inference=inf)
+                                                est.fit(Y, T, X=X, W=W, inference=inf)
                                             continue
 
-                                        est.fit(Y, T, X, W, inference=inf)
+                                        est.fit(Y, T, X=X, W=W, inference=inf)
                                         # make sure we can call the marginal_effect and effect methods
                                         const_marg_eff = est.const_marginal_effect(X)
                                         marg_eff = est.marginal_effect(T, X)
@@ -510,13 +510,13 @@ class TestDML(unittest.TestCase):
         X = np.ones((8, 1))
         est = LinearDML(n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
         with pytest.raises(AttributeError):
-            est.fit(Y, T, X)
+            est.fit(Y, T, X=X)
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([2, 2, 1, 2, 2, 2, 2, 2])
         X = np.ones((8, 1))
         est = LinearDML(n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
         with pytest.raises(AttributeError):
-            est.fit(Y, T, X)
+            est.fit(Y, T, X=X)
 
     def test_bad_treatment_nonparam(self):
         """
@@ -530,14 +530,14 @@ class TestDML(unittest.TestCase):
                           model_final=WeightedLasso(),
                           discrete_treatment=True)
         with pytest.raises(AttributeError):
-            est.fit(Y, T, X)
+            est.fit(Y, T, X=X)
         T = np.ones((8, 2))
         est = NonParamDML(model_y=WeightedLasso(),
                           model_t=LinearRegression(),
                           model_final=WeightedLasso(),
                           discrete_treatment=False)
         with pytest.raises(AttributeError):
-            est.fit(Y, T, X)
+            est.fit(Y, T, X=X)
 
     def test_access_to_internal_models(self):
         """
@@ -552,7 +552,7 @@ class TestDML(unittest.TestCase):
                   featurizer=PolynomialFeatures(degree=2, include_bias=False),
                   fit_cate_intercept=True,
                   discrete_treatment=True)
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         assert isinstance(est.original_featurizer, PolynomialFeatures)
         assert isinstance(est.featurizer, Pipeline)
         assert isinstance(est.model_cate, WeightedLasso)
@@ -568,7 +568,7 @@ class TestDML(unittest.TestCase):
                   featurizer=None,
                   fit_cate_intercept=True,
                   discrete_treatment=True)
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         assert est.original_featurizer is None
         assert isinstance(est.featurizer, FunctionTransformer)
         assert isinstance(est.model_cate, WeightedLasso)
@@ -612,13 +612,13 @@ class TestDML(unittest.TestCase):
                                 random_state=12345)
                 if summarized:
                     if sample_var:
-                        est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
+                        est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                                 sample_weight=n_sum, sample_var=var_sum)
                     else:
-                        est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
+                        est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                                 sample_weight=n_sum)
                 else:
-                    est.fit(y, T, X[:, :4], X[:, 4:])
+                    est.fit(y, T, X=X[:, :4], W=X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
                 truth = true_fn(X_test)
@@ -639,13 +639,13 @@ class TestDML(unittest.TestCase):
                                 random_state=12345)
                 if summarized:
                     if sample_var:
-                        est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
+                        est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                                 sample_weight=n_sum, sample_var=var_sum)
                     else:
-                        est.fit(y_sum, T_sum, X_sum[:, :4], X_sum[:, 4:],
+                        est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                                 sample_weight=n_sum)
                 else:
-                    est.fit(y, T, X[:, :4], X[:, 4:])
+                    est.fit(y, T, X=X[:, :4], W=X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
                 truth = true_fn(X_test)
@@ -661,7 +661,7 @@ class TestDML(unittest.TestCase):
             SparseLinearDML(LinearRegression(), LinearRegression(), fit_cate_intercept=False)
         ]
         for dml in dmls:
-            dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+            dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
             self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
             score = dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
             self.assertAlmostEqual(score, 0)
@@ -674,7 +674,7 @@ class TestDML(unittest.TestCase):
         ]
         for dml in dmls:
             dml.fit(np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]),
-                    np.ones((12, 1)), sample_weight=np.ones((12, )))
+                    X=np.ones((12, 1)), sample_weight=np.ones((12, )))
             self.assertAlmostEqual(dml.coef_.reshape(())[()], 1)
 
     def test_discrete_treatments(self):
@@ -693,7 +693,7 @@ class TestDML(unittest.TestCase):
             # Using an uneven number of examples from different classes,
             # and having the treatments in non-lexicographic order,
             # Should rule out some basic issues.
-            dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+            dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), X=np.ones((8, 1)))
             np.testing.assert_almost_equal(
                 dml.effect(
                     np.ones((9, 1)),
@@ -708,13 +708,13 @@ class TestDML(unittest.TestCase):
         # test that we can fit with a KFold instance
         dml = LinearDML(LinearRegression(), LogisticRegression(C=1000),
                         discrete_treatment=True, n_splits=KFold())
-        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
         # test that we can fit with a train/test iterable
         dml = LinearDML(LinearRegression(), LogisticRegression(C=1000),
                         discrete_treatment=True, n_splits=[([0, 1, 2], [3, 4, 5])])
-        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+        dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
     def test_can_use_featurizer(self):
@@ -746,7 +746,7 @@ class TestDML(unittest.TestCase):
         dml = LinearDML(LinearRegression(), LogisticRegression(C=1000),
                         discrete_treatment=True)
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
-            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+            [3, 2, 1, 2, 3, 1, 1, 1]), X=np.ones((8, 1)))
         interval = dml.effect_interval(np.ones((9, 1)),
                                        T0=np.array([1, 1, 1, 2, 2, 2, 3, 3, 3]),
                                        T1=np.array([1, 2, 3, 1, 2, 3, 1, 2, 3]),
@@ -861,7 +861,7 @@ class TestDML(unittest.TestCase):
         # Test sparse estimator
         # --> test coef_, intercept_
         sparse_dml = SparseLinearDML(fit_cate_intercept=False)
-        sparse_dml.fit(Y, T, x, w)
+        sparse_dml.fit(Y, T, X=x, W=w)
         np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
         with pytest.raises(AttributeError):
             sparse_dml.intercept_
@@ -936,7 +936,7 @@ class TestDML(unittest.TestCase):
 
         dml = SparseLinearDML(LinearRegression(fit_intercept=False), LinearRegression(
             fit_intercept=False), fit_cate_intercept=False)
-        dml.fit(y, t, x, w)
+        dml.fit(y, t, X=x, W=w)
 
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
@@ -949,7 +949,7 @@ class TestDML(unittest.TestCase):
         W = np.random.normal(size=(100, 2))
         for n_splits in [1, 2, 3]:
             est = LinearDML(n_splits=n_splits)
-            est.fit(y, T, X, W)
+            est.fit(y, T, X=X, W=W)
             assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == n_splits
 
     def test_categories(self):
@@ -973,7 +973,7 @@ class TestDML(unittest.TestCase):
 
             for dml in [dml1, dml2]:
                 dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]),
-                        np.array(['c', 'b', 'a', 'b', 'c', 'a', 'a', 'a'], dtype='object'), np.ones((8, 1)))
+                        np.array(['c', 'b', 'a', 'b', 'c', 'a', 'a', 'a'], dtype='object'), X=np.ones((8, 1)))
 
             # estimated effects should be identical when treatment is explicitly given
             np.testing.assert_almost_equal(

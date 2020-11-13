@@ -62,7 +62,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
     from econml.dml import LinearDML
     est = LinearDML()
-    est.fit(y, T, X, W)
+    est.fit(y, T, X=X, W=W)
     est.const_marginal_effect(X)
 
 This way an optimal treatment policy can be learned, by simply inspecting for which :math:`X` the effect was positive.
@@ -212,7 +212,7 @@ Below we give a brief description of each of these classes:
           .. testcode::
 
             est = LinearDML()
-            est.fit(y, T, X, W)
+            est.fit(y, T, X=X, W=W)
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
@@ -229,7 +229,7 @@ Below we give a brief description of each of these classes:
 
             from econml.dml import SparseLinearDML
             est = SparseLinearDML()
-            est.fit(y, T, X, W)
+            est.fit(y, T, X=X, W=W)
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
@@ -257,7 +257,7 @@ Below we give a brief description of each of these classes:
         est = NonParamDML(model_y=GradientBoostingRegressor(),
                                        model_t=GradientBoostingRegressor(),    
                                        model_final=GradientBoostingRegressor())
-        est.fit(y, t, X, W)
+        est.fit(y, t, X=X, W=W)
         point = est.effect(X, T0=t0, T1=t1)    
 
       Examples include Random Forests (:class:`~sklearn.ensemble.RandomForestRegressor`), Gradient Boosted Forests (:class:`~sklearn.ensemble.GradientBoostingRegressor`) and
@@ -279,7 +279,7 @@ Below we give a brief description of each of these classes:
             from sklearn.ensemble import GradientBoostingRegressor
             est = ForestDML(model_y=GradientBoostingRegressor(),
                                          model_t=GradientBoostingRegressor())
-            est.fit(y, t, X, W)
+            est.fit(y, t, X=X, W=W)
             point = est.effect(X, T0=t0, T1=t1)
             lb, ub = est.effect_interval(X, T0=t0, T1=t1, alpha=0.05)
 
@@ -314,7 +314,7 @@ Usage FAQs
 
         from econml.dml import LinearDML
         est = LinearDML()
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
         lb, ub = est.coef__interval(alpha=.05)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=.05)
@@ -375,7 +375,7 @@ Usage FAQs
         from econml.dml import SparseLinearDML
         from sklearn.preprocessing import PolynomialFeatures
         est = SparseLinearDML(featurizer=PolynomialFeatures(degree=4, include_bias=False))
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
     Alternatively, you can also use a forest based estimator such as :class:`.ForestDML`. This 
@@ -388,7 +388,7 @@ Usage FAQs
         from sklearn.ensemble import GradientBoostingRegressor
         est = ForestDML(model_y=GradientBoostingRegressor(),
                                      model_t=GradientBoostingRegressor())
-        est.fit(y, t, X, W)
+        est.fit(y, t, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
     Also the check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or the
@@ -456,7 +456,7 @@ Usage FAQs
         est = DML(model_y=GradientBoostingRegressor(),
                                model_t=GradientBoostingRegressor(),
                                model_final=ElasticNetCV())
-        est.fit(y, t, X, W)
+        est.fit(y, t, X=X, W=W)
         point = est.const_marginal_effect(X)
         point = est.effect(X, T0=t0, T1=t1)
     
@@ -492,7 +492,7 @@ Usage FAQs
         poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
         est = LinearDML()
         T_composite = poly.fit_transform(T)
-        est.fit(y, T_composite, X, W)
+        est.fit(y, T_composite, X=X, W=W)
         point = est.const_marginal_effect(X)
         est.effect(X, T0=poly.transform(T0), T1=poly.transform(T1)) 
 
@@ -514,7 +514,7 @@ Usage FAQs
         from econml.dml import LinearDML
         from sklearn.linear_model import LogisticRegressionCV
         est = LinearDML(model_t=LogisticRegressionCV(), discrete_treatment=True)
-        est.fit(y, t, X, W)
+        est.fit(y, t, X=X, W=W)
         point = est.const_marginal_effect(X)
         est.effect(X, T0=t0, T1=t1)
 
@@ -531,7 +531,7 @@ Usage FAQs
         est = DML(model_y=RandomForestRegressor(oob_score=True),
                                model_t=RandomForestRegressor(oob_score=True),
                                model_final=ElasticNetCV(), featurizer=PolynomialFeatures(degree=1))
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         est.score_
 
     This essentially measures the score based on the final stage loss. Moreover, one can assess the out-of-sample score by calling the `score` method on a separate validation sample that was not
@@ -580,7 +580,7 @@ A classical non-parametric regressor for the first stage estimates is a Random F
     from sklearn.ensemble import RandomForestRegressor
     est = LinearDML(model_y=RandomForestRegressor(),
                                  model_t=RandomForestRegressor())
-    est.fit(y, T, X, W)
+    est.fit(y, T, X=X, W=W)
     pnt_effect = est.const_marginal_effect(X)
     lb_effect, ub_effect = est.const_marginal_effect_interval(X, alpha=.05)
     pnt_coef = est.coef_
@@ -604,7 +604,7 @@ Then we can estimate the coefficients :math:`\alpha_i` by running:
     est = LinearDML(model_y=RandomForestRegressor(),
                                  model_t=RandomForestRegressor(),
                                  featurizer=PolynomialFeatures(degree=4, include_bias=True))
-    est.fit(y, T, X, W)
+    est.fit(y, T, X=X, W=W)
 
     # To get the coefficients of the polynomial fitted in the final stage we can
     # access the `coef_` attribute of the fitted second stage model. This would 
@@ -624,7 +624,7 @@ To add fixed effect heterogeneity, we can create one-hot encodings of the id, wh
 
     est = LinearDML(model_y=RandomForestRegressor(),
                                  model_t=RandomForestRegressor())
-    est.fit(y, T, X_oh, W)
+    est.fit(y, T, X=X_oh, W=W)
     # The latter will fit a model for θ(x) of the form ̂α_0 + ̂α_1 𝟙{id=1} + ̂α_2 𝟙{id=2} + ...
     # The vector of α can be extracted as follows
     est.coef_
@@ -647,7 +647,7 @@ One can also define a custom featurizer, as long as it supports the fit\_transfo
     est = LinearDML(model_y=RandomForestRegressor(),
                                 model_t=RandomForestRegressor(),
                                 featurizer=LogFeatures())
-    est.fit(y, T, X, W)
+    est.fit(y, T, X=X, W=W)
 
 We can even create a Pipeline or Union of featurizers that will apply multiply featurizations, e.g. first creating log features and then adding polynomials of them:
 
@@ -661,7 +661,7 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
                                  model_t=RandomForestRegressor(),
                                  featurizer=Pipeline([('log', LogFeatures()), 
                                                       ('poly', PolynomialFeatures(degree=3))]))
-    est.fit(y, T, X, W)
+    est.fit(y, T, X=X, W=W)
 
 
 .. rubric:: Single Outcome, Multiple Treatments
@@ -673,7 +673,7 @@ Then we could expand the treatment vector to contain also polynomial features:
 
     import numpy as np
     est = LinearDML()
-    est.fit(y, np.concatenate((T, T**2), axis=1), X, W)
+    est.fit(y, np.concatenate((T, T**2), axis=1), X=X, W=W)
 
 .. rubric:: Multiple Outcome, Multiple Treatments
 
@@ -685,7 +685,7 @@ matrix of cross price elasticities as:
     from sklearn.linear_model import MultiTaskElasticNet
     est = LinearDML(model_y=MultiTaskElasticNet(alpha=0.1),
                                  model_t=MultiTaskElasticNet(alpha=0.1))
-    est.fit(Y, T, None, W)
+    est.fit(Y, T, X=None, W=W)
 
     # a_hat[i,j] contains the elasticity of the demand of product i on the price of product j
     a_hat = est.const_marginal_effect()
@@ -708,7 +708,7 @@ lightning package implements such a class::
                            model_t=MultiTaskElasticNet(alpha=0.1),
                            model_final=FistaRegressor(penalty='trace', C=0.0001),
                            fit_cate_intercept=False)
-    est.fit(Y, T, X, W)
+    est.fit(Y, T, X=X, W=W)
     te_pred = est.const_marginal_effect(np.median(X, axis=0, keepdims=True))
     print(te_pred)
     print(np.linalg.svd(te_pred[0]))

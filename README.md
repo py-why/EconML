@@ -140,13 +140,13 @@ To install from source, see [For Developers](#for-developers) section below.
 
   est = LinearDML(model_y=LassoCV(), model_t=LassoCV())
   ### Estimate with OLS confidence intervals
-  est.fit(Y, T, X, W) # W -> high-dimensional confounders, X -> features
+  est.fit(Y, T, X=X, W=W) # W -> high-dimensional confounders, X -> features
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 
   ### Estimate with bootstrap confidence intervals
-  est.fit(Y, T, X, W, inference='bootstrap')  # with default bootstrap parameters
-  est.fit(Y, T, X, W, inference=BootstrapInference(n_bootstrap_samples=100))  # or customized
+  est.fit(Y, T, X=X, W=W, inference='bootstrap')  # with default bootstrap parameters
+  est.fit(Y, T, X=X, W=W, inference=BootstrapInference(n_bootstrap_samples=100))  # or customized
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Bootstrap confidence intervals
   ```
 
@@ -157,7 +157,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from sklearn.linear_model import LassoCV
 
   est = SparseLinearDML(model_y=LassoCV(), model_t=LassoCV())
-  est.fit(Y, T, X, W) # X -> high dimensional features
+  est.fit(Y, T, X=X, W=W) # X -> high dimensional features
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via debiased lasso
   ```
@@ -169,7 +169,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from sklearn.ensemble import GradientBoostingRegressor
 
   est = ForestDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
-  est.fit(Y, T, X, W) 
+  est.fit(Y, T, X=X, W=W) 
   treatment_effects = est.effect(X_test)
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
   lb, ub = est.effect_interval(X_test, alpha=0.05)
@@ -191,7 +191,7 @@ To install from source, see [For Developers](#for-developers) section below.
                                       lambda_reg=0.01,
                                       model_T=WeightedLasso(alpha=0.01), model_Y=WeightedLasso(alpha=0.01),
                                       model_T_final=WeightedLassoCV(cv=3), model_Y_final=WeightedLassoCV(cv=3))
-  est.fit(Y, T, X, W)
+  est.fit(Y, T, X=X, W=W)
   treatment_effects = est.effect(X_test)
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
   lb, ub = est.effect_interval(X_test, alpha=0.05)
@@ -211,11 +211,11 @@ To install from source, see [For Developers](#for-developers) section below.
   est = XLearner(models=GradientBoostingRegressor(),
                 propensity_model=GradientBoostingClassifier(),
                 cate_models=GradientBoostingRegressor())
-  est.fit(Y, T, np.hstack([X, W]))
+  est.fit(Y, T, X=np.hstack([X, W]))
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
 
   # Fit with bootstrap confidence interval construction enabled
-  est.fit(Y, T, np.hstack([X, W]), inference='bootstrap')
+  est.fit(Y, T, X=np.hstack([X, W]), inference='bootstrap')
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
   lb, ub = est.effect_interval(np.hstack([X_test, W_test]), alpha=0.05) # Bootstrap CIs
   ```
@@ -227,7 +227,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from sklearn.ensemble import GradientBoostingRegressor
 
   est = SLearner(overall_model=GradientBoostingRegressor())
-  est.fit(Y, T, np.hstack([X, W]))
+  est.fit(Y, T, X=np.hstack([X, W]))
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
   ```
 
@@ -238,7 +238,7 @@ To install from source, see [For Developers](#for-developers) section below.
   from sklearn.ensemble import GradientBoostingRegressor
 
   est = TLearner(models=GradientBoostingRegressor())
-  est.fit(Y, T, np.hstack([X, W]))
+  est.fit(Y, T, X=np.hstack([X, W]))
   treatment_effects = est.effect(np.hstack([X_test, W_test]))
   ```
 </details>
@@ -255,7 +255,7 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 
 est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
                       model_regression=GradientBoostingRegressor())
-est.fit(Y, T, X, W)
+est.fit(Y, T, X=X, W=W)
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05)
 ```
@@ -268,7 +268,7 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 
 est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
                             model_regression=GradientBoostingRegressor())
-est.fit(Y, T, X, W)
+est.fit(Y, T, X=X, W=W)
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05)
 ```
@@ -281,7 +281,7 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 
 est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
                       model_regression=GradientBoostingRegressor())
-est.fit(Y, T, X, W) 
+est.fit(Y, T, X=X, W=W) 
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05)
 ```
@@ -300,7 +300,7 @@ from sklearn.linear_model import LinearRegression
 est = LinearIntentToTreatDRIV(model_Y_X=GradientBoostingRegressor(),
                               model_T_XZ=GradientBoostingClassifier(),
                               flexible_model_effect=GradientBoostingRegressor())
-est.fit(Y, T, Z, X) # OLS inference by default
+est.fit(Y, T, Z=Z, X=X) # OLS inference by default
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 ```
@@ -332,7 +332,7 @@ est = DeepIVEstimator(n_components=10, # Number of gaussians in the mixture dens
                       h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
                       n_samples=1 # Number of samples used to estimate the response
                       )
-est.fit(Y, T, X, Z) # Z -> instrumental variables
+est.fit(Y, T, X=X, Z=Z) # Z -> instrumental variables
 treatment_effects = est.effect(X_test)
 ```
 </details>

@@ -552,7 +552,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         -------
         self: an instance of self.
         """
-        return super().fit(Y, T, X, W=W, inference=inference)
+        return super().fit(Y, T, X=X, W=W, inference=inference)
 
     def const_marginal_effect(self, X):
         X = check_array(X)
@@ -844,7 +844,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             func=_EncoderWrapper(self._one_hot_encoder).encode,
             validate=False)
         # Call `fit` from parent class
-        return super().fit(Y, T, X, W=W, inference=inference)
+        return super().fit(Y, T, X=X, W=W, inference=inference)
 
     @staticmethod
     def nuisance_estimator_generator(propensity_model, model_Y, n_T, random_state=None, second_stage=False):
