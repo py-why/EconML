@@ -32,7 +32,7 @@ from warnings import warn
 
 from sklearn.base import clone
 from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
-from econml.utilities import (inverse_onehot, check_high_dimensional,
+from econml.utilities import (inverse_onehot, check_high_dimensional, _deprecate_positional,
                               StatsModelsLinearRegression, check_input_arrays, fit_with_groups, filter_none_kwargs)
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper, DebiasedLasso
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
@@ -370,6 +370,8 @@ class DRLearner(_OrthoLearner):
                          categories=categories,
                          random_state=random_state)
 
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -689,6 +691,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          n_splits=n_splits,
                          random_state=random_state)
 
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -904,6 +908,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          n_splits=n_splits,
                          random_state=random_state)
 
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1159,6 +1165,8 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                          categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
