@@ -142,6 +142,7 @@ def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None,
     sorted_split_indices = np.argsort(np.concatenate(split_indices), kind='mergesort')
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
 
+
 def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights_list,
                       second_stage_nuisance_estimator, second_stage_parameter_estimator,
                       moment_and_mean_gradient_estimator, slice_len, n_slices, n_trees,
@@ -170,8 +171,8 @@ def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights
     # 3. Calculate the covariance matrix (V.T x V) / n_slices
     # -------------------------------------------------------------------------------
     if stderr:
-        moments, mean_grad = moment_and_mean_gradient_estimator(Y, T, X, W, nuisance_estimates, 
-        parameter_estimate)
+        moments, mean_grad = moment_and_mean_gradient_estimator(Y, T, X, W, nuisance_estimates,
+                                                                parameter_estimate)
         # Calclulate covariance matrix through BLB
         slices = [
             (it * slice_len, min((it + 1) * slice_len, n_trees)) for it in range(n_slices)
@@ -191,7 +192,7 @@ def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights
         cov_mat = inverse_grad.T @ U.T @ U @ inverse_grad / (2 * n_slices)
         return parameter_estimate, cov_mat
     return parameter_estimate
-    
+
 
 class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
     """Base class for the :class:`ContinuousTreatmentOrthoForest` and :class:`DiscreteTreatmentOrthoForest`."""
@@ -304,7 +305,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # TODO: Check performance
         return np.asarray(self._predict(X))
-    
+
     def _predict(self, X, stderr=False):
         if not self.model_is_fitted:
             raise NotFittedError('This {0} instance is not fitted yet.'.format(self.__class__.__name__))
@@ -313,17 +314,19 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         mask_w1_vec, mask_w2_vec, w_nonzero_vec, split_inds_vec, slice_weights_list_vec = zip(*res)
         W_none = self.W_one is None
         results = Parallel(n_jobs=self.n_jobs, verbose=3)(
-            delayed(_pointwise_effect)(X_single, 
-            np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
-            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
-            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
-            np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])) if not W_none else None,
-            w_nonzero,
-            split_inds, slice_weights_list,
-            self.second_stage_nuisance_estimator, self.second_stage_parameter_estimator,
-            self.moment_and_mean_gradient_estimator, self.slice_len, self.n_slices, self.n_trees,
-            stderr=stderr) for
-            X_single, mask_w1, mask_w2, w_nonzero, split_inds, slice_weights_list 
+            delayed(_pointwise_effect)(X_single,
+                                       np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
+                                       np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
+                                       np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
+                                       np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])
+                                                      ) if not W_none else None,
+                                       w_nonzero,
+                                       split_inds, slice_weights_list,
+                                       self.second_stage_nuisance_estimator, self.second_stage_parameter_estimator,
+                                       self.moment_and_mean_gradient_estimator, self.slice_len, self.n_slices,
+                                       self.n_trees,
+                                       stderr=stderr) for
+            X_single, mask_w1, mask_w2, w_nonzero, split_inds, slice_weights_list
             in zip(X, mask_w1_vec, mask_w2_vec, w_nonzero_vec, split_inds_vec, slice_weights_list_vec))
         return results
 
