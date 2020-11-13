@@ -25,6 +25,7 @@ from statsmodels.iolib.table import SimpleTable
 from statsmodels.iolib.summary import summary_return
 from statsmodels.compat.python import lmap
 import copy
+from inspect import signature
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -1553,6 +1554,37 @@ def deprecated(message, category=FutureWarning):
                 warn(message, category, stacklevel=2)
                 return to_wrap(*args, **kwargs)
             return m
+    return decorator
+
+
+def _deprecate_positional(message, bad_args, category=FutureWarning):
+    """
+    Enables decorating a method to provide a warning when certain arguments are used positionally.
+
+    Parameters
+    ----------
+    message: string
+        The deprecation message to use
+    bad_args : list of string
+        The positional arguments that will be keyword-only in the future
+    category: optional :class:`type`, default :class:`FutureWarning`
+        The warning category to use
+    """
+    def decorator(to_wrap):
+        @wraps(to_wrap)
+        def m(*args, **kwargs):
+            # want to enforce that each bad_arg was either in kwargs,
+            # or else it was in neither and is just taking its default value
+            bound = signature(m).bind(*args, **kwargs)
+
+            wrong_args = False
+            for arg in bad_args:
+                if arg not in kwargs and arg in bound.arguments:
+                    wrong_args = True
+            if wrong_args:
+                warn(message, category, stacklevel=2)
+            return to_wrap(*args, **kwargs)
+        return m
     return decorator
 
 

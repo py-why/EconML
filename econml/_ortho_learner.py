@@ -29,7 +29,7 @@ import copy
 from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects, filter_none_kwargs,
-                        StatsModelsLinearRegression, _EncoderWrapper)
+                        _deprecate_positional, StatsModelsLinearRegression, _EncoderWrapper)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.linear_model import LinearRegression, LassoCV
 from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
@@ -502,8 +502,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             return None
 
+    @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
+                           "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, groups=None, *, inference=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 

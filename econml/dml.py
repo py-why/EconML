@@ -39,7 +39,7 @@ from warnings import warn
 from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
                         broadcast_unit_treatments, reshape_treatmentwise_effects, add_intercept,
                         StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional, check_input_arrays,
-                        fit_with_groups, deprecated)
+                        fit_with_groups, deprecated, _deprecate_positional)
 from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso, WeightedLassoCVWrapper
 from econml.sklearn_extensions.ensemble import SubsampledHonestForest
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
@@ -448,6 +448,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          random_state=random_state)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -558,6 +560,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          random_state=random_state)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -704,6 +708,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          n_splits=n_splits,
                          random_state=random_state)
 
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -1105,6 +1111,8 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
                          categories=categories,
                          n_splits=n_crossfit_splits, random_state=random_state)
 
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
