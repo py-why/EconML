@@ -130,7 +130,7 @@ class TestDRLearner(unittest.TestCase):
                             for inf in infs:
                                 with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
                                                   is_discrete=is_discrete, est=est, inf=inf):
-                                    est.fit(Y, T, X, W, inference=inf)
+                                    est.fit(Y, T, X=X, W=W, inference=inf)
 
                                     # ensure that we can serialize fit estimator
                                     pickle.dumps(est)
@@ -309,7 +309,7 @@ class TestDRLearner(unittest.TestCase):
         # and having the treatments in non-lexicographic order,
         # Should rule out some basic issues.
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
-            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+            [3, 2, 1, 2, 3, 1, 1, 1]), X=np.ones((8, 1)))
         np.testing.assert_almost_equal(dml.effect(np.ones((9, 1)),
                                                   T0=np.array(
                                                       [1, 1, 1, 2, 2, 2, 3, 3, 3]),
@@ -328,7 +328,7 @@ class TestDRLearner(unittest.TestCase):
                                   C=1000, solver='lbfgs', multi_class='auto'),
                               n_splits=KFold(n_splits=3))
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
-            [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+            [1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
@@ -338,7 +338,7 @@ class TestDRLearner(unittest.TestCase):
                                   C=1000, solver='lbfgs', multi_class='auto'),
                               n_splits=[([0, 1, 2], [3, 4, 5])])
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
-            [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+            [1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
@@ -350,7 +350,7 @@ class TestDRLearner(unittest.TestCase):
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(C=1000, solver='lbfgs', multi_class='auto'))
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
-            [3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
+            [3, 2, 1, 2, 3, 1, 1, 1]), X=np.ones((8, 1)))
         interval = dml.effect_interval(np.ones((9, 1)),
                                        T0=np.array(
                                            [1, 1, 1, 1, 1, 1, 1, 1, 1]),
@@ -744,7 +744,7 @@ class TestDRLearner(unittest.TestCase):
         # Test sparse estimator
         # --> test coef_, intercept_
         sparse_dml = SparseLinearDRLearner(featurizer=FunctionTransformer())
-        sparse_dml.fit(Y, T, x, w)
+        sparse_dml.fit(Y, T, X=x, W=w)
         np.testing.assert_allclose(a, sparse_dml.coef_(T=1), atol=2e-1)
         np.testing.assert_allclose(sparse_dml.intercept_(T=1), 0, atol=2e-1)
         # --> test treatment effects
@@ -816,7 +816,7 @@ class TestDRLearner(unittest.TestCase):
         te_func = getattr(
             TestDRLearner, "_{te_type}_te".format(te_type=te_type))
         # Fit learner and get the effect
-        learner_instance.fit(Y, T, X)
+        learner_instance.fit(Y, T, X=X)
         te_hat = learner_instance.effect(TestDRLearner.X_test)
         # Get the true treatment effect
         te = np.apply_along_axis(te_func, 1, TestDRLearner.X_test)
@@ -844,7 +844,7 @@ class TestDRLearner(unittest.TestCase):
     def _test_inputs(self, learner_instance):
         X, T, Y = TestDRLearner.const_te_data
         # Check that one can pass in regular lists
-        learner_instance.fit(list(Y), list(T), list(X))
+        learner_instance.fit(list(Y), list(T), X=list(X))
         learner_instance.effect(list(TestDRLearner.X_test))
         # Check that it fails correctly if lists of different shape are passed in
         self.assertRaises(ValueError, learner_instance.fit,

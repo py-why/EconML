@@ -360,7 +360,7 @@ and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/bl
     >>> est = ContinuousTreatmentOrthoForest(n_trees=1, max_depth=1, subsample_ratio=1,
     ...                                      model_T=sklearn.linear_model.LinearRegression(),
     ...                                      model_Y=sklearn.linear_model.LinearRegression())
-    >>> est.fit(Y, T, W, W)
+    >>> est.fit(Y, T, X=W, W=W)
     <econml.ortho_forest.ContinuousTreatmentOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [1.00...  1.19...]
@@ -373,7 +373,7 @@ Similarly, we can call :class:`.DiscreteTreatmentOrthoForest`:
     >>> est = DiscreteTreatmentOrthoForest(n_trees=1, max_depth=1, subsample_ratio=1,
     ...                                    propensity_model=sklearn.linear_model.LogisticRegression(),
     ...                                    model_Y=sklearn.linear_model.LinearRegression())
-    >>> est.fit(Y, T, W, W)
+    >>> est.fit(Y, T, X=W, W=W)
     <econml.ortho_forest.DiscreteTreatmentOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [0.99...  1.35...]
@@ -397,7 +397,7 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     ...                                     max_depth=5,
     ...                                     model_Y=WeightedLasso(alpha=0.01),
     ...                                     model_T=WeightedLasso(alpha=0.01))
-    >>> est.fit(Y, T, X, W)
+    >>> est.fit(Y, T, X=X, W=W)
     <econml.ortho_forest.ContinuousTreatmentOrthoForest object at 0x...>
     >>> X_test = np.linspace(-1, 1, 30).reshape(-1, 1)
     >>> treatment_effects = est.effect(X_test)

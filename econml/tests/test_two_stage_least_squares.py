@@ -79,7 +79,7 @@ class Test2SLS(unittest.TestCase):
                                 z_featurizer=PolynomialFeatures(),
                                 dt_featurizer=DPolynomialFeatures())
 
-                            est.fit(Y, T, X, W, Z)
+                            est.fit(Y, T, X=X, W=W, Z=Z)
 
                             eff = est.effect(X)
                             marg_eff = est.marginal_effect(T, X)
@@ -106,7 +106,7 @@ class Test2SLS(unittest.TestCase):
             z_featurizer=PolynomialFeatures(degree=2, interaction_only=False, include_bias=True),
             dt_featurizer=DPolynomialFeatures(degree=2, interaction_only=False, include_bias=True))
 
-        est.fit(Y, T, X, W, Z)
+        est.fit(Y, T, X=X, W=W, Z=Z)
 
         # pick some arbitrary X
         X_test = np.array([[0.3, 0.7],
@@ -151,7 +151,7 @@ class Test2SLS(unittest.TestCase):
         for (dt, dx, dz) in [(0, 0, 0), (1, 1, 1), (5, 5, 5), (10, 10, 10), (3, 3, 10), (10, 10, 3)]:
             np2sls = NonparametricTwoStageLeastSquares(HermiteFeatures(
                 dt), HermiteFeatures(dx), HermiteFeatures(dz), HermiteFeatures(dt, shift=1))
-            np2sls.fit(y, p, x, w, z)
+            np2sls.fit(y, p, X=x, W=w, Z=z)
             effect = np2sls.effect(x_fresh, np.zeros(shape(p_fresh)), p_fresh)
             losses.append(np.mean(np.square(p_fresh * x_fresh - effect)))
             marg_effs.append(np2sls.marginal_effect(np.array([[0.3], [0.5], [0.7]]), np.array([[0.4], [0.6], [0.2]])))

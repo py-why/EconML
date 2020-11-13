@@ -9,7 +9,7 @@ import numpy as np
 import sparse as sp
 import pytest
 from econml.utilities import (einsum_sparse, todense, tocoo, transpose,
-                              inverse_onehot, cross_product, transpose_dictionary)
+                              inverse_onehot, cross_product, transpose_dictionary, deprecated, _deprecate_positional)
 from sklearn.preprocessing import OneHotEncoder
 
 
@@ -131,3 +131,49 @@ class TestUtilities(unittest.TestCase):
         d2 = {'a': {1: '1a', 2: '2a'}, 'b': {2: '2b', 1: '1b'}, 'c': {2: '2c'}}
         assert d1 == transpose_dictionary(d2)
         assert d2 == transpose_dictionary(d1)
+
+    def test_deprecated(self):
+
+        @deprecated("This class is deprecated")
+        class Deprecated:
+            def __init__(self, a, b=1):
+                self.sum = a + b
+
+            def get_sum(self):
+                return self.sum
+
+        @deprecated("This method is deprecated", DeprecationWarning)
+        def depr(x, *args, y=2):
+            pass
+
+        # creating an instance should warn
+        with self.assertWarnsRegex(FutureWarning, "This class is deprecated"):
+            instance = Deprecated(1)
+
+        # using the instance should not warn
+        with pytest.warns(None) as counter:
+            assert instance.get_sum() == 2
+        assert not counter
+
+        # using the deprecated method should warn
+        with self.assertWarnsRegex(DeprecationWarning, "This method is deprecated"):
+            depr(1, 2, 3, y=4)
+
+    def test_deprecate_positional(self):
+
+        @_deprecate_positional("Don't pass b or c by position", ['b', 'c'])
+        def m(a, b, c=1, *args, **kwargs):
+            return a
+
+        with self.assertWarnsRegex(FutureWarning, "Don't pass b or c by position"):
+            m(1, 2)
+
+        with self.assertWarnsRegex(FutureWarning, "Don't pass b or c by position"):
+            m(1, 2, c=2)
+
+        # don't warn if b and c are passed by keyword
+        with pytest.warns(None) as counter:
+            m(1, b=2)
+            m(a=1, b=2)
+            m(1, b=2, c=3, X='other')
+        assert not counter

@@ -293,7 +293,7 @@ class TestOrthoIV(unittest.TestCase):
         T = np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2])
         Z = np.array([1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2])
         X = np.array([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]).reshape(-1, 1)
-        est.fit(Y, T, Z, X=X)
+        est.fit(Y, T, Z=Z, X=X)
         assert isinstance(est.original_featurizer, PolynomialFeatures)
         assert isinstance(est.featurizer, Pipeline)
         assert isinstance(est.model_final, StatsModelsLinearRegression)
@@ -306,7 +306,7 @@ class TestOrthoIV(unittest.TestCase):
 
         est = LinearIntentToTreatDRIV(LinearRegression(), LogisticRegression(C=1000), WeightedLasso(),
                                       featurizer=None)
-        est.fit(Y, T, Z, X=X)
+        est.fit(Y, T, Z=Z, X=X)
         assert est.original_featurizer is None
         assert isinstance(est.featurizer, FunctionTransformer)
         assert isinstance(est.model_final, StatsModelsLinearRegression)
@@ -321,7 +321,7 @@ class TestOrthoIV(unittest.TestCase):
         est = LinearIntentToTreatDRIV(LinearRegression(), LogisticRegression(C=1000), WeightedLasso())
         est.fit(np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2]),
                 np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2]),
-                np.array([1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2]),
+                Z=np.array([1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2]),
                 X=np.array([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]).reshape(-1, 1))
         interval = est.effect_interval(np.ones((9, 1)),
                                        T0=np.array([1, 1, 1, 2, 2, 2, 1, 1, 1]),

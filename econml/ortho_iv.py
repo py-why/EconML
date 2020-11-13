@@ -1470,6 +1470,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         -------
         self : instance
         """
-        return super().fit(Y, T, Z, X=X, W=W,
+        return super().fit(Y, T, Z=Z, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            inference=inference)

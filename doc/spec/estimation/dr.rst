@@ -70,7 +70,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
     from econml.drlearner import LinearDRLearner
     est = LinearDRLearner()
-    est.fit(y, T, X, W)
+    est.fit(y, T, X=X, W=W)
     est.effect(X, T0=t0, T1=t1)
 
 This way an optimal treatment policy can be learned, by simply inspecting for which :math:`X` the effect was positive.
@@ -214,7 +214,7 @@ Below we give a brief description of each of these classes:
         est = DRLearner(model_regression=GradientBoostingRegressor(),
                         model_propensity=GradientBoostingClassifier(),
                         model_final=GradientBoostingRegressor())
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
 
       Examples of models include Random Forests (:class:`~sklearn.ensemble.RandomForestRegressor`),
@@ -243,7 +243,7 @@ Below we give a brief description of each of these classes:
                         )
         est = DRLearner(model_regression=model_reg(), model_propensity=model_clf(),
                         model_final=model_reg(), n_splits=5)
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
 
       From that respect this estimator is also a *Meta-Learner*, since all steps of the estimation use out-of-the-box ML algorithms. For more information,
@@ -262,7 +262,7 @@ Below we give a brief description of each of these classes:
 
             from econml.drlearner import LinearDRLearner
             est = LinearDRLearner()
-            est.fit(y, T, X, W)
+            est.fit(y, T, X=X, W=W)
             point = est.effect(X, T1=t1)
             lb, ub = est.effect_interval(X, T1=t1, alpha=0.05)
             # Get CATE for all treatments
@@ -283,7 +283,7 @@ Below we give a brief description of each of these classes:
 
             from econml.drlearner import SparseLinearDRLearner
             est = SparseLinearDRLearner()
-            est.fit(y, T, X, W)
+            est.fit(y, T, X=X, W=W)
             point = est.effect(X, T1=T1)
             lb, ub = est.effect_interval(X, T1=T1, alpha=0.05)
             # Get CATE for all treatments
@@ -302,7 +302,7 @@ Below we give a brief description of each of these classes:
             from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
             est = ForestDRLearner(model_regression=GradientBoostingRegressor(),
                                   model_propensity=GradientBoostingClassifier())
-            est.fit(y, T, X, W)
+            est.fit(y, T, X=X, W=W)
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
@@ -325,7 +325,7 @@ Usage FAQs
 
         from econml.drlearner import LinearDRLearner
         est = LinearDRLearner()
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
         lb, ub = est.coef__interval(T=1, alpha=.05)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=.05)
@@ -344,7 +344,7 @@ Usage FAQs
         from econml.drlearner import SparseLinearDRLearner
         from sklearn.preprocessing import PolynomialFeatures
         est = SparseLinearDRLearner(featurizer=PolynomialFeatures(degree=3, include_bias=False))
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
         lb, ub = est.coef__interval(T=1, alpha=.05)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=.05)
@@ -359,7 +359,7 @@ Usage FAQs
         from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
         est = ForestDRLearner(model_regression=GradientBoostingRegressor(),
                               model_propensity=GradientBoostingClassifier())
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
         lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
@@ -428,7 +428,7 @@ Usage FAQs
                         )
         est = DRLearner(model_regression=model_reg(), model_propensity=model_clf(),
                         model_final=model_reg(), n_splits=5)
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
 
 - **What if I have many treatments?**
@@ -447,7 +447,7 @@ Usage FAQs
         est = DRLearner(model_regression=RandomForestRegressor(oob_score=True),
                         model_propensity=RandomForestClassifier(min_samples_leaf=10, oob_score=True),
                         model_final=RandomForestRegressor())
-        est.fit(y, T, X, W)
+        est.fit(y, T, X=X, W=W)
         est.score_
 
     This essentially measures the score based on the final stage loss. Moreover, one can assess the out-of-sample score by calling the `score` method on a separate validation sample that was not
