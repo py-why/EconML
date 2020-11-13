@@ -13,6 +13,7 @@ from econml.sklearn_extensions.linear_model import (WeightedLasso, WeightedLasso
 from econml.sklearn_extensions.model_selection import WeightedKFold
 from sklearn.linear_model import Lasso, LassoCV, LinearRegression, MultiTaskLassoCV, Ridge
 from sklearn.model_selection import KFold
+from sklearn.base import clone
 
 
 class TestLassoExtensions(unittest.TestCase):
@@ -624,3 +625,36 @@ class TestSelectiveRegularization(unittest.TestCase):
                                         penalized_model=Lasso(),
                                         fit_intercept=True).fit(X, y).coef_
         np.testing.assert_allclose(coef, coef2)
+
+    def test_can_pass_through_attributes(self):
+        X = np.random.normal(size=(10, 3))
+        y = np.random.normal(size=(10,))
+        model = SelectiveRegularization(unpenalized_inds=[0],
+                                        penalized_model=LassoCV(),
+                                        fit_intercept=True)
+
+        # _penalized_inds is only set during fitting
+        with self.assertRaises(AttributeError):
+            inds = model._penalized_inds
+
+        # cv exists on penalized model
+        old_cv = model.cv
+        model.cv = 2
+
+        model.fit(X, y)
+
+        # now we can access _penalized_inds
+        assert np.array_equal(model._penalized_inds, [1, 2])
+
+        # check that we can read the cv attribute back out from the underlying model
+        assert model.cv == 2
+
+    def test_can_clone_selective_regularization(self):
+        X = np.random.normal(size=(10, 3))
+        y = np.random.normal(size=(10,))
+        model = SelectiveRegularization(unpenalized_inds=[0],
+                                        penalized_model=LassoCV(),
+                                        fit_intercept=True)
+        model.cv = 2
+        model2 = clone(model, safe=False)
+        assert model2.cv == 2
