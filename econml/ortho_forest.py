@@ -142,6 +142,56 @@ def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None,
     sorted_split_indices = np.argsort(np.concatenate(split_indices), kind='mergesort')
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
 
+def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights_list,
+                      second_stage_nuisance_estimator, second_stage_parameter_estimator,
+                      moment_and_mean_gradient_estimator, slice_len, n_slices, n_trees,
+                      stderr=False):
+    """Calculate the effect for a one data point with features X_single.
+
+    Parameters
+    ----------
+    X_single : array-like, shape (d_x, )
+        Feature vector that captures heterogeneity for one sample.
+
+    stderr : boolean (default=False)
+        Whether to calculate the covariance matrix via bootstrap-of-little-bags.
+    """
+    # Crossfitting
+    # Compute weighted nuisance estimates
+    nuisance_estimates = second_stage_nuisance_estimator(Y, T, X, W, w_nonzero, split_indices=split_inds)
+    parameter_estimate = second_stage_parameter_estimator(Y, T, X, nuisance_estimates, w_nonzero, X_single)
+    # -------------------------------------------------------------------------------
+    # Calculate the covariance matrix corresponding to the BLB inference
+    #
+    # 1. Calculate the moments and gradient of the training data w.r.t the test point
+    # 2. Calculate the weighted moments for each tree slice to create a matrix
+    #    U = (n_slices, n_T). The V = (U x grad^{-1}) matrix represents the deviation
+    #    in that slice from the overall parameter estimate.
+    # 3. Calculate the covariance matrix (V.T x V) / n_slices
+    # -------------------------------------------------------------------------------
+    if stderr:
+        moments, mean_grad = moment_and_mean_gradient_estimator(Y, T, X, W, nuisance_estimates, 
+        parameter_estimate)
+        # Calclulate covariance matrix through BLB
+        slices = [
+            (it * slice_len, min((it + 1) * slice_len, n_trees)) for it in range(n_slices)
+        ]
+        slice_weighted_moment_one = []
+        slice_weighted_moment_two = []
+        for slice_it, slice_weights in zip(slices, slice_weights_list):
+            slice_weights_one, slice_weights_two = slice_weights
+            slice_weighted_moment_one.append(
+                np.average(moments[:len(split_inds[0])], axis=0, weights=slice_weights_one)
+            )
+            slice_weighted_moment_two.append(
+                np.average(moments[len(split_inds[0]):], axis=0, weights=slice_weights_two)
+            )
+        U = np.vstack(slice_weighted_moment_one + slice_weighted_moment_two)
+        inverse_grad = np.linalg.inv(mean_grad)
+        cov_mat = inverse_grad.T @ U.T @ U @ inverse_grad / (2 * n_slices)
+        return parameter_estimate, cov_mat
+    return parameter_estimate
+    
 
 class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
     """Base class for the :class:`ContinuousTreatmentOrthoForest` and :class:`DiscreteTreatmentOrthoForest`."""
@@ -252,13 +302,49 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         Theta : matrix , shape (n, d_t)
             Constant marginal CATE of each treatment for each sample.
         """
+        # TODO: Check performance
+        return np.asarray(self._predict(X))
+    
+    def _predict(self, X, stderr=False):
         if not self.model_is_fitted:
             raise NotFittedError('This {0} instance is not fitted yet.'.format(self.__class__.__name__))
         X = check_array(X)
-        results = Parallel(n_jobs=self.n_jobs, verbose=3, backend='threading')(
-            delayed(self._pointwise_effect)(X_single) for X_single in X)
-        # TODO: Check performance
-        return np.asarray(results)
+        res = [self._nonzero_weights(X_single, stderr=stderr) for X_single in X]
+        mask_w1_vec, mask_w2_vec, w_nonzero_vec, split_inds_vec, slice_weights_list_vec = zip(*res)
+        W_none = self.W_one is None
+        results = Parallel(n_jobs=self.n_jobs, verbose=3)(
+            delayed(_pointwise_effect)(X_single, 
+            np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
+            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
+            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
+            np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])) if not W_none else None,
+            w_nonzero,
+            split_inds, slice_weights_list,
+            self.second_stage_nuisance_estimator, self.second_stage_parameter_estimator,
+            self.moment_and_mean_gradient_estimator, self.slice_len, self.n_slices, self.n_trees,
+            stderr=stderr) for
+            X_single, mask_w1, mask_w2, w_nonzero, split_inds, slice_weights_list 
+            in zip(X, mask_w1_vec, mask_w2_vec, w_nonzero_vec, split_inds_vec, slice_weights_list_vec))
+        return results
+
+    def _nonzero_weights(self, X_single, stderr=False):
+        w1, w2 = self._get_weights(X_single)
+        mask_w1 = (w1 != 0)
+        mask_w2 = (w2 != 0)
+        w1_nonzero = w1[mask_w1]
+        w2_nonzero = w2[mask_w2]
+        # Must normalize weights
+        w_nonzero = np.concatenate((w1_nonzero, w2_nonzero))
+        split_inds = (np.arange(len(w1_nonzero)), np.arange(len(w1_nonzero), len(w_nonzero)))
+        slice_weights_list = []
+        if stderr:
+            slices = [
+                (it * self.slice_len, min((it + 1) * self.slice_len, self.n_trees)) for it in range(self.n_slices)
+            ]
+            for slice_it in slices:
+                slice_weights_one, slice_weights_two = self._get_weights(X_single, tree_slice=slice_it)
+                slice_weights_list.append((slice_weights_one[mask_w1], slice_weights_two[mask_w2]))
+        return mask_w1, mask_w2, w_nonzero, split_inds, slice_weights_list
 
     def _get_inference_options(self):
         # Override the CATE inference options
@@ -267,81 +353,6 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         options.update(blb=BLBInference)
         options.update(auto=BLBInference)
         return options
-
-    def _pointwise_effect(self, X_single, stderr=False):
-        """Calculate the effect for a one data point with features X_single.
-
-        Parameters
-        ----------
-        X_single : array-like, shape (d_x, )
-            Feature vector that captures heterogeneity for one sample.
-
-        stderr : boolean (default=False)
-            Whether to calculate the covariance matrix via bootstrap-of-little-bags.
-        """
-        w1, w2 = self._get_weights(X_single)
-        mask_w1 = (w1 != 0)
-        mask_w2 = (w2 != 0)
-        w1_nonzero = w1[mask_w1]
-        w2_nonzero = w2[mask_w2]
-        # Must normalize weights
-        w_nonzero = np.concatenate((w1_nonzero, w2_nonzero))
-        W_none = self.W_one is None
-        # Crossfitting
-        # Compute weighted nuisance estimates
-        nuisance_estimates = self.second_stage_nuisance_estimator(
-            np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
-            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
-            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
-            np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])) if not W_none else None,
-            w_nonzero,
-            split_indices=(np.arange(len(w1_nonzero)), np.arange(
-                len(w1_nonzero), len(w_nonzero)))
-        )
-        parameter_estimate = self.second_stage_parameter_estimator(
-            np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
-            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
-            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
-            nuisance_estimates,
-            w_nonzero,
-            X_single
-        )
-        # -------------------------------------------------------------------------------
-        # Calculate the covariance matrix corresponding to the BLB inference
-        #
-        # 1. Calculate the moments and gradient of the training data w.r.t the test point
-        # 2. Calculate the weighted moments for each tree slice to create a matrix
-        #    U = (n_slices, n_T). The V = (U x grad^{-1}) matrix represents the deviation
-        #    in that slice from the overall parameter estimate.
-        # 3. Calculate the covariance matrix (V.T x V) / n_slices
-        # -------------------------------------------------------------------------------
-        if stderr:
-            moments, mean_grad = self.moment_and_mean_gradient_estimator(
-                np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
-                np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
-                np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
-                np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])) if self.W_one is not None else None,
-                nuisance_estimates,
-                parameter_estimate)
-            # Calclulate covariance matrix through BLB
-            slices = [
-                (it * self.slice_len, min((it + 1) * self.slice_len, self.n_trees)) for it in range(self.n_slices)
-            ]
-            slice_weighted_moment_one = []
-            slice_weighted_moment_two = []
-            for slice_it in slices:
-                slice_weights_one, slice_weights_two = self._get_weights(X_single, tree_slice=slice_it)
-                slice_weighted_moment_one.append(
-                    np.average(moments[:len(w1_nonzero)], axis=0, weights=slice_weights_one[mask_w1])
-                )
-                slice_weighted_moment_two.append(
-                    np.average(moments[len(w1_nonzero):], axis=0, weights=slice_weights_two[mask_w2])
-                )
-            U = np.vstack(slice_weighted_moment_one + slice_weighted_moment_two)
-            inverse_grad = np.linalg.inv(mean_grad)
-            cov_mat = inverse_grad.T @ U.T @ U @ inverse_grad / (2 * self.n_slices)
-            return parameter_estimate, cov_mat
-        return parameter_estimate
 
     def _fit_forest(self, Y, T, X, W=None):
         # Generate subsample indices
@@ -996,9 +1007,9 @@ class BLBInference(Inference):
         """
         self._estimator = estimator
         # Test whether the input estimator is supported
-        if not hasattr(self._estimator, "_pointwise_effect"):
+        if not hasattr(self._estimator, "_predict"):
             raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
-                            " Estimators must implement the '_pointwise_effect' method with the correct signature.")
+                            " Estimators must implement the '_predict' method with the correct signature.")
         # Test expansion of treatment
         # If expanded treatments are a vector, flatten const_marginal_effect_interval
         _, T0, _ = self._estimator._expand_treatments(None, 0, 1)
@@ -1080,10 +1091,4 @@ class BLBInference(Inference):
         return effect_lower, effect_upper
 
     def _predict_wrapper(self, X=None):
-        if not self._estimator.model_is_fitted:
-            raise NotFittedError('This {0} instance is not fitted yet.'.format(self._estimator.__class__.__name__))
-        X = check_array(X)
-        # Get a list of (parameter, covariance matrix) pairs
-        params_and_cov = Parallel(n_jobs=self._estimator.n_jobs, verbose=3, backend='threading')(
-            delayed(self._estimator._pointwise_effect)(X_single, stderr=True) for X_single in X)
-        return params_and_cov
+        return self._estimator._predict(X, stderr=True)
