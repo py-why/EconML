@@ -197,6 +197,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                  parameter_estimator,
                  second_stage_parameter_estimator,
                  moment_and_mean_gradient_estimator,
+                 discrete_treatment=False,
                  n_trees=500,
                  min_leaf_size=10, max_depth=10,
                  subsample_ratio=0.25,
@@ -227,6 +228,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.slice_len = int(np.ceil(self.n_trees / self.n_slices))
         # Fit check
         self.model_is_fitted = False
+        self.discrete_treatment = discrete_treatment
         super().__init__()
 
     @BaseCateEstimator._wrap_fit
@@ -259,6 +261,15 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         if Y.ndim > 1 and Y.shape[1] > 1:
             raise ValueError(
                 "The outcome matrix must be of shape ({0}, ) or ({0}, 1), instead got {1}.".format(len(X), Y.shape))
+
+        if self.discrete_treatment:
+            # Train label encoder
+            T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+            self._d_t = T.shape[1:]
+            self.transformer = FunctionTransformer(
+                func=_EncoderWrapper(self._one_hot_encoder).encode,
+                validate=False)
+
         shuffled_inidces = self.random_state.permutation(X.shape[0])
         n = X.shape[0] // 2
         self.Y_one = Y[shuffled_inidces[:n]]
@@ -503,11 +514,12 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             self.model_T_final = clone(self.model_T, safe=False)
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y, safe=False)
+        self.random_state = check_random_state(random_state)
         # Define nuisance estimators
         nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
-            self.model_T, self.model_Y, random_state, second_stage=False)
+            self.model_T, self.model_Y, self.random_state, second_stage=False)
         second_stage_nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
-            self.model_T_final, self.model_Y_final, random_state, second_stage=True)
+            self.model_T_final, self.model_Y_final, self.random_state, second_stage=True)
         # Define parameter estimators
         parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
         second_stage_parameter_estimator = ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(
@@ -526,7 +538,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
-            random_state=random_state)
+            random_state=self.random_state)
 
     # Need to redefine fit here for auto inference to work due to a quirk in how
     # wrap_fit is defined
@@ -772,11 +784,12 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             self.propensity_model_final = clone(self.propensity_model, safe=False)
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y, safe=False)
+        self.random_state = check_random_state(random_state)
 
-        # Nuisance estimators shall be defined during fitting because they need to know the number of distinct
-        # treatments
-        nuisance_estimator = None
-        second_stage_nuisance_estimator = None
+        nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
+            self.propensity_model, self.model_Y, self.random_state, second_stage=False)
+        second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
+            self.propensity_model_final, self.model_Y_final, self.random_state, second_stage=True)
         # Define parameter estimators
         parameter_estimator = DiscreteTreatmentOrthoForest.parameter_estimator_func
         second_stage_parameter_estimator = DiscreteTreatmentOrthoForest.second_stage_parameter_estimator_gen(
@@ -793,13 +806,14 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             parameter_estimator,
             second_stage_parameter_estimator,
             moment_and_mean_gradient_estimator,
+            discrete_treatment=True,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
             max_depth=max_depth,
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
-            random_state=random_state)
+            random_state=self.random_state)
 
     def fit(self, Y, T, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
@@ -831,22 +845,11 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         # Check that T is shape (n, )
         # Check T is numeric
         T = self._check_treatment(T)
-        # Train label encoder
-        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
-        # Define number of classes
-        self.n_T = T.shape[1] + 1  # add one to compensate for dropped first
-        self.nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
-            self.propensity_model, self.model_Y, self.n_T, self.random_state, second_stage=False)
-        self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
-            self.propensity_model_final, self.model_Y_final, self.n_T, self.random_state, second_stage=True)
-        self.transformer = FunctionTransformer(
-            func=_EncoderWrapper(self._one_hot_encoder).encode,
-            validate=False)
         # Call `fit` from parent class
         return super().fit(Y, T, X, W=W, inference=inference)
 
     @staticmethod
-    def nuisance_estimator_generator(propensity_model, model_Y, n_T, random_state=None, second_stage=False):
+    def nuisance_estimator_generator(propensity_model, model_Y, random_state=None, second_stage=False):
         """Generate nuissance estimator given model inputs from the class."""
         def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
             # Expand one-hot encoding to include the zero treatment

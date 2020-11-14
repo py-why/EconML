@@ -65,7 +65,7 @@ class TestOrthoForest(unittest.TestCase):
         out_te = est.const_marginal_effect(TestOrthoForest.x_test)
         self.assertEqual(TestOrthoForest.x_test.shape[0], out_te.shape[0])
         # Test continuous treatments with controls
-        est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
+        est = ContinuousTreatmentOrthoForest(n_trees=100, min_leaf_size=10,
                                              max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=1,
                                              model_T=Lasso(alpha=0.024),
                                              model_Y=Lasso(alpha=0.024),
