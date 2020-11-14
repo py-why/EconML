@@ -880,7 +880,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                     propensity_model_clone.fit(X_tilde, T)
                     propensities = propensity_model_clone.predict_proba(X_tilde)
                     Y_hat = _group_predict(X_tilde, ohe_T.shape[1],
-                                           clone(model_Y, safe=False).fit(np.hstack([X, ohe_T]), Y).predict)
+                                           clone(model_Y, safe=False).fit(np.hstack([X_tilde, ohe_T]), Y).predict)
                 else:
                     propensities = _cross_fit(propensity_model, X_tilde, T, split_indices,
                                               sample_weight=sample_weight, predict_func_name='predict_proba')
@@ -921,7 +921,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             """
             # Compute partial moments
             pointwise_params = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)
-            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+            X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
             # Compute coefficient by OLS on residuals
             if sample_weight is not None:
                 weighted_X_aug = sample_weight.reshape(-1, 1) * X_aug
