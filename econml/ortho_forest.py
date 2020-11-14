@@ -306,24 +306,23 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         if not self.model_is_fitted:
             raise NotFittedError('This {0} instance is not fitted yet.'.format(self.__class__.__name__))
         X = check_array(X)
-        res = [self._nonzero_weights(X_single, stderr=stderr) for X_single in X]
-        mask_w1_vec, mask_w2_vec, w_nonzero_vec, split_inds_vec, slice_weights_list_vec = zip(*res)
-        W_none = self.W_one is None
+
+        def pw_effect_inputs(mask_w1, mask_w2, w_nonzero, split_inds, slice_weights_list):
+            W_none = self.W_one is None
+            return np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),\
+                np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),\
+                np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),\
+                np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])
+                               ) if not W_none else None,\
+                w_nonzero,\
+                split_inds, slice_weights_list
+
         results = Parallel(n_jobs=self.n_jobs, verbose=3)(
-            delayed(_pointwise_effect)(X_single,
-                                       np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),
-                                       np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),
-                                       np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),
-                                       np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])
-                                                      ) if not W_none else None,
-                                       w_nonzero,
-                                       split_inds, slice_weights_list,
+            delayed(_pointwise_effect)(X_single, *pw_effect_inputs(*self._nonzero_weights(X_single, stderr=stderr)),
                                        self.second_stage_nuisance_estimator, self.second_stage_parameter_estimator,
                                        self.moment_and_mean_gradient_estimator, self.slice_len, self.n_slices,
                                        self.n_trees,
-                                       stderr=stderr) for
-            X_single, mask_w1, mask_w2, w_nonzero, split_inds, slice_weights_list
-            in zip(X, mask_w1_vec, mask_w2_vec, w_nonzero_vec, split_inds_vec, slice_weights_list_vec))
+                                       stderr=stderr) for X_single in X)
         return results
 
     def _nonzero_weights(self, X_single, stderr=False):
