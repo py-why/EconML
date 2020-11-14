@@ -66,7 +66,7 @@ class TestOrthoForest(unittest.TestCase):
         self.assertEqual(TestOrthoForest.x_test.shape[0], out_te.shape[0])
         # Test continuous treatments with controls
         est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
-                                             max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
+                                             max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=1,
                                              model_T=Lasso(alpha=0.024),
                                              model_Y=Lasso(alpha=0.024),
                                              model_T_final=WeightedLassoCVWrapper(),
@@ -116,7 +116,7 @@ class TestOrthoForest(unittest.TestCase):
         self.assertSequenceEqual((TestOrthoForest.x_test.shape[0], 1), out_te.shape)
         # Test binary treatments with controls
         est = DiscreteTreatmentOrthoForest(n_trees=100, min_leaf_size=10,
-                                           max_depth=30, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
+                                           max_depth=30, subsample_ratio=0.30, bootstrap=False, n_jobs=1,
                                            propensity_model=LogisticRegression(
                                                C=1 / 0.024, penalty='l1', solver='saga'),
                                            model_Y=Lasso(alpha=0.024),
@@ -147,7 +147,7 @@ class TestOrthoForest(unittest.TestCase):
             TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Test multiple treatments with controls
         est = ContinuousTreatmentOrthoForest(n_trees=50, min_leaf_size=10,
-                                             max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=4,
+                                             max_depth=50, subsample_ratio=0.30, bootstrap=False, n_jobs=1,
                                              model_T=MultiOutputRegressor(Lasso(alpha=0.024)),
                                              model_Y=Lasso(alpha=0.024),
                                              model_T_final=WeightedLassoCVWrapper(),
