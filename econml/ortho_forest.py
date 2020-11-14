@@ -105,6 +105,17 @@ def _cross_fit(model_instance, X, y, split_indices, sample_weight=None, predict_
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
 
 
+def _group_predict(X, n_groups, predict_func):
+    group_pred = np.zeros((X.shape[0], n_groups))
+    zero_t = np.zeros((X.shape[0], n_groups))
+    for i in range(n_groups):
+        zero_t[:, i] = 1
+        group_pred[:, i] = predict_func(np.concatenate((X, zero_t), axis=1))
+        zero_t[:, i] = 0
+    # Convert rows to columns
+    return group_pred
+
+
 def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None, predict_func_name='predict'):
     # Require group assignment t to be one-hot-encoded
     model_instance1 = clone(model_instance, safe=False)
@@ -114,30 +125,17 @@ def _group_cross_fit(model_instance, X, y, t, split_indices, sample_weight=None,
     predict_func1 = getattr(model_instance1, predict_func_name)
     predict_func2 = getattr(model_instance2, predict_func_name)
     Xt = np.concatenate((X, t), axis=1)
-    # Define an inner function that iterates over group predictions
-
-    def group_predict(split, predict_func):
-        group_pred = []
-        zero_t = np.zeros((len(split), n_groups - 1))
-        for i in range(n_groups):
-            pred_i = predict_func(
-                np.concatenate((X[split], np.insert(zero_t, i, 1, axis=1)), axis=1)
-            )
-            group_pred.append(pred_i)
-        # Convert rows to columns
-        return np.asarray(group_pred).T
-
     # Get predictions for the 2 splits
     if sample_weight is None:
         model_instance2.fit(Xt[split_2], y[split_2])
-        pred_1 = group_predict(split_1, predict_func2)
+        pred_1 = _group_predict(X[split_1], n_groups, predict_func2)
         model_instance1.fit(Xt[split_1], y[split_1])
-        pred_2 = group_predict(split_2, predict_func1)
+        pred_2 = _group_predict(X[split_2], n_groups, predict_func1)
     else:
         _fit_weighted_pipeline(model_instance2, Xt[split_2], y[split_2], sample_weight[split_2])
-        pred_1 = group_predict(split_1, predict_func2)
+        pred_1 = _group_predict(X[split_1], n_groups, predict_func2)
         _fit_weighted_pipeline(model_instance1, Xt[split_1], y[split_1], sample_weight[split_1])
-        pred_2 = group_predict(split_2, predict_func1)
+        pred_2 = _group_predict(X[split_2], n_groups, predict_func1)
     # Must make sure indices are merged correctly
     sorted_split_indices = np.argsort(np.concatenate(split_indices), kind='mergesort')
     return np.concatenate((pred_1, pred_2))[sorted_split_indices]
@@ -512,8 +510,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             self.model_T_final, self.model_Y_final, random_state, second_stage=True)
         # Define parameter estimators
         parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
-        second_stage_parameter_estimator =\
-            ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(self.lambda_reg)
+        second_stage_parameter_estimator = ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(
+            self.lambda_reg)
         # Define
         moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
         super(ContinuousTreatmentOrthoForest, self).__init__(
@@ -575,7 +573,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
             # Nuissance estimates evaluated with cross-fitting
             this_random_state = check_random_state(random_state)
-            if split_indices is None:
+            if (split_indices is None) and second_stage:
                 # Define 2-fold iterator
                 kfold_it = KFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X)
                 split_indices = list(kfold_it)[0]
@@ -781,11 +779,10 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         second_stage_nuisance_estimator = None
         # Define parameter estimators
         parameter_estimator = DiscreteTreatmentOrthoForest.parameter_estimator_func
-        second_stage_parameter_estimator =\
-            DiscreteTreatmentOrthoForest.second_stage_parameter_estimator_gen(lambda_reg)
+        second_stage_parameter_estimator = DiscreteTreatmentOrthoForest.second_stage_parameter_estimator_gen(
+            lambda_reg)
         # Define moment and mean gradient estimator
-        moment_and_mean_gradient_estimator =\
-            DiscreteTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
+        moment_and_mean_gradient_estimator = DiscreteTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
@@ -838,7 +835,6 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
         # Define number of classes
         self.n_T = T.shape[1] + 1  # add one to compensate for dropped first
-        T = inverse_onehot(T)
         self.nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
             self.propensity_model, self.model_Y, self.n_T, self.random_state, second_stage=False)
         self.second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
@@ -853,13 +849,15 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     def nuisance_estimator_generator(propensity_model, model_Y, n_T, random_state=None, second_stage=False):
         """Generate nuissance estimator given model inputs from the class."""
         def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
+            # Expand one-hot encoding to include the zero treatment
+            ohe_T = np.hstack([np.all(1 - T, axis=1, keepdims=True), T])
             # Test that T contains all treatments. If not, return None
-            ohe_T = OneHotEncoder(sparse=False, categories='auto').fit_transform(T.reshape(-1, 1))
-            if ohe_T.shape[1] < n_T:
+            T = ohe_T @ np.arange(ohe_T.shape[1])
+            if len(np.unique(T)) < ohe_T.shape[1]:
                 return None
             # Nuissance estimates evaluated with cross-fitting
             this_random_state = check_random_state(random_state)
-            if split_indices is None:
+            if (split_indices is None) and second_stage:
                 # Define 2-fold iterator
                 kfold_it = StratifiedKFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X, T)
                 # Check if there is only one example of some class
@@ -881,10 +879,12 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                     propensity_model_clone = clone(propensity_model, safe=False)
                     propensity_model_clone.fit(X_tilde, T)
                     propensities = propensity_model_clone.predict_proba(X_tilde)
+                    Y_hat = _group_predict(X_tilde, ohe_T.shape[1],
+                                           clone(model_Y, safe=False).fit(np.hstack([X, ohe_T]), Y).predict)
                 else:
                     propensities = _cross_fit(propensity_model, X_tilde, T, split_indices,
                                               sample_weight=sample_weight, predict_func_name='predict_proba')
-                Y_hat = _group_cross_fit(model_Y, X_tilde, Y, ohe_T, split_indices, sample_weight=sample_weight)
+                    Y_hat = _group_cross_fit(model_Y, X_tilde, Y, ohe_T, split_indices, sample_weight=sample_weight)
             except ValueError as exc:
                 raise ValueError("The original error: {0}".format(str(exc)) +
                                  " This might be caused by too few sample in the tree leafs." +
@@ -962,6 +962,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     def _partial_moments(Y, T, nuisance_estimates):
         Y_hat, propensities = nuisance_estimates
         partial_moments = np.zeros((len(Y), Y_hat.shape[1] - 1))
+        T = T @ np.arange(1, T.shape[1] + 1)
         mask_0 = (T == 0)
         for i in range(0, Y_hat.shape[1] - 1):
             # Need to calculate this in an elegant way for when propensity is 0
