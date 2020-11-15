@@ -39,8 +39,9 @@ from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExp
 from .causal_tree import CausalTree
 from .inference import Inference
 from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
-                        cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays)
-from sklearn.model_selection import cross_val_predict, check_cv
+                        cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays, RegWrapper)
+from sklearn.model_selection import check_cv
+from .sklearn_extensions.model_selection import cross_val_predict
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -199,6 +200,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                  second_stage_parameter_estimator,
                  moment_and_mean_gradient_estimator,
                  discrete_treatment=False,
+                 categories='auto',
                  n_trees=500,
                  min_leaf_size=10, max_depth=10,
                  subsample_ratio=0.25,
@@ -262,14 +264,6 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         if Y.ndim > 1 and Y.shape[1] > 1:
             raise ValueError(
                 "The outcome matrix must be of shape ({0}, ) or ({0}, 1), instead got {1}.".format(len(X), Y.shape))
-
-        if self.discrete_treatment:
-            # Train label encoder
-            T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
-            self._d_t = T.shape[1:]
-            self.transformer = FunctionTransformer(
-                func=_EncoderWrapper(self._one_hot_encoder).encode,
-                validate=False)
 
         shuffled_inidces = self.random_state.permutation(X.shape[0])
         n = X.shape[0] // 2
@@ -490,6 +484,15 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         The specification of the cv splitter to be used for cross-fitting, when constructing
         the global residuals of Y and T.
 
+    discrete_treatment : bool, optional (default=False)
+        Whether the treatment should be treated as categorical. If True, then the treatment T is
+        one-hot-encoded and the model_T is treated as a classifier that must have a predict_proba
+        method.
+
+    categories : array like or 'auto', optional (default='auto')
+        A list of pre-specified treatment categories. If 'auto' then categories are automatically
+        recognized at fit time.
+
     n_jobs : int, optional (default=-1)
         The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
         ``-1`` means using all processors. Since OrthoForest methods are
@@ -509,16 +512,23 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
-                 model_T=WeightedLassoCVWrapper(cv=3),
+                 model_T='auto',
                  model_Y=WeightedLassoCVWrapper(cv=3),
                  model_T_final=None,
                  model_Y_final=None,
                  global_residualization=False,
                  global_res_cv=2,
+                 discrete_treatment=False,
+                 categories='auto',
                  n_jobs=-1,
                  random_state=None):
         # Copy and/or define models
         self.lambda_reg = lambda_reg
+        if model_T == 'auto':
+            if discrete_treatment:
+                model_T = LogisticRegressionCV(cv=3)
+            else:
+                model_T = WeightedLassoCVWrapper(cv=3)
         self.model_T = model_T
         self.model_Y = model_Y
         self.model_T_final = model_T_final
@@ -527,6 +537,9 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             self.model_T_final = clone(self.model_T, safe=False)
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y, safe=False)
+        if discrete_treatment:
+            self.model_T = RegWrapper(self.model_T)
+            self.model_T_final = RegWrapper(self.model_T_final)
         self.random_state = check_random_state(random_state)
         self.global_residualization = global_residualization
         self.global_res_cv = global_res_cv
@@ -546,6 +559,10 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         moment_and_mean_gradient_estimator =\
             ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func_gen(
                 global_residualization=self.global_residualization)
+        if discrete_treatment:
+            if categories != 'auto':
+                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+            self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         super(ContinuousTreatmentOrthoForest, self).__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -558,6 +575,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             subsample_ratio=subsample_ratio,
             bootstrap=bootstrap,
             n_jobs=n_jobs,
+            discrete_treatment=discrete_treatment,
+            categories=categories,
             random_state=self.random_state)
 
     def _combine(self, X, W):
@@ -595,11 +614,27 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         self: an instance of self.
         """
         Y, T, X, W = check_inputs(Y, T, X, W)
+
+        if self.discrete_treatment:
+            d_t_in = T.shape[1:]
+            T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+            self._d_t = T.shape[1:]
+            self.transformer = FunctionTransformer(
+                func=_EncoderWrapper(self._one_hot_encoder).encode,
+                validate=False)
+
         if self.global_residualization:
             cv = check_cv(self.global_res_cv)
-            Y = Y - cross_val_predict(self.model_Y_final, self._combine(X, W), Y, cv=cv).reshape(Y.shape)
-            T = T - cross_val_predict(self.model_T_final, self._combine(X, W), T, cv=cv).reshape(T.shape)
-        return super().fit(Y, T, X, W=W, inference=inference)
+            Y = Y - cross_val_predict(self.model_Y_final, self._combine(X, W), Y, cv=cv, safe=False).reshape(Y.shape)
+            T = T - cross_val_predict(self.model_T_final, self._combine(X, W), T, cv=cv, safe=False).reshape(T.shape)
+
+        super().fit(Y, T, X, W=W, inference=inference)
+
+        # weirdness of wrap_fit. We need to store d_t_in. But because wrap_fit decorates the parent
+        # fit, we need to set explicitly d_t_in here after super fit is called.
+        if self.discrete_treatment:
+            self._d_t_in = d_t_in
+        return self
 
     def const_marginal_effect(self, X):
         X = check_array(X)
@@ -848,6 +883,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             second_stage_parameter_estimator,
             moment_and_mean_gradient_estimator,
             discrete_treatment=True,
+            categories=categories,
             n_trees=n_trees,
             min_leaf_size=min_leaf_size,
             max_depth=max_depth,
@@ -886,8 +922,22 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         # Check that T is shape (n, )
         # Check T is numeric
         T = self._check_treatment(T)
+        d_t_in = T.shape[1:]
+        # Train label encoder
+        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self._d_t = T.shape[1:]
+        self.transformer = FunctionTransformer(
+            func=_EncoderWrapper(self._one_hot_encoder).encode,
+            validate=False)
+
         # Call `fit` from parent class
-        return super().fit(Y, T, X, W=W, inference=inference)
+        super().fit(Y, T, X, W=W, inference=inference)
+
+        # weirdness of wrap_fit. We need to store d_t_in. But because wrap_fit decorates the parent
+        # fit, we need to set explicitly d_t_in here after super fit is called.
+        self._d_t_in = d_t_in
+
+        return self
 
     def const_marginal_effect(self, X):
         X = check_array(X)
