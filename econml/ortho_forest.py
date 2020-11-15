@@ -543,8 +543,9 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         second_stage_parameter_estimator = ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(
             self.lambda_reg, global_residualization=self.global_residualization)
         # Define
-        moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func_gen(
-            global_residualization=self.global_residualization)
+        moment_and_mean_gradient_estimator =\
+            ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func_gen(
+                global_residualization=self.global_residualization)
         super(ContinuousTreatmentOrthoForest, self).__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
