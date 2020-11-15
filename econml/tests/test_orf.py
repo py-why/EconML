@@ -21,9 +21,9 @@ class TestOrthoForest(unittest.TestCase):
     def setUpClass(cls):
         np.random.seed(123)
         # DGP constants
-        cls.n = 1000
-        cls.d_w = 30
-        cls.support_size = 5
+        cls.n = 5000
+        cls.d_w = 5
+        cls.support_size = 1
         cls.d_x = 1
         cls.epsilon_sample = lambda n: uniform(-1, 1, size=n)
         cls.eta_sample = lambda n: uniform(-1, 1, size=n)
@@ -253,7 +253,7 @@ class TestOrthoForest(unittest.TestCase):
 
         # Test CausalForest API
         est = CausalForest(n_trees=100, min_leaf_size=10,
-                           max_depth=50, subsample_ratio=0.50, n_jobs=1,
+                           max_depth=50, subsample_ratio=0.50, n_jobs=-1,
                            model_T=WeightedLassoCVWrapper(cv=5),
                            model_Y=WeightedLassoCVWrapper(cv=5),
                            cv=5)
@@ -286,12 +286,36 @@ class TestOrthoForest(unittest.TestCase):
         assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
+        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+        assert lb.shape == (3,), "Effect interval dimension incorrect"
+        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+        assert lb.shape == (3,), "Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 2), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 2), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 2), "Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 2), "Marginal Effect interval dimension incorrect"
         est.fit(y.reshape(-1, 1), T, X)
         assert est.const_marginal_effect(X[:3]).shape == (3, 1, 2), "Const Marginal Effect dimension incorrect"
         assert est.marginal_effect(1, X[:3]).shape == (3, 1, 2), "Marginal Effect dimension incorrect"
         assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
+        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 1, 2), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 1, 2), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 1, 2), "Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 1, 2), "Marginal Effect interval dimension incorrect"
         # Test causal foret API
         est = CausalForest(n_trees=10, model_Y=DummyRegressor(strategy='mean'),
                            model_T=DummyClassifier(strategy='prior'), discrete_treatment=True)
@@ -301,12 +325,36 @@ class TestOrthoForest(unittest.TestCase):
         assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
+        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+        assert lb.shape == (3,), "Effect interval dimension incorrect"
+        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+        assert lb.shape == (3,), "Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 2), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 2), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 2), "Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 2), "Marginal Effect interval dimension incorrect"
         est.fit(y.reshape(-1, 1), T, X)
         assert est.const_marginal_effect(X[:3]).shape == (3, 1, 2), "Const Marginal Effect dimension incorrect"
         assert est.marginal_effect(1, X[:3]).shape == (3, 1, 2), "Marginal Effect dimension incorrect"
         assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
+        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 1, 2), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 1, 2), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 1, 2), "Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 1, 2), "Marginal Effect interval dimension incorrect"
 
         from sklearn.dummy import DummyClassifier, DummyRegressor
         for global_residualization in [False, True]:
@@ -319,18 +367,54 @@ class TestOrthoForest(unittest.TestCase):
             assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
             assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
             assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
+            lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+            assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+            lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+            assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+            lb, _ = est.const_marginal_effect_interval(X[:3])
+            assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
+            lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+            assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
+            lb, _ = est.marginal_effect_interval(X[:3])
+            assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
+            lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+            assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
             est.fit(y.reshape(-1, 1), T, X)
             assert est.const_marginal_effect(X[:3]).shape == (3, 1), "Const Marginal Effect dimension incorrect"
             assert est.marginal_effect(1, X[:3]).shape == (3, 1), "Marginal Effect dimension incorrect"
             assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
             assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
             assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
+            lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+            assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+            lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+            assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+            lb, _ = est.const_marginal_effect_interval(X[:3])
+            assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
+            lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+            assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
+            lb, _ = est.marginal_effect_interval(X[:3])
+            assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
+            lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+            assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
             est.fit(y, T, X)
             assert est.const_marginal_effect(X[:3]).shape == (3,), "Const Marginal Effect dimension incorrect"
             assert est.marginal_effect(1, X[:3]).shape == (3,), "Marginal Effect dimension incorrect"
             assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
             assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
             assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
+            lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+            assert lb.shape == (3,), "Effect interval dimension incorrect"
+            lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+            assert lb.shape == (3,), "Effect interval dimension incorrect"
+            lb, _ = est.const_marginal_effect_interval(X[:3])
+            assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
+            lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+            assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
+            lb, _ = est.marginal_effect_interval(X[:3])
+            assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
+            lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+            assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
 
         # Test Causal Forest API
         est = CausalForest(n_trees=10, model_Y=DummyRegressor(strategy='mean'),
@@ -341,18 +425,54 @@ class TestOrthoForest(unittest.TestCase):
         assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
+        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
         est.fit(y.reshape(-1, 1), T, X)
         assert est.const_marginal_effect(X[:3]).shape == (3, 1), "Const Marginal Effect dimension incorrect"
         assert est.marginal_effect(1, X[:3]).shape == (3, 1), "Marginal Effect dimension incorrect"
         assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
+        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_interval(X[:3])
+        assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
         est.fit(y, T, X)
         assert est.const_marginal_effect(X[:3]).shape == (3,), "Const Marginal Effect dimension incorrect"
         assert est.marginal_effect(1, X[:3]).shape == (3,), "Marginal Effect dimension incorrect"
         assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
         assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
+        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+        assert lb.shape == (3,), "Effect interval dimension incorrect"
+        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+        assert lb.shape == (3,), "Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_interval(X[:3])
+        assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_interval(X[:3])
+        assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
+        lb, _ = est.marginal_effect_inference(X[:3]).conf_int()
+        assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
 
     def test_nuisance_model_has_weights(self):
         """Test whether the correct exception is being raised if model_final doesn't have weights."""
@@ -405,27 +525,28 @@ class TestOrthoForest(unittest.TestCase):
         self.assertLessEqual(np.mean(te_res > tol), 0.2)
 
     def _test_ci(self, learner_instance, expected_te, tol, treatment_type='continuous'):
-        # Compute the treatment effect on test points
-        te_lower, te_upper = learner_instance.const_marginal_effect_interval(
-            TestOrthoForest.x_test
-        )
-        # Compute treatment effect residuals
-        if treatment_type == 'continuous':
-            delta_ci_upper = te_upper - expected_te
-            delta_ci_lower = expected_te - te_lower
-        elif treatment_type == 'discrete':
-            delta_ci_upper = te_upper[:, 0] - expected_te
-            delta_ci_lower = expected_te - te_lower[:, 0]
-        else:
-            # Multiple treatments
-            delta_ci_upper = te_upper - expected_te
-            delta_ci_lower = expected_te - te_lower
-        # Allow at most 20% test points to be outside of the confidence interval
-        # Check that the intervals are not too wide
-        self.assertLessEqual(np.mean(delta_ci_upper < 0), 0.2)
-        self.assertLessEqual(np.mean(np.abs(delta_ci_upper) > tol), 0.2)
-        self.assertLessEqual(np.mean(delta_ci_lower < 0), 0.2)
-        self.assertLessEqual(np.mean(np.abs(delta_ci_lower) > tol), 0.2)
+
+        for te_lower, te_upper in\
+            [learner_instance.const_marginal_effect_interval(TestOrthoForest.x_test),
+             learner_instance.const_marginal_effect_inference(TestOrthoForest.x_test).conf_int()]:
+
+            # Compute treatment effect residuals
+            if treatment_type == 'continuous':
+                delta_ci_upper = te_upper - expected_te
+                delta_ci_lower = expected_te - te_lower
+            elif treatment_type == 'discrete':
+                delta_ci_upper = te_upper[:, 0] - expected_te
+                delta_ci_lower = expected_te - te_lower[:, 0]
+            else:
+                # Multiple treatments
+                delta_ci_upper = te_upper - expected_te
+                delta_ci_lower = expected_te - te_lower
+            # Allow at most 20% test points to be outside of the confidence interval
+            # Check that the intervals are not too wide
+            self.assertLessEqual(np.mean(delta_ci_upper < 0), 0.2)
+            self.assertLessEqual(np.mean(np.abs(delta_ci_upper) > tol), 0.2)
+            self.assertLessEqual(np.mean(delta_ci_lower < 0), 0.2)
+            self.assertLessEqual(np.mean(np.abs(delta_ci_lower) > tol), 0.2)
 
     @classmethod
     def _const_te(cls, x):

@@ -42,6 +42,7 @@ from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
                         cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays, RegWrapper)
 from sklearn.model_selection import check_cv
 from .sklearn_extensions.model_selection import cross_val_predict
+from .inference import NormalInferenceResults
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -1149,7 +1150,29 @@ class BLBInference(Inference):
         if self._T_vec:
             # If T is a vector, preserve shape of the effect interval
             return param_lower.flatten(), param_upper.flatten()
-        return param_lower, param_upper
+        return param_lower.reshape((-1,) + self._estimator._d_y + self._estimator._d_t),\
+            param_upper.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
+
+    def const_marginal_effect_inference(self, X=None):
+        X = check_array(X)
+        params, cov = zip(*(self._predict_wrapper(X)))
+        params = np.array(params).reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
+        stderr = np.sqrt(np.diagonal(np.array(cov), axis1=1, axis2=2))
+        stderr = stderr.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
+        return NormalInferenceResults(d_t=self._estimator._d_t[0] if self._estimator._d_t else 1,
+                                      d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
+                                      pred=params, pred_stderr=stderr, inf_type='effect')
+
+    def _effect_inference_helper(self, X, T0, T1):
+        X, T0, T1 = self._estimator._expand_treatments(*check_input_arrays(X, T0, T1))
+        dT = (T1 - T0) if T0.ndim == 2 else (T1 - T0).reshape(-1, 1)
+        params_and_cov = self._predict_wrapper(X)
+        # Calculate confidence intervals for the effect
+        # Calculate the effects
+        eff = np.asarray([np.dot(params_and_cov[i][0], dT[i]) for i in range(X.shape[0])])
+        # Calculate the standard deviations for the effects
+        scales = np.asarray([np.sqrt(dT[i] @ params_and_cov[i][1] @ dT[i]) for i in range(X.shape[0])])
+        return eff.reshape((-1,) + self._estimator._d_y), scales.reshape((-1,) + self._estimator._d_y)
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
@@ -1176,19 +1199,41 @@ class BLBInference(Inference):
         lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
-        X, T0, T1 = self._estimator._expand_treatments(*check_input_arrays(X, T0, T1))
-        dT = (T1 - T0) if T0.ndim == 2 else (T1 - T0).reshape(-1, 1)
-        params_and_cov = self._predict_wrapper(X)
-        # Calculate confidence intervals for the effect
+        eff, scales = self._effect_inference_helper(X, T0, T1)
         lower = alpha / 2
         upper = 1 - alpha / 2
-        # Calculate the effects
-        eff = np.asarray([np.dot(params_and_cov[i][0], dT[i]) for i in range(X.shape[0])])
-        # Calculate the standard deviations for the effects
-        scales = [np.sqrt(dT[i] @ params_and_cov[i][1] @ dT[i]) for i in range(X.shape[0])]
         effect_lower = eff + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, scales)
         effect_upper = eff + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, scales)
         return effect_lower, effect_upper
+
+    def effect_inference(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
+        by the model. Available only when ``inference`` is ``blb``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        eff, scales = self._effect_inference_helper(X, T0, T1)
+        return NormalInferenceResults(d_t=1, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
+                                      pred=eff, pred_stderr=scales, inf_type='effect')
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)
