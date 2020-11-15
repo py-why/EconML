@@ -40,6 +40,7 @@ from .causal_tree import CausalTree
 from .inference import Inference
 from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
                         cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays)
+from sklearn.model_selection import cross_val_predict, check_cv
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -479,6 +480,16 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         `fit` and `predict` methods. If parameter is set to ``None``, it defaults to the
         value of `model_Y` parameter.
 
+    global_residualization : bool, optional (default=False)
+        Whether to perform a prior residualization of Y and T using the model_Y_final and model_T_final
+        estimators, or whether to perform locally weighted residualization at each target point.
+        Global residualization is computationally less intensive, but could lose some statistical
+        power, especially when W is not None.
+
+    global_res_cv : int, cross-validation generator or an iterable, optional (default=2)
+        The specification of the cv splitter to be used for cross-fitting, when constructing
+        the global residuals of Y and T.
+
     n_jobs : int, optional (default=-1)
         The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
         ``-1`` means using all processors. Since OrthoForest methods are
@@ -502,6 +513,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                  model_Y=WeightedLassoCVWrapper(cv=3),
                  model_T_final=None,
                  model_Y_final=None,
+                 global_residualization=False,
+                 global_res_cv=2,
                  n_jobs=-1,
                  random_state=None):
         # Copy and/or define models
@@ -515,17 +528,23 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y, safe=False)
         self.random_state = check_random_state(random_state)
+        self.global_residualization = global_residualization
+        self.global_res_cv = global_res_cv
         # Define nuisance estimators
         nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
-            self.model_T, self.model_Y, self.random_state, second_stage=False)
+            self.model_T, self.model_Y, self.random_state, second_stage=False,
+            global_residualization=self.global_residualization)
         second_stage_nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
-            self.model_T_final, self.model_Y_final, self.random_state, second_stage=True)
+            self.model_T_final, self.model_Y_final, self.random_state, second_stage=True,
+            global_residualization=self.global_residualization)
         # Define parameter estimators
-        parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func
+        parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func_generator(
+            global_residualization=self.global_residualization)
         second_stage_parameter_estimator = ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(
-            self.lambda_reg)
+            self.lambda_reg, global_residualization=self.global_residualization)
         # Define
-        moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
+        moment_and_mean_gradient_estimator = ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func_gen(
+            global_residualization=self.global_residualization)
         super(ContinuousTreatmentOrthoForest, self).__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -539,6 +558,13 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             bootstrap=bootstrap,
             n_jobs=n_jobs,
             random_state=self.random_state)
+
+    def _combine(self, X, W):
+        if X is None:
+            return W
+        if W is None:
+            return X
+        return np.hstack([X, W])
 
     # Need to redefine fit here for auto inference to work due to a quirk in how
     # wrap_fit is defined
@@ -567,22 +593,27 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         -------
         self: an instance of self.
         """
+        Y, T, X, W = check_inputs(Y, T, X, W)
+        if self.global_residualization:
+            cv = check_cv(self.global_res_cv)
+            Y = Y - cross_val_predict(self.model_Y_final, self._combine(X, W), Y, cv=cv).reshape(Y.shape)
+            T = T - cross_val_predict(self.model_T_final, self._combine(X, W), T, cv=cv).reshape(T.shape)
         return super().fit(Y, T, X, W=W, inference=inference)
 
     def const_marginal_effect(self, X):
         X = check_array(X)
         # Override to flatten output if T is flat
         effects = super(ContinuousTreatmentOrthoForest, self).const_marginal_effect(X=X)
-        if not self._d_t:
-            # T is flat
-            return effects.flatten()
-        return effects
+        return effects.reshape((-1,) + self._d_y + self._d_t)
     const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
 
     @staticmethod
-    def nuisance_estimator_generator(model_T, model_Y, random_state=None, second_stage=True):
+    def nuisance_estimator_generator(model_T, model_Y, random_state=None, second_stage=True,
+                                     global_residualization=False):
         """Generate nuissance estimator given model inputs from the class."""
         def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
+            if global_residualization:
+                return 0
             # Nuissance estimates evaluated with cross-fitting
             this_random_state = check_random_state(random_state)
             if (split_indices is None) and second_stage:
@@ -611,21 +642,24 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         return nuisance_estimator
 
     @staticmethod
-    def parameter_estimator_func(Y, T, X,
-                                 nuisance_estimates,
-                                 sample_weight=None):
-        """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
-        # Compute residuals
-        Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
-        # Compute coefficient by OLS on residuals
-        param_estimate = LinearRegression(fit_intercept=False).fit(
-            T_res, Y_res, sample_weight=sample_weight
-        ).coef_
-        # Parameter returned by LinearRegression is (d_T, )
-        return param_estimate
+    def parameter_estimator_func_generator(global_residualization=False):
+        def parameter_estimator_func(Y, T, X,
+                                     nuisance_estimates,
+                                     sample_weight=None):
+            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+            # Compute residuals
+            Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
+                                                                                    global_residualization)
+            # Compute coefficient by OLS on residuals
+            param_estimate = LinearRegression(fit_intercept=False).fit(
+                T_res, Y_res, sample_weight=sample_weight
+            ).coef_
+            # Parameter returned by LinearRegression is (d_T, )
+            return param_estimate
+        return parameter_estimator_func
 
     @staticmethod
-    def second_stage_parameter_estimator_gen(lambda_reg):
+    def second_stage_parameter_estimator_gen(lambda_reg, global_residualization=False):
         """
         For the second stage parameter estimation we add a local linear correction. So
         we fit a local linear function as opposed to a local constant function. We also penalize
@@ -641,8 +675,9 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             local corrections on a preliminary parameter estimate.
             """
             # Compute residuals
-            Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
-            X_aug = PolynomialFeatures(degree=1, include_bias=True).fit_transform(X)
+            Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
+                                                                                    global_residualization)
+            X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
             XT_res = cross_product(T_res, X_aug)
             # Compute coefficient by OLS on residuals
             if sample_weight is not None:
@@ -665,22 +700,27 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         return parameter_estimator_func
 
     @staticmethod
-    def moment_and_mean_gradient_estimator_func(Y, T, X, W,
-                                                nuisance_estimates,
-                                                parameter_estimate):
-        """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
-        # Return moments and gradients
-        # Compute residuals
-        Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
-        # Compute moments
-        # Moments shape is (n, d_T)
-        moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
-        # Compute moment gradients
-        mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
-        return moments, mean_gradient
+    def moment_and_mean_gradient_estimator_func_gen(global_residualization=False):
+        def moment_and_mean_gradient_estimator_func(Y, T, X, W,
+                                                    nuisance_estimates,
+                                                    parameter_estimate):
+            """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
+            # Return moments and gradients
+            # Compute residuals
+            Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
+                                                                                    global_residualization)
+            # Compute moments
+            # Moments shape is (n, d_T)
+            moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
+            # Compute moment gradients
+            mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
+            return moments, mean_gradient
+        return moment_and_mean_gradient_estimator_func
 
     @staticmethod
-    def _get_conforming_residuals(Y, T, nuisance_estimates):
+    def _get_conforming_residuals(Y, T, nuisance_estimates, global_residualization):
+        if global_residualization:
+            return reshape_Y_T(Y, T)
         # returns shape-conforming residuals
         Y_hat, T_hat = reshape_Y_T(*nuisance_estimates)
         Y, T = reshape_Y_T(Y, T)
@@ -847,6 +887,13 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         T = self._check_treatment(T)
         # Call `fit` from parent class
         return super().fit(Y, T, X, W=W, inference=inference)
+
+    def const_marginal_effect(self, X):
+        X = check_array(X)
+        # Override to flatten output if T is flat
+        effects = super(DiscreteTreatmentOrthoForest, self).const_marginal_effect(X=X)
+        return effects.reshape((-1,) + self._d_y + self._d_t)
+    const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
 
     @staticmethod
     def nuisance_estimator_generator(propensity_model, model_Y, random_state=None, second_stage=False):
