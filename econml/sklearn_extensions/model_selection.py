@@ -243,7 +243,7 @@ def cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
 
         - None, to use the default 5-fold cross validation,
         - int, to specify the number of folds in a `(Stratified)KFold`,
-        - :term:`CV splitter`,
+        - CV splitter,
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For int/None inputs, if the estimator is a classifier and ``y`` is
