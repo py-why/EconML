@@ -11,10 +11,10 @@ effect heterogeneity.
 
 This file consists of classes that implement the following variants of the ORF method:
 
-- The :class:`ContinuousTreatmentOrthoForest`, a two-forest approach for learning continuous treatment effects
+- The :class:`DMLOrthoForest`, a two-forest approach for learning continuous or discrete treatment effects
   using kernel two stage estimation.
 
-- The :class:`DiscreteTreatmentOrthoForest`, a two-forest approach for learning discrete treatment effects
+- The :class:`DROrthoForest`, a two-forest approach for learning discrete treatment effects
   using kernel two stage estimation.
 
 For more details on these methods, see our paper [Oprescu2019]_.
@@ -39,7 +39,8 @@ from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExp
 from .causal_tree import CausalTree
 from .inference import Inference
 from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
-                        cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays, RegressionWrapper)
+                        cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
+                        _RegressionWrapper, deprecated)
 from sklearn.model_selection import check_cv
 from .sklearn_extensions.model_selection import cross_val_predict
 from .inference import NormalInferenceResults
@@ -207,7 +208,7 @@ def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights
 
 
 class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
-    """Base class for the :class:`ContinuousTreatmentOrthoForest` and :class:`DiscreteTreatmentOrthoForest`."""
+    """Base class for the :class:`DMLOrthoForest` and :class:`DROrthoForest`."""
 
     def __init__(self,
                  nuisance_estimator,
@@ -442,8 +443,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         return np.asarray(subsample_ind)
 
 
-class ContinuousTreatmentOrthoForest(BaseOrthoForest):
-    """OrthoForest for continuous treatments.
+class DMLOrthoForest(BaseOrthoForest):
+    """OrthoForest for continuous or discrete treatments using the DML residual on residual moment function.
 
     A two-forest approach for learning heterogeneous treatment effects using
     kernel two stage estimation.
@@ -554,26 +555,26 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y, safe=False)
         if discrete_treatment:
-            self.model_T = RegressionWrapper(self.model_T)
-            self.model_T_final = RegressionWrapper(self.model_T_final)
+            self.model_T = _RegressionWrapper(self.model_T)
+            self.model_T_final = _RegressionWrapper(self.model_T_final)
         self.random_state = check_random_state(random_state)
         self.global_residualization = global_residualization
         self.global_res_cv = global_res_cv
         # Define nuisance estimators
-        nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
+        nuisance_estimator = DMLOrthoForest.nuisance_estimator_generator(
             self.model_T, self.model_Y, self.random_state, second_stage=False,
             global_residualization=self.global_residualization)
-        second_stage_nuisance_estimator = ContinuousTreatmentOrthoForest.nuisance_estimator_generator(
+        second_stage_nuisance_estimator = DMLOrthoForest.nuisance_estimator_generator(
             self.model_T_final, self.model_Y_final, self.random_state, second_stage=True,
             global_residualization=self.global_residualization)
         # Define parameter estimators
-        parameter_estimator = ContinuousTreatmentOrthoForest.parameter_estimator_func_generator(
+        parameter_estimator = DMLOrthoForest.parameter_estimator_func_generator(
             global_residualization=self.global_residualization)
-        second_stage_parameter_estimator = ContinuousTreatmentOrthoForest.second_stage_parameter_estimator_gen(
+        second_stage_parameter_estimator = DMLOrthoForest.second_stage_parameter_estimator_gen(
             self.lambda_reg, global_residualization=self.global_residualization)
         # Define
         moment_and_mean_gradient_estimator =\
-            ContinuousTreatmentOrthoForest.moment_and_mean_gradient_estimator_func_gen(
+            DMLOrthoForest.moment_and_mean_gradient_estimator_func_gen(
                 global_residualization=self.global_residualization)
         if discrete_treatment:
             if categories != 'auto':
@@ -655,7 +656,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
     def const_marginal_effect(self, X):
         X = check_array(X)
         # Override to flatten output if T is flat
-        effects = super(ContinuousTreatmentOrthoForest, self).const_marginal_effect(X=X)
+        effects = super().const_marginal_effect(X=X)
         return effects.reshape((-1,) + self._d_y + self._d_t)
     const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
 
@@ -700,8 +701,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
                                      sample_weight=None):
             """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
             # Compute residuals
-            Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
-                                                                                    global_residualization)
+            Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
+                                                                    global_residualization)
             # Compute coefficient by OLS on residuals
             param_estimate = LinearRegression(fit_intercept=False).fit(
                 T_res, Y_res, sample_weight=sample_weight
@@ -727,8 +728,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             local corrections on a preliminary parameter estimate.
             """
             # Compute residuals
-            Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
-                                                                                    global_residualization)
+            Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
+                                                                    global_residualization)
             X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
             XT_res = cross_product(T_res, X_aug)
             # Compute coefficient by OLS on residuals
@@ -759,8 +760,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
             # Return moments and gradients
             # Compute residuals
-            Y_res, T_res = ContinuousTreatmentOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
-                                                                                    global_residualization)
+            Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
+                                                                    global_residualization)
             # Compute moments
             # Moments shape is (n, d_T)
             moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
@@ -780,9 +781,9 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         return Y_res, T_res
 
 
-class DiscreteTreatmentOrthoForest(BaseOrthoForest):
+class DROrthoForest(BaseOrthoForest):
     """
-    OrthoForest for discrete treatments.
+    OrthoForest for discrete treatments using the doubly robust moment function.
 
     A two-forest approach for learning heterogeneous treatment effects using
     kernel two stage estimation.
@@ -878,16 +879,16 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             self.model_Y_final = clone(self.model_Y, safe=False)
         self.random_state = check_random_state(random_state)
 
-        nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
+        nuisance_estimator = DROrthoForest.nuisance_estimator_generator(
             self.propensity_model, self.model_Y, self.random_state, second_stage=False)
-        second_stage_nuisance_estimator = DiscreteTreatmentOrthoForest.nuisance_estimator_generator(
+        second_stage_nuisance_estimator = DROrthoForest.nuisance_estimator_generator(
             self.propensity_model_final, self.model_Y_final, self.random_state, second_stage=True)
         # Define parameter estimators
-        parameter_estimator = DiscreteTreatmentOrthoForest.parameter_estimator_func
-        second_stage_parameter_estimator = DiscreteTreatmentOrthoForest.second_stage_parameter_estimator_gen(
+        parameter_estimator = DROrthoForest.parameter_estimator_func
+        second_stage_parameter_estimator = DROrthoForest.second_stage_parameter_estimator_gen(
             lambda_reg)
         # Define moment and mean gradient estimator
-        moment_and_mean_gradient_estimator = DiscreteTreatmentOrthoForest.moment_and_mean_gradient_estimator_func
+        moment_and_mean_gradient_estimator = DROrthoForest.moment_and_mean_gradient_estimator_func
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
@@ -958,7 +959,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
     def const_marginal_effect(self, X):
         X = check_array(X)
         # Override to flatten output if T is flat
-        effects = super(DiscreteTreatmentOrthoForest, self).const_marginal_effect(X=X)
+        effects = super().const_marginal_effect(X=X)
         return effects.reshape((-1,) + self._d_y + self._d_t)
     const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
 
@@ -1015,7 +1016,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
                                  sample_weight=None):
         """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
         # Compute partial moments
-        pointwise_params = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)
+        pointwise_params = DROrthoForest._partial_moments(Y, T, nuisance_estimates)
         param_estimate = np.average(pointwise_params, weights=sample_weight, axis=0)
         # If any of the values in the parameter estimate is nan, return None
         return param_estimate
@@ -1037,7 +1038,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             local corrections on a preliminary parameter estimate.
             """
             # Compute partial moments
-            pointwise_params = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)
+            pointwise_params = DROrthoForest._partial_moments(Y, T, nuisance_estimates)
             X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
             # Compute coefficient by OLS on residuals
             if sample_weight is not None:
@@ -1066,7 +1067,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
         """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
         # Return moments and gradients
         # Compute partial moments
-        partial_moments = DiscreteTreatmentOrthoForest._partial_moments(Y, T, nuisance_estimates)
+        partial_moments = DROrthoForest._partial_moments(Y, T, nuisance_estimates)
         # Compute moments
         # Moments shape is (n, d_T-1)
         moments = partial_moments - parameter_estimate
@@ -1245,3 +1246,15 @@ class BLBInference(Inference):
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)
+
+
+@deprecated("The ContinuousTreatmentOrthoForest class has been renamed to DMLOrthoForest; "
+            "an upcoming release will remove support for the old name")
+class ContinuousTreatmentOrthoForest(DMLOrthoForest):
+    pass
+
+
+@deprecated("The DiscreteTreatmentOrthoForest class has been renamed to DROrthoForest; "
+            "an upcoming release will remove support for the old name")
+class DiscreteTreatmentOrthoForest(DROrthoForest):
+    pass

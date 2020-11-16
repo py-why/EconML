@@ -1579,7 +1579,7 @@ def transpose_dictionary(d):
     return output
 
 
-class RegressionWrapper:
+class _RegressionWrapper:
     """
     A simple wrapper that makes a binary classifier behave like a regressor.
     Essentially .fit, calls the fit method of the classifier and

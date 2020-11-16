@@ -1,9 +1,9 @@
-from .ortho_forest import ContinuousTreatmentOrthoForest
+from .ortho_forest import DMLOrthoForest
 from .utilities import LassoCVWrapper
 from sklearn.linear_model import LogisticRegressionCV
 
 
-class CausalForest(ContinuousTreatmentOrthoForest):
+class CausalForest(DMLOrthoForest):
     """CausalForest for continuous treatments. To apply to discrete
     treatments, first one-hot-encode your treatments and then pass the one-hot-encoding.
 
