@@ -159,8 +159,6 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
     def effect_inference(self, X, *, T0, T1):
         # We can write effect inference as a function of const_marginal_effect_inference for a single treatment
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
-        if (T0 == T1).all():
-            raise AttributeError("T0 is the same as T1, please input different treatment!")
         cme_pred = self.const_marginal_effect_inference(X).point_estimate
         cme_stderr = self.const_marginal_effect_inference(X).stderr
         dT = T1 - T0
@@ -213,8 +211,6 @@ class LinearModelFinalInference(GenericModelFinalInference):
         # We can write effect inference as a function of prediction and prediction standard error of
         # the final method for linear models
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
-        if (T0 == T1).all():
-            raise AttributeError("T0 is the same as T1, please input different treatment!")
         if X is None:
             X = np.ones((T0.shape[0], 1))
         elif self.featurizer is not None:
@@ -372,10 +368,9 @@ class GenericModelFinalInferenceDiscrete(Inference):
 
     def effect_inference(self, X, *, T0, T1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
-        if (T0 == T1).all():
-            raise AttributeError("T0 is the same with T1, please input different treatment!")
-        if np.any(np.any(T0 > 0, axis=1)):
-            raise AttributeError("Can only calculate inference of effects with respect to baseline treatment!")
+        if np.any(np.any(T0 > 0, axis=1)) or np.any(np.all(T1 == 0, axis=1)):
+            raise AttributeError("Can only calculate inference of effects between a non-baseline treatment "
+                                 "and the baseline treatment!")
         ind = inverse_onehot(T1)
         pred = self.const_marginal_effect_inference(X).point_estimate
         pred = np.concatenate([np.zeros(pred.shape[0:-1] + (1,)), pred], -1)
