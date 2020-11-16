@@ -206,7 +206,10 @@ class WeightedStratifiedKFold(WeightedKFold):
 def cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
                       n_jobs=None, verbose=0, fit_params=None,
                       pre_dispatch='2*n_jobs', method='predict', safe=True):
-    """Generate cross-validated estimates for each input data point
+    """This is a fork from `sklearn.model_selection.cross_val_predict` to allow for
+    non-safe cloning of the models for each fold.
+
+    Generate cross-validated estimates for each input data point
 
     The data is split according to the cv parameter. Each sample belongs
     to exactly one test set, and its prediction is computed with an
