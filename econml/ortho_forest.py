@@ -564,7 +564,7 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
             if categories != 'auto':
                 categories = [categories]  # OneHotEncoder expects a 2D array with features per column
             self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
-        super(ContinuousTreatmentOrthoForest, self).__init__(
+        super().__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
             parameter_estimator,
@@ -877,7 +877,7 @@ class DiscreteTreatmentOrthoForest(BaseOrthoForest):
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
 
-        super(DiscreteTreatmentOrthoForest, self).__init__(
+        super().__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
             parameter_estimator,
