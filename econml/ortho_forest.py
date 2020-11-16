@@ -122,7 +122,7 @@ def _group_predict(X, n_groups, predict_func):
 
     Returns
     -------
-    pred : (n, n_groups) array 
+    pred : (n, n_groups) array
     """
     group_pred = np.zeros((X.shape[0], n_groups))
     zero_t = np.zeros((X.shape[0], n_groups))
