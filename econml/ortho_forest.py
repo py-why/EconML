@@ -113,6 +113,16 @@ def _group_predict(X, n_groups, predict_func):
     for every input argument that looks like [X; i] for i in range(n_groups). Used in
     DR moments, where we want to predict for each [X; t], for any value of the treatment t.
     Returns an (X.shape[0], n_groups) matrix of predictions for each row of X and each t in range(n_groups).
+
+    Parameters
+    ----------
+    X : (n, m) array
+    n_groups : int
+    predict_func : fn
+
+    Returns
+    -------
+    pred : (n, n_groups) array 
     """
     group_pred = np.zeros((X.shape[0], n_groups))
     zero_t = np.zeros((X.shape[0], n_groups))
