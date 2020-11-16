@@ -719,8 +719,14 @@ class TestDML(unittest.TestCase):
 
     def test_can_use_featurizer(self):
         "Test that we can use a featurizer, and that fit is only called during training"
+
+        # predetermined splits ensure that all features are seen in each split
+        splits = ([0, 2, 3, 6, 8, 11, 13, 15, 16],
+                  [1, 4, 5, 7, 9, 10, 12, 14, 17])
+
         dml = LinearDML(LinearRegression(), LinearRegression(),
-                        fit_cate_intercept=False, featurizer=OneHotEncoder(sparse=False))
+                        fit_cate_intercept=False, featurizer=OneHotEncoder(sparse=False),
+                        n_splits=[splits, splits[::-1]])
 
         T = np.tile([1, 2, 3], 6)
         Y = np.array([1, 2, 3, 1, 2, 3])
