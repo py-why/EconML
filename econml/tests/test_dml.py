@@ -790,21 +790,35 @@ class TestDML(unittest.TestCase):
     def test_ignores_final_intercept(self):
         """Test that final model intercepts are ignored (with a warning)"""
         class InterceptModel:
-            def fit(Y, X):
+            def fit(self, Y, X):
                 pass
 
-            def predict(X):
+            def predict(self, X):
                 return X + 1
+
+            def prediction_stderr(self, X):
+                return np.zeros(X.shape[0])
 
         # (incorrectly) use a final model with an intercept
         dml = DML(LinearRegression(), LinearRegression(),
-                  model_final=InterceptModel)
+                  model_final=InterceptModel())
         # Because final model is fixed, actual values of T and Y don't matter
         t = np.random.normal(size=100)
         y = np.random.normal(size=100)
         with self.assertWarns(Warning):  # we should warn whenever there's an intercept
             dml.fit(y, t)
         assert dml.const_marginal_effect() == 1  # coefficient on X in InterceptModel is 1
+        assert dml.const_marginal_effect_inference().point_estimate == 1
+        assert dml.const_marginal_effect_inference().conf_int() == (1, 1)
+        assert dml.const_marginal_effect_interval() == (1, 1)
+        assert dml.effect() == 1
+        assert dml.effect_inference().point_estimate == 1
+        assert dml.effect_inference().conf_int() == (1, 1)
+        assert dml.effect_interval() == (1, 1)
+        assert dml.marginal_effect(1) == 1  # coefficient on X in InterceptModel is 1
+        assert dml.marginal_effect_inference(1).point_estimate == 1
+        assert dml.marginal_effect_inference(1).conf_int() == (1, 1)
+        assert dml.marginal_effect_interval(1) == (1, 1)
 
     def test_sparse(self):
         for _ in range(5):
