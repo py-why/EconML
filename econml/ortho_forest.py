@@ -1111,10 +1111,6 @@ class BLBInference(Inference):
         if not hasattr(self._estimator, "_predict"):
             raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
                             " Estimators must implement the '_predict' method with the correct signature.")
-        # Test expansion of treatment
-        # If expanded treatments are a vector, flatten const_marginal_effect_interval
-        _, T0, _ = self._estimator._expand_treatments(None, 0, 1)
-        self._T_vec = (T0.ndim == 1)
         return self
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
@@ -1147,9 +1143,6 @@ class BLBInference(Inference):
         param_upper = [param + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, np.sqrt(np.diag(cov_mat)))
                        for (param, cov_mat) in params_and_cov]
         param_lower, param_upper = np.asarray(param_lower), np.asarray(param_upper)
-        if self._T_vec:
-            # If T is a vector, preserve shape of the effect interval
-            return param_lower.flatten(), param_upper.flatten()
         return param_lower.reshape((-1,) + self._estimator._d_y + self._estimator._d_t),\
             param_upper.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
 
