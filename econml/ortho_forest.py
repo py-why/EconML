@@ -39,7 +39,7 @@ from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExp
 from .causal_tree import CausalTree
 from .inference import Inference
 from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
-                        cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays, RegWrapper)
+                        cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays, RegressionWrapper)
 from sklearn.model_selection import check_cv
 from .sklearn_extensions.model_selection import cross_val_predict
 from .inference import NormalInferenceResults
@@ -109,6 +109,11 @@ def _cross_fit(model_instance, X, y, split_indices, sample_weight=None, predict_
 
 
 def _group_predict(X, n_groups, predict_func):
+    """ Helper function that predicts using the predict function
+    for every input argument that looks like [X; i] for i in range(n_groups). Used in
+    DR moments, where we want to predict for each [X; t], for any value of the treatment t.
+    Returns an (X.shape[0], n_groups) matrix of predictions for each row of X and each t in range(n_groups).
+    """
     group_pred = np.zeros((X.shape[0], n_groups))
     zero_t = np.zeros((X.shape[0], n_groups))
     for i in range(n_groups):
@@ -539,8 +544,8 @@ class ContinuousTreatmentOrthoForest(BaseOrthoForest):
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y, safe=False)
         if discrete_treatment:
-            self.model_T = RegWrapper(self.model_T)
-            self.model_T_final = RegWrapper(self.model_T_final)
+            self.model_T = RegressionWrapper(self.model_T)
+            self.model_T_final = RegressionWrapper(self.model_T_final)
         self.random_state = check_random_state(random_state)
         self.global_residualization = global_residualization
         self.global_res_cv = global_res_cv
