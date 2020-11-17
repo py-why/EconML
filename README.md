@@ -361,7 +361,9 @@ as p-values and z-statistics. When the CATE model is linear and parametric, then
   est.summary()
   ```
   ![image](notebooks/images/summary_frame.png)
+  
   ![image](notebooks/images/population_summary.png)
+  
   ![image](notebooks/images/summary.png)
 
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
