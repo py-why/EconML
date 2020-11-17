@@ -121,7 +121,7 @@ class TestDML(unittest.TestCase):
                                           featurizer=featurizer,
                                           fit_cate_intercept=fit_cate_intercept,
                                           discrete_treatment=is_discrete),
-                                      False,
+                                      True,
                                       ['auto']),
                                      (LinearDML(model_y=Lasso(),
                                                 model_t='auto',
