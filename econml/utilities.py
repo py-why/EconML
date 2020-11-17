@@ -1609,3 +1609,40 @@ def transpose_dictionary(d):
         for key2, val in value.items():
             output[key2][key1] = val
     return output
+
+
+class _RegressionWrapper:
+    """
+    A simple wrapper that makes a binary classifier behave like a regressor.
+    Essentially .fit, calls the fit method of the classifier and
+    .predict calls the .predict_proba method of the classifier
+    and returns the probability of label 1.
+    """
+
+    def __init__(self, clf):
+        """
+        Parameters
+        ----------
+        clf : the classifier model
+        """
+        self._clf = clf
+
+    def fit(self, X, y, **kwargs):
+        """
+        Parameters
+        ----------
+        X : features
+        y : one-hot-encoding of binary label, with drop='first'
+        """
+        if len(y.shape) > 1 and y.shape[1] > 1:
+            y = y @ np.arange(1, y.shape[1] + 1)
+        self._clf.fit(X, y, **kwargs)
+        return self
+
+    def predict(self, X):
+        """
+        Parameters
+        ----------
+        X : features
+        """
+        return self._clf.predict_proba(X)[:, 1:]
