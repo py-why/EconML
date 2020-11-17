@@ -563,10 +563,10 @@ class DMLOrthoForest(BaseOrthoForest):
         # Define nuisance estimators
         nuisance_estimator = DMLOrthoForest.nuisance_estimator_generator(
             self.model_T, self.model_Y, self.random_state, second_stage=False,
-            global_residualization=self.global_residualization)
+            global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
         second_stage_nuisance_estimator = DMLOrthoForest.nuisance_estimator_generator(
             self.model_T_final, self.model_Y_final, self.random_state, second_stage=True,
-            global_residualization=self.global_residualization)
+            global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
         # Define parameter estimators
         parameter_estimator = DMLOrthoForest.parameter_estimator_func_generator(
             global_residualization=self.global_residualization)
@@ -641,7 +641,8 @@ class DMLOrthoForest(BaseOrthoForest):
                 validate=False)
 
         if self.global_residualization:
-            cv = check_cv(self.global_res_cv)
+            cv = check_cv(self.global_res_cv, y=T, classifier=self.discrete_treatment)
+            cv = list(cv.split(X=X, y=T))
             Y = Y - cross_val_predict(self.model_Y_final, self._combine(X, W), Y, cv=cv, safe=False).reshape(Y.shape)
             T = T - cross_val_predict(self.model_T_final, self._combine(X, W), T, cv=cv, safe=False).reshape(T.shape)
 
@@ -662,17 +663,34 @@ class DMLOrthoForest(BaseOrthoForest):
 
     @staticmethod
     def nuisance_estimator_generator(model_T, model_Y, random_state=None, second_stage=True,
-                                     global_residualization=False):
+                                     global_residualization=False, discrete_treatment=False):
         """Generate nuissance estimator given model inputs from the class."""
         def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
             if global_residualization:
                 return 0
+            if discrete_treatment:
+                # Check that all discrete treatments are represented
+                if len(np.unique(T @ np.arange(1, T.shape[1] + 1))) < T.shape[1] + 1:
+                    return None
             # Nuissance estimates evaluated with cross-fitting
             this_random_state = check_random_state(random_state)
             if (split_indices is None) and second_stage:
-                # Define 2-fold iterator
-                kfold_it = KFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X)
-                split_indices = list(kfold_it)[0]
+                if discrete_treatment:
+                    # Define 2-fold iterator
+                    kfold_it = StratifiedKFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X, T)
+                    # Check if there is only one example of some class
+                    with warnings.catch_warnings():
+                        warnings.filterwarnings('error')
+                        try:
+                            split_indices = list(kfold_it)[0]
+                        except Warning as warn:
+                            msg = str(warn)
+                            if "The least populated class in y has only 1 members" in msg:
+                                return None
+                else:
+                    # Define 2-fold iterator
+                    kfold_it = KFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X)
+                    split_indices = list(kfold_it)[0]
             if W is not None:
                 X_tilde = np.concatenate((X, W), axis=1)
             else:
