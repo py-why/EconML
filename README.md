@@ -317,7 +317,9 @@ treatment_effects = est.effect(X_test)
  See the <a href="#references">References</a> section for more details.
 
 ### Interpretability
-* Tree Interpreter of the CATE model
+<details>
+  <summary>Tree Interpreter of the CATE model (click to expand)</summary>
+  
   ```Python
   from econml.cate_interpreter import SingleTreeCateInterpreter
   intrp = SingleTreeCateInterpreter(include_model_uncertainty=True, max_depth=2, min_samples_leaf=10)
@@ -329,8 +331,12 @@ treatment_effects = est.effect(X_test)
   plt.show()
   ```
   ![image](notebooks/images/dr_cate_tree.png)
+  
+</details>
 
-* Policy Interpreter of the CATE model
+<details>
+  <summary>Policy Interpreter of the CATE model (click to expand)</summary>
+  
   ```Python
   from econml.cate_interpreter import SingleTreePolicyInterpreter
   # We find a tree-based treatment policy based on the CATE model
@@ -342,6 +348,8 @@ treatment_effects = est.effect(X_test)
   plt.show()
   ```
   ![image](notebooks/images/dr_policy_tree.png)
+  
+</details>
 
 ### Inference
 
@@ -360,12 +368,17 @@ as p-values and z-statistics. When the CATE model is linear and parametric, then
   #  Get the inference summary for the final model
   est.summary()
   ```
+  
+  <details><summary>Example Output (click to expand)</summary>
+  
   ![image](notebooks/images/summary_frame.png)
   
   ![image](notebooks/images/population_summary.png)
   
   ![image](notebooks/images/summary.png)
-
+  
+  </details>
+  
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
 
 # For Developers
