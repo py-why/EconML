@@ -53,7 +53,7 @@ jobs:
   dependsOn: 'EvalChanges'
   condition: eq(dependencies.EvalChanges.outputs['output.buildDocs'], 'True')
   pool: 
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   variables:
     python.version: '3.6'
   steps:
@@ -83,7 +83,7 @@ jobs:
   variables:
     python.version: '3.8'
   pool:
-    vmImage: 'ubuntu-16.04'
+    vmImage: 'ubuntu-18.04'
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
@@ -109,7 +109,7 @@ jobs:
 #   variables:
 #     python.version: '3.6'
 #   pool:
-#     vmImage: 'ubuntu-16.04'
+#     vmImage: 'ubuntu-18.04'
 #   steps:
 #   - template: azure-pipelines-steps.yml
 #     parameters:
@@ -159,31 +159,31 @@ jobs:
   strategy:
     matrix:
       Linux, Python 3.6:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.6'
       macOS, Python 3.6:
         imageName: 'macOS-10.15'
         python.version: '3.6'
       Windows, Python 3.6:
-        imageName: 'vs2017-win2016'
+        imageName: 'windows-2019'
         python.version: '3.6'
       Linux, Python 3.7:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.7'
       macOS, Python 3.7:
         imageName: 'macOS-10.15'
         python.version: '3.7'
       Windows, Python 3.7:
-        imageName: 'vs2017-win2016'
+        imageName: 'windows-2019'
         python.version: '3.7'
       Linux, Python 3.8:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.8'
       macOS, Python 3.8:
         imageName: 'macOS-10.15'
         python.version: '3.8'
       Windows, Python 3.8:
-        imageName: 'vs2017-win2016'
+        imageName: 'windows-2019'
         python.version: '3.8'
 
   pool:
