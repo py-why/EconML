@@ -24,23 +24,21 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 
 """
 
-import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
-                        broadcast_unit_treatments, reshape_treatmentwise_effects, filter_none_kwargs,
-                        _deprecate_positional, StatsModelsLinearRegression, _EncoderWrapper)
+
+import numpy as np
+from sklearn.base import clone
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
-from sklearn.linear_model import LinearRegression, LassoCV
-from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
-                                   FunctionTransformer)
-from sklearn.base import clone, TransformerMixin
-from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
+                                   OneHotEncoder)
 from sklearn.utils import check_random_state
+
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin)
-from .inference import StatsModelsInference
-from .utilities import check_input_arrays
+                             TreatmentExpansionMixin)
+from .utilities import (_deprecate_positional, _EncoderWrapper, check_input_arrays,
+                        cross_product, filter_none_kwargs,
+                        inverse_onehot, ndim, reshape, shape, transpose)
 
 
 def _crossfit(model, folds, *args, **kwargs):

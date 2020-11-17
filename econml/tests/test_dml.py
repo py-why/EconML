@@ -11,10 +11,10 @@ from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML
 from econml.dml import NonParamDML, ForestDML
 import numpy as np
-from econml.utilities import shape, hstack, vstack, reshape, cross_product, StatsModelsLinearRegression
+from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference
 from contextlib import ExitStack
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
 from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
 from econml.tests.test_statsmodels import _summarize

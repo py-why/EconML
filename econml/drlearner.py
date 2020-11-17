@@ -27,19 +27,24 @@ Tsiatis AA (2006).
 
 """
 
-import numpy as np
 from warnings import warn
 
+import numpy as np
 from sklearn.base import clone
-from sklearn.linear_model import LogisticRegressionCV, LinearRegression, LassoCV
-from econml.utilities import (inverse_onehot, check_high_dimensional, _deprecate_positional,
-                              StatsModelsLinearRegression, check_input_arrays, fit_with_groups, filter_none_kwargs)
-from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper, DebiasedLasso
-from econml.sklearn_extensions.ensemble import SubsampledHonestForest
-from econml._ortho_learner import _OrthoLearner
-from econml.cate_estimator import StatsModelsCateEstimatorDiscreteMixin, DebiasedLassoCateEstimatorDiscreteMixin,\
-    ForestModelFinalCateEstimatorDiscreteMixin
-from econml.inference import GenericModelFinalInferenceDiscrete
+from sklearn.linear_model import (LassoCV, LinearRegression,
+                                  LogisticRegressionCV)
+
+from ._ortho_learner import _OrthoLearner
+from .cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin,
+                             ForestModelFinalCateEstimatorDiscreteMixin,
+                             StatsModelsCateEstimatorDiscreteMixin)
+from .inference import GenericModelFinalInferenceDiscrete
+from .sklearn_extensions.ensemble import SubsampledHonestForest
+from .sklearn_extensions.linear_model import (
+    DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
+from .utilities import (_deprecate_positional, check_high_dimensional,
+                        check_input_arrays, filter_none_kwargs,
+                        fit_with_groups, inverse_onehot)
 
 
 class _ModelNuisance:

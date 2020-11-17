@@ -33,29 +33,34 @@ References
 
 """
 
-import numpy as np
-import copy
+
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, cross_product, transpose, inverse_onehot,
-                        broadcast_unit_treatments, reshape_treatmentwise_effects, add_intercept,
-                        StatsModelsLinearRegression, LassoCVWrapper, check_high_dimensional, check_input_arrays,
-                        fit_with_groups, deprecated, _deprecate_positional)
-from econml.sklearn_extensions.linear_model import MultiOutputDebiasedLasso, WeightedLassoCVWrapper
-from econml.sklearn_extensions.ensemble import SubsampledHonestForest
+
+import numpy as np
+from sklearn.base import TransformerMixin, clone
+from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
-from sklearn.linear_model import LinearRegression, LassoCV, LogisticRegressionCV, ElasticNetCV
-from sklearn.preprocessing import (PolynomialFeatures, LabelEncoder, OneHotEncoder,
-                                   FunctionTransformer)
-from sklearn.base import clone, TransformerMixin
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
+                                   OneHotEncoder)
 from sklearn.utils import check_random_state
-from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                             TreatmentExpansionMixin, StatsModelsCateEstimatorMixin,
-                             LinearModelFinalCateEstimatorMixin, DebiasedLassoCateEstimatorMixin,
-                             ForestModelFinalCateEstimatorMixin)
-from .inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
+
 from ._rlearner import _RLearner
+from .cate_estimator import (DebiasedLassoCateEstimatorMixin,
+                             ForestModelFinalCateEstimatorMixin,
+                             LinearModelFinalCateEstimatorMixin,
+                             StatsModelsCateEstimatorMixin)
+from .inference import StatsModelsInference
+from .sklearn_extensions.ensemble import SubsampledHonestForest
+from .sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
+                                              StatsModelsLinearRegression,
+                                              WeightedLassoCVWrapper)
 from .sklearn_extensions.model_selection import WeightedStratifiedKFold
+from .utilities import (_deprecate_positional, add_intercept,
+                        broadcast_unit_treatments, check_high_dimensional,
+                        check_input_arrays, cross_product, deprecated,
+                        fit_with_groups, hstack, inverse_onehot, ndim, reshape,
+                        reshape_treatmentwise_effects, shape, transpose)
 
 
 class _FirstStageWrapper:

@@ -2,18 +2,21 @@
 # Licensed under the MIT License.
 
 import abc
-import numpy as np
-import scipy
-from scipy.stats import norm
-import pandas as pd
 from collections import OrderedDict
-from statsmodels.iolib.table import SimpleTable
-from .bootstrap import BootstrapEstimator
-from .utilities import (cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        ndim, shape, inverse_onehot, parse_final_model_params, _safe_norm_ppf, Summary,
-                        StatsModelsLinearRegression)
 from warnings import warn
 
+import numpy as np
+import pandas as pd
+import scipy
+from scipy.stats import norm
+from statsmodels.iolib.table import SimpleTable
+
+from .bootstrap import BootstrapEstimator
+from .sklearn_extensions.linear_model import StatsModelsLinearRegression
+from .utilities import (Summary, _safe_norm_ppf, broadcast_unit_treatments,
+                        cross_product, inverse_onehot, ndim,
+                        parse_final_model_params,
+                        reshape_treatmentwise_effects, shape)
 
 """Options for performing inference in estimators."""
 
