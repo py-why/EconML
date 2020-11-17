@@ -21,7 +21,7 @@ class TestOrthoForest(unittest.TestCase):
     def setUpClass(cls):
         np.random.seed(123)
         # DGP constants
-        cls.n = 5000
+        cls.n = 2000
         cls.d_w = 5
         cls.support_size = 1
         cls.d_x = 1

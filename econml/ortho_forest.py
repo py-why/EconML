@@ -42,7 +42,7 @@ from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
                         cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
                         _RegressionWrapper, deprecated)
 from sklearn.model_selection import check_cv
-from .sklearn_extensions.model_selection import cross_val_predict
+from .sklearn_extensions.model_selection import _cross_val_predict
 from .inference import NormalInferenceResults
 
 
@@ -327,26 +327,15 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         if not self.model_is_fitted:
             raise NotFittedError('This {0} instance is not fitted yet.'.format(self.__class__.__name__))
         X = check_array(X)
-
-        def pw_effect_inputs(mask_w1, mask_w2, w_nonzero, split_inds, slice_weights_list):
-            W_none = self.W_one is None
-            return np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),\
-                np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),\
-                np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),\
-                np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])
-                               ) if not W_none else None,\
-                w_nonzero,\
-                split_inds, slice_weights_list
-
         results = Parallel(n_jobs=self.n_jobs, verbose=3)(
-            delayed(_pointwise_effect)(X_single, *pw_effect_inputs(*self._nonzero_weights(X_single, stderr=stderr)),
+            delayed(_pointwise_effect)(X_single, *self._pw_effect_inputs(X_single, stderr=stderr),
                                        self.second_stage_nuisance_estimator, self.second_stage_parameter_estimator,
                                        self.moment_and_mean_gradient_estimator, self.slice_len, self.n_slices,
                                        self.n_trees,
                                        stderr=stderr) for X_single in X)
         return results
 
-    def _nonzero_weights(self, X_single, stderr=False):
+    def _pw_effect_inputs(self, X_single, stderr=False):
         w1, w2 = self._get_weights(X_single)
         mask_w1 = (w1 != 0)
         mask_w2 = (w2 != 0)
@@ -363,7 +352,14 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
             for slice_it in slices:
                 slice_weights_one, slice_weights_two = self._get_weights(X_single, tree_slice=slice_it)
                 slice_weights_list.append((slice_weights_one[mask_w1], slice_weights_two[mask_w2]))
-        return mask_w1, mask_w2, w_nonzero, split_inds, slice_weights_list
+        W_none = self.W_one is None
+        return np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),\
+            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),\
+            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),\
+            np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])
+                           ) if not W_none else None,\
+            w_nonzero,\
+            split_inds, slice_weights_list
 
     def _get_inference_options(self):
         # Override the CATE inference options
@@ -643,8 +639,8 @@ class DMLOrthoForest(BaseOrthoForest):
         if self.global_residualization:
             cv = check_cv(self.global_res_cv, y=T, classifier=self.discrete_treatment)
             cv = list(cv.split(X=X, y=T))
-            Y = Y - cross_val_predict(self.model_Y_final, self._combine(X, W), Y, cv=cv, safe=False).reshape(Y.shape)
-            T = T - cross_val_predict(self.model_T_final, self._combine(X, W), T, cv=cv, safe=False).reshape(T.shape)
+            Y = Y - _cross_val_predict(self.model_Y_final, self._combine(X, W), Y, cv=cv, safe=False).reshape(Y.shape)
+            T = T - _cross_val_predict(self.model_T_final, self._combine(X, W), T, cv=cv, safe=False).reshape(T.shape)
 
         super().fit(Y, T, X, W=W, inference=inference)
 
@@ -1149,7 +1145,7 @@ class BLBInference(Inference):
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\theta(X)` produced
-        by the model. Available only when ``inference`` is ``blb``, when
+        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
@@ -1181,6 +1177,22 @@ class BLBInference(Inference):
             param_upper.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
 
     def const_marginal_effect_inference(self, X=None):
+        """ Inference results for the quantities :math:`\\theta(X)` produced
+        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        InferenceResults: instance of :class:`~econml.inference.NormalInferenceResults`
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
         X = check_array(X)
         params, cov = zip(*(self._predict_wrapper(X)))
         params = np.array(params).reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
@@ -1203,20 +1215,17 @@ class BLBInference(Inference):
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
-        by the model. Available only when ``inference`` is ``blb``, when
+        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
         ----------
         X: optional (m, d_x) matrix
             Features for each sample
-
         T0: optional (m, d_t) matrix or vector of length m (Default=0)
             Base treatments for each sample
-
         T1: optional (m, d_t) matrix or vector of length m (Default=1)
             Target treatments for each sample
-
         alpha: optional float in [0, 1] (Default=0.1)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
@@ -1233,30 +1242,26 @@ class BLBInference(Inference):
         effect_upper = eff + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, scales)
         return effect_lower, effect_upper
 
-    def effect_inference(self, X=None, *, T0=0, T1=1, alpha=0.1):
-        """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
-        by the model. Available only when ``inference`` is ``blb``, when
+    def effect_inference(self, X=None, *, T0=0, T1=1):
+        """ Inference results for the quantities :math:`\\tau(X, T0, T1)` produced
+        by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
 
         Parameters
         ----------
         X: optional (m, d_x) matrix
             Features for each sample
-
         T0: optional (m, d_t) matrix or vector of length m (Default=0)
             Base treatments for each sample
-
         T1: optional (m, d_t) matrix or vector of length m (Default=1)
             Target treatments for each sample
 
-        alpha: optional float in [0, 1] (Default=0.1)
-            The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported.
-
         Returns
         -------
-        lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>` )
-            The lower and the upper bounds of the confidence interval for each quantity.
+        InferenceResults: instance of :class:`~econml.inference.NormalInferenceResults`
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
         """
         eff, scales = self._effect_inference_helper(X, T0, T1)
         return NormalInferenceResults(d_t=1, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,

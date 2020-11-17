@@ -203,24 +203,11 @@ class WeightedStratifiedKFold(WeightedKFold):
         return _split_weighted_sample(self, X, y, sample_weight, is_stratified=True)
 
 
-def cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
-                      n_jobs=None, verbose=0, fit_params=None,
-                      pre_dispatch='2*n_jobs', method='predict', safe=True):
-    """This is a fork from `sklearn.model_selection.cross_val_predict` to allow for
+def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
+                       n_jobs=None, verbose=0, fit_params=None,
+                       pre_dispatch='2*n_jobs', method='predict', safe=True):
+    """This is a fork from :meth:`~sklearn.model_selection.cross_val_predict` to allow for
     non-safe cloning of the models for each fold.
-
-    Generate cross-validated estimates for each input data point
-
-    The data is split according to the cv parameter. Each sample belongs
-    to exactly one test set, and its prediction is computed with an
-    estimator fitted on the corresponding training set.
-
-    Passing these predictions into an evaluation metric may not be a valid
-    way to measure generalization performance. Results can differ from
-    :func:`cross_validate` and :func:`cross_val_score` unless all tests sets
-    have equal size and the metric decomposes over samples.
-
-    Read more in the :ref:`User Guide <cross_validation>`.
 
     Parameters
     ----------
@@ -300,31 +287,6 @@ def cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     -------
     predictions : ndarray
         This is the result of calling ``method``
-
-    See also
-    --------
-    cross_val_score : calculate score for each CV split
-
-    cross_validate : calculate one or more scores and timings for each CV split
-
-    Notes
-    -----
-    In the case that one or more classes are absent in a training portion, a
-    default score needs to be assigned to all instances for that class if
-    ``method`` produces columns per class, as in {'decision_function',
-    'predict_proba', 'predict_log_proba'}.  For ``predict_proba`` this value is
-    0.  In order to ensure finite output, we approximate negative infinity by
-    the minimum finite float value for the dtype in other cases.
-
-    Examples
-    --------
-    >>> from sklearn import datasets, linear_model
-    >>> from sklearn.model_selection import cross_val_predict
-    >>> diabetes = datasets.load_diabetes()
-    >>> X = diabetes.data[:150]
-    >>> y = diabetes.target[:150]
-    >>> lasso = linear_model.Lasso()
-    >>> y_pred = cross_val_predict(lasso, X, y, cv=3)
     """
     X, y, groups = indexable(X, y, groups)
 
