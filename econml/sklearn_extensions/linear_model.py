@@ -1388,7 +1388,211 @@ class SelectiveRegularization:
             super().__setattr__(key, value)
 
 
-class StatsModelsLinearRegression(BaseEstimator):
+class _StatsModelsWrapper(BaseEstimator):
+    """ Parent class for statsmodels linear models. At init time each children class should set the
+    boolean flag property fit_intercept. At fit time, each children class must calculate and set the
+    following properties:
+
+    _param: (m,) or (m, p) array
+        Where m is number of features and p is number of outcomes, which corresponds to the
+        coefficients of the linear model (including the intercept in the first column if fit_intercept=True).
+    _param_var: (m, m) or (p, m, m) array
+        Where m is number of features and p is number of outcomes, where each (m, m) matrix corresponds
+        to the scaled covariance matrix of the parameters of the linear model.
+    _n_out: the second dimension of the training y, or 0 if y is a vector
+    """
+
+    def predict(self, X):
+        """
+        Predicts the output given an array of instances.
+
+        Parameters
+        ----------
+        X : (n, d) array like
+            The covariates on which to predict
+
+        Returns
+        -------
+        predictions : {(n,) array, (n,p) array}
+            The predicted mean outcomes
+        """
+        if X is None:
+            X = np.empty((1, 0))
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
+        return np.matmul(X, self._param)
+
+    @property
+    def coef_(self):
+        """
+        Get the model's coefficients on the covariates.
+
+        Returns
+        -------
+        coef_ : {(d,), (p, d)} nd array like
+            The coefficients of the variables in the linear regression. If label y
+            was p-dimensional, then the result is a matrix of coefficents, whose p-th
+            row containts the coefficients corresponding to the p-th coordinate of the label.
+        """
+        if self.fit_intercept:
+            if self._n_out == 0:
+                return self._param[1:]
+            else:
+                return self._param[1:].T
+        else:
+            if self._n_out == 0:
+                return self._param
+            else:
+                return self._param.T
+
+    @property
+    def intercept_(self):
+        """
+        Get the intercept(s) (or 0 if no intercept was fit).
+
+        Returns
+        -------
+        intercept_ : float or (p,) nd array like
+            The intercept of the linear regresion. If label y was p-dimensional, then the result is a vector
+            whose p-th entry containts the intercept corresponding to the p-th coordinate of the label.
+        """
+        return self._param[0] if self.fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
+
+    @property
+    def _param_stderr(self):
+        """
+        The standard error of each parameter that was estimated.
+
+        Returns
+        -------
+        _param_stderr : {(d (+1),) (d (+1), p)} nd array like
+            The standard error of each parameter that was estimated.
+        """
+        if self._n_out == 0:
+            return np.sqrt(np.clip(np.diag(self._param_var), 0, np.inf))
+        else:
+            return np.array([np.sqrt(np.clip(np.diag(v), 0, np.inf)) for v in self._param_var]).T
+
+    @property
+    def coef_stderr_(self):
+        """
+        Gets the standard error of the fitted coefficients.
+
+        Returns
+        -------
+        coef_stderr_ : {(d,), (p, d)} nd array like
+            The standard error of the coefficients
+        """
+        return self._param_stderr[1:].T if self.fit_intercept else self._param_stderr.T
+
+    @property
+    def intercept_stderr_(self):
+        """
+        Gets the standard error of the intercept(s) (or 0 if no intercept was fit).
+
+        Returns
+        -------
+        intercept_stderr_ : float or (p,) nd array like
+            The standard error of the intercept(s)
+        """
+        return self._param_stderr[0] if self.fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
+
+    def prediction_stderr(self, X):
+        """
+        Gets the standard error of the predictions.
+
+        Parameters
+        ----------
+        X : (n, d) array like
+            The covariates at which to predict
+
+        Returns
+        -------
+        prediction_stderr : (n, p) array like
+            The standard error of each coordinate of the output at each point we predict
+        """
+        if X is None:
+            X = np.empty((1, 0))
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
+        if self._n_out == 0:
+            return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1), 0, np.inf))
+        else:
+            return np.array([np.sqrt(np.clip(np.sum(np.matmul(X, v) * X, axis=1), 0, np.inf))
+                             for v in self._param_var]).T
+
+    def coef__interval(self, alpha=.05):
+        """
+        Gets a confidence interval bounding the fitted coefficients.
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        coef__interval : {tuple ((p, d) array, (p,d) array), tuple ((d,) array, (d,) array)}
+            The lower and upper bounds of the confidence interval of the coefficients
+        """
+        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                         for p, err in zip(self.coef_, self.coef_stderr_)]),\
+            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                      for p, err in zip(self.coef_, self.coef_stderr_)])
+
+    def intercept__interval(self, alpha=.05):
+        """
+        Gets a confidence interval bounding the intercept(s) (or 0 if no intercept was fit).
+
+        Parameters
+        ----------
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        intercept__interval : {tuple ((p,) array, (p,) array), tuple (float, float)}
+            The lower and upper bounds of the confidence interval of the intercept(s)
+        """
+        if not self.fit_intercept:
+            return (0 if self._n_out == 0 else np.zeros(self._n_out)),\
+                (0 if self._n_out == 0 else np.zeros(self._n_out))
+
+        if self._n_out == 0:
+            return _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),\
+                _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
+        else:
+            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                             for p, err in zip(self.intercept_, self.intercept_stderr_)]),\
+                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                          for p, err in zip(self.intercept_, self.intercept_stderr_)])
+
+    def predict_interval(self, X, alpha=.05):
+        """
+        Gets a confidence interval bounding the prediction.
+
+        Parameters
+        ----------
+        X : (n, d) array like
+            The covariates on which to predict
+        alpha : float
+            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
+            of the parameter distribution as confidence interval
+
+        Returns
+        -------
+        prediction_intervals : {tuple ((n,) array, (n,) array), tuple ((n,p) array, (n,p) array)}
+            The lower and upper bounds of the confidence intervals of the predicted mean outcomes
+        """
+        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                         for p, err in zip(self.predict(X), self.prediction_stderr(X))]),\
+            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                      for p, err in zip(self.predict(X), self.prediction_stderr(X))])
+
+
+class StatsModelsLinearRegression(_StatsModelsWrapper):
     """
     Class which mimics weighted linear regression from the statsmodels package.
 
@@ -1527,215 +1731,12 @@ class StatsModelsLinearRegression(BaseEstimator):
                     self._var.append(correction * np.matmul(sigma_inv, np.matmul(weighted_sigma, sigma_inv)))
         else:
             raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
+
+        self._param_var = np.array(self._var)
         return self
 
-    def predict(self, X):
-        """
-        Predicts the output given an array of instances.
 
-        Parameters
-        ----------
-        X : (n, d) array like
-            The covariates on which to predict
-
-        Returns
-        -------
-        predictions : {(n,) array, (n,p) array}
-            The predicted mean outcomes
-        """
-        if X is None:
-            X = np.empty((1, 0))
-        if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
-        return np.matmul(X, self._param)
-
-    @property
-    def coef_(self):
-        """
-        Get the model's coefficients on the covariates.
-
-        Returns
-        -------
-        coef_ : {(d,), (p, d)} nd array like
-            The coefficients of the variables in the linear regression. If label y
-            was p-dimensional, then the result is a matrix of coefficents, whose p-th
-            row containts the coefficients corresponding to the p-th coordinate of the label.
-        """
-        if self.fit_intercept:
-            if self._n_out == 0:
-                return self._param[1:]
-            else:
-                return self._param[1:].T
-        else:
-            if self._n_out == 0:
-                return self._param
-            else:
-                return self._param.T
-
-    @property
-    def intercept_(self):
-        """
-        Get the intercept(s) (or 0 if no intercept was fit).
-
-        Returns
-        -------
-        intercept_ : float or (p,) nd array like
-            The intercept of the linear regresion. If label y was p-dimensional, then the result is a vector
-            whose p-th entry containts the intercept corresponding to the p-th coordinate of the label.
-        """
-        return self._param[0] if self.fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
-
-    @property
-    def _param_var(self):
-        """
-        The covariance matrix of all the parameters in the regression (including the intercept as the first parameter).
-
-        Returns
-        -------
-        var : {(d (+1), d (+1)), (p, d (+1), d (+1))} nd array like
-            The covariance matrix of all the parameters in the regression (including the intercept
-            as the first parameter).  If intercept was set to False then this is the covariance matrix
-            of the coefficients; otherwise, the intercept is treated as the first parameter of the regression
-            and the coefficients as the remaining. If outcome y is p-dimensional, then this is a tensor whose
-            p-th entry contains the co-variance matrix for the parameters corresponding to the regression of
-            the p-th coordinate of the outcome.
-        """
-        return np.array(self._var)
-
-    @property
-    def _param_stderr(self):
-        """
-        The standard error of each parameter that was estimated.
-
-        Returns
-        -------
-        _param_stderr : {(d (+1),) (d (+1), p)} nd array like
-            The standard error of each parameter that was estimated.
-        """
-        if self._n_out == 0:
-            return np.sqrt(np.clip(np.diag(self._param_var), 0, np.inf))
-        else:
-            return np.array([np.sqrt(np.clip(np.diag(v), 0, np.inf)) for v in self._param_var]).T
-
-    @property
-    def coef_stderr_(self):
-        """
-        Gets the standard error of the fitted coefficients.
-
-        Returns
-        -------
-        coef_stderr_ : {(d,), (p, d)} nd array like
-            The standard error of the coefficients
-        """
-        return self._param_stderr[1:].T if self.fit_intercept else self._param_stderr.T
-
-    @property
-    def intercept_stderr_(self):
-        """
-        Gets the standard error of the intercept(s) (or 0 if no intercept was fit).
-
-        Returns
-        -------
-        intercept_stderr_ : float or (p,) nd array like
-            The standard error of the intercept(s)
-        """
-        return self._param_stderr[0] if self.fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
-
-    def prediction_stderr(self, X):
-        """
-        Gets the standard error of the predictions.
-
-        Parameters
-        ----------
-        X : (n, d) array like
-            The covariates at which to predict
-
-        Returns
-        -------
-        prediction_stderr : (n, p) array like
-            The standard error of each coordinate of the output at each point we predict
-        """
-        if X is None:
-            X = np.empty((1, 0))
-        if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
-        if self._n_out == 0:
-            return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1), 0, np.inf))
-        else:
-            return np.array([np.sqrt(np.clip(np.sum(np.matmul(X, v) * X, axis=1), 0, np.inf)) for v in self._var]).T
-
-    def coef__interval(self, alpha=.05):
-        """
-        Gets a confidence interval bounding the fitted coefficients.
-
-        Parameters
-        ----------
-        alpha : float
-            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
-            of the parameter distribution as confidence interval
-
-        Returns
-        -------
-        coef__interval : {tuple ((p, d) array, (p,d) array), tuple ((d,) array, (d,) array)}
-            The lower and upper bounds of the confidence interval of the coefficients
-        """
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.coef_, self.coef_stderr_)]),\
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip(self.coef_, self.coef_stderr_)])
-
-    def intercept__interval(self, alpha=.05):
-        """
-        Gets a confidence interval bounding the intercept(s) (or 0 if no intercept was fit).
-
-        Parameters
-        ----------
-        alpha : float
-            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
-            of the parameter distribution as confidence interval
-
-        Returns
-        -------
-        intercept__interval : {tuple ((p,) array, (p,) array), tuple (float, float)}
-            The lower and upper bounds of the confidence interval of the intercept(s)
-        """
-        if not self.fit_intercept:
-            return (0 if self._n_out == 0 else np.zeros(self._n_out)),\
-                (0 if self._n_out == 0 else np.zeros(self._n_out))
-
-        if self._n_out == 0:
-            return _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),\
-                _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
-        else:
-            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                             for p, err in zip(self.intercept_, self.intercept_stderr_)]),\
-                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                          for p, err in zip(self.intercept_, self.intercept_stderr_)])
-
-    def predict_interval(self, X, alpha=.05):
-        """
-        Gets a confidence interval bounding the prediction.
-
-        Parameters
-        ----------
-        X : (n, d) array like
-            The covariates on which to predict
-        alpha : float
-            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
-            of the parameter distribution as confidence interval
-
-        Returns
-        -------
-        prediction_intervals : {tuple ((n,) array, (n,) array), tuple ((n,p) array, (n,p) array)}
-            The lower and upper bounds of the confidence intervals of the predicted mean outcomes
-        """
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.predict(X), self.prediction_stderr(X))]),\
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip(self.predict(X), self.prediction_stderr(X))])
-
-
-class StatsModelsRLM(BaseEstimator):
+class StatsModelsRLM(_StatsModelsWrapper):
     """
     Class which mimics robust linear regression from the statsmodels package.
 
@@ -1772,8 +1773,6 @@ class StatsModelsRLM(BaseEstimator):
             X = np.empty((y.shape[0], 0))
 
         assert (X.shape[0] == y.shape[0]), "Input lengths not compatible!"
-        assert ((len(y.shape) == 1) or (y.shape[1] == 1)),\
-            "Robust Linear Regression can only accept a single outcome."
 
         return X, y
 
@@ -1785,7 +1784,7 @@ class StatsModelsRLM(BaseEstimator):
         ----------
         X : (N, d) nd array like
             co-variates
-        y : (N,) nd array like or (N, 1) array like
+        y : (N,) nd array like or (N, p) array like
             output variable
 
         Returns
@@ -1796,201 +1795,21 @@ class StatsModelsRLM(BaseEstimator):
         if self.fit_intercept:
             X = add_constant(X, has_constant='add')
 
-        self._n_out = () if len(y.shape) == 1 else (y.shape[1],)
+        self._n_out = 0 if len(y.shape) == 1 else (y.shape[1],)
 
-        self.model = RLM(endog=y,
-                         exog=X,
-                         M=statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
-                                                                          maxiter=self.maxiter, tol=self.tol)
+        def model_gen(y):
+            return RLM(endog=y,
+                       exog=X,
+                       M=statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
+                                                                        maxiter=self.maxiter,
+                                                                        tol=self.tol)
+        if y.ndim < 2:
+            self.model = model_gen(y)
+            self._param = self.model.params
+            self._param_var = self.model.cov_params()
+        else:
+            self.models = [model_gen(y[:, i]) for i in range(y.shape[1])]
+            self._param = np.array([mdl.params for mdl in self.models]).T
+            self._param_var = np.array([mdl.cov_params() for mdl in self.models])
+
         return self
-
-    def predict(self, X):
-        """
-        Predicts the output given an array of instances.
-
-        Parameters
-        ----------
-        X : (n, d) array like
-            The covariates on which to predict
-
-        Returns
-        -------
-        predictions : (n,) array or (n, 1) array
-            The predicted outcome
-        """
-        if X is None:
-            X = np.empty((1, 0))
-        if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
-        return self.model.predict(X).reshape((-1,) + self._n_out)
-
-    @property
-    def coef_(self):
-        """
-        Get the model's coefficients on the covariates.
-
-        Returns
-        -------
-        coef_ : (d,) nd array like or (1, d) array like
-            The coefficients of the variables in the linear regression.
-        """
-        if self.fit_intercept:
-            return self.model.params[1:].reshape(self._n_out + (-1,))
-        else:
-            return self.model.params.reshape(self._n_out + (-1,))
-
-    @property
-    def intercept_(self):
-        """
-        Get the intercept (or 0 if no intercept was fit).
-
-        Returns
-        -------
-        intercept_ : float or (1,) array like
-            The intercept of the linear regresion.
-        """
-        if self._n_out:
-            return self.model.params[[0]] if self.fit_intercept else np.zeros(self._n_out)
-        else:
-            return self.model.params[0] if self.fit_intercept else 0
-
-    @property
-    def _param_var(self):
-        """
-        The covariance matrix of all the parameters in the regression (including the intercept as the first parameter).
-
-        Returns
-        -------
-        var : (d (+1), d (+1)) nd array like
-            The covariance matrix of all the parameters in the regression (including the intercept
-            as the first parameter).  If intercept was set to False then this is the covariance matrix
-            of the coefficients; otherwise, the intercept is treated as the first parameter of the regression
-            and the coefficients as the remaining.
-        """
-        return self.model.cov_params()
-
-    @property
-    def _param_stderr(self):
-        """
-        The standard error of each parameter that was estimated.
-
-        Returns
-        -------
-        _param_stderr : (d (+1),) nd array like
-            The standard error of each parameter that was estimated.
-        """
-        return np.sqrt(np.clip(np.diag(self._param_var), 0, np.inf))
-
-    @property
-    def coef_stderr_(self):
-        """
-        Gets the standard error of the fitted coefficients.
-
-        Returns
-        -------
-        coef_stderr_ : (d,) nd array like or (1, d) array like
-            The standard error of the coefficients
-        """
-        return self._param_stderr[1:].T.reshape(self._n_out + (-1,))\
-            if self.fit_intercept else self._param_stderr.T.reshape(self._n_out + (-1,))
-
-    @property
-    def intercept_stderr_(self):
-        """
-        Gets the standard error of the intercept (or 0 if no intercept was fit).
-
-        Returns
-        -------
-        intercept_stderr_ : float or (1,) array
-            The standard error of the intercept
-        """
-        if self._n_out:
-            return self._param_stderr[[0]] if self.fit_intercept else np.zeros(self._n_out)
-        else:
-            return self._param_stderr[0] if self.fit_intercept else 0
-
-    def prediction_stderr(self, X):
-        """
-        Gets the standard error of the predictions.
-
-        Parameters
-        ----------
-        X : (n, d) array like
-            The covariates at which to predict
-
-        Returns
-        -------
-        prediction_stderr : (n,) array like or (n, 1) array like
-            The standard error the prediction at each point we predict
-        """
-        if X is None:
-            X = np.empty((1, 0))
-        if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
-        return np.sqrt(np.clip(np.sum(np.matmul(X, self._param_var) * X, axis=1),
-                               0, np.inf)).reshape((-1,) + self._n_out)
-
-    def coef__interval(self, alpha=.05):
-        """
-        Gets a confidence interval bounding the fitted coefficients.
-
-        Parameters
-        ----------
-        alpha : float
-            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
-            of the parameter distribution as confidence interval
-
-        Returns
-        -------
-        coef__interval : tuple ((d,) array, (d,) array) or tuple ((1, d) array, (1, d) array)
-            The lower and upper bounds of the confidence interval of the coefficients
-        """
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.coef_, self.coef_stderr_)]).reshape((-1,) + self._n_out),\
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip(self.coef_, self.coef_stderr_)]).reshape((-1,) + self._n_out)
-
-    def intercept__interval(self, alpha=.05):
-        """
-        Gets a confidence interval bounding the intercept (or 0 if no intercept was fit).
-
-        Parameters
-        ----------
-        alpha : float
-            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
-            of the parameter distribution as confidence interval
-
-        Returns
-        -------
-        intercept__interval : tuple (float, float) or tuple ((1,) array, (1,) array)
-            The lower and upper bounds of the confidence interval of the intercept
-        """
-        if not self.fit_intercept:
-            if self._n_out:
-                return np.zeros(self._n_out), np.zeros(self._n_out)
-            return 0, 0
-        lb = _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
-        ub = _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
-        return lb, ub
-
-    def predict_interval(self, X, alpha=.05):
-        """
-        Gets a confidence interval bounding the prediction.
-
-        Parameters
-        ----------
-        X : (n, d) array like
-            The covariates on which to predict
-        alpha : float
-            The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
-            of the parameter distribution as confidence interval
-
-        Returns
-        -------
-        prediction_intervals : tuple ((n,) array, (n,) array) or tuple ((n, 1) array, (n, 1) array)
-            The lower and upper bounds of the confidence intervals of the predicted mean outcomes
-        """
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.predict(X), self.prediction_stderr(X))]),\
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip(self.predict(X), self.prediction_stderr(X))])
