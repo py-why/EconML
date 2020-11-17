@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.model_selection import KFold, StratifiedKFold
 import scipy.special
 import time
-from econml.utilities import StatsModelsLinearRegression as OLS
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression as OLS
 import unittest
 import joblib
 from sklearn.preprocessing import PolynomialFeatures

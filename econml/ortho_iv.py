@@ -16,15 +16,16 @@ https://arxiv.org/abs/1905.10176
 import numpy as np
 from sklearn.base import clone
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer
 
 from ._ortho_learner import _OrthoLearner
-from .dml import _FinalWrapper
-from .utilities import (hstack, StatsModelsLinearRegression, inverse_onehot,
-                        add_intercept, fit_with_groups, _deprecate_positional)
-from .inference import StatsModelsInference
 from .cate_estimator import StatsModelsCateEstimatorMixin
+from .dml import _FinalWrapper
+from .inference import StatsModelsInference
+from .sklearn_extensions.linear_model import StatsModelsLinearRegression
+from .utilities import (_deprecate_positional, add_intercept, fit_with_groups,
+                        hstack, inverse_onehot)
 
 
 # A cut-down version of the DML first stage wrapper, since we don't need to support linear first stages

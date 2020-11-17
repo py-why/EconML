@@ -19,7 +19,7 @@ from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
 from contextlib import ExitStack
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from econml.utilities import StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 import scipy.special
 import econml.tests.utilities  # bugfix for assertWarns
 
@@ -390,9 +390,6 @@ class TestDRLearner(unittest.TestCase):
         assert (lo < hi).any()
 
     def test_drlearner_all_attributes(self):
-        from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
-        from sklearn.linear_model import LinearRegression, LogisticRegression
-        from econml.utilities import StatsModelsLinearRegression
         import scipy.special
         np.random.seed(123)
         controls = np.random.uniform(-1, 1, size=(5000, 3))

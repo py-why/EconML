@@ -11,12 +11,12 @@ from sklearn.model_selection import KFold
 from econml.ortho_iv import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV,
                              IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
-from econml.utilities import shape, hstack, vstack, reshape, cross_product, StatsModelsLinearRegression
+from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference
 from contextlib import ExitStack
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
 from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 
