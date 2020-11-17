@@ -565,14 +565,11 @@ class DMLOrthoForest(BaseOrthoForest):
             self.model_T_final, self.model_Y_final, self.random_state, second_stage=True,
             global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
         # Define parameter estimators
-        parameter_estimator = DMLOrthoForest.parameter_estimator_func_generator(
-            global_residualization=self.global_residualization)
+        parameter_estimator = DMLOrthoForest.parameter_estimator_func
         second_stage_parameter_estimator = DMLOrthoForest.second_stage_parameter_estimator_gen(
-            self.lambda_reg, global_residualization=self.global_residualization)
+            self.lambda_reg)
         # Define
-        moment_and_mean_gradient_estimator =\
-            DMLOrthoForest.moment_and_mean_gradient_estimator_func_gen(
-                global_residualization=self.global_residualization)
+        moment_and_mean_gradient_estimator = DMLOrthoForest.moment_and_mean_gradient_estimator_func
         if discrete_treatment:
             if categories != 'auto':
                 categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -712,24 +709,21 @@ class DMLOrthoForest(BaseOrthoForest):
         return nuisance_estimator
 
     @staticmethod
-    def parameter_estimator_func_generator(global_residualization=False):
-        def parameter_estimator_func(Y, T, X,
-                                     nuisance_estimates,
-                                     sample_weight=None):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
-            # Compute residuals
-            Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
-                                                                    global_residualization)
-            # Compute coefficient by OLS on residuals
-            param_estimate = LinearRegression(fit_intercept=False).fit(
-                T_res, Y_res, sample_weight=sample_weight
-            ).coef_
-            # Parameter returned by LinearRegression is (d_T, )
-            return param_estimate
-        return parameter_estimator_func
+    def parameter_estimator_func(Y, T, X,
+                                 nuisance_estimates,
+                                 sample_weight=None):
+        """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+        # Compute residuals
+        Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
+        # Compute coefficient by OLS on residuals
+        param_estimate = LinearRegression(fit_intercept=False).fit(
+            T_res, Y_res, sample_weight=sample_weight
+        ).coef_
+        # Parameter returned by LinearRegression is (d_T, )
+        return param_estimate
 
     @staticmethod
-    def second_stage_parameter_estimator_gen(lambda_reg, global_residualization=False):
+    def second_stage_parameter_estimator_gen(lambda_reg):
         """
         For the second stage parameter estimation we add a local linear correction. So
         we fit a local linear function as opposed to a local constant function. We also penalize
@@ -745,8 +739,7 @@ class DMLOrthoForest(BaseOrthoForest):
             local corrections on a preliminary parameter estimate.
             """
             # Compute residuals
-            Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
-                                                                    global_residualization)
+            Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
             X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
             XT_res = cross_product(T_res, X_aug)
             # Compute coefficient by OLS on residuals
@@ -770,26 +763,23 @@ class DMLOrthoForest(BaseOrthoForest):
         return parameter_estimator_func
 
     @staticmethod
-    def moment_and_mean_gradient_estimator_func_gen(global_residualization=False):
-        def moment_and_mean_gradient_estimator_func(Y, T, X, W,
-                                                    nuisance_estimates,
-                                                    parameter_estimate):
-            """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
-            # Return moments and gradients
-            # Compute residuals
-            Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates,
-                                                                    global_residualization)
-            # Compute moments
-            # Moments shape is (n, d_T)
-            moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
-            # Compute moment gradients
-            mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
-            return moments, mean_gradient
-        return moment_and_mean_gradient_estimator_func
+    def moment_and_mean_gradient_estimator_func(Y, T, X, W,
+                                                nuisance_estimates,
+                                                parameter_estimate):
+        """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
+        # Return moments and gradients
+        # Compute residuals
+        Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
+        # Compute moments
+        # Moments shape is (n, d_T)
+        moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
+        # Compute moment gradients
+        mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
+        return moments, mean_gradient
 
     @staticmethod
-    def _get_conforming_residuals(Y, T, nuisance_estimates, global_residualization):
-        if global_residualization:
+    def _get_conforming_residuals(Y, T, nuisance_estimates):
+        if nuisance_estimates == 0:
             return reshape_Y_T(Y, T)
         # returns shape-conforming residuals
         Y_hat, T_hat = reshape_Y_T(*nuisance_estimates)
