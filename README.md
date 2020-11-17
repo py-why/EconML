@@ -15,17 +15,16 @@ techniques with econometrics to bring automation to complex causal inference pro
 * Use a unified API
 * Build on standard Python packages for Machine Learning and Data Analysis
 
-In a nutshell, this
-toolkit is designed to measure the causal effect of some treatment variable(s) `T` on an outcome 
-variable `Y`, controlling for a set of features `X`. For detailed information about the package, 
-consult the documentation at https://econml.azurewebsites.net/.
+One of the biggest promises of machine learning is to automate decision making in a multitude of domains. At the core of many data-driven personalized decision scenarios is the estimation of heterogeneous treatment effects: what is the causal effect of an intervention on an outcome of interest for a sample with a particular set of features? In a nutshell, this toolkit is designed to measure the causal effect of some treatment variable(s) `T` on an outcome 
+variable `Y`, controlling for a set of features `X`. The methods implemented are applicable even with observational (non-experimental or historical) datasets.
+
+For detailed information about the package, consult the documentation at https://econml.azurewebsites.net/.
+
+For information on use cases and background material on causal inference and heterogeneous treatment effects see our webpage at https://www.microsoft.com/en-us/research/project/econml/
 
 <details>
 <summary><strong><em>Table of Contents</em></strong></summary>
 
-- [Introduction](#introduction)
-  - [About Treatment Effect Estimation](#about-treatment-effect-estimation)
-  - [Example Applications](#example-applications)
 - [News](#news)
 - [Getting Started](#getting-started)
   - [Installation](#installation)
@@ -42,52 +41,6 @@ consult the documentation at https://econml.azurewebsites.net/.
 - [References](#references)
 
 </details>
-
-# Introduction
-
-## About Treatment Effect Estimation
-
-One of the biggest promises of machine learning is to automate decision making in a multitude of domains. At the core of many data-driven personalized decision scenarios is the estimation of heterogeneous treatment effects: what is the causal effect of an intervention on an outcome of interest for a sample with a particular set of features? 
-
-Such questions arise frequently in customer segmentation (what is the effect of placing a customer in a tier over another tier), dynamic pricing (what is the effect of a pricing policy on demand) and medical studies (what is the effect of a treatment on a patient). In many such settings we have an abundance of observational data, where the treatment was chosen via some unknown policy, but the ability to run control A/B tests is limited.
-
-## Example Applications
-
-<table style="width:80%">
-  <tr align="left">
-    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Business_card_-_The_Noun_Project.svg/610px-Business_card_-_The_Noun_Project.svg.png"/></td>
-    <td width="75%">
-        <h4>Customer Targeting</h4>
-        <p> Businesses offer personalized incentives to customers to increase sales and level of engagement. Any such personalized intervention corresponds to a monetary investment and the main question that business analytics are called to answer is: what is the return on investment? Analyzing the ROI is inherently a treatment effect question: what was the effect of any investment on a customer's spend? Understanding how ROI varies across customers can enable more targeted investment policies and increased ROI via better targeting. 
-        </p>
-    </td>
-  </tr>
-  <tr align="left">
-    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/c/c9/Online-shop_button.jpg"/></td>
-    <td width="75%">
-        <h4>Personalized Pricing</h4>
-        <p>Personalized discounts have are widespread in the digital economy. To set the optimal personalized discount policy a business needs to understand what is the effect of a drop in price on the demand of a customer for a product as a function of customer characteristics. The estimation of such personalized demand elasticities can also be phrased in the language of heterogeneous treatment effects, where the treatment is the price on the demand as a function of observable features of the customer. </p>
-    </td>
-  </tr>
-  <tr align="left">
-    <td><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/55/VariousPills.jpg/640px-VariousPills.jpg"/></td>
-    <td width="75%">
-        <h4>Stratification in Clinical Trials</h4>
-        <p>
-        Which patients should be selected for a clinical trial? If we want to demonstrate that a clinical treatment has an effect on at least some subset of a population then fully randomized clinical trials are inappropriate as they will solely estimate average effects. Using heterogeneous treatment effect techniques, we can use observational data to come up with estimates of these effects and identify good candidate patients for a clinical trial that our model estimates have high treatment effects.
-        </p>
-    </td>
-  </tr>
-  <tr align="left">
-    <td width="25%"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Mouse-cursor-hand-pointer.svg/1023px-Mouse-cursor-hand-pointer.svg.png" width="200" /></td>
-    <td width="75%">
-        <h4>Learning Click-Through-Rates</h4>
-    <p>
-        In the design of a page layout and ad placement, it is important to understand the click-through-rate of page components on different positions of a page. Modern approaches may be to run multiple A/B tests, but when such page component involve revenue considerations, then observational data can help guide correct A/B tests to run. Heterogeneous treatment effect estimation can provide estimates of the click-through-rate of page components from observational data. In this setting, the treatment is simply whether the component is placed on that page position and the response is whether the user clicked on it.
-    </p>
-    </td>
-  </tr>
-</table>
 
 # News
 
@@ -178,19 +131,43 @@ To install from source, see [For Developers](#for-developers) section below.
 </details>
 
 <details>
+  <summary>Causal Forests (click to expand)</summary>
+
+  ```Python
+  from econml.causal_forest import CausalForest
+  from sklearn.linear_model import LassoCV
+  # Use defaults
+  est = CausalForest()
+  # Or specify hyperparameters
+  est = CausalForest(n_trees=500, min_leaf_size=10, 
+                     max_depth=10, subsample_ratio=0.7,
+                     lambda_reg=0.01,
+                     discrete_treatment=False,
+                     model_T=LassoCV(), model_Y=LassoCV())
+  est.fit(Y, T, X=X, W=W)
+  treatment_effects = est.effect(X_test)
+  # Confidence intervals via Bootstrap-of-Little-Bags for forests
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
+  ```
+</details>
+
+
+<details>
   <summary>Orthogonal Random Forests (click to expand)</summary>
 
   ```Python
-  from econml.ortho_forest import ContinuousTreatmentOrthoForest
+  from econml.ortho_forest import DMLOrthoForest, DROrthoForest
   from econml.sklearn_extensions.linear_model import WeightedLasso, WeightedLassoCV
   # Use defaults
-  est = ContinuousTreatmentOrthoForest()
+  est = DMLOrthoForest()
+  est = DROrthoForest()
   # Or specify hyperparameters
-  est = ContinuousTreatmentOrthoForest(n_trees=500, min_leaf_size=10, 
-                                      max_depth=10, subsample_ratio=0.7,
-                                      lambda_reg=0.01,
-                                      model_T=WeightedLasso(alpha=0.01), model_Y=WeightedLasso(alpha=0.01),
-                                      model_T_final=WeightedLassoCV(cv=3), model_Y_final=WeightedLassoCV(cv=3))
+  est = DMLOrthoForest(n_trees=500, min_leaf_size=10,
+                       max_depth=10, subsample_ratio=0.7,
+                       lambda_reg=0.01,
+                       discrete_treatment=False,
+                       model_T=WeightedLasso(alpha=0.01), model_Y=WeightedLasso(alpha=0.01),
+                       model_T_final=WeightedLassoCV(cv=3), model_Y_final=WeightedLassoCV(cv=3))
   est.fit(Y, T, X=X, W=W)
   treatment_effects = est.effect(X_test)
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
@@ -340,7 +317,9 @@ treatment_effects = est.effect(X_test)
  See the <a href="#references">References</a> section for more details.
 
 ### Interpretability
-* Tree Interpreter of the CATE model
+<details>
+  <summary>Tree Interpreter of the CATE model (click to expand)</summary>
+  
   ```Python
   from econml.cate_interpreter import SingleTreeCateInterpreter
   intrp = SingleTreeCateInterpreter(include_model_uncertainty=True, max_depth=2, min_samples_leaf=10)
@@ -352,8 +331,12 @@ treatment_effects = est.effect(X_test)
   plt.show()
   ```
   ![image](notebooks/images/dr_cate_tree.png)
+  
+</details>
 
-* Policy Interpreter of the CATE model
+<details>
+  <summary>Policy Interpreter of the CATE model (click to expand)</summary>
+  
   ```Python
   from econml.cate_interpreter import SingleTreePolicyInterpreter
   # We find a tree-based treatment policy based on the CATE model
@@ -365,9 +348,19 @@ treatment_effects = est.effect(X_test)
   plt.show()
   ```
   ![image](notebooks/images/dr_policy_tree.png)
+  
+</details>
 
 ### Inference
+
+Whenever inference is enabled, then one can get a more structure `InferenceResults` object with more elaborate inference information, such
+as p-values and z-statistics. When the CATE model is linear and parametric, then a `summary()` method is also enabled. For instance:
+
   ```Python
+  from econml.dml import LinearDML
+  # Use defaults
+  est = LinearDML()
+  est.fit(Y, T, X=X, W=W)
   # Get the effect inference summary, which includes the standard error, z test score, p value, and confidence interval given each sample X[i]
   est.effect_inference(X_test).summary_frame(alpha=0.05, value=0, decimals=3)
   # Get the population summary for the entire sample X
@@ -375,7 +368,17 @@ treatment_effects = est.effect(X_test)
   #  Get the inference summary for the final model
   est.summary()
   ```
-
+  
+  <details><summary>Example Output (click to expand)</summary>
+  
+  ![image](notebooks/images/summary_frame.png)
+  
+  ![image](notebooks/images/population_summary.png)
+  
+  ![image](notebooks/images/summary.png)
+  
+  </details>
+  
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
 
 # For Developers
