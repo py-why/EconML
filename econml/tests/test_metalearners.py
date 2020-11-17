@@ -124,7 +124,7 @@ class TestMetalearners(unittest.TestCase):
             te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test) * (T1 - T0)
             marginal_te = np.apply_along_axis(te_func, 1, TestMetalearners.X_test).reshape(-1, 1) * np.array([2, 4])
         # Fit learner and get the effect and marginal effect
-        learner_instance.fit(Y, T, X)
+        learner_instance.fit(Y, T, X=X)
         te_hat = learner_instance.effect(TestMetalearners.X_test, T0=T0, T1=T1)
         marginal_te_hat = learner_instance.marginal_effect(T1, TestMetalearners.X_test)
         # Compute treatment effect residuals (absolute)
@@ -143,7 +143,7 @@ class TestMetalearners(unittest.TestCase):
     def _test_inputs(self, learner_instance, T0, T1):
         X, T, Y = TestMetalearners.const_te_data
         # Check that one can pass in regular lists
-        learner_instance.fit(list(Y), list(T), list(X))
+        learner_instance.fit(list(Y), list(T), X=list(X))
         learner_instance.effect(list(TestMetalearners.X_test), T0=T0, T1=T1)
         # Check that it fails correctly if lists of different shape are passed in
         self.assertRaises(ValueError, learner_instance.fit, Y, T, X[:TestMetalearners.n // 2])

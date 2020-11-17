@@ -298,7 +298,7 @@ def run_all_mc(first_stage, folder, n_list, n_exp, hetero_coef_list, d_list,
                                                    n_splits=Splitter(),
                                                    linear_first_stages=False,
                                                    discrete_treatment=False)
-                                    lr.fit(y, X[:, -d_t:], X[:, :d_x], X[:, d_x:-d_t],
+                                    lr.fit(y, X[:, -d_t:], X=X[:, :d_x], W=X[:, d_x:-d_t],
                                            inference=StatsModelsInference(cov_type=cov_type))
                                     for alpha in alpha_list:
                                         key = ("n_{}_n_exp_{}_hetero_{}_d_{}_d_x_"

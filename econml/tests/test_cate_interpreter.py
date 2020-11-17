@@ -29,7 +29,7 @@ class TestCateInterpreter(unittest.TestCase):
                 T = np.random.binomial(1, 0.5, size=t_shape)
                 Y = np.random.normal(size=y_shape)
                 est = LinearDML(discrete_treatment=True)
-                est.fit(Y, T, X)
+                est.fit(Y, T, X=X)
                 for intrp in [SingleTreeCateInterpreter(), SingleTreePolicyInterpreter()]:
                     with self.subTest(t_shape=t_shape, y_shape=y_shape, intrp=intrp):
                         with self.assertRaises(Exception):
@@ -50,7 +50,7 @@ class TestCateInterpreter(unittest.TestCase):
         T = np.random.binomial(1, 0.5, size=(n,))
         Y = np.random.normal(size=(n,))
         est = LinearDML(discrete_treatment=True)
-        est.fit(Y, T, X, inference=None)
+        est.fit(Y, T, X=X, inference=None)
 
         # can interpret without uncertainty
         intrp = SingleTreeCateInterpreter()
@@ -62,7 +62,7 @@ class TestCateInterpreter(unittest.TestCase):
             intrp.interpret(est, X)
 
         # can interpret with uncertainty if we refit
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         intrp.interpret(est, X)
 
     def test_can_assign_treatment(self):
@@ -71,7 +71,7 @@ class TestCateInterpreter(unittest.TestCase):
         T = np.random.binomial(1, 0.5, size=(n,))
         Y = np.random.normal(size=(n,))
         est = LinearDML(discrete_treatment=True)
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
 
         # can interpret without uncertainty
         intrp = SingleTreePolicyInterpreter()
@@ -173,7 +173,7 @@ class TestCateInterpreter(unittest.TestCase):
                 export_kwargs.update(common_kwargs)
                 policy_intrp_kwargs.update(intrp_kwargs)
 
-                est.fit(Y, T, X, **fit_kwargs)
+                est.fit(Y, T, X=X, **fit_kwargs)
 
                 intrp = SingleTreeCateInterpreter(**cate_init_kwargs)
                 intrp.interpret(est, X2, **intrp_kwargs)

@@ -10,7 +10,7 @@ from .utilities import deprecated
 from keras import backend as K
 import keras.layers as L
 from keras.models import Model
-from econml.utilities import check_input_arrays
+from econml.utilities import check_input_arrays, _deprecate_positional
 
 # TODO: make sure to use random seeds wherever necessary
 # TODO: make sure that the public API consistently uses "T" instead of "P" for the treatment
@@ -289,8 +289,10 @@ class DeepIV(BaseCateEstimator):
         self._second_stage_options = second_stage_options
         super().__init__()
 
+    @_deprecate_positional("X and Z should be passed by keyword only. In a future release "
+                           "we will disallow passing X and Z by position.", ['X', 'Z'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, Z, inference=None):
+    def fit(self, Y, T, X, Z, *, inference=None):
         """Estimate the counterfactual model from data.
 
         That is, estimate functions τ(·, ·, ·), ∂τ(·, ·).

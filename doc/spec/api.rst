@@ -278,7 +278,7 @@ We can run the following:
 
     # Fit counterfactual model 
     cfest = BaseCateEstimator()
-    cfest.fit(y, T, X, W, Z, inference='bootstrap')
+    cfest.fit(y, T, X=X, W=W, Z=Z, inference='bootstrap')
 
 Suppose now that we wanted to estimate the conditional average treatment effect for every point :math:`X_i` 
 in the training data and between treatment 1 and treatment 0. 

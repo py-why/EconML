@@ -21,7 +21,8 @@ from sklearn.pipeline import Pipeline
 
 from ._ortho_learner import _OrthoLearner
 from .dml import _FinalWrapper
-from .utilities import (hstack, StatsModelsLinearRegression, inverse_onehot, add_intercept, fit_with_groups)
+from .utilities import (hstack, StatsModelsLinearRegression, inverse_onehot,
+                        add_intercept, fit_with_groups, _deprecate_positional)
 from .inference import StatsModelsInference
 from .cate_estimator import StatsModelsCateEstimatorMixin
 
@@ -144,6 +145,8 @@ class _BaseDMLATEIV(_OrthoLearner):
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
+    @_deprecate_positional("W and Z should be passed by keyword only. In a future release "
+                           "we will disallow passing W and Z by position.", ['W', 'Z'])
     def fit(self, Y, T, Z, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -506,6 +509,8 @@ class _BaseDMLIV(_OrthoLearner):
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
+    @_deprecate_positional("Z and X should be passed by keyword only. In a future release "
+                           "we will disallow passing Z and X by position.", ['X', 'Z'])
     def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1049,6 +1054,8 @@ class _BaseDRIV(_OrthoLearner):
                          discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
                          categories=categories, n_splits=n_splits, random_state=random_state)
 
+    @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
+                           "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1428,7 +1435,9 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          categories=categories)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    def fit(self, Y, T, Z, X=None, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
+                           "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1461,6 +1470,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         -------
         self : instance
         """
-        return super().fit(Y, T, Z, X=X, W=W,
+        return super().fit(Y, T, Z=Z, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            inference=inference)

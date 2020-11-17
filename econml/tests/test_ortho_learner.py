@@ -185,7 +185,7 @@ class TestOrthoLearner(unittest.TestCase):
                             n_splits=2, discrete_treatment=False, discrete_instrument=False,
                             categories='auto', random_state=None)
         # test non-array inputs
-        est.fit(list(y), list(X[:, 0]), None, X[:, 1:])
+        est.fit(list(y), list(X[:, 0]), X=None, W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)
@@ -202,7 +202,7 @@ class TestOrthoLearner(unittest.TestCase):
                             n_splits=KFold(n_splits=3),
                             discrete_treatment=False, discrete_instrument=False,
                             categories='auto', random_state=None)
-        est.fit(y, X[:, 0], None, X[:, 1:])
+        est.fit(y, X[:, 0], X=None, W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)
@@ -219,7 +219,7 @@ class TestOrthoLearner(unittest.TestCase):
         est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()), ModelFinal(),
                             n_splits=KFold(n_splits=3), discrete_treatment=False,
                             discrete_instrument=False, categories='auto', random_state=None)
-        est.fit(y, X[:, 0], None, X[:, 1:])
+        est.fit(y, X[:, 0], X=None, W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)

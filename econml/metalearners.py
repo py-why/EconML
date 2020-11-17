@@ -16,7 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from .utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                        inverse_onehot, transpose, _EncoderWrapper, check_input_arrays)
+                        inverse_onehot, transpose, _EncoderWrapper, check_input_arrays, _deprecate_positional)
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -44,6 +44,8 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
         super().__init__()
 
+    @_deprecate_positional("X should be passed by keyword only. In a future release "
+                           "we will disallow passing X by position.", ['X'])
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, *, inference=None):
         """Build an instance of TLearner.
@@ -132,6 +134,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
         super().__init__()
 
+    @_deprecate_positional("X should be passed by keyword only. In a future release "
+                           "we will disallow passing X by position.", ['X'])
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X=None, *, inference=None):
         """Build an instance of SLearner.
@@ -236,6 +240,8 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
         super().__init__()
 
+    @_deprecate_positional("X should be passed by keyword only. In a future release "
+                           "we will disallow passing X by position.", ['X'])
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, *, inference=None):
         """Build an instance of XLearner.
@@ -361,6 +367,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
         super().__init__()
 
+    @_deprecate_positional("X should be passed by keyword only. In a future release "
+                           "we will disallow passing X by position.", ['X'])
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X, *, inference=None):
         """Build an instance of DomainAdaptationLearner.

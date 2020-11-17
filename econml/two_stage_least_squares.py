@@ -7,7 +7,7 @@ import numpy as np
 from copy import deepcopy
 from sklearn import clone
 from sklearn.linear_model import LinearRegression
-from .utilities import shape, transpose, reshape, cross_product, ndim, size
+from .utilities import shape, transpose, reshape, cross_product, ndim, size, _deprecate_positional
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator
 from numpy.polynomial.hermite_e import hermeval
 from sklearn.base import TransformerMixin
@@ -203,8 +203,10 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         self._model_Y = LinearRegression(fit_intercept=False)
         super().__init__()
 
+    @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
+                           "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, W, Z, inference=None):
+    def fit(self, Y, T, X, W, Z, *, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·, ·, ·), ∂τ(·, ·).
 

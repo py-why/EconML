@@ -194,7 +194,7 @@ class TestDeepIV(unittest.TestCase):
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
                                      first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
-            deepIv.fit(y, p, x, z)
+            deepIv.fit(y, p, X=x, Z=z)
 
             losses.append(np.mean(np.square(y_fresh - deepIv.predict(p_fresh, x_fresh))))
             marg_effs.append(deepIv.marginal_effect(np.array([[0.3], [0.5], [0.7]]), np.array([[0.4], [0.6], [0.2]])))
@@ -335,7 +335,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
                                      first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
-            deepIv.fit(y, t, x, z)
+            deepIv.fit(y, t, X=x, Z=z)
 
             losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
                 t, x), datafunction, has_latent=False, debug=False))
@@ -461,7 +461,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
                                      first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
-            deepIv.fit(y, t, x, z)
+            deepIv.fit(y, t, X=x, Z=z)
 
             losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
                 t, x), datafunction, has_latent=False, debug=False))
@@ -616,7 +616,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                      lambda t, x: hmodel(keras.layers.concatenate([t, x])),
                                      n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
                                      first_stage_options={'epochs': 20}, second_stage_options={'epochs': 20})
-            deepIv.fit(y[:n // 2], t[:n // 2], x[:n // 2], z[:n // 2])
+            deepIv.fit(y[:n // 2], t[:n // 2], X=x[:n // 2], Z=z[:n // 2])
 
             results.append({'s': s, 'n1': n1, 'u': u, 'n2': n2,
                             'loss': np.mean(np.square(y[n // 2:] - deepIv.predict(t[n // 2:], x[n // 2:]))),

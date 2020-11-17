@@ -139,7 +139,7 @@ class TestAutomatedDML(unittest.TestCase):
                                    model_t=automl_model_clf(),
                                    model_final=automl_model_sample_weight_reg(), featurizer=None,
                                    discrete_treatment=True)
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         _ = est.effect(X)
 
     def test_param(self):
@@ -149,7 +149,7 @@ class TestAutomatedDML(unittest.TestCase):
                                  model_t=GradientBoostingClassifier(),
                                  featurizer=None,
                                  discrete_treatment=True)
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         _ = est.effect(X)
 
     def test_forest_dml(self):
@@ -164,7 +164,7 @@ class TestAutomatedDML(unittest.TestCase):
                                  min_samples_leaf=10,
                                  min_impurity_decrease=0.001,
                                  verbose=0, min_weight_fraction_leaf=.01)
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         _ = est.effect(X)
 
 
@@ -180,7 +180,7 @@ class TestAutomatedMetalearners(unittest.TestCase):
 
         # Test constant and heterogeneous treatment effect, single and multi output y
 
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         _ = est.effect(X)
 
     def test_SLearner(self):
@@ -191,7 +191,7 @@ class TestAutomatedMetalearners(unittest.TestCase):
         Y, T, X, _ = ihdp_surface_B()
         est = AutomatedSLearner(overall_model=automl_model_reg())
 
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         _ = est.effect(X)
 
         # Test heterogeneous treatment effect with multi output Y
@@ -204,5 +204,5 @@ class TestAutomatedMetalearners(unittest.TestCase):
         est = AutomatedDomainAdaptationLearner(models=automl_model_reg(),
                                                final_models=automl_model_reg())
 
-        est.fit(Y, T, X)
+        est.fit(Y, T, X=X)
         _ = est.effect(X)

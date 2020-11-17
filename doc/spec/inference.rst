@@ -32,7 +32,7 @@ For instance:
     est = NonParamDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                 model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                 model_final=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
-    est.fit(y, t, X, W, inference='bootstrap')
+    est.fit(y, t, X=X, W=W, inference='bootstrap')
     point = est.const_marginal_effect(X)
     lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
 
@@ -54,7 +54,7 @@ This for instance holds for the :class:`.LinearDML` and the :class:`.LinearDRLea
     from sklearn.ensemble import RandomForestRegressor
     est = LinearDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                  model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
-    est.fit(y, t, X, W)
+    est.fit(y, t, X=X, W=W)
     point = est.const_marginal_effect(X)
     lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
 
@@ -64,7 +64,7 @@ This for instance holds for the :class:`.LinearDML` and the :class:`.LinearDRLea
     from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
     est = LinearDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                           model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
-    est.fit(y, t, X, W)
+    est.fit(y, t, X=X, W=W)
     point = est.effect(X)
     lb, ub = est.effect_interval(X, alpha=0.05)
 
@@ -86,7 +86,7 @@ explicitly setting ``inference='debiasedlasso'``, e.g.:
     from sklearn.ensemble import RandomForestRegressor
     est = SparseLinearDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                        model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
-    est.fit(y, t, X, W)
+    est.fit(y, t, X=X, W=W)
     point = est.const_marginal_effect(X)
     lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
 
@@ -96,7 +96,7 @@ explicitly setting ``inference='debiasedlasso'``, e.g.:
     from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
     est = SparseLinearDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                 model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
-    est.fit(y, t, X, W)
+    est.fit(y, t, X=X, W=W)
     point = est.effect(X)
     lb, ub = est.effect_interval(X, alpha=0.05)
 
@@ -120,7 +120,7 @@ or by explicitly setting ``inference='blb'``, e.g.:
     from sklearn.ensemble import RandomForestRegressor
     est = ForestDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                  model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
-    est.fit(y, t, X, W)
+    est.fit(y, t, X=X, W=W)
     point = est.const_marginal_effect(X)
     lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
 
@@ -130,7 +130,7 @@ or by explicitly setting ``inference='blb'``, e.g.:
     from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
     est = ForestDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                           model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
-    est.fit(y, t, X, W)
+    est.fit(y, t, X=X, W=W)
     point = est.effect(X)
     lb, ub = est.effect_interval(X, alpha=0.05)
 
@@ -154,7 +154,7 @@ inference at its default setting of ``'auto'`` or by explicitly setting ``infere
                                          min_leaf_size=3,
                                          model_T=WeightedLasso(alpha=0.01),
                                          model_Y=WeightedLasso(alpha=0.01))
-    est.fit(y, t, X, W)
+    est.fit(y, t, X=X, W=W)
     point = est.const_marginal_effect(X)
     lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
 

@@ -810,7 +810,8 @@ class TestStatsModels(unittest.TestCase):
                             est = LinearDML(model_y=LinearRegression(),
                                             model_t=LinearRegression(),
                                             linear_first_stages=False)
-                            est.fit(y, T, X[:, :d_x], X[:, d_x:], inference=StatsModelsInference(cov_type='nonrobust'))
+                            est.fit(y, T, X=X[:, :d_x], W=X[:, d_x:],
+                                    inference=StatsModelsInference(cov_type='nonrobust'))
                             intercept = est.intercept_.reshape((p, q))
                             lower_int, upper_int = est.intercept__interval(alpha=.001)
                             lower_int = lower_int.reshape((p, q))
@@ -839,7 +840,8 @@ class TestStatsModels(unittest.TestCase):
                                             linear_first_stages=False,
                                             featurizer=PolynomialFeatures(degree=1),
                                             fit_cate_intercept=False)
-                            est.fit(y, T, X[:, :d_x], X[:, d_x:], inference=StatsModelsInference(cov_type='nonrobust'))
+                            est.fit(y, T, X=X[:, :d_x], W=X[:, d_x:],
+                                    inference=StatsModelsInference(cov_type='nonrobust'))
                             with pytest.raises(AttributeError) as e_info:
                                 intercept = est.intercept_
                             with pytest.raises(AttributeError) as e_info:

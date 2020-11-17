@@ -37,13 +37,12 @@ from sklearn.utils import check_random_state, check_array, column_or_1d
 from .sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from .causal_tree import CausalTree
-from .inference import Inference
-from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs,
+from .inference import Inference, NormalInferenceResults
+from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
                         cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
                         _RegressionWrapper, deprecated)
 from sklearn.model_selection import check_cv
 from .sklearn_extensions.model_selection import _cross_val_predict
-from .inference import NormalInferenceResults
 
 
 def _build_tree_in_parallel(Y, T, X, W,
@@ -251,8 +250,10 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.discrete_treatment = discrete_treatment
         super().__init__()
 
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, W=None, inference='auto'):
+    def fit(self, Y, T, X, W=None, *, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -601,7 +602,9 @@ class DMLOrthoForest(BaseOrthoForest):
 
     # Need to redefine fit here for auto inference to work due to a quirk in how
     # wrap_fit is defined
-    def fit(self, Y, T, X, W=None, inference='auto'):
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
+    def fit(self, Y, T, X, W=None, *, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -642,7 +645,7 @@ class DMLOrthoForest(BaseOrthoForest):
             Y = Y - _cross_val_predict(self.model_Y_final, self._combine(X, W), Y, cv=cv, safe=False).reshape(Y.shape)
             T = T - _cross_val_predict(self.model_T_final, self._combine(X, W), T, cv=cv, safe=False).reshape(T.shape)
 
-        super().fit(Y, T, X, W=W, inference=inference)
+        super().fit(Y, T, X=X, W=W, inference=inference)
 
         # weirdness of wrap_fit. We need to store d_t_in. But because wrap_fit decorates the parent
         # fit, we need to set explicitly d_t_in here after super fit is called.
@@ -923,7 +926,9 @@ class DROrthoForest(BaseOrthoForest):
             n_jobs=n_jobs,
             random_state=self.random_state)
 
-    def fit(self, Y, T, X, W=None, inference='auto'):
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
+    def fit(self, Y, T, X, W=None, *, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -962,7 +967,7 @@ class DROrthoForest(BaseOrthoForest):
             validate=False)
 
         # Call `fit` from parent class
-        super().fit(Y, T, X, W=W, inference=inference)
+        super().fit(Y, T, X=X, W=W, inference=inference)
 
         # weirdness of wrap_fit. We need to store d_t_in. But because wrap_fit decorates the parent
         # fit, we need to set explicitly d_t_in here after super fit is called.
