@@ -8,14 +8,15 @@ Public Module Reference
     econml.bootstrap
     econml.cate_estimator
     econml.cate_interpreter
+    econml.causal_forest
     econml.causal_tree
     econml.deepiv
     econml.dgp
     econml.dml
     econml.drlearner
     econml.inference
-    econml.ortho_forest
     econml.metalearners
+    econml.ortho_forest
     econml.ortho_iv
     econml.two_stage_least_squares
     econml.utilities
