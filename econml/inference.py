@@ -597,7 +597,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         """
         return (self.point_estimate - value) / self.stderr
 
-    def summary_frame(self, alpha=0.1, value=0, decimals=3, feat_name=None):
+    def summary_frame(self, alpha=0.1, value=0, decimals=3, feat_name=None, output_name=None, treatment_name=None):
         """
         Output the dataframe for all the inferences above.
 
@@ -611,7 +611,11 @@ class InferenceResults(metaclass=abc.ABCMeta):
         decimals: optinal int (default=3)
             Number of decimal places to round each column to.
         feat_name: optional list of strings or None (default is None)
-            The input of the feature names
+            The names of the features X
+        output_name: optional list of strings or None (default is None)
+            The names of the outputs
+        treatment_name: optional list of strings or None (default is None)
+            The names of the treatments
 
         Returns
         -------
@@ -622,12 +626,18 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         ci_mean = self.conf_int(alpha=alpha)
         to_include = OrderedDict()
-        to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.point_estimate)
-        to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr)
-        to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value))
-        to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value))
-        to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0])
-        to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1])
+        to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.point_estimate,
+                                                            output_name=output_name, treatment_name=treatment_name)
+        to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr,
+                                                    output_name=output_name, treatment_name=treatment_name)
+        to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value),
+                                                   output_name=output_name, treatment_name=treatment_name)
+        to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value),
+                                                    output_name=output_name, treatment_name=treatment_name)
+        to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0],
+                                                      output_name=output_name, treatment_name=treatment_name)
+        to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1],
+                                                      output_name=output_name, treatment_name=treatment_name)
         res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
         if self.d_t == 1:
             res.columns = res.columns.droplevel(1)
@@ -653,7 +663,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
                 res.index = ['cate_intercept']
         return res
 
-    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001):
+    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_name=None, treatment_name=None):
         """
         Output the object of population summary results.
 
@@ -668,6 +678,10 @@ class InferenceResults(metaclass=abc.ABCMeta):
             Number of decimal places to round each column to.
         tol:  optinal float (default=0.001)
             The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+        output_name: optional list of strings or None (default is None)
+            The names of the outputs
+        treatment_name: optional list of strings or None (default is None)
+            The names of the treatments
 
         Returns
         -------
@@ -678,19 +692,26 @@ class InferenceResults(metaclass=abc.ABCMeta):
         if self.inf_type == 'effect':
             return PopulationSummaryResults(pred=self.point_estimate, pred_stderr=self.stderr,
                                             d_t=self.d_t, d_y=self.d_y,
-                                            alpha=alpha, value=value, decimals=decimals, tol=tol)
+                                            alpha=alpha, value=value, decimals=decimals, tol=tol,
+                                            output_name=output_name, treatment_name=treatment_name)
         else:
             raise AttributeError(self.inf_type + " inference doesn't support population_summary function!")
 
-    def _array_to_frame(self, d_t, d_y, arr):
+    def _array_to_frame(self, d_t, d_y, arr, output_name=None, treatment_name=None):
         if np.isscalar(arr):
             arr = np.array([arr])
         if self.inf_type == 'coefficient':
             arr = np.moveaxis(arr, -1, 0)
         arr = arr.reshape((-1, d_y, d_t))
         df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
-        df.index = df.index.set_levels(['Y' + str(i) for i in range(d_y)], level=1)
-        df.columns = ['T' + str(i) for i in range(d_t)]
+        if output_name is None:
+            output_name = ['Y' + str(i) for i in range(d_y)]
+        assert len(output_name) == d_y, "Incompatible length of output names"
+        if treatment_name is None:
+            treatment_name = ['T' + str(i) for i in range(d_t)]
+        assert len(treatment_name) == d_t, "Incompatible length of treatment names"
+        df.index = df.index.set_levels(output_name, level=1)
+        df.columns = treatment_name
         return df
 
     @abc.abstractmethod
@@ -934,10 +955,15 @@ class PopulationSummaryResults:
         Number of decimal places to round each column to.
     tol:  optinal float (default=0.001)
         The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+    output_name: optional list of strings or None (default is None)
+            The names of the outputs
+    treatment_name: optional list of strings or None (default is None)
+        The names of the treatments
 
     """
 
-    def __init__(self, pred, pred_stderr, d_t, d_y, alpha, value, decimals, tol):
+    def __init__(self, pred, pred_stderr, d_t, d_y, alpha, value, decimals, tol,
+                 output_name=None, treatment_name=None):
         self.pred = pred
         self.pred_stderr = pred_stderr
         self.d_t = d_t
@@ -946,6 +972,8 @@ class PopulationSummaryResults:
         self.value = value
         self.decimals = decimals
         self.tol = tol
+        self.output_name = output_name
+        self.treatment_name = treatment_name
 
     def __str__(self):
         return self.print().as_text()
@@ -1123,10 +1151,18 @@ class PopulationSummaryResults:
         res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue, self.decimals)))
         res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[0], self.decimals)))
         res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[1], self.decimals)))
+
+        treatment_name = self.treatment_name
+        if treatment_name is None:
+            treatment_name = ['T' + str(i) for i in range(self.d_t)]
+        output_name = self.output_name
+        if output_name is None:
+            output_name = ['Y' + str(i) for i in range(self.d_y)]
+
         metric_name1 = ['mean_point', 'stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
-        myheaders1 = [name + '\nT' + str(i) for name in metric_name1 for i in range(self.d_t)
+        myheaders1 = [name + '\n' + tname for name in metric_name1 for tname in treatment_name
                       ] if self.d_t > 1 else [name for name in metric_name1]
-        mystubs1 = ["Y" + str(i) for i in range(self.d_y)] if self.d_y > 1 else []
+        mystubs1 = output_name if self.d_y > 1 else []
         title1 = "Uncertainty of Mean Point Estimate"
         text1 = "Note: The stderr_mean is a conservative upper bound."
 
@@ -1135,9 +1171,9 @@ class PopulationSummaryResults:
         res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[0], self.decimals)))
         res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[1], self.decimals)))
         metric_name2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
-        myheaders2 = [name + '\nT' + str(i) for name in metric_name2 for i in range(self.d_t)
+        myheaders2 = [name + '\n' + tname for name in metric_name2 for tname in treatment_name
                       ] if self.d_t > 1 else [name for name in metric_name2]
-        mystubs2 = ["Y" + str(i) for i in range(self.d_y)] if self.d_y > 1 else []
+        mystubs2 = output_name if self.d_y > 1 else []
         title2 = "Distribution of Point Estimate"
 
         # 3. Total Variance of Point Estimate
@@ -1147,9 +1183,9 @@ class PopulationSummaryResults:
         res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
                                                      self.conf_int_point[1], self.decimals)))
         metric_name3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
-        myheaders3 = [name + '\nT' + str(i) for name in metric_name3 for i in range(self.d_t)
+        myheaders3 = [name + '\n' + tname for name in metric_name3 for tname in treatment_name
                       ] if self.d_t > 1 else [name for name in metric_name3]
-        mystubs3 = ["Y" + str(i) for i in range(self.d_y)] if self.d_y > 1 else []
+        mystubs3 = output_name if self.d_y > 1 else []
         title3 = "Total Variance of Point Estimate"
 
         smry = Summary()
