@@ -591,7 +591,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         """
         pass
 
-    def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None):
+    def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None, treatment_name=None, output_name=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect.
 
@@ -606,6 +606,10 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             Number of decimal places to round each column to.
         feat_name: optional list of strings or None (default is None)
             The input of the feature names
+        treatment_name: optional list of strings or None (default is None)
+            The names of the treatments
+        output_name: optional list of strings or None (default is None)
+            The names of the outputs
 
         Returns
         -------
@@ -626,7 +630,10 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         d_y = self._d_y[0] if self._d_y else 1
         try:
             coef_table = self.coef__inference().summary_frame(alpha=alpha,
-                                                              value=value, decimals=decimals, feat_name=feat_name)
+                                                              value=value, decimals=decimals,
+                                                              feat_name=feat_name,
+                                                              treatment_name=treatment_name,
+                                                              output_name=output_name)
             coef_array = coef_table.values
             coef_headers = [i + '\n' +
                             j for (i, j) in coef_table.columns] if d_t > 1 else coef_table.columns.tolist()
@@ -637,7 +644,10 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             print("Coefficient Results: ", str(e))
         try:
             intercept_table = self.intercept__inference().summary_frame(alpha=alpha,
-                                                                        value=value, decimals=decimals, feat_name=None)
+                                                                        value=value, decimals=decimals,
+                                                                        feat_name=None,
+                                                                        treatment_name=treatment_name,
+                                                                        output_name=output_name)
             intercept_array = intercept_table.values
             intercept_headers = [i + '\n' + j for (i, j)
                                  in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
@@ -824,7 +834,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         pass
 
-    def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None):
+    def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None, treatment_name=None, output_name=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -839,6 +849,10 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             Number of decimal places to round each column to.
         feat_name: optional list of strings or None (default is None)
             The input of the feature names
+        treatment_name: optional list of strings or None (default is None)
+            The names of the treatments
+        output_name: optional list of strings or None (default is None)
+            The names of the outputs
 
         Returns
         -------
@@ -858,7 +872,9 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
                             "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
         try:
             coef_table = self.coef__inference(T).summary_frame(
-                alpha=alpha, value=value, decimals=decimals, feat_name=feat_name)
+                alpha=alpha, value=value, decimals=decimals, feat_name=feat_name,
+                treatment_name=treatment_name,
+                output_name=output_name)
             coef_array = coef_table.values
             coef_headers = coef_table.columns.tolist()
             coef_stubs = coef_table.index.tolist()
@@ -868,7 +884,9 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             print("Coefficient Results: ", e)
         try:
             intercept_table = self.intercept__inference(T).summary_frame(
-                alpha=alpha, value=value, decimals=decimals, feat_name=None)
+                alpha=alpha, value=value, decimals=decimals, feat_name=None,
+                treatment_name=treatment_name,
+                output_name=output_name)
             intercept_array = intercept_table.values
             intercept_headers = intercept_table.columns.tolist()
             intercept_stubs = intercept_table.index.tolist()
