@@ -53,6 +53,9 @@ class CausalForest(DMLOrthoForest):
         ``-1`` means using all processors. Since OrthoForest methods are
         computationally heavy, it is recommended to set `n_jobs` to -1.
 
+    backend : 'threading' or 'multiprocessing'
+        What backend should be used for parallelization with the joblib library.
+
     random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -73,6 +76,7 @@ class CausalForest(DMLOrthoForest):
                  discrete_treatment=False,
                  categories='auto',
                  n_jobs=-1,
+                 backend='threading',
                  random_state=None):
         super().__init__(n_trees=n_trees,
                          min_leaf_size=min_leaf_size,
@@ -89,4 +93,5 @@ class CausalForest(DMLOrthoForest):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_jobs=n_jobs,
+                         backend=backend,
                          random_state=random_state)
