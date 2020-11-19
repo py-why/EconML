@@ -29,9 +29,16 @@ class TestRandomState(unittest.TestCase):
         np.random.seed(1283)
         X = np.random.uniform(-1, 1, size=(n, p))
         W = np.random.uniform(-1, 1, size=(n, p))
-        def true_propensity(x): return .4 + .1 * (x[:, 0] > 0)
-        def true_effect(x): return .4 + .2 * x[:, 0]
-        def true_conf(x): return x[:, 1]
+
+        def true_propensity(x):
+            return .4 + .1 * (x[:, 0] > 0)
+
+        def true_effect(x):
+            return .4 + .2 * x[:, 0]
+
+        def true_conf(x):
+            return x[:, 1]
+
         T = np.random.binomial(1, true_propensity(X))
         Y = true_effect(X) * T + true_conf(X) + np.random.normal(size=(n,))
         X_test = np.zeros((100, p))
