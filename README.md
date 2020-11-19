@@ -16,7 +16,7 @@ techniques with econometrics to bring automation to complex causal inference pro
 * Build on standard Python packages for Machine Learning and Data Analysis
 
 One of the biggest promises of machine learning is to automate decision making in a multitude of domains. At the core of many data-driven personalized decision scenarios is the estimation of heterogeneous treatment effects: what is the causal effect of an intervention on an outcome of interest for a sample with a particular set of features? In a nutshell, this toolkit is designed to measure the causal effect of some treatment variable(s) `T` on an outcome 
-variable `Y`, controlling for a set of features `X`. The methods implemented are applicable even with observational (non-experimental or historical) datasets.
+variable `Y`, controlling for a set of features `X, W` and how does that effect vary as a function of `X`. The methods implemented are applicable even with observational (non-experimental or historical) datasets. For the estimation results to have a causal interpretation, some methods assume no unobserved confounders (i.e. there is no unobserved variable not included in `X, W` that simultaneously has an effect on both `T` and `Y`), while others assume access to an instrument `Z` (i.e. an observed variable `Z` that has an effect on the treatment `T` but no direct effect on the outcome `Y`). Most methods provide confidence intervals and inference results.
 
 For detailed information about the package, consult the documentation at https://econml.azurewebsites.net/.
 
