@@ -84,7 +84,7 @@ To install from source, see [For Developers](#for-developers) section below.
 ### Estimation Methods
 
 <details>
-  <summary>Double Machine Learning (click to expand)</summary>
+  <summary>Double Machine Learning (aka RLearner) (click to expand)</summary>
 
   * Linear final stage
 
@@ -117,7 +117,7 @@ To install from source, see [For Developers](#for-developers) section below.
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via debiased lasso
   ```
   
-  * Nonparametric last stage
+  * Forest last stage
   
   ```Python
   from econml.dml import ForestDML
@@ -128,6 +128,20 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effects = est.effect(X_test)
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
   lb, ub = est.effect_interval(X_test, alpha=0.05)
+  ```
+  
+  * Generic Machine Learning last stage
+  
+  ```Python
+  from econml.dml import NonParamDML
+  from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+
+  est = NonParamDML(model_y=RandomForestRegressor(),
+                    model_t=RandomForestClassifier(),
+                    model_final=RandomForestRegressor(),
+                    discrete_treatment=True)
+  est.fit(Y, T, X=X, W=W) 
+  treatment_effects = est.effect(X_test)
   ```
 
 </details>
@@ -367,16 +381,28 @@ as p-values and z-statistics. When the CATE model is linear and parametric, then
   est.effect_inference(X_test).summary_frame(alpha=0.05, value=0, decimals=3)
   # Get the population summary for the entire sample X
   est.effect_inference(X_test).population_summary(alpha=0.1, value=0, decimals=3, tol=0.001)
-  #  Get the inference summary for the final model
+  #  Get the parameter inference summary for the final model
   est.summary()
   ```
   
   <details><summary>Example Output (click to expand)</summary>
   
+  ```Python
+  # Get the effect inference summary, which includes the standard error, z test score, p value, and confidence interval given each sample X[i]
+  est.effect_inference(X_test).summary_frame(alpha=0.05, value=0, decimals=3)
+  ```
   ![image](notebooks/images/summary_frame.png)
   
+  ```Python
+  # Get the population summary for the entire sample X
+  est.effect_inference(X_test).population_summary(alpha=0.1, value=0, decimals=3, tol=0.001)
+  ```
   ![image](notebooks/images/population_summary.png)
   
+  ```Python
+  #  Get the parameter inference summary for the final model
+  est.summary()
+  ```
   ![image](notebooks/images/summary.png)
   
   </details>
@@ -448,6 +474,10 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 # References
 
+X Nie, S Wager.
+**Quasi-Oracle Estimation of Heterogeneous Treatment Effects.**
+[*Biometrika*](https://doi.org/10.1093/biomet/asaa076), 2020
+
 V. Syrgkanis, V. Lei, M. Oprescu, M. Hei, K. Battocchi, G. Lewis.
 **Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments.**
 [*Proceedings of the 33rd Conference on Neural Information Processing Systems (NeurIPS)*](https://arxiv.org/abs/1905.10176), 2019
@@ -466,9 +496,17 @@ S. Künzel, J. Sekhon, J. Bickel and B. Yu.
 **Metalearners for estimating heterogeneous treatment effects using machine learning.**
 [*Proceedings of the national academy of sciences, 116(10), 4156-4165*](https://www.pnas.org/content/116/10/4156), 2019.
 
+S. Athey, J. Tibshirani, S. Wager.
+**Generalized random forests.**
+[*Annals of Statistics, 47, no. 2, 1148--1178*](https://projecteuclid.org/euclid.aos/1547197251), 2019.
+
 V. Chernozhukov, D. Nekipelov, V. Semenova, V. Syrgkanis.
 **Plug-in Regularized Estimation of High-Dimensional Parameters in Nonlinear Semiparametric Models.**
 [*Arxiv preprint arxiv:1806.04823*](https://arxiv.org/abs/1806.04823), 2018.
+
+S. Wager, S. Athey.
+**Estimation and Inference of Heterogeneous Treatment Effects using Random Forests.**
+[*Journal of the American Statistical Association, 113:523, 1228-1242*](https://www.tandfonline.com/doi/citedby/10.1080/01621459.2017.1319839), 2018.
 
 Jason Hartford, Greg Lewis, Kevin Leyton-Brown, and Matt Taddy. **Deep IV: A flexible approach for counterfactual prediction.** [*Proceedings of the 34th International Conference on Machine Learning, ICML'17*](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf), 2017.
 
