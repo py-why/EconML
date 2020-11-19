@@ -949,7 +949,7 @@ class _BaseDRIVModelFinal:
             X = self._featurizer.fit_transform(X)
         if self._opt_reweighted and (sample_weight is not None):
             sample_weight = sample_weight * clipped_cov.ravel()**2
-        else:
+        elif self._opt_reweighted:
             sample_weight = clipped_cov.ravel()**2
         self._model_final.fit(X, theta_dr, **filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var))
 
@@ -968,7 +968,7 @@ class _BaseDRIVModelFinal:
 
         if self._opt_reweighted and (sample_weight is not None):
             sample_weight = sample_weight * clipped_cov.ravel()**2
-        else:
+        elif self._opt_reweighted:
             sample_weight = clipped_cov.ravel()**2
 
         return np.average((theta_dr.ravel() - self._model_final.predict(X).ravel())**2,
