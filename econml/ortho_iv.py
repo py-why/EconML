@@ -24,7 +24,7 @@ from .cate_estimator import StatsModelsCateEstimatorMixin
 from .dml import _FinalWrapper
 from .inference import StatsModelsInference
 from .sklearn_extensions.linear_model import StatsModelsLinearRegression
-from .utilities import (_deprecate_positional, add_intercept, fit_with_groups,
+from .utilities import (_deprecate_positional, add_intercept, fit_with_groups, filter_none_kwargs,
                         hstack, inverse_onehot)
 
 
@@ -947,12 +947,12 @@ class _BaseDRIVModelFinal:
 
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
-        # TODO: how do we incorporate the sample_weight and sample_var passed into this method
-        #       as arguments?
-        if self._opt_reweighted:
-            self._model_final.fit(X, theta_dr, sample_weight=clipped_cov.ravel()**2)
+        if self._opt_reweighted and (sample_weight is not None):
+            sample_weight = sample_weight * clipped_cov.ravel()**2
         else:
-            self._model_final.fit(X, theta_dr)
+            sample_weight = clipped_cov.ravel()**2
+        self._model_final.fit(X, theta_dr, **filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var))
+
         return self
 
     def predict(self, X=None):
@@ -961,22 +961,18 @@ class _BaseDRIVModelFinal:
         return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
 
     def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        # TODO: is there a good way to incorporate the other nuisance terms in the score?
-        _, T_res, Y_res, _, _ = nuisances
+        theta_dr, clipped_cov = self._effect_estimate(nuisances)
 
-        if Y_res.ndim == 1:
-            Y_res = Y_res.reshape((-1, 1))
-        if T_res.ndim == 1:
-            T_res = T_res.reshape((-1, 1))
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
-        effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
-        Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
 
-        if sample_weight is not None:
-            return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
+        if self._opt_reweighted and (sample_weight is not None):
+            sample_weight = sample_weight * clipped_cov.ravel()**2
         else:
-            return np.mean((Y_res - Y_res_pred) ** 2)
+            sample_weight = clipped_cov.ravel()**2
+
+        return np.average((theta_dr.ravel() - self._model_final.predict(X).ravel())**2,
+                          weights=sample_weight, axis=0)
 
 
 class _BaseDRIV(_OrthoLearner):

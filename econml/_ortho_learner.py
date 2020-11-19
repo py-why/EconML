@@ -707,8 +707,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
 
-        return self._model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                  nuisances=nuisances, sample_weight=sample_weight))
+        return self._model_final.score(Y, T, nuisances=nuisances,
+                                       **filter_none_kwargs(X=X, W=W, Z=Z, sample_weight=sample_weight))
 
     @property
     def model_final(self):
