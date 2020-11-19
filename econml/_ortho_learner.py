@@ -449,6 +449,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
         self._discrete_instrument = discrete_instrument
+        self._init_random_state = random_state
         self._random_state = check_random_state(random_state)
         if discrete_treatment:
             if categories != 'auto':
@@ -535,6 +536,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self : _OrthoLearner instance
         """
+        self._random_state = check_random_state(self._init_random_state)
         Y, T, X, W, Z, sample_weight, sample_var, groups = check_input_arrays(
             Y, T, X, W, Z, sample_weight, sample_var, groups)
         self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var, groups)
