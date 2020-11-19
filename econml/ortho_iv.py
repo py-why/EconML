@@ -752,6 +752,12 @@ class DMLIV(_BaseDMLIV):
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final, featurizer=None,
@@ -842,11 +848,18 @@ class NonParamDMLIV(_BaseDMLIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
+
     """
 
     def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final,
                  featurizer=None, fit_cate_intercept=True,
-                 n_splits=2, discrete_instrument=False, discrete_treatment=False, categories='auto'):
+                 n_splits=2, discrete_instrument=False, discrete_treatment=False, categories='auto',
+                 random_state=None):
         super().__init__(_FirstStageWrapper(model_Y_X, False),
                          _FirstStageWrapper(model_T_X, discrete_treatment),
                          _FirstStageWrapper(model_T_XZ, discrete_treatment),
@@ -857,7 +870,8 @@ class NonParamDMLIV(_BaseDMLIV):
                          n_splits=n_splits,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
-                         categories=categories)
+                         categories=categories,
+                         random_state=random_state)
 
 
 class _BaseDRIVModelFinal:
@@ -1094,7 +1108,7 @@ class _BaseDRIV(_OrthoLearner):
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            inference=inference)
 
-    def score(self, Y, T, Z, X=None, W=None):
+    def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted nuisance models created at fit time.
@@ -1116,6 +1130,8 @@ class _BaseDRIV(_OrthoLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
+        sample_weight: optional(n,) vector or None (Default=None)
+            Weights for each samples
 
         Returns
         -------
@@ -1124,7 +1140,7 @@ class _BaseDRIV(_OrthoLearner):
             type of the model_final.score method.
         """
         # Replacing score from _OrthoLearner, to reorder arguments and improve the docstring
-        return super().score(Y, T, X=X, W=W, Z=Z)
+        return super().score(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight)
 
     @property
     def original_featurizer(self):
@@ -1182,7 +1198,8 @@ class _IntentToTreatDRIVModelNuisance:
         self._model_T_XZ.fit(X=X, W=W, Z=Z, Target=T, sample_weight=sample_weight, groups=groups)
         # we need to undo the one-hot encoding for calling effect,
         # since it expects raw values
-        self._prel_model_effect.fit(Y, inverse_onehot(T), inverse_onehot(Z), X=X, groups=groups)
+        self._prel_model_effect.fit(Y, inverse_onehot(T), Z=inverse_onehot(Z), X=X, W=W,
+                                    sample_weight=sample_weight, groups=groups)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
@@ -1197,7 +1214,8 @@ class _IntentToTreatDRIVModelNuisance:
         if hasattr(self._prel_model_effect, 'score'):
             # we need to undo the one-hot encoding for calling effect,
             # since it expects raw values
-            effect_score = self._prel_model_effect.score(Y, inverse_onehot(T), inverse_onehot(Z), X=X)
+            effect_score = self._prel_model_effect.score(Y, inverse_onehot(T),
+                                                         Z=inverse_onehot(Z), X=X, W=W, sample_weight=sample_weight)
         else:
             effect_score = None
 
@@ -1231,7 +1249,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  cov_clip=.1,
                  n_splits=3,
                  opt_reweighted=False,
-                 categories='auto'):
+                 categories='auto',
+                 random_state=None):
         """
         """
 
@@ -1244,7 +1263,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          n_splits=n_splits,
                          discrete_instrument=True, discrete_treatment=True,
                          categories=categories,
-                         opt_reweighted=opt_reweighted)
+                         opt_reweighted=opt_reweighted,
+                         random_state=random_state)
 
 
 class _DummyCATE:
@@ -1255,7 +1275,7 @@ class _DummyCATE:
     def __init__(self):
         return
 
-    def fit(self, y, T, Z, X, groups=None):
+    def fit(self, y, T, *, Z, X, W=None, sample_weight=None, groups=None):
         return self
 
     def effect(self, X):
@@ -1321,6 +1341,12 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self, model_Y_X, model_T_XZ,
@@ -1331,14 +1357,17 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  cov_clip=.1,
                  n_splits=3,
                  opt_reweighted=False,
-                 categories='auto'):
+                 categories='auto',
+                 random_state=None):
         model_Y_X = _FirstStageWrapper(model_Y_X, discrete_target=False)
         model_T_XZ = _FirstStageWrapper(model_T_XZ, discrete_target=True)
         prel_model_effect = _IntentToTreatDRIV(model_Y_X,
                                                model_T_XZ,
                                                _DummyCATE(),
                                                flexible_model_effect,
-                                               cov_clip=1e-7, n_splits=1, opt_reweighted=True)
+                                               cov_clip=1e-7, n_splits=1,
+                                               opt_reweighted=True,
+                                               random_state=random_state)
         if final_model_effect is None:
             final_model_effect = flexible_model_effect
         super().__init__(model_Y_X, model_T_XZ, prel_model_effect,
@@ -1348,7 +1377,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          cov_clip=cov_clip,
                          n_splits=n_splits,
                          opt_reweighted=opt_reweighted,
-                         categories=categories)
+                         categories=categories,
+                         random_state=random_state)
 
     @property
     def models_Y_X(self):
@@ -1418,6 +1448,11 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self, model_Y_X, model_T_XZ,
@@ -1426,14 +1461,15 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
-                 categories='auto'):
+                 categories='auto',
+                 random_state=None):
         super().__init__(model_Y_X, model_T_XZ,
                          flexible_model_effect=flexible_model_effect,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          final_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                          cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=False,
-                         categories=categories)
+                         categories=categories, random_state=random_state)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "

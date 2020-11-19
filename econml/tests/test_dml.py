@@ -1050,45 +1050,6 @@ class TestDML(unittest.TestCase):
         with pytest.raises(Exception):
             est.fit(y, t, groups=groups)
 
-    def test_random_state(self):
-        np.random.seed(1283)
-        n = 500
-        p = 2
-        X = np.random.uniform(-1, 1, size=(n, p))
-        W = np.random.uniform(-1, 1, size=(n, p))
-        def true_propensity(x): return .4 + .1 * (x[:, 0] > 0)
-        def true_effect(x): return .4 + .2 * x[:, 0]
-        def true_conf(x): return x[:, 1]
-        T = np.random.binomial(1, true_propensity(X))
-        Y = true_effect(X) * T + true_conf(X) + np.random.normal(size=(n,))
-        X_test = np.zeros((100, p))
-        X_test[:, 0] = np.linspace(-1, 1, 100)
-
-        for est in [
-                NonParamDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                            model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                            model_final=RandomForestRegressor(max_depth=3, n_estimators=10, min_samples_leaf=100,
-                                                              bootstrap=True, random_state=123),
-                            discrete_treatment=True, n_splits=2, random_state=123),
-                ForestDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                          model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                          n_estimators=10,
-                          discrete_treatment=True, n_crossfit_splits=2, random_state=123),
-                LinearDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                          model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                          discrete_treatment=True, n_splits=2, random_state=123),
-                SparseLinearDML(discrete_treatment=True, n_splits=2, random_state=123),
-                KernelDML(discrete_treatment=True, n_splits=2, random_state=123)]:
-
-            est.fit(Y, T, X=X, W=W)
-            te1 = est.effect(X_test)
-            est.fit(Y, T, X=X, W=W)
-            te2 = est.effect(X_test)
-            est.fit(Y, T, X=X, W=W)
-            te3 = est.effect(X_test)
-            np.testing.assert_array_equal(te1, te2, err_msg='random state fixing does not work')
-            np.testing.assert_array_equal(te1, te3, err_msg='random state fixing does not work')
-
     def test_deprecation(self):
         from econml.dml import LinearDMLCateEstimator
 
