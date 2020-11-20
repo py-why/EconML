@@ -362,9 +362,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     Parameters
     ----------
-    model_y: estimator
+    model_y: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
+        `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
     model_t: estimator or 'auto' (default is 'auto')
         The estimator for fitting the treatment to the features.
@@ -435,11 +436,14 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
+        if model_y == 'auto':
+            model_y = WeightedLassoCVWrapper(random_state=random_state)
         if model_t == 'auto':
             if discrete_treatment:
-                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold())
+                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=random_state),
+                                               random_state=random_state)
             else:
-                model_t = WeightedLassoCVWrapper()
+                model_t = WeightedLassoCVWrapper(random_state=random_state)
         self.bias_part_of_coef = fit_cate_intercept
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(model_y=_FirstStageWrapper(model_y, True,
@@ -490,9 +494,10 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`.WeightedLassoCVWrapper`)
+    model_y: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
     model_t: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the treatment to the features.
@@ -545,7 +550,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     """
 
     def __init__(self,
-                 model_y=WeightedLassoCVWrapper(), model_t='auto',
+                 model_y='auto', model_t='auto',
                  featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
@@ -615,10 +620,10 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`WeightedLassoCVWrapper()
-        <econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
+    model_y: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
     model_t: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the treatment to the features.
@@ -686,7 +691,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
     """
 
     def __init__(self,
-                 model_y=WeightedLassoCVWrapper(), model_t='auto',
+                 model_y='auto', model_t='auto',
                  alpha='auto',
                  max_iter=1000,
                  tol=1e-4,
@@ -701,7 +706,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             alpha=alpha,
             fit_intercept=False,
             max_iter=max_iter,
-            tol=tol)
+            tol=tol,
+            random_state=random_state)
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=model_final,
@@ -765,11 +771,12 @@ class _RandomFeatures(TransformerMixin):
     def __init__(self, dim, bw, random_state):
         self._dim = dim
         self._bw = bw
-        self._random_state = check_random_state(random_state)
+        self._random_state = random_state
 
     def fit(self, X):
-        self.omegas = self._random_state.normal(0, 1 / self._bw, size=(shape(X)[1], self._dim))
-        self.biases = self._random_state.uniform(0, 2 * np.pi, size=(1, self._dim))
+        random_state = check_random_state(self._random_state)
+        self.omegas = random_state.normal(0, 1 / self._bw, size=(shape(X)[1], self._dim))
+        self.biases = random_state.uniform(0, 2 * np.pi, size=(1, self._dim))
         return self
 
     def transform(self, X):
@@ -782,9 +789,10 @@ class KernelDML(DML):
 
     Parameters
     ----------
-    model_y: estimator, optional (default is :class:`<econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper>`)
+    model_y: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
     model_t: estimator or 'auto', optional (default is 'auto')
         The estimator for fitting the treatment to the features.
@@ -834,10 +842,10 @@ class KernelDML(DML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_y=WeightedLassoCVWrapper(), model_t='auto', fit_cate_intercept=True,
+    def __init__(self, model_y='auto', model_t='auto', fit_cate_intercept=True,
                  dim=20, bw=1.0, discrete_treatment=False, categories='auto', n_splits=2, random_state=None):
         super().__init__(model_y=model_y, model_t=model_t,
-                         model_final=ElasticNetCV(fit_intercept=False),
+                         model_final=ElasticNetCV(fit_intercept=False, random_state=random_state),
                          featurizer=_RandomFeatures(dim, bw, random_state),
                          fit_cate_intercept=fit_cate_intercept,
                          discrete_treatment=discrete_treatment,
