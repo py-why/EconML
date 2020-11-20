@@ -77,6 +77,8 @@ class CausalForest(DMLOrthoForest):
                  categories='auto',
                  n_jobs=-1,
                  backend='threading',
+                 verbose=3,
+                 batch_size='auto',
                  random_state=None):
         super().__init__(n_trees=n_trees,
                          min_leaf_size=min_leaf_size,
@@ -94,4 +96,6 @@ class CausalForest(DMLOrthoForest):
                          categories=categories,
                          n_jobs=n_jobs,
                          backend=backend,
+                         verbose=verbose,
+                         batch_size=batch_size,
                          random_state=random_state)

@@ -45,17 +45,7 @@ from sklearn.model_selection import check_cv
 from .sklearn_extensions.model_selection import _cross_val_predict
 
 
-def _build_tree_in_parallel(Y, T, X, W,
-                            nuisance_estimator,
-                            parameter_estimator,
-                            moment_and_mean_gradient_estimator,
-                            min_leaf_size, max_depth, random_state):
-    tree = CausalTree(nuisance_estimator=nuisance_estimator,
-                      parameter_estimator=parameter_estimator,
-                      moment_and_mean_gradient_estimator=moment_and_mean_gradient_estimator,
-                      min_leaf_size=min_leaf_size,
-                      max_depth=max_depth,
-                      random_state=random_state)
+def _build_tree_in_parallel(tree, Y, T, X, W):
     # Create splits of causal tree
     tree.create_splits(Y, T, X, W)
     return tree
@@ -223,6 +213,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                  bootstrap=False,
                  n_jobs=-1,
                  backend='loky',
+                 verbose=3,
+                 batch_size='auto',
                  random_state=None):
         # Estimators
         self.nuisance_estimator = nuisance_estimator
@@ -250,6 +242,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.model_is_fitted = False
         self.discrete_treatment = discrete_treatment
         self.backend = backend
+        self.verbose = verbose
+        self.batch_size = batch_size
         super().__init__()
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
@@ -330,7 +324,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         if not self.model_is_fitted:
             raise NotFittedError('This {0} instance is not fitted yet.'.format(self.__class__.__name__))
         X = check_array(X)
-        results = Parallel(n_jobs=self.n_jobs, backend=self.backend, verbose=3)(
+        results = Parallel(n_jobs=self.n_jobs, backend=self.backend,
+                           batch_size=self.batch_size, verbose=self.verbose)(
             delayed(_pointwise_effect)(X_single, *self._pw_effect_inputs(X_single, stderr=stderr),
                                        self.second_stage_nuisance_estimator, self.second_stage_parameter_estimator,
                                        self.moment_and_mean_gradient_estimator, self.slice_len, self.n_slices,
@@ -376,14 +371,18 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         # Generate subsample indices
         subsample_ind = self._get_blb_indices(X)
         # Build trees in parallel
-        return subsample_ind, Parallel(n_jobs=self.n_jobs, backend=self.backend, verbose=3, max_nbytes=None)(
-            delayed(_build_tree_in_parallel)(
-                Y[s], T[s], X[s], W[s] if W is not None else None,
-                self.nuisance_estimator,
-                self.parameter_estimator,
-                self.moment_and_mean_gradient_estimator,
-                self.min_leaf_size, self.max_depth,
-                self.random_state.randint(MAX_RAND_SEED)) for s in subsample_ind)
+        trees = [CausalTree(nuisance_estimator=self.nuisance_estimator,
+                            parameter_estimator=self.parameter_estimator,
+                            moment_and_mean_gradient_estimator=self.moment_and_mean_gradient_estimator,
+                            min_leaf_size=self.min_leaf_size,
+                            max_depth=self.max_depth,
+                            random_state=self.random_state.randint(MAX_RAND_SEED))
+                 for _ in range(len(subsample_ind))]
+        return subsample_ind, Parallel(n_jobs=self.n_jobs, backend=self.backend,
+                                       batch_size=self.batch_size, verbose=self.verbose, max_nbytes=None)(
+            delayed(_build_tree_in_parallel)(tree,
+                                             Y[s], T[s], X[s], W[s] if W is not None else None)
+            for s, tree in zip(subsample_ind, trees))
 
     def _get_weights(self, X_single, tree_slice=None):
         """Calculate weights for a single input feature vector over a subset of trees.
@@ -517,6 +516,9 @@ class DMLOrthoForest(BaseOrthoForest):
     backend : 'threading' or 'loky', optional (default='loky')
         What backend should be used for parallelization with the joblib library.
 
+    verbose : int, optional (default=3)
+        Verbosity level
+
     random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -541,6 +543,8 @@ class DMLOrthoForest(BaseOrthoForest):
                  categories='auto',
                  n_jobs=-1,
                  backend='loky',
+                 verbose=3,
+                 batch_size='auto',
                  random_state=None):
         # Copy and/or define models
         self.lambda_reg = lambda_reg
@@ -564,18 +568,18 @@ class DMLOrthoForest(BaseOrthoForest):
         self.global_residualization = global_residualization
         self.global_res_cv = global_res_cv
         # Define nuisance estimators
-        nuisance_estimator = DMLOrthoForest.nuisance_estimator_generator(
+        nuisance_estimator = _DMLOrthoForest_nuisance_estimator_generator(
             self.model_T, self.model_Y, self.random_state, second_stage=False,
             global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
-        second_stage_nuisance_estimator = DMLOrthoForest.nuisance_estimator_generator(
+        second_stage_nuisance_estimator = _DMLOrthoForest_nuisance_estimator_generator(
             self.model_T_final, self.model_Y_final, self.random_state, second_stage=True,
             global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
         # Define parameter estimators
-        parameter_estimator = DMLOrthoForest.parameter_estimator_func
-        second_stage_parameter_estimator = DMLOrthoForest.second_stage_parameter_estimator_gen(
+        parameter_estimator = _DMLOrthoForest_parameter_estimator_func
+        second_stage_parameter_estimator = _DMLOrthoForest_second_stage_parameter_estimator_gen(
             self.lambda_reg)
         # Define
-        moment_and_mean_gradient_estimator = DMLOrthoForest.moment_and_mean_gradient_estimator_func
+        moment_and_mean_gradient_estimator = _DMLOrthoForest_moment_and_mean_gradient_estimator_func
         if discrete_treatment:
             if categories != 'auto':
                 categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -593,6 +597,8 @@ class DMLOrthoForest(BaseOrthoForest):
             bootstrap=bootstrap,
             n_jobs=n_jobs,
             backend=backend,
+            verbose=verbose,
+            batch_size=batch_size,
             discrete_treatment=discrete_treatment,
             categories=categories,
             random_state=self.random_state)
@@ -664,135 +670,144 @@ class DMLOrthoForest(BaseOrthoForest):
         return effects.reshape((-1,) + self._d_y + self._d_t)
     const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
 
-    @staticmethod
-    def nuisance_estimator_generator(model_T, model_Y, random_state=None, second_stage=True,
-                                     global_residualization=False, discrete_treatment=False):
-        """Generate nuissance estimator given model inputs from the class."""
-        def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
-            if global_residualization:
-                return 0
-            if discrete_treatment:
-                # Check that all discrete treatments are represented
-                if len(np.unique(T @ np.arange(1, T.shape[1] + 1))) < T.shape[1] + 1:
-                    return None
-            # Nuissance estimates evaluated with cross-fitting
-            this_random_state = check_random_state(random_state)
-            if (split_indices is None) and second_stage:
-                if discrete_treatment:
-                    # Define 2-fold iterator
-                    kfold_it = StratifiedKFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X, T)
-                    # Check if there is only one example of some class
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings('error')
-                        try:
-                            split_indices = list(kfold_it)[0]
-                        except Warning as warn:
-                            msg = str(warn)
-                            if "The least populated class in y has only 1 members" in msg:
-                                return None
-                else:
-                    # Define 2-fold iterator
-                    kfold_it = KFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X)
-                    split_indices = list(kfold_it)[0]
-            if W is not None:
-                X_tilde = np.concatenate((X, W), axis=1)
+
+class _DMLOrthoForest_nuisance_estimator_generator:
+    """Generate nuissance estimator given model inputs from the class."""
+
+    def __init__(self, model_T, model_Y, random_state=None, second_stage=True,
+                 global_residualization=False, discrete_treatment=False):
+        self.model_T = model_T
+        self.model_Y = model_Y
+        self.random_state = random_state
+        self.second_stage = second_stage
+        self.global_residualization = global_residualization
+        self.discrete_treatment = discrete_treatment
+
+    def __call__(self, Y, T, X, W, sample_weight=None, split_indices=None):
+        if self.global_residualization:
+            return 0
+        if self.discrete_treatment:
+            # Check that all discrete treatments are represented
+            if len(np.unique(T @ np.arange(1, T.shape[1] + 1))) < T.shape[1] + 1:
+                return None
+        # Nuissance estimates evaluated with cross-fitting
+        this_random_state = check_random_state(self.random_state)
+        if (split_indices is None) and self.second_stage:
+            if self.discrete_treatment:
+                # Define 2-fold iterator
+                kfold_it = StratifiedKFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X, T)
+                # Check if there is only one example of some class
+                with warnings.catch_warnings():
+                    warnings.filterwarnings('error')
+                    try:
+                        split_indices = list(kfold_it)[0]
+                    except Warning as warn:
+                        msg = str(warn)
+                        if "The least populated class in y has only 1 members" in msg:
+                            return None
             else:
-                X_tilde = X
+                # Define 2-fold iterator
+                kfold_it = KFold(n_splits=2, shuffle=True, random_state=this_random_state).split(X)
+                split_indices = list(kfold_it)[0]
+        if W is not None:
+            X_tilde = np.concatenate((X, W), axis=1)
+        else:
+            X_tilde = X
 
-            try:
-                if second_stage:
-                    T_hat = _cross_fit(model_T, X_tilde, T, split_indices, sample_weight=sample_weight)
-                    Y_hat = _cross_fit(model_Y, X_tilde, Y, split_indices, sample_weight=sample_weight)
-                else:
-                    # need safe=False when cloning for WeightedModelWrapper
-                    T_hat = clone(model_T, safe=False).fit(X_tilde, T).predict(X_tilde)
-                    Y_hat = clone(model_Y, safe=False).fit(X_tilde, Y).predict(X_tilde)
-            except ValueError as exc:
-                raise ValueError("The original error: {0}".format(str(exc)) +
-                                 " This might be caused by too few sample in the tree leafs." +
-                                 " Try increasing the min_leaf_size.")
-            return Y_hat, T_hat
+        try:
+            if self.second_stage:
+                T_hat = _cross_fit(self.model_T, X_tilde, T, split_indices, sample_weight=sample_weight)
+                Y_hat = _cross_fit(self.model_Y, X_tilde, Y, split_indices, sample_weight=sample_weight)
+            else:
+                # need safe=False when cloning for WeightedModelWrapper
+                T_hat = clone(self.model_T, safe=False).fit(X_tilde, T).predict(X_tilde)
+                Y_hat = clone(self.model_Y, safe=False).fit(X_tilde, Y).predict(X_tilde)
+        except ValueError as exc:
+            raise ValueError("The original error: {0}".format(str(exc)) +
+                             " This might be caused by too few sample in the tree leafs." +
+                             " Try increasing the min_leaf_size.")
+        return Y_hat, T_hat
 
-        return nuisance_estimator
 
-    @staticmethod
-    def parameter_estimator_func(Y, T, X,
-                                 nuisance_estimates,
-                                 sample_weight=None):
-        """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+def _DMLOrthoForest_parameter_estimator_func(Y, T, X,
+                                             nuisance_estimates,
+                                             sample_weight=None):
+    """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates."""
+    # Compute residuals
+    Y_res, T_res = _DMLOrthoForest_get_conforming_residuals(Y, T, nuisance_estimates)
+    # Compute coefficient by OLS on residuals
+    param_estimate = LinearRegression(fit_intercept=False).fit(
+        T_res, Y_res, sample_weight=sample_weight
+    ).coef_
+    # Parameter returned by LinearRegression is (d_T, )
+    return param_estimate
+
+
+class _DMLOrthoForest_second_stage_parameter_estimator_gen:
+    """
+    For the second stage parameter estimation we add a local linear correction. So
+    we fit a local linear function as opposed to a local constant function. We also penalize
+    the linear part to reduce variance.
+    """
+
+    def __init__(self, lambda_reg):
+        self.lambda_reg = lambda_reg
+
+    def __call__(self, Y, T, X,
+                 nuisance_estimates,
+                 sample_weight,
+                 X_single):
+        """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
+
+        The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
+        local corrections on a preliminary parameter estimate.
+        """
         # Compute residuals
-        Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
+        Y_res, T_res = _DMLOrthoForest_get_conforming_residuals(Y, T, nuisance_estimates)
+        X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
+        XT_res = cross_product(T_res, X_aug)
         # Compute coefficient by OLS on residuals
-        param_estimate = LinearRegression(fit_intercept=False).fit(
-            T_res, Y_res, sample_weight=sample_weight
-        ).coef_
-        # Parameter returned by LinearRegression is (d_T, )
-        return param_estimate
+        if sample_weight is not None:
+            weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
+        else:
+            weighted_XT_res = XT_res / XT_res.shape[0]
+        # ell_2 regularization
+        diagonal = np.ones(XT_res.shape[1])
+        diagonal[:T_res.shape[1]] = 0
+        reg = self.lambda_reg * np.diag(diagonal)
+        # Ridge regression estimate
+        linear_coef_estimate = np.linalg.lstsq(np.matmul(weighted_XT_res.T, XT_res) + reg,
+                                               np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)),
+                                               rcond=None)[0].flatten()
+        X_aug = np.append([1], X_single)
+        linear_coef_estimate = linear_coef_estimate.reshape((X_aug.shape[0], -1)).T
+        # Parameter returned is of shape (d_T, )
+        return np.dot(linear_coef_estimate, X_aug)
 
-    @staticmethod
-    def second_stage_parameter_estimator_gen(lambda_reg):
-        """
-        For the second stage parameter estimation we add a local linear correction. So
-        we fit a local linear function as opposed to a local constant function. We also penalize
-        the linear part to reduce variance.
-        """
-        def parameter_estimator_func(Y, T, X,
-                                     nuisance_estimates,
-                                     sample_weight,
-                                     X_single):
-            """Calculate the parameter of interest for points given by (Y, T) and corresponding nuisance estimates.
 
-            The parameter is calculated around the feature vector given by `X_single`. `X_single` can be used to do
-            local corrections on a preliminary parameter estimate.
-            """
-            # Compute residuals
-            Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
-            X_aug = np.hstack([np.ones((X.shape[0], 1)), X])
-            XT_res = cross_product(T_res, X_aug)
-            # Compute coefficient by OLS on residuals
-            if sample_weight is not None:
-                weighted_XT_res = sample_weight.reshape(-1, 1) * XT_res
-            else:
-                weighted_XT_res = XT_res / XT_res.shape[0]
-            # ell_2 regularization
-            diagonal = np.ones(XT_res.shape[1])
-            diagonal[:T_res.shape[1]] = 0
-            reg = lambda_reg * np.diag(diagonal)
-            # Ridge regression estimate
-            linear_coef_estimate = np.linalg.lstsq(np.matmul(weighted_XT_res.T, XT_res) + reg,
-                                                   np.matmul(weighted_XT_res.T, Y_res.reshape(-1, 1)),
-                                                   rcond=None)[0].flatten()
-            X_aug = np.append([1], X_single)
-            linear_coef_estimate = linear_coef_estimate.reshape((X_aug.shape[0], -1)).T
-            # Parameter returned is of shape (d_T, )
-            return np.dot(linear_coef_estimate, X_aug)
+def _DMLOrthoForest_moment_and_mean_gradient_estimator_func(Y, T, X, W,
+                                                            nuisance_estimates,
+                                                            parameter_estimate):
+    """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
+    # Return moments and gradients
+    # Compute residuals
+    Y_res, T_res = _DMLOrthoForest_get_conforming_residuals(Y, T, nuisance_estimates)
+    # Compute moments
+    # Moments shape is (n, d_T)
+    moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
+    # Compute moment gradients
+    mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
+    return moments, mean_gradient
 
-        return parameter_estimator_func
 
-    @staticmethod
-    def moment_and_mean_gradient_estimator_func(Y, T, X, W,
-                                                nuisance_estimates,
-                                                parameter_estimate):
-        """Calculate the moments and mean gradient at points given by (Y, T, X, W)."""
-        # Return moments and gradients
-        # Compute residuals
-        Y_res, T_res = DMLOrthoForest._get_conforming_residuals(Y, T, nuisance_estimates)
-        # Compute moments
-        # Moments shape is (n, d_T)
-        moments = (Y_res - np.matmul(T_res, parameter_estimate)).reshape(-1, 1) * T_res
-        # Compute moment gradients
-        mean_gradient = - np.matmul(T_res.T, T_res) / T_res.shape[0]
-        return moments, mean_gradient
-
-    @staticmethod
-    def _get_conforming_residuals(Y, T, nuisance_estimates):
-        if nuisance_estimates == 0:
-            return reshape_Y_T(Y, T)
-        # returns shape-conforming residuals
-        Y_hat, T_hat = reshape_Y_T(*nuisance_estimates)
-        Y, T = reshape_Y_T(Y, T)
-        Y_res, T_res = Y - Y_hat, T - T_hat
-        return Y_res, T_res
+def _DMLOrthoForest_get_conforming_residuals(Y, T, nuisance_estimates):
+    if nuisance_estimates == 0:
+        return reshape_Y_T(Y, T)
+    # returns shape-conforming residuals
+    Y_hat, T_hat = reshape_Y_T(*nuisance_estimates)
+    Y, T = reshape_Y_T(Y, T)
+    Y_res, T_res = Y - Y_hat, T - T_hat
+    return Y_res, T_res
 
 
 class DROrthoForest(BaseOrthoForest):
@@ -862,6 +877,9 @@ class DROrthoForest(BaseOrthoForest):
     backend : 'threading' or 'loky', optional (default='loky')
         What backend should be used for parallelization with the joblib library.
 
+    verbose : int, optional (default=3)
+        Verbosity level
+
     random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -885,6 +903,8 @@ class DROrthoForest(BaseOrthoForest):
                  categories='auto',
                  n_jobs=-1,
                  backend='loky',
+                 verbose=3,
+                 batch_size='auto',
                  random_state=None):
         # Copy and/or define models
         self.propensity_model = clone(propensity_model, safe=False)
@@ -926,6 +946,8 @@ class DROrthoForest(BaseOrthoForest):
             bootstrap=bootstrap,
             n_jobs=n_jobs,
             backend=backend,
+            verbose=verbose,
+            batch_size=batch_size,
             random_state=self.random_state)
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
