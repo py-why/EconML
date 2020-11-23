@@ -4,21 +4,19 @@
 """Collection of scikit-learn extensions for model selection techniques."""
 
 import numbers
-import numpy as np
-import scipy.sparse as sp
 import warnings
 from sklearn.base import BaseEstimator
-from sklearn.model_selection import KFold, StratifiedKFold, GridSearchCV
 from sklearn.utils.multiclass import type_of_target
-
-from sklearn.base import is_classifier, clone
-from sklearn.utils import (indexable, check_random_state, _safe_indexing,
-                           _message_with_time)
-from sklearn.utils.validation import _check_fit_params
+import numpy as np
+import scipy.sparse as sp
 from joblib import Parallel, delayed
-from sklearn.model_selection import check_cv
+from sklearn.base import clone, is_classifier
+from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV
+# TODO: conisder working around relying on sklearn implementation details
+from sklearn.model_selection._validation import (_check_is_permutation,
+                                                 _fit_and_predict)
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection._validation import _fit_and_predict, _check_is_permutation
+from sklearn.utils import indexable
 from sklearn.utils.validation import _num_samples
 
 

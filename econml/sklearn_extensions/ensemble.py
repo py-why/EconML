@@ -10,6 +10,7 @@ import scipy.sparse
 import threading
 import sparse as sp
 import itertools
+from joblib import effective_n_jobs, Parallel, delayed
 from sklearn.utils import check_array, check_X_y, issparse
 from sklearn.ensemble.forest import ForestRegressor, _accumulate_prediction
 from sklearn.tree import DecisionTreeRegressor
@@ -17,12 +18,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.base import RegressorMixin
 from warnings import catch_warnings, simplefilter, warn
 from sklearn.exceptions import DataConversionWarning, NotFittedError
-from sklearn.tree._tree import DTYPE, DOUBLE
 from sklearn.utils import check_random_state, check_array, compute_sample_weight
-from sklearn.utils._joblib import Parallel, delayed
-from sklearn.utils.fixes import _joblib_parallel_args
 from sklearn.utils.validation import check_is_fitted
-from sklearn.ensemble.base import _partition_estimators
 
 MAX_INT = np.iinfo(np.int32).max
 
@@ -462,7 +459,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
         """
 
         # Validate or convert input data
-        X = check_array(X, accept_sparse="csc", dtype=DTYPE)
+        X = check_array(X, accept_sparse="csc", dtype=np.float32)
         y = check_array(y, accept_sparse='csc', ensure_2d=False, dtype=None)
         if sample_weight is not None:
             sample_weight = check_array(sample_weight, ensure_2d=False)
@@ -490,8 +487,8 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
 
         y, expanded_class_weight = self._validate_y_class_weight(y)
 
-        if getattr(y, "dtype", None) != DOUBLE or not y.flags.contiguous:
-            y = np.ascontiguousarray(y, dtype=DOUBLE)
+        if getattr(y, "dtype", None) != np.float64 or not y.flags.contiguous:
+            y = np.ascontiguousarray(y, dtype=np.float64)
 
         if expanded_class_weight is not None:
             if sample_weight is not None:
@@ -555,8 +552,7 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
                                                                        int(np.ceil(self.subsample_fr_ *
                                                                                    (X.shape[0] // 2))),
                                                                        replace=False)])
-            res = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
-                           **_joblib_parallel_args(prefer='threads'))(
+            res = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, prefer='threads')(
                 delayed(_parallel_add_trees)(
                     t, self, X, y, sample_weight, s_inds[i], i, len(trees),
                     verbose=self.verbose)
@@ -590,10 +586,9 @@ class SubsampledHonestForest(ForestRegressor, RegressorMixin):
             n_estimators = slice[1] - slice[0]
 
         # Assign chunk of trees to jobs
-        n_jobs, _, _ = _partition_estimators(n_estimators, self.n_jobs)
+        n_jobs = min(effective_n_jobs(self.n_jobs), n_estimators)
         lock = threading.Lock()
-        Parallel(n_jobs=n_jobs, verbose=self.verbose,
-                 **_joblib_parallel_args(require="sharedmem"))(
+        Parallel(n_jobs=n_jobs, verbose=self.verbose, require="sharedmem")(
             delayed(_accumulate_prediction)(fn(e, n, d), X, [acc], lock)
             for e, n, d in estimator_slice)
         acc /= n_estimators
