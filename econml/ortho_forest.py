@@ -45,9 +45,10 @@ from sklearn.model_selection import check_cv
 from .sklearn_extensions.model_selection import _cross_val_predict
 
 
-def _build_tree_in_parallel(tree, Y, T, X, W):
+def _build_tree_in_parallel(tree, Y, T, X, W,
+                            nuisance_estimator, parameter_estimator, moment_and_mean_gradient_estimator):
     # Create splits of causal tree
-    tree.create_splits(Y, T, X, W)
+    tree.create_splits(Y, T, X, W, nuisance_estimator, parameter_estimator, moment_and_mean_gradient_estimator)
     return tree
 
 
@@ -371,17 +372,16 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         # Generate subsample indices
         subsample_ind = self._get_blb_indices(X)
         # Build trees in parallel
-        trees = [CausalTree(nuisance_estimator=self.nuisance_estimator,
-                            parameter_estimator=self.parameter_estimator,
-                            moment_and_mean_gradient_estimator=self.moment_and_mean_gradient_estimator,
-                            min_leaf_size=self.min_leaf_size,
-                            max_depth=self.max_depth,
-                            random_state=self.random_state.randint(MAX_RAND_SEED))
+        trees = [CausalTree(self.min_leaf_size, self.max_depth, 5000, .5,
+                            check_random_state(self.random_state.randint(MAX_RAND_SEED)))
                  for _ in range(len(subsample_ind))]
         return subsample_ind, Parallel(n_jobs=self.n_jobs, backend=self.backend,
                                        batch_size=self.batch_size, verbose=self.verbose, max_nbytes=None)(
             delayed(_build_tree_in_parallel)(tree,
-                                             Y[s], T[s], X[s], W[s] if W is not None else None)
+                                             Y[s], T[s], X[s], W[s] if W is not None else None,
+                                             self.nuisance_estimator,
+                                             self.parameter_estimator,
+                                             self.moment_and_mean_gradient_estimator)
             for s, tree in zip(subsample_ind, trees))
 
     def _get_weights(self, X_single, tree_slice=None):

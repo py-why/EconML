@@ -1,3 +1,4 @@
+# distutils: language = c++
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
@@ -8,10 +9,6 @@ class :class:`Node` represents the core unit of the :class:`CausalTree` class.
 """
 
 import numpy as np
-import warnings
-from sklearn.model_selection import train_test_split
-from sklearn.utils import check_random_state
-import scipy.special
 
 
 class Node:
@@ -96,28 +93,22 @@ class CausalTree:
     """
 
     def __init__(self,
-                 nuisance_estimator,
-                 parameter_estimator,
-                 moment_and_mean_gradient_estimator,
                  min_leaf_size=10,
                  max_depth=10,
                  n_proposals=1000,
                  balancedness_tol=.3,
                  random_state=None):
-        # Estimators
-        self.nuisance_estimator = nuisance_estimator
-        self.parameter_estimator = parameter_estimator
-        self.moment_and_mean_gradient_estimator = moment_and_mean_gradient_estimator
         # Causal tree parameters
         self.min_leaf_size = min_leaf_size
         self.max_depth = max_depth
         self.balancedness_tol = balancedness_tol
         self.n_proposals = n_proposals
-        self.random_state = check_random_state(random_state)
+        self.random_state = random_state
         # Tree structure
         self.tree = None
 
-    def create_splits(self, Y, T, X, W):
+    def create_splits(self, Y, T, X, W,
+                      nuisance_estimator, parameter_estimator, moment_and_mean_gradient_estimator):
         """
         Recursively build a causal tree.
 
@@ -158,17 +149,17 @@ class CausalTree:
                 node_size_est = node_X_estimate.shape[0]
 
                 # Compute nuisance estimates for the current node
-                nuisance_estimates = self.nuisance_estimator(node_Y, node_T, node_X, node_W)
+                nuisance_estimates = nuisance_estimator(node_Y, node_T, node_X, node_W)
                 if nuisance_estimates is None:
                     # Nuisance estimate cannot be calculated
                     continue
                 # Estimate parameter for current node
-                node_estimate = self.parameter_estimator(node_Y, node_T, node_X, nuisance_estimates)
+                node_estimate = parameter_estimator(node_Y, node_T, node_X, nuisance_estimates)
                 if node_estimate is None:
                     # Node estimate cannot be calculated
                     continue
                 # Calculate moments and gradient of moments for current data
-                moments, mean_grad = self.moment_and_mean_gradient_estimator(
+                moments, mean_grad = moment_and_mean_gradient_estimator(
                     node_Y, node_T, node_X, node_W,
                     nuisance_estimates,
                     node_estimate)
