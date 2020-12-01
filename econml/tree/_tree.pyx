@@ -621,6 +621,49 @@ cdef class Tree:
                 importances /= normalizer
 
         return importances
+    
+    cpdef compute_feature_heterogeneity_importances(self, normalize=True):
+        """Computes the importance of each feature (aka variable)."""
+        cdef Node* left
+        cdef Node* right
+        cdef Node* nodes = self.nodes
+        cdef Node* node = nodes
+        cdef Node* end_node = node + self.node_count
+        cdef SIZE_t i
+
+        cdef double normalizer = 0.
+
+        cdef np.ndarray[np.float64_t, ndim=1] importances
+        importances = np.zeros((self.n_features,))
+        cdef DOUBLE_t* importance_data = <DOUBLE_t*>importances.data
+
+        with nogil:
+            while node != end_node:
+                if node.left_child != _TREE_LEAF:
+                    # ... and node.right_child != _TREE_LEAF:
+                    left = &nodes[node.left_child]
+                    right = &nodes[node.right_child]
+                    node_value = &self.value[(node - nodes)*self.value_stride]
+                    left_value = &self.value[(left - nodes)*self.value_stride]
+                    right_value = &self.value[(right - nodes)*self.value_stride]
+                    for i in range(self.n_outputs):
+                        importance_data[node.feature] += (
+                            left.weighted_n_node_samples_train * (left_value[i]**2) +
+                            right.weighted_n_node_samples_train * (right_value[i]**2) -
+                            node.weighted_n_node_samples_train * (node_value[i]**2)
+                            )
+                node += 1
+
+        importances /= (nodes[0].weighted_n_node_samples_train * self.n_outputs)
+
+        if normalize:
+            normalizer = np.sum(importances)
+
+            if normalizer > 0.0:
+                # Avoid dividing by zero (e.g., when root is pure)
+                importances /= normalizer
+
+        return importances
 
     cdef np.ndarray _get_value_ndarray(self):
         """Wraps value as a 2-d NumPy array.

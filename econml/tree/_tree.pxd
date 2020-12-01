@@ -72,7 +72,7 @@ cdef class Tree:
     cdef np.ndarray _apply(self, object X)
 
     cpdef compute_feature_importances(self, normalize=*)
-
+    cpdef compute_feature_heterogeneity_importances(self, normalize=*)
 
 # =============================================================================
 # Tree builder
