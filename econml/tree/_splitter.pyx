@@ -326,6 +326,7 @@ cdef class BestSplitter(BaseDenseSplitter):
         cdef double current_proxy_improvement = -INFINITY
         cdef double best_proxy_improvement = -INFINITY
         cdef double current_threshold = 0.0
+        cdef double weighted_n_node_samples, weighted_n_samples, weighted_n_left, weighted_n_right
 
         cdef SIZE_t f_i = n_features
         cdef SIZE_t f_j
@@ -516,9 +517,23 @@ cdef class BestSplitter(BaseDenseSplitter):
 
             self.criterion.reset()
             self.criterion.update(best.pos, best.pos_val)
+            # weighted_n_node_samples = self.criterion.weighted_n_node_samples
+            # weighted_n_samples = self.criterion.weighted_n_samples
+            # weighted_n_right = self.criterion.weighted_n_right
+            # weighted_n_left = self.criterion.weighted_n_left
+            # self.criterion.node_reset(start, best.pos, start_val, best.pos_val)
+            # best.impurity_left = self.criterion.node_impurity()
+            # best.impurity_left_val = self.criterion.node_impurity_val()
+            # self.criterion.node_reset(best.pos, end, best.pos_val, end_val)
+            # best.impurity_right = self.criterion.node_impurity()
+            # best.impurity_right_val = self.criterion.node_impurity_val()
+            # best.improvement = ((weighted_n_node_samples / weighted_n_samples) *
+            #                     (impurity - (weighted_n_right / 
+            #                                 weighted_n_node_samples * best.impurity_right)
+            #                             - (weighted_n_left / 
+            #                                 weighted_n_node_samples * best.impurity_left)))
             best.improvement = self.criterion.impurity_improvement(impurity)
-            self.criterion.children_impurity(&best.impurity_left,
-                                             &best.impurity_right)
+            self.criterion.children_impurity(&best.impurity_left, &best.impurity_right)
             self.criterion.children_impurity_val(&best.impurity_left_val,
                                                  &best.impurity_right_val)
 

@@ -218,6 +218,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         return 0
 
     cdef int node_reset_sums(self, DOUBLE_t* rho,
+                             DOUBLE_t* J,
                              DOUBLE_t* sample_weight, SIZE_t* samples,
                              DOUBLE_t* weighted_n_node_samples,
                              DOUBLE_t* sum_total, DOUBLE_t* sq_sum_total,
@@ -237,7 +238,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                 w = sample_weight[i]
 
             for k in range(n_outputs):
-                y_ik = rho[k + i * n_outputs]
+                y_ik = rho[i * n_outputs + k]
                 w_y_ik = w * y_ik
                 sum_total[k] += w_y_ik
                 sq_sum_total[0] += w_y_ik * y_ik
@@ -270,6 +271,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                             self.sample_weight, self.samples,
                             self.start, self.end)
         self.node_reset_sums(self.rho,
+                             self.J,
                              self.sample_weight, self.samples,
                              &self.weighted_n_node_samples,
                              self.sum_total, &self.sq_sum_total,
@@ -293,6 +295,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                             self.sample_weight_val, self.samples_val,
                             self.start_val, self.end_val)
         self.node_reset_sums(self.rho_val,
+                             self.J_val,
                              self.sample_weight_val, self.samples_val,
                              &self.weighted_n_node_samples_val,
                              self.sum_total_val, &self.sq_sum_total_val,
@@ -395,7 +398,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                     w = sample_weight[i]
 
                 for k in range(n_outputs):
-                    sum_left[k] += w * self.rho[k + i * n_outputs]
+                    sum_left[k] += w * self.rho[i * n_outputs + k]
 
                 self.weighted_n_left += w
         else:
@@ -408,7 +411,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                     w = sample_weight[i]
 
                 for k in range(n_outputs):
-                    sum_left[k] -= w * self.rho[k + i * n_outputs]
+                    sum_left[k] -= w * self.rho[i * n_outputs + k]
 
                 self.weighted_n_left -= w
 
@@ -554,7 +557,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                 w = sample_weight[i]
 
             for k in range(self.n_outputs):
-                y_ik = self.rho[k + i * self.n_outputs]
+                y_ik = self.rho[i * self.n_outputs + k]
                 sq_sum_left += w * y_ik * y_ik
 
         sq_sum_right = self.sq_sum_total - sq_sum_left
@@ -599,7 +602,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                 w = sample_weight_val[i]
 
             for k in range(self.n_outputs):
-                y_ik = self.rho_val[k + i * self.n_outputs]
+                y_ik = self.rho_val[i * self.n_outputs + k]
                 sq_sum_left_val += w * y_ik * y_ik
 
         sq_sum_right_val = self.sq_sum_total_val - sq_sum_left_val
@@ -613,3 +616,204 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         impurity_left[0] /= self.n_outputs
         impurity_right[0] /= self.n_outputs
+
+
+cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
+
+    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features,
+                  SIZE_t n_samples, SIZE_t n_samples_val):
+
+        # Most initializations are handled by __cinit__ of RegressionCriterion
+        # which is always called in cython. We initialize the extras.
+    
+        # Allocate accumulators. Make sure they are NULL, not uninitialized,
+        # before an exception can be raised (which triggers __dealloc__).
+        self.J_left = NULL
+        self.J_right = NULL
+        self.J_val_left = NULL
+        self.J_val_right = NULL
+
+        # Allocate memory for the proxy for y, which rho in the generalized random forest
+        # Since rho is node dependent it needs to be re-calculated and stored for each sample
+        # in the node for every node we are investigating
+        self.J_left = <double *> calloc(n_outputs * n_outputs, sizeof(double))
+        self.J_right = <double *> calloc(n_outputs * n_outputs, sizeof(double))
+        self.J_val_left = <double *> calloc(n_outputs * n_outputs, sizeof(double))
+        self.J_val_right = <double *> calloc(n_outputs * n_outputs, sizeof(double))
+
+        if (self.J_left == NULL or
+            self.J_right == NULL or
+            self.J_val_left == NULL or
+            self.J_val_right == NULL):
+            raise MemoryError()
+
+    def __dealloc__(self):
+        # __dealloc__ of parents is also called. Deallocating the extras
+        free(self.J_left)
+        free(self.J_right)
+        free(self.J_val_left)
+        free(self.J_val_right)
+
+    cdef int reset(self) nogil except -1:
+        """Reset the criterion at pos=start."""
+        cdef SIZE_t n_bytes = self.n_outputs * self.n_outputs * sizeof(double)
+        memset(self.J_left, 0, n_bytes)
+        memcpy(self.J_right, self.J, n_bytes)
+        memset(self.J_val_left, 0, n_bytes)
+        memcpy(self.J_val_right, self.J_val, n_bytes)
+        return LinearMomentGRFCriterion.reset(self)
+
+    cdef int reverse_reset_train(self) nogil except -1:
+        """Reset the criterion at pos=end."""
+        cdef SIZE_t n_bytes = self.n_outputs * self.n_outputs * sizeof(double)
+        memset(self.J_right, 0, n_bytes)
+        memcpy(self.J_left, self.J, n_bytes)
+        return LinearMomentGRFCriterion.reverse_reset_train(self)
+    
+    cdef int reverse_reset_val(self) nogil except -1:
+        cdef SIZE_t n_bytes = self.n_outputs * self.n_outputs * sizeof(double)
+        memset(self.J_val_right, 0, n_bytes)
+        memcpy(self.J_val_left, self.J_val, n_bytes)
+        return LinearMomentGRFCriterion.reverse_reset_val(self)
+
+    cdef int update(self, SIZE_t new_pos, SIZE_t new_pos_val) nogil except -1:
+        """Updated statistics by moving samples[pos:new_pos] to the left."""
+
+        cdef double* sum_left = self.sum_left
+        cdef double* sum_right = self.sum_right
+        cdef double* sum_total = self.sum_total
+        cdef double* J_left = self.J_left
+        cdef double* J_right = self.J_right
+        cdef double* J = self.J
+
+        cdef double* sum_left_val = self.sum_left_val
+        cdef double* sum_right_val = self.sum_right_val
+        cdef double* sum_total_val = self.sum_total_val
+        cdef double* J_val_left = self.J_val_left
+        cdef double* J_val_right = self.J_val_right
+        cdef double* J_val = self.J_val
+
+        cdef SIZE_t* samples = self.samples
+        cdef DOUBLE_t* sample_weight = self.sample_weight
+        cdef SIZE_t* samples_val = self.samples_val
+        cdef DOUBLE_t* sample_weight_val = self.sample_weight_val
+        cdef double weighted_n_node_samples = self.weighted_n_node_samples
+        cdef double weighted_n_node_samples_val = self.weighted_n_node_samples_val
+
+        cdef SIZE_t pos = self.pos
+        cdef SIZE_t end = self.end
+        cdef SIZE_t pos_val = self.pos_val
+        cdef SIZE_t end_val = self.end_val
+        cdef SIZE_t n_outputs = self.n_outputs
+        cdef SIZE_t i, p, k, m
+        cdef DOUBLE_t w = 1.0
+
+        if (new_pos - pos) <= (end - new_pos):
+            for p in range(pos, new_pos):
+                i = samples[p]
+
+                if sample_weight != NULL:
+                    w = sample_weight[i]
+
+                for k in range(n_outputs):
+                    sum_left[k] += w * self.rho[k + i * n_outputs]
+                    for m in range(n_outputs):
+                        J_left[k + m * n_outputs] += w * self.pointJ[i, k + m * n_outputs] / weighted_n_node_samples
+
+                self.weighted_n_left += w
+        else:
+            self.reverse_reset_train()
+
+            for p in range(end - 1, new_pos - 1, -1):
+                i = samples[p]
+
+                if sample_weight != NULL:
+                    w = sample_weight[i]
+
+                for k in range(n_outputs):
+                    sum_left[k] -= w * self.rho[k + i * n_outputs]
+                    for m in range(n_outputs):
+                        J_left[k + m * n_outputs] -= w * self.pointJ[i, k + m * n_outputs] / weighted_n_node_samples
+
+                self.weighted_n_left -= w
+
+        self.weighted_n_right = (weighted_n_node_samples -
+                                 self.weighted_n_left)
+        for k in range(n_outputs):
+            sum_right[k] = sum_total[k] - sum_left[k]
+            for m in range(n_outputs):
+                J_right[k + m * n_outputs] = J[k + m * n_outputs] - J_left[k + m * n_outputs]
+
+        self.pos = new_pos
+
+        # Update val
+        w = 1.0
+        if (new_pos_val - pos_val) <= (end_val - new_pos_val):
+            for p in range(pos_val, new_pos_val):
+                i = samples_val[p]
+
+                if sample_weight_val != NULL:
+                    w = sample_weight_val[i]
+
+                for k in range(n_outputs):
+                    sum_left_val[k] += w * self.rho_val[k + i * n_outputs]
+                    for m in range(n_outputs):
+                        J_val_left[k + m * n_outputs] += w * self.pointJ_val[i, k + m * n_outputs] / weighted_n_node_samples_val
+
+                self.weighted_n_left_val += w
+        else:
+            self.reverse_reset_val()
+
+            for p in range(end_val - 1, new_pos_val - 1, -1):
+                i = samples_val[p]
+
+                if sample_weight_val != NULL:
+                    w = sample_weight_val[i]
+
+                for k in range(self.n_outputs):
+                    sum_left_val[k] -= w * self.rho_val[k + i * n_outputs]
+                    for m in range(n_outputs):
+                        J_val_left[k + m * n_outputs] -= w * self.pointJ_val[i, k + m * n_outputs] / weighted_n_node_samples_val
+
+                self.weighted_n_left_val -= w
+
+        self.weighted_n_right_val = (weighted_n_node_samples_val -
+                                     self.weighted_n_left_val)
+        for k in range(self.n_outputs):
+            sum_right_val[k] = sum_total_val[k] - sum_left_val[k]
+            for m in range(n_outputs):
+                J_val_right[k + m * n_outputs] = J_val[k + m * n_outputs] - J_val_left[k + m * n_outputs]
+
+        self.pos_val = new_pos_val
+
+        return 0
+
+    cdef double proxy_impurity_improvement(self) nogil:
+        """Compute a proxy of the impurity reduction
+        This method is used to speed up the search for the best split.
+        It is a proxy quantity such that the split that maximizes this value
+        also maximizes the impurity improvement. It neglects all constant terms
+        of the impurity decrease for a given split.
+        The absolute impurity improvement is only computed by the
+        impurity_improvement method once the best split has been found.
+        """
+
+        cdef double* sum_left = self.sum_left
+        cdef double* sum_right = self.sum_right
+        cdef DOUBLE_t* J_left = self.J_left
+        cdef DOUBLE_t* J_right = self.J_right
+
+        cdef SIZE_t k, m
+        cdef double proxy_impurity_left = 0.0
+        cdef double proxy_impurity_right = 0.0
+        for k in range(self.n_outputs):
+            for m in range(self.n_outputs):
+                proxy_impurity_left += ((sum_left[k] / self.weighted_n_left) * 
+                                        (sum_left[m] / self.weighted_n_left) * 
+                                        J_left[k + m * self.n_outputs])
+                proxy_impurity_right += ((sum_right[k] / self.weighted_n_right) * 
+                                         (sum_right[m] / self.weighted_n_right) *
+                                         J_right[k + m * self.n_outputs])
+
+        return (proxy_impurity_left * self.weighted_n_node_samples +
+                proxy_impurity_right * self.weighted_n_node_samples)

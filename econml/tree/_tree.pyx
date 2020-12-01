@@ -606,12 +606,12 @@ cdef class Tree:
                     right = &nodes[node.right_child]
 
                     importance_data[node.feature] += (
-                        node.weighted_n_node_samples * node.impurity -
-                        left.weighted_n_node_samples * left.impurity -
-                        right.weighted_n_node_samples * right.impurity)
+                        node.weighted_n_node_samples_train * node.impurity_train -
+                        left.weighted_n_node_samples_train * left.impurity_train -
+                        right.weighted_n_node_samples_train * right.impurity_train)
                 node += 1
 
-        importances /= nodes[0].weighted_n_node_samples
+        importances /= nodes[0].weighted_n_node_samples_train
 
         if normalize:
             normalizer = np.sum(importances)
