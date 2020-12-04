@@ -185,9 +185,10 @@ class GRFTree(BaseEstimator):
 
         if self.honest:
             Xtrain, Xval, ytrain, yval,\
-                sample_weight_train, sample_weight_val = train_test_split(X, y, sample_weight,
-                                                                          train_size=.5,
-                                                                          random_state=random_state)
+                sample_weight_train,\
+                sample_weight_val = train_test_split(X, y, sample_weight,
+                                                     test_size=.5,
+                                                     random_state=random_state.randint(np.iinfo(np.int32).max))
         else:
             Xtrain, Xval, ytrain, yval,\
                 sample_weight_train, sample_weight_val = X, X, y, y, sample_weight, sample_weight
