@@ -101,6 +101,10 @@ def _accumulate_prediction(predict, X, out, lock):
                 out[i] += prediction[i]
 
 
+# =============================================================================
+# Base Generalized Random Forest
+# =============================================================================
+
 class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     """
     Base class for forests of CATE estimator trees.
@@ -398,7 +402,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                   axis=0, dtype=np.float64)
         return all_importances / np.sum(all_importances)
 
-    def predict(self, X):
+    def predict_tree_average(self, X):
 
         check_is_fitted(self)
         # Check data
@@ -423,8 +427,44 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return y_hat
 
+    def predict(self, X):
+
+        check_is_fitted(self)
+        # Check data
+        X = self._validate_X_predict(X)
+
+        # Assign chunk of trees to jobs
+        n_jobs, _, _ = _partition_estimators(self.n_estimators, self.n_jobs)
+
+        # avoid storing the output of every estimator by summing them here
+        jac_hat = np.zeros((X.shape[0], self.n_outputs_**2), dtype=np.float64)
+
+        # Parallel loop
+        lock = threading.Lock()
+        Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
+            delayed(_accumulate_prediction)(e.predict_jac, X, [jac_hat], lock)
+            for e in self.estimators_)
+
+        jac_hat /= len(self.estimators_)
+
+        alpha_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+
+        # Parallel loop
+        lock = threading.Lock()
+        Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
+            delayed(_accumulate_prediction)(e.predict_alpha, X, [alpha_hat], lock)
+            for e in self.estimators_)
+
+        alpha_hat /= len(self.estimators_)
+
+        y_hat = np.einsum('ijk,ik->ij',
+                          np.linalg.pinv(jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))),
+                          alpha_hat)
+
+        return y_hat[:, :self.n_relevant_outputs_]
+
 # =============================================================================
-# Base Generalized Random Forest
+# Instantiations of Generalized Random Forest
 # =============================================================================
 
 

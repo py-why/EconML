@@ -261,6 +261,52 @@ class GRFTree(BaseEstimator):
             return pred[:, 0]
         return pred
 
+    def predict_jac(self, X, check_input=True):
+        """Predict class or regression value for X.
+        For a classification model, the predicted class for each sample in X is
+        returned. For a regression model, the predicted value based on X is
+        returned.
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+        Returns
+        -------
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            The predicted classes, or the predict values.
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        return self.tree_.predict_jac(X)
+
+    def predict_alpha(self, X, check_input=True):
+        """Predict class or regression value for X.
+        For a classification model, the predicted class for each sample in X is
+        returned. For a regression model, the predicted value based on X is
+        returned.
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+        Returns
+        -------
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            The predicted classes, or the predict values.
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        return self.tree_.predict_precond(X)
+
     def apply(self, X, check_input=True):
         """Return the index of the leaf that each sample is predicted as.
         .. versionadded:: 0.17
