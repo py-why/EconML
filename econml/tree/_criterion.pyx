@@ -38,10 +38,10 @@ cdef class Criterion:
     def __setstate__(self, d):
         pass
 
-    cdef int init(self, const DTYPE_t[::1, :] Data, const DOUBLE_t[:, ::1] y, 
+    cdef int init(self, const DOUBLE_t[:, ::1] y, 
                   DOUBLE_t* sample_weight, double weighted_n_samples,
                   SIZE_t* samples,
-                  const DTYPE_t[::1, :] Data_val, const DOUBLE_t[:, ::1] y_val, 
+                  const DOUBLE_t[:, ::1] y_val, 
                   DOUBLE_t* sample_weight_val, double weighted_n_samples_val,
                   SIZE_t* samples_val) nogil except -1:
         """Placeholder for a method which will initialize the criterion.
@@ -49,8 +49,6 @@ cdef class Criterion:
         or 0 otherwise.
         Parameters
         ----------
-        Data : 2d array-like, dtype=DTYPE_t
-            This contains the input variables.
         y : array-like, dtype=DOUBLE_t
             y is a buffer that can store values for n_outputs target variables
         samples : array-like, dtype=SIZE_t
@@ -124,6 +122,12 @@ cdef class Criterion:
         """
 
         pass
+
+    cdef double proxy_node_impurity(self) nogil:
+        return self.node_impurity()
+
+    cdef double proxy_node_impurity_val(self) nogil:
+        return self.node_impurity_val()
 
     cdef void children_impurity(self, double* impurity_left,
                                 double* impurity_right) nogil:
@@ -241,7 +245,8 @@ cdef class RegressionCriterion(Criterion):
             = (\sum_i^n y_i ** 2) - n_samples * y_bar ** 2
     """
 
-    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_samples, SIZE_t n_samples_val):
+    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
+                  SIZE_t n_samples, SIZE_t n_samples_val):
         """Initialize parameters for this criterion.
         Parameters
         ----------
@@ -256,6 +261,8 @@ cdef class RegressionCriterion(Criterion):
         # Default values
         self.n_outputs = n_outputs
         self.n_features = n_features
+        self.n_y = n_y
+        self.proxy_children_impurity = False
 
         self.samples = NULL
         self.start = 0
@@ -314,20 +321,18 @@ cdef class RegressionCriterion(Criterion):
         return (type(self), (self.n_outputs, self.n_features, 
                              self.n_samples, self.n_samples_val), self.__getstate__())
 
-    cdef int init(self, const DTYPE_t[::1, :] Data, const DOUBLE_t[:, ::1] y, 
+    cdef int init(self, const DOUBLE_t[:, ::1] y, 
                   DOUBLE_t* sample_weight, double weighted_n_samples,
                   SIZE_t* samples,
-                  const DTYPE_t[::1, :] Data_val, const DOUBLE_t[:, ::1] y_val, 
+                  const DOUBLE_t[:, ::1] y_val, 
                   DOUBLE_t* sample_weight_val, double weighted_n_samples_val,
                   SIZE_t* samples_val) nogil except -1:
         # Initialize fields
-        self.Data = Data
         self.y = y
         self.sample_weight = sample_weight
         self.samples = samples
         self.weighted_n_samples = weighted_n_samples
 
-        self.Data_val = Data_val
         self.y_val = y_val
         self.sample_weight_val = sample_weight_val
         self.samples_val = samples_val

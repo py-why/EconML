@@ -12,10 +12,10 @@ from ..tree._tree cimport UINT32_t         # Unsigned 32 bit integer
 from ..tree._criterion cimport Criterion, RegressionCriterion
 
 cdef class LinearMomentGRFCriterion(RegressionCriterion):
-    cdef const DTYPE_t[::1, :] alpha
-    cdef const DTYPE_t[::1, :] alpha_val
-    cdef const DTYPE_t[::1, :] pointJ
-    cdef const DTYPE_t[::1, :] pointJ_val
+    cdef const DOUBLE_t[:, ::1] alpha
+    cdef const DOUBLE_t[:, ::1] alpha_val
+    cdef const DOUBLE_t[:, ::1] pointJ
+    cdef const DOUBLE_t[:, ::1] pointJ_val
 
     cdef DOUBLE_t* rho
     cdef DOUBLE_t* rho_val
@@ -31,17 +31,17 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef DOUBLE_t* invJ_val
 
     cdef int node_reset_jacobian(self, DOUBLE_t* J, DOUBLE_t* invJ,
-                                  const DTYPE_t[::1, :] pointJ,
+                                  const DOUBLE_t[:, ::1] pointJ,
                                   DOUBLE_t* sample_weight,
                                   SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1
     cdef int node_reset_parameter(self, DOUBLE_t* parameter, DOUBLE_t* parameter_pre,
                                    DOUBLE_t* invJ,
-                                   const DTYPE_t[::1, :] alpha,
+                                   const DOUBLE_t[:, ::1] alpha,
                                    DOUBLE_t* sample_weight,
                                    SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1
     cdef int node_reset_rho(self, DOUBLE_t* rho, DOUBLE_t* moment,
                        DOUBLE_t* parameter, DOUBLE_t* invJ,
-                       const DTYPE_t[::1, :] pointJ, const DTYPE_t[::1, :] alpha,
+                       const DOUBLE_t[:, ::1] pointJ, const DOUBLE_t[:, ::1] alpha,
                        DOUBLE_t* sample_weight, SIZE_t* samples, 
                        SIZE_t start, SIZE_t end) nogil except -1
     cdef int node_reset_sums(self, DOUBLE_t* rho,
@@ -56,12 +56,7 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
     cdef DOUBLE_t* J_right
     cdef DOUBLE_t* J_val_left
     cdef DOUBLE_t* J_val_right
-    cdef DOUBLE_t* invJ_val_right
-    cdef DOUBLE_t* parameter_pre_left
-    cdef DOUBLE_t* parameter_pre_val_left
-    cdef DOUBLE_t* parameter_left
-    cdef DOUBLE_t* parameter_val_left
-    cdef DOUBLE_t* parameter_pre_right
-    cdef DOUBLE_t* parameter_pre_val_right
-    cdef DOUBLE_t* parameter_right
-    cdef DOUBLE_t* parameter_val_right
+    cdef double mse_impurity(self, SIZE_t start, SIZE_t end,
+                             DOUBLE_t* parameter, DOUBLE_t* J, const DOUBLE_t[:, ::1] y,
+                             DOUBLE_t* sample_weight, SIZE_t* samples,
+                             double weighted_n_node_samples) nogil except -1

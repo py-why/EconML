@@ -15,16 +15,16 @@ cdef class Criterion:
     # such as the mean in regression and class probabilities in classification.
 
     # Internal structures
-    cdef const DTYPE_t[::1, :] Data       # All other variables for computing the criterion
+    cdef bint proxy_children_impurity
     cdef const DOUBLE_t[:, ::1] y        # Values of y
     cdef DOUBLE_t* sample_weight         # Sample weights
-    
-    cdef const DTYPE_t[::1, :] Data_val       # All other variables for computing the criterion
+
     cdef const DOUBLE_t[:, ::1] y_val        # Values of y
     cdef DOUBLE_t* sample_weight_val        # Sample weights
 
     cdef SIZE_t n_outputs                # Number of outputs
     cdef SIZE_t n_features               # Number of features
+    cdef SIZE_t n_y
     
     cdef SIZE_t* samples                 # Sample indices in X, y
     cdef SIZE_t start                    # samples[start:pos] are the samples in the left node
@@ -73,10 +73,10 @@ cdef class Criterion:
     # statistics correspond to samples[start:pos] and samples[pos:end].
 
     # Methods
-    cdef int init(self, const DTYPE_t[::1, :] Data, const DOUBLE_t[:, ::1] y, 
+    cdef int init(self, const DOUBLE_t[:, ::1] y, 
                   DOUBLE_t* sample_weight, double weighted_n_samples,
                   SIZE_t* samples,
-                  const DTYPE_t[::1, :] Data_val, const DOUBLE_t[:, ::1] y_val, 
+                  const DOUBLE_t[:, ::1] y_val, 
                   DOUBLE_t* sample_weight_val, double weighted_n_samples_val,
                   SIZE_t* samples_val) nogil except -1
     cdef int node_reset(self, SIZE_t start, SIZE_t end,
@@ -88,6 +88,8 @@ cdef class Criterion:
     cdef int update(self, SIZE_t new_pos, SIZE_t new_pos_val) nogil except -1
     cdef double node_impurity(self) nogil
     cdef double node_impurity_val(self) nogil
+    cdef double proxy_node_impurity(self) nogil
+    cdef double proxy_node_impurity_val(self) nogil
     cdef void children_impurity(self, double* impurity_left,
                                 double* impurity_right) nogil
     cdef void children_impurity_val(self, double* impurity_left,

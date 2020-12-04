@@ -34,6 +34,9 @@ cdef class Tree:
     # Input/Output layout
     cdef public SIZE_t n_features        # Number of features in X
     cdef public SIZE_t n_outputs         # Number of outputs in y
+    cdef public SIZE_t n_relevant_outputs
+    cdef SIZE_t* n_classes
+    cdef public SIZE_t max_n_classes
 
     # Inner structures: values are stored separately from node structure,
     # since size is determined at runtime.
@@ -70,6 +73,8 @@ cdef class Tree:
 
     cpdef np.ndarray apply(self, object X)
     cdef np.ndarray _apply(self, object X)
+    cpdef object decision_path(self, object X)
+    cdef object _decision_path(self, object X)
 
     cpdef compute_feature_importances(self, normalize=*)
     cpdef compute_feature_heterogeneity_importances(self, normalize=*)
@@ -94,9 +99,8 @@ cdef class TreeBuilder:
     cdef SIZE_t max_depth               # Maximal tree depth
     cdef double min_impurity_decrease   # Impurity threshold for early stopping
 
-    cpdef build(self, Tree tree, object Data, np.ndarray y,
-                object Data_val, np.ndarray y_val,
-                SIZE_t n_features,
+    cpdef build(self, Tree tree, object X, np.ndarray y,
+                object X_val, np.ndarray y_val,
                 np.ndarray sample_weight=*,
                 np.ndarray sample_weight_val=*)
-    cdef _check_input(self, object Data, np.ndarray y, np.ndarray sample_weight)
+    cdef _check_input(self, object X, np.ndarray y, np.ndarray sample_weight)

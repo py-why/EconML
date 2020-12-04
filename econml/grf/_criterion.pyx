@@ -30,7 +30,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
             = (\sum_i^n y_i ** 2) - n_samples * y_bar ** 2
     """
 
-    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features,
+    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
                   SIZE_t n_samples, SIZE_t n_samples_val):
         """Initialize parameters for this criterion.
         Parameters
@@ -45,7 +45,9 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         # Most initializations are handled by __cinit__ of RegressionCriterion
         # which is always called in cython. We initialize the extras.
-    
+        if n_y > 1:
+            raise AttributeError("LinearMomentGRFCriterion currently only supports a scalar y")
+
         # Allocate accumulators. Make sure they are NULL, not uninitialized,
         # before an exception can be raised (which triggers __dealloc__).
         self.rho = NULL
@@ -76,7 +78,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         self.J_val = <double *> calloc(n_outputs * n_outputs, sizeof(double))
         self.invJ = <double *> calloc(n_outputs * n_outputs, sizeof(double))
         self.invJ_val = <double *> calloc(n_outputs * n_outputs, sizeof(double))
-
+        
         if (self.rho == NULL or
                 self.rho_val == NULL or
                 self.moment == NULL or
@@ -106,35 +108,34 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         free(self.invJ)
         free(self.invJ_val)
 
-    cdef int init(self, const DTYPE_t[::1, :] Data, const DOUBLE_t[:, ::1] y, 
+    cdef int init(self, const DOUBLE_t[:, ::1] y, 
                   DOUBLE_t* sample_weight, double weighted_n_samples,
                   SIZE_t* samples,
-                  const DTYPE_t[::1, :] Data_val, const DOUBLE_t[:, ::1] y_val, 
+                  const DOUBLE_t[:, ::1] y_val, 
                   DOUBLE_t* sample_weight_val, double weighted_n_samples_val,
                   SIZE_t* samples_val) nogil except -1:
         cdef SIZE_t n_features = self.n_features
         cdef SIZE_t n_outputs = self.n_outputs
+        cdef SIZE_t n_y = self.n_y
 
-        self.Data = Data
-        self.y = y
+        self.y = y[:, :n_y]
         self.sample_weight = sample_weight
         self.samples = samples
         self.weighted_n_samples = weighted_n_samples
-        self.alpha = Data[:, n_features:(n_features + n_outputs)]
-        self.pointJ = Data[:, (n_features + n_outputs):(n_features + n_outputs + n_outputs * n_outputs)]
+        self.alpha = y[:, n_y:(n_y + n_outputs)]
+        self.pointJ = y[:, (n_y + n_outputs):(n_y + n_outputs + n_outputs * n_outputs)]
 
-        self.Data_val = Data_val
-        self.y_val = y_val
+        self.y_val = y_val[:, :n_y]
         self.sample_weight_val = sample_weight_val
         self.samples_val = samples_val
         self.weighted_n_samples_val = weighted_n_samples_val
-        self.alpha_val = Data_val[:, n_features:(n_features + n_outputs)]
-        self.pointJ_val = Data_val[:, (n_features + n_outputs):(n_features + n_outputs + n_outputs * n_outputs)]
+        self.alpha_val = y_val[:, n_y:(n_y + n_outputs)]
+        self.pointJ_val = y_val[:, (n_y + n_outputs):(n_y + n_outputs + n_outputs * n_outputs)]
 
         return 0
 
     cdef int node_reset_jacobian(self, DOUBLE_t* J, DOUBLE_t* invJ,
-                                  const DTYPE_t[::1, :] pointJ,
+                                  const DOUBLE_t[:, ::1] pointJ,
                                   DOUBLE_t* sample_weight,
                                   SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1:
         cdef SIZE_t i, j, k, p
@@ -168,7 +169,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     
     cdef int node_reset_parameter(self, DOUBLE_t* parameter, DOUBLE_t* parameter_pre,
                                    DOUBLE_t* invJ,
-                                   const DTYPE_t[::1, :] alpha,
+                                   const DOUBLE_t[:, ::1] alpha,
                                    DOUBLE_t* sample_weight,
                                    SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1:
         cdef SIZE_t i, j, k, p
@@ -199,7 +200,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
     cdef int node_reset_rho(self, DOUBLE_t* rho, DOUBLE_t* moment,
                        DOUBLE_t* parameter, DOUBLE_t* invJ,
-                       const DTYPE_t[::1, :] pointJ, const DTYPE_t[::1, :] alpha,
+                       const DOUBLE_t[:, ::1] pointJ, const DOUBLE_t[:, ::1] alpha,
                        DOUBLE_t* sample_weight, SIZE_t* samples, 
                        SIZE_t start, SIZE_t end) nogil except -1:
         cdef SIZE_t i, j, k, p
@@ -620,11 +621,12 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
 
-    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features,
+    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
                   SIZE_t n_samples, SIZE_t n_samples_val):
 
         # Most initializations are handled by __cinit__ of RegressionCriterion
         # which is always called in cython. We initialize the extras.
+        self.proxy_children_impurity = True
     
         # Allocate accumulators. Make sure they are NULL, not uninitialized,
         # before an exception can be raised (which triggers __dealloc__).
@@ -787,6 +789,54 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
         self.pos_val = new_pos_val
 
         return 0
+
+    cdef double proxy_node_impurity(self) nogil:
+        return LinearMomentGRFCriterion.node_impurity(self)
+
+    cdef double proxy_node_impurity_val(self) nogil:
+        return LinearMomentGRFCriterion.node_impurity_val(self)
+
+    cdef double mse_impurity(self, SIZE_t start, SIZE_t end,
+                             DOUBLE_t* parameter, DOUBLE_t* J, const DOUBLE_t[:, ::1] y,
+                             DOUBLE_t* sample_weight, SIZE_t* samples,
+                             double weighted_n_node_samples) nogil except -1:
+        # E[y^2] - theta' J theta
+        cdef SIZE_t n_y = self.n_y
+        cdef SIZE_t n_outputs = self.n_outputs
+        cdef SIZE_t i, p, k, m
+        cdef DOUBLE_t y_ik, w_y_ik, w = 1.0
+        cdef double y_sq_sum_total = 0.0
+        cdef double impurity
+
+        for p in range(start, end):
+            i = samples[p]
+
+            if sample_weight != NULL:
+                w = sample_weight[i]
+
+            for k in range(n_y):
+                y_ik = y[i, k]
+                w_y_ik = w * y_ik
+                y_sq_sum_total += w_y_ik * y_ik
+
+        impurity = y_sq_sum_total / weighted_n_node_samples
+        for k in range(n_outputs):
+            for m in range(n_outputs):
+                impurity -= parameter[k] * parameter[m] * J[k + m * n_outputs]
+
+        return impurity
+
+    cdef double node_impurity(self) nogil:
+        """Evaluate the impurity of the current node, i.e. the impurity of
+           samples[start:end]."""
+        return self.mse_impurity(self.start, self.end, self.parameter, self.J, self.y, 
+                                 self.sample_weight, self.samples, self.weighted_n_node_samples)
+    
+    cdef double node_impurity_val(self) nogil:
+        """Evaluate the impurity of the current node, i.e. the impurity of
+           samples[start:end]."""
+        return self.mse_impurity(self.start_val, self.end_val, self.parameter_val, self.J_val, self.y_val, 
+                                 self.sample_weight_val, self.samples_val, self.weighted_n_node_samples_val)
 
     cdef double proxy_impurity_improvement(self) nogil:
         """Compute a proxy of the impurity reduction

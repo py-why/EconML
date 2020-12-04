@@ -60,10 +60,10 @@ cdef class Splitter:
     cdef SIZE_t start_val                    # Start position for the current node for samples_val
     cdef SIZE_t end_val                      # End position for the current node for samples_val
 
-    cdef const DTYPE_t[::1, :] Data
+    cdef const DTYPE_t[::1, :] X
     cdef const DOUBLE_t[:, ::1] y
     cdef DOUBLE_t* sample_weight
-    cdef const DTYPE_t[::1, :] Data_val
+    cdef const DTYPE_t[::1, :] X_val
     cdef const DOUBLE_t[:, ::1] y_val
     cdef DOUBLE_t* sample_weight_val
 
@@ -84,11 +84,10 @@ cdef class Splitter:
     # This allows optimization with depth-based tree building.
 
     # Methods
-    cdef int init(self, object Data, const DOUBLE_t[:, ::1] y,
+    cdef int init(self, object X, const DOUBLE_t[:, ::1] y,
                   DOUBLE_t* sample_weight,
-                  object Data_val, const DOUBLE_t[:, ::1] y_val,
-                  DOUBLE_t* sample_weight_val,
-                  SIZE_t n_features) except -1
+                  object X_Val, const DOUBLE_t[:, ::1] y_val,
+                  DOUBLE_t* sample_weight_val) except -1
 
     cdef int node_reset(self, SIZE_t start, SIZE_t end, double* weighted_n_node_samples,
                         SIZE_t start_val, SIZE_t end_val, double* weighted_n_node_samples_val) nogil except -1
@@ -103,4 +102,7 @@ cdef class Splitter:
     cdef void node_precond_val(self, double* dest) nogil
     cdef double node_impurity(self) nogil
     cdef double node_impurity_val(self) nogil
+    cdef double proxy_node_impurity(self) nogil
+    cdef double proxy_node_impurity_val(self) nogil
+    cdef bint is_children_impurity_proxy(self) nogil
     

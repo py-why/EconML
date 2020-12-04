@@ -13,6 +13,8 @@ import numpy as np
 cimport numpy as np
 np.import_array()
 
+from scipy.sparse import csr_matrix
+
 from ._utils cimport Stack
 from ._utils cimport StackRecord
 from ._utils cimport safe_realloc
@@ -65,20 +67,19 @@ NODE_DTYPE = np.dtype({
 cdef class TreeBuilder:
     """Interface for different tree building strategies."""
 
-    cpdef build(self, Tree tree, object Data, np.ndarray y,
-                object Data_val, np.ndarray y_val,
-                SIZE_t n_features,
+    cpdef build(self, Tree tree, object X, np.ndarray y,
+                object X_val, np.ndarray y_val,
                 np.ndarray sample_weight=None,
                 np.ndarray sample_weight_val=None):
         """Build a causal tree from the training set (X, y)."""
         pass
 
-    cdef inline _check_input(self, object Data, np.ndarray y, np.ndarray sample_weight):
+    cdef inline _check_input(self, object X, np.ndarray y, np.ndarray sample_weight):
         """Check input dtype, layout and format"""
         
         # since we have to copy and perform linear algebra we will make it fortran for efficiency
-        if Data.dtype != DTYPE or not Data.flags.f_contiguous:
-            Data = np.asfortranarray(Data, dtype=DTYPE)
+        if X.dtype != DTYPE or not X.flags.f_contiguous:
+            X = np.asfortranarray(X, dtype=DTYPE)
 
         if y.dtype != DOUBLE or not y.flags.contiguous:
             y = np.ascontiguousarray(y, dtype=DOUBLE)
@@ -89,7 +90,7 @@ cdef class TreeBuilder:
                 sample_weight = np.asarray(sample_weight, dtype=DOUBLE,
                                            order="C")
 
-        return Data, y, sample_weight
+        return X, y, sample_weight
 
 # Depth first builder ---------------------------------------------------------
 
@@ -106,20 +107,17 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         self.max_depth = max_depth
         self.min_impurity_decrease = min_impurity_decrease
 
-    cpdef build(self, Tree tree, object Data, np.ndarray y,
-                object Data_val, np.ndarray y_val,
-                SIZE_t n_features,
+    cpdef build(self, Tree tree, object X, np.ndarray y,
+                object X_val, np.ndarray y_val,
                 np.ndarray sample_weight=None,
                 np.ndarray sample_weight_val=None,
                 bint store_jac=False):
-        """Build a causal tree from the training set (Data, y, Data_val, y_val). The first n_features
-        columns of Data are the training X, the remainder are auxiliary variables that are
-        used by the Criterion to calculate the splitting criterion.
+        """Build a causal tree from the training set (X, y, X_val, y_val).
         """
 
         # check input
-        Data, y, sample_weight = self._check_input(Data, y, sample_weight)
-        Data_val, y_val, sample_weight_val = self._check_input(Data_val, y_val, sample_weight_val)
+        X, y, sample_weight = self._check_input(X, y, sample_weight)
+        X_val, y_val, sample_weight_val = self._check_input(X_val, y_val, sample_weight_val)
 
         cdef DOUBLE_t* sample_weight_ptr = NULL
         if sample_weight is not None:
@@ -148,7 +146,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef double min_impurity_decrease = self.min_impurity_decrease
 
         # Recursive partition (without actual recursion)
-        splitter.init(Data, y, sample_weight_ptr, Data_val, y_val, sample_weight_val_ptr, n_features)
+        splitter.init(X, y, sample_weight_ptr, X_val, y_val, sample_weight_val_ptr)
 
         cdef SIZE_t start
         cdef SIZE_t end
@@ -167,6 +165,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef SIZE_t node_id
 
         cdef double impurity = INFINITY
+        cdef double proxy_impurity = INFINITY
         cdef SIZE_t n_constant_features
         cdef bint is_leaf
         cdef bint first = 1
@@ -212,13 +211,19 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                            n_node_samples_val < 2 * min_samples_leaf or
                            weighted_n_node_samples_val < 2 * min_weight_leaf)
 
-                if first:
+                if (splitter.is_children_impurity_proxy()) or first:
+                    # This is the baseline of what we should use for impurity improvement
+                    proxy_impurity = splitter.proxy_node_impurity()
+                    # This is the true node impurity we want to store. The two should coincide if
+                    # proxy_children_impurity=False.
                     impurity = splitter.node_impurity()
                     impurity_val = splitter.node_impurity_val()
                     first = 0
+                else:
+                    proxy_impurity = impurity
 
                 if not is_leaf:
-                    splitter.node_split(impurity, &split, &n_constant_features)
+                    splitter.node_split(proxy_impurity, &split, &n_constant_features)
                     # If EPSILON=0 in the below comparison, float precision
                     # issues stop splitting, producing trees that are
                     # dissimilar to v0.18
@@ -235,7 +240,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                 if node_id == SIZE_MAX:
                     rc = -1
                     break
-                
+
                 # Store value for all nodes, to facilitate tree/model
                 # inspection and interpretation
                 splitter.node_value_val(tree.value + node_id * tree.value_stride)
@@ -275,6 +280,9 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
 # =============================================================================
 
 cdef class Tree:
+    property n_classes:
+        def __get__(self):
+            return sizet_ptr_to_ndarray(self.n_classes, self.n_outputs)
 
     property children_left:
         def __get__(self):
@@ -324,6 +332,10 @@ cdef class Tree:
 
     property value:
         def __get__(self):
+            return self._get_value_ndarray()[:self.node_count, :self.n_relevant_outputs]
+    
+    property full_value:
+        def __get__(self):
             return self._get_value_ndarray()[:self.node_count]
     
     property jac:
@@ -338,10 +350,17 @@ cdef class Tree:
                 raise AttributeError("Preconditioned quantity computation was not enalbed. Set store_jac=True")
             return self._get_precond_ndarray()[:self.node_count]
 
-    def __cinit__(self, int n_features, int n_outputs, bint store_jac=False):
+    def __cinit__(self, int n_features, int n_outputs, int n_relevant_outputs=-1, bint store_jac=False):
         self.n_features = n_features
         self.n_outputs = n_outputs
+        self.n_relevant_outputs = n_relevant_outputs if n_relevant_outputs > 0 else n_outputs
         self.value_stride = n_outputs
+        self.n_classes = NULL
+        safe_realloc(&self.n_classes, n_outputs)
+        self.max_n_classes = 1
+        cdef SIZE_t k
+        for k in range(n_outputs):
+            self.n_classes[k] = 1
 
         # Inner structures
         self.max_depth = 0
@@ -526,7 +545,7 @@ cdef class Tree:
     cpdef np.ndarray predict(self, object X):
         """Predict target for X."""
         out = self._get_value_ndarray().take(self.apply(X), axis=0,
-                                             mode='clip')
+                                             mode='clip')[:, :self.n_relevant_outputs]
         return out
     
     cpdef np.ndarray predict_jac(self, object X):
@@ -583,6 +602,66 @@ cdef class Tree:
                 out_ptr[i] = <SIZE_t>(node - self.nodes)  # node offset
 
         return out
+    
+    cpdef object decision_path(self, object X):
+        """Finds the decision path (=node) for each sample in X."""
+        return self._decision_path(X)
+
+    cdef inline object _decision_path(self, object X):
+        """Finds the decision path (=node) for each sample in X."""
+
+        # Check input
+        if not isinstance(X, np.ndarray):
+            raise ValueError("X should be in np.ndarray format, got %s"
+                             % type(X))
+
+        if X.dtype != DTYPE:
+            raise ValueError("X.dtype should be np.float64, got %s" % X.dtype)
+
+        # Extract input
+        cdef const DTYPE_t[:, :] X_ndarray = X
+        cdef SIZE_t n_samples = X.shape[0]
+
+        # Initialize output
+        cdef np.ndarray[SIZE_t] indptr = np.zeros(n_samples + 1, dtype=np.intp)
+        cdef SIZE_t* indptr_ptr = <SIZE_t*> indptr.data
+
+        cdef np.ndarray[SIZE_t] indices = np.zeros(n_samples *
+                                                   (1 + self.max_depth),
+                                                   dtype=np.intp)
+        cdef SIZE_t* indices_ptr = <SIZE_t*> indices.data
+
+        # Initialize auxiliary data-structure
+        cdef Node* node = NULL
+        cdef SIZE_t i = 0
+
+        with nogil:
+            for i in range(n_samples):
+                node = self.nodes
+                indptr_ptr[i + 1] = indptr_ptr[i]
+
+                # Add all external nodes
+                while node.left_child != _TREE_LEAF:
+                    # ... and node.right_child != _TREE_LEAF:
+                    indices_ptr[indptr_ptr[i + 1]] = <SIZE_t>(node - self.nodes)
+                    indptr_ptr[i + 1] += 1
+
+                    if X_ndarray[i, node.feature] <= node.threshold:
+                        node = &self.nodes[node.left_child]
+                    else:
+                        node = &self.nodes[node.right_child]
+
+                # Add the leave node
+                indices_ptr[indptr_ptr[i + 1]] = <SIZE_t>(node - self.nodes)
+                indptr_ptr[i + 1] += 1
+
+        indices = indices[:indptr[n_samples]]
+        cdef np.ndarray[SIZE_t] data = np.ones(shape=len(indices),
+                                               dtype=np.intp)
+        out = csr_matrix((data, indices, indptr),
+                         shape=(n_samples, self.node_count))
+
+        return out
 
     cpdef compute_feature_importances(self, normalize=True):
         """Computes the importance of each feature (aka variable)."""
@@ -606,12 +685,12 @@ cdef class Tree:
                     right = &nodes[node.right_child]
 
                     importance_data[node.feature] += (
-                        node.weighted_n_node_samples_train * node.impurity_train -
-                        left.weighted_n_node_samples_train * left.impurity_train -
-                        right.weighted_n_node_samples_train * right.impurity_train)
+                        node.weighted_n_node_samples * node.impurity -
+                        left.weighted_n_node_samples * left.impurity -
+                        right.weighted_n_node_samples * right.impurity)
                 node += 1
 
-        importances /= nodes[0].weighted_n_node_samples_train
+        importances /= nodes[0].weighted_n_node_samples
 
         if normalize:
             normalizer = np.sum(importances)
@@ -643,18 +722,17 @@ cdef class Tree:
                     # ... and node.right_child != _TREE_LEAF:
                     left = &nodes[node.left_child]
                     right = &nodes[node.right_child]
-                    node_value = &self.value[(node - nodes)*self.value_stride]
-                    left_value = &self.value[(left - nodes)*self.value_stride]
-                    right_value = &self.value[(right - nodes)*self.value_stride]
+                    # node_value = &self.value[(node - nodes) * self.value_stride]
+                    left_value = &self.value[(left - nodes) * self.value_stride]
+                    right_value = &self.value[(right - nodes) * self.value_stride]
                     for i in range(self.n_outputs):
                         importance_data[node.feature] += (
-                            left.weighted_n_node_samples_train * (left_value[i]**2) +
-                            right.weighted_n_node_samples_train * (right_value[i]**2) -
-                            node.weighted_n_node_samples_train * (node_value[i]**2)
+                            left.weighted_n_node_samples * right.weighted_n_node_samples *
+                            (left_value[i] - right_value[i])**2 / node.weighted_n_node_samples
                             )
                 node += 1
 
-        importances /= (nodes[0].weighted_n_node_samples_train * self.n_outputs)
+        importances /= (nodes[0].weighted_n_node_samples * self.n_outputs)
 
         if normalize:
             normalizer = np.sum(importances)
