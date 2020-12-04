@@ -14,6 +14,7 @@ from sklearn.utils import check_array
 from sklearn.utils import check_random_state
 from sklearn.utils.validation import _check_sample_weight
 from sklearn.utils.validation import check_is_fitted
+import copy
 
 # =============================================================================
 # Types and constants
@@ -183,25 +184,29 @@ class GRFTree(BaseEstimator):
             min_weight_leaf = (self.min_weight_fraction_leaf *
                                np.sum(sample_weight))
 
+        inds = np.arange(n_samples, dtype=np.intp)
         if self.honest:
-            Xtrain, Xval, ytrain, yval,\
-                sample_weight_train,\
-                sample_weight_val = train_test_split(X, y, sample_weight,
-                                                     test_size=.5,
-                                                     random_state=random_state.randint(np.iinfo(np.int32).max))
+            samples_train, samples_val = train_test_split(inds,
+                                                          test_size=.5,
+                                                          random_state=random_state.randint(np.iinfo(np.int32).max))
         else:
-            Xtrain, Xval, ytrain, yval,\
-                sample_weight_train, sample_weight_val = X, X, y, y, sample_weight, sample_weight
+            samples_train, samples_val = inds, inds
 
         # Build tree
-        criterion = self.criterion
-        if not isinstance(criterion, Criterion):
+        if callable(self.criterion):
+            criterion = self.criterion(self.n_outputs_, self.n_features_, self.n_y_, n_samples)
+            if not isinstance(criterion, Criterion):
+                raise ValueError("Input criterion is not a valid criterion")
+            criterion_val = self.criterion(self.n_outputs_, self.n_features_, self.n_y_, n_samples)
+        else:
             criterion = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_features_, self.n_y_, Xtrain.shape[0], Xval.shape[0])
+                self.n_outputs_, self.n_features_, self.n_y_, n_samples)
+            criterion_val = CRITERIA_GRF[self.criterion](
+                self.n_outputs_, self.n_features_, self.n_y_, n_samples)
 
         splitter = self.splitter
         if not isinstance(self.splitter, Splitter):
-            splitter = SPLITTERS[self.splitter](criterion,
+            splitter = SPLITTERS[self.splitter](criterion, criterion_val,
                                                 self.max_features_,
                                                 min_samples_leaf,
                                                 min_weight_leaf,
@@ -216,8 +221,8 @@ class GRFTree(BaseEstimator):
                                         max_depth,
                                         self.min_impurity_decrease)
 
-        builder.build(self.tree_, Xtrain, ytrain, Xval, yval,
-                      sample_weight=sample_weight_train, sample_weight_val=sample_weight_val,
+        builder.build(self.tree_, X, y, samples_train, samples_val,
+                      sample_weight=sample_weight,
                       store_jac=True)
 
         return self

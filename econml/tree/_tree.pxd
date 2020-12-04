@@ -100,7 +100,8 @@ cdef class TreeBuilder:
     cdef double min_impurity_decrease   # Impurity threshold for early stopping
 
     cpdef build(self, Tree tree, object X, np.ndarray y,
-                object X_val, np.ndarray y_val,
+                np.ndarray samples_train,
+                np.ndarray samples_val,
                 np.ndarray sample_weight=*,
-                np.ndarray sample_weight_val=*)
+                bint store_jac=*)
     cdef _check_input(self, object X, np.ndarray y, np.ndarray sample_weight)

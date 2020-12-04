@@ -13,22 +13,14 @@ from ..tree._criterion cimport Criterion, RegressionCriterion
 
 cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef const DOUBLE_t[:, ::1] alpha
-    cdef const DOUBLE_t[:, ::1] alpha_val
     cdef const DOUBLE_t[:, ::1] pointJ
-    cdef const DOUBLE_t[:, ::1] pointJ_val
 
     cdef DOUBLE_t* rho
-    cdef DOUBLE_t* rho_val
     cdef DOUBLE_t* moment
-    cdef DOUBLE_t* moment_val
     cdef DOUBLE_t* parameter
     cdef DOUBLE_t* parameter_pre
-    cdef DOUBLE_t* parameter_val
-    cdef DOUBLE_t* parameter_pre_val
     cdef DOUBLE_t* J
-    cdef DOUBLE_t* J_val
     cdef DOUBLE_t* invJ
-    cdef DOUBLE_t* invJ_val
 
     cdef int node_reset_jacobian(self, DOUBLE_t* J, DOUBLE_t* invJ,
                                   const DOUBLE_t[:, ::1] pointJ,
@@ -54,8 +46,6 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
     cdef DOUBLE_t* J_left
     cdef DOUBLE_t* J_right
-    cdef DOUBLE_t* J_val_left
-    cdef DOUBLE_t* J_val_right
     cdef double mse_impurity(self, SIZE_t start, SIZE_t end,
                              DOUBLE_t* parameter, DOUBLE_t* J, const DOUBLE_t[:, ::1] y,
                              DOUBLE_t* sample_weight, SIZE_t* samples,

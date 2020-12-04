@@ -68,9 +68,10 @@ cdef class TreeBuilder:
     """Interface for different tree building strategies."""
 
     cpdef build(self, Tree tree, object X, np.ndarray y,
-                object X_val, np.ndarray y_val,
+                np.ndarray samples_train,
+                np.ndarray samples_val,
                 np.ndarray sample_weight=None,
-                np.ndarray sample_weight_val=None):
+                bint store_jac=False):
         """Build a causal tree from the training set (X, y)."""
         pass
 
@@ -108,24 +109,19 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         self.min_impurity_decrease = min_impurity_decrease
 
     cpdef build(self, Tree tree, object X, np.ndarray y,
-                object X_val, np.ndarray y_val,
+                np.ndarray samples_train,
+                np.ndarray samples_val,
                 np.ndarray sample_weight=None,
-                np.ndarray sample_weight_val=None,
                 bint store_jac=False):
-        """Build a causal tree from the training set (X, y, X_val, y_val).
+        """Build an honest tree
         """
 
         # check input
         X, y, sample_weight = self._check_input(X, y, sample_weight)
-        X_val, y_val, sample_weight_val = self._check_input(X_val, y_val, sample_weight_val)
 
         cdef DOUBLE_t* sample_weight_ptr = NULL
         if sample_weight is not None:
             sample_weight_ptr = <DOUBLE_t*> sample_weight.data
-        
-        cdef DOUBLE_t* sample_weight_val_ptr = NULL
-        if sample_weight_val is not None:
-            sample_weight_val_ptr = <DOUBLE_t*> sample_weight_val.data
 
         # Initial capacity
         cdef int init_capacity
@@ -146,7 +142,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef double min_impurity_decrease = self.min_impurity_decrease
 
         # Recursive partition (without actual recursion)
-        splitter.init(X, y, sample_weight_ptr, X_val, y_val, sample_weight_val_ptr)
+        splitter.init(X, y, sample_weight_ptr, samples_train, samples_val)
 
         cdef SIZE_t start
         cdef SIZE_t end

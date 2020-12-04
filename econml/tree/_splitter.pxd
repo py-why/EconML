@@ -35,6 +35,7 @@ cdef class Splitter:
 
     # Internal structures
     cdef public Criterion criterion      # Impurity criterion
+    cdef public Criterion criterion_val      # Impurity criterion
     cdef public SIZE_t max_features      # Number of features to test
     cdef public SIZE_t min_samples_leaf  # Min samples in a leaf
     cdef public double min_weight_leaf   # Minimum weight in a leaf
@@ -63,9 +64,6 @@ cdef class Splitter:
     cdef const DTYPE_t[::1, :] X
     cdef const DOUBLE_t[:, ::1] y
     cdef DOUBLE_t* sample_weight
-    cdef const DTYPE_t[::1, :] X_val
-    cdef const DOUBLE_t[:, ::1] y_val
-    cdef DOUBLE_t* sample_weight_val
 
     # The samples vector `samples` is maintained by the Splitter object such
     # that the samples contained in a node are contiguous. With this setting,
@@ -84,10 +82,15 @@ cdef class Splitter:
     # This allows optimization with depth-based tree building.
 
     # Methods
+    cdef int init_sample_inds(self, SIZE_t* samples,
+                              const SIZE_t[::1] np_samples,
+                              DOUBLE_t* sample_weight,
+                              SIZE_t* n_samples, double* weighted_n_samples) except -1
+
     cdef int init(self, object X, const DOUBLE_t[:, ::1] y,
                   DOUBLE_t* sample_weight,
-                  object X_Val, const DOUBLE_t[:, ::1] y_val,
-                  DOUBLE_t* sample_weight_val) except -1
+                  const SIZE_t[::1] np_samples_train,
+                  const SIZE_t[::1] np_samples_val) except -1
 
     cdef int node_reset(self, SIZE_t start, SIZE_t end, double* weighted_n_node_samples,
                         SIZE_t start_val, SIZE_t end_val, double* weighted_n_node_samples_val) nogil except -1
