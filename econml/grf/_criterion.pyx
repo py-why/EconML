@@ -48,6 +48,8 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         if n_y > 1:
             raise AttributeError("LinearMomentGRFCriterion currently only supports a scalar y")
 
+        self.proxy_children_impurity = True
+
         # Allocate accumulators. Make sure they are NULL, not uninitialized,
         # before an exception can be raised (which triggers __dealloc__).
         self.rho = NULL
