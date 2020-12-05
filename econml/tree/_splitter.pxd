@@ -85,7 +85,7 @@ cdef class Splitter:
     cdef int init_sample_inds(self, SIZE_t* samples,
                               const SIZE_t[::1] np_samples,
                               DOUBLE_t* sample_weight,
-                              SIZE_t* n_samples, double* weighted_n_samples) except -1
+                              SIZE_t* n_samples, double* weighted_n_samples) nogil except -1
 
     cdef int init(self, object X, const DOUBLE_t[:, ::1] y,
                   DOUBLE_t* sample_weight,

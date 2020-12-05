@@ -17,9 +17,9 @@ cpdef void matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil
 
 cdef void matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m, int n) nogil
 
-cpdef void lstsq(DOUBLE_t[::1,:] a, DOUBLE_t[::1,:] b, DOUBLE_t[::1, :] sol) nogil
+cpdef void lstsq(DOUBLE_t[::1,:] a, DOUBLE_t[::1,:] b, DOUBLE_t[::1, :] sol, bint copy_b=*) nogil
 
-cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs) nogil
+cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs, bint copy_b=*) nogil
 
 cpdef void pinv(DOUBLE_t[::1,:] a, DOUBLE_t[::1, :] sol) nogil
 

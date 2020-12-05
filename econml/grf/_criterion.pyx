@@ -31,7 +31,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     """
 
     def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
-                  SIZE_t n_samples):
+                  SIZE_t n_samples, SIZE_t max_node_samples):
         """Initialize parameters for this criterion.
         Parameters
         ----------
@@ -56,23 +56,26 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         self.parameter_pre = NULL
         self.J = NULL
         self.invJ = NULL
+        self.node_index_mapping = NULL
 
         # Allocate memory for the proxy for y, which rho in the generalized random forest
         # Since rho is node dependent it needs to be re-calculated and stored for each sample
         # in the node for every node we are investigating
-        self.rho = <double*> calloc(n_samples * n_outputs, sizeof(double))
-        self.moment = <double*> calloc(n_samples * n_outputs, sizeof(double))
+        self.rho = <double*> calloc(max_node_samples * n_outputs, sizeof(double))
+        self.moment = <double*> calloc(max_node_samples * n_outputs, sizeof(double))
         self.parameter = <double *> calloc(n_outputs, sizeof(double))
         self.parameter_pre = <double *> calloc(n_outputs, sizeof(double))
         self.J = <double *> calloc(n_outputs * n_outputs, sizeof(double))
         self.invJ = <double *> calloc(n_outputs * n_outputs, sizeof(double))
+        self.node_index_mapping = <SIZE_t *> calloc(n_samples * n_outputs, sizeof(SIZE_t))
 
         if (self.rho == NULL or
                 self.moment == NULL or
                 self.parameter == NULL or
                 self.parameter_pre == NULL or
                 self.J == NULL or
-                self.invJ == NULL):
+                self.invJ == NULL or
+                self.node_index_mapping == NULL):
             raise MemoryError()
 
     def __dealloc__(self):
@@ -83,6 +86,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         free(self.parameter_pre)
         free(self.J)
         free(self.invJ)
+        free(self.node_index_mapping)
 
     cdef int init(self, const DOUBLE_t[:, ::1] y, 
                   DOUBLE_t* sample_weight, double weighted_n_samples,
@@ -164,24 +168,26 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         
         return 0
 
-    cdef int node_reset_rho(self, DOUBLE_t* rho, DOUBLE_t* moment,
+    cdef int node_reset_rho(self, DOUBLE_t* rho, DOUBLE_t* moment, SIZE_t* node_index_mapping,
                        DOUBLE_t* parameter, DOUBLE_t* invJ,
                        const DOUBLE_t[:, ::1] pointJ, const DOUBLE_t[:, ::1] alpha,
                        DOUBLE_t* sample_weight, SIZE_t* samples, 
                        SIZE_t start, SIZE_t end) nogil except -1:
-        cdef SIZE_t i, j, k, p
+        cdef SIZE_t i, j, k, p, offset
         cdef SIZE_t n_outputs = self.n_outputs
 
         for p in range(start, end):
             i = samples[p]
+            offset = p - start
+            node_index_mapping[i] = offset
             for j in range(n_outputs):
-                moment[j + i * n_outputs] = - alpha[i, j]
+                moment[j + offset * n_outputs] = - alpha[i, j]
                 for k in range(n_outputs):
-                    moment[j + i * n_outputs] += pointJ[i, j + k * n_outputs] * parameter[k]
+                    moment[j + offset * n_outputs] += pointJ[i, j + k * n_outputs] * parameter[k]
             for j in range(n_outputs):
-                rho[j + i * n_outputs] = 0.0
+                rho[j + offset * n_outputs] = 0.0
                 for k in range(n_outputs):
-                    rho[j + i * n_outputs] -= invJ[j + k * n_outputs] * moment[k + i * n_outputs]
+                    rho[j + offset * n_outputs] -= invJ[j + k * n_outputs] * moment[k + offset * n_outputs]
         return 0
 
     cdef int node_reset_sums(self, DOUBLE_t* rho,
@@ -190,7 +196,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                              DOUBLE_t* weighted_n_node_samples,
                              DOUBLE_t* sum_total, DOUBLE_t* sq_sum_total,
                              SIZE_t start, SIZE_t end) nogil except -1:
-        cdef SIZE_t i, p, k
+        cdef SIZE_t i, p, k, offset
         cdef DOUBLE_t y_ik, w_y_ik, w = 1.0
         cdef SIZE_t n_outputs = self.n_outputs
 
@@ -200,12 +206,13 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         for p in range(start, end):
             i = samples[p]
+            offset = p - start
 
             if sample_weight != NULL:
                 w = sample_weight[i]
 
             for k in range(n_outputs):
-                y_ik = rho[i * n_outputs + k]
+                y_ik = rho[offset * n_outputs + k]
                 w_y_ik = w * y_ik
                 sum_total[k] += w_y_ik
                 sq_sum_total[0] += w_y_ik * y_ik
@@ -231,7 +238,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                                   self.invJ, self.alpha,
                                   self.sample_weight, self.samples,
                                   self.start, self.end)
-        self.node_reset_rho(self.rho, self.moment,
+        self.node_reset_rho(self.rho, self.moment, self.node_index_mapping,
                             self.parameter, self.invJ,
                             self.pointJ, self.alpha,
                             self.sample_weight, self.samples,
@@ -281,13 +288,12 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         cdef SIZE_t* samples = self.samples
         cdef DOUBLE_t* sample_weight = self.sample_weight
+        cdef SIZE_t* node_index_mapping = self.node_index_mapping
 
         cdef SIZE_t pos = self.pos
         cdef SIZE_t end = self.end
         cdef SIZE_t n_outputs = self.n_outputs
-        cdef SIZE_t i
-        cdef SIZE_t p
-        cdef SIZE_t k
+        cdef SIZE_t i, p, k, offset
         cdef DOUBLE_t w = 1.0
 
         # Update statistics up to new_pos
@@ -301,12 +307,13 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         if (new_pos - pos) <= (end - new_pos):
             for p in range(pos, new_pos):
                 i = samples[p]
+                offset = node_index_mapping[i]
 
                 if sample_weight != NULL:
                     w = sample_weight[i]
 
                 for k in range(n_outputs):
-                    sum_left[k] += w * self.rho[i * n_outputs + k]
+                    sum_left[k] += w * self.rho[offset * n_outputs + k]
 
                 self.weighted_n_left += w
         else:
@@ -314,12 +321,13 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
             for p in range(end - 1, new_pos - 1, -1):
                 i = samples[p]
+                offset = node_index_mapping[i]
 
                 if sample_weight != NULL:
                     w = sample_weight[i]
 
                 for k in range(n_outputs):
-                    sum_left[k] -= w * self.rho[i * n_outputs + k]
+                    sum_left[k] -= w * self.rho[offset * n_outputs + k]
 
                 self.weighted_n_left -= w
 
@@ -396,6 +404,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         cdef DOUBLE_t* sample_weight = self.sample_weight
         cdef SIZE_t* samples = self.samples
+        cdef SIZE_t* node_index_mapping = self.node_index_mapping
         cdef SIZE_t pos = self.pos
         cdef SIZE_t start = self.start
 
@@ -406,19 +415,18 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         cdef double sq_sum_left = 0.0
         cdef double sq_sum_right
 
-        cdef SIZE_t i
-        cdef SIZE_t p
-        cdef SIZE_t k
+        cdef SIZE_t i, p, k, offset
         cdef DOUBLE_t w = 1.0
 
         for p in range(start, pos):
             i = samples[p]
+            offset = node_index_mapping[i]
 
             if sample_weight != NULL:
                 w = sample_weight[i]
 
             for k in range(self.n_outputs):
-                y_ik = self.rho[i * self.n_outputs + k]
+                y_ik = self.rho[offset * self.n_outputs + k]
                 sq_sum_left += w * y_ik * y_ik
 
         sq_sum_right = self.sq_sum_total - sq_sum_left
@@ -437,7 +445,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
 
     def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
-                  SIZE_t n_samples):
+                  SIZE_t n_samples, SIZE_t max_node_samples):
 
         # Most initializations are handled by __cinit__ of RegressionCriterion
         # which is always called in cython. We initialize the extras.
@@ -488,24 +496,26 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
         cdef double* J = self.J
 
         cdef SIZE_t* samples = self.samples
+        cdef SIZE_t* node_index_mapping = self.node_index_mapping
         cdef DOUBLE_t* sample_weight = self.sample_weight
         cdef double weighted_n_node_samples = self.weighted_n_node_samples
 
         cdef SIZE_t pos = self.pos
         cdef SIZE_t end = self.end
         cdef SIZE_t n_outputs = self.n_outputs
-        cdef SIZE_t i, p, k, m
+        cdef SIZE_t i, p, k, m, offset
         cdef DOUBLE_t w = 1.0
 
         if (new_pos - pos) <= (end - new_pos):
             for p in range(pos, new_pos):
                 i = samples[p]
+                offset = node_index_mapping[i]
 
                 if sample_weight != NULL:
                     w = sample_weight[i]
 
                 for k in range(n_outputs):
-                    sum_left[k] += w * self.rho[k + i * n_outputs]
+                    sum_left[k] += w * self.rho[k + offset * n_outputs]
                     for m in range(n_outputs):
                         J_left[k + m * n_outputs] += w * self.pointJ[i, k + m * n_outputs] / weighted_n_node_samples
 
@@ -515,12 +525,13 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
 
             for p in range(end - 1, new_pos - 1, -1):
                 i = samples[p]
+                offset = node_index_mapping[i]
 
                 if sample_weight != NULL:
                     w = sample_weight[i]
 
                 for k in range(n_outputs):
-                    sum_left[k] -= w * self.rho[k + i * n_outputs]
+                    sum_left[k] -= w * self.rho[k + offset * n_outputs]
                     for m in range(n_outputs):
                         J_left[k + m * n_outputs] -= w * self.pointJ[i, k + m * n_outputs] / weighted_n_node_samples
 

@@ -544,6 +544,12 @@ cdef class Tree:
                                              mode='clip')[:, :self.n_relevant_outputs]
         return out
     
+    cpdef np.ndarray predict_full(self, object X):
+        """Predict target for X."""
+        out = self._get_value_ndarray().take(self.apply(X), axis=0,
+                                             mode='clip')
+        return out
+    
     cpdef np.ndarray predict_jac(self, object X):
         """Predict target for X."""
         if not self.store_jac:

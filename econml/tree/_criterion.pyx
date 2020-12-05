@@ -197,7 +197,7 @@ cdef class RegressionCriterion(Criterion):
     """
 
     def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
-                  SIZE_t n_samples):
+                  SIZE_t n_samples, SIZE_t max_node_samples):
         """Initialize parameters for this criterion.
         Parameters
         ----------
@@ -219,6 +219,7 @@ cdef class RegressionCriterion(Criterion):
         self.end = 0
 
         self.n_samples = n_samples
+        self.max_node_samples = max_node_samples
         self.n_node_samples = 0
         self.weighted_n_node_samples = 0.0
         self.weighted_n_left = 0.0
@@ -244,7 +245,7 @@ cdef class RegressionCriterion(Criterion):
 
     def __reduce__(self):
         return (type(self), (self.n_outputs, self.n_features, self.n_y,
-                             self.n_samples), self.__getstate__())
+                             self.n_samples, self.max_node_samples), self.__getstate__())
 
     cdef int init(self, const DOUBLE_t[:, ::1] y, 
                   DOUBLE_t* sample_weight, double weighted_n_samples,

@@ -21,6 +21,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef DOUBLE_t* parameter_pre
     cdef DOUBLE_t* J
     cdef DOUBLE_t* invJ
+    cdef SIZE_t* node_index_mapping
 
     cdef int node_reset_jacobian(self, DOUBLE_t* J, DOUBLE_t* invJ,
                                   const DOUBLE_t[:, ::1] pointJ,
@@ -31,7 +32,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                                    const DOUBLE_t[:, ::1] alpha,
                                    DOUBLE_t* sample_weight,
                                    SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1
-    cdef int node_reset_rho(self, DOUBLE_t* rho, DOUBLE_t* moment,
+    cdef int node_reset_rho(self, DOUBLE_t* rho, DOUBLE_t* moment, SIZE_t* node_index_mapping,
                        DOUBLE_t* parameter, DOUBLE_t* invJ,
                        const DOUBLE_t[:, ::1] pointJ, const DOUBLE_t[:, ::1] alpha,
                        DOUBLE_t* sample_weight, SIZE_t* samples, 

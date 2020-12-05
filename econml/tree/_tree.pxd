@@ -70,6 +70,7 @@ cdef class Tree:
     cpdef np.ndarray predict(self, object X)
     cpdef np.ndarray predict_jac(self, object X)
     cpdef np.ndarray predict_precond(self, object X)
+    cpdef np.ndarray predict_full(self, object X)
 
     cpdef np.ndarray apply(self, object X)
     cdef np.ndarray _apply(self, object X)

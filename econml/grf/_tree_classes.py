@@ -194,15 +194,17 @@ class GRFTree(BaseEstimator):
 
         # Build tree
         if callable(self.criterion):
-            criterion = self.criterion(self.n_outputs_, self.n_features_, self.n_y_, n_samples)
+            criterion = self.criterion(self.n_outputs_, self.n_features_, self.n_y_,
+                                       n_samples, samples_train.shape[0])
             if not isinstance(criterion, Criterion):
                 raise ValueError("Input criterion is not a valid criterion")
-            criterion_val = self.criterion(self.n_outputs_, self.n_features_, self.n_y_, n_samples)
+            criterion_val = self.criterion(self.n_outputs_, self.n_features_, self.n_y_,
+                                           n_samples, samples_val.shape[0])
         else:
             criterion = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_features_, self.n_y_, n_samples)
+                self.n_outputs_, self.n_features_, self.n_y_, n_samples, samples_train.shape[0])
             criterion_val = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_features_, self.n_y_, n_samples)
+                self.n_outputs_, self.n_features_, self.n_y_, n_samples, samples_val.shape[0])
 
         splitter = self.splitter
         if not isinstance(self.splitter, Splitter):
@@ -263,6 +265,32 @@ class GRFTree(BaseEstimator):
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
         pred = self.tree_.predict(X)
+        if self.n_relevant_outputs_ == 1:
+            return pred[:, 0]
+        return pred
+
+    def predict_full(self, X, check_input=True):
+        """Predict class or regression value for X.
+        For a classification model, the predicted class for each sample in X is
+        returned. For a regression model, the predicted value based on X is
+        returned.
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+        Returns
+        -------
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            The predicted classes, or the predict values.
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        pred = self.tree_.predict_full(X)
         if self.n_outputs_ == 1:
             return pred[:, 0]
         return pred

@@ -141,15 +141,15 @@ cdef void matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m, int n) nogil:
         free(IWORK)
 
 
-cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol) nogil:
+cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol, bint copy_b=True) nogil:
     cdef int m, n, nrhs
     m = a.shape[0]
     n = a.shape[1]
     nrhs = b.shape[1]
-    lstsq_(&a[0, 0], &b[0, 0], &sol[0, 0], m, n, nrhs)
+    lstsq_(&a[0, 0], &b[0, 0], &sol[0, 0], m, n, nrhs, copy_b)
     
 
-cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs) nogil:
+cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs, bint copy_b=True) nogil:
     cdef:
         int lda, ldb, rank, info, lwork, n_out
         double rcond
@@ -167,10 +167,13 @@ cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs
     n_out = max(ldb, n)
     # TODO. can we avoid all this malloc and copying in our context?
     a_copy = <DOUBLE_t*> calloc(lda * n, sizeof(DOUBLE_t))
-    b_copy = <DOUBLE_t*> calloc(n_out * nrhs, sizeof(DOUBLE_t))
+    b_copy = b
+    if copy_b:
+        b_copy = <DOUBLE_t*> calloc(n_out * nrhs, sizeof(DOUBLE_t))
     try:
         dlacpy(UPLO, &lda, &n, a, &lda, a_copy, &n)
-        dlacpy(UPLO, &ldb, &nrhs, b, &ldb, b_copy, &n_out)
+        if copy_b:
+            dlacpy(UPLO, &ldb, &nrhs, b, &ldb, b_copy, &n_out)
 
         # preliminary call to calculate the optimal size of the work array
         lwork = -1
@@ -194,7 +197,8 @@ cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs
         free(jpvt)
         free(work)
         free(a_copy)
-        free(b_copy)
+        if copy_b:
+            free(b_copy)
 
 cpdef void pinv(DOUBLE_t[::1,:] a, DOUBLE_t[::1, :] sol) nogil:
     cdef int m = a.shape[0]
@@ -208,7 +212,7 @@ cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) nogil:
     for i in range(m):
         b[i + i*m] = 1.0
     try:
-        lstsq_(a, b, sol, m, n, m)
+        lstsq_(a, b, sol, m, n, m, copy_b=False)
 
     finally:
         free(b)
