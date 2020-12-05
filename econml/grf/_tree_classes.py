@@ -186,9 +186,8 @@ class GRFTree(BaseEstimator):
 
         inds = np.arange(n_samples, dtype=np.intp)
         if self.honest:
-            samples_train, samples_val = train_test_split(inds,
-                                                          test_size=.5,
-                                                          random_state=random_state.randint(np.iinfo(np.int32).max))
+            perms = random_state.permutation(inds)
+            samples_train, samples_val = perms[:n_samples // 2], perms[n_samples // 2:]
         else:
             samples_train, samples_val = inds, inds
 
@@ -342,6 +341,29 @@ class GRFTree(BaseEstimator):
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
         return self.tree_.predict_precond(X)
+
+    def predict_alpha_and_jac(self, X, check_input=True):
+        """Predict class or regression value for X.
+        For a classification model, the predicted class for each sample in X is
+        returned. For a regression model, the predicted value based on X is
+        returned.
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+        Returns
+        -------
+        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+            The predicted classes, or the predict values.
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        return self.tree_.predict_precond_and_jac(X)
 
     def apply(self, X, check_input=True):
         """Return the index of the leaf that each sample is predicted as.

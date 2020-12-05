@@ -110,6 +110,7 @@ def _accumulate_prediction(predict, X, out, lock):
 # Base Generalized Random Forest
 # =============================================================================
 
+
 class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     """
     Base class for forests of CATE estimator trees.
@@ -302,6 +303,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # Free allocated memory, if any
             self.estimators_ = []
             self.slices_ = []
+            self.halfsample_seeds_ = []
 
         n_more_estimators = self.n_estimators - len(self.estimators_)
 
@@ -327,6 +329,11 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 new_slices = np.array_split(np.arange(len(self.estimators_),
                                                       len(self.estimators_) + n_more_estimators),
                                             int(np.ceil(np.sqrt(n_more_estimators))))
+                halfsample_seeds = []
+                halfsample_state = check_random_state(random_state.randint(MAX_INT))
+                for sl in new_slices:
+                    halfsample_seed = halfsample_state.randint(MAX_INT)
+                    halfsample_seeds.extend([halfsample_seed] * len(sl))
 
                 # Parallel loop: we prefer the threading backend as the Cython code
                 # for fitting the trees is internally releasing the Python GIL
@@ -334,20 +341,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # that case. However, for joblib 0.12+ we respect any
                 # parallel_backend contexts set at a higher level,
                 # since correctness does not rely on using threads.
-                halfsample_state = check_random_state(random_state.randint(MAX_INT))
-                for sl in new_slices:
-                    halfsample_seed = halfsample_state.randint(MAX_INT)
-                    Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                        delayed(_parallel_build_trees)(
-                            trees[s - len(self.estimators_)],
-                            self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                            sample_weight, i, len(trees), halfsample_seed,
-                            verbose=self.verbose, n_samples_subsample=n_samples_subsample)
-                        for i, s in enumerate(sl))
+                trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
+                    delayed(_parallel_build_trees)(
+                        t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
+                        sample_weight, i, len(trees), s,
+                        verbose=self.verbose, n_samples_subsample=n_samples_subsample)
+                    for i, (t, s) in enumerate(zip(trees, halfsample_seeds)))
 
                 # Collect newly grown trees
                 self.estimators_.extend(trees)
                 self.slices_.extend(list(new_slices))
+                self.halfsample_seeds_.extend(halfsample_seeds)
 
             else:
                 trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
@@ -470,15 +474,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         if slice is None:
             slice = np.arange(len(self.estimators_))
         n_jobs = 1
+        verbose = 0
         if parallel:
             n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
+            verbose = self.verbose
 
         # avoid storing the output of every estimator by summing them here
         jac_hat = np.zeros((X.shape[0], self.n_outputs_**2), dtype=np.float64)
 
         # Parallel loop
         lock = threading.Lock()
-        Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
+        Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
             delayed(_accumulate_prediction)(self.estimators_[t].predict_jac, X, [jac_hat], lock)
             for t in slice)
 
@@ -496,14 +502,16 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         if slice is None:
             slice = np.arange(len(self.estimators_))
         n_jobs = 1
+        verbose = 0
         if parallel:
             n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
+            verbose = self.verbose
 
         alpha_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
 
         # Parallel loop
         lock = threading.Lock()
-        Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
+        Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
             delayed(_accumulate_prediction)(self.estimators_[t].predict_alpha, X, [alpha_hat], lock)
             for t in slice)
 
@@ -511,52 +519,98 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return alpha_hat
 
-    def predict_full(self, X):
-        return np.einsum('ijk,ik->ij',
-                         np.linalg.pinv(self.predict_jac(X)),
-                         self.predict_alpha(X))
+    def predict_alpha_and_jac(self, X, slice=None, parallel=True):
 
-    def predict(self, X):
-        y_hat = self.predict_full(X)
-        if self.n_relevant_outputs_ == self.n_outputs_:
-            return y_hat
-        return y_hat[:, :self.n_relevant_outputs_]
+        check_is_fitted(self)
+        # Check data
+        X = self._validate_X_predict(X)
 
-    def _predict_cov(self, X, point=False):
-        if not self.inference:
-            raise AttributeError("Inference not available. Forest was initiated with `inference=False`.")
-        parameter = self.predict_full(X)
-        jac = self.predict_jac(X)
+        # Assign chunk of trees to jobs
+        if slice is None:
+            slice = np.arange(len(self.estimators_))
+        n_jobs = 1
+        verbose = 0
+        if parallel:
+            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
+            verbose = self.verbose
+
+        alpha_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+        jac_hat = np.zeros((X.shape[0], self.n_outputs_**2), dtype=np.float64)
+
+        # Parallel loop
+        lock = threading.Lock()
+        Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
+            delayed(_accumulate_prediction)(self.estimators_[t].predict_alpha_and_jac, X, [alpha_hat, jac_hat], lock)
+            for t in slice)
+
+        alpha_hat /= len(slice)
+        jac_hat /= len(slice)
+
+        return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
+
+    def _predict_point_and_cov(self, X, full=False, point=True, cov=False):
+        n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
+        alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
+        parameter = np.einsum('ijk,ik->ij', invjac, alpha)
 
-        slices = self.slices_
-        n_jobs, _, _ = _partition_estimators(len(slices), self.n_jobs)
-        alpha_bags = np.array(Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
-            delayed(self.predict_alpha)(X, slice=sl, parallel=False) for sl in slices))
-        jac_bags = np.array(Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
-            delayed(self.predict_jac)(X, slice=sl, parallel=False) for sl in slices))
-        moment_bags = alpha_bags - np.einsum('tijk,ik->tij', jac_bags, parameter)
-        moment_bags = np.moveaxis(moment_bags, 0, -1)
-        param_cov = np.einsum('tij,tjk->tik', moment_bags,
-                              np.transpose(moment_bags, (0, 2, 1))) / len(slices)
+        if cov:
+            if not self.inference:
+                raise AttributeError("Inference not available. Forest was initiated with `inference=False`.")
+            slices = self.slices_
+            n_jobs, _, _ = _partition_estimators(len(slices), self.n_jobs)
+            alpha_bags, jac_bags = zip(*Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
+                delayed(self.predict_alpha_and_jac)(X, slice=sl, parallel=False) for sl in slices))
+            alpha_bags = np.array(alpha_bags)
+            jac_bags = np.array(jac_bags)
+            moment_bags = alpha_bags - np.einsum('tijk,ik->tij', jac_bags, parameter)
+            moment_bags = np.moveaxis(moment_bags, 0, -1)
+            param_cov = np.einsum('tij,tjk->tik', moment_bags,
+                                  np.transpose(moment_bags, (0, 2, 1))) / len(slices)
 
-        pred_cov = np.einsum('ijk,ikm->ijm', np.transpose(invjac, (0, 2, 1)),
-                             np.einsum('ijk,ikm->ijm', param_cov, invjac))
-        if point:
-            return (pred_cov[:, :self.n_relevant_outputs_, :self.n_relevant_outputs_],
-                    parameter[:, :self.n_relevant_outputs_])
-        return pred_cov[:, :self.n_relevant_outputs_, :self.n_relevant_outputs_]
+            pred_cov = np.einsum('ijk,ikm->ijm', np.transpose(invjac, (0, 2, 1)),
+                                 np.einsum('ijk,ikm->ijm', param_cov, invjac))
+        if point and cov:
+            return (parameter[:, :n_outputs],
+                    pred_cov[:, :n_outputs, :n_outputs],)
+        elif point:
+            return parameter[:, :n_outputs]
+        else:
+            return pred_cov[:, :n_outputs, :n_outputs]
+
+    def predict_full(self, X, interval=False, alpha=0.05):
+        if interval:
+            point, pred_cov = self._predict_point_and_cov(X, full=True, point=True, cov=True)
+            lb, ub = np.zeros(point.shape), np.zeros(point.shape)
+            for t in range(self.n_outputs_):
+                lb[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
+                ub[:, t] = scipy.stats.norm.ppf(1 - alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
+            return point, lb, ub
+        return self._predict_point_and_cov(X, full=True, point=True, cov=False)
+
+    def predict(self, X, interval=False, alpha=0.05):
+        if interval:
+            y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha)
+            if self.n_relevant_outputs_ == self.n_outputs_:
+                return y_hat, lb, ub
+            return (y_hat[:, :self.n_relevant_outputs_],
+                    lb[:, :self.n_relevant_outputs_], ub[:, :self.n_relevant_outputs_])
+        else:
+            y_hat = self.predict_full(X, interval=interval, alpha=alpha)
+            if self.n_relevant_outputs_ == self.n_outputs_:
+                return y_hat
+            return y_hat[:, :self.n_relevant_outputs_]
 
     def predict_cov(self, X):
-        return self._predict_cov(X)
+        return self._predict_point_and_cov(X, full=False, point=False, cov=True)
 
     def predict_interval(self, X, alpha=.05):
-        pred_cov, point = self._predict_cov(X, point=True)
-        lower, upper = np.zeros(point.shape), np.zeros(point.shape)
-        for t in range(self.n_relevant_outputs_):
-            lower[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
-            upper[:, t] = scipy.stats.norm.ppf(1 - alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
-        return lower, upper
+        _, lb, ub = self.predict(X, interval=True, alpha=alpha)
+        return lb, ub
+
+    def prediction_stderr(self, X):
+        return np.diagonal(self.predict_cov(X), axis1=1, axis2=2)
+
 
 # =============================================================================
 # Instantiations of Generalized Random Forest

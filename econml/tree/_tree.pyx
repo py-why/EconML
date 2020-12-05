@@ -565,6 +565,16 @@ cdef class Tree:
         out = self._get_precond_ndarray().take(self.apply(X), axis=0,
                                                mode='clip')
         return out
+    
+    cpdef predict_precond_and_jac(self, object X):
+        if not self.store_jac:
+            raise AttributeError("Preconditioned quantity computation was not enalbed. Set store_jac=True")
+        leafs = self.apply(X)
+        precond = self._get_precond_ndarray().take(leafs, axis=0,
+                                                   mode='clip')
+        jac = self._get_jac_ndarray().take(leafs, axis=0,
+                                           mode='clip')
+        return precond, jac
 
     cpdef np.ndarray apply(self, object X):
         return self._apply(X)
