@@ -202,9 +202,11 @@ class GRFTree(BaseEstimator):
                                            n_samples, samples_val.shape[0])
         else:
             criterion = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_features_, self.n_y_, n_samples, samples_train.shape[0])
+                self.n_outputs_, self.n_features_, self.n_y_, n_samples,
+                np.count_nonzero(sample_weight[samples_train]))
             criterion_val = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_features_, self.n_y_, n_samples, samples_val.shape[0])
+                self.n_outputs_, self.n_features_, self.n_y_, n_samples,
+                np.count_nonzero(sample_weight[samples_val]))
 
         splitter = self.splitter
         if not isinstance(self.splitter, Splitter):

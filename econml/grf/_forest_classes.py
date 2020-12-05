@@ -64,7 +64,7 @@ def _generate_sample_indices(random_state, n_samples, n_samples_subsample):
 
 
 def _parallel_build_trees(tree, forest, X, yaug, n_y, n_outputs, n_relevant_outputs,
-                          sample_weight, tree_idx, n_trees,
+                          sample_weight, tree_idx, n_trees, halfsample_seed,
                           verbose=0, n_samples_subsample=None):
     """
     Private function used to fit a single tree in parallel."""
@@ -80,6 +80,10 @@ def _parallel_build_trees(tree, forest, X, yaug, n_y, n_outputs, n_relevant_outp
     indices = _generate_sample_indices(tree.random_state, n_samples, n_samples_subsample)
     sample_counts = np.zeros(n_samples)
     sample_counts[indices] = 1.0
+    if halfsample_seed is not None:
+        halfsample_nonindices = _generate_sample_indices(check_random_state(halfsample_seed),
+                                                         n_samples, n_samples // 2)
+        sample_counts[halfsample_nonindices] = 0.0
     curr_sample_weight *= sample_counts
 
     tree.fit(X, yaug, n_y, n_outputs, n_relevant_outputs, sample_weight=curr_sample_weight, check_input=False)
@@ -125,6 +129,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  max_samples=.9,
                  min_balancedness_tol=.3,
                  honest=True,
+                 inference=True,
                  n_jobs=None,
                  random_state=None,
                  verbose=0,
@@ -147,6 +152,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.min_impurity_decrease = min_impurity_decrease
         self.min_balancedness_tol = min_balancedness_tol
         self.honest = honest
+        self.inference = inference
         self.n_jobs = n_jobs
         self.random_state = random_state
         self.verbose = verbose
@@ -295,6 +301,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         if not self.warm_start or not hasattr(self, "estimators_"):
             # Free allocated memory, if any
             self.estimators_ = []
+            self.slices_ = []
 
         n_more_estimators = self.n_estimators - len(self.estimators_)
 
@@ -316,21 +323,41 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                           random_state=random_state)
                      for i in range(n_more_estimators)]
 
-            # Parallel loop: we prefer the threading backend as the Cython code
-            # for fitting the trees is internally releasing the Python GIL
-            # making threading more efficient than multiprocessing in
-            # that case. However, for joblib 0.12+ we respect any
-            # parallel_backend contexts set at a higher level,
-            # since correctness does not rely on using threads.
-            trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                delayed(_parallel_build_trees)(
-                    t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                    sample_weight, i, len(trees),
-                    verbose=self.verbose, n_samples_subsample=n_samples_subsample)
-                for i, t in enumerate(trees))
+            if self.inference:
+                new_slices = np.array_split(np.arange(len(self.estimators_),
+                                                      len(self.estimators_) + n_more_estimators),
+                                            int(np.ceil(np.sqrt(n_more_estimators))))
 
-            # Collect newly grown trees
-            self.estimators_.extend(trees)
+                # Parallel loop: we prefer the threading backend as the Cython code
+                # for fitting the trees is internally releasing the Python GIL
+                # making threading more efficient than multiprocessing in
+                # that case. However, for joblib 0.12+ we respect any
+                # parallel_backend contexts set at a higher level,
+                # since correctness does not rely on using threads.
+                halfsample_state = check_random_state(random_state.randint(MAX_INT))
+                for sl in new_slices:
+                    halfsample_seed = halfsample_state.randint(MAX_INT)
+                    Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
+                        delayed(_parallel_build_trees)(
+                            trees[s - len(self.estimators_)],
+                            self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
+                            sample_weight, i, len(trees), halfsample_seed,
+                            verbose=self.verbose, n_samples_subsample=n_samples_subsample)
+                        for i, s in enumerate(sl))
+
+                # Collect newly grown trees
+                self.estimators_.extend(trees)
+                self.slices_.extend(list(new_slices))
+
+            else:
+                trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
+                    delayed(_parallel_build_trees)(
+                        t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
+                        sample_weight, i, len(trees), None,
+                        verbose=self.verbose, n_samples_subsample=n_samples_subsample)
+                    for i, t in enumerate(trees))
+
+                self.estimators_.extend(trees)
 
         return self
 
@@ -495,18 +522,19 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             return y_hat
         return y_hat[:, :self.n_relevant_outputs_]
 
-    def predict_cov(self, X):
+    def _predict_cov(self, X, point=False):
+        if not self.inference:
+            raise AttributeError("Inference not available. Forest was initiated with `inference=False`.")
         parameter = self.predict_full(X)
         jac = self.predict_jac(X)
         invjac = np.linalg.pinv(jac)
 
-        slices = np.array_split(np.arange(len(self.estimators_)), 100)
-        alpha_bags = np.zeros((len(slices),) + (X.shape[0], self.n_outputs_))
-        for it, sl in enumerate(slices):
-            alpha_bags[it] = self.predict_alpha(X, slice=sl, parallel=False)
-        jac_bags = np.zeros((len(slices),) + (X.shape[0], self.n_outputs_, self.n_outputs_))
-        for it, sl in enumerate(slices):
-            jac_bags[it] = self.predict_jac(X, slice=sl, parallel=False)
+        slices = self.slices_
+        n_jobs, _, _ = _partition_estimators(len(slices), self.n_jobs)
+        alpha_bags = np.array(Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
+            delayed(self.predict_alpha)(X, slice=sl, parallel=False) for sl in slices))
+        jac_bags = np.array(Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
+            delayed(self.predict_jac)(X, slice=sl, parallel=False) for sl in slices))
         moment_bags = alpha_bags - np.einsum('tijk,ik->tij', jac_bags, parameter)
         moment_bags = np.moveaxis(moment_bags, 0, -1)
         param_cov = np.einsum('tij,tjk->tik', moment_bags,
@@ -514,16 +542,20 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         pred_cov = np.einsum('ijk,ikm->ijm', np.transpose(invjac, (0, 2, 1)),
                              np.einsum('ijk,ikm->ijm', param_cov, invjac))
-
+        if point:
+            return (pred_cov[:, :self.n_relevant_outputs_, :self.n_relevant_outputs_],
+                    parameter[:, :self.n_relevant_outputs_])
         return pred_cov[:, :self.n_relevant_outputs_, :self.n_relevant_outputs_]
 
-    def predict_interval(self, X):
-        pred_cov = self.predict_cov(X)
-        point = self.predict(X)
+    def predict_cov(self, X):
+        return self._predict_cov(X)
+
+    def predict_interval(self, X, alpha=.05):
+        pred_cov, point = self._predict_cov(X, point=True)
         lower, upper = np.zeros(point.shape), np.zeros(point.shape)
         for t in range(self.n_relevant_outputs_):
-            lower[:, t] = scipy.stats.norm.ppf(.01, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
-            upper[:, t] = scipy.stats.norm.ppf(.99, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
+            lower[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
+            upper[:, t] = scipy.stats.norm.ppf(1 - alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
         return lower, upper
 
 # =============================================================================
