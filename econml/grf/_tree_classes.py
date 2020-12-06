@@ -83,24 +83,30 @@ class GRFTree(BaseEstimator):
 
     def fit(self, X, y, n_y, n_outputs, n_relevant_outputs, sample_weight=None, check_input=True):
 
-        random_state = check_random_state(self.random_state)
+        random_state = self.random_state  # if check_input=False, this is assumed to be an instance of RandomState
 
         # Determine output settings
         n_samples, self.n_features_ = X.shape
-
-        y = np.atleast_1d(y)
-
-        if y.ndim == 1:
-            # reshape is necessary to preserve the data contiguity against vs
-            # [:, np.newaxis] that does not.
-            y = np.reshape(y, (-1, 1))
-
         self.n_outputs_ = n_outputs
         self.n_relevant_outputs_ = n_relevant_outputs
         self.n_y_ = n_y
 
-        if getattr(y, "dtype", None) != DOUBLE or not y.flags.contiguous:
-            y = np.ascontiguousarray(y, dtype=DOUBLE)
+        if check_input:
+            random_state = check_random_state(self.random_state)
+
+            if getattr(y, "dtype", None) != DOUBLE or not y.flags.contiguous:
+                y = np.ascontiguousarray(y, dtype=DOUBLE)
+            y = np.atleast_1d(y)
+            if y.ndim == 1:
+                # reshape is necessary to preserve the data contiguity against vs
+                # [:, np.newaxis] that does not.
+                y = np.reshape(y, (-1, 1))
+            if len(y) != n_samples:
+                raise ValueError("Number of labels=%d does not match "
+                                 "number of samples=%d" % (len(y), n_samples))
+
+            if (sample_weight is not None):
+                sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
 
         # Check parameters
         max_depth = (np.iinfo(np.int32).max if self.max_depth is None
@@ -161,9 +167,6 @@ class GRFTree(BaseEstimator):
 
         self.max_features_ = max_features
 
-        if len(y) != n_samples:
-            raise ValueError("Number of labels=%d does not match "
-                             "number of samples=%d" % (len(y), n_samples))
         if not 0 <= self.min_weight_fraction_leaf <= 0.5:
             raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
         if max_depth <= 0:
@@ -172,9 +175,6 @@ class GRFTree(BaseEstimator):
             raise ValueError("max_features must be in (0, n_features]")
         if not 0 <= self.min_balancedness_tol <= 0.5:
             raise ValueError("min_balancedness_tol must be in [0, 0.5]")
-
-        if sample_weight is not None:
-            sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
 
         # Set min_weight_leaf from min_weight_fraction_leaf
         if sample_weight is None:
@@ -186,8 +186,8 @@ class GRFTree(BaseEstimator):
 
         inds = np.arange(n_samples, dtype=np.intp)
         if self.honest:
-            perms = random_state.permutation(inds)
-            samples_train, samples_val = perms[:n_samples // 2], perms[n_samples // 2:]
+            random_state.shuffle(inds)
+            samples_train, samples_val = inds[:n_samples // 2], inds[n_samples // 2:]
         else:
             samples_train, samples_val = inds, inds
 
@@ -218,7 +218,7 @@ class GRFTree(BaseEstimator):
                                                 min_weight_leaf,
                                                 self.min_balancedness_tol,
                                                 self.honest,
-                                                random_state)
+                                                random_state.randint(np.iinfo(np.int32).max))
 
         self.tree_ = Tree(self.n_features_, self.n_outputs_, self.n_relevant_outputs_, store_jac=True)
 

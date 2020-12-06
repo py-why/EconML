@@ -12,7 +12,7 @@ import numpy as np
 cimport numpy as np
 np.import_array()
 
-from ._utils cimport pinv_
+from ._utils cimport matinv_, pinv_
 
 from sklearn.linear_model import Lasso
 
@@ -123,6 +123,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
             if sample_weight != NULL:
                 w = sample_weight[i]
             for k in range(n_outputs):
+                J[k + k * n_outputs] += 1e-6
                 for j in range(n_outputs):
                     J[j + k * n_outputs] += w * pointJ[i, j + k * n_outputs]
             local_weighted_n_node_samples += w
@@ -136,7 +137,8 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         if n_outputs == 1:
             invJ[0] = 1.0 / J[0] if fabs(J[0]) > 0 else 0.0
         else:
-            pinv_(J, invJ, n_outputs, n_outputs)
+            if not matinv_(J, invJ, n_outputs):
+                pinv_(J, invJ, n_outputs, n_outputs)
         weighted_n_node_samples[0] = local_weighted_n_node_samples
 
         return 0

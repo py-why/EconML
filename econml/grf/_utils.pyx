@@ -6,6 +6,7 @@ from libc.stdlib cimport free
 from libc.stdlib cimport malloc
 from libc.stdlib cimport calloc
 from libc.stdlib cimport realloc
+from libc.string cimport memcpy
 from libc.math cimport log as ln
 from libc.stdlib cimport abort
 
@@ -67,78 +68,47 @@ cdef void matmul_(DOUBLE_t* a, int lda, int col_a, DOUBLE_t* b, int ldb, int col
     dgemm(TransA, TransB, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, out, &ldc)
 
 
-cpdef void matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil:
+cpdef bint matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil:
     cdef int m, n
     m = a.shape[0]
-    n = a.shape[1]
-    matinv_(&a[0, 0], &inv_a[0, 0], m, n)
+    if not (m == a.shape[1]):
+        raise ValueError("Can only invert square matrices!")
+    return matinv_(&a[0, 0], &inv_a[0, 0], m)
 
-cdef void matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m, int n) nogil:
+cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) nogil:
     cdef:
-        #array pointers
         int* pivot
-        int* IWORK
         DOUBLE_t* work
-        DOUBLE_t* work_dgecon
-        
-        #variables characterizing the arrays
         int lda, INFO, Lwork
-        double ANORM, RCOND, sing_tol = 1e-12
-        
-        #setting for the functions
-        char* NORM = 'I' #The infinity norm (consistent use between dlange & dgecon)
-        char* UPLO = 'O' #Any letter other then 'U' or 'L' will copy entire array
-    
-    #Dimensions of arrays
-    lda = m
-    # TODO. maybe we should be doing a prelim call to get the optimal work size
-    Lwork = m**2
+        bint failed
 
-    #manually allocate memory
-    #Note: 'work' can be used by both dlange and dgetri as its construction is the same
+    lda = m
+    Lwork = m**2
     pivot = <int*> malloc(m * sizeof(int))
-    IWORK = <int*> malloc(n * sizeof(int))
     work = <DOUBLE_t*> malloc(Lwork * sizeof(DOUBLE_t))
-    work_dgecon = <DOUBLE_t*> malloc(4*n * sizeof(DOUBLE_t))
-    
-    if (pivot==NULL or IWORK==NULL
-        or work==NULL or work_dgecon==NULL): 
-            abort()
+    failed = False
+    if (pivot==NULL or work==NULL):
+        with gil:
+            raise MemoryError()
     
     try:
-        #First, create a copy of the array to invert
-        dlacpy(UPLO, &m, &n, a, &lda, inv_a, &lda)
-        
-        #Next, compute the NORM(a) on the a_copy to preserve array a
-        ANORM = dlange(NORM, &m, &n, inv_a, &lda, work)
+        memcpy(inv_a, a, m * m * sizeof(DOUBLE_t))
         
         #Conduct the LU factorization of the array a
-        dgetrf(&m, &n, inv_a, &lda, pivot, &INFO)
-        
-        #Check that LU factorization was successful:
-        if INFO==0:
-        
-            #Now use dgecon to check that the array is invertible (non-singular)
-            dgecon(NORM, &n, inv_a, &lda, &ANORM, &RCOND, work_dgecon, IWORK, &INFO)
-            
-            if RCOND > sing_tol:
-       
-                #Now use the LU factorization and the pivot information to invert
-                dgetri(&n, inv_a, &lda, pivot, work, &Lwork, &INFO)
-            
-            else: 
-                with gil:
-                    raise ValueError("Array is singular and will not be inverted. Condition number: %lf" % RCOND)
-            
-        else: 
-            with gil:
-                raise ValueError("The factor U is singular")
-        
+        dgetrf(&m, &m, inv_a, &lda, pivot, &INFO)
+        if not (INFO == 0):
+            failed = True
+        else:
+            #Now use the LU factorization and the pivot information to invert
+            dgetri(&m, inv_a, &lda, pivot, work, &Lwork, &INFO)
+            if not (INFO == 0):
+                failed = True
     finally:
         free(pivot)
         free(work)
-        free(work_dgecon)
-        free(IWORK)
+
+    return (not failed)
+    
 
 
 cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol, bint copy_b=True) nogil:

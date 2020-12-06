@@ -42,7 +42,6 @@ cdef class Splitter:
     cdef public double min_balancedness_tol # Tolerance level of how balanced a split can be (in [0, .5])
     cdef public bint honest
 
-    cdef object random_state             # Random state
     cdef UINT32_t rand_r_state           # sklearn_rand_r random number state
 
     cdef SIZE_t* samples                 # Sample indices in X, y
@@ -88,10 +87,10 @@ cdef class Splitter:
                               DOUBLE_t* sample_weight,
                               SIZE_t* n_samples, double* weighted_n_samples) nogil except -1
 
-    cdef int init(self, object X, const DOUBLE_t[:, ::1] y,
+    cdef int init(self, const DTYPE_t[:, :] X, const DOUBLE_t[:, ::1] y,
                   DOUBLE_t* sample_weight,
                   const SIZE_t[::1] np_samples_train,
-                  const SIZE_t[::1] np_samples_val) except -1
+                  const SIZE_t[::1] np_samples_val) nogil except -1
 
     cdef int node_reset(self, SIZE_t start, SIZE_t end, double* weighted_n_node_samples,
                         SIZE_t start_val, SIZE_t end_val, double* weighted_n_node_samples_val) nogil except -1

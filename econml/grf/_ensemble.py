@@ -53,7 +53,7 @@ def _set_random_states(estimator, random_state=None):
     to_set = {}
     for key in sorted(estimator.get_params(deep=True)):
         if key == 'random_state' or key.endswith('__random_state'):
-            to_set[key] = random_state.randint(np.iinfo(np.int32).max)
+            to_set[key] = np.random.RandomState(random_state.randint(np.iinfo(np.int32).max))
 
     if to_set:
         estimator.set_params(**to_set)

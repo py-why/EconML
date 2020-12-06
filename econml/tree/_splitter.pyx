@@ -88,7 +88,7 @@ cdef class Splitter:
         self.min_weight_leaf = min_weight_leaf
         self.min_balancedness_tol = min_balancedness_tol
         self.honest = honest
-        self.random_state = random_state
+        self.rand_r_state = random_state
 
     def __dealloc__(self):
         """Destructor."""
@@ -129,10 +129,10 @@ cdef class Splitter:
         # Number of samples is number of positively weighted samples
         n_samples[0] = j
 
-    cdef int init(self, object X, const DOUBLE_t[:, ::1] y,
+    cdef int init(self, const DTYPE_t[:, :] X, const DOUBLE_t[:, ::1] y,
                   DOUBLE_t* sample_weight,
                   const SIZE_t[::1] np_samples_train,
-                  const SIZE_t[::1] np_samples_val) except -1:
+                  const SIZE_t[::1] np_samples_val) nogil except -1:
         """Initialize the splitter.
         Take in the input data X, T, W, Z, the target Y.
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
@@ -145,7 +145,7 @@ cdef class Splitter:
             This is the vector of targets, or true labels, for the samples
         """
 
-        self.rand_r_state = self.random_state.randint(0, RAND_R_MAX)
+        cdef SIZE_t n_features = X.shape[1]
         cdef SIZE_t n_samples = np_samples_train.shape[0]
 
         # Create a new array which will be used to store nonzero
@@ -155,7 +155,6 @@ cdef class Splitter:
         self.init_sample_inds(self.samples, np_samples_train, sample_weight,
                          &self.n_samples, &self.weighted_n_samples)
 
-        cdef SIZE_t n_features = X.shape[1]
         cdef SIZE_t* features = safe_realloc(&self.features, n_features)
 
         for i in range(n_features):
@@ -166,6 +165,7 @@ cdef class Splitter:
         safe_realloc(&self.feature_values, self.n_samples)
         safe_realloc(&self.constant_features, self.n_features)
 
+        self.X = X
         self.y = y
         self.sample_weight = sample_weight
 
@@ -266,29 +266,9 @@ cdef class Splitter:
     cdef bint is_children_impurity_proxy(self) nogil:
         return (self.criterion.proxy_children_impurity or
                 self.criterion_val.proxy_children_impurity)
-    
-
-cdef class BaseDenseSplitter(Splitter):
-
-    cdef int init(self, object X, const DOUBLE_t[:, ::1] y,
-                  DOUBLE_t* sample_weight,
-                  const SIZE_t[::1] np_samples_train,
-                  const SIZE_t[::1] np_samples_val) except -1:
-        """Initialize the splitter
-        Returns -1 in case of failure to allocate memory (and raise MemoryError)
-        or 0 otherwise.
-        """
-
-        # Call parent init
-        Splitter.init(self, X, y, sample_weight,
-                      np_samples_train, np_samples_val)
-
-        self.X = X
-
-        return 0
 
 
-cdef class BestSplitter(BaseDenseSplitter):
+cdef class BestSplitter(Splitter):
     """Splitter for finding the best split."""
     def __reduce__(self):
         return (BestSplitter, (self.criterion,

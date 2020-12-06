@@ -13,9 +13,9 @@ cpdef void matmul(DOUBLE_t[::1,:] a, DOUBLE_t[::1,:] b,
 cdef void matmul_(DOUBLE_t* a, int lda, int col_a, DOUBLE_t* b, int ldb, int col_b,
                   DOUBLE_t* out, char* TransA, char* TransB) nogil
 
-cpdef void matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil
+cpdef bint matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil
 
-cdef void matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m, int n) nogil
+cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) nogil
 
 cpdef void lstsq(DOUBLE_t[::1,:] a, DOUBLE_t[::1,:] b, DOUBLE_t[::1, :] sol, bint copy_b=*) nogil
 

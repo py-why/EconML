@@ -74,7 +74,7 @@ def _parallel_build_trees(tree, forest, X, yaug, n_y, n_outputs, n_relevant_outp
     if sample_weight is not None:
         sample_weight = sample_weight[subinds]
 
-    tree.fit(np.asfortranarray(X[subinds]), yaug[subinds], n_y, n_outputs, n_relevant_outputs,
+    tree.fit(X[subinds], yaug[subinds], n_y, n_outputs, n_relevant_outputs,
              sample_weight=sample_weight, check_input=False)
 
     return tree
@@ -275,7 +275,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             yaug = np.ascontiguousarray(yaug, dtype=DOUBLE)
 
         if getattr(X, "dtype", None) != DTYPE:
-            X = np.asfortranarray(X, dtype=DTYPE)
+            X = X.astype(DTYPE)
 
         # Get bootstrap sample size
         n_samples_subsample = _get_n_samples_subsample(
@@ -335,12 +335,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # that case. However, for joblib 0.12+ we respect any
                 # parallel_backend contexts set at a higher level,
                 # since correctness does not rely on using threads.
+                # trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
+                #     delayed(_parallel_build_trees)(
+                #         t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
+                #         sample_weight, i, len(trees), s,
+                #         verbose=self.verbose)
+                #     for i, (t, s) in enumerate(zip(trees, s_inds)))
+
                 trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                    delayed(_parallel_build_trees)(
-                        t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                        sample_weight, i, len(trees), s,
-                        verbose=self.verbose)
-                    for i, (t, s) in enumerate(zip(trees, s_inds)))
+                    delayed(t.fit)(X[s], yaug[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
+                                   sample_weight[s] if sample_weight is not None else None)
+                    for t, s in zip(trees, s_inds))
 
                 # Collect newly grown trees
                 self.estimators_.extend(trees)
@@ -441,7 +446,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         # avoid storing the output of every estimator by summing them here
         if self.n_outputs_ > 1:
-            y_hat = np.zeros((X.shape[0], self.n_relevant_outputs_), dtype=np.float64)
+            y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
         else:
             y_hat = np.zeros((X.shape[0]), dtype=np.float64)
 
