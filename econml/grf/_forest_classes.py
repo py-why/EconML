@@ -74,7 +74,7 @@ def _parallel_build_trees(tree, forest, X, yaug, n_y, n_outputs, n_relevant_outp
     if sample_weight is not None:
         sample_weight = sample_weight[subinds]
 
-    tree.fit(X[subinds], yaug[subinds], n_y, n_outputs, n_relevant_outputs,
+    tree.fit(np.asfortranarray(X[subinds]), yaug[subinds], n_y, n_outputs, n_relevant_outputs,
              sample_weight=sample_weight, check_input=False)
 
     return tree
@@ -117,7 +117,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  max_features="auto",
                  min_impurity_decrease=0.,
                  max_samples=.9,
-                 min_balancedness_tol=.3,
+                 min_balancedness_tol=.45,
                  honest=True,
                  inference=True,
                  n_jobs=None,
@@ -274,7 +274,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         if getattr(yaug, "dtype", None) != DOUBLE or not yaug.flags.contiguous:
             yaug = np.ascontiguousarray(yaug, dtype=DOUBLE)
 
-        if getattr(X, "dtype", None) != DTYPE or not X.flags.f_contiguous:
+        if getattr(X, "dtype", None) != DTYPE:
             X = np.asfortranarray(X, dtype=DTYPE)
 
         # Get bootstrap sample size

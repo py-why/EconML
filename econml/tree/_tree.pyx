@@ -79,7 +79,7 @@ cdef class TreeBuilder:
         """Check input dtype, layout and format"""
         
         # since we have to copy and perform linear algebra we will make it fortran for efficiency
-        if X.dtype != DTYPE or not X.flags.f_contiguous:
+        if X.dtype != DTYPE:
             X = np.asfortranarray(X, dtype=DTYPE)
 
         if y.dtype != DOUBLE or not y.flags.contiguous:
@@ -381,7 +381,8 @@ cdef class Tree:
 
     def __reduce__(self):
         """Reduce re-implementation, for pickling."""
-        return (Tree, (self.n_features, self.n_outputs, self.store_jac), self.__getstate__())
+        return (Tree, (self.n_features, self.n_outputs,
+                       self.n_relevant_outputs, self.store_jac), self.__getstate__())
 
     def __getstate__(self):
         """Getstate re-implementation, for pickling."""

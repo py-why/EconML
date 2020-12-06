@@ -62,7 +62,7 @@ cdef class Splitter:
     cdef SIZE_t start_val                    # Start position for the current node for samples_val
     cdef SIZE_t end_val                      # End position for the current node for samples_val
 
-    cdef const DTYPE_t[::1, :] X
+    cdef const DTYPE_t[:, :] X
     cdef const DOUBLE_t[:, ::1] y
     cdef DOUBLE_t* sample_weight
 

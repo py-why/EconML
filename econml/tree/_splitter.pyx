@@ -6,6 +6,7 @@ from ._criterion cimport Criterion
 
 from libc.stdlib cimport free
 from libc.string cimport memcpy
+from libc.math cimport floor
 
 import copy
 import numpy as np
@@ -427,7 +428,7 @@ cdef class BestSplitter(BaseDenseSplitter):
                     self.criterion.reset()
                     if self.honest:
                         self.criterion_val.reset()
-                    p = start
+                    p = start + <int>floor((.5 - self.min_balancedness_tol) * (end - start))
                     p_val = start_val
 
                     while p < end and p_val < end_val:
@@ -463,35 +464,37 @@ cdef class BestSplitter(BaseDenseSplitter):
                             current.pos_val = p_val
 
                             # Reject if imbalanced
-                            if (((current.pos - start) < (.5 - self.min_balancedness_tol) * (end - start)) or
-                                ((end - current.pos) < (.5 - self.min_balancedness_tol) * (end - start))):
+                            if (end - current.pos) < (.5 - self.min_balancedness_tol) * (end - start):
+                                break
+                            if (current.pos_val - start_val) < (.5 - self.min_balancedness_tol) * (end_val - start_val):
                                 continue
-                            if (((current.pos_val - start_val) < 
-                                    (.5 - self.min_balancedness_tol) * (end_val - start_val)) or
-                                ((end_val - current.pos_val) <
-                                    (.5 - self.min_balancedness_tol) * (end_val - start_val))):
-                                continue
+                            if (end_val - current.pos_val) < (.5 - self.min_balancedness_tol) * (end_val - start_val):
+                                break
 
                             # Reject if min_samples_leaf is not guaranteed
-                            if (((current.pos - start) < min_samples_leaf) or
-                                    ((end - current.pos) < min_samples_leaf)):
+                            if (current.pos - start) < min_samples_leaf:
                                 continue
+                            if (end - current.pos) < min_samples_leaf:
+                                break
                             # Reject if min_samples_leaf is not guaranteed on val
-                            if (((current.pos_val - start_val) < min_samples_leaf) or
-                                    ((end_val - current.pos_val) < min_samples_leaf)):
+                            if (current.pos_val - start_val) < min_samples_leaf:
                                 continue
+                            if (end_val - current.pos_val) < min_samples_leaf:
+                                break
 
                             self.criterion.update(current.pos)
                             # Reject if min_weight_leaf is not satisfied
-                            if ((self.criterion.weighted_n_left < min_weight_leaf) or
-                                    (self.criterion.weighted_n_right < min_weight_leaf)):
+                            if self.criterion.weighted_n_left < min_weight_leaf:
                                 continue
+                            if self.criterion.weighted_n_right < min_weight_leaf:
+                                break
 
                             if self.honest:
                                 self.criterion_val.update(current.pos_val)
-                                if ((self.criterion_val.weighted_n_left < min_weight_leaf) or
-                                        (self.criterion_val.weighted_n_right < min_weight_leaf)):
+                                if self.criterion_val.weighted_n_left < min_weight_leaf:
                                     continue
+                                if self.criterion_val.weighted_n_right < min_weight_leaf:
+                                    break
 
                             current_proxy_improvement = self.criterion.proxy_impurity_improvement()
 

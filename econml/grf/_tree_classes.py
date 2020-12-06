@@ -45,7 +45,7 @@ class GRFTree(BaseEstimator):
                  max_features=None,
                  random_state=None,
                  min_impurity_decrease=0.,
-                 min_balancedness_tol=0.3,
+                 min_balancedness_tol=0.45,
                  honest=True):
         self.criterion = criterion
         self.splitter = splitter
