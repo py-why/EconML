@@ -200,12 +200,15 @@ class GRFTree(BaseEstimator):
             criterion_val = self.criterion(self.n_outputs_, self.n_features_, self.n_y_,
                                            n_samples, samples_val.shape[0])
         else:
+            max_train = len(samples_train) if sample_weight is None else np.count_nonzero(sample_weight[samples_train])
             criterion = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_features_, self.n_y_, n_samples,
-                np.count_nonzero(sample_weight[samples_train]))
-            criterion_val = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_features_, self.n_y_, n_samples,
-                np.count_nonzero(sample_weight[samples_val]))
+                self.n_outputs_, self.n_features_, self.n_y_, n_samples, max_train)
+            if self.honest:
+                max_val = len(samples_val) if sample_weight is None else np.count_nonzero(sample_weight[samples_val])
+                criterion_val = CRITERIA_GRF[self.criterion](
+                    self.n_outputs_, self.n_features_, self.n_y_, n_samples, max_val)
+            else:
+                criterion_val = criterion
 
         splitter = self.splitter
         if not isinstance(self.splitter, Splitter):
@@ -214,6 +217,7 @@ class GRFTree(BaseEstimator):
                                                 min_samples_leaf,
                                                 min_weight_leaf,
                                                 self.min_balancedness_tol,
+                                                self.honest,
                                                 random_state)
 
         self.tree_ = Tree(self.n_features_, self.n_outputs_, self.n_relevant_outputs_, store_jac=True)

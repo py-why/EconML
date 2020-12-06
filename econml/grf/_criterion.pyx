@@ -109,9 +109,9 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                                   DOUBLE_t* sample_weight,
                                   SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1:
         cdef SIZE_t i, j, k, p
-        cdef double w
+        cdef double w, local_weighted_n_node_samples
         cdef SIZE_t n_outputs = self.n_outputs
-        weighted_n_node_samples[0] = 0.0
+        local_weighted_n_node_samples = 0.0
 
         # Init jacobian matrix to zero
         memset(J, 0, n_outputs * n_outputs * sizeof(DOUBLE_t))
@@ -125,15 +125,19 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
             for k in range(n_outputs):
                 for j in range(n_outputs):
                     J[j + k * n_outputs] += w * pointJ[i, j + k * n_outputs]
-            weighted_n_node_samples[0] += w
+            local_weighted_n_node_samples += w
 
         # Normalize
         for k in range(n_outputs):
             for j in range(n_outputs):
-                J[j + k * n_outputs] /= weighted_n_node_samples[0]
+                J[j + k * n_outputs] /= local_weighted_n_node_samples
         
         # Calcualte inverse and store it in invJ
-        pinv_(J, invJ, n_outputs, n_outputs)
+        if n_outputs == 1:
+            invJ[0] = 1.0 / J[0] if fabs(J[0]) > 0 else 0.0
+        else:
+            pinv_(J, invJ, n_outputs, n_outputs)
+        weighted_n_node_samples[0] = local_weighted_n_node_samples
 
         return 0
 
@@ -186,16 +190,19 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                     rho[j + offset * n_outputs] -= invJ[j + k * n_outputs] * moment[k + offset * n_outputs]
         return 0
 
-    cdef int node_reset_sums(self, DOUBLE_t* rho,
+    cdef int node_reset_sums(self, const DOUBLE_t[:, ::1] y, DOUBLE_t* rho,
                              DOUBLE_t* J,
                              DOUBLE_t* sample_weight, SIZE_t* samples,
                              DOUBLE_t* sum_total, DOUBLE_t* sq_sum_total,
+                             DOUBLE_t* y_sq_sum_total,
                              SIZE_t start, SIZE_t end) nogil except -1:
         cdef SIZE_t i, p, k, offset
         cdef DOUBLE_t y_ik, w_y_ik, w = 1.0
         cdef SIZE_t n_outputs = self.n_outputs
+        cdef SIZE_t n_y = self.n_y
 
         sq_sum_total[0] = 0.0
+        y_sq_sum_total[0] = 0.0
         memset(sum_total, 0, n_outputs * sizeof(double))
 
         for p in range(start, end):
@@ -210,6 +217,8 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                 w_y_ik = w * y_ik
                 sum_total[k] += w_y_ik
                 sq_sum_total[0] += w_y_ik * y_ik
+            for k in range(n_y):
+                y_sq_sum_total[0] += w * (y[i, k]**2)
 
         return 0
 
@@ -235,9 +244,9 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                             self.pointJ, self.alpha,
                             self.sample_weight, self.samples,
                             self.start, self.end)
-        self.node_reset_sums(self.rho, self.J,
+        self.node_reset_sums(self.y, self.rho, self.J,
                              self.sample_weight, self.samples,
-                             self.sum_total, &self.sq_sum_total,
+                             self.sum_total, &self.sq_sum_total, &self.y_sq_sum_total,
                              self.start, self.end)
 
         # Reset to pos=start
@@ -546,41 +555,19 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
     cdef double proxy_node_impurity(self) nogil:
         return LinearMomentGRFCriterion.node_impurity(self)
 
-    cdef double mse_impurity(self, SIZE_t start, SIZE_t end,
-                             DOUBLE_t* parameter, DOUBLE_t* J, const DOUBLE_t[:, ::1] y,
-                             DOUBLE_t* sample_weight, SIZE_t* samples,
-                             double weighted_n_node_samples) nogil except -1:
-        # E[y^2] - theta' J theta
-        cdef SIZE_t n_y = self.n_y
-        cdef SIZE_t n_outputs = self.n_outputs
-        cdef SIZE_t i, p, k, m
-        cdef DOUBLE_t y_ik, w_y_ik, w = 1.0
-        cdef double y_sq_sum_total = 0.0
-        cdef double impurity
-
-        for p in range(start, end):
-            i = samples[p]
-
-            if sample_weight != NULL:
-                w = sample_weight[i]
-
-            for k in range(n_y):
-                y_ik = y[i, k]
-                w_y_ik = w * y_ik
-                y_sq_sum_total += w_y_ik * y_ik
-
-        impurity = y_sq_sum_total / weighted_n_node_samples
-        for k in range(n_outputs):
-            for m in range(n_outputs):
-                impurity -= parameter[k] * parameter[m] * J[k + m * n_outputs]
-
-        return impurity
-
     cdef double node_impurity(self) nogil:
         """Evaluate the impurity of the current node, i.e. the impurity of
            samples[start:end]."""
-        return self.mse_impurity(self.start, self.end, self.parameter, self.J, self.y, 
-                                 self.sample_weight, self.samples, self.weighted_n_node_samples)
+        cdef SIZE_t k, m
+        cdef DOUBLE_t pk
+        cdef double impurity
+        cdef SIZE_t n_outputs = self.n_outputs
+        impurity = self.y_sq_sum_total / self.weighted_n_node_samples
+        for k in range(n_outputs):
+            pk = self.parameter[k]
+            for m in range(n_outputs):
+                impurity -= pk * self.parameter[m] * self.J[k + m * n_outputs]
+        return impurity
 
     cdef double proxy_impurity_improvement(self) nogil:
         """Compute a proxy of the impurity reduction
@@ -598,15 +585,16 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
         cdef DOUBLE_t* J_right = self.J_right
 
         cdef SIZE_t k, m
+        cdef double slm, srm
         cdef double proxy_impurity_left = 0.0
         cdef double proxy_impurity_right = 0.0
         for m in range(self.n_outputs):
+            slm = sum_left[m] / self.weighted_n_left
+            srm = sum_right[m] / self.weighted_n_right
             for k in range(self.n_outputs):
-                proxy_impurity_left += ((sum_left[k] / self.weighted_n_left) * 
-                                        (sum_left[m] / self.weighted_n_left) * 
+                proxy_impurity_left += ((sum_left[k] / self.weighted_n_left) * slm * 
                                         J_left[k + m * self.n_outputs])
-                proxy_impurity_right += ((sum_right[k] / self.weighted_n_right) * 
-                                         (sum_right[m] / self.weighted_n_right) *
+                proxy_impurity_right += ((sum_right[k] / self.weighted_n_right) * srm *
                                          J_right[k + m * self.n_outputs])
 
         return (proxy_impurity_left * self.weighted_n_node_samples +

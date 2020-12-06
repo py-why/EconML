@@ -50,7 +50,6 @@ def _set_random_states(estimator, random_state=None):
         * cross-validation splitters
         * ``scipy.stats`` rvs
     """
-    random_state = check_random_state(random_state)
     to_set = {}
     for key in sorted(estimator.get_params(deep=True)):
         if key == 'random_state' or key.endswith('__random_state'):

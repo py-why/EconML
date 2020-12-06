@@ -22,6 +22,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef DOUBLE_t* J
     cdef DOUBLE_t* invJ
     cdef SIZE_t* node_index_mapping
+    cdef DOUBLE_t y_sq_sum_total
 
     cdef int node_reset_jacobian(self, DOUBLE_t* J, DOUBLE_t* invJ, double* weighted_n_node_samples,
                                   const DOUBLE_t[:, ::1] pointJ,
@@ -37,16 +38,12 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                        const DOUBLE_t[:, ::1] pointJ, const DOUBLE_t[:, ::1] alpha,
                        DOUBLE_t* sample_weight, SIZE_t* samples, 
                        SIZE_t start, SIZE_t end) nogil except -1
-    cdef int node_reset_sums(self, DOUBLE_t* rho,
+    cdef int node_reset_sums(self, const DOUBLE_t[:, ::1] y, DOUBLE_t* rho,
                              DOUBLE_t* J,
                              DOUBLE_t* sample_weight, SIZE_t* samples,
-                             DOUBLE_t* sum_total, DOUBLE_t* sq_sum_total,
+                             DOUBLE_t* sum_total, DOUBLE_t* sq_sum_total, DOUBLE_t* y_sq_sum_total,
                              SIZE_t start, SIZE_t end) nogil except -1
 
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
     cdef DOUBLE_t* J_left
     cdef DOUBLE_t* J_right
-    cdef double mse_impurity(self, SIZE_t start, SIZE_t end,
-                             DOUBLE_t* parameter, DOUBLE_t* J, const DOUBLE_t[:, ::1] y,
-                             DOUBLE_t* sample_weight, SIZE_t* samples,
-                             double weighted_n_node_samples) nogil except -1

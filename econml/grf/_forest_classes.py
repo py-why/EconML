@@ -57,36 +57,25 @@ def _generate_sample_indices(random_state, n_samples, n_samples_subsample):
     """
     Private function used to _parallel_build_trees function."""
 
-    random_instance = check_random_state(random_state)
+    random_instance = np.random.RandomState(random_state)
     sample_indices = random_instance.choice(n_samples, n_samples_subsample, replace=False)
 
     return sample_indices
 
 
 def _parallel_build_trees(tree, forest, X, yaug, n_y, n_outputs, n_relevant_outputs,
-                          sample_weight, tree_idx, n_trees, halfsample_seed,
-                          verbose=0, n_samples_subsample=None):
+                          sample_weight, tree_idx, n_trees, subinds,
+                          verbose=0):
     """
     Private function used to fit a single tree in parallel."""
     if verbose > 1:
         print("building tree %d of %d" % (tree_idx + 1, n_trees))
 
-    n_samples = X.shape[0]
-    if sample_weight is None:
-        curr_sample_weight = np.ones((n_samples,), dtype=np.float64)
-    else:
-        curr_sample_weight = sample_weight.copy()
+    if sample_weight is not None:
+        sample_weight = sample_weight[subinds]
 
-    indices = _generate_sample_indices(tree.random_state, n_samples, n_samples_subsample)
-    sample_counts = np.zeros(n_samples)
-    sample_counts[indices] = 1.0
-    if halfsample_seed is not None:
-        halfsample_nonindices = _generate_sample_indices(check_random_state(halfsample_seed),
-                                                         n_samples, n_samples // 2)
-        sample_counts[halfsample_nonindices] = 0.0
-    curr_sample_weight *= sample_counts
-
-    tree.fit(X, yaug, n_y, n_outputs, n_relevant_outputs, sample_weight=curr_sample_weight, check_input=False)
+    tree.fit(X[subinds], yaug[subinds], n_y, n_outputs, n_relevant_outputs,
+             sample_weight=sample_weight, check_input=False)
 
     return tree
 
@@ -248,7 +237,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             sample_weight = _check_sample_weight(sample_weight, X)
 
         # Remap output
-        self.n_features_ = X.shape[1]
+        n_samples, self.n_features_ = X.shape
 
         y = np.atleast_1d(y)
         if y.ndim == 2 and y.shape[1] == 1:
@@ -285,12 +274,12 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         if getattr(yaug, "dtype", None) != DOUBLE or not yaug.flags.contiguous:
             yaug = np.ascontiguousarray(yaug, dtype=DOUBLE)
 
-        if getattr(X, "dtype", None) != DTYPE or not X.flags.c_contiguous:
+        if getattr(X, "dtype", None) != DTYPE or not X.flags.f_contiguous:
             X = np.asfortranarray(X, dtype=DTYPE)
 
         # Get bootstrap sample size
         n_samples_subsample = _get_n_samples_subsample(
-            n_samples=X.shape[0],
+            n_samples=n_samples,
             max_samples=self.max_samples
         )
 
@@ -326,14 +315,19 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                      for i in range(n_more_estimators)]
 
             if self.inference:
+                # Generating indices a priori before parallelism ended up being orders of magnitude
+                # faster than how sklearn does it. The reason is that random samplers do not release the
+                # gil it seems.
                 new_slices = np.array_split(np.arange(len(self.estimators_),
                                                       len(self.estimators_) + n_more_estimators),
                                             int(np.ceil(np.sqrt(n_more_estimators))))
-                halfsample_seeds = []
-                halfsample_state = check_random_state(random_state.randint(MAX_INT))
+                s_inds = []
                 for sl in new_slices:
-                    halfsample_seed = halfsample_state.randint(MAX_INT)
-                    halfsample_seeds.extend([halfsample_seed] * len(sl))
+                    half_sample_inds = random_state.choice(n_samples, n_samples // 2, replace=False)
+                    for _ in sl:
+                        s_inds.append(half_sample_inds[random_state.choice(n_samples // 2,
+                                                                           n_samples_subsample // 2,
+                                                                           replace=False)])
 
                 # Parallel loop: we prefer the threading backend as the Cython code
                 # for fitting the trees is internally releasing the Python GIL
@@ -345,21 +339,23 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                     delayed(_parallel_build_trees)(
                         t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
                         sample_weight, i, len(trees), s,
-                        verbose=self.verbose, n_samples_subsample=n_samples_subsample)
-                    for i, (t, s) in enumerate(zip(trees, halfsample_seeds)))
+                        verbose=self.verbose)
+                    for i, (t, s) in enumerate(zip(trees, s_inds)))
 
                 # Collect newly grown trees
                 self.estimators_.extend(trees)
                 self.slices_.extend(list(new_slices))
-                self.halfsample_seeds_.extend(halfsample_seeds)
 
             else:
+                s_inds = []
+                for _ in range(n_more_estimators):
+                    s_inds.append(random_state.choice(n_samples, n_samples_subsample, replace=False))
                 trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
                     delayed(_parallel_build_trees)(
                         t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                        sample_weight, i, len(trees), None,
-                        verbose=self.verbose, n_samples_subsample=n_samples_subsample)
-                    for i, t in enumerate(trees))
+                        sample_weight, i, len(trees), s,
+                        verbose=self.verbose)
+                    for i, (t, s) in enumerate(zip(trees, s_inds)))
 
                 self.estimators_.extend(trees)
 
@@ -372,7 +368,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
-    @property
+    @ property
     def feature_importances_(self):
         """
         The impurity-based feature importances.
@@ -403,7 +399,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                   axis=0, dtype=np.float64)
         return all_importances / np.sum(all_importances)
 
-    @property
+    @ property
     def feature_heterogeneity_importances_(self):
         """
         The impurity-based feature importances.

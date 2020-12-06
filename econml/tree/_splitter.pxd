@@ -40,6 +40,7 @@ cdef class Splitter:
     cdef public SIZE_t min_samples_leaf  # Min samples in a leaf
     cdef public double min_weight_leaf   # Minimum weight in a leaf
     cdef public double min_balancedness_tol # Tolerance level of how balanced a split can be (in [0, .5])
+    cdef public bint honest
 
     cdef object random_state             # Random state
     cdef UINT32_t rand_r_state           # sklearn_rand_r random number state
