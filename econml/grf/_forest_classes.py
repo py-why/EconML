@@ -293,7 +293,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # gil it seems.
                 new_slices = np.array_split(np.arange(len(self.estimators_),
                                                       len(self.estimators_) + n_more_estimators),
-                                            int(np.ceil(np.sqrt(n_more_estimators))))
+                                            int(np.ceil(n_more_estimators**(1 / 4))))
                 s_inds = []
                 for sl in new_slices:
                     half_sample_inds = random_state.choice(n_samples, n_samples // 2, replace=False)
@@ -527,8 +527,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             param_cov = np.einsum('tij,tjk->tik', moment_bags,
                                   np.transpose(moment_bags, (0, 2, 1))) / len(slices)
 
-            pred_cov = np.einsum('ijk,ikm->ijm', np.transpose(invjac, (0, 2, 1)),
-                                 np.einsum('ijk,ikm->ijm', param_cov, invjac))
+            pred_cov = np.einsum('ijk,ikm->ijm', invjac,
+                                 np.einsum('ijk,ikm->ijm', param_cov, np.transpose(invjac, (0, 2, 1))))
         if point and cov:
             return (parameter[:, :n_outputs],
                     pred_cov[:, :n_outputs, :n_outputs],)
