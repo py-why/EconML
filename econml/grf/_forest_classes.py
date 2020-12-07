@@ -53,33 +53,6 @@ def _get_n_samples_subsample(n_samples, max_samples):
     raise TypeError(msg.format(type(max_samples)))
 
 
-def _generate_sample_indices(random_state, n_samples, n_samples_subsample):
-    """
-    Private function used to _parallel_build_trees function."""
-
-    random_instance = np.random.RandomState(random_state)
-    sample_indices = random_instance.choice(n_samples, n_samples_subsample, replace=False)
-
-    return sample_indices
-
-
-def _parallel_build_trees(tree, forest, X, yaug, n_y, n_outputs, n_relevant_outputs,
-                          sample_weight, tree_idx, n_trees, subinds,
-                          verbose=0):
-    """
-    Private function used to fit a single tree in parallel."""
-    if verbose > 1:
-        print("building tree %d of %d" % (tree_idx + 1, n_trees))
-
-    if sample_weight is not None:
-        sample_weight = sample_weight[subinds]
-
-    tree.fit(X[subinds], yaug[subinds], n_y, n_outputs, n_relevant_outputs,
-             sample_weight=sample_weight, check_input=False)
-
-    return tree
-
-
 def _accumulate_prediction(predict, X, out, lock):
     """
     This is a utility function for joblib's Parallel.
@@ -324,45 +297,29 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 s_inds = []
                 for sl in new_slices:
                     half_sample_inds = random_state.choice(n_samples, n_samples // 2, replace=False)
-                    for _ in sl:
-                        s_inds.append(half_sample_inds[random_state.choice(n_samples // 2,
-                                                                           n_samples_subsample // 2,
-                                                                           replace=False)])
-
-                # Parallel loop: we prefer the threading backend as the Cython code
-                # for fitting the trees is internally releasing the Python GIL
-                # making threading more efficient than multiprocessing in
-                # that case. However, for joblib 0.12+ we respect any
-                # parallel_backend contexts set at a higher level,
-                # since correctness does not rely on using threads.
-                # trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                #     delayed(_parallel_build_trees)(
-                #         t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                #         sample_weight, i, len(trees), s,
-                #         verbose=self.verbose)
-                #     for i, (t, s) in enumerate(zip(trees, s_inds)))
-
-                trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                    delayed(t.fit)(X[s], yaug[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                                   sample_weight[s] if sample_weight is not None else None)
-                    for t, s in zip(trees, s_inds))
-
-                # Collect newly grown trees
-                self.estimators_.extend(trees)
-                self.slices_.extend(list(new_slices))
-
+                    s_inds.extend([half_sample_inds[random_state.choice(n_samples // 2,
+                                                                        n_samples_subsample // 2,
+                                                                        replace=False)]
+                                   for _ in range(len(sl))])
             else:
-                s_inds = []
-                for _ in range(n_more_estimators):
-                    s_inds.append(random_state.choice(n_samples, n_samples_subsample, replace=False))
-                trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
-                    delayed(_parallel_build_trees)(
-                        t, self, X, yaug, self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                        sample_weight, i, len(trees), s,
-                        verbose=self.verbose)
-                    for i, (t, s) in enumerate(zip(trees, s_inds)))
+                new_slices = []
+                s_inds = [random_state.choice(n_samples, n_samples_subsample, replace=False)
+                          for _ in range(n_more_estimators)]
 
-                self.estimators_.extend(trees)
+            # Parallel loop: we prefer the threading backend as the Cython code
+            # for fitting the trees is internally releasing the Python GIL
+            # making threading more efficient than multiprocessing in
+            # that case. However, for joblib 0.12+ we respect any
+            # parallel_backend contexts set at a higher level,
+            # since correctness does not rely on using threads.
+            trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
+                delayed(t.fit)(X[s], yaug[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
+                               sample_weight[s] if sample_weight is not None else None)
+                for t, s in zip(trees, s_inds))
+
+            # Collect newly grown trees
+            self.estimators_.extend(trees)
+            self.slices_.extend(list(new_slices))
 
         return self
 
