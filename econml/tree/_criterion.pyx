@@ -196,7 +196,7 @@ cdef class RegressionCriterion(Criterion):
             = (\sum_i^n y_i ** 2) - n_samples * y_bar ** 2
     """
 
-    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
+    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_relevant_outputs, SIZE_t n_features, SIZE_t n_y,
                   SIZE_t n_samples, SIZE_t max_node_samples):
         """Initialize parameters for this criterion.
         Parameters
@@ -209,6 +209,7 @@ cdef class RegressionCriterion(Criterion):
 
         # Default values
         self.n_outputs = n_outputs
+        self.n_relevant_outputs = n_relevant_outputs
         self.n_features = n_features
         self.n_y = n_y
         self.proxy_children_impurity = False
@@ -244,7 +245,7 @@ cdef class RegressionCriterion(Criterion):
             raise MemoryError()
 
     def __reduce__(self):
-        return (type(self), (self.n_outputs, self.n_features, self.n_y,
+        return (type(self), (self.n_outputs, self.n_relevant_outputs, self.n_features, self.n_y,
                              self.n_samples, self.max_node_samples), self.__getstate__())
 
     cdef int init(self, const DOUBLE_t[:, ::1] y, 

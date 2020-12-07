@@ -193,20 +193,20 @@ class GRFTree(BaseEstimator):
 
         # Build tree
         if callable(self.criterion):
-            criterion = self.criterion(self.n_outputs_, self.n_features_, self.n_y_,
+            criterion = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_,
                                        n_samples, samples_train.shape[0])
             if not isinstance(criterion, Criterion):
                 raise ValueError("Input criterion is not a valid criterion")
-            criterion_val = self.criterion(self.n_outputs_, self.n_features_, self.n_y_,
+            criterion_val = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_,
                                            n_samples, samples_val.shape[0])
         else:
             max_train = len(samples_train) if sample_weight is None else np.count_nonzero(sample_weight[samples_train])
             criterion = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_features_, self.n_y_, n_samples, max_train)
+                self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_, n_samples, max_train)
             if self.honest:
                 max_val = len(samples_val) if sample_weight is None else np.count_nonzero(sample_weight[samples_val])
                 criterion_val = CRITERIA_GRF[self.criterion](
-                    self.n_outputs_, self.n_features_, self.n_y_, n_samples, max_val)
+                    self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_, n_samples, max_val)
             else:
                 criterion_val = criterion
 
@@ -414,8 +414,7 @@ class GRFTree(BaseEstimator):
         X = self._validate_X_predict(X, check_input)
         return self.tree_.decision_path(X)
 
-    @property
-    def feature_importances_(self):
+    def feature_importances(self, max_depth=None, depth_decay_exponent=.0):
         """Return the feature importances.
         The importance of a feature is computed as the (normalized) total
         reduction of the criterion brought by that feature.
@@ -431,10 +430,10 @@ class GRFTree(BaseEstimator):
         """
         check_is_fitted(self)
 
-        return self.tree_.compute_feature_importances()
+        return self.tree_.compute_feature_importances(normalize=False, max_depth=max_depth,
+                                                      depth_decay=depth_decay_exponent)
 
-    @property
-    def feature_heterogeneity_importances_(self):
+    def feature_heterogeneity_importances(self, max_depth=None, depth_decay_exponent=.0):
         """Return the feature importances.
         The importance of a feature is computed as the (normalized) total
         reduction of the criterion brought by that feature.
@@ -450,4 +449,5 @@ class GRFTree(BaseEstimator):
         """
         check_is_fitted(self)
 
-        return self.tree_.compute_feature_heterogeneity_importances()
+        return self.tree_.compute_feature_heterogeneity_importances(normalize=False, max_depth=max_depth,
+                                                                    depth_decay=depth_decay_exponent)

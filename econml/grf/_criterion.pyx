@@ -30,7 +30,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
             = (\sum_i^n y_i ** 2) - n_samples * y_bar ** 2
     """
 
-    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
+    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_relevant_outputs, SIZE_t n_features, SIZE_t n_y,
                   SIZE_t n_samples, SIZE_t max_node_samples):
         """Initialize parameters for this criterion.
         Parameters
@@ -201,6 +201,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         cdef SIZE_t i, p, k, offset
         cdef DOUBLE_t y_ik, w_y_ik, w = 1.0
         cdef SIZE_t n_outputs = self.n_outputs
+        cdef SIZE_t n_relevant_outputs = self.n_relevant_outputs
         cdef SIZE_t n_y = self.n_y
 
         sq_sum_total[0] = 0.0
@@ -218,7 +219,8 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                 y_ik = rho[offset * n_outputs + k]
                 w_y_ik = w * y_ik
                 sum_total[k] += w_y_ik
-                sq_sum_total[0] += w_y_ik * y_ik
+                if k < n_relevant_outputs:
+                    sq_sum_total[0] += w_y_ik * y_ik
             for k in range(n_y):
                 y_sq_sum_total[0] += w * (y[i, k]**2)
 
@@ -368,10 +370,10 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         cdef SIZE_t k
 
         impurity = self.sq_sum_total / self.weighted_n_node_samples
-        for k in range(self.n_outputs):
+        for k in range(self.n_relevant_outputs):
             impurity -= (sum_total[k] / self.weighted_n_node_samples)**2.0
 
-        return impurity / self.n_outputs
+        return impurity / self.n_relevant_outputs
 
     cdef double proxy_impurity_improvement(self) nogil:
         """Compute a proxy of the impurity reduction
@@ -390,7 +392,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         cdef double proxy_impurity_left = 0.0
         cdef double proxy_impurity_right = 0.0
 
-        for k in range(self.n_outputs):
+        for k in range(self.n_relevant_outputs):
             proxy_impurity_left += sum_left[k] * sum_left[k]
             proxy_impurity_right += sum_right[k] * sum_right[k]
 
@@ -426,7 +428,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
             if sample_weight != NULL:
                 w = sample_weight[i]
 
-            for k in range(self.n_outputs):
+            for k in range(self.n_relevant_outputs):
                 y_ik = self.rho[offset * self.n_outputs + k]
                 sq_sum_left += w * y_ik * y_ik
 
@@ -435,17 +437,17 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         impurity_left[0] = sq_sum_left / self.weighted_n_left
         impurity_right[0] = sq_sum_right / self.weighted_n_right
 
-        for k in range(self.n_outputs):
+        for k in range(self.n_relevant_outputs):
             impurity_left[0] -= (sum_left[k] / self.weighted_n_left) ** 2.0
             impurity_right[0] -= (sum_right[k] / self.weighted_n_right) ** 2.0
 
-        impurity_left[0] /= self.n_outputs
-        impurity_right[0] /= self.n_outputs
+        impurity_left[0] /= self.n_relevant_outputs
+        impurity_right[0] /= self.n_relevant_outputs
 
 
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
 
-    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_features, SIZE_t n_y,
+    def __cinit__(self, SIZE_t n_outputs, SIZE_t n_relevant_outputs, SIZE_t n_features, SIZE_t n_y,
                   SIZE_t n_samples, SIZE_t max_node_samples):
 
         # Most initializations are handled by __cinit__ of RegressionCriterion

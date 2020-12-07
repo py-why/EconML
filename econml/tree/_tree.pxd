@@ -17,6 +17,7 @@ cdef struct Node:
 
     SIZE_t left_child                   # id of the left child of the node
     SIZE_t right_child                   # id of the right child of the node
+    SIZE_t depth                         # the depth level of the node
     SIZE_t feature                       # Feature used for splitting the node
     DOUBLE_t threshold                   # Threshold value at the node
     DOUBLE_t impurity                    # Impurity of the node (i.e., the value of the criterion)
@@ -78,8 +79,8 @@ cdef class Tree:
     cpdef object decision_path(self, object X)
     cdef object _decision_path(self, object X)
 
-    cpdef compute_feature_importances(self, normalize=*)
-    cpdef compute_feature_heterogeneity_importances(self, normalize=*)
+    cpdef compute_feature_importances(self, normalize=*, max_depth=*, depth_decay=*)
+    cpdef compute_feature_heterogeneity_importances(self, normalize=*, max_depth=*, depth_decay=*)
 
 # =============================================================================
 # Tree builder

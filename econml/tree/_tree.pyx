@@ -8,6 +8,7 @@ from libc.stdlib cimport free
 from libc.string cimport memcpy
 from libc.string cimport memset
 from libc.stdint cimport SIZE_MAX
+from libc.math cimport pow
 
 import numpy as np
 cimport numpy as np
@@ -44,15 +45,16 @@ cdef SIZE_t INITIAL_STACK_SIZE = 10
 
 # Repeat struct definition for numpy
 NODE_DTYPE = np.dtype({
-    'names': ['left_child', 'right_child', 'feature', 'threshold',
+    'names': ['left_child', 'right_child', 'depth', 'feature', 'threshold',
               'impurity', 'n_node_samples', 'weighted_n_node_samples',
               'impurity_train', 'n_node_samples_train', 'weighted_n_node_samples_train'],
-    'formats': [np.intp, np.intp, np.intp, np.float64,
+    'formats': [np.intp, np.intp, np.intp, np.intp, np.float64,
                 np.float64, np.intp, np.float64,
                 np.float64, np.intp, np.float64],
     'offsets': [
         <Py_ssize_t> &(<Node*> NULL).left_child,
         <Py_ssize_t> &(<Node*> NULL).right_child,
+        <Py_ssize_t> &(<Node*> NULL).depth,
         <Py_ssize_t> &(<Node*> NULL).feature,
         <Py_ssize_t> &(<Node*> NULL).threshold,
         <Py_ssize_t> &(<Node*> NULL).impurity,
@@ -287,6 +289,10 @@ cdef class Tree:
     property children_right:
         def __get__(self):
             return self._get_node_ndarray()['right_child'][:self.node_count]
+
+    property depth:
+        def __get__(self):
+            return self._get_node_ndarray()['depth'][:self.node_count]
 
     property n_leaves:
         def __get__(self):
@@ -523,13 +529,15 @@ cdef class Tree:
                 self.nodes[parent].left_child = node_id
             else:
                 self.nodes[parent].right_child = node_id
+            node.depth = self.nodes[parent].depth + 1
+        else:
+            node.depth = 0
 
         if is_leaf:
             node.left_child = _TREE_LEAF
             node.right_child = _TREE_LEAF
             node.feature = _TREE_UNDEFINED
             node.threshold = _TREE_UNDEFINED
-
         else:
             # left_child and right_child will be set later
             node.feature = feature
@@ -676,13 +684,15 @@ cdef class Tree:
 
         return out
 
-    cpdef compute_feature_importances(self, normalize=True):
+    cpdef compute_feature_importances(self, normalize=True, max_depth=None, depth_decay=.0):
         """Computes the importance of each feature (aka variable)."""
         cdef Node* left
         cdef Node* right
         cdef Node* nodes = self.nodes
         cdef Node* node = nodes
         cdef Node* end_node = node + self.node_count
+        cdef double c_depth_decay = depth_decay
+        cdef SIZE_t c_max_depth
 
         cdef double normalizer = 0.
 
@@ -690,17 +700,24 @@ cdef class Tree:
         importances = np.zeros((self.n_features,))
         cdef DOUBLE_t* importance_data = <DOUBLE_t*>importances.data
 
+        if max_depth is None:
+            c_max_depth = self.max_depth
+        else:
+            c_max_depth = max_depth
+
         with nogil:
             while node != end_node:
                 if node.left_child != _TREE_LEAF:
                     # ... and node.right_child != _TREE_LEAF:
-                    left = &nodes[node.left_child]
-                    right = &nodes[node.right_child]
+                    if (max_depth is None) or node.depth <= c_max_depth:
+                        left = &nodes[node.left_child]
+                        right = &nodes[node.right_child]
 
-                    importance_data[node.feature] += (
-                        node.weighted_n_node_samples * node.impurity -
-                        left.weighted_n_node_samples * left.impurity -
-                        right.weighted_n_node_samples * right.impurity)
+                        importance_data[node.feature] += pow(1 + node.depth, -c_depth_decay) * (
+                            node.weighted_n_node_samples * node.impurity -
+                            left.weighted_n_node_samples * left.impurity -
+                            right.weighted_n_node_samples * right.impurity)
+
                 node += 1
 
         importances /= nodes[0].weighted_n_node_samples
@@ -714,13 +731,15 @@ cdef class Tree:
 
         return importances
     
-    cpdef compute_feature_heterogeneity_importances(self, normalize=True):
+    cpdef compute_feature_heterogeneity_importances(self, normalize=True, max_depth=None, depth_decay=.0):
         """Computes the importance of each feature (aka variable)."""
         cdef Node* left
         cdef Node* right
         cdef Node* nodes = self.nodes
         cdef Node* node = nodes
         cdef Node* end_node = node + self.node_count
+        cdef double c_depth_decay = depth_decay
+        cdef SIZE_t c_max_depth
         cdef SIZE_t i
 
         cdef double normalizer = 0.
@@ -729,23 +748,29 @@ cdef class Tree:
         importances = np.zeros((self.n_features,))
         cdef DOUBLE_t* importance_data = <DOUBLE_t*>importances.data
 
+        if max_depth is None:
+            c_max_depth = self.max_depth
+        else:
+            c_max_depth = max_depth
+
         with nogil:
             while node != end_node:
                 if node.left_child != _TREE_LEAF:
-                    # ... and node.right_child != _TREE_LEAF:
-                    left = &nodes[node.left_child]
-                    right = &nodes[node.right_child]
-                    # node_value = &self.value[(node - nodes) * self.value_stride]
-                    left_value = &self.value[(left - nodes) * self.value_stride]
-                    right_value = &self.value[(right - nodes) * self.value_stride]
-                    for i in range(self.n_outputs):
-                        importance_data[node.feature] += (
-                            left.weighted_n_node_samples * right.weighted_n_node_samples *
-                            (left_value[i] - right_value[i])**2 / node.weighted_n_node_samples
-                            )
+                    if (max_depth is None) or node.depth <= c_max_depth:
+                        # ... and node.right_child != _TREE_LEAF:
+                        left = &nodes[node.left_child]
+                        right = &nodes[node.right_child]
+                        # node_value = &self.value[(node - nodes) * self.value_stride]
+                        left_value = &self.value[(left - nodes) * self.value_stride]
+                        right_value = &self.value[(right - nodes) * self.value_stride]
+                        for i in range(self.n_relevant_outputs):
+                            importance_data[node.feature] += pow(1 + node.depth, -c_depth_decay) * (
+                                left.weighted_n_node_samples * right.weighted_n_node_samples *
+                                (left_value[i] - right_value[i])**2 / node.weighted_n_node_samples
+                                )
                 node += 1
 
-        importances /= (nodes[0].weighted_n_node_samples * self.n_outputs)
+        importances /= (nodes[0].weighted_n_node_samples * self.n_relevant_outputs)
 
         if normalize:
             normalizer = np.sum(importances)

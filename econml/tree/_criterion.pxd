@@ -20,6 +20,7 @@ cdef class Criterion:
     cdef DOUBLE_t* sample_weight         # Sample weights
 
     cdef SIZE_t n_outputs                # Number of outputs
+    cdef SIZE_t n_relevant_outputs       # The first n_relevant_outputs are the ones we care about
     cdef SIZE_t n_features               # Number of features
     cdef SIZE_t n_y
     

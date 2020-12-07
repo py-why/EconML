@@ -330,8 +330,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
-    @ property
-    def feature_importances_(self):
+    def feature_importances(self, max_depth=None, depth_decay_exponent=.0):
         """
         The impurity-based feature importances.
         The higher, the more important the feature.
@@ -351,7 +350,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         check_is_fitted(self)
 
         all_importances = Parallel(n_jobs=self.n_jobs, backend='threading')(
-            delayed(getattr)(tree, 'feature_importances_')
+            delayed(tree.feature_importances)(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
             for tree in self.estimators_ if tree.tree_.node_count > 1)
 
         if not all_importances:
@@ -361,8 +360,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                   axis=0, dtype=np.float64)
         return all_importances / np.sum(all_importances)
 
-    @ property
-    def feature_heterogeneity_importances_(self):
+    def feature_heterogeneity_importances(self, max_depth=None, depth_decay_exponent=.0):
         """
         The impurity-based feature importances.
         The higher, the more important the feature.
@@ -382,7 +380,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         check_is_fitted(self)
 
         all_importances = Parallel(n_jobs=self.n_jobs, backend='threading')(
-            delayed(getattr)(tree, 'feature_heterogeneity_importances_')
+            delayed(tree.feature_heterogeneity_importances)(
+                max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
             for tree in self.estimators_ if tree.tree_.node_count > 1)
 
         if not all_importances:
@@ -511,6 +510,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
         parameter = np.einsum('ijk,ik->ij', invjac, alpha)
+        moment = alpha - np.einsum('ijk,ik->ij', jac, parameter)
 
         if cov:
             if not self.inference:
@@ -522,6 +522,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             alpha_bags = np.array(alpha_bags)
             jac_bags = np.array(jac_bags)
             moment_bags = alpha_bags - np.einsum('tijk,ik->tij', jac_bags, parameter)
+            moment_bags -= moment
             moment_bags = np.moveaxis(moment_bags, 0, -1)
             param_cov = np.einsum('tij,tjk->tik', moment_bags,
                                   np.transpose(moment_bags, (0, 2, 1))) / len(slices)
