@@ -53,19 +53,39 @@ def _get_n_samples_subsample(n_samples, max_samples):
     raise TypeError(msg.format(type(max_samples)))
 
 
-def _accumulate_prediction(predict, X, out, lock):
+def _accumulate_prediction(predict, X, out, lock, *args, **kwargs):
     """
     This is a utility function for joblib's Parallel.
     It can't go locally in ForestClassifier or ForestRegressor, because joblib
     complains that it cannot pickle it when placed there.
     """
-    prediction = predict(X, check_input=False)
+    prediction = predict(X, *args, check_input=False, **kwargs)
     with lock:
         if len(out) == 1:
             out[0] += prediction
         else:
             for i in range(len(out)):
                 out[i] += prediction[i]
+
+
+def _accumulate_prediction_var(predict, X, out, lock, *args, **kwargs):
+    """
+    This is a utility function for joblib's Parallel.
+    It can't go locally in ForestClassifier or ForestRegressor, because joblib
+    complains that it cannot pickle it when placed there.
+    """
+    prediction = predict(X, *args, check_input=False, **kwargs)
+    with lock:
+        if len(out) == 1:
+            out[0] += np.einsum('ijk,ikm->ijm',
+                                prediction.reshape(prediction.shape + (1,)),
+                                prediction.reshape((-1, 1) + prediction.shape[1:]))
+        else:
+            for i in range(len(out)):
+                pred_i = prediction[i]
+                out[i] += np.einsum('ijk,ikm->ijm',
+                                    pred_i.reshape(pred_i.shape + (1,)),
+                                    pred_i.reshape((-1, 1) + pred_i.shape[1:]))
 
 
 # =============================================================================
@@ -94,6 +114,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  honest=True,
                  inference=True,
                  fit_intercept=True,
+                 n_subforests='auto',
                  n_jobs=None,
                  random_state=None,
                  verbose=0,
@@ -118,6 +139,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.honest = honest
         self.inference = inference
         self.fit_intercept = fit_intercept
+        self.n_subforests = n_subforests
         self.n_jobs = n_jobs
         self.random_state = random_state
         self.verbose = verbose
@@ -206,7 +228,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self : object
         """
 
-        y, T, X = check_inputs(y, T, X, multi_output_T=True, multi_output_Y=False)
+        y, T, X = check_inputs(y, T, X, multi_output_T=True, multi_output_Y=True)
 
         if sample_weight is not None:
             sample_weight = _check_sample_weight(sample_weight, X)
@@ -215,10 +237,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         n_samples, self.n_features_ = X.shape
 
         y = np.atleast_1d(y)
-        if y.ndim == 2 and y.shape[1] == 1:
-            warn("A column-vector y was passed when a 1d array was"
+        if y.ndim == 1:
+            warn("A 1d vector y was passed when a 2d column-vector was"
                  " expected. Please change the shape of y to "
-                 "(n_samples,), for example using ravel().", stacklevel=2)
+                 "(n_samples, 1). It will be treated as such.", stacklevel=2)
 
         if y.ndim == 1:
             # reshape is necessary to preserve the data contiguity against vs
@@ -228,10 +250,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.n_y_ = y.shape[1]
 
         T = np.atleast_1d(T)
-        if T.ndim == 2 and T.shape[1] == 1:
-            warn("A column-vector T was passed when a 1d array was"
+        if T.ndim == 1:
+            warn("A 1d vector T was passed when a 2d column-vector was"
                  " expected. Please change the shape of T to "
-                 "(n_samples,), for example using ravel().", stacklevel=2)
+                 "(n_samples, 1). It will be treated as such.", stacklevel=2)
 
         if T.ndim == 1:
             # reshape is necessary to preserve the data contiguity against vs
@@ -297,9 +319,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # Generating indices a priori before parallelism ended up being orders of magnitude
                 # faster than how sklearn does it. The reason is that random samplers do not release the
                 # gil it seems.
+                if self.n_subforests == 'auto':
+                    n_subforests = int(np.ceil(n_more_estimators**(1 / 4)))
+                elif isinstance(self.n_subforests, numbers.Integral):
+                    n_subforests = self.n_subforests
+                else:
+                    raise ValueError("Parameter n_subforests must be an integer or 'auto'.")
                 new_slices = np.array_split(np.arange(len(self.estimators_),
                                                       len(self.estimators_) + n_more_estimators),
-                                            int(np.ceil(n_more_estimators**(1 / 4))))
+                                            n_subforests)
                 s_inds = []
                 for sl in new_slices:
                     half_sample_inds = random_state.choice(n_samples, n_samples // 2, replace=False)
@@ -436,20 +464,20 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         # Assign chunk of trees to jobs
         if slice is None:
             slice = np.arange(len(self.estimators_))
-        n_jobs = 1
-        verbose = 0
-        if parallel:
-            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
-            verbose = self.verbose
 
         # avoid storing the output of every estimator by summing them here
         jac_hat = np.zeros((X.shape[0], self.n_outputs_**2), dtype=np.float64)
-
-        # Parallel loop
         lock = threading.Lock()
-        Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
-            delayed(_accumulate_prediction)(self.estimators_[t].predict_jac, X, [jac_hat], lock)
-            for t in slice)
+        if parallel:
+            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
+            verbose = self.verbose
+            # Parallel loop
+            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
+                delayed(_accumulate_prediction)(self.estimators_[t].predict_jac, X, [jac_hat], lock)
+                for t in slice)
+        else:
+            [_accumulate_prediction(self.estimators_[t].predict_jac, X, [jac_hat], lock)
+             for t in slice]
 
         jac_hat /= len(slice)
 
@@ -464,23 +492,51 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         # Assign chunk of trees to jobs
         if slice is None:
             slice = np.arange(len(self.estimators_))
-        n_jobs = 1
-        verbose = 0
+
+        alpha_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+        lock = threading.Lock()
         if parallel:
             n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
             verbose = self.verbose
-
-        alpha_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
-
-        # Parallel loop
-        lock = threading.Lock()
-        Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
-            delayed(_accumulate_prediction)(self.estimators_[t].predict_alpha, X, [alpha_hat], lock)
-            for t in slice)
+            # Parallel loop
+            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
+                delayed(_accumulate_prediction)(self.estimators_[t].predict_alpha, X, [alpha_hat], lock)
+                for t in slice)
+        else:
+            [_accumulate_prediction(self.estimators_[t].predict_alpha, X, [alpha_hat], lock)
+             for t in slice]
 
         alpha_hat /= len(slice)
 
         return alpha_hat
+
+    def predict_moment_var(self, X, parameter, slice=None, parallel=True):
+        check_is_fitted(self)
+        # Check data
+        X = self._validate_X_predict(X)
+
+        # Assign chunk of trees to jobs
+        if slice is None:
+            slice = np.arange(len(self.estimators_))
+
+        moment_var_hat = np.zeros((X.shape[0], self.n_outputs_, self.n_outputs_), dtype=np.float64)
+        lock = threading.Lock()
+        if parallel:
+            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
+            verbose = self.verbose
+            # Parallel loop
+            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
+                delayed(_accumulate_prediction_var)(self.estimators_[t].predict_moment, X, [moment_var_hat], lock,
+                                                    parameter)
+                for t in slice)
+        else:
+            [_accumulate_prediction_var(self.estimators_[t].predict_moment, X, [moment_var_hat], lock,
+                                        parameter)
+             for t in slice]
+
+        moment_var_hat /= len(slice)
+
+        return moment_var_hat
 
     def predict_alpha_and_jac(self, X, slice=None, parallel=True):
 
@@ -511,7 +567,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
 
-    def _predict_point_and_cov(self, X, full=False, point=True, cov=False):
+    def _predict_point_and_cov(self, X, full=False, point=True, cov=False, var_correction=False):
         n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
@@ -528,13 +584,21 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             alpha_bags = np.array(alpha_bags)
             jac_bags = np.array(jac_bags)
             moment_bags = alpha_bags - np.einsum('tijk,ik->tij', jac_bags, parameter)
-            moment_bags -= moment
-            moment_bags = np.moveaxis(moment_bags, 0, -1)
-            param_cov = np.einsum('tij,tjk->tik', moment_bags,
-                                  np.transpose(moment_bags, (0, 2, 1))) / len(slices)
-
+            centered_moment_bags = moment_bags - moment
+            centered_moment_bags = np.moveaxis(centered_moment_bags, 0, -1)
+            param_cov = np.einsum('tij,tjk->tik', centered_moment_bags,
+                                  np.transpose(centered_moment_bags, (0, 2, 1))) / len(slices)
             pred_cov = np.einsum('ijk,ikm->ijm', invjac,
                                  np.einsum('ijk,ikm->ijm', param_cov, np.transpose(invjac, (0, 2, 1))))
+            if var_correction:
+                moment_var_bags = Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
+                    delayed(self.predict_moment_var)(X, parameter, slice=sl, parallel=False) for sl in slices)
+                moment_var_bags -= np.einsum('tijk,tikm->tijm',
+                                             moment_bags.reshape(moment_bags.shape + (1,)),
+                                             moment_bags.reshape(moment_bags.shape[:-1] + (1, moment_bags.shape[-1]))
+                                             )
+                correction = np.mean(moment_var_bags, axis=0) / (len(slices[0]) - 1)
+                pred_cov -= correction
         if point and cov:
             return (parameter[:, :n_outputs],
                     pred_cov[:, :n_outputs, :n_outputs],)
@@ -543,9 +607,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         else:
             return pred_cov[:, :n_outputs, :n_outputs]
 
-    def predict_full(self, X, interval=False, alpha=0.05):
+    def predict_full(self, X, interval=False, alpha=0.05, var_correction=False):
         if interval:
-            point, pred_cov = self._predict_point_and_cov(X, full=True, point=True, cov=True)
+            point, pred_cov = self._predict_point_and_cov(X, full=True, point=True,
+                                                          cov=True, var_correction=var_correction)
             lb, ub = np.zeros(point.shape), np.zeros(point.shape)
             for t in range(self.n_outputs_):
                 lb[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
@@ -553,28 +618,28 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             return point, lb, ub
         return self._predict_point_and_cov(X, full=True, point=True, cov=False)
 
-    def predict(self, X, interval=False, alpha=0.05):
+    def predict(self, X, interval=False, alpha=0.05, var_correction=False):
         if interval:
-            y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha)
+            y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha, var_correction=var_correction)
             if self.n_relevant_outputs_ == self.n_outputs_:
                 return y_hat, lb, ub
             return (y_hat[:, :self.n_relevant_outputs_],
                     lb[:, :self.n_relevant_outputs_], ub[:, :self.n_relevant_outputs_])
         else:
-            y_hat = self.predict_full(X, interval=interval, alpha=alpha)
+            y_hat = self.predict_full(X, interval=False)
             if self.n_relevant_outputs_ == self.n_outputs_:
                 return y_hat
             return y_hat[:, :self.n_relevant_outputs_]
 
-    def predict_cov(self, X):
-        return self._predict_point_and_cov(X, full=False, point=False, cov=True)
+    def predict_cov(self, X, var_correction=False):
+        return self._predict_point_and_cov(X, full=False, point=False, cov=True, var_correction=var_correction)
 
-    def predict_interval(self, X, alpha=.05):
-        _, lb, ub = self.predict(X, interval=True, alpha=alpha)
+    def predict_interval(self, X, alpha=.05, var_correction=False):
+        _, lb, ub = self.predict(X, interval=True, alpha=alpha, var_correction=var_correction)
         return lb, ub
 
-    def prediction_stderr(self, X):
-        return np.diagonal(self.predict_cov(X), axis1=1, axis2=2)
+    def prediction_stderr(self, X, var_correction=False):
+        return np.diagonal(self.predict_cov(X, var_correction=var_correction), axis1=1, axis2=2)
 
 
 # =============================================================================
@@ -595,10 +660,10 @@ class CausalIVForest(BaseGRF):
 
     def get_alpha(self, X, T, y, *, Z):
         Z = np.atleast_1d(Z)
-        if Z.ndim == 2 and Z.shape[1] == 1:
-            warn("A column-vector Z was passed when a 1d array was"
+        if Z.ndim == 1:
+            warn("A 1d vector Z was passed when a 2d column-vector was"
                  " expected. Please change the shape of Z to "
-                 "(n_samples,), for example using ravel().", stacklevel=2)
+                 "(n_samples, 1). It will be treated as such.", stacklevel=2)
 
         if Z.ndim == 1:
             Z = np.reshape(Z, (-1, 1))

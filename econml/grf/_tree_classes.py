@@ -264,14 +264,12 @@ class GRFTree(BaseEstimator):
             Don't use this parameter unless you know what you do.
         Returns
         -------
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+        y : array-like of shape (n_samples, n_outputs)
             The predicted classes, or the predict values.
         """
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
         pred = self.tree_.predict(X)
-        if self.n_relevant_outputs_ == 1:
-            return pred[:, 0]
         return pred
 
     def predict_full(self, X, check_input=True):
@@ -290,14 +288,12 @@ class GRFTree(BaseEstimator):
             Don't use this parameter unless you know what you do.
         Returns
         -------
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
+        y : array-like of shape (n_samples, n_outputs)
             The predicted classes, or the predict values.
         """
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
         pred = self.tree_.predict_full(X)
-        if self.n_outputs_ == 1:
-            return pred[:, 0]
         return pred
 
     def predict_jac(self, X, check_input=True):
@@ -368,6 +364,10 @@ class GRFTree(BaseEstimator):
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
         return self.tree_.predict_precond_and_jac(X)
+
+    def predict_moment(self, X, parameter, check_input=True):
+        alpha, jac = self.predict_alpha_and_jac(X)
+        return alpha - np.einsum('ijk,ik->ij', jac.reshape((-1, self.n_outputs_, self.n_outputs_)), parameter)
 
     def apply(self, X, check_input=True):
         """Return the index of the leaf that each sample is predicted as.

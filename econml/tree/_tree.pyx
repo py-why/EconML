@@ -550,13 +550,13 @@ cdef class Tree:
     cpdef np.ndarray predict(self, object X):
         """Predict target for X."""
         out = self._get_value_ndarray().take(self.apply(X), axis=0,
-                                             mode='clip')[:, :self.n_relevant_outputs]
+                                             mode='clip')[:, :self.n_relevant_outputs, 0]
         return out
     
     cpdef np.ndarray predict_full(self, object X):
         """Predict target for X."""
         out = self._get_value_ndarray().take(self.apply(X), axis=0,
-                                             mode='clip')
+                                             mode='clip')[:, :, 0]
         return out
     
     cpdef np.ndarray predict_jac(self, object X):
@@ -786,11 +786,14 @@ cdef class Tree:
         The array keeps a reference to this Tree, which manages the underlying
         memory.
         """
-        cdef np.npy_intp shape[2]
+        # we make it a 3d array even though we only need 2d, for compatibility with sklearn
+        # plotting of trees.
+        cdef np.npy_intp shape[3]
         shape[0] = <np.npy_intp> self.node_count
         shape[1] = <np.npy_intp> self.n_outputs
+        shape[2] = 1
         cdef np.ndarray arr
-        arr = np.PyArray_SimpleNewFromData(2, shape, np.NPY_DOUBLE, self.value)
+        arr = np.PyArray_SimpleNewFromData(3, shape, np.NPY_DOUBLE, self.value)
         Py_INCREF(self)
         arr.base = <PyObject*> self
         return arr
