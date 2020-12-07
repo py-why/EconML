@@ -93,6 +93,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  min_balancedness_tol=.45,
                  honest=True,
                  inference=True,
+                 fit_intercept=True,
                  n_jobs=None,
                  random_state=None,
                  verbose=0,
@@ -116,6 +117,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.min_balancedness_tol = min_balancedness_tol
         self.honest = honest
         self.inference = inference
+        self.fit_intercept = fit_intercept
         self.n_jobs = n_jobs
         self.random_state = random_state
         self.verbose = verbose
@@ -236,10 +238,14 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # [:, np.newaxis] that does not.
             T = np.reshape(T, (-1, 1))
 
-        self.n_outputs_ = T.shape[1] + 1
         self.n_relevant_outputs_ = T.shape[1]
+        if self.fit_intercept:
+            Taug = np.hstack([T, np.ones((T.shape[0], 1))])
+            self.n_outputs_ = T.shape[1] + 1
+        else:
+            Taug = T
+            self.n_outputs_ = T.shape[1]
 
-        Taug = np.hstack([T, np.ones((T.shape[0], 1))])
         alpha = self.get_alpha(X, Taug, y, **kwargs)
         pointJ = self.get_pointJ(X, Taug, y, **kwargs)
         yaug = np.hstack([y, alpha, pointJ])
@@ -597,9 +603,13 @@ class CausalIVForest(BaseGRF):
         if Z.ndim == 1:
             Z = np.reshape(Z, (-1, 1))
 
-        return y * np.hstack([Z, np.ones((Z.shape[0], 1))])
+        if self.fit_intercept:
+            return y * np.hstack([Z, np.ones((Z.shape[0], 1))])
+        return y * Z
 
     def get_pointJ(self, X, T, y, *, Z):
         if Z.ndim == 1:
             Z = np.reshape(Z, (-1, 1))
-        return cross_product(np.hstack([Z, np.ones((Z.shape[0], 1))]), T)
+        if self.fit_intercept:
+            return cross_product(np.hstack([Z, np.ones((Z.shape[0], 1))]), T)
+        return cross_product(Z, T)
