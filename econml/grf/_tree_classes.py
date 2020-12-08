@@ -369,6 +369,11 @@ class GRFTree(BaseEstimator):
         alpha, jac = self.predict_alpha_and_jac(X)
         return alpha - np.einsum('ijk,ik->ij', jac.reshape((-1, self.n_outputs_, self.n_outputs_)), parameter)
 
+    def predict_alpha_and_jac_and_moment(self, X, parameter, check_input=True):
+        alpha, jac = self.predict_alpha_and_jac(X)
+        return (alpha, jac,
+                np.einsum('ijk,ik->ij', jac.reshape((-1, self.n_outputs_, self.n_outputs_)), parameter) - alpha)
+
     def apply(self, X, check_input=True):
         """Return the index of the leaf that each sample is predicted as.
         .. versionadded:: 0.17

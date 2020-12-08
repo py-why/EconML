@@ -89,6 +89,28 @@ def _accumulate_prediction_var(predict, X, out, lock, *args, **kwargs):
                                     pred_i.reshape((-1, 1) + pred_i.shape[1:]))
 
 
+def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwargs):
+    """
+    This is a utility function for joblib's Parallel.
+    It can't go locally in ForestClassifier or ForestRegressor, because joblib
+    complains that it cannot pickle it when placed there.
+    """
+    prediction = predict(X, *args, check_input=False, **kwargs)
+    with lock:
+        if len(out) == 1:
+            out[0] += prediction
+            out_var[0] += np.einsum('ijk,ikm->ijm',
+                                    prediction.reshape(prediction.shape + (1,)),
+                                    prediction.reshape((-1, 1) + prediction.shape[1:]))
+        else:
+            for i in range(len(out)):
+                pred_i = prediction[i]
+                out[i] += prediction
+                out_var[i] += np.einsum('ijk,ikm->ijm',
+                                        pred_i.reshape(pred_i.shape + (1,)),
+                                        pred_i.reshape((-1, 1) + pred_i.shape[1:]))
+
+
 # =============================================================================
 # Base Generalized Random Forest
 # =============================================================================
@@ -549,6 +571,38 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return moment_var_hat
 
+    def predict_moment_and_var(self, X, parameter, slice=None, parallel=True):
+        check_is_fitted(self)
+        # Check data
+        X = self._validate_X_predict(X)
+
+        # Assign chunk of trees to jobs
+        if slice is None:
+            slice = np.arange(len(self.estimators_))
+
+        moment_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+        moment_var_hat = np.zeros((X.shape[0], self.n_outputs_, self.n_outputs_), dtype=np.float64)
+        lock = threading.Lock()
+        if parallel:
+            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
+            verbose = self.verbose
+            # Parallel loop
+            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
+                delayed(_accumulate_prediction_and_var)(self.estimators_[t].predict_moment, X,
+                                                        [moment_hat], [moment_var_hat], lock,
+                                                        parameter)
+                for t in slice)
+        else:
+            [_accumulate_prediction_and_var(self.estimators_[t].predict_moment, X,
+                                            [moment_hat], [moment_var_hat], lock,
+                                            parameter)
+             for t in slice]
+
+        moment_hat /= len(slice)
+        moment_var_hat /= len(slice)
+
+        return moment_hat, moment_var_hat
+
     def predict_alpha_and_jac(self, X, slice=None, parallel=True):
 
         check_is_fitted(self)
@@ -579,6 +633,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
 
     def _predict_point_and_var(self, X, full=False, point=True, var=False, var_correction=True):
+
         n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
@@ -588,19 +643,14 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             if not self.inference:
                 raise AttributeError("Inference not available. Forest was initiated with `inference=False`.")
 
-            moment = alpha - np.einsum('ijk,ik->ij', jac, parameter)
-
             slices = self.slices_
             n_jobs, _, _ = _partition_estimators(len(slices), self.n_jobs)
 
-            # Calculate the mean moment within each bag of trees
-            alpha_bags, jac_bags = zip(*Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
-                delayed(self.predict_alpha_and_jac)(X, slice=sl, parallel=False) for sl in slices))
-            alpha_bags = np.array(alpha_bags)
-            jac_bags = np.array(jac_bags)
-            moment_bags = alpha_bags - np.einsum('tijk,ik->tij', jac_bags, parameter)
+            moment_bags, moment_var_bags = zip(*Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
+                delayed(self.predict_moment_and_var)(X, parameter, slice=sl, parallel=False) for sl in slices))
 
-            # Calculate the between bag variance of bag-mean moments
+            moment = np.mean(moment_bags, axis=0)
+
             trans_moment_bags = np.moveaxis(moment_bags, 0, -1)
             sq_between = np.einsum('tij,tjk->tik', trans_moment_bags,
                                    np.transpose(trans_moment_bags, (0, 2, 1))) / len(slices)
@@ -615,7 +665,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # Subtract the average within bag variance. This ends up being equal to the
                 # overall (E_{all trees}[moment^2] - E_bags[ E[mean_bag_moment]^2 ]) / sizeof(bag).
                 # The negative part is just sq_between.
-                var_total = self.predict_moment_var(X, parameter)
+                var_total = np.mean(moment_var_bags, axis=0)
                 correction = (var_total - sq_between) / (len(slices[0]) - 1)
                 pred_correction = np.einsum('ijk,ikm->ijm', invjac,
                                             np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1))))
@@ -723,7 +773,6 @@ class RegressionForest(BaseGRF):
                  min_balancedness_tol=.45,
                  honest=True,
                  inference=True,
-                 fit_intercept=True,
                  subforest_size=4,
                  n_jobs=None,
                  random_state=None,
@@ -734,7 +783,7 @@ class RegressionForest(BaseGRF):
                          min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
                          max_features=max_features, min_impurity_decrease=min_impurity_decrease,
                          max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
-                         honest=honest, inference=inference, fit_intercept=fit_intercept,
+                         honest=honest, inference=inference, fit_intercept=False,
                          subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
                          warm_start=warm_start)
 

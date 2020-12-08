@@ -10,7 +10,6 @@ from libc.string cimport memcpy
 from libc.math cimport log as ln
 from libc.stdlib cimport abort
 
-from scipy.linalg.cython_blas cimport dgemm
 from scipy.linalg.cython_lapack cimport dgelsy, dgetrf, dgetri, dgecon, dlacpy, dlange
 
 
@@ -27,45 +26,6 @@ cdef inline double RCOND = rcond_
 # =============================================================================
 # Linear Algebra Functions
 # =============================================================================
-
-
-cpdef void matmul(DOUBLE_t[::1,:] a, DOUBLE_t[::1,:] b, 
-              DOUBLE_t[::1,:] out, char* TransA, char* TransB) nogil:
-    cdef int lda, col_a, ldb, col_b
-    lda = a.shape[0]
-    col_a = a.shape[1]
-    ldb = b.shape[0]
-    col_b = b.shape[1]
-    matmul_(&a[0, 0], lda, col_a, &b[0, 0], ldb, col_b, &out[0, 0], TransA, TransB)
-
-cdef void matmul_(DOUBLE_t* a, int lda, int col_a, DOUBLE_t* b, int ldb, int col_b,
-              DOUBLE_t* out, char* TransA, char* TransB) nogil:
-    
-    cdef:
-        char* Trans='T'
-        char* No_Trans='N'
-        int m, n, k, ldc
-        double alpha, beta
-    
-    #dimensions of arrays post operation (after transposing, or not)
-    if TransA[0]==Trans[0] and TransB[0]==No_Trans[0]:
-        m = col_a; n = col_b ; k = lda
-    elif TransB[0]==Trans[0] and TransA[0]==No_Trans[0]:
-        m = lda; n = ldb ; k = col_a
-    elif TransA[0]==Trans[0] and TransB[0]==Trans[0]:
-        m = col_a; n = ldb ; k = lda
-    else: 
-        m = lda; n = col_b ; k = ldb
-    
-    #leading dimension of c from above
-    ldc = m
-    
-    #scalars associated with C = beta*op(A)*op(B) + alpha*C
-    alpha = 1.0
-    beta = 0.0
-    
-    #Fortran BLAS function for calculating the multiplication of arrays
-    dgemm(TransA, TransB, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, out, &ldc)
 
 
 cpdef bint matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil:
