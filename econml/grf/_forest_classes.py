@@ -12,6 +12,7 @@ from scipy.sparse import hstack as sparse_hstack
 from sklearn.utils import check_random_state, compute_sample_weight
 from sklearn.utils.validation import _check_sample_weight, check_is_fitted
 import scipy.stats
+from scipy.special import erfc
 
 MAX_INT = np.iinfo(np.int32).max
 
@@ -104,17 +105,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  n_estimators=100, *,
                  criterion="mse",
                  max_depth=None,
-                 min_samples_split=2,
-                 min_samples_leaf=1,
+                 min_samples_split=10,
+                 min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
                  max_features="auto",
                  min_impurity_decrease=0.,
-                 max_samples=.9,
+                 max_samples=.45,
                  min_balancedness_tol=.45,
                  honest=True,
                  inference=True,
                  fit_intercept=True,
-                 n_subforests='auto',
+                 subforest_size=4,
                  n_jobs=None,
                  random_state=None,
                  verbose=0,
@@ -139,7 +140,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.honest = honest
         self.inference = inference
         self.fit_intercept = fit_intercept
-        self.n_subforests = n_subforests
+        self.subforest_size = subforest_size
         self.n_jobs = n_jobs
         self.random_state = random_state
         self.verbose = verbose
@@ -306,6 +307,26 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             warn("Warm-start fitting without increasing n_estimators does not "
                  "fit new trees.")
         else:
+            if self.inference:
+                if not isinstance(self.subforest_size, numbers.Integral):
+                    raise ValueError("Parameter `subforest_size` must be "
+                                     "an integer but got value {}.".format(self.subforest_size))
+                if self.subforest_size < 2:
+                    raise ValueError("Parameter `subforest_size` must be at least 2 if `inference=True`, "
+                                     "but got value {}".format(self.subforest_size))
+                if not (n_more_estimators % self.subforest_size == 0):
+                    raise ValueError("The number of estimators to be constructed must be divisible "
+                                     "the `subforest_size` parameter. Asked to build `n_estimators={}` "
+                                     "with `subforest_size={}`.".format(n_more_estimators, self.subforest_size))
+                if n_samples_subsample > n_samples // 2:
+                    if isinstance(self.max_samples, numbers.Integral):
+                        raise ValueError("Parameter `max_samples` must be in [1, n_samples // 2], "
+                                         "if `inference=True`. "
+                                         "Got values n_samples={}, max_samples={}".format(n_samples, self.max_samples))
+                    else:
+                        raise ValueError("Parameter `max_samples` must be in (0, .5], if `inference=True`. "
+                                         "Got value {}".format(self.max_samples))
+
             if self.warm_start and len(self.estimators_) > 0:
                 # We draw from the random state to get the random state we
                 # would have got if we hadn't used a warm_start.
@@ -319,20 +340,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # Generating indices a priori before parallelism ended up being orders of magnitude
                 # faster than how sklearn does it. The reason is that random samplers do not release the
                 # gil it seems.
-                if self.n_subforests == 'auto':
-                    n_subforests = int(np.ceil(n_more_estimators**(1 / 4)))
-                elif isinstance(self.n_subforests, numbers.Integral):
-                    n_subforests = self.n_subforests
-                else:
-                    raise ValueError("Parameter n_subforests must be an integer or 'auto'.")
+                n_groups = n_more_estimators // self.subforest_size
                 new_slices = np.array_split(np.arange(len(self.estimators_),
                                                       len(self.estimators_) + n_more_estimators),
-                                            n_subforests)
+                                            n_groups)
                 s_inds = []
                 for sl in new_slices:
                     half_sample_inds = random_state.choice(n_samples, n_samples // 2, replace=False)
                     s_inds.extend([half_sample_inds[random_state.choice(n_samples // 2,
-                                                                        n_samples_subsample // 2,
+                                                                        n_samples_subsample,
                                                                         replace=False)]
                                    for _ in range(len(sl))])
             else:
@@ -384,37 +400,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         check_is_fitted(self)
 
         all_importances = Parallel(n_jobs=self.n_jobs, backend='threading')(
-            delayed(tree.feature_importances)(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
-            for tree in self.estimators_ if tree.tree_.node_count > 1)
-
-        if not all_importances:
-            return np.zeros(self.n_features_, dtype=np.float64)
-
-        all_importances = np.mean(all_importances,
-                                  axis=0, dtype=np.float64)
-        return all_importances / np.sum(all_importances)
-
-    def feature_heterogeneity_importances(self, max_depth=None, depth_decay_exponent=.0):
-        """
-        The impurity-based feature importances.
-        The higher, the more important the feature.
-        The importance of a feature is computed as the (normalized)
-        total reduction of the criterion brought by that feature.  It is also
-        known as the Gini importance.
-        Warning: impurity-based feature importances can be misleading for
-        high cardinality features (many unique values). See
-        :func:`sklearn.inspection.permutation_importance` as an alternative.
-        Returns
-        -------
-        feature_importances_ : ndarray of shape (n_features,)
-            The values of this array sum to 1, unless all trees are single node
-            trees consisting of only the root node, in which case it will be an
-            array of zeros.
-        """
-        check_is_fitted(self)
-
-        all_importances = Parallel(n_jobs=self.n_jobs, backend='threading')(
-            delayed(tree.feature_heterogeneity_importances)(
+            delayed(tree.feature_importances)(
                 max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
             for tree in self.estimators_ if tree.tree_.node_count > 1)
 
@@ -435,10 +421,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         n_jobs, _, _ = _partition_estimators(self.n_estimators, self.n_jobs)
 
         # avoid storing the output of every estimator by summing them here
-        if self.n_outputs_ > 1:
-            y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
-        else:
-            y_hat = np.zeros((X.shape[0]), dtype=np.float64)
+        y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
 
         # Parallel loop
         lock = threading.Lock()
@@ -510,6 +493,34 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return alpha_hat
 
+    def predict_moment(self, X, parameter, slice=None, parallel=True):
+        check_is_fitted(self)
+        # Check data
+        X = self._validate_X_predict(X)
+
+        # Assign chunk of trees to jobs
+        if slice is None:
+            slice = np.arange(len(self.estimators_))
+
+        moment_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+        lock = threading.Lock()
+        if parallel:
+            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
+            verbose = self.verbose
+            # Parallel loop
+            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
+                delayed(_accumulate_prediction)(self.estimators_[t].predict_moment, X, [moment_hat], lock,
+                                                parameter)
+                for t in slice)
+        else:
+            [_accumulate_prediction(self.estimators_[t].predict_moment, X, [moment_hat], lock,
+                                    parameter)
+             for t in slice]
+
+        moment_hat /= len(slice)
+
+        return moment_hat
+
     def predict_moment_var(self, X, parameter, slice=None, parallel=True):
         check_is_fitted(self)
         # Check data
@@ -567,58 +578,76 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
 
-    def _predict_point_and_cov(self, X, full=False, point=True, cov=False, var_correction=False):
+    def _predict_point_and_var(self, X, full=False, point=True, var=False, var_correction=True):
         n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
         parameter = np.einsum('ijk,ik->ij', invjac, alpha)
-        moment = alpha - np.einsum('ijk,ik->ij', jac, parameter)
 
-        if cov:
+        if var:
             if not self.inference:
                 raise AttributeError("Inference not available. Forest was initiated with `inference=False`.")
+
+            moment = alpha - np.einsum('ijk,ik->ij', jac, parameter)
+
             slices = self.slices_
             n_jobs, _, _ = _partition_estimators(len(slices), self.n_jobs)
+
+            # Calculate the mean moment within each bag of trees
             alpha_bags, jac_bags = zip(*Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
                 delayed(self.predict_alpha_and_jac)(X, slice=sl, parallel=False) for sl in slices))
             alpha_bags = np.array(alpha_bags)
             jac_bags = np.array(jac_bags)
             moment_bags = alpha_bags - np.einsum('tijk,ik->tij', jac_bags, parameter)
-            centered_moment_bags = moment_bags - moment
-            centered_moment_bags = np.moveaxis(centered_moment_bags, 0, -1)
-            param_cov = np.einsum('tij,tjk->tik', centered_moment_bags,
-                                  np.transpose(centered_moment_bags, (0, 2, 1))) / len(slices)
+
+            # Calculate the between bag variance of bag-mean moments
+            trans_moment_bags = np.moveaxis(moment_bags, 0, -1)
+            sq_between = np.einsum('tij,tjk->tik', trans_moment_bags,
+                                   np.transpose(trans_moment_bags, (0, 2, 1))) / len(slices)
+            moment_sq = np.einsum('tij,tjk->tik',
+                                  moment.reshape(moment.shape + (1,)),
+                                  moment.reshape(moment.shape[:-1] + (1, moment.shape[-1])))
+            var_between = sq_between - moment_sq
             pred_cov = np.einsum('ijk,ikm->ijm', invjac,
-                                 np.einsum('ijk,ikm->ijm', param_cov, np.transpose(invjac, (0, 2, 1))))
+                                 np.einsum('ijk,ikm->ijm', var_between, np.transpose(invjac, (0, 2, 1))))
+            pred_var = np.diagonal(pred_cov, axis1=1, axis2=2)
             if var_correction:
-                moment_var_bags = Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading')(
-                    delayed(self.predict_moment_var)(X, parameter, slice=sl, parallel=False) for sl in slices)
-                moment_var_bags -= np.einsum('tijk,tikm->tijm',
-                                             moment_bags.reshape(moment_bags.shape + (1,)),
-                                             moment_bags.reshape(moment_bags.shape[:-1] + (1, moment_bags.shape[-1]))
-                                             )
-                correction = np.mean(moment_var_bags, axis=0) / (len(slices[0]) - 1)
-                pred_cov -= correction
-        if point and cov:
+                # Subtract the average within bag variance. This ends up being equal to the
+                # overall (E_{all trees}[moment^2] - E_bags[ E[mean_bag_moment]^2 ]) / sizeof(bag).
+                # The negative part is just sq_between.
+                var_total = self.predict_moment_var(X, parameter)
+                correction = (var_total - sq_between) / (len(slices[0]) - 1)
+                pred_correction = np.einsum('ijk,ikm->ijm', invjac,
+                                            np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1))))
+                pred_var_correction = np.diagonal(pred_correction, axis1=1, axis2=2)
+                # Objective bayes debiasing
+                naive_estimate = pred_var - pred_var_correction
+                se = np.maximum(pred_var, pred_var_correction) * np.sqrt(2.0 / len(slices))
+                zstat = naive_estimate / se
+                numerator = np.exp(- (zstat**2) / 2) / np.sqrt(2.0 * np.pi)
+                denominator = 0.5 * erfc(-zstat / np.sqrt(2.0))
+                pred_var = naive_estimate + se * numerator / denominator
+
+        if point and var:
             return (parameter[:, :n_outputs],
-                    pred_cov[:, :n_outputs, :n_outputs],)
+                    pred_var[:, :n_outputs],)
         elif point:
             return parameter[:, :n_outputs]
         else:
-            return pred_cov[:, :n_outputs, :n_outputs]
+            return pred_var[:, :n_outputs]
 
-    def predict_full(self, X, interval=False, alpha=0.05, var_correction=False):
+    def predict_full(self, X, interval=False, alpha=0.05, var_correction=True):
         if interval:
-            point, pred_cov = self._predict_point_and_cov(X, full=True, point=True,
-                                                          cov=True, var_correction=var_correction)
+            point, pred_var = self._predict_point_and_var(X, full=True, point=True,
+                                                          var=True, var_correction=var_correction)
             lb, ub = np.zeros(point.shape), np.zeros(point.shape)
             for t in range(self.n_outputs_):
-                lb[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
-                ub[:, t] = scipy.stats.norm.ppf(1 - alpha / 2, loc=point[:, t], scale=np.sqrt(pred_cov[:, t, t]))
+                lb[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t]))
+                ub[:, t] = scipy.stats.norm.ppf(1 - alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t]))
             return point, lb, ub
-        return self._predict_point_and_cov(X, full=True, point=True, cov=False)
+        return self._predict_point_and_var(X, full=True, point=True, var=False)
 
-    def predict(self, X, interval=False, alpha=0.05, var_correction=False):
+    def predict(self, X, interval=False, alpha=0.05, var_correction=True):
         if interval:
             y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha, var_correction=var_correction)
             if self.n_relevant_outputs_ == self.n_outputs_:
@@ -631,15 +660,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 return y_hat
             return y_hat[:, :self.n_relevant_outputs_]
 
-    def predict_cov(self, X, var_correction=False):
-        return self._predict_point_and_cov(X, full=False, point=False, cov=True, var_correction=var_correction)
-
-    def predict_interval(self, X, alpha=.05, var_correction=False):
+    def predict_interval(self, X, alpha=.05, var_correction=True):
         _, lb, ub = self.predict(X, interval=True, alpha=alpha, var_correction=var_correction)
         return lb, ub
 
-    def prediction_stderr(self, X, var_correction=False):
-        return np.diagonal(self.predict_cov(X, var_correction=var_correction), axis1=1, axis2=2)
+    def predict_var(self, X, var_correction=True):
+        return self._predict_point_and_var(X, full=False, point=False, var=True, var_correction=var_correction)
+
+    def prediction_stderr(self, X, var_correction=True):
+        return np.sqrt(self.predict_var(X, var_correction=var_correction))
 
 
 # =============================================================================

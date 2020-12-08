@@ -430,24 +430,5 @@ class GRFTree(BaseEstimator):
         """
         check_is_fitted(self)
 
-        return self.tree_.compute_feature_importances(normalize=False, max_depth=max_depth,
-                                                      depth_decay=depth_decay_exponent)
-
-    def feature_heterogeneity_importances(self, max_depth=None, depth_decay_exponent=.0):
-        """Return the feature importances.
-        The importance of a feature is computed as the (normalized) total
-        reduction of the criterion brought by that feature.
-        It is also known as the Gini importance.
-        Warning: impurity-based feature importances can be misleading for
-        high cardinality features (many unique values). See
-        :func:`sklearn.inspection.permutation_importance` as an alternative.
-        Returns
-        -------
-        feature_importances_ : ndarray of shape (n_features,)
-            Normalized total reduction of criteria by feature
-            (Gini importance).
-        """
-        check_is_fitted(self)
-
-        return self.tree_.compute_feature_heterogeneity_importances(normalize=False, max_depth=max_depth,
+        return self.tree_.compute_feature_heterogeneity_importances(normalize=True, max_depth=max_depth,
                                                                     depth_decay=depth_decay_exponent)

@@ -109,7 +109,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                                   DOUBLE_t* sample_weight,
                                   SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1:
         cdef SIZE_t i, j, k, p
-        cdef double w, local_weighted_n_node_samples
+        cdef double w, local_weighted_n_node_samples, det
         cdef SIZE_t n_outputs = self.n_outputs
         local_weighted_n_node_samples = 0.0
 
@@ -136,6 +136,14 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         # Calcualte inverse and store it in invJ
         if n_outputs == 1:
             invJ[0] = 1.0 / J[0] if fabs(J[0]) > 0 else 0.0
+        elif n_outputs == 2:
+            det = J[0] * J[3] - J[1] * J[2]
+            if fabs(det) < 1e-6:
+                det = 1e-6
+            invJ[0] = J[3] / det
+            invJ[1] = - J[1] / det
+            invJ[2] = - J[2] / det
+            invJ[3] = J[1] / det
         else:
             if not matinv_(J, invJ, n_outputs):
                 pinv_(J, invJ, n_outputs, n_outputs)
