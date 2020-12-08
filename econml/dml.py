@@ -39,17 +39,20 @@ from warnings import warn
 import numpy as np
 from sklearn.base import TransformerMixin, clone
 from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
                                    OneHotEncoder)
 from sklearn.utils import check_random_state
+import copy
 
 from ._rlearner import _RLearner
 from .cate_estimator import (DebiasedLassoCateEstimatorMixin,
                              ForestModelFinalCateEstimatorMixin,
                              LinearModelFinalCateEstimatorMixin,
-                             StatsModelsCateEstimatorMixin)
+                             StatsModelsCateEstimatorMixin,
+                             LinearCateEstimator)
 from .inference import StatsModelsInference
 from .sklearn_extensions.ensemble import SubsampledHonestForest
 from .sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
@@ -931,6 +934,17 @@ class NonParamDML(_BaseDML):
                          n_splits=n_splits,
                          random_state=random_state)
 
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        if self.featurizer is not None:
+            F = self.featurizer.transform(X)
+        else:
+            F = X
+        feature_names = self.cate_feature_names(feature_names)
+
+        return super()._shap_values(self.model_cate, F, feature_names=feature_names,
+                                    treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
+
 
 class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
     """ Instance of NonParamDML with a
@@ -1161,6 +1175,13 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            inference=inference)
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        model = copy.deepcopy(self.model_cate)
+        model.__class__ = RandomForestRegressor
+        return super()._shap_values(model, X, feature_names=feature_names,
+                                    treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
 @deprecated("The DMLCateEstimator class has been renamed to DML; "

@@ -28,23 +28,27 @@ Tsiatis AA (2006).
 """
 
 from warnings import warn
+from copy import deepcopy
+from collections import defaultdict
+import shap
 
 import numpy as np
 from sklearn.base import clone
 from sklearn.linear_model import (LassoCV, LinearRegression,
                                   LogisticRegressionCV)
+from sklearn.ensemble import RandomForestRegressor
 
 from ._ortho_learner import _OrthoLearner
 from .cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin,
                              ForestModelFinalCateEstimatorDiscreteMixin,
-                             StatsModelsCateEstimatorDiscreteMixin)
+                             StatsModelsCateEstimatorDiscreteMixin, LinearCateEstimator)
 from .inference import GenericModelFinalInferenceDiscrete
 from .sklearn_extensions.ensemble import SubsampledHonestForest
 from .sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
 from .utilities import (_deprecate_positional, check_high_dimensional,
                         check_input_arrays, filter_none_kwargs,
-                        fit_with_groups, inverse_onehot)
+                        fit_with_groups, inverse_onehot, _shap_explain_cme)
 
 
 class _ModelNuisance:
@@ -557,6 +561,46 @@ class DRLearner(_OrthoLearner):
             return self.featurizer.get_feature_names(input_feature_names)
         else:
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        if self.featurizer is not None:
+            F = self.featurizer.transform(X)
+        else:
+            F = X
+        feature_names = self.cate_feature_names(feature_names)
+
+        if self._multitask_model_final:
+            d_t = self._d_t[0] if self._d_t else 1
+            if treatment_names is None:
+                treatment_names = [f"T{i}" for i in range(d_t)]
+            if output_names is None:
+                output_names = ["Y0"]
+
+            # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
+            background = shap.maskers.Independent(F, max_samples=F.shape[0])
+            shap_outs = defaultdict(dict)
+            try:
+                explainer = shap.Explainer(self.multitask_model_cate, background,
+                                           feature_names=feature_names)
+            except Exception as e:
+                print("Final model can't be parsed, explain const_marginal_effect() instead!")
+                return _shap_explain_cme(self.const_marginal_effect, F, 1, d_t, feature_names, treatment_names,
+                                         output_names)
+
+            shap_out = explainer(F)
+            if d_t > 1:
+                for i in range(d_t):
+                    shap_out_copy = deepcopy(shap_out)
+                    shap_out_copy.base_values = shap_out_copy.base_values[..., i]
+                    shap_out_copy.values = shap_out_copy.values[..., i]
+                    shap_outs[output_names[0]][treatment_names[i]] = shap_out_copy
+            else:
+                shap_outs[output_names[0]][treatment_names[0]] = shap_out
+            return shap_outs
+        else:
+            return super()._shap_values(super().model_final.models_cate, F, feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
@@ -1142,7 +1186,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     """
 
     def __init__(self,
-                 model_regression, model_propensity,
+                 model_regression="auto", model_propensity="auto",
                  min_propensity=1e-6,
                  categories='auto',
                  n_crossfit_splits=2,
@@ -1230,3 +1274,13 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     @property
     def fitted_models_final(self):
         return super().model_final.models_cate
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        models = []
+        for fitted_model in self.fitted_models_final:
+            model = deepcopy(fitted_model)
+            model.__class__ = RandomForestRegressor
+            models.append(model)
+        return super()._shap_values(models, X, feature_names=feature_names,
+                                    treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__

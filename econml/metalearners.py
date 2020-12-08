@@ -458,3 +458,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             last_step_name = model_instance.steps[-1][0]
             model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        return super()._shap_values(self.final_models, X, feature_names=feature_names,
+                                    treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
