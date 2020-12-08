@@ -707,3 +707,43 @@ class CausalIVForest(BaseGRF):
         if self.fit_intercept:
             return cross_product(np.hstack([Z, np.ones((Z.shape[0], 1))]), T)
         return cross_product(Z, T)
+
+
+class RegressionForest(BaseGRF):
+
+    def __init__(self,
+                 n_estimators=100, *,
+                 max_depth=None,
+                 min_samples_split=10,
+                 min_samples_leaf=5,
+                 min_weight_fraction_leaf=0.,
+                 max_features="auto",
+                 min_impurity_decrease=0.,
+                 max_samples=.45,
+                 min_balancedness_tol=.45,
+                 honest=True,
+                 inference=True,
+                 fit_intercept=True,
+                 subforest_size=4,
+                 n_jobs=None,
+                 random_state=None,
+                 verbose=0,
+                 warm_start=False):
+        super().__init__(n_estimators=n_estimators, criterion='het', max_depth=max_depth,
+                         min_samples_split=min_samples_split,
+                         min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
+                         max_features=max_features, min_impurity_decrease=min_impurity_decrease,
+                         max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
+                         honest=honest, inference=inference, fit_intercept=fit_intercept,
+                         subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
+                         warm_start=warm_start)
+
+    def fit(self, X, y):
+        return super().fit(X, y, np.ones((X.shape[0], 1)))
+
+    def get_alpha(self, X, y, T):
+        return y
+
+    def get_pointJ(self, X, y, T):
+        jac = np.eye(y.shape[1]).reshape((1, -1))
+        return np.tile(jac, (X.shape[0], 1))
