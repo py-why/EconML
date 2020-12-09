@@ -11,8 +11,10 @@ from joblib import Parallel, delayed
 from scipy.sparse import hstack as sparse_hstack
 from sklearn.utils import check_random_state, compute_sample_weight
 from sklearn.utils.validation import _check_sample_weight, check_is_fitted
+from sklearn.utils import check_X_y
 import scipy.stats
 from scipy.special import erfc
+
 
 MAX_INT = np.iinfo(np.int32).max
 
@@ -395,14 +397,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return self
 
-    def _validate_X_predict(self, X):
-        """
-        Validate X whenever one tries to predict, apply, predict_proba."""
-        check_is_fitted(self)
-
-        return self.estimators_[0]._validate_X_predict(X, check_input=True)
-
-    def feature_importances(self, max_depth=None, depth_decay_exponent=.0):
+    def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
         The impurity-based feature importances.
         The higher, the more important the feature.
@@ -432,6 +427,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         all_importances = np.mean(all_importances,
                                   axis=0, dtype=np.float64)
         return all_importances / np.sum(all_importances)
+
+    @property
+    def feature_importances_(self):
+        return self.feature_importances()
+
+    def _validate_X_predict(self, X):
+        """
+        Validate X whenever one tries to predict, apply, predict_proba."""
+        check_is_fitted(self)
+
+        return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
     def predict_tree_average_full(self, X):
 
@@ -632,7 +638,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
 
-    def _predict_point_and_var(self, X, full=False, point=True, var=False, var_correction=True):
+    def _predict_point_and_var(self, X, full=False, point=True, var=False, var_correction=True,
+                               project=False, projector=None):
 
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
@@ -659,7 +666,14 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             var_between = sq_between - moment_sq
             pred_cov = np.einsum('ijk,ikm->ijm', invjac,
                                  np.einsum('ijk,ikm->ijm', var_between, np.transpose(invjac, (0, 2, 1))))
-            pred_var = np.diagonal(pred_cov, axis1=1, axis2=2)
+
+            if project:
+                pred_var = np.einsum('ijk,ikm->ijm', projector.reshape((-1, 1, projector.shape[1])),
+                                     np.einsum('ijk,ikm->ijm', pred_cov,
+                                               projector.reshape((-1, projector.shape[1], 1))))[:, 0, 0]
+            else:
+                pred_var = np.diagonal(pred_cov, axis1=1, axis2=2)
+
             if var_correction:
                 # Subtract the average within bag variance. This ends up being equal to the
                 # overall (E_{all trees}[moment^2] - E_bags[ E[mean_bag_moment]^2 ]) / sizeof(bag).
@@ -668,7 +682,12 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 correction = (var_total - sq_between) / (len(slices[0]) - 1)
                 pred_cov_correction = np.einsum('ijk,ikm->ijm', invjac,
                                                 np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1))))
-                pred_var_correction = np.diagonal(pred_cov_correction, axis1=1, axis2=2)
+                if project:
+                    pred_var_correction = np.einsum('ijk,ikm->ijm', projector.reshape((-1, 1, projector.shape[1])),
+                                                    np.einsum('ijk,ikm->ijm', pred_cov_correction,
+                                                              projector.reshape((-1, projector.shape[1], 1))))[:, 0, 0]
+                else:
+                    pred_var_correction = np.diagonal(pred_cov_correction, axis1=1, axis2=2)
                 # Objective bayes debiasing for the diagonals where we know a-prior they are positive
                 # The off diagonals we have no objective prior, so no correction is applied.
                 naive_estimate = pred_var - pred_var_correction
@@ -677,19 +696,33 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 numerator = np.exp(- (zstat**2) / 2) / np.sqrt(2.0 * np.pi)
                 denominator = 0.5 * erfc(-zstat / np.sqrt(2.0))
                 pred_var_corrected = naive_estimate + se * numerator / denominator
-                # Finally correcting the pred_cov
-                pred_cov = pred_cov - pred_cov_correction
-                for t in range(self.n_outputs_):
-                    pred_cov[:, t, t] = pred_var_corrected[:, t]
 
-        n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
-        if point and var:
-            return (parameter[:, :n_outputs],
-                    pred_cov[:, :n_outputs, :n_outputs],)
-        elif point:
-            return parameter[:, :n_outputs]
+                # Finally correcting the pred_cov or pred_var
+                if project:
+                    pred_var = pred_var_corrected
+                else:
+                    pred_cov = pred_cov - pred_cov_correction
+                    for t in range(self.n_outputs_):
+                        pred_cov[:, t, t] = pred_var_corrected[:, t]
+
+        if project:
+            if point:
+                pred = np.sum(parameter * projector, axis=1)
+                if var:
+                    return pred, pred_var
+                else:
+                    return pred
+            else:
+                return pred_var
         else:
-            return pred_cov[:, :n_outputs, :n_outputs]
+            n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
+            if point and var:
+                return (parameter[:, :n_outputs],
+                        pred_cov[:, :n_outputs, :n_outputs],)
+            elif point:
+                return parameter[:, :n_outputs]
+            else:
+                return pred_cov[:, :n_outputs, :n_outputs]
 
     def predict_full(self, X, interval=False, alpha=0.05, var_correction=True):
         if interval:
@@ -725,8 +758,32 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     def predict_var(self, X, var_correction=True):
         return self._predict_point_and_var(X, full=False, point=False, var=True, var_correction=var_correction)
 
-    def prediction_stderr(self, X, var_correction=True):
+    def predict_stderr(self, X, var_correction=True):
         return np.sqrt(np.diagonal(self.predict_var(X, var_correction=var_correction), axis1=1, axis2=2))
+
+    def _check_projector(self, X, projector):
+        X, projector = check_X_y(X, projector, multi_output=True, y_numeric=True)
+        if projector.ndim == 1:
+            projector = projector.reshape((-1, 1))
+        if self.n_outputs_ > self.n_relevant_outputs_:
+            projector = np.hstack([projector,
+                                   np.zeros((projector.shape[0], self.n_outputs_ - self.n_relevant_outputs_))])
+        return X, projector
+
+    def predict_projection_and_var(self, X, projector, var_correction=True):
+        X, projector = self._check_projector(X, projector)
+        return self._predict_point_and_var(X, full=False, point=True, var=True, var_correction=var_correction,
+                                           project=True, projector=projector)
+
+    def predict_projection(self, X, projector):
+        X, projector = self._check_projector(X, projector)
+        return self._predict_point_and_var(X, full=False, point=True, var=False,
+                                           project=True, projector=projector)
+
+    def predict_projection_var(self, X, projector, var_correction=True):
+        X, projector = self._check_projector(X, projector)
+        return self._predict_point_and_var(X, full=False, point=False, var=True, var_correction=var_correction,
+                                           project=True, projector=projector)
 
 
 # =============================================================================

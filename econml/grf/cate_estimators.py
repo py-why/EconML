@@ -82,13 +82,17 @@ class GenericSingleOutcomeModelFinalWithCovInference(Inference):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
         if self.featurizer is not None:
             X = self.featurizer.transform(X)
-        pred, pred_var = self.model_final.predict_and_var(X)
-        dT = np.atleast_2d(T1 - T0)
-        pred = np.sum(pred * dT, axis=1).reshape((-1,) + self._d_y)
-        pred_var = np.einsum('ijk,ikm->ijm', dT.reshape((-1, 1, dT.shape[1])),
-                             np.einsum('ijk,ikm->ijm', pred_var, dT.reshape((-1, dT.shape[1], 1))))[:, 0, 0]
+        dT = T1 - T0
+        if dT.ndim == 1:
+            dT = dT.reshape((-1, 1))
+        # pred, pred_var = self.model_final.predict_and_var(X)
+        # pred = np.sum(pred * dT, axis=1).reshape((-1,) + self._d_y)
+        # pred_var = np.einsum('ijk,ikm->ijm', dT.reshape((-1, 1, dT.shape[1])),
+        #                      np.einsum('ijk,ikm->ijm', pred_var, dT.reshape((-1, dT.shape[1], 1))))[:, 0, 0]
+        pred, pred_var = self.model_final.predict_projection_and_var(X, dT)
+        pred = pred.reshape((-1,) + self._d_y)
         pred_stderr = np.sqrt(pred_var.reshape((-1,) + self._d_y))
-        return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
+        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, inf_type='effect')
 
 
@@ -101,7 +105,7 @@ class CausalForestDML(_BaseDML):
                  linear_first_stages=False,
                  discrete_treatment=False,
                  categories='auto',
-                 n_splits=2,
+                 n_crossfit_splits=2,
                  n_estimators=100,
                  criterion="mse",
                  max_depth=None,
@@ -114,6 +118,7 @@ class CausalForestDML(_BaseDML):
                  min_balancedness_tol=.45,
                  honest=True,
                  inference=True,
+                 fit_intercept=True,
                  subforest_size=4,
                  n_jobs=-1,
                  random_state=None,
@@ -138,7 +143,7 @@ class CausalForestDML(_BaseDML):
                                    min_weight_fraction_leaf=min_weight_fraction_leaf,
                                    max_features=max_features, min_impurity_decrease=min_impurity_decrease,
                                    max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
-                                   honest=honest, inference=inference, fit_intercept=True,
+                                   honest=honest, inference=inference, fit_intercept=fit_intercept,
                                    subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state,
                                    verbose=verbose, warm_start=warm_start)
         super().__init__(model_y=_FirstStageWrapper(model_y, True,
@@ -148,7 +153,7 @@ class CausalForestDML(_BaseDML):
                          model_final=_CausalForestFinalWrapper(model_final, False, featurizer, False),
                          discrete_treatment=discrete_treatment,
                          categories=categories,
-                         n_splits=n_splits,
+                         n_splits=n_crossfit_splits,
                          random_state=random_state)
 
     def _get_inference_options(self):
@@ -189,3 +194,10 @@ class CausalForestDML(_BaseDML):
         check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=False)
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            inference=inference)
+
+    def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
+        return self.model_final.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+
+    @property
+    def feature_importances_(self):
+        return self.model_final.feature_importances_
