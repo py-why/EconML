@@ -85,10 +85,6 @@ class GenericSingleOutcomeModelFinalWithCovInference(Inference):
         dT = T1 - T0
         if dT.ndim == 1:
             dT = dT.reshape((-1, 1))
-        # pred, pred_var = self.model_final.predict_and_var(X)
-        # pred = np.sum(pred * dT, axis=1).reshape((-1,) + self._d_y)
-        # pred_var = np.einsum('ijk,ikm->ijm', dT.reshape((-1, 1, dT.shape[1])),
-        #                      np.einsum('ijk,ikm->ijm', pred_var, dT.reshape((-1, dT.shape[1], 1))))[:, 0, 0]
         pred, pred_var = self.model_final.predict_projection_and_var(X, dT)
         pred = pred.reshape((-1,) + self._d_y)
         pred_stderr = np.sqrt(pred_var.reshape((-1,) + self._d_y))
