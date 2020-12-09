@@ -719,6 +719,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         _, lb, ub = self.predict(X, interval=True, alpha=alpha, var_correction=var_correction)
         return lb, ub
 
+    def predict_and_var(self, X, var_correction=True):
+        return self._predict_point_and_var(X, full=False, point=True, var=True, var_correction=var_correction)
+
     def predict_var(self, X, var_correction=True):
         return self._predict_point_and_var(X, full=False, point=False, var=True, var_correction=var_correction)
 
