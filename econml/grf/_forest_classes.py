@@ -634,7 +634,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def _predict_point_and_var(self, X, full=False, point=True, var=False, var_correction=True):
 
-        n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
         parameter = np.einsum('ijk,ik->ij', invjac, alpha)
@@ -667,24 +666,30 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 # The negative part is just sq_between.
                 var_total = np.mean(moment_var_bags, axis=0)
                 correction = (var_total - sq_between) / (len(slices[0]) - 1)
-                pred_correction = np.einsum('ijk,ikm->ijm', invjac,
-                                            np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1))))
-                pred_var_correction = np.diagonal(pred_correction, axis1=1, axis2=2)
-                # Objective bayes debiasing
+                pred_cov_correction = np.einsum('ijk,ikm->ijm', invjac,
+                                                np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1))))
+                pred_var_correction = np.diagonal(pred_cov_correction, axis1=1, axis2=2)
+                # Objective bayes debiasing for the diagonals where we know a-prior they are positive
+                # The off diagonals we have no objective prior, so no correction is applied.
                 naive_estimate = pred_var - pred_var_correction
                 se = np.maximum(pred_var, pred_var_correction) * np.sqrt(2.0 / len(slices))
                 zstat = naive_estimate / se
                 numerator = np.exp(- (zstat**2) / 2) / np.sqrt(2.0 * np.pi)
                 denominator = 0.5 * erfc(-zstat / np.sqrt(2.0))
-                pred_var = naive_estimate + se * numerator / denominator
+                pred_var_corrected = naive_estimate + se * numerator / denominator
+                # Finally correcting the pred_cov
+                pred_cov = pred_cov - pred_cov_correction
+                for t in range(self.n_outputs_):
+                    pred_cov[:, t, t] = pred_var_corrected[:, t]
 
+        n_outputs = self.n_outputs_ if full else self.n_relevant_outputs_
         if point and var:
             return (parameter[:, :n_outputs],
-                    pred_var[:, :n_outputs],)
+                    pred_cov[:, :n_outputs, :n_outputs],)
         elif point:
             return parameter[:, :n_outputs]
         else:
-            return pred_var[:, :n_outputs]
+            return pred_cov[:, :n_outputs, :n_outputs]
 
     def predict_full(self, X, interval=False, alpha=0.05, var_correction=True):
         if interval:
@@ -692,8 +697,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                                           var=True, var_correction=var_correction)
             lb, ub = np.zeros(point.shape), np.zeros(point.shape)
             for t in range(self.n_outputs_):
-                lb[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t]))
-                ub[:, t] = scipy.stats.norm.ppf(1 - alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t]))
+                lb[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t, t]))
+                ub[:, t] = scipy.stats.norm.ppf(1 - alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t, t]))
             return point, lb, ub
         return self._predict_point_and_var(X, full=True, point=True, var=False)
 
@@ -718,7 +723,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=False, point=False, var=True, var_correction=var_correction)
 
     def prediction_stderr(self, X, var_correction=True):
-        return np.sqrt(self.predict_var(X, var_correction=var_correction))
+        return np.sqrt(np.diagonal(self.predict_var(X, var_correction=var_correction), axis1=1, axis2=2))
 
 
 # =============================================================================
