@@ -671,7 +671,8 @@ class _BaseDMLIV(_OrthoLearner):
         Parameters
         ----------
         input_feature_names: list of strings of length X.shape[1] or None
-            The names of the input features
+            The names of the input features. If None and X is a dataframe, it defaults to the column names
+            from the dataframe.
 
         Returns
         -------
@@ -681,6 +682,8 @@ class _BaseDMLIV(_OrthoLearner):
             with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
             does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
         """
+        if input_feature_names is None:
+            input_feature_names = self._input_names["feat_name"]
         if self.original_featurizer is None:
             return input_feature_names
         elif hasattr(self.original_featurizer, 'get_feature_names'):
@@ -1160,7 +1163,8 @@ class _BaseDRIV(_OrthoLearner):
         Parameters
         ----------
         input_feature_names: list of strings of length X.shape[1] or None
-            The names of the input features
+            The names of the input features. If None and X is a dataframe, it defaults to the column names
+            from the dataframe.
 
         Returns
         -------
@@ -1170,6 +1174,8 @@ class _BaseDRIV(_OrthoLearner):
             with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
             does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
         """
+        if input_feature_names is None:
+            input_feature_names = self._input_names["feat_name"]
         if self.original_featurizer is None:
             return input_feature_names
         elif hasattr(self.original_featurizer, 'get_feature_names'):

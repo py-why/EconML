@@ -627,6 +627,7 @@ class DMLOrthoForest(BaseOrthoForest):
         -------
         self: an instance of self.
         """
+        self._set_input_names(Y, T, X)
         Y, T, X, W = check_inputs(Y, T, X, W)
 
         if self.discrete_treatment:
@@ -956,7 +957,8 @@ class DROrthoForest(BaseOrthoForest):
         self.transformer = FunctionTransformer(
             func=_EncoderWrapper(self._one_hot_encoder).encode,
             validate=False)
-
+        # Set input names if Y, T, X are dataframes/series
+        self._set_input_names(Y, T, X)
         # Call `fit` from parent class
         super().fit(Y, T, X=X, W=W, inference=inference)
 
@@ -1133,6 +1135,7 @@ class BLBInference(Inference):
         This is called after the estimator's fit.
         """
         self._estimator = estimator
+        self._input_names = estimator._input_names
         # Test whether the input estimator is supported
         if not hasattr(self._estimator, "_predict"):
             raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
@@ -1196,7 +1199,7 @@ class BLBInference(Inference):
         stderr = stderr.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
         return NormalInferenceResults(d_t=self._estimator._d_t[0] if self._estimator._d_t else 1,
                                       d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=params, pred_stderr=stderr, inf_type='effect')
+                                      pred=params, pred_stderr=stderr, inf_type='effect', **self._input_names)
 
     def _effect_inference_helper(self, X, T0, T1):
         X, T0, T1 = self._estimator._expand_treatments(*check_input_arrays(X, T0, T1))
@@ -1261,7 +1264,7 @@ class BLBInference(Inference):
         """
         eff, scales = self._effect_inference_helper(X, T0, T1)
         return NormalInferenceResults(d_t=1, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=eff, pred_stderr=scales, inf_type='effect')
+                                      pred=eff, pred_stderr=scales, inf_type='effect', **self._input_names)
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)

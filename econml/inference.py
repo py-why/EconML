@@ -67,6 +67,7 @@ class BootstrapInference(Inference):
         est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, compute_means=False,
                                  bootstrap_type=self._bootstrap_type)
         est.fit(*args, **kwargs)
+        self._input_names = estimator._input_names
         self._est = est
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -101,6 +102,7 @@ class GenericModelFinalInference(Inference):
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
         # (which needs to have been expanded if there's a discrete treatment)
+        self._input_names = estimator._input_names
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -122,7 +124,7 @@ class GenericModelFinalInference(Inference):
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)), self._d_t, self._d_y)
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, inf_type='effect')
+                                      pred_stderr=pred_stderr, inf_type='effect', **self._input_names)
 
     def _predict(self, X):
         return self.model_final.predict(X)
@@ -175,7 +177,7 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect')
+                                      pred_stderr=e_stderr, inf_type='effect', **self._input_names)
 
 
 class LinearModelFinalInference(GenericModelFinalInference):
@@ -223,7 +225,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect')
+                                      pred_stderr=e_stderr, inf_type='effect', **self._input_names)
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -257,7 +259,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
             def fname_transformer(x):
                 return x
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
-                                      inf_type='coefficient', fname_transformer=fname_transformer)
+                                      inf_type='coefficient', fname_transformer=fname_transformer,
+                                      **self._input_names)
 
     def intercept__interval(self, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -286,7 +289,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
                                                     self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                                     self.fit_cate_intercept)[1]
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
-                                      inf_type='intercept')
+                                      inf_type='intercept', **self._input_names)
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -330,6 +333,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
         # (which needs to have been expanded if there's a discrete treatment)
+        self._input_names = estimator._input_names
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -355,7 +359,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
         pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final])
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
                                       # send treatment to the end, pull bounds to the front
-                                      pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect')
+                                      pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect',
+                                      **self._input_names)
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -385,7 +390,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ..., ind],
                                       pred_stderr=pred_stderr[np.arange(T0.shape[0]), ..., ind],
-                                      inf_type='effect')
+                                      inf_type='effect', **self._input_names)
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
@@ -416,7 +421,8 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             def fname_transformer(x):
                 return x
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
-                                      inf_type='coefficient', fname_transformer=fname_transformer)
+                                      inf_type='coefficient', fname_transformer=fname_transformer,
+                                      **self._input_names)
 
     def intercept__interval(self, T, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -434,7 +440,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         assert ind >= 0, "No model was fitted for the control"
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
                                       pred_stderr=self.fitted_models_final[ind].intercept_stderr_,
-                                      inf_type='intercept')
+                                      inf_type='intercept', **self._input_names)
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
@@ -484,12 +490,16 @@ class InferenceResults(metaclass=abc.ABCMeta):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=lambda nm: nm):
+    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=lambda nm: nm,
+                 feat_name=None, output_name=None, treatment_name=None):
         self.d_t = d_t
         self.d_y = d_y
         self.pred = pred
         self.inf_type = inf_type
         self.fname_transformer = fname_transformer
+        self.feat_name = feat_name
+        self.output_name = output_name
+        self.treatment_name = treatment_name
 
     @property
     def point_estimate(self):
@@ -623,7 +633,9 @@ class InferenceResults(metaclass=abc.ABCMeta):
             The output dataframe includes point estimate, standard error, z score, p value and confidence intervals
             of the estimated metric of each treatment on each outcome for each sample X[i]
         """
-
+        feat_name = self.feat_name if feat_name is None else feat_name
+        treatment_name = self.treatment_name if treatment_name is None else treatment_name
+        output_name = self.output_name if output_name is None else output_name
         ci_mean = self.conf_int(alpha=alpha)
         to_include = OrderedDict()
         to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.point_estimate,
@@ -689,6 +701,8 @@ class InferenceResults(metaclass=abc.ABCMeta):
             The population summary results instance contains the different summary analysis of point estimate
             for sample X on each treatment and outcome.
         """
+        treatment_name = self.treatment_name if treatment_name is None else treatment_name
+        output_name = self.output_name if output_name is None else output_name
         if self.inf_type == 'effect':
             return PopulationSummaryResults(pred=self.point_estimate, pred_stderr=self.stderr,
                                             d_t=self.d_t, d_y=self.d_y,
@@ -760,9 +774,10 @@ class NormalInferenceResults(InferenceResults):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=lambda nm: nm):
+    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=lambda nm: nm,
+                 feat_name=None, output_name=None, treatment_name=None):
         self.pred_stderr = pred_stderr
-        super().__init__(d_t, d_y, pred, inf_type, fname_transformer)
+        super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feat_name, output_name, treatment_name)
 
     @property
     def stderr(self):
@@ -830,7 +845,8 @@ class NormalInferenceResults(InferenceResults):
         assert shape(self.pred)[0] == shape(self.pred_stderr)[0] == 1
         pred = np.repeat(self.pred, n_rows, axis=0)
         pred_stderr = np.repeat(self.pred_stderr, n_rows, axis=0)
-        return NormalInferenceResults(self.d_t, self.d_y, pred, pred_stderr, self.inf_type, self.fname_transformer)
+        return NormalInferenceResults(self.d_t, self.d_y, pred, pred_stderr, self.inf_type,
+                                      self.fname_transformer)
 
 
 class EmpiricalInferenceResults(InferenceResults):
@@ -856,9 +872,10 @@ class EmpiricalInferenceResults(InferenceResults):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=lambda nm: nm):
+    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=lambda nm: nm,
+                 feat_name=None, output_name=None, treatment_name=None):
         self.pred_dist = pred_dist
-        super().__init__(d_t, d_y, pred, inf_type, fname_transformer)
+        super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feat_name, output_name, treatment_name)
 
     @property
     def stderr(self):

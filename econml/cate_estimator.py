@@ -9,7 +9,8 @@ from functools import wraps
 from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
-from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params, inverse_onehot, Summary
+from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params,\
+    inverse_onehot, Summary, get_input_columns
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
@@ -41,6 +42,14 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         #   est1.effect_interval(...)
         # because inf now stores state from fitting est2
         return deepcopy(inference)
+
+    def _set_input_names(self, Y, T, X):
+        """Set input column names if inputs have column metadata."""
+        self._input_names = {
+            "feat_name": get_input_columns(X),
+            "output_name": get_input_columns(Y),
+            "treatment_name": get_input_columns(T)
+        }
 
     def _strata(self, Y, T, *args, **kwargs):
         """
@@ -617,6 +626,11 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
         """
+        # Get input names
+        feat_name = self._input_names["feat_name"] if feat_name is None else feat_name
+        treatment_name = self._input_names["treatment_name"] if treatment_name is None else treatment_name
+        output_name = self._input_names["output_name"] if output_name is None else output_name
+        # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
                             "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
@@ -860,6 +874,11 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
         """
+        # Get input names
+        feat_name = self._input_names["feat_name"] if feat_name is None else feat_name
+        treatment_name = self._input_names["treatment_name"] if treatment_name is None else treatment_name
+        output_name = self._input_names["output_name"] if output_name is None else output_name
+        # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
                             "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",

@@ -58,8 +58,8 @@ from .sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
 from .sklearn_extensions.model_selection import WeightedStratifiedKFold
 from .utilities import (_deprecate_positional, add_intercept,
                         broadcast_unit_treatments, check_high_dimensional,
-                        check_input_arrays, cross_product, deprecated,
-                        fit_with_groups, hstack, inverse_onehot, ndim, reshape,
+                        cross_product, deprecated, fit_with_groups,
+                        hstack, inverse_onehot, ndim, reshape,
                         reshape_treatmentwise_effects, shape, transpose)
 
 
@@ -286,7 +286,8 @@ class _BaseDML(_RLearner):
         Parameters
         ----------
         input_feature_names: list of strings of length X.shape[1] or None
-            The names of the input features
+            The names of the input features. If None and X is a dataframe, it defaults to the column names
+            from the dataframe.
 
         Returns
         -------
@@ -296,6 +297,8 @@ class _BaseDML(_RLearner):
             with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
             does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
         """
+        if input_feature_names is None:
+            input_feature_names = self._input_names["feat_name"]
         if self.original_featurizer is None:
             return input_feature_names
         elif hasattr(self.original_featurizer, 'get_feature_names'):
@@ -757,7 +760,6 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         if sample_var is not None and inference is not None:
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
-        Y, T, X, W, sample_weight, sample_var = check_input_arrays(Y, T, X, W, sample_weight, sample_var)
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self._discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
