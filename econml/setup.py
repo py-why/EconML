@@ -17,6 +17,7 @@ def configuration(parent_package='', top_path=None):
     # submodules with build utilities
     config.add_subpackage('_build_utils')
     config.add_subpackage('data')
+    config.add_subpackage('dml')
     config.add_subpackage('sklearn_extensions')
     config.add_subpackage('tree')
     config.add_subpackage('grf')

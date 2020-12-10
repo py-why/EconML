@@ -61,7 +61,6 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          check_input_arrays, cross_product, deprecated,
                          fit_with_groups, hstack, inverse_onehot, ndim, reshape,
                          reshape_treatmentwise_effects, shape, transpose)
-from .causal_forest import CausalForestDML
 
 
 class _FirstStageWrapper:
@@ -1096,6 +1095,7 @@ def ForestDML(model_y, model_t,
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
     """
+    from . import CausalForestDML
     return CausalForestDML(model_y=model_y,
                            model_t=model_t,
                            discrete_treatment=discrete_treatment,
@@ -1109,7 +1109,7 @@ def ForestDML(model_y, model_t,
                            min_weight_fraction_leaf=min_weight_fraction_leaf,
                            max_features=max_features,
                            min_impurity_decrease=min_impurity_decrease,
-                           max_samples=.45 if subsample_fr == 'auto' else subsample_fr/2,
+                           max_samples=.45 if subsample_fr == 'auto' else subsample_fr / 2,
                            honest=honest,
                            n_jobs=n_jobs,
                            verbose=verbose,

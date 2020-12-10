@@ -9,7 +9,7 @@ from sklearn.base import clone
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
 from ..utilities import add_intercept, shape, check_inputs
-from ._forest_classes import CausalForest
+from ..grf import CausalForest
 
 
 class _CausalForestFinalWrapper(_FinalWrapper):
