@@ -1,9 +1,26 @@
 from .ortho_forest import DMLOrthoForest
-from .utilities import LassoCVWrapper
+from .utilities import LassoCVWrapper, deprecated
 from sklearn.linear_model import LogisticRegressionCV
+from .grf import CausalForestDML
 
 
-class CausalForest(DMLOrthoForest):
+@deprecated("The CausalForest class has been deprecated by the CausalForestDML; "
+            "an upcoming release will remove support for the old class")
+def CausalForest(n_trees=500,
+                 min_leaf_size=10,
+                 max_depth=10,
+                 subsample_ratio=0.7,
+                 lambda_reg=0.01,
+                 model_T='auto',
+                 model_Y=LassoCVWrapper(cv=3),
+                 cv=2,
+                 discrete_treatment=False,
+                 categories='auto',
+                 n_jobs=-1,
+                 backend='threading',
+                 verbose=0,
+                 batch_size='auto',
+                 random_state=None):
     """CausalForest for continuous treatments. To apply to discrete
     treatments, first one-hot-encode your treatments and then pass the one-hot-encoding.
 
@@ -64,38 +81,19 @@ class CausalForest(DMLOrthoForest):
 
     """
 
-    def __init__(self,
-                 n_trees=500,
-                 min_leaf_size=10,
-                 max_depth=10,
-                 subsample_ratio=0.7,
-                 lambda_reg=0.01,
-                 model_T='auto',
-                 model_Y=LassoCVWrapper(cv=3),
-                 cv=2,
-                 discrete_treatment=False,
-                 categories='auto',
-                 n_jobs=-1,
-                 backend='threading',
-                 verbose=3,
-                 batch_size='auto',
-                 random_state=None):
-        super().__init__(n_trees=n_trees,
-                         min_leaf_size=min_leaf_size,
-                         max_depth=max_depth,
-                         subsample_ratio=subsample_ratio,
-                         bootstrap=False,
-                         lambda_reg=lambda_reg,
-                         model_T=model_T,
-                         model_Y=model_Y,
-                         model_T_final=None,
-                         model_Y_final=None,
-                         global_residualization=True,
-                         global_res_cv=cv,
-                         discrete_treatment=discrete_treatment,
-                         categories=categories,
-                         n_jobs=n_jobs,
-                         backend=backend,
-                         verbose=verbose,
-                         batch_size=batch_size,
-                         random_state=random_state)
+    return CausalForestDML(
+        model_t=model_T,
+        model_y=model_Y,
+        n_crossfit_splits=cv,
+        discrete_treatment=discrete_treatment,
+        categories=categories,
+        n_estimators=n_trees,
+        criterion='het',
+        min_samples_leaf=min_leaf_size,
+        max_depth=max_depth,
+        max_samples=subsample_ratio / 2,
+        min_balancedness_tol=.3,
+        n_jobs=n_jobs,
+        verbose=verbose,
+        random_state=random_state
+    )
