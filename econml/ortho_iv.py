@@ -21,7 +21,7 @@ from sklearn.preprocessing import FunctionTransformer
 
 from ._ortho_learner import _OrthoLearner
 from .cate_estimator import StatsModelsCateEstimatorMixin
-from .dml import _FinalWrapper
+from .dml.dml import _FinalWrapper
 from .inference import StatsModelsInference
 from .sklearn_extensions.linear_model import StatsModelsLinearRegression
 from .utilities import (_deprecate_positional, add_intercept, fit_with_groups,

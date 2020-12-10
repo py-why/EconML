@@ -46,21 +46,22 @@ from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
 from sklearn.utils import check_random_state
 
 from ._rlearner import _RLearner
-from .cate_estimator import (DebiasedLassoCateEstimatorMixin,
-                             ForestModelFinalCateEstimatorMixin,
-                             LinearModelFinalCateEstimatorMixin,
-                             StatsModelsCateEstimatorMixin)
-from .inference import StatsModelsInference
-from .sklearn_extensions.ensemble import SubsampledHonestForest
-from .sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
-                                              StatsModelsLinearRegression,
-                                              WeightedLassoCVWrapper)
-from .sklearn_extensions.model_selection import WeightedStratifiedKFold
-from .utilities import (_deprecate_positional, add_intercept,
-                        broadcast_unit_treatments, check_high_dimensional,
-                        check_input_arrays, cross_product, deprecated,
-                        fit_with_groups, hstack, inverse_onehot, ndim, reshape,
-                        reshape_treatmentwise_effects, shape, transpose)
+from ..cate_estimator import (DebiasedLassoCateEstimatorMixin,
+                              ForestModelFinalCateEstimatorMixin,
+                              LinearModelFinalCateEstimatorMixin,
+                              StatsModelsCateEstimatorMixin)
+from ..inference import StatsModelsInference
+from ..sklearn_extensions.ensemble import SubsampledHonestForest
+from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
+                                               StatsModelsLinearRegression,
+                                               WeightedLassoCVWrapper)
+from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
+from ..utilities import (_deprecate_positional, add_intercept,
+                         broadcast_unit_treatments, check_high_dimensional,
+                         check_input_arrays, cross_product, deprecated,
+                         fit_with_groups, hstack, inverse_onehot, ndim, reshape,
+                         reshape_treatmentwise_effects, shape, transpose)
+from .causal_forest import CausalForestDML
 
 
 class _FirstStageWrapper:
@@ -924,7 +925,26 @@ class NonParamDML(_BaseDML):
                          random_state=random_state)
 
 
-class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
+@deprecated("The ForestDML class has been deprecated by the CausalForestDML with parameter "
+            "`criterion='mse'`; an upcoming release will remove support for the old class")
+def ForestDML(model_y, model_t,
+              discrete_treatment=False,
+              categories='auto',
+              n_crossfit_splits=2,
+              n_estimators=100,
+              criterion="mse",
+              max_depth=None,
+              min_samples_split=2,
+              min_samples_leaf=1,
+              min_weight_fraction_leaf=0.,
+              max_features="auto",
+              max_leaf_nodes=None,
+              min_impurity_decrease=0.,
+              subsample_fr='auto',
+              honest=True,
+              n_jobs=None,
+              verbose=0,
+              random_state=None):
     """ Instance of NonParamDML with a
     :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
@@ -1076,116 +1096,21 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
     """
-
-    def __init__(self,
-                 model_y, model_t,
-                 discrete_treatment=False,
-                 categories='auto',
-                 n_crossfit_splits=2,
-                 n_estimators=100,
-                 criterion="mse",
-                 max_depth=None,
-                 min_samples_split=2,
-                 min_samples_leaf=1,
-                 min_weight_fraction_leaf=0.,
-                 max_features="auto",
-                 max_leaf_nodes=None,
-                 min_impurity_decrease=0.,
-                 subsample_fr='auto',
-                 honest=True,
-                 n_jobs=None,
-                 verbose=0,
-                 random_state=None):
-        model_final = SubsampledHonestForest(n_estimators=n_estimators,
-                                             criterion=criterion,
-                                             max_depth=max_depth,
-                                             min_samples_split=min_samples_split,
-                                             min_samples_leaf=min_samples_leaf,
-                                             min_weight_fraction_leaf=min_weight_fraction_leaf,
-                                             max_features=max_features,
-                                             max_leaf_nodes=max_leaf_nodes,
-                                             min_impurity_decrease=min_impurity_decrease,
-                                             subsample_fr=subsample_fr,
-                                             honest=honest,
-                                             n_jobs=n_jobs,
-                                             random_state=random_state,
-                                             verbose=verbose)
-        super().__init__(model_y=model_y, model_t=model_t,
-                         model_final=model_final, featurizer=None,
-                         discrete_treatment=discrete_treatment,
-                         categories=categories,
-                         n_splits=n_crossfit_splits, random_state=random_state)
-
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
-        """
-        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
-
-        Parameters
-        ----------
-        Y: (n × d_y) matrix or vector of length n
-            Outcomes for each sample
-        T: (n × dₜ) matrix or vector of length n
-            Treatments for each sample
-        X: optional (n × dₓ) matrix
-            Features for each sample
-        W: optional (n × d_w) matrix
-            Controls for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
-        sample_var: optional (n, n_y) vector
-            Variance of sample, in case it corresponds to summary of many samples. Currently
-            not in use by this method (as inference method does not require sample variance info).
-        groups: (n,) vector, optional
-            All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
-            must support a 'groups' argument to its split method.
-        inference: string, `Inference` instance, or None
-            Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of :class:`.BootstrapInference`) and 'blb'
-            (for Bootstrap-of-Little-Bags based inference)
-
-        Returns
-        -------
-        self
-        """
-        return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=None, groups=groups,
-                           inference=inference)
-
-
-@deprecated("The DMLCateEstimator class has been renamed to DML; "
-            "an upcoming release will remove support for the old name")
-class DMLCateEstimator(DML):
-    pass
-
-
-@deprecated("The LinearDMLCateEstimator class has been renamed to LinearDML; "
-            "an upcoming release will remove support for the old name")
-class LinearDMLCateEstimator(LinearDML):
-    pass
-
-
-@deprecated("The SparseLinearDMLCateEstimator class has been renamed to SparseLinearDML; "
-            "an upcoming release will remove support for the old name")
-class SparseLinearDMLCateEstimator(SparseLinearDML):
-    pass
-
-
-@deprecated("The KernelDMLCateEstimator class has been renamed to KernelDML; "
-            "an upcoming release will remove support for the old name")
-class KernelDMLCateEstimator(KernelDML):
-    pass
-
-
-@deprecated("The NonParamDMLCateEstimator class has been renamed to NonParamDML; "
-            "an upcoming release will remove support for the old name")
-class NonParamDMLCateEstimator(NonParamDML):
-    pass
-
-
-@deprecated("The ForestDMLCateEstimator class has been renamed to ForestDML; "
-            "an upcoming release will remove support for the old name")
-class ForestDMLCateEstimator(ForestDML):
-    pass
+    return CausalForestDML(model_y=model_y,
+                           model_t=model_t,
+                           discrete_treatment=discrete_treatment,
+                           categories=categories,
+                           n_crossfit_splits=n_crossfit_splits,
+                           n_estimators=n_estimators,
+                           criterion="mse",
+                           max_depth=max_depth,
+                           min_samples_split=min_samples_split,
+                           min_samples_leaf=min_samples_leaf,
+                           min_weight_fraction_leaf=min_weight_fraction_leaf,
+                           max_features=max_features,
+                           min_impurity_decrease=min_impurity_decrease,
+                           max_samples=.45 if subsample_fr == 'auto' else subsample_fr/2,
+                           honest=honest,
+                           n_jobs=n_jobs,
+                           verbose=verbose,
+                           random_state=random_state)

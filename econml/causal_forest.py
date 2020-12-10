@@ -1,7 +1,7 @@
 from .ortho_forest import DMLOrthoForest
 from .utilities import LassoCVWrapper, deprecated
 from sklearn.linear_model import LogisticRegressionCV
-from .grf import CausalForestDML
+from .dml import CausalForestDML
 
 
 @deprecated("The CausalForest class has been deprecated by the CausalForestDML; "

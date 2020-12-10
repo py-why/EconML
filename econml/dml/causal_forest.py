@@ -1,6 +1,6 @@
 import numpy as np
-from ..dml import _BaseDML
-from ..dml import _FirstStageWrapper, _FinalWrapper
+from .dml import _BaseDML
+from .dml import _FirstStageWrapper, _FinalWrapper
 from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import Inference, NormalInferenceResults
