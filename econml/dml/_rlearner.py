@@ -28,10 +28,10 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, filter_none_kwargs, _deprecate_positional)
+from ..utilities import (shape, reshape, ndim, hstack, filter_none_kwargs, _deprecate_positional)
 from sklearn.linear_model import LinearRegression
 from sklearn.base import clone
-from ._ortho_learner import _OrthoLearner
+from .._ortho_learner import _OrthoLearner
 
 
 class _ModelNuisance:
