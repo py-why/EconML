@@ -39,7 +39,7 @@ from .cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin,
                              ForestModelFinalCateEstimatorDiscreteMixin,
                              StatsModelsCateEstimatorDiscreteMixin)
 from .inference import GenericModelFinalInferenceDiscrete
-from .sklearn_extensions.ensemble import SubsampledHonestForest
+from .grf import RegressionForest
 from .sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
 from .utilities import (_deprecate_positional, check_high_dimensional,
@@ -141,7 +141,7 @@ class _ModelFinal:
                 return pred[:, np.newaxis, :]
             return pred
         else:
-            preds = np.array([mdl.predict(X) for mdl in self.models_cate])
+            preds = np.array([mdl.predict(X).flatten() for mdl in self.models_cate])
             return np.moveaxis(preds, 0, -1)  # move treatment dim to end
 
     def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
@@ -1136,33 +1136,50 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                  categories='auto',
                  n_crossfit_splits=2,
                  n_estimators=1000,
-                 criterion="mse",
+                 criterion='deprecated',
                  max_depth=None,
                  min_samples_split=5,
                  min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
                  max_features="auto",
-                 max_leaf_nodes=None,
+                 max_leaf_nodes='deprecated',
                  min_impurity_decrease=0.,
-                 subsample_fr='auto',
+                 subsample_fr='deprecated',
+                 max_samples=.45,
+                 min_balancedness_tol=.45,
                  honest=True,
-                 n_jobs=None,
+                 subforest_size=4,
+                 n_jobs=-1,
                  verbose=0,
                  random_state=None):
-        model_final = SubsampledHonestForest(n_estimators=n_estimators,
-                                             criterion=criterion,
-                                             max_depth=max_depth,
-                                             min_samples_split=min_samples_split,
-                                             min_samples_leaf=min_samples_leaf,
-                                             min_weight_fraction_leaf=min_weight_fraction_leaf,
-                                             max_features=max_features,
-                                             max_leaf_nodes=max_leaf_nodes,
-                                             min_impurity_decrease=min_impurity_decrease,
-                                             subsample_fr=subsample_fr,
-                                             honest=honest,
-                                             n_jobs=n_jobs,
-                                             random_state=random_state,
-                                             verbose=verbose)
+        if criterion != 'deprecated':
+            warn("The parameter 'criterion' has been deprecated and will be removed in the next version. "
+                 "Only the 'mse' criterion is supported.")
+        if max_leaf_nodes != 'deprecated':
+            warn("The parameter 'max_leaf_nodes' has been deprecated and will be removed in the next version.")
+        if max_leaf_nodes != 'deprecated':
+            warn("The parameter 'max_leaf_nodes' has been deprecated and will be removed in the next version.")
+        if subsample_fr != 'deprecated':
+            warn("The parameter 'subsample_fr' has been deprecated and will be removed in the next version. "
+                 "Use 'max_samples' instead, with the convention that "
+                 "'subsample_fr=x' is equivalent to 'max_samples=x/2'.")
+            max_samples = .45 if subsample_fr == 'auto' else subsample_fr / 2
+        model_final = RegressionForest(n_estimators=n_estimators,
+                                       max_depth=max_depth,
+                                       min_samples_split=min_samples_split,
+                                       min_samples_leaf=min_samples_leaf,
+                                       min_weight_fraction_leaf=min_weight_fraction_leaf,
+                                       max_features=max_features,
+                                       min_impurity_decrease=min_impurity_decrease,
+                                       max_samples=max_samples,
+                                       min_balancedness_tol=min_balancedness_tol,
+                                       honest=honest,
+                                       inference=True,
+                                       subforest_size=subforest_size,
+                                       n_jobs=n_jobs,
+                                       random_state=random_state,
+                                       verbose=verbose,
+                                       warm_start=False)
         super().__init__(model_regression=model_regression, model_propensity=model_propensity,
                          model_final=model_final, featurizer=None,
                          multitask_model_final=False,

@@ -508,7 +508,7 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     if W is not None:
         W, _ = check_X_y(W, Y)
         return Y, T, X, W
-    return Y, T, X
+    return Y, T, X, W
 
 
 def check_input_arrays(*args, validate_len=True):

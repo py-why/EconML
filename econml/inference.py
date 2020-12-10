@@ -342,17 +342,18 @@ class GenericModelFinalInferenceDiscrete(Inference):
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.transform(X)
-        preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self.fitted_models_final])
+        preds = np.array([tuple(map(lambda x: x.flatten(), mdl.predict_interval(X, alpha=alpha)))
+                          for mdl in self.fitted_models_final])
         return tuple(np.moveaxis(preds, [0, 1], [-1, 0]))  # send treatment to the end, pull bounds to the front
 
     def const_marginal_effect_inference(self, X):
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.transform(X)
-        pred = np.array([mdl.predict(X) for mdl in self.fitted_models_final])
+        pred = np.array([mdl.predict(X).flatten() for mdl in self.fitted_models_final])
         if not hasattr(self.fitted_models_final[0], 'prediction_stderr'):
             raise AttributeError("Final model doesn't support prediction standard eror, "
                                  "please call const_marginal_effect_interval to get confidence interval.")
-        pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final])
+        pred_stderr = np.array([mdl.prediction_stderr(X).flatten() for mdl in self.fitted_models_final])
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
                                       # send treatment to the end, pull bounds to the front
                                       pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect')

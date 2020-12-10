@@ -1,4 +1,5 @@
 import numpy as np
+from warnings import warn
 from ..utilities import cross_product
 from ._base_grf import BaseGRF
 
@@ -20,11 +21,6 @@ class CausalIVForest(BaseGRF):
 
     def get_alpha(self, X, T, y, *, Z):
         Z = np.atleast_1d(Z)
-        if Z.ndim == 1:
-            warn("A 1d vector Z was passed when a 2d column-vector was"
-                 " expected. Please change the shape of Z to "
-                 "(n_samples, 1). It will be treated as such.", stacklevel=2)
-
         if Z.ndim == 1:
             Z = np.reshape(Z, (-1, 1))
 

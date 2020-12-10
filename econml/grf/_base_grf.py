@@ -253,7 +253,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self : object
         """
 
-        y, T, X = check_inputs(y, T, X, multi_output_T=True, multi_output_Y=True)
+        y, T, X, _ = check_inputs(y, T, X, W=None, multi_output_T=True, multi_output_Y=True)
 
         if sample_weight is not None:
             sample_weight = _check_sample_weight(sample_weight, X)
@@ -263,11 +263,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         y = np.atleast_1d(y)
         if y.ndim == 1:
-            warn("A 1d vector y was passed when a 2d column-vector was"
-                 " expected. Please change the shape of y to "
-                 "(n_samples, 1). It will be treated as such.", stacklevel=2)
-
-        if y.ndim == 1:
             # reshape is necessary to preserve the data contiguity against vs
             # [:, np.newaxis] that does not.
             y = np.reshape(y, (-1, 1))
@@ -275,11 +270,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.n_y_ = y.shape[1]
 
         T = np.atleast_1d(T)
-        if T.ndim == 1:
-            warn("A 1d vector T was passed when a 2d column-vector was"
-                 " expected. Please change the shape of T to "
-                 "(n_samples, 1). It will be treated as such.", stacklevel=2)
-
         if T.ndim == 1:
             # reshape is necessary to preserve the data contiguity against vs
             # [:, np.newaxis] that does not.
@@ -760,6 +750,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def predict_stderr(self, X, var_correction=True):
         return np.sqrt(np.diagonal(self.predict_var(X, var_correction=var_correction), axis1=1, axis2=2))
+
+    def prediction_stderr(self, X, var_correction=True):
+        return self.predict_stderr(X, var_correction=var_correction)
 
     def _check_projector(self, X, projector):
         X, projector = check_X_y(X, projector, multi_output=True, y_numeric=True)
