@@ -537,7 +537,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : _OrthoLearner instance
         """
         self._random_state = check_random_state(self._init_random_state)
-        self._set_input_names(Y, T, X)
         Y, T, X, W, Z, sample_weight, sample_var, groups = check_input_arrays(
             Y, T, X, W, Z, sample_weight, sample_var, groups)
         self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var, groups)

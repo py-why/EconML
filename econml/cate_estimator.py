@@ -46,9 +46,9 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     def _set_input_names(self, Y, T, X):
         """Set input column names if inputs have column metadata."""
         self._input_names = {
-            "feat_name": get_input_columns(X),
-            "output_name": get_input_columns(Y),
-            "treatment_name": get_input_columns(T)
+            "feature_names": get_input_columns(X),
+            "output_names": get_input_columns(Y),
+            "treatment_names": get_input_columns(T)
         }
 
     def _strata(self, Y, T, *args, **kwargs):
@@ -69,6 +69,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     def _prefit(self, Y, T, *args, **kwargs):
         self._d_y = np.shape(Y)[1:]
         self._d_t = np.shape(T)[1:]
+        # This works only if X is passed as a kwarg
+        # We plan to enforce X as kwarg only in new releases
+        X = kwargs.get('X')
+        self._set_input_names(Y, T, X)
 
     @abc.abstractmethod
     def fit(self, *args, inference=None, **kwargs):
@@ -600,7 +604,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         """
         pass
 
-    def summary(self, alpha=0.1, value=0, decimals=3, feat_name=None, treatment_name=None, output_name=None):
+    def summary(self, alpha=0.1, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect.
 
@@ -613,11 +617,11 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             The mean value of the metric you'd like to test under null hypothesis.
         decimals: optinal int (default=3)
             Number of decimal places to round each column to.
-        feat_name: optional list of strings or None (default is None)
+        feature_names: optional list of strings or None (default is None)
             The input of the feature names
-        treatment_name: optional list of strings or None (default is None)
+        treatment_names: optional list of strings or None (default is None)
             The names of the treatments
-        output_name: optional list of strings or None (default is None)
+        output_names: optional list of strings or None (default is None)
             The names of the outputs
 
         Returns
@@ -627,9 +631,9 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        feat_name = self._input_names["feat_name"] if feat_name is None else feat_name
-        treatment_name = self._input_names["treatment_name"] if treatment_name is None else treatment_name
-        output_name = self._input_names["output_name"] if output_name is None else output_name
+        feature_names = self.cate_feature_names() if feature_names is None else feature_names
+        treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
+        output_names = self._input_names["output_names"] if output_names is None else output_names
         # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
@@ -645,9 +649,9 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         try:
             coef_table = self.coef__inference().summary_frame(alpha=alpha,
                                                               value=value, decimals=decimals,
-                                                              feat_name=feat_name,
-                                                              treatment_name=treatment_name,
-                                                              output_name=output_name)
+                                                              feature_names=feature_names,
+                                                              treatment_names=treatment_names,
+                                                              output_names=output_names)
             coef_array = coef_table.values
             coef_headers = [i + '\n' +
                             j for (i, j) in coef_table.columns] if d_t > 1 else coef_table.columns.tolist()
@@ -659,9 +663,9 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         try:
             intercept_table = self.intercept__inference().summary_frame(alpha=alpha,
                                                                         value=value, decimals=decimals,
-                                                                        feat_name=None,
-                                                                        treatment_name=treatment_name,
-                                                                        output_name=output_name)
+                                                                        feature_names=None,
+                                                                        treatment_names=treatment_names,
+                                                                        output_names=output_names)
             intercept_array = intercept_table.values
             intercept_headers = [i + '\n' + j for (i, j)
                                  in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
@@ -848,7 +852,8 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         pass
 
-    def summary(self, T, *, alpha=0.1, value=0, decimals=3, feat_name=None, treatment_name=None, output_name=None):
+    def summary(self, T, *, alpha=0.1, value=0, decimals=3,
+                feature_names=None, treatment_names=None, output_names=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -861,11 +866,11 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             The mean value of the metric you'd like to test under null hypothesis.
         decimals: optinal int (default=3)
             Number of decimal places to round each column to.
-        feat_name: optional list of strings or None (default is None)
+        feature_names: optional list of strings or None (default is None)
             The input of the feature names
-        treatment_name: optional list of strings or None (default is None)
+        treatment_names: optional list of strings or None (default is None)
             The names of the treatments
-        output_name: optional list of strings or None (default is None)
+        output_names: optional list of strings or None (default is None)
             The names of the outputs
 
         Returns
@@ -875,9 +880,9 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        feat_name = self._input_names["feat_name"] if feat_name is None else feat_name
-        treatment_name = self._input_names["treatment_name"] if treatment_name is None else treatment_name
-        output_name = self._input_names["output_name"] if output_name is None else output_name
+        feature_names = self.cate_feature_names() if feature_names is None else feature_names
+        treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
+        output_names = self._input_names["output_names"] if output_names is None else output_names
         # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
@@ -891,9 +896,9 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
                             "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
         try:
             coef_table = self.coef__inference(T).summary_frame(
-                alpha=alpha, value=value, decimals=decimals, feat_name=feat_name,
-                treatment_name=treatment_name,
-                output_name=output_name)
+                alpha=alpha, value=value, decimals=decimals, feature_names=feature_names,
+                treatment_names=treatment_names,
+                output_names=output_names)
             coef_array = coef_table.values
             coef_headers = coef_table.columns.tolist()
             coef_stubs = coef_table.index.tolist()
@@ -903,9 +908,9 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             print("Coefficient Results: ", e)
         try:
             intercept_table = self.intercept__inference(T).summary_frame(
-                alpha=alpha, value=value, decimals=decimals, feat_name=None,
-                treatment_name=treatment_name,
-                output_name=output_name)
+                alpha=alpha, value=value, decimals=decimals, feature_names=None,
+                treatment_names=treatment_names,
+                output_names=output_names)
             intercept_array = intercept_table.values
             intercept_headers = intercept_table.columns.tolist()
             intercept_stubs = intercept_table.index.tolist()

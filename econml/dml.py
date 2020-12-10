@@ -279,13 +279,13 @@ class _BaseDML(_RLearner):
         """
         return [mdl._model for mdl in super().models_t]
 
-    def cate_feature_names(self, input_feature_names=None):
+    def cate_feature_names(self, feature_names=None):
         """
         Get the output feature names.
 
         Parameters
         ----------
-        input_feature_names: list of strings of length X.shape[1] or None
+        feature_names: list of strings of length X.shape[1] or None
             The names of the input features. If None and X is a dataframe, it defaults to the column names
             from the dataframe.
 
@@ -295,14 +295,14 @@ class _BaseDML(_RLearner):
             The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
             final constant marginal CATE model is linear. It is the names of the features that are associated
             with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
-            does not have a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+            does not have a method: `get_feature_names(feature_names)`. Otherwise None is returned.
         """
-        if input_feature_names is None:
-            input_feature_names = self._input_names["feat_name"]
+        if feature_names is None:
+            feature_names = self._input_names["feature_names"]
         if self.original_featurizer is None:
-            return input_feature_names
+            return feature_names
         elif hasattr(self.original_featurizer, 'get_feature_names'):
-            return self.original_featurizer.get_feature_names(input_feature_names)
+            return self.original_featurizer.get_feature_names(feature_names)
         else:
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 

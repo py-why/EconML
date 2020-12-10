@@ -72,7 +72,6 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         """
         # Check inputs
-        self._set_input_names(Y, T, X)
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
@@ -162,7 +161,6 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : an instance of self.
         """
         # Check inputs
-        self._set_input_names(Y, T, X)
         if X is None:
             X = np.zeros((Y.shape[0], 1))
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
@@ -269,7 +267,6 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : an instance of self.
         """
         # Check inputs
-        self._set_input_names(Y, T, X)
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         if Y.ndim == 2 and Y.shape[1] == 1:
             Y = Y.flatten()
@@ -397,7 +394,6 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : an instance of self.
         """
         # Check inputs
-        self._set_input_names(Y, T, X)
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]

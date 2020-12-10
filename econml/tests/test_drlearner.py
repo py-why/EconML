@@ -445,7 +445,7 @@ class TestDRLearner(unittest.TestCase):
                                         assert isinstance(
                                             est.score(y, T, X=X, W=W), float)
 
-                                        feat_names = ['A', 'B', 'C']
+                                        feature_names = ['A', 'B', 'C']
                                         out_feat_names = feat_names
                                         if featurizer is not None:
                                             out_feat_names = featurizer.fit(

@@ -627,9 +627,6 @@ class DMLOrthoForest(BaseOrthoForest):
         -------
         self: an instance of self.
         """
-        self._set_input_names(Y, T, X)
-        Y, T, X, W = check_inputs(Y, T, X, W)
-
         if self.discrete_treatment:
             d_t_in = T.shape[1:]
             T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
@@ -957,8 +954,6 @@ class DROrthoForest(BaseOrthoForest):
         self.transformer = FunctionTransformer(
             func=_EncoderWrapper(self._one_hot_encoder).encode,
             validate=False)
-        # Set input names if Y, T, X are dataframes/series
-        self._set_input_names(Y, T, X)
         # Call `fit` from parent class
         super().fit(Y, T, X=X, W=W, inference=inference)
 
