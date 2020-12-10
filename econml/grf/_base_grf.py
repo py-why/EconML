@@ -6,7 +6,7 @@ import threading
 from ._ensemble import BaseEnsemble, _partition_estimators
 from ..utilities import check_inputs, cross_product
 from ..tree._tree import DTYPE, DOUBLE
-from ._tree_classes import GRFTree
+from ._base_grftree import GRFTree
 from joblib import Parallel, delayed
 from scipy.sparse import hstack as sparse_hstack
 from sklearn.utils import check_random_state, compute_sample_weight
@@ -784,80 +784,3 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         X, projector = self._check_projector(X, projector)
         return self._predict_point_and_var(X, full=False, point=False, var=True, var_correction=var_correction,
                                            project=True, projector=projector)
-
-
-# =============================================================================
-# Instantiations of Generalized Random Forest
-# =============================================================================
-
-
-class CausalForest(BaseGRF):
-
-    def get_alpha(self, X, T, y):
-        return y * T
-
-    def get_pointJ(self, X, T, y):
-        return cross_product(T, T)
-
-
-class CausalIVForest(BaseGRF):
-
-    def get_alpha(self, X, T, y, *, Z):
-        Z = np.atleast_1d(Z)
-        if Z.ndim == 1:
-            warn("A 1d vector Z was passed when a 2d column-vector was"
-                 " expected. Please change the shape of Z to "
-                 "(n_samples, 1). It will be treated as such.", stacklevel=2)
-
-        if Z.ndim == 1:
-            Z = np.reshape(Z, (-1, 1))
-
-        if self.fit_intercept:
-            return y * np.hstack([Z, np.ones((Z.shape[0], 1))])
-        return y * Z
-
-    def get_pointJ(self, X, T, y, *, Z):
-        if Z.ndim == 1:
-            Z = np.reshape(Z, (-1, 1))
-        if self.fit_intercept:
-            return cross_product(np.hstack([Z, np.ones((Z.shape[0], 1))]), T)
-        return cross_product(Z, T)
-
-
-class RegressionForest(BaseGRF):
-
-    def __init__(self,
-                 n_estimators=100, *,
-                 max_depth=None,
-                 min_samples_split=10,
-                 min_samples_leaf=5,
-                 min_weight_fraction_leaf=0.,
-                 max_features="auto",
-                 min_impurity_decrease=0.,
-                 max_samples=.45,
-                 min_balancedness_tol=.45,
-                 honest=True,
-                 inference=True,
-                 subforest_size=4,
-                 n_jobs=None,
-                 random_state=None,
-                 verbose=0,
-                 warm_start=False):
-        super().__init__(n_estimators=n_estimators, criterion='het', max_depth=max_depth,
-                         min_samples_split=min_samples_split,
-                         min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
-                         max_features=max_features, min_impurity_decrease=min_impurity_decrease,
-                         max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
-                         honest=honest, inference=inference, fit_intercept=False,
-                         subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
-                         warm_start=warm_start)
-
-    def fit(self, X, y):
-        return super().fit(X, y, np.ones((X.shape[0], 1)))
-
-    def get_alpha(self, X, y, T):
-        return y
-
-    def get_pointJ(self, X, y, T):
-        jac = np.eye(y.shape[1]).reshape((1, -1))
-        return np.tile(jac, (X.shape[0], 1))
