@@ -759,39 +759,38 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             treatment_names = [f"T{i}" for i in range(d_t)]
         if output_names is None:
             output_names = [f"Y{i}" for i in range(d_y)]
-
-        Xs, T = broadcast_unit_treatments(X, d_t)
         if self.featurizer is not None:
-            F = self.featurizer.transform(Xs)
-        else:
-            F = Xs
-        d_x = F.shape[1]
-        X_new = cross_product(F, T)
+            X = self.featurizer.transform(X)
+        X, T = broadcast_unit_treatments(X, d_t)
+        d_x = X.shape[1]
+        X_new = cross_product(X, T)
         feature_names = self.cate_feature_names(feature_names)
         if self.fit_cate_intercept and feature_names is not None:
             feature_names = ["Intercept"] + feature_names
         if feature_names is not None:
             feature_names = np.tile(feature_names, d_t)
+        # index of X columns to filter for each T
+        ind_x = np.arange(d_t * d_x).reshape(d_t, d_x)
+        if self.fit_cate_intercept:  # skip intercept
+            ind_x = ind_x[:, 1:]
 
         shap_outs = defaultdict(dict)
         for i in range(d_t):
             X_sub = X_new[T[:, i] == 1]
-            ind_x = list(range(i * d_x, (i + 1) * d_x)
-                         )[1:] if self.fit_cate_intercept else list(range(i * d_x, (i + 1) * d_x))
             # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
             background = shap.maskers.Independent(X_sub, max_samples=X_sub.shape[0])
             explainer = shap.Explainer(self.model_final, background, feature_names=feature_names)
             shap_out = explainer(X_sub)
-            shap_out.data = shap_out.data[:, ind_x]
-            shap_out.feature_names = Alias([feature_names[i] for i in ind_x], 1)
+            shap_out.data = shap_out.data[:, ind_x[i]]
+            shap_out.feature_names = Alias([feature_names[i] for i in ind_x[i]], 1)
             if d_y > 1:
                 for j in range(d_y):
                     shap_out_copy = deepcopy(shap_out)
                     shap_out_copy.base_values = shap_out_copy.base_values[..., j]
-                    shap_out_copy.values = shap_out_copy.values[..., ind_x, j]
+                    shap_out_copy.values = shap_out_copy.values[..., ind_x[i], j]
                     shap_outs[output_names[j]][treatment_names[i]] = shap_out_copy
             else:
-                shap_out.values = shap_out.values[..., ind_x]
+                shap_out.values = shap_out.values[..., ind_x[i]]
                 shap_outs[output_names[0]][treatment_names[i]] = shap_out
 
         return shap_outs

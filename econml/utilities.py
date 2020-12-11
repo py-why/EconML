@@ -1219,11 +1219,13 @@ def transpose_dictionary(d):
     """
     Transpose a dictionary of dictionaries, bringing the keys from the second level
     to the top and vice versa
+
     Parameters
     ----------
     d: dict
         The dictionary to transpose; the values of this dictionary should all themselves
         be dictionaries
+
     Returns
     -------
     output: dict
@@ -1277,6 +1279,7 @@ def _shap_explain_cme(cme_model, X, d_y, d_t, feature_names=None, treatment_name
     """
     Transpose a dictionary of dictionaries, bringing the keys from the second level
     to the top and vice versa
+
     Parameters
     ----------
     cme_models: function
@@ -1293,6 +1296,7 @@ def _shap_explain_cme(cme_model, X, d_y, d_t, feature_names=None, treatment_name
         The name of treatment. In discrete treatment scenario, the name should not include control name.
     output_names:  optional None or list (Default=None)
         The name of the outcome.
+
     Returns
     -------
     shap_outs: nested dictionary of Explanation object

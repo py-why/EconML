@@ -14,10 +14,10 @@ from sklearn.preprocessing import PolynomialFeatures
 
 
 class TestShap(unittest.TestCase):
-    def test_continues_t(self):
+    def test_continuous_t(self):
         n = 100
         d_x = 3
-        d_w = 5
+        d_w = 2
         X = np.random.normal(size=(n, d_x))
         W = np.random.normal(size=(n, d_w))
         for d_t in [2, 1]:
@@ -69,7 +69,7 @@ class TestShap(unittest.TestCase):
     def test_discrete_t(self):
         n = 100
         d_x = 3
-        d_w = 5
+        d_w = 2
         X = np.random.normal(size=(n, d_x))
         W = np.random.normal(size=(n, d_w))
         for d_t in [3, 2]:

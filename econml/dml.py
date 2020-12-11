@@ -1177,6 +1177,8 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
                            inference=inference)
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        # SubsampleHonestForest can't be recognized by SHAP, but the tree entries are consistent with a tree in
+        # a RandomForestRegressor, modify the class name in order to be identified as tree models.
         model = copy.deepcopy(self.model_cate)
         model.__class__ = RandomForestRegressor
         return super()._shap_values(model, X, feature_names=feature_names,
