@@ -1,7 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-# %%
 import unittest
 import logging
 import time
@@ -301,6 +300,3 @@ if __name__ == "__main__":
     TestTree().test_multivariable_split()
     TestTree().test_honest_values()
     TestTree().test_noisy_instance()
-
-
-# %%

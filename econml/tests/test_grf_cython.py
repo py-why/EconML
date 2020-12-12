@@ -112,7 +112,7 @@ class TestGRFCython(unittest.TestCase):
                       store_jac=config['store_jac'])
         return tree
 
-    def _get_true_quantities(self, config, X, y, mask):
+    def _get_true_quantities(self, config, X, y, mask, criterion):
         alpha = y[mask, config['n_y']:config['n_y'] + config['n_outputs']]
         pointJ = y[mask, config['n_y'] + config['n_outputs']:config['n_y']
                    + (config['n_outputs'] + 1) * config['n_outputs']]
@@ -122,18 +122,22 @@ class TestGRFCython(unittest.TestCase):
         param = invJ @ precond
         moment = alpha - pointJ.reshape((-1, alpha.shape[1], alpha.shape[1])) @ param
         rho = ((invJ @ moment.T).T)[:, :config['n_relevant_outputs']]
-        impurity = np.mean(rho**2) - np.mean(np.mean(rho, axis=0)**2)
+        if criterion == 'het':
+            impurity = np.mean(rho**2) - np.mean(np.mean(rho, axis=0)**2)
+        else:
+            impurity = np.mean(y[mask, :config['n_y']]**2)
+            impurity -= (param.reshape(1, -1) @ jac.reshape((alpha.shape[1], alpha.shape[1])) @ param)[0]
         return jac, precond, param, impurity
 
     def _get_node_quantities(self, tree, node_id):
         return (tree.jac[node_id, :], tree.precond[node_id, :],
                 tree.full_value[node_id, :, 0], tree.impurity[node_id])
 
-    def _test_tree_quantities(self, base_config_gen):
+    def _test_tree_quantities(self, base_config_gen, criterion):
         config = base_config_gen()
+        config['criterion'] = criterion
         config['max_depth'] = 1
         X, y, truth = self._get_continuous_data(config)
-        Xsort = np.sort(X[:config['n_samples_train'], 0])
         tree = self._train_tree(config, X, y)
         np.testing.assert_array_equal(X[:config['n_samples_train']], X[config['n_samples_train']:])
         np.testing.assert_array_equal(y[:config['n_samples_train']], y[config['n_samples_train']:])
@@ -144,99 +148,110 @@ class TestGRFCython(unittest.TestCase):
         np.testing.assert_array_equal(tree.feature, np.array([0, -2, -2]))
         np.testing.assert_allclose(tree.threshold, np.array([0, -2, -2]), atol=.1, rtol=0)
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, np.ones(X.shape[0]) > 0),
+         for a, b in zip(self._get_true_quantities(config, X, y, np.ones(X.shape[0]) > 0, criterion),
                          self._get_node_quantities(tree, 0))]
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, X[:, tree.feature[0]] < tree.threshold[0]),
+         for a, b in zip(self._get_true_quantities(config, X, y,
+                                                   X[:, tree.feature[0]] < tree.threshold[0], criterion),
                          self._get_node_quantities(tree, 1))]
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, X[:, tree.feature[0]] >= tree.threshold[0]),
+         for a, b in zip(self._get_true_quantities(config, X, y,
+                                                   X[:, tree.feature[0]] >= tree.threshold[0], criterion),
                          self._get_node_quantities(tree, 2))]
 
         mask = np.abs(X[:, 0]) > .05
         np.testing.assert_allclose(tree.predict(X[mask]), truth[mask], atol=.05)
 
         config = base_config_gen()
+        config['criterion'] = criterion
         config['max_depth'] = 2
         X, y, truth = self._get_continuous_data(config)
         tree = self._train_tree(config, X, y)
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, np.ones(X.shape[0]) > 0),
+         for a, b in zip(self._get_true_quantities(config, X, y, np.ones(X.shape[0]) > 0, criterion),
                          self._get_node_quantities(tree, 0))]
         mask0 = X[:, tree.feature[0]] < tree.threshold[0]
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, mask0),
+         for a, b in zip(self._get_true_quantities(config, X, y, mask0, criterion),
                          self._get_node_quantities(tree, 1))]
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, ~mask0),
+         for a, b in zip(self._get_true_quantities(config, X, y, ~mask0, criterion),
                          self._get_node_quantities(tree, 4))]
         mask1a = mask0 & (X[:, tree.feature[1]] < tree.threshold[1])
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, mask1a),
+         for a, b in zip(self._get_true_quantities(config, X, y, mask1a, criterion),
                          self._get_node_quantities(tree, 2))]
         mask1b = mask0 & (X[:, tree.feature[1]] >= tree.threshold[1])
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, mask1b),
+         for a, b in zip(self._get_true_quantities(config, X, y, mask1b, criterion),
                          self._get_node_quantities(tree, 3))]
         mask1c = (~mask0) & (X[:, tree.feature[4]] < tree.threshold[4])
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, mask1c),
+         for a, b in zip(self._get_true_quantities(config, X, y, mask1c, criterion),
                          self._get_node_quantities(tree, 5))]
         mask1d = (~mask0) & (X[:, tree.feature[4]] >= tree.threshold[4])
         [np.testing.assert_allclose(a, b, atol=1e-4)
-         for a, b in zip(self._get_true_quantities(config, X, y, mask1d),
+         for a, b in zip(self._get_true_quantities(config, X, y, mask1d, criterion),
                          self._get_node_quantities(tree, 6))]
 
         mask = np.abs(X[:, 0]) > .05
         np.testing.assert_allclose(tree.predict(X[mask]), truth[mask], atol=.05)
 
     def test_dishonest_tree(self):
-        self._test_tree_quantities(self._get_base_config)
+        self._test_tree_quantities(self._get_base_config, criterion='het')
+        self._test_tree_quantities(self._get_base_config, criterion='mse')
 
     def test_honest_tree(self):
-        self._test_tree_quantities(self._get_base_honest_config)
+        self._test_tree_quantities(self._get_base_honest_config, criterion='het')
+        self._test_tree_quantities(self._get_base_honest_config, criterion='mse')
 
     def test_honest_dishonest_equivalency(self):
-        config = self._get_base_config()
-        config['max_depth'] = 4
-        X, y, truth = self._get_continuous_data(config)
-        tree = self._train_tree(config, X, y)
-        config = self._get_base_honest_config()
-        config['max_depth'] = 4
-        X, y, truth = self._get_continuous_data(config)
-        honest_tree = self._train_tree(config, X, y)
-        np.testing.assert_equal(tree.feature, honest_tree.feature)
-        np.testing.assert_equal(tree.threshold, honest_tree.threshold)
-        np.testing.assert_equal(tree.value, honest_tree.value)
-        np.testing.assert_equal(tree.full_value, honest_tree.full_value)
-        np.testing.assert_equal(tree.impurity, honest_tree.impurity)
-        np.testing.assert_equal(tree.impurity, honest_tree.impurity_train)
-        np.testing.assert_equal(tree.n_node_samples, honest_tree.n_node_samples)
-        np.testing.assert_equal(tree.weighted_n_node_samples, honest_tree.weighted_n_node_samples_train)
-        np.testing.assert_equal(tree.n_node_samples, honest_tree.n_node_samples_train)
-        np.testing.assert_equal(tree.jac, honest_tree.jac)
-        np.testing.assert_equal(tree.precond, honest_tree.precond)
-        np.testing.assert_equal(tree.predict(X), honest_tree.predict(X))
-        np.testing.assert_equal(tree.compute_feature_importances(), honest_tree.compute_feature_importances())
-        np.testing.assert_equal(tree.compute_feature_heterogeneity_importances(),
-                                honest_tree.compute_feature_heterogeneity_importances())
+        for criterion in ['het', 'mse']:
+            config = self._get_base_config()
+            config['criterion'] = criterion
+            config['max_depth'] = 4
+            X, y, _ = self._get_continuous_data(config)
+            tree = self._train_tree(config, X, y)
+            config = self._get_base_honest_config()
+            config['criterion'] = criterion
+            config['max_depth'] = 4
+            X, y, _ = self._get_continuous_data(config)
+            honest_tree = self._train_tree(config, X, y)
+            np.testing.assert_equal(tree.feature, honest_tree.feature)
+            np.testing.assert_equal(tree.threshold, honest_tree.threshold)
+            np.testing.assert_equal(tree.value, honest_tree.value)
+            np.testing.assert_equal(tree.full_value, honest_tree.full_value)
+            np.testing.assert_equal(tree.impurity, honest_tree.impurity)
+            np.testing.assert_equal(tree.impurity, honest_tree.impurity_train)
+            np.testing.assert_equal(tree.n_node_samples, honest_tree.n_node_samples)
+            np.testing.assert_equal(tree.weighted_n_node_samples, honest_tree.weighted_n_node_samples_train)
+            np.testing.assert_equal(tree.n_node_samples, honest_tree.n_node_samples_train)
+            np.testing.assert_equal(tree.jac, honest_tree.jac)
+            np.testing.assert_equal(tree.precond, honest_tree.precond)
+            np.testing.assert_equal(tree.predict(X), honest_tree.predict(X))
+            np.testing.assert_equal(tree.predict_full(X), honest_tree.predict_full(X))
+            np.testing.assert_equal(tree.compute_feature_importances(), honest_tree.compute_feature_importances())
+            np.testing.assert_equal(tree.compute_feature_heterogeneity_importances(),
+                                    honest_tree.compute_feature_heterogeneity_importances())
 
     def test_min_var_leaf(self):
         n_samples_train = 10
-        config = self._get_base_config(n_samples_train=n_samples_train, n_t=1, n_features=1)
-        config['max_depth'] = 1
-        config['min_samples_leaf'] = 1
-        config['min_eig_leaf'] = .2
-        X = np.arange(n_samples_train).reshape(-1, 1)
-        T = np.random.binomial(1, .5, size=(n_samples_train, 1))
-        T[X[:, 0] < n_samples_train // 2] = 0
-        T[X[:, 0] >= n_samples_train // 2] = 1
-        Taug = np.hstack([T, np.ones((T.shape[0], 1))])
-        y = np.zeros((n_samples_train, 1))
-        yaug = np.hstack([y, y * Taug, cross_product(Taug, Taug)])
-        tree = self._train_tree(config, X, yaug)
-        np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] > tree.threshold[0]]**2))
-        np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] <= tree.threshold[0]]**2))
+        for criterion in ['het', 'mse']:
+            config = self._get_base_config(n_samples_train=n_samples_train, n_t=1, n_features=1)
+            config['max_depth'] = 1
+            config['min_samples_leaf'] = 1
+            config['min_eig_leaf'] = .2
+            config['criterion'] = criterion
+            X = np.arange(n_samples_train).reshape(-1, 1)
+            T = np.random.binomial(1, .5, size=(n_samples_train, 1))
+            T[X[:, 0] < n_samples_train // 2] = 0
+            T[X[:, 0] >= n_samples_train // 2] = 1
+            Taug = np.hstack([T, np.ones((T.shape[0], 1))])
+            y = np.zeros((n_samples_train, 1))
+            yaug = np.hstack([y, y * Taug, cross_product(Taug, Taug)])
+            tree = self._train_tree(config, X, yaug)
+            np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] > tree.threshold[0]]**2))
+            np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] <= tree.threshold[0]]**2))
 
 
 if __name__ == "__main__":
