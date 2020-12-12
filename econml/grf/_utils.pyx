@@ -52,7 +52,7 @@ cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) nogil:
     if (pivot==NULL or work==NULL):
         with gil:
             raise MemoryError()
-    
+
     try:
         memcpy(inv_a, a, m * m * sizeof(DOUBLE_t))
         
@@ -78,12 +78,20 @@ cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol, b
     m = a.shape[0]
     n = a.shape[1]
     nrhs = b.shape[1]
-    lstsq_(&a[0, 0], &b[0, 0], &sol[0, 0], m, n, nrhs, copy_b)
+    ldb = b.shape[0]
+    if ldb < max(m, n):
+        with gil:
+            raise ValueError("Matrix b must have first dimension at least max(a.shape[0], a.shape[1]). "
+                             "Please pad with zeros.")
+    if (sol.shape[0] != n) or (sol.shape[1] != nrhs):
+        with gil:
+            raise ValueError("Matrix sol must have dimensions (a.shape[1], b.shape[1]).")
+    lstsq_(&a[0, 0], &b[0, 0], &sol[0, 0], m, n, ldb, nrhs, copy_b)
     
 
-cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs, bint copy_b=True) nogil:
+cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int ldb, int nrhs, bint copy_b=True) nogil:
     cdef:
-        int lda, ldb, rank, info, lwork, n_out
+        int lda, rank, info, lwork, n_out
         double rcond
         Py_ssize_t i, j
         #array pointers
@@ -92,38 +100,32 @@ cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs
         double* b_copy    
         char* UPLO = 'O' #Any letter other then 'U' or 'L' will copy entire array
     lda = m
-    ldb = m
+    if ldb < max(m, n):
+        with gil:
+            raise ValueError("Matrix b must have dimension at least max(a.shape[0], a.shape[1]). "
+                             "Please pad with zeros.")
     rcond = max(m, n) * RCOND
     jpvt = <int*> calloc(n, sizeof(int))
-    work = <DOUBLE_t*> malloc(sizeof(DOUBLE_t))
-    n_out = max(ldb, n)
+    lwork = max(min(n, m) + 3 * n + 1, 2 * min(n, m) + nrhs)
+    work = <DOUBLE_t*> malloc(lwork * sizeof(DOUBLE_t))
+    
     # TODO. can we avoid all this malloc and copying in our context?
     a_copy = <DOUBLE_t*> calloc(lda * n, sizeof(DOUBLE_t))
-    b_copy = b
     if copy_b:
-        b_copy = <DOUBLE_t*> calloc(n_out * nrhs, sizeof(DOUBLE_t))
+        b_copy = <DOUBLE_t*> calloc(ldb * nrhs, sizeof(DOUBLE_t))
+    else:
+        b_copy = b
     try:
-        dlacpy(UPLO, &lda, &n, a, &lda, a_copy, &n)
+        dlacpy(UPLO, &lda, &n, a, &lda, a_copy, &lda)
         if copy_b:
-            dlacpy(UPLO, &ldb, &nrhs, b, &ldb, b_copy, &n_out)
+            dlacpy(UPLO, &ldb, &nrhs, b, &ldb, b_copy, &ldb)
 
-        # preliminary call to calculate the optimal size of the work array
-        lwork = -1
-        dgelsy(&m, &n, &nrhs, a_copy, &lda, b_copy, &n_out,
+        dgelsy(&m, &n, &nrhs, a_copy, &lda, b_copy, &ldb,
                &jpvt[0], &rcond, &rank, &work[0], &lwork, &info)
-        if info < 0:
-            with gil:
-                raise ValueError('illegal value in %d-th argument of internal dgelsy'
-                                 % (-info,))
-    
-        lwork = int(work[0])
-        work = <DOUBLE_t*> realloc(work, lwork * sizeof(DOUBLE_t))
-        dgelsy(&m, &n, &nrhs, a_copy, &lda, b_copy, &n_out,
-               &jpvt[0], &rcond, &rank, &work[0], &lwork, &info)
-        
-        for i in xrange(nrhs):
-            for j in xrange(n):
-                sol[j + i*n] = b_copy[j + i*n_out]
+
+        for i in range(n):
+            for j in range(nrhs):
+                sol[i + j * n] = b_copy[i + j * ldb]
 
     finally:
         free(jpvt)
@@ -139,18 +141,19 @@ cpdef void pinv(DOUBLE_t[::1,:] a, DOUBLE_t[::1, :] sol) nogil:
 
 cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) nogil:
     # TODO. can we avoid this mallon in our context. Maybe create some fixed memory allocations?
-    cdef double* b = <DOUBLE_t*> calloc(m * m, sizeof(double))
+    cdef int ldb = max(m, n)
+    cdef double* b = <DOUBLE_t*> calloc(ldb * m, sizeof(double))
     cdef Py_ssize_t i
     for i in range(m):
-        b[i + i*m] = 1.0
+        b[i + i * ldb] = 1.0
     try:
-        lstsq_(a, b, sol, m, n, m, copy_b=False)
+        lstsq_(a, b, sol, m, n, ldb, m, copy_b=False)
 
     finally:
         free(b)
 
 
-cpdef double fast_max_eigv(const DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
+cpdef double fast_max_eigv(DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
     return fast_max_eigv_(&A[0, 0], A.shape[0], reps, &random_state)
 
 cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil:
@@ -192,7 +195,7 @@ cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state)
         free(xold)
 
 
-cpdef double fast_min_eigv(const DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
+cpdef double fast_min_eigv(DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
     return fast_min_eigv_(&A[0, 0], A.shape[0], reps, &random_state)
 
 cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil:
@@ -216,7 +219,7 @@ cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state)
         for i in range(n):
             xold[i] = (1 - 2*rand_int(0, 2, random_state))
         for t in range(reps):
-            lstsq_(A, xold, update, n, n, 1, copy_b=False)
+            lstsq_(A, xold, update, n, n, n, 1, copy_b=False)
             for i in range(n):
                 xnew[i] = 0
                 for j in range(n):

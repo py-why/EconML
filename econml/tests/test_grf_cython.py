@@ -10,7 +10,7 @@ import sparse as sp
 import pytest
 from econml.tree import DepthFirstTreeBuilder, BestSplitter, Tree, MSE
 from econml.grf import LinearMomentGRFCriterion, LinearMomentGRFCriterionMSE
-from econml.grf._utils import matinv, lstsq, pinv
+from econml.grf._utils import matinv, lstsq, pinv, fast_max_eigv, fast_min_eigv
 from econml.utilities import cross_product
 
 
@@ -253,9 +253,50 @@ class TestGRFCython(unittest.TestCase):
             np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] > tree.threshold[0]]**2))
             np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] <= tree.threshold[0]]**2))
 
+    def test_fast_eigv(self):
+        n = 4
+        np.random.seed(123)
+        for _ in range(10):
+            A = np.random.normal(0, 1, size=(n, n))
+            A = np.asfortranarray(A @ A.T)
+            apx = fast_min_eigv(A, 5, 123)
+            opt = np.min(np.linalg.eig(A)[0])
+            np.testing.assert_allclose(apx, opt, atol=.01, rtol=.3)
+            apx = fast_max_eigv(A, 10, 123)
+            opt = np.max(np.linalg.eig(A)[0])
+            np.testing.assert_allclose(apx, opt, atol=.5, rtol=.2)
+
+    def test_linalg(self):
+        np.random.seed(1235)
+        for n, m, nrhs in [(3, 3, 3), (3, 2, 1), (3, 1, 2), (1, 4, 2), (3, 4, 5)]:
+            for _ in range(100):
+                A = np.random.normal(0, 1, size=(n, m))
+                y = np.random.normal(0, 1, size=(n, nrhs))
+                yf = y
+                if m > n:
+                    yf = np.zeros((m, nrhs))
+                    yf[:n] = y
+                ours = np.asfortranarray(np.zeros((m, nrhs)))
+                lstsq(np.asfortranarray(A), np.asfortranarray(yf.copy()), ours, copy_b=True)
+                true = np.linalg.lstsq(A, y, rcond=np.finfo(np.float64).eps * max(n, m))[0]
+                np.testing.assert_allclose(ours, true, atol=.00001, rtol=.0)
+
+                ours = np.asfortranarray(np.zeros(A.T.shape, dtype=np.float64))
+                pinv(np.asfortranarray(A), ours)
+                true = np.linalg.pinv(A)
+                np.testing.assert_allclose(ours, true, atol=.00001, rtol=.0)
+
+                if n == m:
+                    ours = np.asfortranarray(np.zeros(A.T.shape, dtype=np.float64))
+                    matinv(np.asfortranarray(A), ours)
+                    true = np.linalg.inv(A)
+                    np.testing.assert_allclose(ours, true, atol=.00001, rtol=.0)
+
 
 if __name__ == "__main__":
     TestGRFCython().test_honest_dishonest_equivalency()
     TestGRFCython().test_honest_tree()
     TestGRFCython().test_dishonest_tree()
     TestGRFCython().test_min_var_leaf()
+    TestGRFCython().test_fast_eigv()
+    TestGRFCython().test_linalg()
