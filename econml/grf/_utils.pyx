@@ -170,7 +170,7 @@ cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state)
             with gil:
                 raise MemoryError()
         for i in range(n):
-            xold[i] = (1 - 2*rand_int(0, 1, random_state))
+            xold[i] = (1 - 2*rand_int(0, 2, random_state))
         for t in range(reps):
             for i in range(n):
                 xnew[i] = 0
@@ -214,7 +214,7 @@ cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state)
             with gil:
                 raise MemoryError()
         for i in range(n):
-            xold[i] = (1 - 2*rand_int(0, 1, random_state))
+            xold[i] = (1 - 2*rand_int(0, 2, random_state))
         for t in range(reps):
             lstsq_(A, xold, update, n, n, 1, copy_b=False)
             for i in range(n):
