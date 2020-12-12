@@ -1,5 +1,5 @@
 
-from ._criterion import Criterion, RegressionCriterion
+from ._criterion import Criterion, RegressionCriterion, MSE
 from ._splitter import Splitter, BestSplitter
 from ._tree import DepthFirstTreeBuilder
 from ._tree import Tree
@@ -9,4 +9,5 @@ __all__ = ["Tree",
            "BestSplitter",
            "DepthFirstTreeBuilder",
            "Criterion",
-           "RegressionCriterion"]
+           "RegressionCriterion",
+           "MSE"]

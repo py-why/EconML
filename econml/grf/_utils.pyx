@@ -17,6 +17,8 @@ import numpy as np
 cimport numpy as np
 np.import_array()
 
+from ..tree._utils cimport rand_int
+
 
 rcond_ = np.finfo(np.float64).eps
 cdef inline double RCOND = rcond_
@@ -147,3 +149,90 @@ cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) nogil:
     finally:
         free(b)
 
+
+cpdef double fast_max_eigv(const DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
+    return fast_max_eigv_(&A[0, 0], A.shape[0], reps, &random_state)
+
+cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil:
+    cdef int t, i, j
+    cdef double normx, Anormx
+    cdef double* xnew
+    cdef double* xold
+    cdef double* temp
+    xnew = NULL
+    xold = NULL
+
+    try:
+        xnew = <double*> calloc(n, sizeof(double))
+        xold = <double*> calloc(n, sizeof(double))
+
+        if xnew == NULL or xold == NULL:
+            with gil:
+                raise MemoryError()
+        for i in range(n):
+            xold[i] = (1 - 2*rand_int(0, 1, random_state))
+        for t in range(reps):
+            for i in range(n):
+                xnew[i] = 0
+                for j in range(n):
+                    xnew[i] += A[i + j * n] * xold[j]
+            temp = xold
+            xold = xnew
+            xnew = temp
+        normx = 0
+        Anormx = 0
+        for i in range(n):
+            normx += xnew[i] * xnew[i]
+            for j in range(n):
+                Anormx += xnew[i] * A[i + j * n] * xnew[j]
+        
+        return Anormx / normx
+    finally:
+        free(xnew)
+        free(xold)
+
+
+cpdef double fast_min_eigv(const DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
+    return fast_min_eigv_(&A[0, 0], A.shape[0], reps, &random_state)
+
+cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil:
+    cdef int t, i, j
+    cdef double normx, Anormx
+    cdef double* xnew
+    cdef double* xold
+    cdef double* temp
+    cdef double* update
+    xnew = NULL
+    xold = NULL
+
+    try:
+        xnew = <double*> calloc(n, sizeof(double))
+        xold = <double*> calloc(n, sizeof(double))
+        update = <double*> calloc(n, sizeof(double))
+
+        if xnew == NULL or xold == NULL or update == NULL:
+            with gil:
+                raise MemoryError()
+        for i in range(n):
+            xold[i] = (1 - 2*rand_int(0, 1, random_state))
+        for t in range(reps):
+            lstsq_(A, xold, update, n, n, 1, copy_b=False)
+            for i in range(n):
+                xnew[i] = 0
+                for j in range(n):
+                    xnew[i] += update[i]
+            temp = xold
+            xold = xnew
+            xnew = temp
+        normx = 0
+        Anormx = 0
+        for i in range(n):
+            normx += xnew[i] * xnew[i]
+            for j in range(n):
+                Anormx += xnew[i] * A[i + j * n] * xnew[j]
+        
+        return Anormx / normx
+    finally:
+        free(xnew)
+        free(xold)
+        free(update)

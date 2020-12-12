@@ -42,6 +42,7 @@ class GRFTree(BaseEstimator):
                  min_samples_split=2,
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
+                 min_var_leaf=None,
                  max_features=None,
                  random_state=None,
                  min_impurity_decrease=0.,
@@ -53,6 +54,7 @@ class GRFTree(BaseEstimator):
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
+        self.min_var_leaf = min_var_leaf
         self.max_features = max_features
         self.random_state = random_state
         self.min_impurity_decrease = min_impurity_decrease
@@ -176,6 +178,14 @@ class GRFTree(BaseEstimator):
         if not 0 <= self.min_balancedness_tol <= 0.5:
             raise ValueError("min_balancedness_tol must be in [0, 0.5]")
 
+        if self.min_var_leaf is None:
+            min_var_leaf = -1.0
+        elif isinstance(self.min_var_leaf, numbers.Real) and (self.min_var_leaf >= 0.0):
+            min_var_leaf = self.min_var_leaf
+        else:
+            raise ValueError("min_var_leaf must be either None or a real in [0, infinity). "
+                             "Got {}".format(self.min_var_leaf))
+
         # Set min_weight_leaf from min_weight_fraction_leaf
         if sample_weight is None:
             min_weight_leaf = (self.min_weight_fraction_leaf *
@@ -192,23 +202,35 @@ class GRFTree(BaseEstimator):
             samples_train, samples_val = inds, inds
 
         # Build tree
+        max_train = len(samples_train) if sample_weight is None else np.count_nonzero(sample_weight[samples_train])
+        if self.honest:
+            max_val = len(samples_val) if sample_weight is None else np.count_nonzero(sample_weight[samples_val])
         if callable(self.criterion):
             criterion = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_,
-                                       n_samples, samples_train.shape[0])
+                                       n_samples, max_train,
+                                       random_state.randint(np.iinfo(np.int32).max))
             if not isinstance(criterion, Criterion):
                 raise ValueError("Input criterion is not a valid criterion")
-            criterion_val = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_,
-                                           n_samples, samples_val.shape[0])
-        else:
-            max_train = len(samples_train) if sample_weight is None else np.count_nonzero(sample_weight[samples_train])
-            criterion = CRITERIA_GRF[self.criterion](
-                self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_, n_samples, max_train)
             if self.honest:
-                max_val = len(samples_val) if sample_weight is None else np.count_nonzero(sample_weight[samples_val])
-                criterion_val = CRITERIA_GRF[self.criterion](
-                    self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_, n_samples, max_val)
+                criterion_val = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_,
+                                               n_samples, max_val,
+                                               random_state.randint(np.iinfo(np.int32).max))
             else:
                 criterion_val = criterion
+        else:
+            criterion = CRITERIA_GRF[self.criterion](
+                self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_, n_samples, max_train,
+                random_state.randint(np.iinfo(np.int32).max))
+            if self.honest:
+                criterion_val = CRITERIA_GRF[self.criterion](
+                    self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_, n_samples, max_val,
+                    random_state.randint(np.iinfo(np.int32).max))
+            else:
+                criterion_val = criterion
+
+        if (min_var_leaf >= 0.0 and (not isinstance(criterion, LinearMomentGRFCriterion))
+                and (not isinstance(criterion_val, LinearMomentGRFCriterion))):
+            raise ValueError("This criterion does not support min_var_leaf constraint!")
 
         splitter = self.splitter
         if not isinstance(self.splitter, Splitter):
@@ -218,6 +240,7 @@ class GRFTree(BaseEstimator):
                                                 min_weight_leaf,
                                                 self.min_balancedness_tol,
                                                 self.honest,
+                                                min_var_leaf,
                                                 random_state.randint(np.iinfo(np.int32).max))
 
         self.tree_ = Tree(self.n_features_, self.n_outputs_, self.n_relevant_outputs_, store_jac=True)

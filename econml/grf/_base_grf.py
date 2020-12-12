@@ -132,6 +132,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  min_samples_split=10,
                  min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
+                 min_var_leaf=None,
                  max_features="auto",
                  min_impurity_decrease=0.,
                  max_samples=.45,
@@ -148,7 +149,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             base_estimator=GRFTree(),
             n_estimators=n_estimators,
             estimator_params=("criterion", "max_depth", "min_samples_split",
-                              "min_samples_leaf", "min_weight_fraction_leaf",
+                              "min_samples_leaf", "min_weight_fraction_leaf", "min_var_leaf",
                               "max_features", "min_impurity_decrease", "honest",
                               "min_balancedness_tol",
                               "random_state"))
@@ -158,6 +159,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
+        self.min_var_leaf = min_var_leaf
         self.max_features = max_features
         self.min_impurity_decrease = min_impurity_decrease
         self.min_balancedness_tol = min_balancedness_tol

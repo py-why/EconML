@@ -23,6 +23,7 @@ cdef class Criterion:
     cdef SIZE_t n_relevant_outputs       # The first n_relevant_outputs are the ones we care about
     cdef SIZE_t n_features               # Number of features
     cdef SIZE_t n_y
+    cdef UINT32_t random_state
     
     cdef SIZE_t* samples                 # Sample indices in X, y
     cdef SIZE_t start                    # samples[start:pos] are the samples in the left node
@@ -65,6 +66,8 @@ cdef class Criterion:
     cdef void node_precond(self, double* dest) nogil
     cdef double impurity_improvement(self, double impurity) nogil
     cdef double proxy_impurity_improvement(self) nogil
+    cdef double min_eig_left(self) nogil
+    cdef double min_eig_right(self) nogil
 
 
 cdef class RegressionCriterion(Criterion):

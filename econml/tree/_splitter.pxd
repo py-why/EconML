@@ -39,6 +39,7 @@ cdef class Splitter:
     cdef public SIZE_t max_features      # Number of features to test
     cdef public SIZE_t min_samples_leaf  # Min samples in a leaf
     cdef public double min_weight_leaf   # Minimum weight in a leaf
+    cdef public double min_eig_leaf
     cdef public double min_balancedness_tol # Tolerance level of how balanced a split can be (in [0, .5])
     cdef public bint honest
 

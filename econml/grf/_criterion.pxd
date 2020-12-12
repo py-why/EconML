@@ -21,6 +21,9 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef DOUBLE_t* parameter_pre
     cdef DOUBLE_t* J
     cdef DOUBLE_t* invJ
+    cdef DOUBLE_t* var_total
+    cdef DOUBLE_t* var_left
+    cdef DOUBLE_t* var_right
     cdef SIZE_t* node_index_mapping
     cdef DOUBLE_t y_sq_sum_total
 
@@ -41,7 +44,8 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
     cdef int node_reset_sums(self, const DOUBLE_t[:, ::1] y, DOUBLE_t* rho,
                              DOUBLE_t* J,
                              DOUBLE_t* sample_weight, SIZE_t* samples,
-                             DOUBLE_t* sum_total, DOUBLE_t* sq_sum_total, DOUBLE_t* y_sq_sum_total,
+                             DOUBLE_t* sum_total, DOUBLE_t* var_total,
+                             DOUBLE_t* sq_sum_total, DOUBLE_t* y_sq_sum_total,
                              SIZE_t start, SIZE_t end) nogil except -1
 
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):

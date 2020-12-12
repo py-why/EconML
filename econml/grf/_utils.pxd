@@ -18,3 +18,11 @@ cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int nrhs
 cpdef void pinv(DOUBLE_t[::1,:] a, DOUBLE_t[::1, :] sol) nogil
 
 cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) nogil
+
+cpdef double fast_max_eigv(const DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil
+
+cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil
+
+cpdef double fast_min_eigv(const DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil
+
+cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil

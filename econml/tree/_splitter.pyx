@@ -44,7 +44,8 @@ cdef class Splitter:
 
     def __cinit__(self, Criterion criterion, Criterion criterion_val,
                   SIZE_t max_features, SIZE_t min_samples_leaf, double min_weight_leaf,
-                  DTYPE_t min_balancedness_tol, bint honest, object random_state):
+                  DTYPE_t min_balancedness_tol, bint honest, double min_eig_leaf,
+                  UINT32_t random_state):
         """
         Parameters
         ----------
@@ -88,6 +89,7 @@ cdef class Splitter:
         self.min_weight_leaf = min_weight_leaf
         self.min_balancedness_tol = min_balancedness_tol
         self.honest = honest
+        self.min_eig_leaf = min_eig_leaf
         self.rand_r_state = random_state
 
     def __dealloc__(self):
@@ -278,6 +280,7 @@ cdef class BestSplitter(Splitter):
                                self.min_weight_leaf,
                                self.min_balancedness_tol,
                                self.honest,
+                               self.min_eig_leaf,
                                self.random_state), self.__getstate__())
 
     cdef int node_split(self, double impurity, SplitRecord* split,
@@ -303,6 +306,7 @@ cdef class BestSplitter(Splitter):
         cdef SIZE_t max_features = self.max_features
         cdef SIZE_t min_samples_leaf = self.min_samples_leaf
         cdef double min_weight_leaf = self.min_weight_leaf
+        cdef double min_eig_leaf = self.min_eig_leaf
         cdef UINT32_t* random_state = &self.rand_r_state
 
         cdef SplitRecord best, current
@@ -408,7 +412,7 @@ cdef class BestSplitter(Splitter):
                     self.criterion.reset()
                     if self.honest:
                         self.criterion_val.reset()
-                    p = start + <int>floor((.5 - self.min_balancedness_tol) * (end - start))
+                    p = start + <int>floor((.5 - self.min_balancedness_tol) * (end - start)) - 1
                     p_val = start_val
 
                     while p < end and p_val < end_val:
@@ -463,14 +467,22 @@ cdef class BestSplitter(Splitter):
                                 break
 
                             self.criterion.update(current.pos)
+                            if self.honest:
+                                self.criterion_val.update(current.pos_val)
+
                             # Reject if min_weight_leaf is not satisfied
                             if self.criterion.weighted_n_left < min_weight_leaf:
                                 continue
                             if self.criterion.weighted_n_right < min_weight_leaf:
                                 break
+                            # Reject if minimum eigenvalue proxy requirement is not satisfied
+                            if min_eig_leaf >= 0.0:
+                                if self.criterion.min_eig_left() < min_eig_leaf:
+                                    continue
+                                if self.criterion.min_eig_right() < min_eig_leaf:
+                                    continue
 
                             if self.honest:
-                                self.criterion_val.update(current.pos_val)
                                 if self.criterion_val.weighted_n_left < min_weight_leaf:
                                     continue
                                 if self.criterion_val.weighted_n_right < min_weight_leaf:
