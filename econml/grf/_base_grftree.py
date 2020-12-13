@@ -28,10 +28,12 @@ CRITERIA_GRF = {"het": LinearMomentGRFCriterion,
 
 SPLITTERS = {"best": BestSplitter, }
 
+MAX_INT = np.iinfo(np.int32).max
 
 # =============================================================================
 # Base GRF tree
 # =============================================================================
+
 
 class GRFTree(BaseEstimator):
 
@@ -83,9 +85,13 @@ class GRFTree(BaseEstimator):
         check_is_fitted(self)
         return self.tree_.n_leaves
 
+    def init(self,):
+        self.random_state_ = check_random_state(self.random_state)
+        return self
+
     def fit(self, X, y, n_y, n_outputs, n_relevant_outputs, sample_weight=None, check_input=True):
 
-        random_state = self.random_state  # if check_input=False, this is assumed to be an instance of RandomState
+        random_state = self.random_state_
 
         # Determine output settings
         n_samples, self.n_features_ = X.shape
@@ -93,9 +99,18 @@ class GRFTree(BaseEstimator):
         self.n_relevant_outputs_ = n_relevant_outputs
         self.n_y_ = n_y
 
-        if check_input:
-            random_state = check_random_state(self.random_state)
+        # Important: This must be the first invocation of the random state at fit time, so that
+        # train/test splits are re-generatable from an external object simply by knowing the
+        # random_state parameter of the tree. Can be useful in the future if one wants to create local
+        # linear predictions. Currently is also useful for testing.
+        inds = np.arange(n_samples, dtype=np.intp)
+        if self.honest:
+            random_state.shuffle(inds)
+            samples_train, samples_val = inds[:n_samples // 2], inds[n_samples // 2:]
+        else:
+            samples_train, samples_val = inds, inds
 
+        if check_input:
             if getattr(y, "dtype", None) != DOUBLE or not y.flags.contiguous:
                 y = np.ascontiguousarray(y, dtype=DOUBLE)
             y = np.atleast_1d(y)
@@ -194,13 +209,6 @@ class GRFTree(BaseEstimator):
             min_weight_leaf = (self.min_weight_fraction_leaf *
                                np.sum(sample_weight))
 
-        inds = np.arange(n_samples, dtype=np.intp)
-        if self.honest:
-            random_state.shuffle(inds)
-            samples_train, samples_val = inds[:n_samples // 2], inds[n_samples // 2:]
-        else:
-            samples_train, samples_val = inds, inds
-
         # Build tree
         max_train = len(samples_train) if sample_weight is None else np.count_nonzero(sample_weight[samples_train])
         if self.honest:
@@ -250,7 +258,6 @@ class GRFTree(BaseEstimator):
                                         min_weight_leaf,
                                         max_depth,
                                         self.min_impurity_decrease)
-
         builder.build(self.tree_, X, y, samples_train, samples_val,
                       sample_weight=sample_weight,
                       store_jac=True)

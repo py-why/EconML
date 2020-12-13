@@ -47,7 +47,7 @@ def _get_n_samples_subsample(n_samples, max_samples):
         return max_samples
 
     if isinstance(max_samples, numbers.Real):
-        if not (0 < max_samples < 1):
+        if not (0 < max_samples <= 1):
             msg = "`max_samples` must be in range (0, 1) but got value {}"
             raise ValueError(msg.format(max_samples))
         return int(round(n_samples * max_samples))
@@ -349,9 +349,11 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 random_state.randint(MAX_INT, size=len(self.estimators_))
 
             trees = [self._make_estimator(append=False,
-                                          random_state=random_state)
+                                          random_state=random_state).init()
                      for i in range(n_more_estimators)]
 
+            self.subsample_random_seed_ = random_state.randint(MAX_INT)
+            subsample_random_state = check_random_state(self.subsample_random_seed_)
             if self.inference:
                 # Generating indices a priori before parallelism ended up being orders of magnitude
                 # faster than how sklearn does it. The reason is that random samplers do not release the
@@ -362,14 +364,14 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                             n_groups)
                 s_inds = []
                 for sl in new_slices:
-                    half_sample_inds = random_state.choice(n_samples, n_samples // 2, replace=False)
-                    s_inds.extend([half_sample_inds[random_state.choice(n_samples // 2,
-                                                                        n_samples_subsample,
-                                                                        replace=False)]
+                    half_sample_inds = subsample_random_state.choice(n_samples, n_samples // 2, replace=False)
+                    s_inds.extend([half_sample_inds[subsample_random_state.choice(n_samples // 2,
+                                                                                  n_samples_subsample,
+                                                                                  replace=False)]
                                    for _ in range(len(sl))])
             else:
                 new_slices = []
-                s_inds = [random_state.choice(n_samples, n_samples_subsample, replace=False)
+                s_inds = [subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
                           for _ in range(n_more_estimators)]
 
             # Parallel loop: we prefer the threading backend as the Cython code
