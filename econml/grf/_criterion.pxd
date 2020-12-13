@@ -51,3 +51,6 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
     cdef DOUBLE_t* J_left
     cdef DOUBLE_t* J_right
+    
+    cdef double _get_min_eigv(self, DOUBLE_t* J_child, DOUBLE_t* var_child,
+                              double weighted_n_child) nogil except -1

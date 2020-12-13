@@ -86,7 +86,15 @@ class GRFTree(BaseEstimator):
         return self.tree_.n_leaves
 
     def init(self,):
-        self.random_state_ = check_random_state(self.random_state)
+        """ This method should be called before fit. We added this pre-fit step so that this step
+        can be executed without parallelism as it contains code that holds the gil and can hinder
+        parallel execution. We also did not merge this step to __init__ as we want __init__ to just
+        be storing the parameters for easy cloning. We also don't want to directly pass a RandomState
+        object as random_state, as we want to keep the starting seed to be able to replicate the
+        randomness of the object outside the object.
+        """
+        self.random_seed_ = self.random_state
+        self.random_state_ = check_random_state(self.random_seed_)
         return self
 
     def fit(self, X, y, n_y, n_outputs, n_relevant_outputs, sample_weight=None, check_input=True):
@@ -98,6 +106,8 @@ class GRFTree(BaseEstimator):
         self.n_outputs_ = n_outputs
         self.n_relevant_outputs_ = n_relevant_outputs
         self.n_y_ = n_y
+        self.n_samples_ = n_samples
+        self.honest_ = self.honest
 
         # Important: This must be the first invocation of the random state at fit time, so that
         # train/test splits are re-generatable from an external object simply by knowing the
@@ -277,6 +287,16 @@ class GRFTree(BaseEstimator):
                              % (self.n_features_, n_features))
 
         return X
+
+    def get_train_test_split_inds(self,):
+        check_is_fitted(self)
+        random_state = check_random_state(self.random_seed_)
+        inds = np.arange(self.n_samples_, dtype=np.intp)
+        if self.honest_:
+            random_state.shuffle(inds)
+            return inds[:self.n_samples_ // 2], inds[self.n_samples_ // 2:]
+        else:
+            return inds, inds
 
     def predict(self, X, check_input=True):
         """Predict class or regression value for X.

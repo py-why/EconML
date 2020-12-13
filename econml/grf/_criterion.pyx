@@ -6,7 +6,7 @@ from libc.stdlib cimport calloc
 from libc.stdlib cimport free
 from libc.string cimport memcpy
 from libc.string cimport memset
-from libc.math cimport fabs
+from libc.math cimport fabs, sqrt
 
 import numpy as np
 cimport numpy as np
@@ -665,3 +665,33 @@ cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
 
         return (proxy_impurity_left * self.weighted_n_node_samples +
                 proxy_impurity_right * self.weighted_n_node_samples)
+
+    cdef double _get_min_eigv(self, DOUBLE_t* J_child, DOUBLE_t* var_child,
+                              double weighted_n_child) nogil except -1:
+        cdef SIZE_t i, j, n_outputs
+        cdef double min, abs, rescale, Jii, Jij, Jji, Jjj
+        n_outputs = self.n_outputs
+        rescale = self.weighted_n_node_samples / weighted_n_child
+        min = var_child[0] * rescale
+        min *= min
+        for i in range(n_outputs):
+            abs = fabs(var_child[i] * rescale)
+            abs *= abs
+            if abs < min:
+                min = abs
+            Jii = J_child[i + i * n_outputs]
+            for j in range(n_outputs):
+                if j != i:
+                    Jij = J_child[i + j * n_outputs]
+                    Jji = J_child[j + i * n_outputs]
+                    Jjj = J_child[j + j * n_outputs]
+                    abs = fabs(Jii * Jjj - Jij * Jji) * rescale * rescale
+                    if abs < min:
+                        min = abs
+        return sqrt(min)
+
+    cdef double min_eig_left(self) nogil:
+        return self._get_min_eigv(self.J_left, self.var_left, self.weighted_n_left)
+    
+    cdef double min_eig_right(self) nogil:
+        return self._get_min_eigv(self.J_right, self.var_right, self.weighted_n_right)

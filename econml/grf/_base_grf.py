@@ -305,12 +305,27 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self._validate_estimator()
 
         random_state = check_random_state(self.random_state)
+        subsample_random_seed = random_state.randint(MAX_INT)
+        if (self.warm_start and hasattr(self, 'subsample_random_seed_') and
+                (subsample_random_seed != self.subsample_random_seed_)):
+            raise ValueError("Parameter random_state cannot be altered in between `fit` "
+                             "calls when `warm_start=True`.")
+        if (self.warm_start and hasattr(self, 'inference_') and (self.inference != self.inference_)):
+            raise ValueError("Parameter inference cannot be altered in between `fit` "
+                             "calls when `warm_start=True`.")
+        self.subsample_random_seed_ = subsample_random_seed
+        self.inference_ = self.inference
+        subsample_random_state = check_random_state(self.subsample_random_seed_)
 
         if not self.warm_start or not hasattr(self, "estimators_"):
             # Free allocated memory, if any
             self.estimators_ = []
             self.slices_ = []
-            self.halfsample_seeds_ = []
+            # the below are needed to replicate randomness of subsampling when warm_start=True
+            self.slices_n_samples_ = []
+            self.slices_n_samples_subsample_ = []
+            self.n_samples_ = []
+            self.n_samples_subsample_ = []
 
         n_more_estimators = self.n_estimators - len(self.estimators_)
 
@@ -352,9 +367,16 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                           random_state=random_state).init()
                      for i in range(n_more_estimators)]
 
-            self.subsample_random_seed_ = random_state.randint(MAX_INT)
-            subsample_random_state = check_random_state(self.subsample_random_seed_)
             if self.inference:
+                if self.warm_start:
+                    # Advancing subsample_random_state. Assumes each prior fit call has the same number of
+                    # samples at fit time. If not then this would not exactly replicate a single batch execution,
+                    # but would still advance randomness enough so that tree subsamples will be different.
+                    for sl, n_, ns_ in zip(self.slices_, self.slices_n_samples_, self.slices_n_samples_subsample_):
+                        subsample_random_state.choice(n_, n_ // 2, replace=False)
+                        for _ in range(len(sl)):
+                            subsample_random_state.choice(n_ // 2, ns_, replace=False)
+
                 # Generating indices a priori before parallelism ended up being orders of magnitude
                 # faster than how sklearn does it. The reason is that random samplers do not release the
                 # gil it seems.
@@ -370,6 +392,12 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                                                                   replace=False)]
                                    for _ in range(len(sl))])
             else:
+                if self.warm_start:
+                    # Advancing subsample_random_state. Assumes each prior fit call has the same number of
+                    # samples at fit time. If not then this would not exactly replicate a single batch execution,
+                    # but would still advance randomness enough so that tree subsamples will be different.
+                    for _, n_, ns_ in range(len(self.estimators_), self.n_samples_, self.n_samples_subsample_):
+                        subsample_random_state.choice(n_, ns_, replace=False)
                 new_slices = []
                 s_inds = [subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
                           for _ in range(n_more_estimators)]
@@ -387,9 +415,29 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
             # Collect newly grown trees
             self.estimators_.extend(trees)
+            self.n_samples_.extend([n_samples] * len(trees))
+            self.n_samples_subsample_.extend([n_samples_subsample] * len(trees))
             self.slices_.extend(list(new_slices))
+            self.slices_n_samples_.extend([n_samples] * len(new_slices))
+            self.slices_n_samples_subsample_.extend([n_samples_subsample] * len(new_slices))
 
         return self
+
+    def get_subsample_inds(self,):
+        """ Re-generate the example same sample indices as those at fit time using same pseudo-randomness.
+        """
+        check_is_fitted(self)
+        subsample_random_state = check_random_state(self.subsample_random_seed_)
+        if self.inference_:
+            s_inds = []
+            for sl, n_, ns_ in zip(self.slices_, self.slices_n_samples_, self.slices_n_samples_subsample_):
+                half_sample_inds = subsample_random_state.choice(n_, n_ // 2, replace=False)
+                s_inds.extend([half_sample_inds[subsample_random_state.choice(n_ // 2, ns_, replace=False)]
+                               for _ in range(len(sl))])
+            return s_inds
+        else:
+            return [subsample_random_state.choice(n_, ns_, replace=False)
+                    for n_, ns_ in zip(self.n_samples_, self.n_samples_subsample_)]
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
