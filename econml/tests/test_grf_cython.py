@@ -250,8 +250,11 @@ class TestGRFCython(unittest.TestCase):
             y = np.zeros((n_samples_train, 1))
             yaug = np.hstack([y, y * Taug, cross_product(Taug, Taug)])
             tree = self._train_tree(config, X, yaug)
-            np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] > tree.threshold[0]]**2))
-            np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] <= tree.threshold[0]]**2))
+            if criterion == 'het':
+                np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] > tree.threshold[0]]**2))
+                np.testing.assert_array_less(config['min_eig_leaf'], np.mean(T[X[:, 0] <= tree.threshold[0]]**2))
+            else:
+                np.testing.assert_array_equal(tree.feature, np.array([-2]))
 
     def test_fast_eigv(self):
         n = 4

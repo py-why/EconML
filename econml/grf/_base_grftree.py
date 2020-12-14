@@ -196,8 +196,8 @@ class GRFTree(BaseEstimator):
 
         if not 0 <= self.min_weight_fraction_leaf <= 0.5:
             raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
-        if max_depth <= 0:
-            raise ValueError("max_depth must be greater than zero. ")
+        if max_depth < 0:
+            raise ValueError("max_depth must be greater than or equal to zero. ")
         if not (0 < max_features <= self.n_features_):
             raise ValueError("max_features must be in (0, n_features]")
         if not 0 <= self.min_balancedness_tol <= 0.5:
@@ -419,11 +419,6 @@ class GRFTree(BaseEstimator):
         alpha, jac = self.predict_alpha_and_jac(X)
         return alpha - np.einsum('ijk,ik->ij', jac.reshape((-1, self.n_outputs_, self.n_outputs_)), parameter)
 
-    def predict_alpha_and_jac_and_moment(self, X, parameter, check_input=True):
-        alpha, jac = self.predict_alpha_and_jac(X)
-        return (alpha, jac,
-                np.einsum('ijk,ik->ij', jac.reshape((-1, self.n_outputs_, self.n_outputs_)), parameter) - alpha)
-
     def apply(self, X, check_input=True):
         """Return the index of the leaf that each sample is predicted as.
         .. versionadded:: 0.17
@@ -469,7 +464,7 @@ class GRFTree(BaseEstimator):
         X = self._validate_X_predict(X, check_input)
         return self.tree_.decision_path(X)
 
-    def feature_importances(self, max_depth=None, depth_decay_exponent=.0):
+    def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """Return the feature importances.
         The importance of a feature is computed as the (normalized) total
         reduction of the criterion brought by that feature.

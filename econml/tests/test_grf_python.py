@@ -1,14 +1,17 @@
+# %%
 
 import unittest
 import logging
 import time
 import random
 import numpy as np
+import pandas as pd
 import pytest
 from econml.grf import RegressionForest, CausalForest, CausalIVForest
 from econml.utilities import cross_product
 from copy import deepcopy
 from sklearn.utils import check_random_state
+import scipy.stats
 
 
 class TestGRFPython(unittest.TestCase):
@@ -17,7 +20,7 @@ class TestGRFPython(unittest.TestCase):
         return {'n_estimators': 1, 'subforest_size': 1, 'max_depth': 2,
                 'min_samples_split': 2, 'min_samples_leaf': 1,
                 'inference': False, 'max_samples': 1.0, 'honest': False,
-                'random_state': 123}
+                'n_jobs': None, 'random_state': 123}
 
     def _get_regression_data(self, n, n_features, random_state):
         X = np.zeros((n, n_features))
@@ -208,7 +211,6 @@ class TestGRFPython(unittest.TestCase):
         return CausalIVForest(**config).fit(X, T, y, Z=T, sample_weight=sample_weight)
 
     def _test_causal_tree_internals(self, trainer):
-        np.set_printoptions(precision=2, suppress=True)
         config = self._get_base_config()
         for criterion in ['het', 'mse']:
             for fit_intercept in [False, True]:
@@ -235,8 +237,7 @@ class TestGRFPython(unittest.TestCase):
                         np.testing.assert_allclose(tree.predict_full(X[mask]), truth_full[mask], atol=.05)
 
     def _test_causal_honesty(self, trainer):
-        np.set_printoptions(precision=2, suppress=True)
-        for criterion in ['mse']:
+        for criterion in ['het', 'mse']:
             for fit_intercept in [False, True]:
                 for min_var_leaf in [None, .1]:
                     for min_impurity_decrease in [0.0, 0.07]:
@@ -357,29 +358,265 @@ class TestGRFPython(unittest.TestCase):
         np.testing.assert_allclose(counts / n_estimators, .2, atol=.05)
         return
 
+    def _get_step_regression_data(self, n, n_features, random_state):
+        rnd = np.random.RandomState(random_state)
+        X = rnd.uniform(-1, 1, size=(n, n_features))
+        y = 1.0 * (X[:, 0] >= 0.0).reshape(-1, 1) + rnd.normal(0, 1, size=(n, 1))
+        return X, y, y
+
     def test_var(self,):
         # test that the estimator calcualtes var correctly
+        config = self._get_base_config()
+        config['honest'] = True
+        config['max_depth'] = 0
+        config['inference'] = True
+        config['n_estimators'] = 1000
+        config['subforest_size'] = 2
+        config['max_samples'] = .5
+        config['n_jobs'] = 1
+        n_features = 2
+        # test api
+        n = 100
+        random_state = 123
+        X, y, truth = self._get_regression_data(n, n_features, random_state)
+        forest = RegressionForest(**config).fit(X, y)
+        alpha = .1
+        mean, var = forest.predict_and_var(X)
+        lb = scipy.stats.norm.ppf(alpha / 2, loc=mean[:, 0], scale=np.sqrt(var[:, 0, 0])).reshape(-1, 1)
+        ub = scipy.stats.norm.ppf(1 - alpha / 2, loc=mean[:, 0], scale=np.sqrt(var[:, 0, 0])).reshape(-1, 1)
+
+        np.testing.assert_allclose(var, forest.predict_var(X))
+        lbtest, ubtest = forest.predict_interval(X, alpha=alpha)
+        np.testing.assert_allclose(lb, lbtest)
+        np.testing.assert_allclose(ub, ubtest)
+        meantest, lbtest, ubtest = forest.predict(X, interval=True, alpha=alpha)
+        np.testing.assert_allclose(mean, meantest)
+        np.testing.assert_allclose(lb, lbtest)
+        np.testing.assert_allclose(ub, ubtest)
+        np.testing.assert_allclose(np.sqrt(var[:, 0, 0]), forest.predict_stderr(X)[:, 0])
+        np.testing.assert_allclose(np.sqrt(var[:, 0, 0]), forest.prediction_stderr(X)[:, 0])
+
+        # test accuracy
+        for n in [10, 100, 1000, 10000]:
+            random_state = 123
+            X, y, truth = self._get_regression_data(n, n_features, random_state)
+            forest = RegressionForest(**config).fit(X, y)
+            our_mean, our_var = forest.predict_and_var(X[:1])
+            true_mean, true_var = np.mean(y), np.var(y) / y.shape[0]
+            np.testing.assert_allclose(our_mean, true_mean, atol=0.05)
+            np.testing.assert_allclose(our_var, true_var, atol=0.05, rtol=.1)
+        for n, our_thr, true_thr in [(1000, .5, .25), (10000, .05, .05)]:
+            random_state = 123
+            config['max_depth'] = 1
+            X, y, truth = self._get_step_regression_data(n, n_features, random_state)
+            forest = RegressionForest(**config).fit(X, y)
+            posX = X[X[:, 0] > our_thr]
+            negX = X[X[:, 0] < -our_thr]
+            our_pos_mean, our_pos_var = forest.predict_and_var(posX)
+            our_neg_mean, our_neg_var = forest.predict_and_var(negX)
+            pos = X[:, 0] > true_thr
+            true_pos_mean, true_pos_var = np.mean(y[pos]), np.var(y[pos]) / y[pos].shape[0]
+            neg = X[:, 0] < -true_thr
+            true_neg_mean, true_neg_var = np.mean(y[neg]), np.var(y[neg]) / y[neg].shape[0]
+            np.testing.assert_allclose(our_pos_mean, true_pos_mean, atol=0.07)
+            np.testing.assert_allclose(our_pos_var, true_pos_var, atol=0.0, rtol=.25)
+            np.testing.assert_allclose(our_neg_mean, true_neg_mean, atol=0.07)
+            np.testing.assert_allclose(our_neg_var, true_neg_var, atol=0.0, rtol=.25)
         return
 
     def test_projection(self,):
         # test the projection functionality of forests
+        # test that the estimator calcualtes var correctly
+        np.set_printoptions(precision=10, suppress=True)
+        config = self._get_base_config()
+        config['honest'] = True
+        config['max_depth'] = 0
+        config['inference'] = True
+        config['n_estimators'] = 100
+        config['subforest_size'] = 2
+        config['max_samples'] = .5
+        config['n_jobs'] = 1
+        n_features = 2
+        # test api
+        n = 100
+        random_state = 123
+        X, y, truth = self._get_regression_data(n, n_features, random_state)
+        forest = RegressionForest(**config).fit(X, y)
+        mean, var = forest.predict_and_var(X)
+        mean = mean.flatten()
+        var = var.flatten()
+        y = np.hstack([y, y])
+        truth = np.hstack([truth, truth])
+        forest = RegressionForest(**config).fit(X, y)
+        projector = np.ones((X.shape[0], 2)) / 2.0
+        mean_proj, var_proj = forest.predict_projection_and_var(X, projector)
+        np.testing.assert_array_equal(mean_proj, mean)
+        np.testing.assert_array_equal(var_proj, var)
+        np.testing.assert_array_equal(var_proj, forest.predict_projection_var(X, projector))
+        np.testing.assert_array_equal(mean_proj, forest.predict_projection(X, projector))
         return
 
     def test_feature_importances(self,):
         # test that the estimator calcualtes var correctly
+        for trainer in [self._train_causal_forest, self._train_iv_forest]:
+            for criterion in ['het', 'mse']:
+                for sample_weight in [None, 'rand']:
+                    config = self._get_base_config()
+                    config['honest'] = True
+                    config['criterion'] = criterion
+                    config['fit_intercept'] = True
+                    config['max_depth'] = 2
+                    config['min_samples_leaf'] = 5
+                    config['min_var_leaf'] = None
+                    config['min_impurity_decrease'] = 0.0
+                    config['inference'] = True
+                    config['n_estimators'] = 4
+                    config['subforest_size'] = 2
+                    config['max_samples'] = .4
+                    config['n_jobs'] = 1
+
+                    n, n_features, n_treatments = 800, 2, 2
+                    random_state = 123
+                    if sample_weight is not None:
+                        sample_weight = check_random_state(random_state).randint(0, 4, size=n)
+                    X, T, y, truth, truth_full = self._get_causal_data(n, n_features,
+                                                                       n_treatments, random_state)
+                    forest = trainer(X, T, y, config, sample_weight=sample_weight)
+                    forest_het_importances = np.zeros(n_features)
+                    for it, tree in enumerate(forest):
+                        tree_ = tree.tree_
+                        tfeature = tree_.feature
+                        timpurity = tree_.impurity
+                        tdepth = tree_.depth
+                        tleft = tree_.children_left
+                        tright = tree_.children_right
+                        tw = tree_.weighted_n_node_samples
+                        tvalue = tree_.value
+
+                        for max_depth in [0, 2]:
+                            feature_importances = np.zeros(n_features)
+                            for it, (feat, impurity, depth, left, right, w) in\
+                                    enumerate(zip(tfeature, timpurity, tdepth, tleft, tright, tw)):
+                                if (left != -1) and (depth <= max_depth):
+                                    gain = w * impurity - tw[left] * timpurity[left] - tw[right] * timpurity[right]
+                                    feature_importances[feat] += gain / (depth + 1)**2.0
+                            feature_importances /= tw[0]
+                            totest = tree.tree_.compute_feature_importances(normalize=False,
+                                                                            max_depth=max_depth, depth_decay=2.0)
+                            np.testing.assert_array_equal(feature_importances, totest)
+
+                            het_importances = np.zeros(n_features)
+                            for it, (feat, depth, left, right, w) in\
+                                    enumerate(zip(tfeature, tdepth, tleft, tright, tw)):
+                                if (left != -1) and (depth <= max_depth):
+                                    gain = tw[left] * tw[right] * np.mean((tvalue[left] - tvalue[right])**2) / w
+                                    het_importances[feat] += gain / (depth + 1)**2.0
+                            het_importances /= tw[0]
+                            totest = tree.tree_.compute_feature_heterogeneity_importances(normalize=False,
+                                                                                          max_depth=max_depth,
+                                                                                          depth_decay=2.0)
+                            np.testing.assert_allclose(het_importances, totest)
+                        het_importances /= np.sum(het_importances)
+                        forest_het_importances += het_importances / len(forest)
+
+                    np.testing.assert_allclose(forest_het_importances,
+                                               forest.feature_importances(max_depth=2, depth_decay_exponent=2.0))
+                    np.testing.assert_allclose(forest_het_importances, forest.feature_importances_)
         return
 
     def test_non_standard_input(self,):
         # test that the estimator accepts lists, tuples and pandas data frames
+        n_features = 2
+        n = 100
+        random_state = 123
+        X, y, truth = self._get_regression_data(n, n_features, random_state)
+        forest = RegressionForest(n_estimators=20, n_jobs=1, random_state=123).fit(X, y)
+        pred = forest.predict(X)
+        forest = RegressionForest(n_estimators=20, n_jobs=1, random_state=123).fit(tuple(X), tuple(y))
+        np.testing.assert_allclose(pred, forest.predict(tuple(X)))
+        forest = RegressionForest(n_estimators=20, n_jobs=1, random_state=123).fit(list(X), list(y))
+        np.testing.assert_allclose(pred, forest.predict(list(X)))
+        forest = RegressionForest(n_estimators=20, n_jobs=1, random_state=123).fit(pd.DataFrame(X), pd.DataFrame(y))
+        np.testing.assert_allclose(pred, forest.predict(pd.DataFrame(X)))
+        forest = RegressionForest(n_estimators=20, n_jobs=1, random_state=123).fit(
+            pd.DataFrame(X), pd.Series(y.ravel()))
+        np.testing.assert_allclose(pred, forest.predict(pd.DataFrame(X)))
         return
 
     def test_raise_exceptions(self,):
         # test that we raise errors in mishandled situations.
+        n_features = 2
+        n = 10
+        random_state = 123
+        X, y, truth = self._get_regression_data(n, n_features, random_state)
+        with np.testing.assert_raises(ValueError):
+            forest = RegressionForest(n_estimators=20).fit(X, y[:4])
+        with np.testing.assert_raises(ValueError):
+            forest = RegressionForest(n_estimators=20, subforest_size=3).fit(X, y)
+        with np.testing.assert_raises(ValueError):
+            forest = RegressionForest(n_estimators=20, inference=True, max_samples=.6).fit(X, y)
+        with np.testing.assert_raises(ValueError):
+            forest = RegressionForest(n_estimators=20, max_samples=20).fit(X, y)
+        with np.testing.assert_raises(ValueError):
+            forest = RegressionForest(n_estimators=20, max_samples=1.2).fit(X, y)
+        with np.testing.assert_raises(ValueError):
+            forest = RegressionForest(n_estimators=4, warm_start=True, inference=True).fit(X, y)
+            forest.inference = False
+            forest.n_estimators = 8
+            forest.fit(X, y)
+        with np.testing.assert_raises(KeyError):
+            forest = CausalForest(n_estimators=4, criterion='peculiar').fit(X, y, y)
+        with np.testing.assert_raises(ValueError):
+            forest = CausalForest(n_estimators=4, max_depth=-1).fit(X, y, y)
+        with np.testing.assert_raises(ValueError):
+            forest = CausalForest(n_estimators=4, min_samples_split=-1).fit(X, y, y)
+        with np.testing.assert_raises(ValueError):
+            forest = CausalForest(n_estimators=4, min_samples_leaf=-1).fit(X, y, y)
+        with np.testing.assert_raises(ValueError):
+            forest = CausalForest(n_estimators=4, min_weight_fraction_leaf=-1.0).fit(X, y, y)
+        with np.testing.assert_raises(ValueError):
+            forest = CausalForest(n_estimators=4, min_var_leaf=-1.0).fit(X, y, y)
+        with np.testing.assert_raises(ValueError):
+            forest = CausalForest(n_estimators=4, max_features=10).fit(X, y, y)
+        with np.testing.assert_raises(ValueError):
+            forest = CausalForest(n_estimators=4, min_balancedness_tol=.55).fit(X, y, y)
+
+        return
+
+    def test_warm_start(self,):
+        n_features = 2
+        n = 10
+        random_state = 123
+        X, y, _ = self._get_regression_data(n, n_features, random_state)
+
+        forest = RegressionForest(n_estimators=4, warm_start=True, random_state=123).fit(X, y)
+        forest.n_estimators = 8
+        forest.fit(X, y)
+        pred1 = forest.predict(X)
+        inds1 = forest.get_subsample_inds()
+        tree_states1 = [t.random_state for t in forest]
+
+        forest = RegressionForest(n_estimators=8, warm_start=True, random_state=123).fit(X, y)
+        pred2 = forest.predict(X)
+        inds2 = forest.get_subsample_inds()
+        tree_states2 = [t.random_state for t in forest]
+
+        np.testing.assert_allclose(pred1, pred2)
+        np.testing.assert_allclose(inds1, inds2)
+        np.testing.assert_allclose(tree_states1, tree_states2)
         return
 
 
 if __name__ == "__main__":
+    TestGRFPython().test_warm_start()
+    TestGRFPython().test_raise_exceptions()
+    TestGRFPython().test_non_standard_input()
+    TestGRFPython().test_feature_importances()
+    TestGRFPython().test_projection()
+    TestGRFPython().test_var()
     TestGRFPython().test_causal_tree()
     TestGRFPython().test_iv_tree()
     TestGRFPython().test_regression_tree_internals()
     TestGRFPython().test_subsampling()
+
+# %%

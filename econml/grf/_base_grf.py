@@ -141,7 +141,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  inference=True,
                  fit_intercept=True,
                  subforest_size=4,
-                 n_jobs=None,
+                 n_jobs=-1,
                  random_state=None,
                  verbose=0,
                  warm_start=False):
@@ -305,17 +305,18 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self._validate_estimator()
 
         random_state = check_random_state(self.random_state)
-        subsample_random_seed = random_state.randint(MAX_INT)
-        if (self.warm_start and hasattr(self, 'subsample_random_seed_') and
-                (subsample_random_seed != self.subsample_random_seed_)):
-            raise ValueError("Parameter random_state cannot be altered in between `fit` "
-                             "calls when `warm_start=True`.")
+        # We re-initialize the subsample_random_seed_ only if we are not in warm_start mode or
+        # if this is the first `fit` call of the warm start mode.
+        if (not self.warm_start) or (not hasattr(self, 'subsample_random_seed_')):
+            self.subsample_random_seed_ = random_state.randint(MAX_INT)
+        else:
+            random_state.randint(MAX_INT)  # just advance random_state
+        subsample_random_state = check_random_state(self.subsample_random_seed_)
+
         if (self.warm_start and hasattr(self, 'inference_') and (self.inference != self.inference_)):
             raise ValueError("Parameter inference cannot be altered in between `fit` "
                              "calls when `warm_start=True`.")
-        self.subsample_random_seed_ = subsample_random_seed
         self.inference_ = self.inference
-        subsample_random_state = check_random_state(self.subsample_random_seed_)
 
         if not self.warm_start or not hasattr(self, "estimators_"):
             # Free allocated memory, if any
@@ -571,8 +572,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
 
-    def _predict_point_and_var(self, X, full=False, point=True, var=False, var_correction=True,
-                               project=False, projector=None):
+    def _predict_point_and_var(self, X, full=False, point=True, var=False, project=False, projector=None):
 
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
@@ -607,36 +607,38 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             else:
                 pred_var = np.diagonal(pred_cov, axis1=1, axis2=2)
 
-            if var_correction:
-                # Subtract the average within bag variance. This ends up being equal to the
-                # overall (E_{all trees}[moment^2] - E_bags[ E[mean_bag_moment]^2 ]) / sizeof(bag).
-                # The negative part is just sq_between.
-                var_total = np.mean(moment_var_bags, axis=0)
-                correction = (var_total - sq_between) / (len(slices[0]) - 1)
-                pred_cov_correction = np.einsum('ijk,ikm->ijm', invjac,
-                                                np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1))))
-                if project:
-                    pred_var_correction = np.einsum('ijk,ikm->ijm', projector.reshape((-1, 1, projector.shape[1])),
-                                                    np.einsum('ijk,ikm->ijm', pred_cov_correction,
-                                                              projector.reshape((-1, projector.shape[1], 1))))[:, 0, 0]
-                else:
-                    pred_var_correction = np.diagonal(pred_cov_correction, axis1=1, axis2=2)
-                # Objective bayes debiasing for the diagonals where we know a-prior they are positive
-                # The off diagonals we have no objective prior, so no correction is applied.
-                naive_estimate = pred_var - pred_var_correction
-                se = np.maximum(pred_var, pred_var_correction) * np.sqrt(2.0 / len(slices))
-                zstat = naive_estimate / se
-                numerator = np.exp(- (zstat**2) / 2) / np.sqrt(2.0 * np.pi)
-                denominator = 0.5 * erfc(-zstat / np.sqrt(2.0))
-                pred_var_corrected = naive_estimate + se * numerator / denominator
+            #####################
+            # Variance correction
+            #####################
+            # Subtract the average within bag variance. This ends up being equal to the
+            # overall (E_{all trees}[moment^2] - E_bags[ E[mean_bag_moment]^2 ]) / sizeof(bag).
+            # The negative part is just sq_between.
+            var_total = np.mean(moment_var_bags, axis=0)
+            correction = (var_total - sq_between) / (len(slices[0]) - 1)
+            pred_cov_correction = np.einsum('ijk,ikm->ijm', invjac,
+                                            np.einsum('ijk,ikm->ijm', correction, np.transpose(invjac, (0, 2, 1))))
+            if project:
+                pred_var_correction = np.einsum('ijk,ikm->ijm', projector.reshape((-1, 1, projector.shape[1])),
+                                                np.einsum('ijk,ikm->ijm', pred_cov_correction,
+                                                          projector.reshape((-1, projector.shape[1], 1))))[:, 0, 0]
+            else:
+                pred_var_correction = np.diagonal(pred_cov_correction, axis1=1, axis2=2)
+            # Objective bayes debiasing for the diagonals where we know a-prior they are positive
+            # The off diagonals we have no objective prior, so no correction is applied.
+            naive_estimate = pred_var - pred_var_correction
+            se = np.maximum(pred_var, pred_var_correction) * np.sqrt(2.0 / len(slices))
+            zstat = naive_estimate / se
+            numerator = np.exp(- (zstat**2) / 2) / np.sqrt(2.0 * np.pi)
+            denominator = 0.5 * erfc(-zstat / np.sqrt(2.0))
+            pred_var_corrected = naive_estimate + se * numerator / denominator
 
-                # Finally correcting the pred_cov or pred_var
-                if project:
-                    pred_var = pred_var_corrected
-                else:
-                    pred_cov = pred_cov - pred_cov_correction
-                    for t in range(self.n_outputs_):
-                        pred_cov[:, t, t] = pred_var_corrected[:, t]
+            # Finally correcting the pred_cov or pred_var
+            if project:
+                pred_var = pred_var_corrected
+            else:
+                pred_cov = pred_cov - pred_cov_correction
+                for t in range(self.n_outputs_):
+                    pred_cov[:, t, t] = pred_var_corrected[:, t]
 
         if project:
             if point:
@@ -657,10 +659,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             else:
                 return pred_cov[:, :n_outputs, :n_outputs]
 
-    def predict_full(self, X, interval=False, alpha=0.05, var_correction=True):
+    def predict_full(self, X, interval=False, alpha=0.05):
         if interval:
-            point, pred_var = self._predict_point_and_var(X, full=True, point=True,
-                                                          var=True, var_correction=var_correction)
+            point, pred_var = self._predict_point_and_var(X, full=True, point=True, var=True)
             lb, ub = np.zeros(point.shape), np.zeros(point.shape)
             for t in range(self.n_outputs_):
                 lb[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t, t]))
@@ -668,9 +669,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             return point, lb, ub
         return self._predict_point_and_var(X, full=True, point=True, var=False)
 
-    def predict(self, X, interval=False, alpha=0.05, var_correction=True):
+    def predict(self, X, interval=False, alpha=0.05):
         if interval:
-            y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha, var_correction=var_correction)
+            y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha)
             if self.n_relevant_outputs_ == self.n_outputs_:
                 return y_hat, lb, ub
             return (y_hat[:, :self.n_relevant_outputs_],
@@ -681,21 +682,21 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 return y_hat
             return y_hat[:, :self.n_relevant_outputs_]
 
-    def predict_interval(self, X, alpha=.05, var_correction=True):
-        _, lb, ub = self.predict(X, interval=True, alpha=alpha, var_correction=var_correction)
+    def predict_interval(self, X, alpha=.05):
+        _, lb, ub = self.predict(X, interval=True, alpha=alpha)
         return lb, ub
 
-    def predict_and_var(self, X, var_correction=True):
-        return self._predict_point_and_var(X, full=False, point=True, var=True, var_correction=var_correction)
+    def predict_and_var(self, X):
+        return self._predict_point_and_var(X, full=False, point=True, var=True)
 
-    def predict_var(self, X, var_correction=True):
-        return self._predict_point_and_var(X, full=False, point=False, var=True, var_correction=var_correction)
+    def predict_var(self, X):
+        return self._predict_point_and_var(X, full=False, point=False, var=True)
 
-    def predict_stderr(self, X, var_correction=True):
-        return np.sqrt(np.diagonal(self.predict_var(X, var_correction=var_correction), axis1=1, axis2=2))
+    def predict_stderr(self, X):
+        return np.sqrt(np.diagonal(self.predict_var(X), axis1=1, axis2=2))
 
-    def prediction_stderr(self, X, var_correction=True):
-        return self.predict_stderr(X, var_correction=var_correction)
+    def prediction_stderr(self, X):
+        return self.predict_stderr(X)
 
     def _check_projector(self, X, projector):
         X, projector = check_X_y(X, projector, multi_output=True, y_numeric=True)
@@ -706,9 +707,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                                    np.zeros((projector.shape[0], self.n_outputs_ - self.n_relevant_outputs_))])
         return X, projector
 
-    def predict_projection_and_var(self, X, projector, var_correction=True):
+    def predict_projection_and_var(self, X, projector):
         X, projector = self._check_projector(X, projector)
-        return self._predict_point_and_var(X, full=False, point=True, var=True, var_correction=var_correction,
+        return self._predict_point_and_var(X, full=False, point=True, var=True,
                                            project=True, projector=projector)
 
     def predict_projection(self, X, projector):
@@ -716,7 +717,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=False, point=True, var=False,
                                            project=True, projector=projector)
 
-    def predict_projection_var(self, X, projector, var_correction=True):
+    def predict_projection_var(self, X, projector):
         X, projector = self._check_projector(X, projector)
-        return self._predict_point_and_var(X, full=False, point=False, var=True, var_correction=var_correction,
+        return self._predict_point_and_var(X, full=False, point=False, var=True,
                                            project=True, projector=projector)

@@ -313,7 +313,7 @@ class RegressionForest(BaseGRF):
                  honest=True,
                  inference=True,
                  subforest_size=4,
-                 n_jobs=None,
+                 n_jobs=-1,
                  random_state=None,
                  verbose=0,
                  warm_start=False):
@@ -327,7 +327,7 @@ class RegressionForest(BaseGRF):
                          warm_start=warm_start)
 
     def fit(self, X, y):
-        return super().fit(X, y, np.ones((X.shape[0], 1)))
+        return super().fit(X, y, np.ones((len(X), 1)))
 
     def get_alpha(self, X, y, T):
         return y
