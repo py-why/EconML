@@ -449,6 +449,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
         self._discrete_instrument = discrete_instrument
+        self._init_random_state = random_state
         self._random_state = check_random_state(random_state)
         if discrete_treatment:
             if categories != 'auto':
@@ -535,6 +536,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self : _OrthoLearner instance
         """
+        self._random_state = check_random_state(self._init_random_state)
         Y, T, X, W, Z, sample_weight, sample_var, groups = check_input_arrays(
             Y, T, X, W, Z, sample_weight, sample_var, groups)
         self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var, groups)
@@ -651,7 +653,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return super().effect_inference(X, T0=T0, T1=T1)
     effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
 
-    def score(self, Y, T, X=None, W=None, Z=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted nuisance models created at fit time.
@@ -673,6 +675,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Controls for each sample
         Z: optional (n, d_z) matrix or None (Default=None)
             Instruments for each sample
+        sample_weight: optional(n,) vector or None (Default=None)
+            Weights for each samples
 
         Returns
         -------
@@ -703,7 +707,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
 
-        return self._model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z, nuisances=nuisances))
+        return self._model_final.score(Y, T, nuisances=nuisances,
+                                       **filter_none_kwargs(X=X, W=W, Z=Z, sample_weight=sample_weight))
 
     @property
     def model_final(self):

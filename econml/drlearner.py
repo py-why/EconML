@@ -200,16 +200,18 @@ class DRLearner(_OrthoLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier
+    model_propensity : scikit-learn classifier or 'auto', optional (default='auto')
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
         Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
         where T is a shape (n, ) array.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor
+    model_regression : scikit-learn regressor or 'auto', optional (default='auto')
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`.MultiModelWrapper` helper class.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
     model_final :
         estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
@@ -358,8 +360,8 @@ class DRLearner(_OrthoLearner):
 
     """
 
-    def __init__(self, model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
-                 model_regression=WeightedLassoCVWrapper(cv=3),
+    def __init__(self, model_propensity='auto',
+                 model_regression='auto',
                  model_final=StatsModelsLinearRegression(),
                  multitask_model_final=False,
                  featurizer=None,
@@ -367,6 +369,11 @@ class DRLearner(_OrthoLearner):
                  categories='auto',
                  n_splits=2,
                  random_state=None):
+        if model_propensity == 'auto':
+            model_propensity = LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto',
+                                                    random_state=random_state)
+        if model_regression == 'auto':
+            model_regression = WeightedLassoCVWrapper(cv=3, random_state=random_state)
         self._multitask_model_final = multitask_model_final
         super().__init__(_ModelNuisance(model_propensity, model_regression, min_propensity),
                          _ModelFinal(model_final, featurizer, multitask_model_final),
@@ -585,16 +592,18 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier
+    model_propensity : scikit-learn classifier or 'auto', optional (default='auto')
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
         Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
         where T is a shape (n, ) array.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor
+    model_regression : scikit-learn regressor or 'auto', optional (default='auto')
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`.MultiModelWrapper` helper class.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -678,8 +687,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     """
 
     def __init__(self,
-                 model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
-                 model_regression=WeightedLassoCVWrapper(cv=3),
+                 model_propensity='auto',
+                 model_regression='auto',
                  featurizer=None,
                  fit_cate_intercept=True,
                  min_propensity=1e-6,
@@ -781,16 +790,18 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier
+    model_propensity : scikit-learn classifier or 'auto', optional (default='auto')
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
         Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
         where T is a shape (n, ) array.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor
+    model_regression : scikit-learn regressor or 'auto', optional (default='auto')
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`.MultiModelWrapper` helper class.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -887,8 +898,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     """
 
     def __init__(self,
-                 model_propensity=LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto'),
-                 model_regression=WeightedLassoCVWrapper(cv=3),
+                 model_propensity='auto',
+                 model_regression='auto',
                  featurizer=None,
                  fit_cate_intercept=True,
                  alpha='auto',
