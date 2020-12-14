@@ -2,6 +2,54 @@ import numpy as np
 from warnings import warn
 from ..utilities import cross_product
 from ._base_grf import BaseGRF
+from ..utilities import check_inputs
+from sklearn.base import BaseEstimator, clone
+
+# =============================================================================
+# A MultOutputWrapper for GRF classes
+# =============================================================================
+
+
+class MultiOutputGRF(BaseEstimator):
+
+    def __init__(self, estimator):
+        self.estimator = estimator
+
+    def fit(self, X, T, y, *, sample_weight=None, **kwargs):
+        y, T, X, _ = check_inputs(y, T, X, W=None, multi_output_T=True, multi_output_Y=True)
+        y = np.atleast_1d(y)
+        if y.ndim == 1:
+            y = np.reshape(y, (-1, 1))
+        self.estimators_ = [clone(self.estimator) for _ in range(y.shape[1])]
+        [estimator.fit(X, T, y[:, [it]], sample_weight=sample_weight, **kwargs)
+         for it, estimator in enumerate(self.estimators_)]
+        return self
+
+    def predict(self, X, interval=False, alpha=0.05):
+        if interval:
+            pred, lb, ub = zip(*[estimator.predict(X, interval=interval, alpha=alpha)
+                                 for estimator in self.estimators_])
+            return np.moveaxis(np.array(pred), 0, 1), np.moveaxis(np.array(lb), 0, 1), np.moveaxis(np.array(ub), 0, 1)
+        else:
+            pred = [estimator.predict(X, interval=interval, alpha=alpha) for estimator in self.estimators_]
+            return np.moveaxis(np.array(pred), 0, 1)
+
+    def predict_and_var(self, X):
+        pred, var = zip(*[estimator.predict_and_var(X) for estimator in self.estimators_])
+        return np.moveaxis(np.array(pred), 0, 1), np.moveaxis(np.array(var), 0, 1)
+
+    def predict_projection_and_var(self, X, projector):
+        pred, var = zip(*[estimator.predict_projection_and_var(X, projector) for estimator in self.estimators_])
+        return np.moveaxis(np.array(pred), 0, 1), np.moveaxis(np.array(var), 0, 1)
+
+    def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
+        res = [estimator.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+               for estimator in self.estimators_]
+        return np.array(res)
+
+    @property
+    def feature_importances_(self):
+        return self.feature_importances()
 
 # =============================================================================
 # Instantiations of Generalized Random Forest

@@ -5,11 +5,11 @@ from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import Inference, NormalInferenceResults
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.base import clone
+from sklearn.base import clone, BaseEstimator
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
 from ..utilities import add_intercept, shape, check_inputs
-from ..grf import CausalForest
+from ..grf import CausalForest, MultiOutputGRF
 
 
 class _CausalForestFinalWrapper(_FinalWrapper):
@@ -37,9 +37,10 @@ class _CausalForestFinalWrapper(_FinalWrapper):
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
         self._model.fit(fts, T_res, Y_res, sample_weight=sample_weight)
+        return self
 
     def predict(self, X):
-        return self._model.predict(self._combine(X, fitting=False)).reshape((-1,) + self._d_t + self._d_y)
+        return self._model.predict(self._combine(X, fitting=False)).reshape((-1,) + self._d_y + self._d_t)
 
 
 class GenericSingleOutcomeModelFinalWithCovInference(Inference):
@@ -56,8 +57,6 @@ class GenericSingleOutcomeModelFinalWithCovInference(Inference):
         self._d_y = estimator._d_y
         self.d_t = self._d_t[0] if self._d_t else 1
         self.d_y = self._d_y[0] if self._d_y else 1
-        if self.d_y > 1:
-            raise ValueError("This inference method currently only supports a single outcome y!")
 
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         return self.const_marginal_effect_inference(X).conf_int(alpha=alpha)
@@ -68,8 +67,8 @@ class GenericSingleOutcomeModelFinalWithCovInference(Inference):
         if self.featurizer is not None:
             X = self.featurizer.transform(X)
         pred, pred_var = self.model_final.predict_and_var(X)
-        pred = pred.reshape((-1,) + self._d_t + self._d_y)
-        pred_stderr = np.sqrt(np.diagonal(pred_var, axis1=1, axis2=2).reshape((-1,) + self._d_t + self._d_y))
+        pred = pred.reshape((-1,) + self._d_y + self._d_t)
+        pred_stderr = np.sqrt(np.diagonal(pred_var, axis1=2, axis2=3).reshape((-1,) + self._d_y + self._d_t))
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, inf_type='effect')
 
@@ -134,16 +133,25 @@ class CausalForestDML(_BaseDML):
                 model_t = WeightedLassoCVWrapper(random_state=random_state)
         self.bias_part_of_coef = False
         self.fit_cate_intercept = False
-        model_final = CausalForest(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth,
-                                   min_samples_split=min_samples_split,
-                                   min_samples_leaf=min_samples_leaf,
-                                   min_weight_fraction_leaf=min_weight_fraction_leaf,
-                                   min_var_leaf=min_var_leaf,
-                                   max_features=max_features, min_impurity_decrease=min_impurity_decrease,
-                                   max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
-                                   honest=honest, inference=inference, fit_intercept=fit_intercept,
-                                   subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state,
-                                   verbose=verbose, warm_start=warm_start)
+        model_final = MultiOutputGRF(CausalForest(n_estimators=n_estimators,
+                                                  criterion=criterion,
+                                                  max_depth=max_depth,
+                                                  min_samples_split=min_samples_split,
+                                                  min_samples_leaf=min_samples_leaf,
+                                                  min_weight_fraction_leaf=min_weight_fraction_leaf,
+                                                  min_var_leaf=min_var_leaf,
+                                                  max_features=max_features,
+                                                  min_impurity_decrease=min_impurity_decrease,
+                                                  max_samples=max_samples,
+                                                  min_balancedness_tol=min_balancedness_tol,
+                                                  honest=honest,
+                                                  inference=inference,
+                                                  fit_intercept=fit_intercept,
+                                                  subforest_size=subforest_size,
+                                                  n_jobs=n_jobs,
+                                                  random_state=random_state,
+                                                  verbose=verbose,
+                                                  warm_start=warm_start))
         super().__init__(model_y=_FirstStageWrapper(model_y, True,
                                                     featurizer, linear_first_stages, discrete_treatment),
                          model_t=_FirstStageWrapper(model_t, False,
@@ -161,7 +169,7 @@ class CausalForestDML(_BaseDML):
         return options
 
     # override only so that we can update the docstring to indicate support for `blb`
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, *, X, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -171,7 +179,7 @@ class CausalForestDML(_BaseDML):
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X: (n × dₓ) matrix
             Features for each sample
         W: optional (n × d_w) matrix
             Controls for each sample
@@ -189,13 +197,16 @@ class CausalForestDML(_BaseDML):
         """
         if sample_var is not None:
             raise ValueError("This estimator does not support sample_var!")
-        check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=False)
+        if X is None:
+            raise ValueError("This estimator does not support X=None!")
+        Y, T, X, W = check_inputs(Y, T, X, W=W, multi_output_T=True, multi_output_Y=True)
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            inference=inference)
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
-        return self.model_final.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+        imps = self.model_final.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+        return imps.reshape(self._d_y + (-1,))
 
     @property
     def feature_importances_(self):
-        return self.model_final.feature_importances_
+        return self.feature_importances()

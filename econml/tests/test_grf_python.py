@@ -1,4 +1,3 @@
-
 import unittest
 import logging
 import time
@@ -6,7 +5,7 @@ import random
 import numpy as np
 import pandas as pd
 import pytest
-from econml.grf import RegressionForest, CausalForest, CausalIVForest
+from econml.grf import RegressionForest, CausalForest, CausalIVForest, MultiOutputGRF
 from econml.utilities import cross_product
 from copy import deepcopy
 from sklearn.utils import check_random_state
@@ -605,8 +604,46 @@ class TestGRFPython(unittest.TestCase):
         np.testing.assert_allclose(tree_states1, tree_states2)
         return
 
+    def test_multioutput(self,):
+        # test that the subsampling scheme past to the trees is correct
+        random_state = 123
+        n, n_features, n_treatments = 10, 2, 2
+        X, T, y, _, _ = self._get_causal_data(n, n_features, n_treatments, random_state)
+        y = np.hstack([y, y])
+        for est in [CausalForest(n_estimators=4, random_state=123),
+                    CausalIVForest(n_estimators=4, random_state=123)]:
+            forest = MultiOutputGRF(est)
+            if isinstance(est, CausalForest):
+                forest.fit(X, T, y)
+            else:
+                forest.fit(X, T, y, Z=T)
+            pred, lb, ub = forest.predict(X, interval=True, alpha=.05)
+            np.testing.assert_array_equal(pred.shape, (X.shape[0], 2, n_treatments))
+            np.testing.assert_allclose(pred[:, 0, :], pred[:, 1, :])
+            np.testing.assert_allclose(lb[:, 0, :], lb[:, 1, :])
+            np.testing.assert_allclose(ub[:, 0, :], ub[:, 1, :])
+            pred, var = forest.predict_and_var(X)
+            np.testing.assert_array_equal(pred.shape, (X.shape[0], 2, n_treatments))
+            np.testing.assert_array_equal(var.shape, (X.shape[0], 2, n_treatments, n_treatments))
+            np.testing.assert_allclose(pred[:, 0, :], pred[:, 1, :])
+            np.testing.assert_allclose(var[:, 0, :, :], var[:, 1, :, :])
+            pred, var = forest.predict_projection_and_var(X, np.ones((X.shape[0], n_treatments)))
+            np.testing.assert_array_equal(pred.shape, (X.shape[0], 2))
+            np.testing.assert_array_equal(var.shape, (X.shape[0], 2))
+            np.testing.assert_allclose(pred[:, 0], pred[:, 1])
+            np.testing.assert_allclose(var[:, 0], var[:, 1])
+            imps = forest.feature_importances(max_depth=3, depth_decay_exponent=1.0)
+            np.testing.assert_array_equal(imps.shape, (X.shape[1], 2))
+            np.testing.assert_allclose(imps[:, 0], imps[:, 1])
+            imps = forest.feature_importances_
+            np.testing.assert_array_equal(imps.shape, (2, X.shape[1]))
+            np.testing.assert_allclose(imps[0, :], imps[1, :])
+
+        return
+
 
 if __name__ == "__main__":
+    TestGRFPython().test_multioutput()
     TestGRFPython().test_warm_start()
     TestGRFPython().test_raise_exceptions()
     TestGRFPython().test_non_standard_input()

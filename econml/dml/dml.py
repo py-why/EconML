@@ -100,6 +100,7 @@ class _FirstStageWrapper:
                             sample_weight=sample_weight)
         else:
             fit_with_groups(self._model, self._combine(X, W, Target.shape[0]), Target, groups=groups)
+        return self
 
     def predict(self, X, W):
         n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
@@ -208,6 +209,7 @@ class _FinalWrapper:
                 self._model.fit(F, target, sample_weight=T_res.flatten()**2)
         else:
             raise AttributeError("This combination is not a feasible one!")
+        return self
 
     def predict(self, X):
         X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),

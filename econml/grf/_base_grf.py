@@ -627,7 +627,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # The off diagonals we have no objective prior, so no correction is applied.
             naive_estimate = pred_var - pred_var_correction
             se = np.maximum(pred_var, pred_var_correction) * np.sqrt(2.0 / len(slices))
-            zstat = naive_estimate / se
+            zstat = naive_estimate / np.clip(se, 1e-10, np.inf)
             numerator = np.exp(- (zstat**2) / 2) / np.sqrt(2.0 * np.pi)
             denominator = 0.5 * erfc(-zstat / np.sqrt(2.0))
             pred_var_corrected = naive_estimate + se * numerator / denominator
