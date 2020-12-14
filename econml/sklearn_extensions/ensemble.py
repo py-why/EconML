@@ -5,8 +5,11 @@
 scikit-learn's random forest implementation.
 """
 from ..grf import RegressionForest
+from ..utilities import deprecated
 
 
+@deprecated("The SubsampledHonestForest class has been deprecated by the grf.RegressionForest class; "
+            "an upcoming release will remove support for the this class.")
 def SubsampledHonestForest(n_estimators=100,
                            criterion="mse",
                            max_depth=None,
