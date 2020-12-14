@@ -487,3 +487,7 @@ class GRFTree(BaseEstimator):
 
         return self.tree_.compute_feature_heterogeneity_importances(normalize=True, max_depth=max_depth,
                                                                     depth_decay=depth_decay_exponent)
+
+    @property
+    def feature_importances_(self):
+        return self.feature_importances()

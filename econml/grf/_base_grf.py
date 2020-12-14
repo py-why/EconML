@@ -258,7 +258,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         y, T, X, _ = check_inputs(y, T, X, W=None, multi_output_T=True, multi_output_Y=True)
 
         if sample_weight is not None:
-            sample_weight = _check_sample_weight(sample_weight, X)
+            sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
 
         # Remap output
         n_samples, self.n_features_ = X.shape
@@ -410,7 +410,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # since correctness does not rely on using threads.
             trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading')(
                 delayed(t.fit)(X[s], yaug[s], self.n_y_, self.n_outputs_, self.n_relevant_outputs_,
-                               sample_weight[s] if sample_weight is not None else None)
+                               sample_weight=sample_weight[s] if sample_weight is not None else None,
+                               check_input=False)
                 for t, s in zip(trees, s_inds))
 
             # Collect newly grown trees
@@ -508,116 +509,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         if self.n_relevant_outputs_ == self.n_outputs_:
             return y_hat
         return y_hat[:, :self.n_relevant_outputs_]
-
-    def predict_jac(self, X, slice=None, parallel=True):
-        check_is_fitted(self)
-        # Check data
-        X = self._validate_X_predict(X)
-
-        # Assign chunk of trees to jobs
-        if slice is None:
-            slice = np.arange(len(self.estimators_))
-
-        # avoid storing the output of every estimator by summing them here
-        jac_hat = np.zeros((X.shape[0], self.n_outputs_**2), dtype=np.float64)
-        lock = threading.Lock()
-        if parallel:
-            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
-            verbose = self.verbose
-            # Parallel loop
-            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
-                delayed(_accumulate_prediction)(self.estimators_[t].predict_jac, X, [jac_hat], lock)
-                for t in slice)
-        else:
-            [_accumulate_prediction(self.estimators_[t].predict_jac, X, [jac_hat], lock)
-             for t in slice]
-
-        jac_hat /= len(slice)
-
-        return jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
-
-    def predict_alpha(self, X, slice=None, parallel=True):
-
-        check_is_fitted(self)
-        # Check data
-        X = self._validate_X_predict(X)
-
-        # Assign chunk of trees to jobs
-        if slice is None:
-            slice = np.arange(len(self.estimators_))
-
-        alpha_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
-        lock = threading.Lock()
-        if parallel:
-            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
-            verbose = self.verbose
-            # Parallel loop
-            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
-                delayed(_accumulate_prediction)(self.estimators_[t].predict_alpha, X, [alpha_hat], lock)
-                for t in slice)
-        else:
-            [_accumulate_prediction(self.estimators_[t].predict_alpha, X, [alpha_hat], lock)
-             for t in slice]
-
-        alpha_hat /= len(slice)
-
-        return alpha_hat
-
-    def predict_moment(self, X, parameter, slice=None, parallel=True):
-        check_is_fitted(self)
-        # Check data
-        X = self._validate_X_predict(X)
-
-        # Assign chunk of trees to jobs
-        if slice is None:
-            slice = np.arange(len(self.estimators_))
-
-        moment_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
-        lock = threading.Lock()
-        if parallel:
-            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
-            verbose = self.verbose
-            # Parallel loop
-            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
-                delayed(_accumulate_prediction)(self.estimators_[t].predict_moment, X, [moment_hat], lock,
-                                                parameter)
-                for t in slice)
-        else:
-            [_accumulate_prediction(self.estimators_[t].predict_moment, X, [moment_hat], lock,
-                                    parameter)
-             for t in slice]
-
-        moment_hat /= len(slice)
-
-        return moment_hat
-
-    def predict_moment_var(self, X, parameter, slice=None, parallel=True):
-        check_is_fitted(self)
-        # Check data
-        X = self._validate_X_predict(X)
-
-        # Assign chunk of trees to jobs
-        if slice is None:
-            slice = np.arange(len(self.estimators_))
-
-        moment_var_hat = np.zeros((X.shape[0], self.n_outputs_, self.n_outputs_), dtype=np.float64)
-        lock = threading.Lock()
-        if parallel:
-            n_jobs, _, _ = _partition_estimators(len(slice), self.n_jobs)
-            verbose = self.verbose
-            # Parallel loop
-            Parallel(n_jobs=n_jobs, verbose=verbose, backend='threading', require="sharedmem")(
-                delayed(_accumulate_prediction_var)(self.estimators_[t].predict_moment, X, [moment_var_hat], lock,
-                                                    parameter)
-                for t in slice)
-        else:
-            [_accumulate_prediction_var(self.estimators_[t].predict_moment, X, [moment_var_hat], lock,
-                                        parameter)
-             for t in slice]
-
-        moment_var_hat /= len(slice)
-
-        return moment_var_hat
 
     def predict_moment_and_var(self, X, parameter, slice=None, parallel=True):
         check_is_fitted(self)

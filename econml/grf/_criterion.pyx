@@ -137,16 +137,16 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
             if sample_weight != NULL:
                 w = sample_weight[i]
             for k in range(n_outputs):
-                J[k + k * n_outputs] += 1e-6
                 for j in range(n_outputs):
                     J[j + k * n_outputs] += w * pointJ[i, j + k * n_outputs]
             local_weighted_n_node_samples += w
 
-        # Normalize
+        # Normalize and add small eigenclipping for invertibility
         for k in range(n_outputs):
             for j in range(n_outputs):
                 J[j + k * n_outputs] /= local_weighted_n_node_samples
-        
+            J[k + k * n_outputs] += 1e-6
+
         # Calcualte inverse and store it in invJ
         if n_outputs == 1:
             invJ[0] = 1.0 / J[0] if fabs(J[0]) >= 1e-6 else 1e6
@@ -177,10 +177,9 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         # init pre-conditioned parameter to zero
         memset(parameter_pre, 0, n_outputs * sizeof(DOUBLE_t))
         memset(parameter, 0, n_outputs * sizeof(DOUBLE_t))
-
+        w = 1.0
         for p in range(start, end):
             i = samples[p]
-            w = 1.0
             if sample_weight != NULL:
                 w = sample_weight[i]
             for j in range(n_outputs):
