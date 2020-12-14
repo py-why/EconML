@@ -42,6 +42,7 @@ from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _depr
                         cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
                         _RegressionWrapper, deprecated)
 from sklearn.model_selection import check_cv
+# TODO: consider working around relying on sklearn implementation details
 from .sklearn_extensions.model_selection import _cross_val_predict
 
 

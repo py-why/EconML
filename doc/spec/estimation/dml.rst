@@ -179,8 +179,8 @@ Below we give a brief description of each of these classes:
         from sklearn.linear_model import LassoCV
         from sklearn.ensemble import GradientBoostingRegressor
         est = DML(model_y=GradientBoostingRegressor(),
-                               model_t=GradientBoostingRegressor(),    
-                               model_final=LassoCV())
+                  model_t=GradientBoostingRegressor(),    
+                  model_final=LassoCV(fit_intercept=False))
 
       then :math:`R(\Theta) =\|\Theta\|_1`, 
       if ElasticNet is used as model final, i.e.:
@@ -191,8 +191,8 @@ Below we give a brief description of each of these classes:
         from sklearn.linear_model import ElasticNetCV
         from sklearn.ensemble import GradientBoostingRegressor
         est = DML(model_y=GradientBoostingRegressor(),
-                               model_t=GradientBoostingRegressor(),
-                               model_final=ElasticNetCV())
+                  model_t=GradientBoostingRegressor(),
+                  model_final=ElasticNetCV(fit_intercept=False))
 
       then :math:`R(\Theta)=\kappa \|\Theta\|_2 + (1-\kappa)\|\Theta\|_1`. For multi-dimensional :math:`Y`, 
       one can impose several extensions to the matrix of parameters :math:`\Theta`, such as the one corresponding to the MultiTask Lasso 
@@ -255,8 +255,8 @@ Below we give a brief description of each of these classes:
         from econml.dml import NonParamDML
         from sklearn.ensemble import GradientBoostingRegressor
         est = NonParamDML(model_y=GradientBoostingRegressor(),
-                                       model_t=GradientBoostingRegressor(),    
-                                       model_final=GradientBoostingRegressor())
+                          model_t=GradientBoostingRegressor(),    
+                          model_final=GradientBoostingRegressor())
         est.fit(y, t, X=X, W=W)
         point = est.effect(X, T0=t0, T1=t1)    
 
@@ -278,7 +278,7 @@ Below we give a brief description of each of these classes:
             from econml.dml import ForestDML
             from sklearn.ensemble import GradientBoostingRegressor
             est = ForestDML(model_y=GradientBoostingRegressor(),
-                                         model_t=GradientBoostingRegressor())
+                            model_t=GradientBoostingRegressor())
             est.fit(y, t, X=X, W=W)
             point = est.effect(X, T0=t0, T1=t1)
             lb, ub = est.effect_interval(X, T0=t0, T1=t1, alpha=0.05)
@@ -387,7 +387,7 @@ Usage FAQs
         from econml.dml import ForestDML
         from sklearn.ensemble import GradientBoostingRegressor
         est = ForestDML(model_y=GradientBoostingRegressor(),
-                                     model_t=GradientBoostingRegressor())
+                        model_t=GradientBoostingRegressor())
         est.fit(y, t, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
@@ -412,7 +412,7 @@ Usage FAQs
         est = SparseLinearDML(model_y=LassoCV(), model_t=LassoCV())
         est = SparseLinearDML(model_y=ElasticNetCV(), model_t=ElasticNetCV())
         est = SparseLinearDML(model_y=GradientBoostingRegressor(),
-                                           model_t=GradientBoostingRegressor())
+                              model_t=GradientBoostingRegressor())
     
     The confidence intervals will still be valid, provided that these first stage models achieve small
     mean squared error.
@@ -454,8 +454,8 @@ Usage FAQs
         from sklearn.linear_model import ElasticNetCV
         from sklearn.ensemble import GradientBoostingRegressor
         est = DML(model_y=GradientBoostingRegressor(),
-                               model_t=GradientBoostingRegressor(),
-                               model_final=ElasticNetCV())
+                  model_t=GradientBoostingRegressor(),
+                  model_final=ElasticNetCV(fit_intercept=False))
         est.fit(y, t, X=X, W=W)
         point = est.const_marginal_effect(X)
         point = est.effect(X, T0=t0, T1=t1)
@@ -529,8 +529,8 @@ Usage FAQs
         from sklearn.linear_model import ElasticNetCV
         from sklearn.ensemble import RandomForestRegressor
         est = DML(model_y=RandomForestRegressor(oob_score=True),
-                               model_t=RandomForestRegressor(oob_score=True),
-                               model_final=ElasticNetCV(), featurizer=PolynomialFeatures(degree=1))
+                  model_t=RandomForestRegressor(oob_score=True),
+                  model_final=ElasticNetCV(fit_intercept=False), featurizer=PolynomialFeatures(degree=1))
         est.fit(y, T, X=X, W=W)
         est.score_
 
@@ -579,7 +579,7 @@ A classical non-parametric regressor for the first stage estimates is a Random F
     from econml.dml import LinearDML
     from sklearn.ensemble import RandomForestRegressor
     est = LinearDML(model_y=RandomForestRegressor(),
-                                 model_t=RandomForestRegressor())
+                    model_t=RandomForestRegressor())
     est.fit(y, T, X=X, W=W)
     pnt_effect = est.const_marginal_effect(X)
     lb_effect, ub_effect = est.const_marginal_effect_interval(X, alpha=.05)
@@ -602,8 +602,8 @@ Then we can estimate the coefficients :math:`\alpha_i` by running:
     from sklearn.ensemble import RandomForestRegressor
     from sklearn.preprocessing import PolynomialFeatures
     est = LinearDML(model_y=RandomForestRegressor(),
-                                 model_t=RandomForestRegressor(),
-                                 featurizer=PolynomialFeatures(degree=4, include_bias=True))
+                    model_t=RandomForestRegressor(),
+                    featurizer=PolynomialFeatures(degree=4, include_bias=True))
     est.fit(y, T, X=X, W=W)
 
     # To get the coefficients of the polynomial fitted in the final stage we can
@@ -645,8 +645,8 @@ One can also define a custom featurizer, as long as it supports the fit\_transfo
             return self.fit(X).transform(X)
 
     est = LinearDML(model_y=RandomForestRegressor(),
-                                model_t=RandomForestRegressor(),
-                                featurizer=LogFeatures())
+                    model_t=RandomForestRegressor(),
+                    featurizer=LogFeatures())
     est.fit(y, T, X=X, W=W)
 
 We can even create a Pipeline or Union of featurizers that will apply multiply featurizations, e.g. first creating log features and then adding polynomials of them:
@@ -658,9 +658,9 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
     from sklearn.pipeline import Pipeline
     from sklearn.preprocessing import PolynomialFeatures
     est = LinearDML(model_y=RandomForestRegressor(), 
-                                 model_t=RandomForestRegressor(),
-                                 featurizer=Pipeline([('log', LogFeatures()), 
-                                                      ('poly', PolynomialFeatures(degree=3))]))
+                    model_t=RandomForestRegressor(),
+                    featurizer=Pipeline([('log', LogFeatures()), 
+                                         ('poly', PolynomialFeatures(degree=3))]))
     est.fit(y, T, X=X, W=W)
 
 
@@ -684,7 +684,7 @@ matrix of cross price elasticities as:
 
     from sklearn.linear_model import MultiTaskElasticNet
     est = LinearDML(model_y=MultiTaskElasticNet(alpha=0.1),
-                                 model_t=MultiTaskElasticNet(alpha=0.1))
+                    model_t=MultiTaskElasticNet(alpha=0.1))
     est.fit(Y, T, X=None, W=W)
 
     # a_hat[i,j] contains the elasticity of the demand of product i on the price of product j
@@ -705,9 +705,9 @@ lightning package implements such a class::
     from sklearn.linear_model import MultiTaskElasticNet
 
     est = DML(model_y=MultiTaskElasticNet(alpha=0.1),
-                           model_t=MultiTaskElasticNet(alpha=0.1),
-                           model_final=FistaRegressor(penalty='trace', C=0.0001),
-                           fit_cate_intercept=False)
+              model_t=MultiTaskElasticNet(alpha=0.1),
+              model_final=FistaRegressor(penalty='trace', C=0.0001),
+              fit_cate_intercept=False)
     est.fit(Y, T, X=X, W=W)
     te_pred = est.const_marginal_effect(np.median(X, axis=0, keepdims=True))
     print(te_pred)

@@ -25,6 +25,7 @@ from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold, StratifiedKFold
+# TODO: consider working around relying on sklearn implementation details
 from sklearn.model_selection._split import _CVIterableWrapper
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.utils import check_array, check_X_y
