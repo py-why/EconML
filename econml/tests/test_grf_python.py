@@ -1,4 +1,3 @@
-# %%
 
 import unittest
 import logging
@@ -618,5 +617,3 @@ if __name__ == "__main__":
     TestGRFPython().test_iv_tree()
     TestGRFPython().test_regression_tree_internals()
     TestGRFPython().test_subsampling()
-
-# %%
