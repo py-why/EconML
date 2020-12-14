@@ -36,7 +36,7 @@ class TestShap(unittest.TestCase):
                             ), model_t=LinearRegression(), model_final=RandomForestRegressor(), featurizer=featurizer),
                             ForestDML(model_y=LinearRegression(), model_t=LinearRegression())]
                     if d_y == 1:
-                        est_list += [DMLOrthoForest()]
+                        est_list += [DMLOrthoForest(n_trees=10)]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             fd_x = featurizer.fit_transform(X).shape[1] if featurizer is not None else d_x
@@ -97,7 +97,7 @@ class TestShap(unittest.TestCase):
                         est_list += [DRLearner(multitask_model_final=True, featurizer=featurizer),
                                      DRLearner(multitask_model_final=False, featurizer=featurizer),
                                      ForestDRLearner(),
-                                     DROrthoForest()]
+                                     DROrthoForest(n_trees=10)]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             fd_x = featurizer.fit_transform(X).shape[1] if featurizer is not None else d_x
