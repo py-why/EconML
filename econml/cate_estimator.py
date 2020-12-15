@@ -9,8 +9,8 @@ from functools import wraps
 from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
-from .utilities import tensordot, ndim, reshape, shape, parse_final_model_params,\
-    inverse_onehot, Summary, get_input_columns
+from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
+                        inverse_onehot, Summary, get_input_columns)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
