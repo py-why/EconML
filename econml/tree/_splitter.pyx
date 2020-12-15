@@ -2,6 +2,11 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# This code is a fork from: https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_splitter.pyx
+
 from ._criterion cimport Criterion
 
 from libc.stdlib cimport free
@@ -38,8 +43,7 @@ cdef inline void _init_split(SplitRecord* self, SIZE_t start_pos, SIZE_t start_p
 
 cdef class Splitter:
     """Abstract splitter class.
-    Splitters are called by tree builders to find the best splits on both
-    sparse and dense data, one split at a time.
+    Splitters are called by tree builders to find the best splits, one split at a time.
     """
 
     def __cinit__(self, Criterion criterion, Criterion criterion_val,
@@ -50,20 +54,35 @@ cdef class Splitter:
         Parameters
         ----------
         criterion : Criterion
-            The criterion to measure the quality of a split.
+            The criterion to measure the quality of a split on the train set.
+        criterion_val : Criterion
+            The criterion to be used to calculate quantities related to split quality on the val set.
         max_features : SIZE_t
             The maximal number of randomly selected features which can be
             considered for a split.
         min_samples_leaf : SIZE_t
             The minimal number of samples each leaf can have, where splits
-            which would result in having less samples in a leaf are not
-            considered.
+            which would result in having less samples in a leaf are not considered.
+            Constraint is enforced on both the train and val set separately.
+        min_weight_leaf : SIZE_t
+            The minimal number of total weight of samples each leaf can have, where splits
+            which would result in having less weight in a leaf are not considered.
+            Constraint is enforced on both train and val set separately.
         min_balancedness_tol : DTYPE_t
             Tolerance level of how balanced a split can be (in [0, .5]) with
             0 meaning split has to be fully balanced and .5 meaning no balancedness
-            constraint.
-        random_state : object
-            The user inputted random state to be used for pseudo-randomness
+            constraint. Constraint is enforced on both train and val set separately.
+        honest : bint
+            Whether we should do honest splitting, i.e. train and val set are different.
+        min_eig_leaf : double
+            The minimum value of computationally fast proxies for the minimum eigenvalue
+            of the jacobian J(x) of a node in the case of linear moment equation trees:
+            J(x) * theta(x) - precond(x) = 0. The proxy used is defered and must be implemented
+            by the criterion objects, if min_eig_leaf >= 0.0, via the methods `min_eig_left()`
+            and `min_eig_right()` for the minimum eigenvalue proxy of the left and right child
+            correspondingly.
+        random_state : UINT32_t
+            The user inputed random seed to be used for pseudo-randomness
         """
 
         self.criterion = criterion

@@ -2,6 +2,12 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# This code is a fork from: https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_tree.pyx
+
+
 from cpython cimport Py_INCREF, PyObject, PyTypeObject
 
 from libc.stdlib cimport free
@@ -43,7 +49,9 @@ cdef SIZE_t _TREE_LEAF = TREE_LEAF
 cdef SIZE_t _TREE_UNDEFINED = TREE_UNDEFINED
 cdef SIZE_t INITIAL_STACK_SIZE = 10
 
-# Repeat struct definition for numpy
+# The definition of a numpy type to be used for converting the malloc'ed memory space that
+# contains an array of Node struct's into a structured numpy parallel array that can be as
+# array[key][index].
 NODE_DTYPE = np.dtype({
     'names': ['left_child', 'right_child', 'depth', 'feature', 'threshold',
               'impurity', 'n_node_samples', 'weighted_n_node_samples',
@@ -74,12 +82,16 @@ cdef class TreeBuilder:
                 np.ndarray samples_val,
                 np.ndarray sample_weight=None,
                 bint store_jac=False):
-        """Build a causal tree from the training set (X, y)."""
+        """Build tree from the training set (X, y) using samples_train for the
+        constructing the splits and samples_val for estimating the node values. store_jac
+        controls whether jacobian information is stored in the tree nodes in the case of
+        generalized random forests.
+        """
         pass
 
     cdef inline _check_input(self, object X, np.ndarray y, np.ndarray sample_weight):
         """Check input dtype, layout and format"""
-        
+
         # since we have to copy and perform linear algebra we will make it fortran for efficiency
         if X.dtype != DTYPE:
             X = np.asfortranarray(X, dtype=DTYPE)
@@ -98,11 +110,28 @@ cdef class TreeBuilder:
 # Depth first builder ---------------------------------------------------------
 
 cdef class DepthFirstTreeBuilder(TreeBuilder):
-    """Build a causal tree in depth-first fashion."""
+    """Build a tree in depth-first fashion."""
 
     def __cinit__(self, Splitter splitter, SIZE_t min_samples_split,
                   SIZE_t min_samples_leaf, double min_weight_leaf,
                   SIZE_t max_depth, double min_impurity_decrease):
+        """ Initialize parameters.
+        
+        Parameters
+        ----------
+        splitter : cython extension class of type Splitter
+            The splitter to be used for deciding the best split of each node.
+        min_samples_split : SIZE_t
+            The minimum number of samples required for a node to be considered for splitting
+        min_samples_leaf : SIZE_t
+            The minimum number of samples that each node must contain
+        min_weight_leaf : double
+            The minimum total weight of samples that each node must contain
+        max_depth : SIZE_t
+            The maximum depth of the tree
+        min_impurity_decrease : SIZE_t
+            The minimum improvement in impurity that a split must provide to be executed
+        """
         self.splitter = splitter
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
@@ -115,7 +144,26 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                 np.ndarray samples_val,
                 np.ndarray sample_weight=None,
                 bint store_jac=False):
-        """Build an honest tree
+        """Build an honest tree from data (X, y).
+
+        Parameters
+        ----------
+        X : (n, d) np.array
+            The features to use for splitting
+        y : (n, p) np.array
+            Any information used by the criterion to calculate the node values for a given node defined by
+            the X's
+        samples_train : (n,) np.array of type np.intp
+            The indices of the samples in X to be used for creating the splits of the tree (training set).
+        samples_val : (n,) np.array of type np.intp
+            The indices of the samples in X to be used for calculating the node values of the tree (val set).
+        sample_weight : (n,) np.array of type np.float64
+            The weight of each sample
+        store_jac : bool, optional (default=False)
+            Whether jacobian information should be stored in the tree nodes by calling the node_jacobian_val
+            and node_precond_val of the splitter. This is related to trees that solve linear moment equations
+            of the form: J(x) * theta(x) - precond(x) = 0. If store_jac=True, then J(x) and precond(x) are also
+            stored at the tree nodes at the end of the build for easy access.
         """
 
         # check input
@@ -146,32 +194,36 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         # Recursive partition (without actual recursion)
         splitter.init(X, y, sample_weight_ptr, samples_train, samples_val)
 
+        # The indices of all samples are stored in two arrays, `samples` and `samples_val` by the splitter,
+        # such that each node contains the samples from `start` to `end` in the samples array and from
+        # `start_val` to `end_val` in the `samples_val` array. Thus these four numbers are sufficient to
+        # represent a "node" of the tree during building.
         cdef SIZE_t start
         cdef SIZE_t end
         cdef SIZE_t start_val
         cdef SIZE_t end_val
-        cdef SIZE_t depth
-        cdef SIZE_t parent
-        cdef bint is_left
-        cdef SIZE_t n_node_samples = splitter.n_samples
-        cdef double weighted_n_samples = splitter.weighted_n_samples
-        cdef double weighted_n_node_samples
-        cdef SIZE_t n_node_samples_val = splitter.n_samples_val
-        cdef double weighted_n_samples_val = splitter.weighted_n_samples_val
-        cdef double weighted_n_node_samples_val
-        cdef SplitRecord split
-        cdef SIZE_t node_id
+        cdef SIZE_t depth       # The depth of the current node considered for splitting
+        cdef SIZE_t parent      # The parent of the current node considered for splitting
+        cdef bint is_left       # Whether the current node considered for splitting is a left or right child
+        cdef SIZE_t n_node_samples = splitter.n_samples                        # Total number of training samples
+        cdef double weighted_n_samples = splitter.weighted_n_samples           # Total weight of training samples
+        cdef double weighted_n_node_samples     # Will be storing the total training weight of the current node
+        cdef SIZE_t n_node_samples_val = splitter.n_samples_val                # Total number of val samples
+        cdef double weighted_n_samples_val = splitter.weighted_n_samples_val   # Total weight of val samples
+        cdef double weighted_n_node_samples_val # Will be storing the total val weight of the current node
+        cdef SplitRecord split  # A split record is a struct produced by the splitter that contains all the split info
+        cdef SIZE_t node_id     # Will be storing the id that the tree assigns to a node when added to the tree
 
-        cdef double impurity = INFINITY
-        cdef double proxy_impurity = INFINITY
-        cdef SIZE_t n_constant_features
-        cdef bint is_leaf
-        cdef bint first = 1
-        cdef SIZE_t max_depth_seen = -1
-        cdef int rc = 0
+        cdef double impurity = INFINITY         # Will be storing the impurity of the node considered for splitting
+        cdef double proxy_impurity = INFINITY   # An approximate version of the impurity used for min impurity decrease
+        cdef SIZE_t n_constant_features         # number of features identified as taking a constant value in the node
+        cdef bint is_leaf                       # Whether the node we are about to add to the tree is a leaf
+        cdef bint first = 1                     # If this is the root node we are splitting
+        cdef SIZE_t max_depth_seen = -1         # Max depth we've seen so far
+        cdef int rc = 0                         # To be used as a success flag for memory resizing calls
 
-        cdef Stack stack = Stack(INITIAL_STACK_SIZE)
-        cdef StackRecord stack_record
+        cdef Stack stack = Stack(INITIAL_STACK_SIZE)    # A stack contains the entries of all nodes to be considered
+        cdef StackRecord stack_record   # A stack record contains all the information required to split a node
 
         with nogil:
             # push root node onto stack
@@ -183,8 +235,8 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                     raise MemoryError()
 
             while not stack.is_empty():
-                stack.pop(&stack_record)
-
+                stack.pop(&stack_record)        # Let's pop a node from the stack to split
+                # Let's store the stack record in local values for easy access and manipulation
                 start = stack_record.start
                 end = stack_record.end
                 start_val = stack_record.start_val
@@ -196,11 +248,16 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                 impurity_val = stack_record.impurity_val
                 n_constant_features = stack_record.n_constant_features
 
+                # Some easy calculations
                 n_node_samples = end - start
                 n_node_samples_val = end_val - start_val
+                # Let's reset the splitter to the initial state of considering the current node to split
+                # This will also return the total weight of the node in the training and validation set
+                # in the two variables passed by reference.
                 splitter.node_reset(start, end, &weighted_n_node_samples,
                                     start_val, end_val, &weighted_n_node_samples_val)
 
+                # Determine if the node is a leaf based on simple constraints on the training and val set
                 is_leaf = (depth >= max_depth or
                            n_node_samples < min_samples_split or
                            n_node_samples < 2 * min_samples_leaf or
@@ -209,38 +266,56 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                            n_node_samples_val < 2 * min_samples_leaf or
                            weighted_n_node_samples_val < 2 * min_weight_leaf)
 
+                # If either the splitter only returns approximate children impurities at the end of each split
+                # or if we are in the root node, then we need to calculate node impurity for both evaluating
+                # the min_impurity_decrease constraint and for storing the impurity at the tree. This is done
+                # because sometimes node impurity might be computationally intensive to calculate and can be easily
+                # done once the splitter has calculated all the quantities at `node_reset`, but would add too much
+                # computational burden if done twice (once when considering the node for splitting and once when
+                # calculating the node's impurity when it is the children of a node that has just been split). Thus
+                # sometimes we just want to calculate an approximate child node impurity, solely for the purpose
+                # of evaluating whether the min_impurity_decrease constraint is satisfied by the returned split.
                 if (splitter.is_children_impurity_proxy()) or first:
                     # This is the baseline of what we should use for impurity improvement
                     proxy_impurity = splitter.proxy_node_impurity()
-                    # This is the true node impurity we want to store. The two should coincide if
-                    # proxy_children_impurity=False.
-                    impurity = splitter.node_impurity()
-                    impurity_val = splitter.node_impurity_val()
+                    # This is the true node impurity we want to store in the tree. The two should coincide if
+                    # `splitter.is_children_impurity_proxy()==False`.
+                    impurity = splitter.node_impurity()             # The node impurity on the training set
+                    impurity_val = splitter.node_impurity_val()     # The node impurity on the val set
                     first = 0
                 else:
+                    # We use the impurity value stored in the stack, which was returned by children_impurity()
+                    # when the parent node of this node was split.
                     proxy_impurity = impurity
 
                 if not is_leaf:
+                    # Find the best split of the node and return it in the `split` variable
+                    # Also use the fact that so far we have deemed `n_constant_features` to be constant in the
+                    # parent node and at the end return the number of features that have been deemed as taking
+                    # constant value, by updating the `n_constant_features` which is passed by reference.
+                    # This is used for speeding up computation as these features are not considered further for
+                    # splitting. This speed up is also enabled by the fact that we are doing depth-first-search
+                    # build.
                     splitter.node_split(proxy_impurity, &split, &n_constant_features)
-                    # If EPSILON=0 in the below comparison, float precision
-                    # issues stop splitting, producing trees that are
-                    # dissimilar to v0.18
-                    is_leaf = (is_leaf or split.pos >= end or
-                               split.pos_val >= end_val or
-                               (split.improvement + EPSILON <
-                                min_impurity_decrease))
+                    # Note from original sklearn comments: If EPSILON=0 in the below comparison, float precision
+                    # issues stop splitting, producing trees that are dissimilar to v0.18
+                    is_leaf = (is_leaf or
+                               split.pos >= end or # no split of the training set was valid
+                               split.pos_val >= end_val or # no split of the validation set was valid
+                               (split.improvement + EPSILON < min_impurity_decrease)) # min impurity is violated
 
+                # Add the node that was just split to the tree, with all the auxiliary information and
+                # get the `node_id` assigned to it.
                 node_id = tree._add_node(parent, is_left, is_leaf, 
                                          split.feature, split.threshold,
                                          impurity, n_node_samples, weighted_n_node_samples,
                                          impurity_val, n_node_samples_val, weighted_n_node_samples_val)
-
+                # Memory error
                 if node_id == SIZE_MAX:
                     rc = -1
                     break
 
-                # Store value for all nodes, to facilitate tree/model
-                # inspection and interpretation
+                # Store value for all nodes, to facilitate tree/model inspection and interpretation
                 splitter.node_value_val(tree.value + node_id * tree.value_stride)
                 # If we are in a linear moment case and we want to store the node jacobian and node precond,
                 # i.e. value = Jacobian^{-1} @ precond
@@ -264,11 +339,14 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                 if depth > max_depth_seen:
                     max_depth_seen = depth
 
+            # Resize the tree to use the minimal required memory
             if rc >= 0:
                 rc = tree._resize_c(tree.node_count)
 
+            # Update trees max_depth variable for the maximum seen depth
             if rc >= 0:
                 tree.max_depth = max_depth_seen
+
         if rc == -1:
             raise MemoryError()
 
@@ -278,6 +356,8 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
 # =============================================================================
 
 cdef class Tree:
+    # This is only used for compatibility with sklearn trees. In sklearn this represents the number of classes
+    # in a classification tree for each target output. Here it is always an array of 1's of size `self.n_outputs`.
     property n_classes:
         def __get__(self):
             return sizet_ptr_to_ndarray(self.n_classes, self.n_outputs)
@@ -332,27 +412,45 @@ cdef class Tree:
         def __get__(self):
             return self._get_node_ndarray()['weighted_n_node_samples_train'][:self.node_count]
 
+    # Value returns the relevant parameters estimated at each node (the ones we care about)
     property value:
         def __get__(self):
             return self._get_value_ndarray()[:self.node_count, :self.n_relevant_outputs]
-    
+
+    # Value returns all the parameters estimated at each node (even the nuisance ones we don't care about)
     property full_value:
         def __get__(self):
             return self._get_value_ndarray()[:self.node_count]
-    
+
+    # The jacobian J(x) of the node, for the case of linear moment trees with moment: J(x) * theta(x) - precond(x) = 0
     property jac:
         def __get__(self):
             if not self.store_jac:
-                raise AttributeError("Jacobian computation was not enalbed. Set store_jac=True")
+                raise AttributeError("Jacobian computation was not enabled. Set store_jac=True")
             return self._get_jac_ndarray()[:self.node_count]
     
+    # The precond(x) of the node, for the case of linear moment trees with moment: J(x) * theta(x) - precond(x) = 0
     property precond:
         def __get__(self):
             if not self.store_jac:
-                raise AttributeError("Preconditioned quantity computation was not enalbed. Set store_jac=True")
+                raise AttributeError("Preconditioned quantity computation was not enabled. Set store_jac=True")
             return self._get_precond_ndarray()[:self.node_count]
 
     def __cinit__(self, int n_features, int n_outputs, int n_relevant_outputs=-1, bint store_jac=False):
+        """ Initialize parameters
+
+        Parameters
+        ----------
+        n_features : int
+            Number of features X at train time
+        n_outputs : int
+            How many parameters/outputs are stored/estimated at each node
+        n_relevant_outputs : int, optional (default=-1)
+            Which prefix of the parameters do we care about. The remainder are nuisance parameters.
+            If `n_relevant_outputs=-1`, then all parameters are relevant.
+        store_jac : bool, optional (default=False)
+            Whether we will be storing jacobian and precond of linear moments information at each node.
+        """
         self.n_features = n_features
         self.n_outputs = n_outputs
         self.n_relevant_outputs = n_relevant_outputs if n_relevant_outputs > 0 else n_outputs
@@ -685,7 +783,18 @@ cdef class Tree:
         return out
 
     cpdef compute_feature_importances(self, normalize=True, max_depth=None, depth_decay=.0):
-        """Computes the importance of each feature (aka variable)."""
+        """Computes the importance of each feature (aka variable) based on impurity decrease.
+        
+        Parameters
+        ----------
+        normalize : bool, optional (default=True)
+            Whether to normalize importances to sum to 1
+        max_depth : int or None, optional (default=None)
+            The max depth of a split to consider when calculating importance
+        depth_decay : float, optional (default=.0)
+            The decay of the importance of a split as a function of depth. The split importance is
+            re-weighted by 1 / (1 + depth)**depth_decay.
+        """
         cdef Node* left
         cdef Node* right
         cdef Node* nodes = self.nodes
@@ -732,7 +841,20 @@ cdef class Tree:
         return importances
     
     cpdef compute_feature_heterogeneity_importances(self, normalize=True, max_depth=None, depth_decay=.0):
-        """Computes the importance of each feature (aka variable)."""
+        """Computes the importance of each feature (aka variable) based on amount of
+        parameter heterogeneity it creates. Each split adds:
+        parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        
+        Parameters
+        ----------
+        normalize : bool, optional (default=True)
+            Whether to normalize importances to sum to 1
+        max_depth : int or None, optional (default=None)
+            The max depth of a split to consider when calculating importance
+        depth_decay : float, optional (default=.0)
+            The decay of the importance of a split as a function of depth. The split importance is
+            re-weighted by 1 / (1 + depth)**depth_decay.
+        """
         cdef Node* left
         cdef Node* right
         cdef Node* nodes = self.nodes
@@ -766,8 +888,7 @@ cdef class Tree:
                         for i in range(self.n_relevant_outputs):
                             importance_data[node.feature] += pow(1 + node.depth, -c_depth_decay) * (
                                 left.weighted_n_node_samples * right.weighted_n_node_samples *
-                                (left_value[i] - right_value[i])**2 / node.weighted_n_node_samples
-                                )
+                                (left_value[i] - right_value[i])**2 / node.weighted_n_node_samples)
                 node += 1
 
         importances /= (nodes[0].weighted_n_node_samples * self.n_relevant_outputs)
@@ -782,7 +903,7 @@ cdef class Tree:
         return importances
 
     cdef np.ndarray _get_value_ndarray(self):
-        """Wraps value as a 2-d NumPy array.
+        """Wraps value as a 3-d NumPy array.
         The array keeps a reference to this Tree, which manages the underlying
         memory.
         """
@@ -799,7 +920,7 @@ cdef class Tree:
         return arr
     
     cdef np.ndarray _get_jac_ndarray(self):
-        """Wraps value as a 2-d NumPy array.
+        """Wraps jacobian as a 2-d NumPy array.
         The array keeps a reference to this Tree, which manages the underlying
         memory.
         """
@@ -813,7 +934,7 @@ cdef class Tree:
         return arr
 
     cdef np.ndarray _get_precond_ndarray(self):
-        """Wraps value as a 2-d NumPy array.
+        """Wraps precond as a 2-d NumPy array.
         The array keeps a reference to this Tree, which manages the underlying
         memory.
         """

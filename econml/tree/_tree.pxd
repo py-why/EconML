@@ -1,5 +1,10 @@
 # See _tree.pyx for details.
 
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# This code is a fork from: https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_tree.pxd
+
 import numpy as np
 cimport numpy as np
 
@@ -20,12 +25,12 @@ cdef struct Node:
     SIZE_t depth                         # the depth level of the node
     SIZE_t feature                       # Feature used for splitting the node
     DOUBLE_t threshold                   # Threshold value at the node
-    DOUBLE_t impurity                    # Impurity of the node (i.e., the value of the criterion)
-    SIZE_t n_node_samples                # Number of samples at the node
-    DOUBLE_t weighted_n_node_samples     # Weighted number of samples at the node
-    DOUBLE_t impurity_train                    # Impurity of the node (i.e., the value of the criterion)
-    SIZE_t n_node_samples_train                # Number of samples at the node
-    DOUBLE_t weighted_n_node_samples_train     # Weighted number of samples at the node
+    DOUBLE_t impurity                    # Impurity of the node on the val set
+    SIZE_t n_node_samples                # Number of samples at the node on the val set
+    DOUBLE_t weighted_n_node_samples     # Weighted number of samples at the node on the val set
+    DOUBLE_t impurity_train                    # Impurity of the node on the training set
+    SIZE_t n_node_samples_train                # Number of samples at the node on the training set
+    DOUBLE_t weighted_n_node_samples_train     # Weighted number of samples at the node on the training set
 
 cdef class Tree:
     # The Tree object is a binary tree structure constructed by the
@@ -34,10 +39,10 @@ cdef class Tree:
 
     # Input/Output layout
     cdef public SIZE_t n_features        # Number of features in X
-    cdef public SIZE_t n_outputs         # Number of outputs in y
-    cdef public SIZE_t n_relevant_outputs
-    cdef SIZE_t* n_classes
-    cdef public SIZE_t max_n_classes
+    cdef public SIZE_t n_outputs         # Number of parameters estimated at each node
+    cdef public SIZE_t n_relevant_outputs # Prefix of the parameters that we care about
+    cdef SIZE_t* n_classes                # Legacy from sklearn for compatibility. Number of classes in classification
+    cdef public SIZE_t max_n_classes      # Number of classes for each output coordinate
 
     # Inner structures: values are stored separately from node structure,
     # since size is determined at runtime.
@@ -47,11 +52,11 @@ cdef class Tree:
     cdef Node* nodes                     # Array of nodes
     cdef double* value                   # (capacity, n_outputs, max_n_classes) array of values
     cdef SIZE_t value_stride             # = n_outputs * max_n_classes
-    cdef bint store_jac
-    cdef double* jac                     # node jacobian
-    cdef SIZE_t jac_stride
+    cdef bint store_jac                  # wether to store jacobian and precond information
+    cdef double* jac                     # node jacobian in linear moment: J(x) * theta - precond(x) = 0
+    cdef SIZE_t jac_stride               # = n_outputs * n_outputs
     cdef double* precond                 # node preconditioned value
-    cdef SIZE_t precond_stride
+    cdef SIZE_t precond_stride           # = n_outputs
 
     # Methods
     cdef SIZE_t _add_node(self, SIZE_t parent, bint is_left, bint is_leaf,
