@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 # See _criterion.pyx for implementation details.
 
 import numpy as np
@@ -12,20 +15,32 @@ from ..tree._tree cimport UINT32_t         # Unsigned 32 bit integer
 from ..tree._criterion cimport Criterion, RegressionCriterion
 
 cdef class LinearMomentGRFCriterion(RegressionCriterion):
-    cdef const DOUBLE_t[:, ::1] alpha
-    cdef const DOUBLE_t[:, ::1] pointJ
+    """ A criterion class that estimates local parameters defined via linear moment equations
+    of the form:
 
-    cdef DOUBLE_t* rho
-    cdef DOUBLE_t* moment
-    cdef DOUBLE_t* parameter
-    cdef DOUBLE_t* parameter_pre
-    cdef DOUBLE_t* J
-    cdef DOUBLE_t* invJ
-    cdef DOUBLE_t* var_total
-    cdef DOUBLE_t* var_left
-    cdef DOUBLE_t* var_right
-    cdef SIZE_t* node_index_mapping
-    cdef DOUBLE_t y_sq_sum_total
+    E[ m(J, A; theta(x)) | X=x] = E[ J * theta(x) - A | X=x] = 0
+
+    Calculates impurity based on heterogeneity induced on the estimated parameters, based on the proxy score
+    defined in the Generalized Random Forest paper:
+        Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
+        The Annals of Statistics 47.2 (2019): 1148-1178
+        https://arxiv.org/pdf/1610.01271.pdf
+    """
+    cdef const DOUBLE_t[:, ::1] alpha   # The A random vector of the linear moment equation for each sample
+    cdef const DOUBLE_t[:, ::1] pointJ  # The J random vector of the linear moment equation for each sample
+
+    cdef DOUBLE_t* rho                  # Proxy heterogeneity label: rho = E[J | X in Node]^{-1} m(J, A; theta(Node))
+    cdef DOUBLE_t* moment               # Moment for each sample: m(J, A; theta(Node))
+    cdef DOUBLE_t* parameter            # Estimated node parameter: theta(Node) = E[J|X in Node]^{-1} E[A|X in Node]
+    cdef DOUBLE_t* parameter_pre        # Preconditioned node parameter: theta_pre(Node) = E[A | X in Node]
+    cdef DOUBLE_t* J                    # Node average jacobian: J(Node) = E[J | X in Node]
+    cdef DOUBLE_t* invJ                 # Inverse of node average jacobian: J(Node)^{-1}
+    cdef DOUBLE_t* var_total            # The diagonal elements of J(Node) (used for proxy of min eigenvalue)
+    cdef DOUBLE_t* var_left             # The diagonal elements of J(Left) = E[J | X in Left-Child]
+    cdef DOUBLE_t* var_right            # The diagonal elements of J(Right) = E[J | X in Right-Child]
+    cdef SIZE_t* node_index_mapping     # Used internally to map between sample index in y, with sample index in
+                                        # internal memory space that stores rho and moment for each sample
+    cdef DOUBLE_t y_sq_sum_total        # The sum of the raw labels y: \sum_i sum_k w_i y_{ik}^2
 
     cdef int node_reset_jacobian(self, DOUBLE_t* J, DOUBLE_t* invJ, double* weighted_n_node_samples,
                                   const DOUBLE_t[:, ::1] pointJ,
@@ -49,8 +64,8 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                              SIZE_t start, SIZE_t end) nogil except -1
 
 cdef class LinearMomentGRFCriterionMSE(LinearMomentGRFCriterion):
-    cdef DOUBLE_t* J_left
-    cdef DOUBLE_t* J_right
+    cdef DOUBLE_t* J_left           # The jacobian of the left child: J(Left) = E[J | X in Left-Child]
+    cdef DOUBLE_t* J_right          # The jacobian of the right child: J(Right) = E[J | X in Right-Child]
     
     cdef double _get_min_eigv(self, DOUBLE_t* J_child, DOUBLE_t* var_child,
                               double weighted_n_child) nogil except -1
