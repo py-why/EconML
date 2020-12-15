@@ -1,3 +1,8 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# This code is a fork from: https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_splitter.pxd
+
 # See _splitter.pyx for details.
 
 import numpy as np
@@ -22,61 +27,67 @@ cdef struct SplitRecord:
                            # pos_val is >= end_val if the node is a leaf.
     double threshold       # Threshold to split at.
     double improvement     # Impurity improvement given parent node.
-    double impurity_left   # Impurity of the left split.
-    double impurity_right  # Impurity of the right split.
+    double impurity_left   # Impurity of the left split on train set.
+    double impurity_right  # Impurity of the right split on train set.
     double impurity_left_val   # Impurity of the left split on validation set.
     double impurity_right_val  # Impurity of the right split on validation set.
 
 cdef class Splitter:
     # The splitter searches in the input space for a feature and a threshold
-    # to split the samples samples[start:end].
+    # to split the samples samples[start:end] and samples_val[start_val:end_val].
     #
-    # The impurity computations are delegated to a criterion object.
+    # The impurity and value computations are delegated to a criterion and criterion_val object.
 
     # Internal structures
-    cdef public Criterion criterion      # Impurity criterion
-    cdef public Criterion criterion_val      # Impurity criterion
+    cdef public Criterion criterion      # Impurity criterion for train set calculations
+    cdef public Criterion criterion_val      # Impurity criterion for val set calculations
     cdef public SIZE_t max_features      # Number of features to test
-    cdef public SIZE_t min_samples_leaf  # Min samples in a leaf
-    cdef public double min_weight_leaf   # Minimum weight in a leaf
-    cdef public double min_eig_leaf
+    cdef public SIZE_t min_samples_leaf  # Min samples in a leaf (on both train and val set)
+    cdef public double min_weight_leaf   # Minimum weight in a leaf (on both train and val set)
+    cdef public double min_eig_leaf      # Minimum value of proxy for the min eigenvalue of the jacobian (on train)
     cdef public double min_balancedness_tol # Tolerance level of how balanced a split can be (in [0, .5])
-    cdef public bint honest
+    cdef public bint honest              # Are we doing train/val honest splitting
 
     cdef UINT32_t rand_r_state           # sklearn_rand_r random number state
 
     cdef SIZE_t* samples                 # Sample indices in X, y
     cdef SIZE_t n_samples                # X.shape[0]
     cdef double weighted_n_samples       # Weighted number of samples
-    cdef SIZE_t* samples_val                 # Sample indices in Xval
-    cdef SIZE_t n_samples_val                # Xval.shape[0]
-    cdef double weighted_n_samples_val       # Weighted number of samples
+    cdef SIZE_t* samples_val             # Sample indices in Xval
+    cdef SIZE_t n_samples_val            # Xval.shape[0]
+    cdef double weighted_n_samples_val   # Weighted number of samples
     cdef SIZE_t* features                # Feature indices in X
     cdef SIZE_t* constant_features       # Constant features indices
     cdef SIZE_t n_features               # X.shape[1]
     cdef DTYPE_t* feature_values         # temp. array holding feature values
-    cdef DTYPE_t* feature_values_val         # temp. array holding feature values from validation set
+    cdef DTYPE_t* feature_values_val     # temp. array holding feature values from validation set
 
     cdef SIZE_t start                    # Start position for the current node for samples
     cdef SIZE_t end                      # End position for the current node for samples
-    cdef SIZE_t start_val                    # Start position for the current node for samples_val
-    cdef SIZE_t end_val                      # End position for the current node for samples_val
+    cdef SIZE_t start_val                # Start position for the current node for samples_val
+    cdef SIZE_t end_val                  # End position for the current node for samples_val
 
     cdef const DTYPE_t[:, :] X
     cdef const DOUBLE_t[:, ::1] y
     cdef DOUBLE_t* sample_weight
 
     # The samples vector `samples` is maintained by the Splitter object such
-    # that the samples contained in a node are contiguous. With this setting,
+    # that the train samples contained in a node are contiguous. With this setting,
     # `node_split` reorganizes the node samples `samples[start:end]` in two
     # subsets `samples[start:pos]` and `samples[pos:end]`.
+
+    # When `honest=True` then we also store a samples vector `samples_val` that
+    # is also maintained by the Splitter that keeps indices of the val set and
+    # such that the val samples contained in a node are contiguous in `samples_val`.
+    # `node_split` also reoganizes the node samples `samples_val[start_val:end_val]` in two
+    # subsets `samples_val[start_val:pos_val]` and `samples_val[pos_val:end_val]`.
 
     # The 1-d  `features` array of size n_features contains the features
     # indices and allows fast sampling without replacement of features.
 
     # The 1-d `constant_features` array of size n_features holds in
     # `constant_features[:n_constant_features]` the feature ids with
-    # constant values for all the samples that reached a specific node.
+    # constant values for all the samples in the train set that reached a specific node.
     # The value `n_constant_features` is given by the parent node to its
     # child nodes.  The content of the range `[n_constant_features:]` is left
     # undefined, but preallocated for performance reasons

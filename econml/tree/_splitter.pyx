@@ -131,7 +131,14 @@ cdef class Splitter:
     cdef int init_sample_inds(self, SIZE_t* samples,
                                const SIZE_t[::1] np_samples,
                                DOUBLE_t* sample_weight,
-                               SIZE_t* n_samples, double* weighted_n_samples) nogil except -1:
+                               SIZE_t* n_samples,
+                               double* weighted_n_samples) nogil except -1:
+        """ Initialize the cython sample index arrays `samples` based on the python
+        numpy array `np_samples`. Calculate total weight of samples as you go though the pass
+        and store it in the output variable `weighted_n_samples`. Update the number of samples
+        passed via the input/output variable `n_samples` to the number of *positively* weighted
+        samples, so that we only work with that subset.
+        """
         cdef SIZE_t i, j, ind
         weighted_n_samples[0] = 0.0
         j = 0
@@ -155,44 +162,54 @@ cdef class Splitter:
                   const SIZE_t[::1] np_samples_train,
                   const SIZE_t[::1] np_samples_val) nogil except -1:
         """Initialize the splitter.
-        Take in the input data X, T, W, Z, the target Y.
-        Returns -1 in case of failure to allocate memory (and raise MemoryError)
-        or 0 otherwise.
+        Take in the input data X, y and the train/val split. Returns -1 in case of failure to
+        allocate memory (and raise MemoryError) or 0 otherwise.
+
         Parameters
         ----------
         X : object
             This contains the inputs. Usually it is a 2d numpy array.
         y : ndarray, dtype=DOUBLE_t
             This is the vector of targets, or true labels, for the samples
+        sample_weight : ndarray, dtype=DOUBLE_t
+            The sample weights
+        np_samples_train : ndarray, dtype=SIZE_t
+            The indices of the samples in the train set
+        np_samples_val : ndarray, dtype=SIZE_t
+            The indices of the samples in the val set
         """
 
         cdef SIZE_t n_features = X.shape[1]
         cdef SIZE_t n_samples = np_samples_train.shape[0]
 
-        # Create a new array which will be used to store nonzero
-        # samples from the feature of interest
+        # Create a new array which will be used to store nonzero weighted
+        # sample indices of the training set.
         cdef SIZE_t* samples = safe_realloc(&self.samples, n_samples)
-        
+        # Initialize this array based on the numpy array np_samples_train
         self.init_sample_inds(self.samples, np_samples_train, sample_weight,
                          &self.n_samples, &self.weighted_n_samples)
 
+        # Create an array that will store a permuted version of the feature indices
+        # such that throughout the execution the first n_constant_features in this
+        # array are features that have been deemed as constant valued and are ignored.
+        # See loop invariant in `node_split()` method below.
         cdef SIZE_t* features = safe_realloc(&self.features, n_features)
-
         for i in range(n_features):
             features[i] = i
 
         self.n_features = n_features
 
-        safe_realloc(&self.feature_values, self.n_samples)
-        safe_realloc(&self.constant_features, self.n_features)
+        safe_realloc(&self.feature_values, self.n_samples)      # Will store feature_values of the drawn feature
+        safe_realloc(&self.constant_features, self.n_features)  # Used as helper storage
 
         self.X = X
         self.y = y
         self.sample_weight = sample_weight
 
-        self.criterion.init(self.y, self.sample_weight, self.weighted_n_samples,
-                            self.samples)
+        # Initialize criterion
+        self.criterion.init(self.y, self.sample_weight, self.weighted_n_samples, self.samples)
         
+        # If `honest=True` do initialize analogous validation set objects.
         cdef SIZE_t n_samples_val
         cdef SIZE_t* samples_val
         if self.honest:
@@ -213,15 +230,24 @@ cdef class Splitter:
 
     cdef int node_reset(self, SIZE_t start, SIZE_t end,  double* weighted_n_node_samples,
                         SIZE_t start_val, SIZE_t end_val, double* weighted_n_node_samples_val) nogil except -1:
-        """Reset splitter on node samples[start:end].
+        """Reset splitter on node samples[start:end] on train set and [start_val:end_val] on val set.
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
+
         Parameters
         ----------
         start : SIZE_t
-            The index of the first sample to consider
+            The index of the first sample to consider on the train set
         end : SIZE_t
-            The index of the last sample to consider
+            The index of the last sample to consider on the train set
+        weighted_n_node_samples : double*
+            On output, weighted_n_node_samples[0] stores the total weight of the training samples in the node
+        start_val : SIZE_t
+            The index of the first sample to consider on the val set
+        end_val : SIZE_t
+            The index of the last sample to consider on the val set
+        weighted_n_node_samples_val : double*
+            On output, weighted_n_node_samples_val[0] stores the total weight of the val samples in the node
         """
 
         self.start = start
@@ -255,36 +281,40 @@ cdef class Splitter:
         self.criterion_val.node_value(dest)
     
     cdef void node_jacobian_val(self, double* dest) nogil:
-        """Copy the value of node samples[start:end] into dest."""
+        """Copy the mean jacobian of node samples[start:end] into dest."""
 
         self.criterion_val.node_jacobian(dest)
     
     cdef void node_precond_val(self, double* dest) nogil:
-        """Copy the value of node samples[start:end] into dest."""
+        """Copy the mean precond of node samples[start:end] into dest."""
 
         self.criterion_val.node_precond(dest)
 
     cdef double node_impurity(self) nogil:
-        """Return the impurity of the current node."""
+        """Return the impurity of the current node on the train set."""
 
         return self.criterion.node_impurity()
     
     cdef double node_impurity_val(self) nogil:
-        """Return the impurity of the current node."""
+        """Return the impurity of the current node on the val set."""
 
         return self.criterion_val.node_impurity()
     
     cdef double proxy_node_impurity(self) nogil:
-        """Return the impurity of the current node."""
+        """Return the impurity of the current node on the train set."""
 
         return self.criterion.proxy_node_impurity()
     
     cdef double proxy_node_impurity_val(self) nogil:
-        """Return the impurity of the current node."""
+        """Return the impurity of the current node on the val set."""
 
         return self.criterion_val.proxy_node_impurity()
 
     cdef bint is_children_impurity_proxy(self) nogil:
+        """Whether the criterion method children_impurity() returns an
+        accurate node impurity of the children or just some computationally efficient
+        approximation.
+        """
         return (self.criterion.proxy_children_impurity or
                 self.criterion_val.proxy_children_impurity)
 
@@ -307,6 +337,20 @@ cdef class BestSplitter(Splitter):
         """Find the best split on node samples[start:end]
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
+
+        Parameters
+        ----------
+        impurity : double
+            The impurity of the current node to be split. Passed in explicitly as it might
+            be potentially be calculated by the builder from a prior call to children_impurity
+            when the parent node was split, so as to avoid double calculation
+        split : SplitRecord*
+            On output, it stores the information that describe the best split found
+        n_constant_features : SIZE_t*
+            On input, it contains the number of known constant features in the node (because
+            they were already constant in the parent node). On output, it contains the new
+            number of constant features, including the new ones that were found constant within this
+            node.
         """
         # Find the best split
         cdef SIZE_t* samples = self.samples
@@ -380,7 +424,7 @@ cdef class BestSplitter(Splitter):
             # - [f_i:n_features[ holds features that have been drawn
             #   and aren't constant.
 
-            
+
             # TODO. Add some randomness that rejects some splits so that each the threshold on
             # each feature is sufficiently random and so that the number of features that
             # are inspected is also random. This is required by the theory so that every feature
@@ -408,7 +452,7 @@ cdef class BestSplitter(Splitter):
                 # effectively.
                 for i in range(start, end):
                     Xf[i] = self.X[samples[i], current.feature]
-                
+
                 sort(Xf + start, samples + start, end - start)
 
                 if self.honest:
@@ -416,7 +460,7 @@ cdef class BestSplitter(Splitter):
                         Xf_val[i] = self.X[samples_val[i], current.feature]
                     
                     sort(Xf_val + start_val, samples_val + start_val, end_val - start_val)
-                
+
                 if Xf[end - 1] <= Xf[start] + FEATURE_THRESHOLD:
                     features[f_j], features[n_total_constants] = features[n_total_constants], features[f_j]
 
@@ -428,13 +472,15 @@ cdef class BestSplitter(Splitter):
                     features[f_i], features[f_j] = features[f_j], features[f_i]
 
                     # Evaluate all splits
-                    self.criterion.reset()
+                    self.criterion.reset()  # Reset criterion to start evaluating splits in increasing feature manner
                     if self.honest:
-                        self.criterion_val.reset()
+                        self.criterion_val.reset() # If honest, then reset val criterion too
+                    # We know that by balancedness we must start by at least this position of the node
                     p = start + <int>floor((.5 - self.min_balancedness_tol) * (end - start)) - 1
-                    p_val = start_val
+                    p_val = start_val   # p_val will track p so no need to add the offset
 
                     while p < end and p_val < end_val:
+                        # We find equivalent values up to floating point precision
                         while (p + 1 < end and
                                Xf[p + 1] <= Xf[p] + FEATURE_THRESHOLD):
                             p += 1
@@ -445,6 +491,7 @@ cdef class BestSplitter(Splitter):
                         # (p >= end) or (X[samples[p], current.feature] >
                         #                X[samples[p - 1], current.feature])
 
+                        # we set the threshold to be the mid-point between the two feature values
                         current_threshold = Xf[p] / 2.0 + Xf[p - 1] / 2.0
                         if ((current_threshold == Xf[p]) or
                             (current_threshold == INFINITY) or
@@ -460,13 +507,15 @@ cdef class BestSplitter(Splitter):
                                 Xf_val[p_val] <= current_threshold):
                                 p_val += 1
                         else:
-                            p_val = p
+                            p_val = p   # If not honest then p_val is same as p
 
                         if p < end and p_val < end_val:
                             current.pos = p
                             current.pos_val = p_val
 
-                            # Reject if imbalanced
+                            # Reject if imbalanced on either train or val set. We know that the first
+                            # direction on the train set is guaranteed due to the offset we added to the
+                            # starting point.
                             if (end - current.pos) < (.5 - self.min_balancedness_tol) * (end - start):
                                 break
                             if (current.pos_val - start_val) < (.5 - self.min_balancedness_tol) * (end_val - start_val):
@@ -485,28 +534,34 @@ cdef class BestSplitter(Splitter):
                             if (end_val - current.pos_val) < min_samples_leaf:
                                 break
 
+                            # If nothing is rejected, then update the criterion to hold info on the split
+                            # at position current.pos
                             self.criterion.update(current.pos)
                             if self.honest:
-                                self.criterion_val.update(current.pos_val)
+                                self.criterion_val.update(current.pos_val)  # similarly for criterion_val if honest
 
                             # Reject if min_weight_leaf is not satisfied
                             if self.criterion.weighted_n_left < min_weight_leaf:
                                 continue
                             if self.criterion.weighted_n_right < min_weight_leaf:
                                 break
-                            # Reject if minimum eigenvalue proxy requirement is not satisfied
+                            # Reject if minimum eigenvalue proxy requirement is not satisfied on train
+                            # We do not check this constraint on val, since the eigenvalue proxy can depend on
+                            # label information and we will be violating honesty.
                             if min_eig_leaf >= 0.0:
                                 if self.criterion.min_eig_left() < min_eig_leaf:
                                     continue
                                 if self.criterion.min_eig_right() < min_eig_leaf:
                                     continue
 
+                            # Reject if min_weight_leaf constraint is violated
                             if self.honest:
                                 if self.criterion_val.weighted_n_left < min_weight_leaf:
                                     continue
                                 if self.criterion_val.weighted_n_right < min_weight_leaf:
                                     break
-
+                            
+                            # Calculate fast version of impurity_improvement of the split to be used for ranking splits
                             current_proxy_improvement = self.criterion.proxy_impurity_improvement()
 
                             if current_proxy_improvement > best_proxy_improvement:
@@ -527,7 +582,7 @@ cdef class BestSplitter(Splitter):
                     partition_end -= 1
 
                     samples[p], samples[partition_end] = samples[partition_end], samples[p]
-            
+
             if self.honest:
                 partition_end = end_val
                 p = start_val
@@ -545,7 +600,13 @@ cdef class BestSplitter(Splitter):
             if self.honest:
                 self.criterion_val.reset()
                 self.criterion_val.update(best.pos_val)
+            # Calculate a more accurate version of impurity improvement using the input baseline impurity
+            # passed here by the TreeBuilder. The TreeBuilder uses the proxy_node_impurity() to calculate
+            # this baseline if self.is_children_impurity_proxy(), else uses the call to children_impurity()
+            # on the parent node, when that node was split.
             best.improvement = self.criterion.impurity_improvement(impurity)
+            # if we need children impurities by the builder, then we populate these entries
+            # otherwise, we leave them blank to avoid the extra computation.
             if not self.is_children_impurity_proxy():
                 self.criterion.children_impurity(&best.impurity_left, &best.impurity_right)
                 if self.honest:

@@ -1,3 +1,8 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# This code is a fork from: https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_criterion.pxd
+
 # See _criterion.pyx for implementation details.
 
 import numpy as np
@@ -12,32 +17,38 @@ from ._tree cimport UINT32_t         # Unsigned 32 bit integer
 cdef class Criterion:
     # The criterion computes the impurity of a node and the reduction of
     # impurity of a split on that node. It also computes the output statistics
-    # such as the mean in regression and class probabilities in classification.
+    # such as the mean in regression and class probabilities in classification
+    # and parameter estimates in a tree that solves a moment equation.
 
     # Internal structures
-    cdef bint proxy_children_impurity
-    cdef const DOUBLE_t[:, ::1] y        # Values of y
+    cdef bint proxy_children_impurity    # Whether the value returned by children_impurity is only an approximation
+    cdef const DOUBLE_t[:, ::1] y        # Values of y (y contains all the variables for node parameter estimation)
     cdef DOUBLE_t* sample_weight         # Sample weights
 
     cdef SIZE_t n_outputs                # Number of outputs
     cdef SIZE_t n_relevant_outputs       # The first n_relevant_outputs are the ones we care about
     cdef SIZE_t n_features               # Number of features
-    cdef SIZE_t n_y
-    cdef UINT32_t random_state
-    
+    cdef SIZE_t n_y                      # The first n_y columns of the y matrix correspond to raw labels.
+                                         # The remainder are auxiliary variables required for parameter estimation
+    cdef UINT32_t random_state           # A random seed for any internal randomness
+
     cdef SIZE_t* samples                 # Sample indices in X, y
     cdef SIZE_t start                    # samples[start:pos] are the samples in the left node
     cdef SIZE_t pos                      # samples[pos:end] are the samples in the right node
     cdef SIZE_t end
 
-    cdef SIZE_t n_samples                # Number of samples
-    cdef SIZE_t max_node_samples
+    cdef SIZE_t n_samples                # Number of all samples in y (i.e. rows of y)
+    cdef SIZE_t max_node_samples         # The maximum number of samples that can ever be contained in a node
+                                         # Used for memory space saving, as we need to allocate memory space for
+                                         # internal quantities that will store as many values as the number of samples
+                                         # in the current node under consideration. Providing this can save space
+                                         # allocation time.
     cdef SIZE_t n_node_samples           # Number of samples in the node (end-start)
     cdef double weighted_n_samples       # Weighted number of samples (in total)
     cdef double weighted_n_node_samples  # Weighted number of samples in the node
     cdef double weighted_n_left          # Weighted number of samples in the left node
     cdef double weighted_n_right         # Weighted number of samples in the right node
-    
+
     cdef double* sum_total          # For classification criteria, the sum of the
                                     # weighted count of each label. For regression,
                                     # the sum of w*y. sum_total[k] is equal to
@@ -73,4 +84,4 @@ cdef class Criterion:
 cdef class RegressionCriterion(Criterion):
     """Abstract regression criterion."""
 
-    cdef double sq_sum_total
+    cdef double sq_sum_total    # Stores sum_i sum_k y_{ik}^2, used for MSE calculation

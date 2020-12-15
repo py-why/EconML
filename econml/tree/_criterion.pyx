@@ -2,6 +2,11 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# This code is a fork from: https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_criterion.pyx
+
 from libc.stdlib cimport calloc
 from libc.stdlib cimport free
 from libc.string cimport memcpy
@@ -35,29 +40,39 @@ cdef class Criterion:
     def __setstate__(self, d):
         pass
 
-    cdef int init(self, const DOUBLE_t[:, ::1] y, 
-                  DOUBLE_t* sample_weight, double weighted_n_samples,
+    cdef int init(self, const DOUBLE_t[:, ::1] y, DOUBLE_t* sample_weight,
+                  double weighted_n_samples,
                   SIZE_t* samples) nogil except -1:
         """Placeholder for a method which will initialize the criterion.
         Returns -1 in case of failure to allocate memory (and raise MemoryError)
         or 0 otherwise.
+
         Parameters
         ----------
         y : array-like, dtype=DOUBLE_t
-            y is a buffer that can store values for n_outputs target variables
+            y is a buffer that can store values for variables required for parameter/value estimation
+        sample_weight : array-like, dtype=DOUBLE_t
+            The weight of each sample in y
+        weighted_n_samples : double
+            The total weight of all the samples whose indices are contained in the samples array
         samples : array-like, dtype=SIZE_t
             Indices of the samples in X and y, where samples[start:end]
             correspond to the samples in this node
-        start : SIZE_t
-            The first sample to be used on this node
-        end : SIZE_t
-            The last sample used on this node
         """
 
         pass
     
     cdef int node_reset(self, SIZE_t start, SIZE_t end) nogil except -1:
-        
+        """ Initialize a node calculation
+
+        Parameters
+        ----------
+        start : SIZE_t
+            The first sample to be used on this node
+        end : SIZE_t
+            The last sample used on this node
+        """
+ 
         pass
 
     cdef int reset(self) nogil except -1:
@@ -96,6 +111,9 @@ cdef class Criterion:
         pass
 
     cdef double proxy_node_impurity(self) nogil:
+        """ A proxy for the node impurity to be used for min_impurity_decrease.
+        By default it is equivalent to node_impurity, unless overwritten by child class.
+        """
         return self.node_impurity()
 
     cdef void children_impurity(self, double* impurity_left,
@@ -129,18 +147,44 @@ cdef class Criterion:
         pass
     
     cdef void node_jacobian(self, double* dest) nogil:
+        """Placeholder for storing the node jacobian value.
+        Placeholder for a method which will compute the node jacobian value in a linear
+        moment J(x) * theta(x) - precond(x) = 0 of samples[start:end] and save the value
+        into dest. If not implemented by child, raises an AttributeError if called.
+
+        Parameters
+        ----------
+        dest : double pointer
+            The memory address where the node jacobian should be stored.
+        """
         with gil:
             raise AttributeError("Criterion does not support jacobian calculation")
     
     cdef void node_precond(self, double* dest) nogil:
+        """Placeholder for storing the node precond value.
+        Placeholder for a method which will compute the node precond value in a linear
+        moment J(x) * theta(x) - precond(x) = 0 of samples[start:end] and save the value
+        into dest. If not implemented by child, raises an AttributeError if called.
+
+        Parameters
+        ----------
+        dest : double pointer
+            The memory address where the node precond should be stored.
+        """
         with gil:
             raise AttributeError("Criterion does not support preconditioned value calculation")
     
     cdef double min_eig_left(self) nogil:
+        """Placeholder for calculating proxy for minimum eigenvalue of the jacobian
+        of the left child of the current split. If not implemented by child, raises an AttributeError if called.
+        """
         with gil:
             raise AttributeError("Criterion does not support jacobian and eigenvalue calculation!")
     
     cdef double min_eig_right(self) nogil:
+        """Placeholder for calculating proxy for minimum eigenvalue of the jacobian
+        of the right child of the current split. If not implemented by child, raises an AttributeError if called.
+        """
         with gil:
             raise AttributeError("Criterion does not support jacobian and eigenvalue calculation!")
 
@@ -210,9 +254,19 @@ cdef class RegressionCriterion(Criterion):
         Parameters
         ----------
         n_outputs : SIZE_t
-            The number of targets to be predicted
+            The number of parameters/values to be estimated
+        n_relevant_outputs : SIZE_t
+            We only care about the first n_relevant_outputs of these parameters/values
+        n_features : SIZE_t
+            The number of features
+        n_y : SIZE_t
+            The first n_y columns of the 2d matrix y, contain the raw labels y_{ik}, the rest are auxiliary variables
         n_samples : SIZE_t
-            The total number of samples to fit on
+            The total number of rows in the 2d matrix y
+        max_node_samples : SIZE_t
+            The maximum number of samples that can ever be contained in a node
+        random_state : UINT32_t
+            A random seed for any internal randomness
         """
 
         # Default values
@@ -257,8 +311,8 @@ cdef class RegressionCriterion(Criterion):
         return (type(self), (self.n_outputs, self.n_relevant_outputs, self.n_features, self.n_y,
                              self.n_samples, self.max_node_samples, self.random_state), self.__getstate__())
 
-    cdef int init(self, const DOUBLE_t[:, ::1] y, 
-                  DOUBLE_t* sample_weight, double weighted_n_samples,
+    cdef int init(self, const DOUBLE_t[:, ::1] y, DOUBLE_t* sample_weight,
+                  double weighted_n_samples,
                   SIZE_t* samples) nogil except -1:
         # Initialize fields
         self.y = y
@@ -297,7 +351,7 @@ cdef class RegressionCriterion(Criterion):
                 w_y_ik = w * y_ik
                 self.sum_total[k] += w_y_ik
                 self.sq_sum_total += w_y_ik * y_ik
-            
+
             self.weighted_n_node_samples += w
 
         # Reset to pos=start
