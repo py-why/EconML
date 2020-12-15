@@ -446,13 +446,13 @@ class TestDRLearner(unittest.TestCase):
                                             est.score(y, T, X=X, W=W), float)
 
                                         feature_names = ['A', 'B', 'C']
-                                        out_feat_names = feat_names
+                                        out_feat_names = feature_names
                                         if featurizer is not None:
                                             out_feat_names = featurizer.fit(
-                                                X).get_feature_names(feat_names)
+                                                X).get_feature_names(feature_names)
                                             np.testing.assert_array_equal(
                                                 est.featurizer.n_input_features_, 3)
-                                        np.testing.assert_array_equal(est.cate_feature_names(feat_names),
+                                        np.testing.assert_array_equal(est.cate_feature_names(feature_names),
                                                                       out_feat_names)
 
                                         if isinstance(models[0], GradientBoostingClassifier):
@@ -598,40 +598,40 @@ class TestDRLearner(unittest.TestCase):
                                         est.score(y, T, X=X, W=W), float)
 
                                     if X is not None:
-                                        feat_names = ['A', 'B']
+                                        feature_names = ['A', 'B']
                                     else:
-                                        feat_names = []
-                                    out_feat_names = feat_names
+                                        feature_names = []
+                                    out_feat_names = feature_names
                                     if X is not None:
                                         if (featurizer is not None):
                                             out_feat_names = featurizer.fit(
-                                                X).get_feature_names(feat_names)
+                                                X).get_feature_names(feature_names)
                                             np.testing.assert_array_equal(
                                                 est.featurizer.n_input_features_, 2)
-                                        np.testing.assert_array_equal(est.cate_feature_names(feat_names),
+                                        np.testing.assert_array_equal(est.cate_feature_names(feature_names),
                                                                       out_feat_names)
 
                                     if isinstance(models[0], GradientBoostingClassifier):
                                         np.testing.assert_array_equal(np.array([mdl.feature_importances_
                                                                                 for mdl
                                                                                 in est.models_regression]).shape,
-                                                                      [2, 2 + len(feat_names) +
+                                                                      [2, 2 + len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
                                         np.testing.assert_array_equal(np.array([mdl.feature_importances_
                                                                                 for mdl
                                                                                 in est.models_propensity]).shape,
-                                                                      [2, len(feat_names) +
+                                                                      [2, len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
                                     else:
                                         np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                 for mdl
                                                                                 in est.models_regression]).shape,
-                                                                      [2, 2 + len(feat_names) +
+                                                                      [2, 2 + len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
                                         np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                 for mdl
                                                                                 in est.models_propensity]).shape,
-                                                                      [2, 3, len(feat_names) +
+                                                                      [2, 3, len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
 
                                     if isinstance(est, LinearDRLearner) or isinstance(est, SparseLinearDRLearner):

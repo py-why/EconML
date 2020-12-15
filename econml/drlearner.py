@@ -551,11 +551,15 @@ class DRLearner(_OrthoLearner):
             with each entry of the :meth:`coef_` parameter. Available only when the featurizer is not None and has
             a method: `get_feature_names(feature_names)`. Otherwise None is returned.
         """
+        if self._d_x is None:
+            # Handles the corner case when X=None but featurizer might be not None
+            return None
         if feature_names is None:
             feature_names = self._input_names["feature_names"]
         if self.featurizer is None:
             return feature_names
         elif hasattr(self.featurizer, 'get_feature_names'):
+            # This fails if X=None and featurizer is not None, but that case is handled above
             return self.featurizer.get_feature_names(feature_names)
         else:
             raise AttributeError("Featurizer does not have a method: get_feature_names!")

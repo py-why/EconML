@@ -38,6 +38,7 @@ from warnings import warn
 
 import numpy as np
 from sklearn.base import TransformerMixin, clone
+from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.pipeline import Pipeline
@@ -297,11 +298,15 @@ class _BaseDML(_RLearner):
             with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
             does not have a method: `get_feature_names(feature_names)`. Otherwise None is returned.
         """
+        if self._d_x is None:
+            # Handles the corner case when X=None but featurizer might be not None
+            return None
         if feature_names is None:
             feature_names = self._input_names["feature_names"]
         if self.original_featurizer is None:
             return feature_names
         elif hasattr(self.original_featurizer, 'get_feature_names'):
+            # This fails if X=None and featurizer is not None, but that case is handled above
             return self.original_featurizer.get_feature_names(feature_names)
         else:
             raise AttributeError("Featurizer does not have a method: get_feature_names!")

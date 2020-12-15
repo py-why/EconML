@@ -280,10 +280,6 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self: an instance of self.
         """
         Y, T, X, W = check_inputs(Y, T, X, W, multi_output_Y=False)
-        if Y.ndim > 1 and Y.shape[1] > 1:
-            raise ValueError(
-                "The outcome matrix must be of shape ({0}, ) or ({0}, 1), instead got {1}.".format(len(X), Y.shape))
-
         shuffled_inidces = self.random_state.permutation(X.shape[0])
         n = X.shape[0] // 2
         self.Y_one = Y[shuffled_inidces[:n]]
@@ -627,6 +623,8 @@ class DMLOrthoForest(BaseOrthoForest):
         -------
         self: an instance of self.
         """
+        self._set_input_names(Y, T, X, set_flag=True)
+        Y, T, X, W = check_inputs(Y, T, X, W)
         if self.discrete_treatment:
             d_t_in = T.shape[1:]
             T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
@@ -944,6 +942,8 @@ class DROrthoForest(BaseOrthoForest):
         -------
         self: an instance of self.
         """
+        self._set_input_names(Y, T, X, set_flag=True)
+        Y, T, X, W = check_inputs(Y, T, X, W)
         # Check that T is shape (n, )
         # Check T is numeric
         T = self._check_treatment(T)
@@ -960,7 +960,6 @@ class DROrthoForest(BaseOrthoForest):
         # weirdness of wrap_fit. We need to store d_t_in. But because wrap_fit decorates the parent
         # fit, we need to set explicitly d_t_in here after super fit is called.
         self._d_t_in = d_t_in
-
         return self
 
     def const_marginal_effect(self, X):

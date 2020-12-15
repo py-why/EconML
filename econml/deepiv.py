@@ -316,7 +316,6 @@ class DeepIV(BaseCateEstimator):
         self
 
         """
-        self._set_input_names(Y, T, X)
         Y, T, X, Z = check_input_arrays(Y, T, X, Z)
         assert 1 <= np.ndim(X) <= 2
         assert 1 <= np.ndim(Z) <= 2

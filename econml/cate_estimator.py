@@ -43,13 +43,17 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         # because inf now stores state from fitting est2
         return deepcopy(inference)
 
-    def _set_input_names(self, Y, T, X):
+    def _set_input_names(self, Y, T, X, set_flag=True):
         """Set input column names if inputs have column metadata."""
         self._input_names = {
             "feature_names": get_input_columns(X),
             "output_names": get_input_columns(Y),
             "treatment_names": get_input_columns(T)
         }
+        if set_flag:
+            # This flag is true when names are set in a child class instead
+            # If names are set in a child class, add an attribute reflecting that
+            self._input_names_set = True
 
     def _strata(self, Y, T, *args, **kwargs):
         """
@@ -71,8 +75,11 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         self._d_t = np.shape(T)[1:]
         # This works only if X is passed as a kwarg
         # We plan to enforce X as kwarg only in new releases
-        X = kwargs.get('X')
-        self._set_input_names(Y, T, X)
+        if not hasattr(self, "_input_names_set"):
+            # This checks if names have been set in a child class
+            # If names were set in a child class, don't do it again
+            X = kwargs.get('X')
+            self._set_input_names(Y, T, X)
 
     @abc.abstractmethod
     def fit(self, *args, inference=None, **kwargs):
