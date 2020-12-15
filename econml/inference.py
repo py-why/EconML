@@ -846,7 +846,8 @@ class NormalInferenceResults(InferenceResults):
         pred = np.repeat(self.pred, n_rows, axis=0)
         pred_stderr = np.repeat(self.pred_stderr, n_rows, axis=0)
         return NormalInferenceResults(self.d_t, self.d_y, pred, pred_stderr, self.inf_type,
-                                      self.fname_transformer, self.feat_name, self.output_name, self.treatment_name)
+                                      self.fname_transformer, self.feature_names,
+                                      self.output_names, self.treatment_names)
 
 
 class EmpiricalInferenceResults(InferenceResults):
@@ -940,7 +941,8 @@ class EmpiricalInferenceResults(InferenceResults):
         assert shape(self.pred)[0] == shape(self.pred_dist)[1] == 1
         pred = np.repeat(self.pred, n_rows, axis=0)
         pred_dist = np.repeat(self.pred_dist, n_rows, axis=1)
-        return EmpiricalInferenceResults(self.d_t, self.d_y, pred, pred_dist, self.inf_type, self.fname_transformer)
+        return EmpiricalInferenceResults(self.d_t, self.d_y, pred, pred_dist, self.inf_type, self.fname_transformer,
+                                         self.feature_names, self.output_names, self.treatment_names)
 
 
 class PopulationSummaryResults:
