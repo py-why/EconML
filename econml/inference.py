@@ -846,7 +846,7 @@ class NormalInferenceResults(InferenceResults):
         pred = np.repeat(self.pred, n_rows, axis=0)
         pred_stderr = np.repeat(self.pred_stderr, n_rows, axis=0)
         return NormalInferenceResults(self.d_t, self.d_y, pred, pred_stderr, self.inf_type,
-                                      self.fname_transformer)
+                                      self.fname_transformer, self.feat_name, self.output_name, self.treatment_name)
 
 
 class EmpiricalInferenceResults(InferenceResults):
