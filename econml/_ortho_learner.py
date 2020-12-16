@@ -25,6 +25,7 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 """
 
 import copy
+from collections import namedtuple
 from warnings import warn
 
 import numpy as np
@@ -185,6 +186,10 @@ def _crossfit(model, folds, *args, **kwargs):
                 scores[it].append(score)
 
     return nuisances, model_list, np.sort(fitted_inds.astype(int)), (scores if calculate_scores else None)
+
+
+CachedValues = namedtuple('_CachedValues', ['nuisances',
+                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'sample_var'])
 
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -451,10 +456,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._discrete_instrument = discrete_instrument
         self._init_random_state = random_state
         self._random_state = check_random_state(random_state)
-        if discrete_treatment:
-            if categories != 'auto':
-                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-            self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self._categories = categories
         super().__init__()
 
     def _check_input_dims(self, Y, T, X=None, W=None, Z=None, *other_arrays):
@@ -485,7 +487,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _subinds_check_none(self, var, inds):
         return var[inds] if var is not None else None
 
-    def _strata(self, Y, T, X=None, W=None, Z=None, sample_weight=None, sample_var=None, groups=None):
+    def _strata(self, Y, T, X=None, W=None, Z=None,
+                sample_weight=None, sample_var=None, groups=None, cache_values=False):
         if self._discrete_instrument:
             Z = LabelEncoder().fit_transform(np.ravel(Z))
 
@@ -501,10 +504,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             return None
 
+    def _prefit(self, Y, T, *args, **kwargs):
+        categories = self._categories
+        if self._discrete_treatment:
+            if categories != 'auto':
+                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+            self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
+
+        super()._prefit(Y, T, *args, **kwargs)
+
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X=None, W=None, Z=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -528,6 +541,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the n_splits argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache the inputs and computed nuisances, which will allow refitting a different final model
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`).
@@ -541,14 +556,46 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Y, T, X, W, Z, sample_weight, sample_var, groups)
         self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var, groups)
         nuisances, fitted_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
-        self._fit_final(self._subinds_check_none(Y, fitted_inds),
-                        self._subinds_check_none(T, fitted_inds),
-                        X=self._subinds_check_none(X, fitted_inds),
-                        W=self._subinds_check_none(W, fitted_inds),
-                        Z=self._subinds_check_none(Z, fitted_inds),
-                        nuisances=tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances]),
-                        sample_weight=self._subinds_check_none(sample_weight, fitted_inds),
-                        sample_var=self._subinds_check_none(sample_var, fitted_inds))
+        Y, T, X, W, Z, sample_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
+                                                    for arr in (Y, T, X, W, Z, sample_weight, sample_var))
+        nuisances = tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances])
+        self._cached_values = CachedValues(nuisances=nuisances,
+                                           Y=Y, T=T, X=X, W=W, Z=Z,
+                                           sample_weight=sample_weight,
+                                           sample_var=sample_var) if cache_values else None
+        self._fit_final(Y=Y, T=T, X=X, W=W, Z=Z,
+                        nuisances=nuisances,
+                        sample_weight=sample_weight,
+                        sample_var=sample_var)
+
+        self._cache_invalid_message = None
+        return self
+
+    # TODO: this doesn't currently allow inference, because that is handled by the wrap_fit attribute
+    #       which can't be directly applied here yet; this will be fixed in a subsequent change
+    def refit(self):
+        """
+        Estimate the counterfactual model using a new final model specification but with cached first stage results.
+
+        In order for this to succeed, ``fit`` must have been called with ``cache_values=True``, and no settings which
+        would invalidate the fit have been modified.
+
+        Returns
+        -------
+        self : _OrthoLearner
+            This instance
+        """
+        assert self._cached_values, "Refit can only be called if values were cached during the original fit"
+        assert self._cache_invalid_message is None, "Can't refit: " + self._cache_invalid_message
+        cached = self._cached_values
+        self._fit_final(Y=cached.Y,
+                        T=cached.T,
+                        X=cached.X,
+                        W=cached.W,
+                        Z=cached.Z,
+                        nuisances=cached.nuisances,
+                        sample_weight=cached.sample_weight,
+                        sample_var=cached.sample_var)
         return self
 
     def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -601,6 +648,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             self.transformer = FunctionTransformer(
                 func=_EncoderWrapper(self._one_hot_encoder).encode,
                 validate=False)
+        else:
+            self.transformer = None
 
         nuisances, fitted_models, fitted_inds, scores = _crossfit(self._model_nuisance, folds,
                                                                   Y, T, X=X, W=W, Z=Z,
@@ -713,6 +762,64 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     @property
     def model_final(self):
         return self._model_final
+
+    @model_final.setter
+    def model_final(self, model_final):
+        self._model_final = clone(model_final, safe=False)
+
+    @property
+    def model_nuisance(self):
+        return self._model_nuisance
+
+    @model_nuisance.setter
+    def model_nuisance(self, model_nuisance):
+        self._model_nuisance = clone(model_nuisance, safe=False)
+        self._cache_invalid_message = "Setting the nuisance model invalidates the cached nuisances"
+
+    @property
+    def n_splits(self):
+        return self._n_splits
+
+    @n_splits.setter
+    def n_splits(self, n_splits):
+        self._n_splits = n_splits
+        self._cache_invalid_message = "Setting the number of splits invalidates the cached nuisances"
+
+    @property
+    def discrete_treatment(self):
+        return self._discrete_treatment
+
+    @discrete_treatment.setter
+    def discrete_treatment(self, discrete_treatment):
+        self._discrete_treatment = discrete_treatment
+        self._cache_invalid_message = "Setting discrete_treatment invalidates the cached nuisances"
+
+    @property
+    def discrete_instrument(self):
+        return self._discrete_instrument
+
+    @discrete_instrument.setter
+    def discrete_instrument(self, discrete_instrument):
+        self._discrete_instrument = discrete_instrument
+        self._cache_invalid_message = "Setting discrete_instrument invalidates the cached nuisances"
+
+    @property
+    def random_state(self):
+        return self._init_random_state
+
+    @random_state.setter
+    def random_state(self, random_state):
+        self._init_random_state = random_state
+        self._cache_invalid_message = "Setting the random state invalidates the cached nuisances"
+
+    @property
+    def categories(self):
+        return self._categories
+
+    @categories.setter
+    def categories(self, categories):
+        self._categories = categories
+        self._cache_invalid_message = "Setting the categories invalidates the cached nuisances"
 
     @property
     def models_nuisance(self):

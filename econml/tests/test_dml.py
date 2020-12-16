@@ -8,15 +8,14 @@ from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegre
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
 from sklearn.model_selection import KFold, GroupKFold
-from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML
-from econml.dml import NonParamDML, ForestDML
+from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, ForestDML)
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference
 from contextlib import ExitStack
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM, StatsModelsLinearRegression
 from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -1065,3 +1064,67 @@ class TestDML(unittest.TestCase):
 
         d = pickle.dumps(LinearDMLCateEstimator())
         e = pickle.loads(d)
+
+    def test_refit(self):
+        """Test setting attributes and refitting"""
+        dml = DML(LinearRegression(), LinearRegression(), StatsModelsLinearRegression(
+            fit_intercept=False), linear_first_stages=False)
+        ldml = LinearDML(linear_first_stages=False, featurizer=PolynomialFeatures(1, include_bias=False))
+
+        X = np.random.choice(np.arange(5), size=(500, 3))
+        y = np.random.normal(size=(500,))
+        T = np.random.choice(np.arange(3), size=(500, 2))
+        W = np.random.normal(size=(500, 2))
+
+        # can't refit if we don't cache values
+        ldml.fit(y, T, X=X, W=W)
+        dml.fit(y, T, X=X, W=W)
+        with pytest.raises(Exception):
+            ldml.refit()
+        with pytest.raises(Exception):
+            dml.refit()
+
+        ldml.fit(y, T, X=X, W=W, cache_values=True)
+        dml.fit(y, T, X=X, W=W, cache_values=True)
+        # can set final model for plain DML, but can't for LinearDML (hardcoded to StatsModelsRegression)
+        dml.model_final = StatsModelsRLM()
+        dml.refit()
+
+        with pytest.raises(AttributeError):
+            ldml.model_final = StatsModelsRLM()
+
+        # can change the featurizer and refit, for either
+        ldml.featurizer = PolynomialFeatures(1, include_bias=False)
+        dml.featurizer = PolynomialFeatures(1, include_bias=False)
+        ldml.refit()
+        dml.refit()
+
+        # after setting linear_first_stages to True, can fit (but not refit)
+        ldml.linear_first_stages = True
+        dml.linear_first_stages = True
+        ldml.fit(y, T, X=X, W=W, cache_values=True)
+        dml.fit(y, T, X=X, W=W, cache_values=True)
+
+        # can't change the featurizer and refit if linear_first_stages is true
+        ldml.featurizer = None
+        dml.featurizer = None
+        with pytest.raises(Exception):
+            ldml.refit()
+        with pytest.raises(Exception):
+            dml.refit()
+
+    def test_can_set_discrete_treatment(self):
+        X = np.random.choice(np.arange(5), size=(500, 3))
+        y = np.random.normal(size=(500,))
+        T = np.random.choice(np.arange(3), size=(500, 1))
+        W = np.random.normal(size=(500, 2))
+        est = LinearDML(model_y=RandomForestRegressor(),
+                        model_t=RandomForestClassifier(min_samples_leaf=10),
+                        discrete_treatment=True,
+                        linear_first_stages=False,
+                        n_splits=3)
+        est.fit(y, T, X=X, W=W)
+        est.effect(X)
+        est.discrete_treatment = False
+        est.fit(y, T, X=X, W=W)
+        est.effect(X)

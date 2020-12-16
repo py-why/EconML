@@ -46,6 +46,7 @@ from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
                                    OneHotEncoder)
 from sklearn.utils import check_random_state
 
+from ._ortho_learner import _OrthoLearner
 from ._rlearner import _RLearner
 from .cate_estimator import (DebiasedLassoCateEstimatorMixin,
                              ForestModelFinalCateEstimatorMixin,
@@ -240,6 +241,15 @@ class _BaseDML(_RLearner):
     def model_final(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
         return super().model_final._model
+
+    @model_final.setter
+    def model_final(self, model):
+        model = _FinalWrapper(model,
+                              fit_cate_intercept=super().model_final._fit_cate_intercept,
+                              featurizer=super().model_final._original_featurizer,
+                              use_weight_trick=super().model_final._use_weight_trick)
+        # super().model_final = model
+        super(_BaseDML, _BaseDML).model_final.__set__(self, model)
 
     @property
     def model_cate(self):
@@ -441,6 +451,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  categories='auto',
                  n_splits=2,
                  random_state=None):
+        model_y = clone(model_y, safe=False)
+        model_t = clone(model_t, safe=False)
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -452,8 +464,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                                                random_state=random_state)
             else:
                 model_t = WeightedLassoCVWrapper(random_state=random_state)
-        self.bias_part_of_coef = fit_cate_intercept
-        self.fit_cate_intercept = fit_cate_intercept
+        self._fit_cate_intercept = fit_cate_intercept
+        self._linear_first_stages = linear_first_stages
+        self._featurizer = clone(featurizer, safe=False)
         super().__init__(model_y=_FirstStageWrapper(model_y, True,
                                                     featurizer, linear_first_stages, discrete_treatment),
                          model_t=_FirstStageWrapper(model_t, False,
@@ -464,10 +477,52 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          n_splits=n_splits,
                          random_state=random_state)
 
+    def _set_final_model(self):
+        # _BaseDML's final model setter reuses possibly stale fit_cate_intercept and featurizer
+        # so we need to pass _BaseDML, not DML to the super() call
+        # super(_BasaeDML).model_final = model_final
+        super(_BaseDML, _BaseDML).model_final.__set__(self, _FinalWrapper(
+            self.model_final, self.fit_cate_intercept, self._featurizer, False))
+
+    def _update_models(self):
+        model_y = self.model_y
+        model_t = self.model_t
+        model_final = self.model_final
+        featurizer = self._featurizer
+        discrete_treatment = self.discrete_treatment
+        random_state = self.random_state
+        fit_cate_intercept = self.fit_cate_intercept
+        linear_first_stages = self._linear_first_stages
+
+        # TODO: consider whether we need more care around stateful featurizers,
+        #       since we clone it and fit separate copies
+        if model_y == 'auto':
+            model_y = WeightedLassoCVWrapper(random_state=random_state)
+        if model_t == 'auto':
+            if discrete_treatment:
+                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=random_state),
+                                               random_state=random_state)
+            else:
+                model_t = WeightedLassoCVWrapper(random_state=random_state)
+
+        model_y = _FirstStageWrapper(model_y, True,
+                                     featurizer, linear_first_stages, discrete_treatment)
+
+        model_t = _FirstStageWrapper(model_t, False,
+                                     featurizer, linear_first_stages, discrete_treatment)
+
+        # super().model_y = model_y
+        super(DML, DML).model_y.__set__(self, model_y)
+        # super().model_t = model_y
+        super(DML, DML).model_t.__set__(self, model_t)
+
+        self._set_final_model()
+
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -483,6 +538,12 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
@@ -493,7 +554,74 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self
         """
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
+
+    @property
+    def linear_first_stages(self):
+        return self._linear_first_stages
+
+    @linear_first_stages.setter
+    def linear_first_stages(self, linear_first_stages):
+        self._linear_first_stages = linear_first_stages
+        self._update_models()
+        # updating the models will set a misleading invalidation message, so overwrite it
+        self._cache_invalid_message = "Changing linear_first_stages invalidates stored nuisance results"
+
+    @_BaseDML.featurizer.setter
+    def featurizer(self, featurizer):
+        self._featurizer = clone(featurizer, safe=False)
+        if self._linear_first_stages:
+            self._update_models()
+            # updating the models will set a misleading invalidation message, so overwrite it
+            self._cache_invalid_message = ("Changing the featurizer when linear_first_stages is True "
+                                           "invalidates stored nuisance results")
+        else:
+            # only the final model needs to change
+            self._set_final_model()
+
+    @property
+    def fit_cate_intercept(self):
+        return self._fit_cate_intercept
+
+    @fit_cate_intercept.setter
+    def fit_cate_intercept(self, fit_cate_intercept):
+        self._fit_cate_intercept = fit_cate_intercept
+        # only the final model needs to change
+        self._set_final_model()
+
+    @property
+    def bias_part_of_coef(self):
+        return self.fit_cate_intercept
+
+    @_OrthoLearner.discrete_treatment.setter
+    def discrete_treatment(self, discrete_treatement):
+        # super().discrete_treatment = discrete_treatment
+        super(DML, DML).discrete_treatment.__set__(self, discrete_treatement)
+        # need to modify first-stage models in response, although unless model_t is 'auto'
+        # the treatment model probably also needs to be updated from a classifier to a regressor or vice-versa...
+        self._update_models()
+
+    @property
+    def model_t(self):
+        return super().model_t._model
+
+    @model_t.setter
+    def model_t(self, model_t):
+        model = _FirstStageWrapper(clone(model_t, safe=False), False,
+                                   self.featurizer, self.linear_first_stages, self.discrete_treatment)
+        # super().model_t = model
+        super(DML, DML).model_t.__set__(self, model)
+
+    @property
+    def model_y(self):
+        return super().model_y._model
+
+    @model_y.setter
+    def model_y(self, model_y):
+        model = _FirstStageWrapper(clone(model_y, safe=False), False,
+                                   self.featurizer, self.linear_first_stages, self.discrete_treatment)
+        # super().model_y = model
+        super(DML, DML).model_y.__set__(self, model)
 
 
 class LinearDML(StatsModelsCateEstimatorMixin, DML):
@@ -580,7 +708,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -602,6 +731,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the n_splits argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'statsmodels'
@@ -613,7 +744,12 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         """
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
+
+    @DML.model_final.setter
+    def model_final(self, model):
+        raise AttributeError("LinearDML final model can't be chnaged from "
+                             "StatsModelsLinearRegression(fit_intercept=False)")
 
 
 class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
@@ -710,6 +846,9 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  categories='auto',
                  n_splits=2,
                  random_state=None):
+        self._alpha = alpha
+        self._max_iter = max_iter
+        self._tol = tol
         model_final = MultiOutputDebiasedLasso(
             alpha=alpha,
             fit_intercept=False,
@@ -729,7 +868,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -752,6 +892,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the n_splits argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'debiasedlasso'
@@ -771,7 +913,69 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                                "We recommend using the LinearDML estimator for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
+
+    @DML.model_final.setter
+    def model_final(self, model):
+        raise AttributeError("SparseLinearDML final model can't be set directly;"
+                             "instead set alpha, tol, or max_iter to change the debiased lasso settings")
+
+    def _set_model_final(self, m):
+        # super().model_final = m
+        super(SparseLinearDML, SparseLinearDML).model_final.__set__(self, m)
+
+    @property
+    def alpha(self):
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, alpha):
+        self._alpha = alpha
+        self._set_model_final(MultiOutputDebiasedLasso(
+            alpha=self.alpha,
+            fit_intercept=False,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            random_state=self.random_state))
+
+    @property
+    def max_iter(self):
+        return self._max_iter
+
+    @max_iter.setter
+    def max_iter(self, max_iter):
+        self.max_iter = max_iter
+        self._set_model_final(MultiOutputDebiasedLasso(
+            alpha=self.alpha,
+            fit_intercept=False,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            random_state=self.random_state))
+
+    @property
+    def tol(self):
+        return self._tol
+
+    @tol.setter
+    def tol(self, tol):
+        self._tol = tol
+        self._set_model_final(MultiOutputDebiasedLasso(
+            alpha=self.alpha,
+            fit_intercept=False,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            random_state=self.random_state))
+
+    @_OrthoLearner.random_state.setter
+    def random_state(self, random_state):
+        # super().random_state = random_state
+        super(SparseLinearDML, SparseLinearDML).random_state.__set__(self, random_state)
+        self._set_model_final(MultiOutputDebiasedLasso(
+            alpha=self.alpha,
+            fit_intercept=False,
+            max_iter=self.max_iter,
+            tol=self.tol,
+            random_state=self.random_state))
 
 
 class _RandomFeatures(TransformerMixin):
@@ -859,6 +1063,43 @@ class KernelDML(DML):
                          categories=categories,
                          n_splits=n_splits, random_state=random_state)
 
+    @property
+    def bw(self):
+        return self._bw
+
+    @bw.setter
+    def bw(self, bw):
+        self._bw = bw
+        # super().featurizer = _RandomFeatures(self._dim, self._bw, self.random_state)
+        super(KernelDML, KernelDML).featurizer.__set__(self, _RandomFeatures(self._dim, self._bw, self.random_state))
+
+    @property
+    def dim(self):
+        return self._dim
+
+    @dim.setter
+    def dim(self, dim):
+        self._dim = dim
+        # super().featurizer = _RandomFeatures(self._dim, self._bw, self.random_state)
+        super(KernelDML, KernelDML).featurizer.__set__(self, _RandomFeatures(self._dim, self._bw, self.random_state))
+
+    @_BaseDML.featurizer.setter
+    def featurizer(self, dim):
+        raise AttributeError("KernelDML featurizer can't be set directly; "
+                             "instead set the bw and dim attributes to modify the kernel")
+
+    @DML.model_final.setter
+    def model_final(self, model):
+        raise AttributeError("KernelDML final model can't be changed from ElasticNetCV")
+
+    @_OrthoLearner.random_state.setter
+    def random_state(self, random_state):
+        # super().random_state = random_state
+        super(KernelDML, KernelDML).random_state.__set__(self, random_state)
+        # super().model_final = ElasticNetCV(fit_intercept=False, random_state=random_state)
+        super(KernelDML, KernelDML).model_final.__set__(self, ElasticNetCV(fit_intercept=False,
+                                                                           random_state=random_state))
+
 
 class NonParamDML(_BaseDML):
     """
@@ -927,6 +1168,9 @@ class NonParamDML(_BaseDML):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
+        model_y = clone(model_y, safe=False)
+        model_t = clone(model_t, safe=False)
+        self._featurizer = clone(featurizer, safe=False)
 
         super().__init__(model_y=_FirstStageWrapper(model_y, True,
                                                     featurizer, False, discrete_treatment),
@@ -937,6 +1181,39 @@ class NonParamDML(_BaseDML):
                          categories=categories,
                          n_splits=n_splits,
                          random_state=random_state)
+
+    @_BaseDML.featurizer.setter
+    def featurizer(self, featurizer):
+        self._featurizer = clone(featurizer, safe=False)
+        # featurizer isn't actually used by first stage models since linear_first_stages is False,
+        # so we only need to update model_final
+        # _BaseDML's final model setter reuses its old featurizer
+        # so we need to pass _BaseDML, not DML to the super() call
+        # super(_BasaeDML).model_final = _FinalWrapper(...)
+        super(_BaseDML, _BaseDML).model_final.__set__(self, _FinalWrapper(
+            self.model_final, False, self._featurizer, True))
+
+    @property
+    def model_t(self):
+        return super().model_t._model
+
+    @model_t.setter
+    def model_t(self, model_t):
+        model = _FirstStageWrapper(clone(model_t, safe=False), False,
+                                   self.featurizer, False, self.discrete_treatment)
+        # super().model_t = model
+        super(DML, DML).model_t.__set__(self, model)
+
+    @property
+    def model_y(self):
+        return super().model_y._model
+
+    @model_y.setter
+    def model_y(self, model_y):
+        model = _FirstStageWrapper(clone(model_y, safe=False), False,
+                                   self.featurizer, False, self.discrete_treatment)
+        # super().model_y = model
+        super(DML, DML).model_y.__set__(self, model)
 
 
 class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
@@ -1111,6 +1388,19 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
                  n_jobs=None,
                  verbose=0,
                  random_state=None):
+        self._n_estimators = n_estimators
+        self._criterion = criterion
+        self._max_depth = max_depth
+        self._min_samples_split = min_samples_split
+        self._min_samples_leaf = min_samples_leaf
+        self._min_weight_fraction_leaf = min_weight_fraction_leaf
+        self._max_features = max_features
+        self._max_leaf_nodes = max_leaf_nodes
+        self._min_impurity_decrease = min_impurity_decrease
+        self._subsample_fr = subsample_fr
+        self._honest = honest
+        self._n_jobs = n_jobs
+        self._verbose = verbose
         model_final = SubsampledHonestForest(n_estimators=n_estimators,
                                              criterion=criterion,
                                              max_depth=max_depth,
@@ -1133,7 +1423,8 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1156,6 +1447,8 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the n_splits argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'blb'
@@ -1167,7 +1460,147 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         """
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
+
+    @DML.model_final.setter
+    def model_final(self, model):
+        raise AttributeError("ForestDML final model can't be set directly;"
+                             "instead set individual attributes to modify the SubsampledHonestForest settings")
+
+    def _set_model_final(self):
+        # super().model_final = SubsampledHonestForest(...)
+        super(ForestDML, ForestDML).model_final.__set__(
+            self, SubsampledHonestForest(n_estimators=self._n_estimators,
+                                         criterion=self._criterion,
+                                         max_depth=self._max_depth,
+                                         min_samples_split=self._min_samples_split,
+                                         min_samples_leaf=self._min_samples_leaf,
+                                         min_weight_fraction_leaf=self._min_weight_fraction_leaf,
+                                         max_features=self._max_features,
+                                         max_leaf_nodes=self._max_leaf_nodes,
+                                         min_impurity_decrease=self._min_impurity_decrease,
+                                         subsample_fr=self._subsample_fr,
+                                         honest=self._honest,
+                                         n_jobs=self._n_jobs,
+                                         random_state=self._random_state,
+                                         verbose=self._verbose))
+
+    @property
+    def n_estimators(self):
+        return self._n_estimators
+
+    @n_estimators.setter
+    def n_estimators(self, n_estimators):
+        self._n_estimators = n_estimators
+        self._set_model_final()
+
+    @property
+    def criterion(s):
+        return self._criterion
+
+    @criterion.setter
+    def criterion(self, criterion):
+        self._criterion = criterion
+        self._set_model_final()
+
+    @property
+    def max_depth(s):
+        return self._max_depth
+
+    @max_depth.setter
+    def max_depth(self, max_depth):
+        self._max_depth = max_depth
+        self._set_model_final()
+
+    @property
+    def min_samples_split(self, min):
+        return self._min_samples_split
+
+    @min_samples_split.setter
+    def min_samples_split(self, min_samples_split):
+        self._min_samples_split = min_samples_split
+        self._set_model_final()
+
+    @property
+    def min_samples_leaf(self, mi):
+        return self._min_samples_leaf
+
+    @min_samples_leaf.setter
+    def min_samples_leaf(self, min_samples_leaf):
+        self._min_samples_leaf = min_samples_leaf
+        self._set_model_final()
+
+    @property
+    def min_weight_fraction_leaf(self, min_weight):
+        return self._min_weight_fraction_leaf
+
+    @min_weight_fraction_leaf.setter
+    def min_weight_fraction_leaf(self, min_weight_fraction_leaf):
+        self._min_weight_fraction_leaf = min_weight_fraction_leaf
+        self._set_model_final()
+
+    @property
+    def max_features(self):
+        return self._max_features
+
+    @max_features.setter
+    def max_features(self, max_features):
+        self._max_features = max_features
+        self._set_model_final()
+
+    @property
+    def max_leaf_nodes(self, ):
+        return self._max_leaf_nodes
+
+    @max_leaf_nodes.setter
+    def max_leaf_nodes(self, max_leaf_nodes):
+        self._max_leaf_nodes = max_leaf_nodes
+        self._set_model_final()
+
+    @property
+    def min_impurity_decrease(self, min_imp):
+        return self._min_impurity_decrease
+
+    @min_impurity_decrease.setter
+    def min_impurity_decrease(self, min_impurity_decrease):
+        self._min_impurity_decrease = min_impurity_decrease
+        self._set_model_final()
+
+    @property
+    def subsample_fr(self):
+        return self._subsample_fr
+
+    @subsample_fr.setter
+    def subsample_fr(self, subsample_fr):
+        self._subsample_fr = subsample_fr
+        self._set_model_final()
+
+    @property
+    def honest(self):
+        return self._honest
+
+    @honest.setter
+    def honest(self, honest):
+        self._honest = honest
+        self._set_model_final()
+
+    @property
+    def n_jobs(self):
+        return self._n_jobs
+
+    @n_jobs.setter
+    def n_jobs(self, n_jobs):
+        self._n_jobs = n_jobs
+        self._set_model_final()
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, verbose):
+        self._verbose = verbose
+        self._set_model_final()
 
 
 @deprecated("The DMLCateEstimator class has been renamed to DML; "

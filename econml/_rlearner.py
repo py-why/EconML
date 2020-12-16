@@ -42,8 +42,8 @@ class _ModelNuisance:
     """
 
     def __init__(self, model_y, model_t):
-        self._model_y = clone(model_y, safe=False)
-        self._model_t = clone(model_t, safe=False)
+        self._model_y = model_y
+        self._model_t = model_t
 
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         assert Z is None, "Cannot accept instrument!"
@@ -88,7 +88,7 @@ class _ModelFinal:
     """
 
     def __init__(self, model_final):
-        self._model_final = clone(model_final, safe=False)
+        self._model_final = model_final
 
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
         Y_res, T_res = nuisances
@@ -275,9 +275,8 @@ class _RLearner(_OrthoLearner):
 
     def __init__(self, model_y, model_t, model_final,
                  discrete_treatment, categories, n_splits, random_state):
-
-        super().__init__(_ModelNuisance(model_y, model_t),
-                         _ModelFinal(model_final),
+        super().__init__(_ModelNuisance(clone(model_y, safe=False), clone(model_t, safe=False)),
+                         _ModelFinal(clone(model_final, safe=False)),
                          discrete_treatment=discrete_treatment,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
@@ -286,7 +285,8 @@ class _RLearner(_OrthoLearner):
 
     @_deprecate_positional("X, and should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -308,6 +308,8 @@ class _RLearner(_OrthoLearner):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the n_splits argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -319,7 +321,7 @@ class _RLearner(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
 
     def score(self, Y, T, X=None, W=None):
         """
@@ -353,6 +355,33 @@ class _RLearner(_OrthoLearner):
     def model_final(self):
         return super().model_final._model_final
 
+    @model_final.setter
+    def model_final(self, model_final):
+        # super().model_final = _ModelFinal(clone(model_final, safe=False))
+        super(_RLearner, _RLearner).model_final.__set__(self, _ModelFinal(clone(model_final, safe=False)))
+
+    @property
+    def model_y(self):
+        return self._model_nuisance._model_y
+
+    @model_y.setter
+    def model_y(self, model_y):
+        # super().model_nuisance = _ModelNuisance(clone(model_y, safe=False), self.model_t)
+        super(_RLearner, _RLearner).model_nuisance.__set__(
+            self, _ModelNuisance(clone(model_y, safe=False), self._model_nuisance._model_t))
+        self._cache_invalid_message = "Setting the Y model invalidates cached nuisances"
+
+    @property
+    def model_t(self):
+        return self._model_nuisance._model_t
+
+    @model_t.setter
+    def model_t(self, model_t):
+        # super().model_nuisance = _ModelNuisance(self.model_y, clone(model_t, safe=False))
+        super(_RLearner, _RLearner).model_nuisance.__set__(
+            self, _ModelNuisance(self._model_nuisance._model_y, clone(model_t, safe=False)))
+        self._cache_invalid_message = "Setting the T model invalidates cached nuisances"
+
     @property
     def models_y(self):
         return [mdl._model_y for mdl in super().models_nuisance]
@@ -368,3 +397,12 @@ class _RLearner(_OrthoLearner):
     @property
     def nuisance_scores_t(self):
         return self.nuisance_scores_[1]
+
+    @_OrthoLearner.model_nuisance.setter
+    def model_nuisance(self, model):
+        raise AttributeError("Nuisance model cannot be set directly on an _RLearner instance; "
+                             "set the model_y and model_t attributes instead.")
+
+    @_OrthoLearner.discrete_instrument.setter
+    def discrete_instrument(self, flag):
+        raise AttributeError("_RLearners don't support instruments, so discrete_instrument will always be False")
