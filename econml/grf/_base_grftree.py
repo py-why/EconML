@@ -53,30 +53,35 @@ class GRFTree(BaseEstimator):
         are "mse" for the mean squared error in a linear moment estimation
         tree and "het" for heterogeneity score. For any linear moment problem
         of the form:
+
             E[J * theta(x) - A | X = x] = 0
+
         - The "mse" criterion finds splits that maximize the score:
+
             sum_{child in {left, right}} weight(child) * theta(child).T @ E[J | X in child] @ theta(child)
-          Internally, this criterion is approximated by computationally simpler variants for
+
+            - In the case of a causal tree, this coincides with minimizing the MSE:
+              sum_{child in {left, right}} E[(Y - <theta(child), T>)^2 | X=child] weight(child)
+            - In the case of an IV tree, this roughly coincides with minimize the projected MSE:
+              sum_{child in {left, right}} E[(Y - <theta(child), E[T|Z]>)^2 | X=child] weight(child)
+          Internally, for the case of more than two treatments or for the case of one treatment with
+          `fit_intercept=True` then this criterion is approximated by computationally simpler variants for
           computationaly purposes. In particular, it is replaced by:
               sum_{child in {left, right}} weight(child) * rho(child).T @ E[J | X in child] @ rho(child)
           where:
               rho(child) := J(parent)^{-1} E[A - J * theta(parent) | X in child]
           This can be thought as a heterogeneity inducing score, but putting more weight on scores
-          with a large minimum eigenvalue of the jacobian E[J | X in child], which leads to smaller
+          with a large minimum eigenvalue of the child jacobian E[J | X in child], which leads to smaller
           variance of the estimate and stronger identification of the parameters.
-              - In the case of a causal tree, this coincides with minimizing the MSE:
-                  sum_{child in {left, right}} E[(Y - <theta(child), T>)^2 | X=child] weight(child)
-              - In the case of an IV tree, this roughly coincides with minimize the projected MSE:
-                  sum_{child in {left, right}} E[(Y - <theta(child), E[T|Z]>)^2 | X=child] weight(child)
+
         - The "het" criterion finds splits that maximize the pure parameter heterogeneity score:
               sum_{child in {left, right}} weight(child) * rho(child).T @ rho(child)
           This can be thought as an approximation to the ideal heterogeneity score:
               weight(left) * weight(right) || theta(left) - theta(right)||_2^2 / weight(parent)^2
           as outlined in [1]_
-    splitter : {"best", "random"}, default="best"
+    splitter : {"best"}, default="best"
         The strategy used to choose the split at each node. Supported
-        strategies are "best" to choose the best split and "random" to choose
-        the best random split.
+        strategies are "best" to choose the best split.
     max_depth : int, default=None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
@@ -87,8 +92,6 @@ class GRFTree(BaseEstimator):
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
-        .. versionchanged:: 0.18
-           Added float values for fractions.
     min_samples_leaf : int or float, default=1
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
@@ -99,12 +102,14 @@ class GRFTree(BaseEstimator):
         - If float, then `min_samples_leaf` is a fraction and
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
-        .. versionchanged:: 0.18
-           Added float values for fractions.
     min_weight_fraction_leaf : float, default=0.0
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
+    min_var_leaf : ,
+
+    min_var_leaf_on_val : ,
+
     max_features : int, float or {"auto", "sqrt", "log2"}, default=None
         The number of features to consider when looking for the best split:
         - If int, then consider `max_features` features at each split.
@@ -128,11 +133,6 @@ class GRFTree(BaseEstimator):
         improvement of the criterion is identical for several splits and one
         split has to be selected at random. To obtain a deterministic behaviour
         during fitting, ``random_state`` has to be fixed to an integer.
-        See :term:`Glossary <random_state>` for details.
-    max_leaf_nodes : int, default=None
-        Grow a tree with ``max_leaf_nodes`` in best-first fashion.
-        Best nodes are defined as relative reduction in impurity.
-        If None then unlimited number of leaf nodes.
     min_impurity_decrease : float, default=0.0
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
@@ -144,21 +144,10 @@ class GRFTree(BaseEstimator):
         left child, and ``N_t_R`` is the number of samples in the right child.
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
-        .. versionadded:: 0.19
-    min_impurity_split : float, default=0
-        Threshold for early stopping in tree growth. A node will split
-        if its impurity is above the threshold, otherwise it is a leaf.
-        .. deprecated:: 0.19
-           ``min_impurity_split`` has been deprecated in favor of
-           ``min_impurity_decrease`` in 0.19. The default value of
-           ``min_impurity_split`` has changed from 1e-7 to 0 in 0.23 and it
-           will be removed in 0.25. Use ``min_impurity_decrease`` instead.
-    ccp_alpha : non-negative float, default=0.0
-        Complexity parameter used for Minimal Cost-Complexity Pruning. The
-        subtree with the largest cost complexity that is smaller than
-        ``ccp_alpha`` will be chosen. By default, no pruning is performed. See
-        :ref:`minimal_cost_complexity_pruning` for details.
-        .. versionadded:: 0.22
+    min_balancedness_tol:,
+
+    honest: ,
+
     Attributes
     ----------
     feature_importances_ : ndarray of shape (n_features,)
@@ -178,36 +167,14 @@ class GRFTree(BaseEstimator):
         The number of outputs when ``fit`` is performed.
     tree_ : Tree instance
         The underlying Tree object. Please refer to
-        ``help(sklearn.tree._tree.Tree)`` for attributes of Tree object and
-        :ref:`sphx_glr_auto_examples_tree_plot_unveil_tree_structure.py`
-        for basic usage of these attributes.
-    See Also
-    --------
-    DecisionTreeClassifier : A decision tree classifier.
-    Notes
-    -----
-    The default values for the parameters controlling the size of the trees
-    (e.g. ``max_depth``, ``min_samples_leaf``, etc.) lead to fully grown and
-    unpruned trees which can potentially be very large on some data sets. To
-    reduce memory consumption, the complexity and size of the trees should be
-    controlled by setting those parameter values.
+        ``help(econml.tree._tree.Tree)`` for attributes of Tree object.
+
     References
     ----------
     .. [1] Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
         The Annals of Statistics 47.2 (2019): 1148-1178
-        https://arxiv.org/pdf/1610.01271.pdf 
-    Examples
-    --------
-    >>> from sklearn.datasets import load_diabetes
-    >>> from sklearn.model_selection import cross_val_score
-    >>> from sklearn.tree import DecisionTreeRegressor
-    >>> X, y = load_diabetes(return_X_y=True)
-    >>> regressor = DecisionTreeRegressor(random_state=0)
-    >>> cross_val_score(regressor, X, y, cv=10)
-    ...                    # doctest: +SKIP
-    ...
-    array([-0.39..., -0.46...,  0.02...,  0.06..., -0.50...,
-           0.16...,  0.11..., -0.73..., -0.30..., -0.00...])
+        https://arxiv.org/pdf/1610.01271.pdf
+
     """
 
     def __init__(self, *,
@@ -218,6 +185,7 @@ class GRFTree(BaseEstimator):
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
                  min_var_leaf=None,
+                 min_var_leaf_on_val=False,
                  max_features=None,
                  random_state=None,
                  min_impurity_decrease=0.,
@@ -230,6 +198,7 @@ class GRFTree(BaseEstimator):
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.min_var_leaf = min_var_leaf
+        self.min_var_leaf_on_val = min_var_leaf_on_val
         self.max_features = max_features
         self.random_state = random_state
         self.min_impurity_decrease = min_impurity_decrease
@@ -383,6 +352,9 @@ class GRFTree(BaseEstimator):
         else:
             raise ValueError("min_var_leaf must be either None or a real in [0, infinity). "
                              "Got {}".format(self.min_var_leaf))
+        if not isinstance(self.min_var_leaf_on_val, bool):
+            raise ValueError("min_var_leaf_on_val must be either True or False. "
+                             "Got {}".format(self.min_var_leaf_on_val))
 
         # Set min_weight_leaf from min_weight_fraction_leaf
         if sample_weight is None:
@@ -432,6 +404,7 @@ class GRFTree(BaseEstimator):
                                                 self.min_balancedness_tol,
                                                 self.honest,
                                                 min_var_leaf,
+                                                self.min_var_leaf_on_val,
                                                 random_state.randint(np.iinfo(np.int32).max))
 
         self.tree_ = Tree(self.n_features_, self.n_outputs_, self.n_relevant_outputs_, store_jac=True)

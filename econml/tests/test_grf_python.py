@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 import unittest
 import logging
 import time
@@ -176,21 +179,26 @@ class TestGRFPython(unittest.TestCase):
             T = np.hstack([T, np.ones((T.shape[0], 1))])
         alpha = y * T
         pointJ = cross_product(T, T)
-        jac = np.average(pointJ, axis=0, weights=sample_weight) + 1e-6 * np.eye(T.shape[1]).flatten()
-        precond = np.average(alpha, axis=0, weights=sample_weight)
+        node_weight = np.sum(sample_weight)
+        jac = node_weight * np.average(pointJ, axis=0, weights=sample_weight)
+        precond = node_weight * np.average(alpha, axis=0, weights=sample_weight)
 
-        if jac.shape[0] == 4:
+        if jac.shape[0] == 1:
+            invJ = np.array([[1 / jac[0]]])
+        elif jac.shape[0] == 4:
             det = jac[0] * jac[3] - jac[1] * jac[2]
             if abs(det) < 1e-6:
                 det = 1e-6
             invJ = np.array([[jac[3], -jac[1]], [-jac[2], jac[0]]]) / det
         else:
-            invJ = np.linalg.inv(jac.reshape((alpha.shape[1], alpha.shape[1])))
+            invJ = np.linalg.inv(jac.reshape((alpha.shape[1], alpha.shape[1])) + 1e-6 * np.eye(T.shape[1]))
 
         param = invJ @ precond
+        jac = jac / node_weight
+        precond = precond / node_weight
         if criterion == 'het':
             moment = alpha - pointJ.reshape((-1, alpha.shape[1], alpha.shape[1])) @ param
-            rho = ((invJ @ moment.T).T)[:, :n_relevant_outputs]
+            rho = ((invJ @ moment.T).T)[:, :n_relevant_outputs] * node_weight
             impurity = np.mean(np.average(rho**2, axis=0, weights=sample_weight))
             impurity -= np.mean(np.average(rho, axis=0, weights=sample_weight)**2)
         else:
@@ -212,12 +220,12 @@ class TestGRFPython(unittest.TestCase):
         config = self._get_base_config()
         for criterion in ['het', 'mse']:
             for fit_intercept in [False, True]:
-                for min_var_leaf in [None, .1]:
+                for min_var_fraction_leaf in [None, .4]:
                     config['criterion'] = criterion
                     config['fit_intercept'] = fit_intercept
                     config['max_depth'] = 2
                     config['min_samples_leaf'] = 5
-                    config['min_var_leaf'] = min_var_leaf
+                    config['min_var_fraction_leaf'] = min_var_fraction_leaf
                     n, n_features, n_treatments = 100, 2, 2
                     random_state = 123
                     X, T, y, truth, truth_full = self._get_causal_data(n, n_features, n_treatments, random_state)
@@ -229,7 +237,7 @@ class TestGRFPython(unittest.TestCase):
                         [np.testing.assert_allclose(a, b, atol=1e-4)
                          for a, b in zip(self._get_true_quantities(X, T, y, mask, criterion, fit_intercept),
                                          self._get_node_quantities(tree, node_id))]
-                    if fit_intercept and (min_var_leaf is not None):
+                    if fit_intercept and (min_var_fraction_leaf is not None):
                         mask = np.abs(X[:, 0]) > .3
                         np.testing.assert_allclose(tree.predict(X[mask]), truth[mask], atol=.05)
                         np.testing.assert_allclose(tree.predict_full(X[mask]), truth_full[mask], atol=.05)
@@ -237,7 +245,7 @@ class TestGRFPython(unittest.TestCase):
     def _test_causal_honesty(self, trainer):
         for criterion in ['het', 'mse']:
             for fit_intercept in [False, True]:
-                for min_var_leaf in [None, .1]:
+                for min_var_fraction_leaf, min_var_leaf_on_val in [(None, False), (.4, False), (.4, True)]:
                     for min_impurity_decrease in [0.0, 0.07]:
                         for inference in [False, True]:
                             for sample_weight in [None, 'rand']:
@@ -247,7 +255,8 @@ class TestGRFPython(unittest.TestCase):
                                 config['fit_intercept'] = fit_intercept
                                 config['max_depth'] = 2
                                 config['min_samples_leaf'] = 5
-                                config['min_var_leaf'] = min_var_leaf
+                                config['min_var_fraction_leaf'] = min_var_fraction_leaf
+                                config['min_var_leaf_on_val'] = min_var_leaf_on_val
                                 config['min_impurity_decrease'] = min_impurity_decrease
                                 config['inference'] = inference
                                 n, n_features, n_treatments = 400, 2, 2
@@ -264,7 +273,7 @@ class TestGRFPython(unittest.TestCase):
                                                                                    n_treatments, random_state)
                                 forest = trainer(X, T, y, config, sample_weight=sample_weight)
                                 subinds = forest.get_subsample_inds()
-                                if (sample_weight is None) and fit_intercept and (min_var_leaf is not None):
+                                if (sample_weight is None) and fit_intercept and (min_var_fraction_leaf is not None):
                                     mask = np.abs(X[:, 0]) > .5
                                     np.testing.assert_allclose(forest.predict(X[mask]),
                                                                truth[mask], atol=.07)
@@ -294,7 +303,7 @@ class TestGRFPython(unittest.TestCase):
                                                                                    criterion, fit_intercept,
                                                                                    sample_weight=sample_weightval),
                                                          self._get_node_quantities(tree.tree_, node_id))]
-                                    if (sample_weight is None) and fit_intercept and (min_var_leaf is not None):
+                                    if (sample_weight is None) and fit_intercept and (min_var_fraction_leaf is not None):
                                         mask = np.abs(Xval[:, 0]) > .5
                                         np.testing.assert_allclose(tree.tree_.predict(Xval[mask]),
                                                                    truthval[mask], atol=.07)
@@ -308,6 +317,44 @@ class TestGRFPython(unittest.TestCase):
     def test_iv_tree(self,):
         self._test_causal_tree_internals(self._train_iv_forest)
         self._test_causal_honesty(self._train_iv_forest)
+
+    def test_min_var_leaf(self,):
+        random_state = np.random.RandomState(123)
+        n, n_features, n_treatments = 200, 2, 1
+        X = random_state.normal(size=(n, n_features))
+        T = np.zeros((n, n_treatments))
+        for t in range(T.shape[1]):
+            T[:, t] = random_state.binomial(1, .5 + .2 * np.clip(X[:, 0], -1, 1), size=(T.shape[0],))
+        y = ((X[:, [0]] > 0.0) + .5) * np.sum(T, axis=1, keepdims=True) + .5
+        total_std = np.std(T)
+        min_var = .7 * total_std
+        for honest, min_var_fraction_leaf, min_var_leaf_on_val in [(False, None, False), (False, .8, False),
+                                                                   (True, None, True), (True, .8, True)]:
+            config = self._get_base_config()
+            config['criterion'] = 'mse'
+            config['n_estimators'] = 4
+            config['max_samples'] = 1.0
+            config['max_depth'] = None
+            config['min_var_fraction_leaf'] = min_var_fraction_leaf
+            config['fit_intercept'] = True
+            config['honest'] = honest
+            config['min_var_leaf_on_val'] = min_var_leaf_on_val
+            forest = self._train_causal_forest(X, T, y, config)
+            subinds = forest.get_subsample_inds()
+            for it, tree in enumerate(forest):
+                _, samples_val = tree.get_train_test_split_inds()
+                inds_val = subinds[it][samples_val]
+                Xval, Tval, _ = X[inds_val], T[inds_val], y[inds_val]
+                paths = np.array(tree.decision_path(Xval).todense())
+                if min_var_fraction_leaf is None:
+                    with np.testing.assert_raises(AssertionError):
+                        for node_id in range(len(tree.tree_.feature)):
+                            mask = paths[:, node_id] > 0
+                            np.testing.assert_array_less(min_var - 1e-7, np.std(Tval[mask]))
+                else:
+                    for node_id in range(len(tree.tree_.feature)):
+                        mask = paths[:, node_id] > 0
+                        np.testing.assert_array_less(min_var - 1e-7, np.std(Tval[mask]))
 
     def test_subsampling(self,):
         # test that the subsampling scheme past to the trees is correct
@@ -465,7 +512,7 @@ class TestGRFPython(unittest.TestCase):
                     config['fit_intercept'] = True
                     config['max_depth'] = 2
                     config['min_samples_leaf'] = 5
-                    config['min_var_leaf'] = None
+                    config['min_var_fraction_leaf'] = None
                     config['min_impurity_decrease'] = 0.0
                     config['inference'] = True
                     config['n_estimators'] = 4
@@ -573,7 +620,7 @@ class TestGRFPython(unittest.TestCase):
         with np.testing.assert_raises(ValueError):
             forest = CausalForest(n_estimators=4, min_weight_fraction_leaf=-1.0).fit(X, y, y)
         with np.testing.assert_raises(ValueError):
-            forest = CausalForest(n_estimators=4, min_var_leaf=-1.0).fit(X, y, y)
+            forest = CausalForest(n_estimators=4, min_var_fraction_leaf=-1.0).fit(X, y, y)
         with np.testing.assert_raises(ValueError):
             forest = CausalForest(n_estimators=4, max_features=10).fit(X, y, y)
         with np.testing.assert_raises(ValueError):
@@ -651,6 +698,7 @@ if __name__ == "__main__":
     TestGRFPython().test_projection()
     TestGRFPython().test_var()
     TestGRFPython().test_causal_tree()
+    TestGRFPython().test_min_var_leaf()
     TestGRFPython().test_iv_tree()
     TestGRFPython().test_regression_tree_internals()
     TestGRFPython().test_subsampling()

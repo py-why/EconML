@@ -48,7 +48,7 @@ cdef class Splitter:
 
     def __cinit__(self, Criterion criterion, Criterion criterion_val,
                   SIZE_t max_features, SIZE_t min_samples_leaf, double min_weight_leaf,
-                  DTYPE_t min_balancedness_tol, bint honest, double min_eig_leaf,
+                  DTYPE_t min_balancedness_tol, bint honest, double min_eig_leaf, bint min_eig_leaf_on_val,
                   UINT32_t random_state):
         """
         Parameters
@@ -81,6 +81,9 @@ cdef class Splitter:
             by the criterion objects, if min_eig_leaf >= 0.0, via the methods `min_eig_left()`
             and `min_eig_right()` for the minimum eigenvalue proxy of the left and right child
             correspondingly.
+        min_eig_leaf_on_val : bool
+            Whether the minimum eigenvalue constraint should also be enforced on the val set.
+            Should be used with caution as honesty is partially violated.
         random_state : UINT32_t
             The user inputed random seed to be used for pseudo-randomness
         """
@@ -109,6 +112,7 @@ cdef class Splitter:
         self.min_balancedness_tol = min_balancedness_tol
         self.honest = honest
         self.min_eig_leaf = min_eig_leaf
+        self.min_eig_leaf_on_val = min_eig_leaf_on_val
         self.rand_r_state = random_state
 
     def __dealloc__(self):
@@ -330,6 +334,7 @@ cdef class BestSplitter(Splitter):
                                self.min_balancedness_tol,
                                self.honest,
                                self.min_eig_leaf,
+                               self.min_eig_leaf_on_val,
                                self.random_state), self.__getstate__())
 
     cdef int node_split(self, double impurity, SplitRecord* split,
@@ -553,6 +558,11 @@ cdef class BestSplitter(Splitter):
                                     continue
                                 if self.criterion.min_eig_right() < min_eig_leaf:
                                     continue
+                                if self.min_eig_leaf_on_val:
+                                    if self.criterion_val.min_eig_left() < min_eig_leaf:
+                                        continue
+                                    if self.criterion_val.min_eig_right() < min_eig_leaf:
+                                        continue
 
                             # Reject if min_weight_leaf constraint is violated
                             if self.honest:

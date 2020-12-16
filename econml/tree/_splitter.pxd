@@ -45,6 +45,7 @@ cdef class Splitter:
     cdef public SIZE_t min_samples_leaf  # Min samples in a leaf (on both train and val set)
     cdef public double min_weight_leaf   # Minimum weight in a leaf (on both train and val set)
     cdef public double min_eig_leaf      # Minimum value of proxy for the min eigenvalue of the jacobian (on train)
+    cdef public bint min_eig_leaf_on_val # Whether minimum eigenvalue constraint should also be enforced on val
     cdef public double min_balancedness_tol # Tolerance level of how balanced a split can be (in [0, .5])
     cdef public bint honest              # Are we doing train/val honest splitting
 

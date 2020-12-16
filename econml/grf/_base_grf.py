@@ -135,7 +135,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                  min_samples_split=10,
                  min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
-                 min_var_leaf=None,
+                 min_var_fraction_leaf=None,
+                 min_var_leaf_on_val=False,
                  max_features="auto",
                  min_impurity_decrease=0.,
                  max_samples=.45,
@@ -152,7 +153,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             base_estimator=GRFTree(),
             n_estimators=n_estimators,
             estimator_params=("criterion", "max_depth", "min_samples_split",
-                              "min_samples_leaf", "min_weight_fraction_leaf", "min_var_leaf",
+                              "min_samples_leaf", "min_weight_fraction_leaf",
+                              "min_var_leaf", "min_var_leaf_on_val",
                               "max_features", "min_impurity_decrease", "honest",
                               "min_balancedness_tol",
                               "random_state"))
@@ -162,7 +164,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
-        self.min_var_leaf = min_var_leaf
+        self.min_var_fraction_leaf = min_var_fraction_leaf
+        self.min_var_leaf_on_val = min_var_leaf_on_val
         self.max_features = max_features
         self.min_impurity_decrease = min_impurity_decrease
         self.min_balancedness_tol = min_balancedness_tol
@@ -303,6 +306,26 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             n_samples=n_samples,
             max_samples=self.max_samples
         )
+
+        # Converting `min_var_fraction_leaf` to an absolute `min_var_leaf` that the GRFTree can handle
+        if self.min_var_fraction_leaf is None:
+            self.min_var_leaf = None
+        elif (not isinstance(self.min_var_fraction_leaf, numbers.Real)) or (not (0 < self.min_var_fraction_leaf <= 1)):
+            msg = "`min_var_fraction_leaf` must be in range (0, 1) but got value {}"
+            raise ValueError(msg.format(self.min_var_fraction_leaf))
+        else:
+            # We calculate the min eigenvalue proxy that each criterion is considering
+            # on the overall mean jacobian, to determine the absolute level of `min_var_leaf`
+            jac = np.mean(pointJ, axis=0).reshape((self.n_outputs_, self.n_outputs_))
+            min_var = np.min(np.abs(np.diag(jac)))
+            if self.criterion == 'mse':
+                for i in range(self.n_outputs_):
+                    for j in range(self.n_outputs_):
+                        if j != i:
+                            det = np.sqrt(np.abs(jac[i, i] * jac[j, j] - jac[i, j] * jac[j, i]))
+                            if det < min_var:
+                                min_var = det
+            self.min_var_leaf = min_var * self.min_var_fraction_leaf
 
         # Check parameters
         self._validate_estimator()

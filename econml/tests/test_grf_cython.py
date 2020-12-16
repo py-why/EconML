@@ -31,6 +31,7 @@ class TestGRFCython(unittest.TestCase):
                 'min_samples_leaf': 10,
                 'min_weight_leaf': 1,
                 'min_eig_leaf': -1,
+                'min_eig_leaf_on_val': False,
                 'min_balancedness_tol': .3,
                 'max_depth': 2,
                 'min_impurity_decrease': 0.0,
@@ -56,6 +57,7 @@ class TestGRFCython(unittest.TestCase):
                 'min_samples_leaf': 10,
                 'min_weight_leaf': 1,
                 'min_eig_leaf': -1,
+                'min_eig_leaf_on_val': False,
                 'min_balancedness_tol': .3,
                 'max_depth': 2,
                 'min_impurity_decrease': 0.0,
@@ -69,7 +71,7 @@ class TestGRFCython(unittest.TestCase):
     def _get_cython_objects(self, *, criterion, n_features, n_y, n_outputs, n_relevant_outputs,
                             store_jac, n_samples, n_samples_train, max_features,
                             min_samples_split, min_samples_leaf, min_weight_leaf,
-                            min_eig_leaf, min_balancedness_tol, max_depth, min_impurity_decrease,
+                            min_eig_leaf, min_eig_leaf_on_val, min_balancedness_tol, max_depth, min_impurity_decrease,
                             honest, random_state, max_node_samples, samples_train,
                             samples_val):
         tree = Tree(n_features, n_outputs, n_relevant_outputs, store_jac)
@@ -85,7 +87,7 @@ class TestGRFCython(unittest.TestCase):
                                                         n_samples, max_node_samples, random_state)
         splitter = BestSplitter(criterion, criterion_val,
                                 max_features, min_samples_leaf, min_weight_leaf,
-                                min_balancedness_tol, honest, min_eig_leaf, random_state)
+                                min_balancedness_tol, honest, min_eig_leaf, min_eig_leaf_on_val, random_state)
         builder = DepthFirstTreeBuilder(splitter, min_samples_split,
                                         min_samples_leaf, min_weight_leaf,
                                         max_depth, min_impurity_decrease)
