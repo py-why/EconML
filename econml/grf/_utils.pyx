@@ -2,6 +2,9 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 from libc.stdlib cimport free
 from libc.stdlib cimport malloc
 from libc.stdlib cimport calloc
@@ -31,6 +34,8 @@ cdef inline double RCOND = rcond_
 
 
 cpdef bint matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil:
+    """ Compute matrix inverse and store it in inv_a.
+    """
     cdef int m, n
     m = a.shape[0]
     if not (m == a.shape[1]):
@@ -38,6 +43,8 @@ cpdef bint matinv(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] inv_a) nogil:
     return matinv_(&a[0, 0], &inv_a[0, 0], m)
 
 cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) nogil:
+    """ Compute matrix inverse of matrix a of size (m, m) and store it in inv_a.
+    """
     cdef:
         int* pivot
         DOUBLE_t* work
@@ -55,7 +62,7 @@ cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) nogil:
 
     try:
         memcpy(inv_a, a, m * m * sizeof(DOUBLE_t))
-        
+
         #Conduct the LU factorization of the array a
         dgetrf(&m, &m, inv_a, &lda, pivot, &INFO)
         if not (INFO == 0):
@@ -70,10 +77,15 @@ cdef bint matinv_(DOUBLE_t* a, DOUBLE_t* inv_a, int m) nogil:
         free(work)
 
     return (not failed)
-    
+
 
 
 cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol, bint copy_b=True) nogil:
+    """ Compute solution to least squares problem min ||b - a sol||_2^2,
+    where a is a matrix of size (m, n), b is (m, nrhs). Store (n, nrhs) solution in sol.
+    The memory view b, must have at least max(m, n) rows. If m < n, then pad remainder with zeros.
+    If copy_b=True, then b is left unaltered on output. Otherwise b is altered by this call.
+    """
     cdef int m, n, nrhs
     m = a.shape[0]
     n = a.shape[1]
@@ -87,9 +99,14 @@ cpdef void lstsq(DOUBLE_t[::1, :] a, DOUBLE_t[::1, :] b, DOUBLE_t[::1, :] sol, b
         with gil:
             raise ValueError("Matrix sol must have dimensions (a.shape[1], b.shape[1]).")
     lstsq_(&a[0, 0], &b[0, 0], &sol[0, 0], m, n, ldb, nrhs, copy_b)
-    
+
 
 cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int ldb, int nrhs, bint copy_b=True) nogil:
+    """ Compute solution to least squares problem min ||b - a sol||_2^2,
+    where a is a matrix of size (m, n), b is (m, nrhs). Store (n, nrhs) solution in sol.
+    The leading (row) dimension b, must be at least max(m, n). If m < n, then pad remainder with zeros.
+    If copy_b=True, then b is left unaltered on output. Otherwise b is altered by this call.
+    """
     cdef:
         int lda, rank, info, lwork, n_out
         double rcond
@@ -108,7 +125,7 @@ cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int ldb,
     jpvt = <int*> calloc(n, sizeof(int))
     lwork = max(min(n, m) + 3 * n + 1, 2 * min(n, m) + nrhs)
     work = <DOUBLE_t*> malloc(lwork * sizeof(DOUBLE_t))
-    
+
     # TODO. can we avoid all this malloc and copying in our context?
     a_copy = <DOUBLE_t*> calloc(lda * n, sizeof(DOUBLE_t))
     if copy_b:
@@ -135,11 +152,17 @@ cdef void lstsq_(DOUBLE_t* a, DOUBLE_t* b, DOUBLE_t* sol, int m, int n, int ldb,
             free(b_copy)
 
 cpdef void pinv(DOUBLE_t[::1,:] a, DOUBLE_t[::1, :] sol) nogil:
+    """ Compute pseudo-inverse of (m, n) matrix a and store it in (n, m) matrix sol.
+    Matrix a is left un-altered by this call.
+    """
     cdef int m = a.shape[0]
     cdef int n = a.shape[1]
     pinv_(&a[0, 0], &sol[0, 0], m, n)
 
 cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) nogil:
+    """ Compute pseudo-inverse of (m, n) matrix a and store it in (n, m) matrix sol.
+    Matrix a is left un-altered by this call.
+    """
     # TODO. can we avoid this mallon in our context. Maybe create some fixed memory allocations?
     cdef int ldb = max(m, n)
     cdef double* b = <DOUBLE_t*> calloc(ldb * m, sizeof(double))
@@ -154,9 +177,17 @@ cdef void pinv_(DOUBLE_t* a, DOUBLE_t* sol, int m, int n) nogil:
 
 
 cpdef double fast_max_eigv(DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
+    """ Calculate approximation of maximum eigenvalue via randomized power iteration algorithm.
+    See e.g.: http://theory.stanford.edu/~trevisan/expander-online/lecture03.pdf
+    Use reps repetition and random seed based on random_state
+    """
     return fast_max_eigv_(&A[0, 0], A.shape[0], reps, &random_state)
 
 cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil:
+    """ Calculate approximation of maximum eigenvalue via randomized power iteration algorithm.
+    See e.g.: http://theory.stanford.edu/~trevisan/expander-online/lecture03.pdf
+    Use reps repetition and random seed based on random_state
+    """
     cdef int t, i, j
     cdef double normx, Anormx
     cdef double* xnew
@@ -188,7 +219,7 @@ cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state)
             normx += xnew[i] * xnew[i]
             for j in range(n):
                 Anormx += xnew[i] * A[i + j * n] * xnew[j]
-        
+
         return Anormx / normx
     finally:
         free(xnew)
@@ -196,9 +227,17 @@ cdef double fast_max_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state)
 
 
 cpdef double fast_min_eigv(DOUBLE_t[::1, :] A, int reps, UINT32_t random_state) nogil:
+    """ Calculate approximation of minimum eigenvalue via randomized power iteration algorithm.
+    See e.g.: http://theory.stanford.edu/~trevisan/expander-online/lecture03.pdf
+    Use reps repetition and random seed based on random_state
+    """
     return fast_min_eigv_(&A[0, 0], A.shape[0], reps, &random_state)
 
 cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state) nogil:
+    """ Calculate approximation of minimum eigenvalue via randomized power iteration algorithm.
+    See e.g.: http://theory.stanford.edu/~trevisan/expander-online/lecture03.pdf
+    Use reps repetition and random seed based on random_state.
+    """
     cdef int t, i, j
     cdef double normx, Anormx
     cdef double* xnew
@@ -233,7 +272,7 @@ cdef double fast_min_eigv_(DOUBLE_t* A, int n, int reps, UINT32_t* random_state)
             normx += xnew[i] * xnew[i]
             for j in range(n):
                 Anormx += xnew[i] * A[i + j * n] * xnew[j]
-        
+
         return Anormx / normx
     finally:
         free(xnew)

@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 import numbers
 from warnings import catch_warnings, simplefilter, warn
 from abc import ABCMeta, abstractmethod

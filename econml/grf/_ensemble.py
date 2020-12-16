@@ -1,3 +1,9 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+#
+# This code is a fork from:
+# https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/ensemble/_base.py
+
 import numbers
 import numpy as np
 from abc import ABCMeta, abstractmethod
@@ -27,7 +33,7 @@ def _fit_single_estimator(estimator, X, y, sample_weight=None,
     return estimator
 
 
-def _set_random_states(estimator, random_state=None):
+def _set_random_states(estimator, random_state):
     """Set fixed random_state parameters for an estimator.
     Finds all parameters ending ``random_state`` and sets them to integers
     derived from ``random_state``.
@@ -36,11 +42,9 @@ def _set_random_states(estimator, random_state=None):
     estimator : estimator supporting get/set_params
         Estimator with potential randomness managed by random_state
         parameters.
-    random_state : int or RandomState, default=None
+    random_state : np.RandomState object
         Pseudo-random number generator to control the generation of the random
-        integers. Pass an int for reproducible output across multiple function
-        calls.
-        See :term:`Glossary <random_state>`.
+        integers.
     Notes
     -----
     This does not necessarily set *all* ``random_state`` attributes that
