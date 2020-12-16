@@ -4,7 +4,6 @@ Public Module Reference
 .. autosummary::
     :toctree: _autosummary
 
-    econml.automated_ml
     econml.bootstrap
     econml.cate_estimator
     econml.cate_interpreter
