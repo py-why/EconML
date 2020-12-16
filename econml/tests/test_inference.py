@@ -62,7 +62,7 @@ class TestInference(unittest.TestCase):
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
-            summary_results = cate_est.summary(feat_name=fnames)
+            summary_results = cate_est.summary(feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
                 TestInference.X).get_feature_names(input_features=fnames)
@@ -88,7 +88,7 @@ class TestInference(unittest.TestCase):
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
-            summary_results = cate_est.summary(feat_name=fnames)
+            summary_results = cate_est.summary(feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, fnames)
 
@@ -115,7 +115,7 @@ class TestInference(unittest.TestCase):
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
-            summary_results = wrapped_est.summary(feat_name=fnames)
+            summary_results = wrapped_est.summary(feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, fnames)
 
@@ -155,7 +155,7 @@ class TestInference(unittest.TestCase):
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
-            summary_results = cate_est.summary(T=1, feat_name=fnames)
+            summary_results = cate_est.summary(T=1, feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
                 TestInference.X).get_feature_names(input_features=fnames)
@@ -183,7 +183,7 @@ class TestInference(unittest.TestCase):
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
-            summary_results = cate_est.summary(T=1, feat_name=fnames)
+            summary_results = cate_est.summary(T=1, feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, fnames)
 
@@ -212,7 +212,7 @@ class TestInference(unittest.TestCase):
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
-            summary_results = wrapped_est.summary(T=1, feat_name=fnames)
+            summary_results = wrapped_est.summary(T=1, feature_names=fnames)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
             np.testing.assert_array_equal(coef_rows, fnames)
 
