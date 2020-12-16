@@ -4,6 +4,7 @@
 """Utility methods."""
 
 import numpy as np
+import pandas as pd
 import scipy.sparse
 import sparse as sp
 import itertools
@@ -62,6 +63,7 @@ def parse_final_model_params(coef, intercept, d_y, d_t, d_t_in, bias_part_of_coe
 
 def check_high_dimensional(X, T, *, threshold, featurizer=None, discrete_treatment=False, msg=""):
     # Check if model is sparse enough for this model
+    X, T = check_input_arrays(X, T)
     if X is None:
         d_x = 1
     elif featurizer is None:
@@ -543,6 +545,33 @@ def check_input_arrays(*args, validate_len=True):
                 else:
                     assert (m == n), "Input arrays have incompatible lengths: {} and {}".format(n, m)
     return args
+
+
+def get_input_columns(X):
+    """Extracts column names from dataframe-like input object.
+
+    Currently supports column name extraction from pandas DataFrame and Series objects.
+
+    Parameters
+    ----------
+    X : array_like
+        Input array with column names to be extracted.
+
+    Returns
+    -------
+    cols: array-like or None
+        List of columns corresponding to the dataframe-like object.
+        None if the input array is not in the supported types.
+
+    """
+    # Type to column extraction function
+    type_to_func = {
+        pd.DataFrame: lambda x: x.columns.tolist(),
+        pd.Series: lambda x: [x.name]
+    }
+    if type(X) in type_to_func:
+        return type_to_func[type(X)](X)
+    return None
 
 
 def check_models(models, n):

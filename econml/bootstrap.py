@@ -222,10 +222,12 @@ class BootstrapEstimator:
 
                 def get_result():
                     return proxy(can_call, prefix,
-                                 lambda arr, est: EmpiricalInferenceResults(d_t=d_t, d_y=d_y,
-                                                                            pred=est, pred_dist=get_dist(est, arr),
-                                                                            inf_type=inf_type,
-                                                                            fname_transformer=fname_transformer))
+                                 lambda arr, est: EmpiricalInferenceResults(
+                                     d_t=d_t, d_y=d_y,
+                                     pred=est, pred_dist=get_dist(est, arr),
+                                     inf_type=inf_type,
+                                     fname_transformer=fname_transformer,
+                                     **self._wrapped._input_names if hasattr(self._wrapped, "_input_names") else None))
 
                 # Note that inference results are always methods even if the inference is for a property
                 # (e.g. coef__inference() is a method but coef_ is a property)
@@ -242,9 +244,11 @@ class BootstrapEstimator:
                     stderr = getattr(self, prefix + '_std')
                     if can_call:
                         stderr = stderr(*args, **kwargs)
-                    return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=pred,
-                                                  pred_stderr=stderr, inf_type=inf_type,
-                                                  fname_transformer=fname_transformer)
+                    return NormalInferenceResults(
+                        d_t=d_t, d_y=d_y, pred=pred,
+                        pred_stderr=stderr, inf_type=inf_type,
+                        fname_transformer=fname_transformer,
+                        **self._wrapped._input_names if hasattr(self._wrapped, "_input_names") else None)
 
                 # If inference is for a property, create a fresh lambda to avoid passing args through
                 return normal_inference if can_call else lambda: normal_inference()

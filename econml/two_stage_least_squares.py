@@ -7,7 +7,8 @@ import numpy as np
 from copy import deepcopy
 from sklearn import clone
 from sklearn.linear_model import LinearRegression
-from .utilities import shape, transpose, reshape, cross_product, ndim, size, _deprecate_positional
+from .utilities import shape, transpose, reshape, cross_product, ndim, size,\
+    _deprecate_positional, check_input_arrays
 from .cate_estimator import BaseCateEstimator, LinearCateEstimator
 from numpy.polynomial.hermite_e import hermeval
 from sklearn.base import TransformerMixin
@@ -231,6 +232,7 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
         self
 
         """
+        Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
         if X is None:
             X = np.empty((shape(Y)[0], 0))
         if W is None:

@@ -47,8 +47,7 @@ from .sklearn_extensions.ensemble import SubsampledHonestForest
 from .sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
 from .utilities import (_deprecate_positional, check_high_dimensional,
-                        check_input_arrays, filter_none_kwargs,
-                        fit_with_groups, inverse_onehot, _shap_explain_cme)
+                        filter_none_kwargs, fit_with_groups, inverse_onehot, _shap_explain_cme)
 
 
 class _ModelNuisance:
@@ -538,14 +537,15 @@ class DRLearner(_OrthoLearner):
         """
         return super().model_final._featurizer
 
-    def cate_feature_names(self, input_feature_names=None):
+    def cate_feature_names(self, feature_names=None):
         """
         Get the output feature names.
 
         Parameters
         ----------
-        input_feature_names: list of strings of length X.shape[1] or None
-            The names of the input features
+        feature_names: list of strings of length X.shape[1] or None
+            The names of the input features. If None and X is a dataframe, it defaults to the column names
+            from the dataframe.
 
         Returns
         -------
@@ -553,12 +553,18 @@ class DRLearner(_OrthoLearner):
             The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
             final CATE model for each treatment is linear. It is the names of the features that are associated
             with each entry of the :meth:`coef_` parameter. Available only when the featurizer is not None and has
-            a method: `get_feature_names(input_feature_names)`. Otherwise None is returned.
+            a method: `get_feature_names(feature_names)`. Otherwise None is returned.
         """
+        if self._d_x is None:
+            # Handles the corner case when X=None but featurizer might be not None
+            return None
+        if feature_names is None:
+            feature_names = self._input_names["feature_names"]
         if self.featurizer is None:
-            return input_feature_names
+            return feature_names
         elif hasattr(self.featurizer, 'get_feature_names'):
-            return self.featurizer.get_feature_names(input_feature_names)
+            # This fails if X=None and featurizer is not None, but that case is handled above
+            return self.featurizer.get_feature_names(feature_names)
         else:
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
@@ -1006,7 +1012,6 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         if sample_weight is not None and inference is not None:
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
-        Y, T, X, W, sample_weight, sample_var = check_input_arrays(Y, T, X, W, sample_weight, sample_var)
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self._discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
