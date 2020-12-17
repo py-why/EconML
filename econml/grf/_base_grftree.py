@@ -44,15 +44,21 @@ MAX_INT = np.iinfo(np.int32).max
 class GRFTree(BaseEstimator):
     """A tree of a Generalized Random Forest. This method should be used primarily
     through the BaseGRF forest class and its derivatives and not as a standalone
-    estimator.
+    estimator. It fits a tree that solves the local moment equation problem:
+
+        E[ m(Z; theta(x)) | X=x] = 0
+
+    For some moment vector function m, that takes as input random samples of a random variable Z
+    and is parameterized by some unknown parameter theta(x). Each node in the tree
+    contains a local estimate of the parameter theta(x), for every region of X that
+    falls within that leaf.
 
     Parameters
     ----------
     criterion : {"mse", "het"}, default="mse"
         The function to measure the quality of a split. Supported criteria
-        are "mse" for the mean squared error in a linear moment estimation
-        tree and "het" for heterogeneity score. For any linear moment problem
-        of the form:
+        are "mse" for the mean squared error in a linear moment estimation tree and "het" for
+        heterogeneity score. These criteria solve any linear moment problem of the form:
 
             E[J * theta(x) - A | X = x] = 0
 
@@ -436,9 +442,13 @@ class GRFTree(BaseEstimator):
                                np.sum(sample_weight))
 
         # Build tree
+
+        # We calculate the maximum number of samples from each half-split that any node in the tree can
+        # hold. Used by criterion for memory space savings.
         max_train = len(samples_train) if sample_weight is None else np.count_nonzero(sample_weight[samples_train])
         if self.honest:
             max_val = len(samples_val) if sample_weight is None else np.count_nonzero(sample_weight[samples_val])
+        # Initialize the criterion object and the criterion_val object if honest.
         if callable(self.criterion):
             criterion = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_,
                                        n_samples, max_train,
@@ -521,6 +531,27 @@ class GRFTree(BaseEstimator):
             return inds, inds
 
     def predict(self, X, check_input=True):
+        """Return the prefix of relevant fitted local parameters for each X, i.e. theta(X).
+
+        Parameters
+        ----------
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+        Returns
+        -------
+        theta(X)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
+            The estimated relevant parameters for each row of X
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        pred = self.tree_.predict(X)
+        return pred
+
+    def predict_full(self, X, check_input=True):
         """Return the fitted local parameters for each X, i.e. theta(X).
 
         Parameters
@@ -533,102 +564,32 @@ class GRFTree(BaseEstimator):
             Don't use this parameter unless you know what you do.
         Returns
         -------
-        theta(X) : array-like of shape (n_samples, n_relevant_outputs)
-            The estimated target parameters for each row of X
-        """
-        check_is_fitted(self)
-        X = self._validate_X_predict(X, check_input)
-        pred = self.tree_.predict(X)
-        return pred
-
-    def predict_full(self, X, check_input=True):
-        """Predict class or regression value for X.
-        For a classification model, the predicted class for each sample in X is
-        returned. For a regression model, the predicted value based on X is
-        returned.
-        Parameters
-        ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
-        check_input : bool, default=True
-            Allow to bypass several input checking.
-            Don't use this parameter unless you know what you do.
-        Returns
-        -------
-        y : array-like of shape (n_samples, n_outputs)
-            The predicted classes, or the predict values.
+        theta(X) : array-like of shape (n_samples, n_outputs)
+            All the estimated parameters for each row of X
         """
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
         pred = self.tree_.predict_full(X)
         return pred
 
-    def predict_jac(self, X, check_input=True):
-        """Predict class or regression value for X.
-        For a classification model, the predicted class for each sample in X is
-        returned. For a regression model, the predicted value based on X is
-        returned.
-        Parameters
-        ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
-        check_input : bool, default=True
-            Allow to bypass several input checking.
-            Don't use this parameter unless you know what you do.
-        Returns
-        -------
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            The predicted classes, or the predict values.
-        """
-        check_is_fitted(self)
-        X = self._validate_X_predict(X, check_input)
-        return self.tree_.predict_jac(X)
-
-    def predict_alpha(self, X, check_input=True):
-        """Predict class or regression value for X.
-        For a classification model, the predicted class for each sample in X is
-        returned. For a regression model, the predicted value based on X is
-        returned.
-        Parameters
-        ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
-        check_input : bool, default=True
-            Allow to bypass several input checking.
-            Don't use this parameter unless you know what you do.
-        Returns
-        -------
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            The predicted classes, or the predict values.
-        """
-        check_is_fitted(self)
-        X = self._validate_X_predict(X, check_input)
-        return self.tree_.predict_precond(X)
-
     def predict_alpha_and_jac(self, X, check_input=True):
-        """Predict class or regression value for X.
-        For a classification model, the predicted class for each sample in X is
-        returned. For a regression model, the predicted value based on X is
-        returned.
+        """Predict the local jacobian E[J | X=x] and the local alpha E[A | X=x] of
+        a linear moment equation.
+
         Parameters
         ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+        X : {array-like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
+            ``dtype=np.float64``
         check_input : bool, default=True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
         Returns
         -------
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            The predicted classes, or the predict values.
+        alpha : array-like of shape (n_samples, n_outputs)
+            The local alpha E[A | X=x] for each sample x
+        jac : array-like of shape (n_samples, n_outputs * n_outputs)
+            The local jacobian E[J | X=x] flattened in a C contiguous format
         """
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
@@ -640,13 +601,12 @@ class GRFTree(BaseEstimator):
 
     def apply(self, X, check_input=True):
         """Return the index of the leaf that each sample is predicted as.
-        .. versionadded:: 0.17
+
         Parameters
         ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+        X : {array-like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
+            ``dtype=np.float64``
         check_input : bool, default=True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
@@ -664,13 +624,12 @@ class GRFTree(BaseEstimator):
 
     def decision_path(self, X, check_input=True):
         """Return the decision path in the tree.
-        .. versionadded:: 0.18
+
         Parameters
         ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+        X : {array-like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
+            ``dtype=np.float64``
         check_input : bool, default=True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
@@ -684,18 +643,23 @@ class GRFTree(BaseEstimator):
         return self.tree_.decision_path(X)
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
-        """Return the feature importances.
-        The importance of a feature is computed as the (normalized) total
-        reduction of the criterion brought by that feature.
-        It is also known as the Gini importance.
-        Warning: impurity-based feature importances can be misleading for
-        high cardinality features (many unique values). See
-        :func:`sklearn.inspection.permutation_importance` as an alternative.
+        """The feature importances based on the amount of parameter heterogeneity they create.
+        The higher, the more important the feature.
+        The importance of a feature is computed as the (normalized) total heterogeneity that the feature
+        creates. Each split that the feature was chosen adds:
+            parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        to the importance of the feature. Each such quantity is also weighted by the depth of the split.
+
+        Parameters
+        ----------
+        max_depth : int, default=4
+            Splits of depth larger than `max_depth` are not used in this calculation
+        depth_decay_exponent: double, default=2.0
+            The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0. 
         Returns
         -------
         feature_importances_ : ndarray of shape (n_features,)
-            Normalized total reduction of criteria by feature
-            (Gini importance).
+            Normalized total parameter heterogeneity inducing importance of each feature
         """
         check_is_fitted(self)
 
@@ -704,4 +668,7 @@ class GRFTree(BaseEstimator):
 
     @property
     def feature_importances_(self):
+        """ ndarray of shape (n_features,)
+        Normalized total parameter heterogeneity inducing importance of each feature
+        """
         return self.feature_importances()

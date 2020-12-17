@@ -140,7 +140,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
 
         self.y = y[:, :n_y]                     # The first n_y columns of y are the original raw outcome
         self.alpha = y[:, n_y:(n_y + n_outputs)]        # A[i] part of the moment is the next n_outputs columns
-        # J[i] part of the moment is the next n_outputs * n_outputs columns, stored in row-wise contiguous format
+        # J[i] part of the moment is the next n_outputs * n_outputs columns, stored in Fortran contiguous format
         self.pointJ = y[:, (n_y + n_outputs):(n_y + n_outputs + n_outputs * n_outputs)]
         self.sample_weight = sample_weight      # Store the sample_weight locally
         self.samples = samples                  # Store the sample index structure used and updated by the splitter
@@ -163,9 +163,9 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         Parameters
         ----------
         J : DOUBLE_t* of size n_outputs * n_outputs
-            On output, contains the calculated un-normalized jacobian J(node) in row contiguous format
+            On output, contains the calculated un-normalized jacobian J(node) in Fortran contiguous format
         invJ : DOUBLE_t* of size n_outputs * n_outputs
-            On output, contains the inverse (or pseudo-inverse) jacobian J(node)^{-1} in row contiguous format
+            On output, contains the inverse (or pseudo-inverse) jacobian J(node)^{-1} in Fortran contiguous format
         weighted_n_node_samples : DOUBLE_t* of size 1
             On output, contains the total weight of the samples in the node
         pointJ : DOUBLE_t[:, ::1] of size (n_samples, n_outputs * n_outputs)
@@ -234,7 +234,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         parameter_pre : DOUBLE_t* of size n_outputs
             On output, contains the calculated node un-normalized pre-conditioned parameter theta_pre(node)
         invJ : DOUBLE_t* of size n_outputs * n_outputs
-            On input, contains the calculated node un-normalized jacobian inverse J(node)^{-1} in row-contiguous format
+            On input, contains the calculated node un-normalized jacobian inverse J(node)^{-1} in F-contiguous format
         alpha : DOUBLE_t[:, ::1] of size (n_samples, n_outputs)
             The memory view that contains the A[i] for each sample i
         sample_weight : DOUBLE_t* of size (n_samples,)
@@ -281,12 +281,12 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         ----------
         rho : DOUBLE_t* of size `max_node_samples` * `n_outputs`
             On output, the first `n_node_samples * n_outputs` entries contain the rho for each sample in the node
-            in a column-continguous manner. The rho for sample with index i is stored in the interval
+            in a C-continguous manner. The rho for sample with index i is stored in the interval
             [`node_index_mapping[i] * n_outputs` : `(node_index_mapping[i] + 1) * n_outputs`]
             location of the array
         moment : DOUBLE_t* of size `max_node_samples` * `n_outputs`
             On output, the first `n_node_samples * n_outputs` entries contain the moment for each sample in the node
-            in a column-continguous manner. The moment for sample with index i is stored in the interval
+            in a C-continguous manner. The moment for sample with index i is stored in the interval
             [`node_index_mapping[i] * n_outputs` : `(node_index_mapping[i] + 1) * n_outputs`]
             location of the array
         node_index_mapping : SIZE_t* of size `n_samples`
@@ -295,7 +295,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         parameter : DOUBLE_t* of size n_outputs
             On input, contains the calculated node parameter theta(node)
         invJ : DOUBLE_t* of size n_outputs * n_outputs
-            On input, contains the calculated unnormalized node jacobian inverse J(node)^{-1} in row-contiguous format
+            On input, contains the calculated unnormalized node jacobian inverse J(node)^{-1} in F-contiguous format
         pointJ : DOUBLE_t[:, ::1] of size (n_samples, n_outputs * n_outputs)
             The memory view that contains the J[i] for each sample i
         alpha : DOUBLE_t[:, ::1] of size (n_samples, n_outputs)
@@ -346,11 +346,11 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
             too for code convenience, so as not to re-implement the node_reset_sums method.
         rho : DOUBLE_t* of size `max_node_samples` * `n_outputs`
             On input, the first `n_node_samples * n_outputs` entries contain the rho for each sample in the node
-            in a column-continguous manner. The rho for sample with index i is stored in the interval
+            in a C-continguous manner. The rho for sample with index i is stored in the interval
             [`node_index_mapping[i] * n_outputs` : `(node_index_mapping[i] + 1) * n_outputs`]
             location of the array
         J : DOUBLE_t* of size n_outputs * n_outputs
-            On input, contains the calculate jacobian J(node) in row contiguous format
+            On input, contains the calculate jacobian J(node) in Fortran contiguous format
         sample_weight : DOUBLE_t* of size (n_samples,)
             An array taht holds the sample weight w[i] of each sample i
         samples: SIZE_t*
@@ -547,7 +547,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
         memcpy(dest, self.parameter, self.n_outputs * sizeof(double))
 
     cdef void node_jacobian(self, double* dest) nogil:
-        """Return the node normalized Jacobian of samples[start:end] into dest in a column contiguous format."""
+        """Return the node normalized Jacobian of samples[start:end] into dest in a C contiguous format."""
         cdef SIZE_t i, j 
         # Jacobian is stored in f-contiguous format for fortran. We translate it to c-contiguous for
         # user interfacing. Moreover, we normalize by weight(node).

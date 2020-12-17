@@ -1,5 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+#
+# This code contains snippets of code from
+# https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/ensemble/_forest.py
 
 import numbers
 from warnings import catch_warnings, simplefilter, warn
@@ -18,13 +21,14 @@ from sklearn.utils import check_X_y
 import scipy.stats
 from scipy.special import erfc
 
+__all__ = ["BaseGRF"]
 
 MAX_INT = np.iinfo(np.int32).max
 
 
 def _get_n_samples_subsample(n_samples, max_samples):
     """
-    Get the number of samples in a bootstrap sample.
+    Get the number of samples in a sub-sample without replacement.
     Parameters
     ----------
     n_samples : int
@@ -37,8 +41,8 @@ def _get_n_samples_subsample(n_samples, max_samples):
             - if None, this indicates the total number of samples.
     Returns
     -------
-    n_samples_bootstrap : int
-        The total number of samples to draw for the bootstrap sample.
+    n_samples_subsample : int
+        The total number of samples to draw for the subsample.
     """
     if max_samples is None:
         return n_samples
@@ -79,6 +83,11 @@ def _accumulate_prediction_var(predict, X, out, lock, *args, **kwargs):
     This is a utility function for joblib's Parallel.
     It can't go locally in ForestClassifier or ForestRegressor, because joblib
     complains that it cannot pickle it when placed there.
+    Accumulates the mean covariance of a tree prediction. predict is assumed to
+    return an array of (n_samples, d) or a tuple of arrays. This method accumulates in the placeholder
+    out[0] the (n_samples, d, d) covariance of the columns of the prediction across
+    the trees and for each sample (or a tuple of covariances to be stored in each element
+    of the list out).
     """
     prediction = predict(X, *args, check_input=False, **kwargs)
     with lock:
@@ -99,6 +108,9 @@ def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwar
     This is a utility function for joblib's Parallel.
     It can't go locally in ForestClassifier or ForestRegressor, because joblib
     complains that it cannot pickle it when placed there.
+    Combines `_accumulate_prediction` and `_accumulate_prediction_var` in a single
+    parallel run, so that out will contain the mean of the predictions across trees
+    and out_var the covariance. 
     """
     prediction = predict(X, *args, check_input=False, **kwargs)
     with lock:
@@ -123,11 +135,18 @@ def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwar
 
 class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     """
-    Base class for forests of CATE estimator trees.
+    Base class for Genearlized Random Forests for solving linear moment equations of
+    the form:
+                E[J * theta(x) - A | X = x] = 0
+    where J is an (d, d) random matrix, A is an (d, 1) random vector and theta(x)
+    is a local parameter to be estimated, which might contain both relevant and
+    nuisance parameters.
+
     Warning: This class should not be used directly. Use derived classes
     instead.
     """
 
+    @abstractmethod
     def __init__(self,
                  n_estimators=100, *,
                  criterion="mse",
@@ -180,9 +199,27 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.max_samples = max_samples
 
     def get_alpha(self, X, T, y, **kwargs):
+        """ This function must be implemented by child class and given input variables
+        X, T, y and any auxiliary variables passed as keyword only, should be calculating
+        the point-wise random vector A of the linear moment equation for every
+        sample in the input samples.
+
+        Note. If `fit_intercept=True`, then the T that is passed to `get_alpha` is appended
+        by a column of 1's. Thus the moment should handle such an augmented T and an augmented
+        parameter vector.
+        """
         pass
 
     def get_pointJ(self, X, T, y, **kwargs):
+        """ This function must be implemented by child class and given input variables
+        X, T, y and any auxiliary variables passed as keyword only, should be calculating
+        the point-wise jacobian random variable J of the linear moment equation for every
+        sample in the input samples.
+
+        Note. If `fit_intercept=True`, then the T that is passed to `get_alpha` is appended
+        by a column of 1's. Thus the moment should handle such an augmented T and an augmented
+        parameter vector.
+        """
         pass
 
     def apply(self, X):
@@ -190,10 +227,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         Apply trees in the forest to X, return leaf indices.
         Parameters
         ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            The input samples. Internally, its dtype will be converted to
-            ``dtype=np.float32``. If a sparse matrix is provided, it will be
-            converted into a sparse ``csr_matrix``.
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
         Returns
         -------
         X_leaves : ndarray of shape (n_samples, n_estimators)
@@ -210,13 +246,11 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     def decision_path(self, X):
         """
         Return the decision path in the forest.
-        .. versionadded:: 0.18
         Parameters
         ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            The input samples. Internally, its dtype will be converted to
-            ``dtype=np.float32``. If a sparse matrix is provided, it will be
-            converted into a sparse ``csr_matrix``.
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
         Returns
         -------
         indicator : sparse matrix of shape (n_samples, n_nodes)
@@ -243,19 +277,23 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         Build a forest of trees from the training set (X, y).
         Parameters
         ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+        X : {array-like} of shape (n_samples, n_features)
             The training input samples. Internally, its dtype will be converted
-            to ``dtype=np.float32``. If a sparse matrix is provided, it will be
-            converted into a sparse ``csc_matrix``.
-        y : array-like of shape (n_samples,) or (n_samples, n_outputs)
-            The target values (class labels in classification, real numbers in
-            regression).
+            to ``dtype=np.float64``.
+        T : {array-like} of shape (n_samples, n_treatments)
+            The treatment vector for each sample
+        y : array-like of shape (n_samples,) or (n_samples, n_outcomes)
+            The outcome values for each sample.
         sample_weight : array-like of shape (n_samples,), default=None
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node. In the case of
             classification, splits are also ignored if they would result in any
             single class carrying a negative weight in either child node.
+        **kwargs : dictionary of array-like items of shape (n_samples, d_var)
+            Auxiliary random variables that go into the moment function (e.g. instrument, censoring etc)
+            Any of these variables will be passed on as is to the `get_pointJ` and
+            `get_alpha` method of the children classes.
         Returns
         -------
         self : object
@@ -283,6 +321,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # [:, np.newaxis] that does not.
             T = np.reshape(T, (-1, 1))
 
+        # Append a constant treatment if `fit_intercept=True`, the coefficient
+        # in front of the constant treatment is the intercept in the moment equation.
         self.n_relevant_outputs_ = T.shape[1]
         if self.fit_intercept:
             Taug = np.hstack([T, np.ones((T.shape[0], 1))])
@@ -293,6 +333,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         alpha = self.get_alpha(X, Taug, y, **kwargs)
         pointJ = self.get_pointJ(X, Taug, y, **kwargs)
+        self.n_outputs_, self.n_relevant_outputs_ = self.get_n_outputs_decomposition(X, T, y, **kwargs)
         yaug = np.hstack([y, alpha, pointJ])
 
         if getattr(yaug, "dtype", None) != DOUBLE or not yaug.flags.contiguous:
