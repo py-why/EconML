@@ -194,8 +194,9 @@ jobs:
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
+      package: '-e .'
       body:
-        - script: 'python setup.py pytest'
+        - script: 'pip install pytest pytest-cov pytest-xdist && pytest'
           displayName: 'Unit tests'
           env:
             PYTEST_ADDOPTS: '-m "not (notebook or automl)"'
