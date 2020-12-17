@@ -280,7 +280,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def fit(self, X, T, y, *, sample_weight=None, **kwargs):
         """
-        Build a forest of trees from the training set (X, y).
+        Build a forest of trees from the training set (X, T, y) and any other auxiliary variables.
+
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
@@ -293,9 +294,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         sample_weight : array-like of shape (n_samples,), default=None
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
-            ignored while searching for a split in each node. In the case of
-            classification, splits are also ignored if they would result in any
-            single class carrying a negative weight in either child node.
+            ignored while searching for a split in each node.
         **kwargs : dictionary of array-like items of shape (n_samples, d_var)
             Auxiliary random variables that go into the moment function (e.g. instrument, censoring etc)
             Any of these variables will be passed on as is to the `get_pointJ` and

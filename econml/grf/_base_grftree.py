@@ -92,13 +92,13 @@ class GRFTree(BaseEstimator):
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
-    min_samples_split : int or float, default=2
+    min_samples_split : int or float, default=10
         The minimum number of samples required to split an internal node:
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
-    min_samples_leaf : int or float, default=1
+    min_samples_leaf : int or float, default=5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -112,7 +112,7 @@ class GRFTree(BaseEstimator):
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
-    min_var_leaf : None or float in (0, 1], default=None
+    min_var_leaf : None or double in (0, infinity), default=None
         A constraint on the minimum degree of identification of the parameter of interest. This avoids performing
         splits where either the variance of the treatment is small or the correlation of the instrument with the
         treatment is small, or the variance of the instrument is small. Generically for any linear moment problem
@@ -234,8 +234,8 @@ class GRFTree(BaseEstimator):
                  criterion="mse",
                  splitter="best",
                  max_depth=None,
-                 min_samples_split=2,
-                 min_samples_leaf=1,
+                 min_samples_split=10,
+                 min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
                  min_var_leaf=None,
                  min_var_leaf_on_val=False,
