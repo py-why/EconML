@@ -101,6 +101,7 @@ class GenericModelFinalInference(Inference):
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
         # (which needs to have been expanded if there's a discrete treatment)
+        self._input_names = estimator._input_names if hasattr(estimator, "_input_names") else {}
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -122,7 +123,7 @@ class GenericModelFinalInference(Inference):
                                  "please call const_marginal_effect_interval to get confidence interval.")
         pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)), self._d_t, self._d_y)
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, inf_type='effect')
+                                      pred_stderr=pred_stderr, inf_type='effect', **self._input_names)
 
     def _predict(self, X):
         return self.model_final.predict(X)
@@ -175,7 +176,7 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect')
+                                      pred_stderr=e_stderr, inf_type='effect', **self._input_names)
 
 
 class LinearModelFinalInference(GenericModelFinalInference):
@@ -223,7 +224,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect')
+                                      pred_stderr=e_stderr, inf_type='effect', **self._input_names)
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -257,7 +258,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
             def fname_transformer(x):
                 return x
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
-                                      inf_type='coefficient', fname_transformer=fname_transformer)
+                                      inf_type='coefficient', fname_transformer=fname_transformer,
+                                      **self._input_names)
 
     def intercept__interval(self, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -286,7 +288,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
                                                     self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                                     self.fit_cate_intercept)[1]
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
-                                      inf_type='intercept')
+                                      inf_type='intercept', **self._input_names)
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -330,6 +332,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
         # (which needs to have been expanded if there's a discrete treatment)
+        self._input_names = estimator._input_names if hasattr(estimator, "_input_names") else {}
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -356,7 +359,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
         pred_stderr = np.array([mdl.prediction_stderr(X).flatten() for mdl in self.fitted_models_final])
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
                                       # send treatment to the end, pull bounds to the front
-                                      pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect')
+                                      pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect',
+                                      **self._input_names)
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -386,7 +390,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ..., ind],
                                       pred_stderr=pred_stderr[np.arange(T0.shape[0]), ..., ind],
-                                      inf_type='effect')
+                                      inf_type='effect', **self._input_names)
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
@@ -417,7 +421,8 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             def fname_transformer(x):
                 return x
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
-                                      inf_type='coefficient', fname_transformer=fname_transformer)
+                                      inf_type='coefficient', fname_transformer=fname_transformer,
+                                      **self._input_names)
 
     def intercept__interval(self, T, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -435,7 +440,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         assert ind >= 0, "No model was fitted for the control"
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
                                       pred_stderr=self.fitted_models_final[ind].intercept_stderr_,
-                                      inf_type='intercept')
+                                      inf_type='intercept', **self._input_names)
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
@@ -485,12 +490,16 @@ class InferenceResults(metaclass=abc.ABCMeta):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=lambda nm: nm):
+    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=lambda nm: nm,
+                 feature_names=None, output_names=None, treatment_names=None):
         self.d_t = d_t
         self.d_y = d_y
         self.pred = pred
         self.inf_type = inf_type
         self.fname_transformer = fname_transformer
+        self.feature_names = feature_names
+        self.output_names = output_names
+        self.treatment_names = treatment_names
 
     @property
     def point_estimate(self):
@@ -598,7 +607,8 @@ class InferenceResults(metaclass=abc.ABCMeta):
         """
         return (self.point_estimate - value) / self.stderr
 
-    def summary_frame(self, alpha=0.1, value=0, decimals=3, feat_name=None, output_name=None, treatment_name=None):
+    def summary_frame(self, alpha=0.1, value=0, decimals=3,
+                      feature_names=None, output_names=None, treatment_names=None):
         """
         Output the dataframe for all the inferences above.
 
@@ -611,11 +621,11 @@ class InferenceResults(metaclass=abc.ABCMeta):
             The mean value of the metric you'd like to test under null hypothesis.
         decimals: optinal int (default=3)
             Number of decimal places to round each column to.
-        feat_name: optional list of strings or None (default is None)
+        feature_names: optional list of strings or None (default is None)
             The names of the features X
-        output_name: optional list of strings or None (default is None)
+        output_names: optional list of strings or None (default is None)
             The names of the outputs
-        treatment_name: optional list of strings or None (default is None)
+        treatment_names: optional list of strings or None (default is None)
             The names of the treatments
 
         Returns
@@ -624,21 +634,23 @@ class InferenceResults(metaclass=abc.ABCMeta):
             The output dataframe includes point estimate, standard error, z score, p value and confidence intervals
             of the estimated metric of each treatment on each outcome for each sample X[i]
         """
-
+        feature_names = self.feature_names if feature_names is None else feature_names
+        treatment_names = self.treatment_names if treatment_names is None else treatment_names
+        output_names = self.output_names if output_names is None else output_names
         ci_mean = self.conf_int(alpha=alpha)
         to_include = OrderedDict()
         to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.point_estimate,
-                                                            output_name=output_name, treatment_name=treatment_name)
+                                                            output_names=output_names, treatment_names=treatment_names)
         to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr,
-                                                    output_name=output_name, treatment_name=treatment_name)
+                                                    output_names=output_names, treatment_names=treatment_names)
         to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value),
-                                                   output_name=output_name, treatment_name=treatment_name)
+                                                   output_names=output_names, treatment_names=treatment_names)
         to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value),
-                                                    output_name=output_name, treatment_name=treatment_name)
+                                                    output_names=output_names, treatment_names=treatment_names)
         to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0],
-                                                      output_name=output_name, treatment_name=treatment_name)
+                                                      output_names=output_names, treatment_names=treatment_names)
         to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1],
-                                                      output_name=output_name, treatment_name=treatment_name)
+                                                      output_names=output_names, treatment_names=treatment_names)
         res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
         if self.d_t == 1:
             res.columns = res.columns.droplevel(1)
@@ -646,9 +658,9 @@ class InferenceResults(metaclass=abc.ABCMeta):
             res.index = res.index.droplevel(1)
         if self.inf_type == 'coefficient':
             if self.fname_transformer is not None:
-                feat_name = self.fname_transformer(feat_name)
-            if feat_name is not None:
-                ind = feat_name
+                feature_names = self.fname_transformer(feature_names)
+            if feature_names is not None:
+                ind = feature_names
             else:
                 ct = res.shape[0] // self.d_y
                 ind = ['X' + str(i) for i in range(ct)]
@@ -664,7 +676,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
                 res.index = ['cate_intercept']
         return res
 
-    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_name=None, treatment_name=None):
+    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
         """
         Output the object of population summary results.
 
@@ -679,9 +691,9 @@ class InferenceResults(metaclass=abc.ABCMeta):
             Number of decimal places to round each column to.
         tol:  optinal float (default=0.001)
             The stopping criterion. The iterations will stop when the outcome is less than ``tol``
-        output_name: optional list of strings or None (default is None)
+        output_names: optional list of strings or None (default is None)
             The names of the outputs
-        treatment_name: optional list of strings or None (default is None)
+        treatment_names: optional list of strings or None (default is None)
             The names of the treatments
 
         Returns
@@ -690,29 +702,31 @@ class InferenceResults(metaclass=abc.ABCMeta):
             The population summary results instance contains the different summary analysis of point estimate
             for sample X on each treatment and outcome.
         """
+        treatment_names = self.treatment_names if treatment_names is None else treatment_names
+        output_names = self.output_names if output_names is None else output_names
         if self.inf_type == 'effect':
             return PopulationSummaryResults(pred=self.point_estimate, pred_stderr=self.stderr,
                                             d_t=self.d_t, d_y=self.d_y,
                                             alpha=alpha, value=value, decimals=decimals, tol=tol,
-                                            output_name=output_name, treatment_name=treatment_name)
+                                            output_names=output_names, treatment_names=treatment_names)
         else:
             raise AttributeError(self.inf_type + " inference doesn't support population_summary function!")
 
-    def _array_to_frame(self, d_t, d_y, arr, output_name=None, treatment_name=None):
+    def _array_to_frame(self, d_t, d_y, arr, output_names=None, treatment_names=None):
         if np.isscalar(arr):
             arr = np.array([arr])
         if self.inf_type == 'coefficient':
             arr = np.moveaxis(arr, -1, 0)
         arr = arr.reshape((-1, d_y, d_t))
         df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
-        if output_name is None:
-            output_name = ['Y' + str(i) for i in range(d_y)]
-        assert len(output_name) == d_y, "Incompatible length of output names"
-        if treatment_name is None:
-            treatment_name = ['T' + str(i) for i in range(d_t)]
-        assert len(treatment_name) == d_t, "Incompatible length of treatment names"
-        df.index = df.index.set_levels(output_name, level=1)
-        df.columns = treatment_name
+        if output_names is None:
+            output_names = ['Y' + str(i) for i in range(d_y)]
+        assert len(output_names) == d_y, "Incompatible length of output names"
+        if treatment_names is None:
+            treatment_names = ['T' + str(i) for i in range(d_t)]
+        assert len(treatment_names) == d_t, "Incompatible length of treatment names"
+        df.index = df.index.set_levels(output_names, level=1)
+        df.columns = treatment_names
         return df
 
     @abc.abstractmethod
@@ -761,9 +775,10 @@ class NormalInferenceResults(InferenceResults):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=lambda nm: nm):
+    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=lambda nm: nm,
+                 feature_names=None, output_names=None, treatment_names=None):
         self.pred_stderr = pred_stderr
-        super().__init__(d_t, d_y, pred, inf_type, fname_transformer)
+        super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
     @property
     def stderr(self):
@@ -831,7 +846,9 @@ class NormalInferenceResults(InferenceResults):
         assert shape(self.pred)[0] == shape(self.pred_stderr)[0] == 1
         pred = np.repeat(self.pred, n_rows, axis=0)
         pred_stderr = np.repeat(self.pred_stderr, n_rows, axis=0)
-        return NormalInferenceResults(self.d_t, self.d_y, pred, pred_stderr, self.inf_type, self.fname_transformer)
+        return NormalInferenceResults(self.d_t, self.d_y, pred, pred_stderr, self.inf_type,
+                                      self.fname_transformer, self.feature_names,
+                                      self.output_names, self.treatment_names)
 
 
 class EmpiricalInferenceResults(InferenceResults):
@@ -857,9 +874,10 @@ class EmpiricalInferenceResults(InferenceResults):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=lambda nm: nm):
+    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=lambda nm: nm,
+                 feature_names=None, output_names=None, treatment_names=None):
         self.pred_dist = pred_dist
-        super().__init__(d_t, d_y, pred, inf_type, fname_transformer)
+        super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
     @property
     def stderr(self):
@@ -924,7 +942,8 @@ class EmpiricalInferenceResults(InferenceResults):
         assert shape(self.pred)[0] == shape(self.pred_dist)[1] == 1
         pred = np.repeat(self.pred, n_rows, axis=0)
         pred_dist = np.repeat(self.pred_dist, n_rows, axis=1)
-        return EmpiricalInferenceResults(self.d_t, self.d_y, pred, pred_dist, self.inf_type, self.fname_transformer)
+        return EmpiricalInferenceResults(self.d_t, self.d_y, pred, pred_dist, self.inf_type, self.fname_transformer,
+                                         self.feature_names, self.output_names, self.treatment_names)
 
 
 class PopulationSummaryResults:
@@ -956,15 +975,15 @@ class PopulationSummaryResults:
         Number of decimal places to round each column to.
     tol:  optinal float (default=0.001)
         The stopping criterion. The iterations will stop when the outcome is less than ``tol``
-    output_name: optional list of strings or None (default is None)
+    output_names: optional list of strings or None (default is None)
             The names of the outputs
-    treatment_name: optional list of strings or None (default is None)
+    treatment_names: optional list of strings or None (default is None)
         The names of the treatments
 
     """
 
     def __init__(self, pred, pred_stderr, d_t, d_y, alpha, value, decimals, tol,
-                 output_name=None, treatment_name=None):
+                 output_names=None, treatment_names=None):
         self.pred = pred
         self.pred_stderr = pred_stderr
         self.d_t = d_t
@@ -973,8 +992,8 @@ class PopulationSummaryResults:
         self.value = value
         self.decimals = decimals
         self.tol = tol
-        self.output_name = output_name
-        self.treatment_name = treatment_name
+        self.output_names = output_names
+        self.treatment_names = treatment_names
 
     def __str__(self):
         return self.print().as_text()
@@ -1153,17 +1172,17 @@ class PopulationSummaryResults:
         res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[0], self.decimals)))
         res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[1], self.decimals)))
 
-        treatment_name = self.treatment_name
-        if treatment_name is None:
-            treatment_name = ['T' + str(i) for i in range(self.d_t)]
-        output_name = self.output_name
-        if output_name is None:
-            output_name = ['Y' + str(i) for i in range(self.d_y)]
+        treatment_names = self.treatment_names
+        if treatment_names is None:
+            treatment_names = ['T' + str(i) for i in range(self.d_t)]
+        output_names = self.output_names
+        if output_names is None:
+            output_names = ['Y' + str(i) for i in range(self.d_y)]
 
         metric_name1 = ['mean_point', 'stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
-        myheaders1 = [name + '\n' + tname for name in metric_name1 for tname in treatment_name
+        myheaders1 = [name + '\n' + tname for name in metric_name1 for tname in treatment_names
                       ] if self.d_t > 1 else [name for name in metric_name1]
-        mystubs1 = output_name if self.d_y > 1 else []
+        mystubs1 = output_names if self.d_y > 1 else []
         title1 = "Uncertainty of Mean Point Estimate"
         text1 = "Note: The stderr_mean is a conservative upper bound."
 
@@ -1172,9 +1191,9 @@ class PopulationSummaryResults:
         res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[0], self.decimals)))
         res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[1], self.decimals)))
         metric_name2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
-        myheaders2 = [name + '\n' + tname for name in metric_name2 for tname in treatment_name
+        myheaders2 = [name + '\n' + tname for name in metric_name2 for tname in treatment_names
                       ] if self.d_t > 1 else [name for name in metric_name2]
-        mystubs2 = output_name if self.d_y > 1 else []
+        mystubs2 = output_names if self.d_y > 1 else []
         title2 = "Distribution of Point Estimate"
 
         # 3. Total Variance of Point Estimate
@@ -1184,9 +1203,9 @@ class PopulationSummaryResults:
         res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
                                                      self.conf_int_point[1], self.decimals)))
         metric_name3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
-        myheaders3 = [name + '\n' + tname for name in metric_name3 for tname in treatment_name
+        myheaders3 = [name + '\n' + tname for name in metric_name3 for tname in treatment_names
                       ] if self.d_t > 1 else [name for name in metric_name3]
-        mystubs3 = output_name if self.d_y > 1 else []
+        mystubs3 = output_names if self.d_y > 1 else []
         title3 = "Total Variance of Point Estimate"
 
         smry = Summary()
