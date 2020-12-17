@@ -198,27 +198,33 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.warm_start = warm_start
         self.max_samples = max_samples
 
-    def get_alpha(self, X, T, y, **kwargs):
+    def _get_alpha_and_pointJ(self, X, T, y, **kwargs):
         """ This function must be implemented by child class and given input variables
         X, T, y and any auxiliary variables passed as keyword only, should be calculating
-        the point-wise random vector A of the linear moment equation for every
-        sample in the input samples.
+        the point-wise random vector A and the point-wise jacobian random variable J of
+        the linear moment equation for every sample in the input samples.
 
-        Note. If `fit_intercept=True`, then the T that is passed to `get_alpha` is appended
-        by a column of 1's. Thus the moment should handle such an augmented T and an augmented
-        parameter vector.
+        Returns
+        -------
+        A : array of shape (n_samples, n_outputs)
+            The A part of the moment equation for each sample
+        J : array of shape (n_samples, n_outputs * n_outputs)
+            The J matrix part of the moment equation, flattened in Fortran-contiguous format.
         """
         pass
 
-    def get_pointJ(self, X, T, y, **kwargs):
+    def _get_n_outputs_decomposition(self, X, T, y, **kwargs):
         """ This function must be implemented by child class and given input variables
-        X, T, y and any auxiliary variables passed as keyword only, should be calculating
-        the point-wise jacobian random variable J of the linear moment equation for every
-        sample in the input samples.
+        X, T, y and any auxiliary variables passed as keyword only, should return a tuple
+        (n_outputs, n_relevant_outputs), which determines how many parameters is the moment
+        estimating and what prefix of these parameters are the relevant ones that we care about.
 
-        Note. If `fit_intercept=True`, then the T that is passed to `get_alpha` is appended
-        by a column of 1's. Thus the moment should handle such an augmented T and an augmented
-        parameter vector.
+        Returns
+        -------
+        n_outputs : int
+            The number of parameters we are estimating
+        n_relevant_outputs : int
+            The length of the prefix of parameters that we care about (remainder are nuisance)
         """
         pass
 
@@ -227,7 +233,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         Apply trees in the forest to X, return leaf indices.
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
         Returns
@@ -248,7 +254,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         Return the decision path in the forest.
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
         Returns
@@ -277,10 +283,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         Build a forest of trees from the training set (X, y).
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : array-like of shape (n_samples, n_features)
             The training input samples. Internally, its dtype will be converted
             to ``dtype=np.float64``.
-        T : {array-like} of shape (n_samples, n_treatments)
+        T : array-like of shape (n_samples, n_treatments)
             The treatment vector for each sample
         y : array-like of shape (n_samples,) or (n_samples, n_outcomes)
             The outcome values for each sample.
@@ -321,19 +327,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             # [:, np.newaxis] that does not.
             T = np.reshape(T, (-1, 1))
 
-        # Append a constant treatment if `fit_intercept=True`, the coefficient
-        # in front of the constant treatment is the intercept in the moment equation.
-        self.n_relevant_outputs_ = T.shape[1]
-        if self.fit_intercept:
-            Taug = np.hstack([T, np.ones((T.shape[0], 1))])
-            self.n_outputs_ = T.shape[1] + 1
-        else:
-            Taug = T
-            self.n_outputs_ = T.shape[1]
-
-        alpha = self.get_alpha(X, Taug, y, **kwargs)
-        pointJ = self.get_pointJ(X, Taug, y, **kwargs)
-        self.n_outputs_, self.n_relevant_outputs_ = self.get_n_outputs_decomposition(X, T, y, **kwargs)
+        alpha, pointJ = self._get_alpha_and_pointJ(X, T, y, **kwargs)
+        self.n_outputs_, self.n_relevant_outputs_ = self._get_n_outputs_decomposition(X, T, y, **kwargs)
         yaug = np.hstack([y, alpha, pointJ])
 
         if getattr(yaug, "dtype", None) != DOUBLE or not yaug.flags.contiguous:
@@ -342,7 +337,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         if getattr(X, "dtype", None) != DTYPE:
             X = X.astype(DTYPE)
 
-        # Get bootstrap sample size
+        # Get subsample sample size
         n_samples_subsample = _get_n_samples_subsample(
             n_samples=n_samples,
             max_samples=self.max_samples
@@ -510,20 +505,24 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
-        The impurity-based feature importances.
+        The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
-        The importance of a feature is computed as the (normalized)
-        total reduction of the criterion brought by that feature.  It is also
-        known as the Gini importance.
-        Warning: impurity-based feature importances can be misleading for
-        high cardinality features (many unique values). See
-        :func:`sklearn.inspection.permutation_importance` as an alternative.
+        The importance of a feature is computed as the (normalized) total heterogeneity that the feature
+        creates. For each tree and for each split that the feature was chosen adds:
+            parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        to the importance of the feature. Each such quantity is also weighted by the depth of the split.
+        These importances are normalized at the tree level and then averaged across trees.
+
+        Parameters
+        ----------
+        max_depth : int, default=4
+            Splits of depth larger than `max_depth` are not used in this calculation
+        depth_decay_exponent: double, default=2.0
+            The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0. 
         Returns
         -------
         feature_importances_ : ndarray of shape (n_features,)
-            The values of this array sum to 1, unless all trees are single node
-            trees consisting of only the root node, in which case it will be an
-            array of zeros.
+            Normalized total parameter heterogeneity inducing importance of each feature
         """
         check_is_fitted(self)
 
@@ -541,16 +540,34 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     @property
     def feature_importances_(self):
+        """ ndarray of shape (n_features,)
+        Normalized total parameter heterogeneity inducing importance of each feature
+        """
         return self.feature_importances()
 
     def _validate_X_predict(self, X):
         """
-        Validate X whenever one tries to predict, apply, predict_proba."""
+        Validate X whenever one tries to predict, apply, and other predict methods."""
         check_is_fitted(self)
 
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
     def predict_tree_average_full(self, X):
+        """ Return the fitted local parameters for each X, i.e. theta(X). This
+        method simply returns the average of the parameters estimated by each tree. `predict_full`
+        should be preferred over `pred_tree_average_full`, as it performs a more stable averaging across
+        trees.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        Returns
+        -------
+        theta(X) : array-like of shape (n_samples, n_outputs)
+            The estimated relevant parameters for each row of X
+        """
 
         check_is_fitted(self)
         # Check data
@@ -573,12 +590,62 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return y_hat
 
     def predict_tree_average(self, X):
+        """ Return the prefix of relevant fitted local parameters for each X, i.e. theta(X)[1..n_relevant_outputs].
+        This method simply returns the average of the parameters estimated by each tree. `predict`
+        should be preferred over `pred_tree_average`, as it performs a more stable averaging across
+        trees.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        Returns
+        -------
+        theta(X)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
+            The estimated relevant parameters for each row of X
+        """
         y_hat = self.predict_tree_average_full(X)
         if self.n_relevant_outputs_ == self.n_outputs_:
             return y_hat
         return y_hat[:, :self.n_relevant_outputs_]
 
     def predict_moment_and_var(self, X, parameter, slice=None, parallel=True):
+        """ Return the value of the conditional expected moment vector at each sample and
+        for the given parameter estimate for each sample:
+
+            M(x; theta(x)) := E[J | X=x] theta(x) - E[A | X=x]
+
+        where conditional expectations are estimated based on the forest weights, i.e.:
+
+            M_tree(x; theta(x)) := (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] (J[i] theta(x) - A[i])
+            M(x; theta(x) = (1/n_trees) sum_{trees} M_tree(x; theta(x))
+
+        where w[i] is the sample weight (1.0 if sample_weight is None), as well as the variance of the local
+        moment vector across trees:
+
+            Var(M_tree(x; theta(x))) = (1/n_trees) sum_{trees} M_tree(x; theta(x)) @ M_tree(x; theta(x)).T
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        parameter : array-like of shape (n_samples, n_outputs)
+            An estimate of the parameter theta(x) for each sample x in X
+        slice : list of int or None, default=None
+            If not None, then only the trees with index in slice, will be used to calculate the mean
+            and the variance.
+        parallel : bool , default=True
+            Whether the averaging should happen using parallelism or not. Parallelism adds some overhead
+            but makes it faster with many trees.
+        Returns
+        -------
+        moment : array-like of shape (n_samples, n_outputs)
+            The estimated conditional moment M(x; theta(x)) for each sample x in X
+        moment_var : array-like of shape (n_samples, n_outputs)
+            The variance of the conditional moment Var(M_tree(x; theta(x))) across trees for each sample x
+        """
         check_is_fitted(self)
         # Check data
         X = self._validate_X_predict(X)
@@ -611,7 +678,32 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return moment_hat, moment_var_hat
 
     def predict_alpha_and_jac(self, X, slice=None, parallel=True):
+        """ Return the value of the conditional jacobian E[J | X=x] and the conditional alpha E[A | X=x]
+        using the forest as kernel weights, i.e.:
 
+            alpha(x) = (1/n_trees) sum_{trees} (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] A[i]
+            jac(x) = (1/n_trees) sum_{trees} (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] J[i]
+
+        where w[i] is the sample weight (1.0 if sample_weight is None).
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        slice : list of int or None, default=None
+            If not None, then only the trees with index in slice, will be used to calculate the mean
+            and the variance.
+        parallel : bool , default=True
+            Whether the averaging should happen using parallelism or not. Parallelism adds some overhead
+            but makes it faster with many trees.
+        Returns
+        -------
+        alpha : array-like of shape (n_samples, n_outputs)
+            The estimated conditional A, alpha(x) for each sample x in X
+        jac : array-like of shape (n_samples, n_outputs, n_outputs)
+            The estimated conditional J, jac(x) for each sample x in X
+        """
         check_is_fitted(self)
         # Check data
         X = self._validate_X_predict(X)
@@ -640,6 +732,42 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return alpha_hat, jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_))
 
     def _predict_point_and_var(self, X, full=False, point=True, var=False, project=False, projector=None):
+        """ An internal private method that coordinates all prediction functionality and tries to share
+        as much computation between different predict methods to avoid re-computation and re-spawining of
+        parallel executions.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        full : bool, default=False
+            Whether to return the full estimated parameter or only the relevant part
+        point : bool, default=True
+            Whether to return the point estimate theta(x)
+        var : bool, default=False
+            Whether to return the co-variance of the point estimate V(theta(x))
+        project : bool, default=False
+            Whether to project the point estimate using an inner product with a projector, and also
+            return the variance of the projection
+        projector : array-like of shape (n_samples, n_outputs)
+            The projection vector for each sample. The point estimate theta(x) for each sample will
+            be projected and return the inner produce <theta(x), projector(x)> for each sample x.
+            Also the variance information will be about the inner product as opposed to the parameter
+            theta(x).
+        Returns
+        -------
+        point : array-like of shape (n_samples, x)
+            The point estimate of the parameter theta(x) or its inner product with projector(x) for each
+            sample x in X.
+            If `point=False`, this return value is omitted. If `project=True`, then `x=1`. If `project=False`
+            and `full=True`, then `x=n_outputs`. If `project=False` and `full=False`, then `x=n_relevant_outputs`.
+        var : array-like of shape (n_samples, x, x) or (n_samples, 1)
+            The covariance of the parameter theta(x) or its inner product with projector(x) for each sample x in X.
+            If `var=False`, this return value is omitted. If `project=True`, then return is of shape (n_samples, 1).
+            If `project=False` and `full=True`, then `x=n_outputs`. If `project=False` and `full=False`,
+            then `x=n_relevant_outputs`.
+        """
 
         alpha, jac = self.predict_alpha_and_jac(X)
         invjac = np.linalg.pinv(jac)
@@ -727,6 +855,26 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 return pred_cov[:, :n_outputs, :n_outputs]
 
     def predict_full(self, X, interval=False, alpha=0.05):
+        """ Return the fitted local parameters for each x in X, i.e. theta(x).
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        interval : bool, default=False
+            Whether to return a confidence interval too
+        alpha : float in (0, 1), default=0.05
+            The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
+            confidence interval.
+        Returns
+        -------
+        theta(x) : array-like of shape (n_samples, n_outputs)
+            The estimated relevant parameters for each row x of X
+        lb(x), ub(x) : array-like of shape (n_samples, n_outputs)
+            The lower and upper end of the confidence interval for each parameter. Return value is omitted if
+            `interval=False`.
+        """
         if interval:
             point, pred_var = self._predict_point_and_var(X, full=True, point=True, var=True)
             lb, ub = np.zeros(point.shape), np.zeros(point.shape)
@@ -737,6 +885,27 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return self._predict_point_and_var(X, full=True, point=True, var=False)
 
     def predict(self, X, interval=False, alpha=0.05):
+        """ Return the prefix of relevant fitted local parameters for each x in X,
+        i.e. theta(x)[1..n_relevant_outputs].
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        interval : bool, default=False
+            Whether to return a confidence interval too
+        alpha : float in (0, 1), default=0.05
+            The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
+            confidence interval.
+        Returns
+        -------
+        theta(X)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
+            The estimated relevant parameters for each row of X
+        lb(x), ub(x) : array-like of shape (n_samples, n_relevant_outputs)
+            The lower and upper end of the confidence interval for each parameter. Return value is omitted if
+            `interval=False`.
+        """
         if interval:
             y_hat, lb, ub = self.predict_full(X, interval=interval, alpha=alpha)
             if self.n_relevant_outputs_ == self.n_outputs_:
@@ -749,23 +918,59 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
                 return y_hat
             return y_hat[:, :self.n_relevant_outputs_]
 
-    def predict_interval(self, X, alpha=.05):
-        _, lb, ub = self.predict(X, interval=True, alpha=alpha)
-        return lb, ub
-
     def predict_and_var(self, X):
+        """ Return the prefix of relevant fitted local parameters for each x in X,
+        i.e. theta(x)[1..n_relevant_outputs] and their covariance matrix.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        Returns
+        -------
+        theta(x)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
+            The estimated relevant parameters for each row of X
+        var(theta(x)) : array-like of shape (n_samples, n_relevant_outputs, n_relevant_outputs)
+            The covariance of theta(x)[1, .., n_relevant_outputs]
+        """
         return self._predict_point_and_var(X, full=False, point=True, var=True)
 
     def predict_var(self, X):
+        """ Return the covariance matrix of the prefix of relevant fitted local parameters
+        for each x in X.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        Returns
+        -------
+        var(theta(x)) : array-like of shape (n_samples, n_relevant_outputs, n_relevant_outputs)
+            The covariance of theta(x)[1, .., n_relevant_outputs]
+        """
         return self._predict_point_and_var(X, full=False, point=False, var=True)
 
-    def predict_stderr(self, X):
+    def prediction_stderr(self, X):
+        """ Return the standard deviation of each coordinate of the prefix of relevant fitted local parameters
+        for each x in X.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        Returns
+        -------
+        std(theta(x)) : array-like of shape (n_samples, n_relevant_outputs)
+            The standard deviation of each theta(x)[i] for i in {1, .., n_relevant_outputs}
+        """
         return np.sqrt(np.diagonal(self.predict_var(X), axis1=1, axis2=2))
 
-    def prediction_stderr(self, X):
-        return self.predict_stderr(X)
-
     def _check_projector(self, X, projector):
+        """ validate the projector parameter
+        """
         X, projector = check_X_y(X, projector, multi_output=True, y_numeric=True)
         if projector.ndim == 1:
             projector = projector.reshape((-1, 1))
@@ -775,16 +980,67 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         return X, projector
 
     def predict_projection_and_var(self, X, projector):
+        """ Return the inner product of the prefix of relevant fitted local parameters for each x in X,
+        i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.
+            mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
+        as well as the variance of mu(x).
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        projector : array-like of shape (n_samples, n_relevant_outputs)
+            The projector vector for each sample x in X
+        Returns
+        -------
+        mu(x) : array-like of shape (n_samples, 1)
+            The estimated inner product of the relevant parameters with the projector for each row x of X
+        var(mu(x)) : array-like of shape (n_samples, 1)
+            The variance of the estimated inner product
+        """
         X, projector = self._check_projector(X, projector)
         return self._predict_point_and_var(X, full=False, point=True, var=True,
                                            project=True, projector=projector)
 
     def predict_projection(self, X, projector):
+        """ Return the inner product of the prefix of relevant fitted local parameters for each x in X,
+        i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.
+            mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        projector : array-like of shape (n_samples, n_relevant_outputs)
+            The projector vector for each sample x in X
+        Returns
+        -------
+        mu(x) : array-like of shape (n_samples, 1)
+            The estimated inner product of the relevant parameters with the projector for each row x of X
+        """
         X, projector = self._check_projector(X, projector)
         return self._predict_point_and_var(X, full=False, point=True, var=False,
                                            project=True, projector=projector)
 
     def predict_projection_var(self, X, projector):
+        """ Return the variance of the inner product of the prefix of relevant fitted local parameters
+        for each x in X, i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.
+            Var(mu(x)) for mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        projector : array-like of shape (n_samples, n_relevant_outputs)
+            The projector vector for each sample x in X
+        Returns
+        -------
+        var(mu(x)) : array-like of shape (n_samples, 1)
+            The variance of the estimated inner product
+        """
         X, projector = self._check_projector(X, projector)
         return self._predict_point_and_var(X, full=False, point=False, var=True,
                                            project=True, projector=projector)

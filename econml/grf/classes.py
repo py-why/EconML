@@ -7,6 +7,7 @@ from ..utilities import cross_product
 from ._base_grf import BaseGRF
 from ..utilities import check_inputs
 from sklearn.base import BaseEstimator, clone
+from sklearn.utils import check_X_y
 
 # =============================================================================
 # A MultOutputWrapper for GRF classes
@@ -61,30 +62,110 @@ class MultiOutputGRF(BaseEstimator):
 
 class CausalForest(BaseGRF):
 
-    def get_alpha(self, X, T, y):
-        return y * T
+    def __init__(self,
+                 n_estimators=100, *,
+                 criterion="mse",
+                 max_depth=None,
+                 min_samples_split=10,
+                 min_samples_leaf=5,
+                 min_weight_fraction_leaf=0.,
+                 min_var_fraction_leaf=None,
+                 min_var_leaf_on_val=False,
+                 max_features="auto",
+                 min_impurity_decrease=0.,
+                 max_samples=.45,
+                 min_balancedness_tol=.45,
+                 honest=True,
+                 inference=True,
+                 fit_intercept=True,
+                 subforest_size=4,
+                 n_jobs=-1,
+                 random_state=None,
+                 verbose=0,
+                 warm_start=False):
+        super().__init__(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth,
+                         min_samples_split=min_samples_split,
+                         min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
+                         min_var_fraction_leaf=min_var_fraction_leaf, min_var_leaf_on_val=min_var_leaf_on_val,
+                         max_features=max_features, min_impurity_decrease=min_impurity_decrease,
+                         max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
+                         honest=honest, inference=inference, fit_intercept=fit_intercept,
+                         subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
+                         warm_start=warm_start)
 
-    def get_pointJ(self, X, T, y):
-        return cross_product(T, T)
+    def _get_alpha_and_pointJ(self, X, T, y):
+        # Append a constant treatment if `fit_intercept=True`, the coefficient
+        # in front of the constant treatment is the intercept in the moment equation.
+        if self.fit_intercept:
+            T = np.hstack([T, np.ones((T.shape[0], 1))])
+        return y * T, cross_product(T, T)
+
+    def _get_n_outputs_decomposition(self, X, T, y):
+        n_relevant_outputs = T.shape[1]
+        n_outputs = n_relevant_outputs
+        if self.fit_intercept:
+            n_outputs = n_relevant_outputs + 1
+        return n_outputs, n_relevant_outputs
 
 
 class CausalIVForest(BaseGRF):
 
-    def get_alpha(self, X, T, y, *, Z):
+    def __init__(self,
+                 n_estimators=100, *,
+                 criterion="mse",
+                 max_depth=None,
+                 min_samples_split=10,
+                 min_samples_leaf=5,
+                 min_weight_fraction_leaf=0.,
+                 min_var_fraction_leaf=None,
+                 min_var_leaf_on_val=False,
+                 max_features="auto",
+                 min_impurity_decrease=0.,
+                 max_samples=.45,
+                 min_balancedness_tol=.45,
+                 honest=True,
+                 inference=True,
+                 fit_intercept=True,
+                 subforest_size=4,
+                 n_jobs=-1,
+                 random_state=None,
+                 verbose=0,
+                 warm_start=False):
+        super().__init__(n_estimators=n_estimators, criterion=criterion, max_depth=max_depth,
+                         min_samples_split=min_samples_split,
+                         min_samples_leaf=min_samples_leaf, min_weight_fraction_leaf=min_weight_fraction_leaf,
+                         min_var_fraction_leaf=min_var_fraction_leaf, min_var_leaf_on_val=min_var_leaf_on_val,
+                         max_features=max_features, min_impurity_decrease=min_impurity_decrease,
+                         max_samples=max_samples, min_balancedness_tol=min_balancedness_tol,
+                         honest=honest, inference=inference, fit_intercept=fit_intercept,
+                         subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
+                         warm_start=warm_start)
+
+    def _get_alpha_and_pointJ(self, X, T, y, *, Z):
+        # Append a constant treatment and constant instrument if `fit_intercept=True`,
+        # the coefficient in front of the constant treatment is the intercept in the moment equation.
+        _, Z = check_X_y(X, Z, y_numeric=True, multi_output=True, accept_sparse=False)
         Z = np.atleast_1d(Z)
         if Z.ndim == 1:
             Z = np.reshape(Z, (-1, 1))
 
-        if self.fit_intercept:
-            return y * np.hstack([Z, np.ones((Z.shape[0], 1))])
-        return y * Z
+        if not Z.shape[1] == T.shape[1]:
+            raise ValueError("The dimension of the instrument should match the dimension of the treatment. "
+                             "This method handles only exactly identified instrumental variable regression. "
+                             "Preprocess your instrument by projecting it to the treatment space.")
 
-    def get_pointJ(self, X, T, y, *, Z):
-        if Z.ndim == 1:
-            Z = np.reshape(Z, (-1, 1))
         if self.fit_intercept:
-            return cross_product(np.hstack([Z, np.ones((Z.shape[0], 1))]), T)
-        return cross_product(Z, T)
+            T = np.hstack([T, np.ones((T.shape[0], 1))])
+            Z = np.hstack([Z, np.ones((Z.shape[0], 1))])
+
+        return y * Z, cross_product(Z, T)
+
+    def _get_n_outputs_decomposition(self, X, T, y, *, Z):
+        n_relevant_outputs = T.shape[1]
+        n_outputs = n_relevant_outputs
+        if self.fit_intercept:
+            n_outputs = n_relevant_outputs + 1
+        return n_outputs, n_relevant_outputs
 
 
 class RegressionForest(BaseGRF):
@@ -380,9 +461,9 @@ class RegressionForest(BaseGRF):
     def fit(self, X, y):
         return super().fit(X, y, np.ones((len(X), 1)))
 
-    def get_alpha(self, X, y, T):
-        return y
-
-    def get_pointJ(self, X, y, T):
+    def _get_alpha_and_pointJ(self, X, y, T):
         jac = np.eye(y.shape[1]).reshape((1, -1))
-        return np.tile(jac, (X.shape[0], 1))
+        return y, np.tile(jac, (X.shape[0], 1))
+
+    def _get_n_outputs_decomposition(self, X, y, T):
+        return y.shape[1], y.shape[1]

@@ -1,6 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-
+# %%
 import unittest
 import logging
 import time
@@ -431,14 +431,10 @@ class TestGRFPython(unittest.TestCase):
         ub = scipy.stats.norm.ppf(1 - alpha / 2, loc=mean[:, 0], scale=np.sqrt(var[:, 0, 0])).reshape(-1, 1)
 
         np.testing.assert_allclose(var, forest.predict_var(X))
-        lbtest, ubtest = forest.predict_interval(X, alpha=alpha)
-        np.testing.assert_allclose(lb, lbtest)
-        np.testing.assert_allclose(ub, ubtest)
         meantest, lbtest, ubtest = forest.predict(X, interval=True, alpha=alpha)
         np.testing.assert_allclose(mean, meantest)
         np.testing.assert_allclose(lb, lbtest)
         np.testing.assert_allclose(ub, ubtest)
-        np.testing.assert_allclose(np.sqrt(var[:, 0, 0]), forest.predict_stderr(X)[:, 0])
         np.testing.assert_allclose(np.sqrt(var[:, 0, 0]), forest.prediction_stderr(X)[:, 0])
 
         # test accuracy

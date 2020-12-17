@@ -596,6 +596,24 @@ class GRFTree(BaseEstimator):
         return self.tree_.predict_precond_and_jac(X)
 
     def predict_moment(self, X, parameter, check_input=True):
+        """Predict the local moment value for each sample and at the given parameter:
+            E[J | X=x] theta(x) - E[A | X=x]
+
+        Parameters
+        ----------
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``
+        parameter : {array-like} of shape (n_samples, n_outputs)
+            A parameter estimate for each sample
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+        Returns
+        -------
+        moment : array-like of shape (n_samples, n_outputs)
+            The local moment E[J | X=x] theta(x) - E[A | X=x] for each sample x
+        """
         alpha, jac = self.predict_alpha_and_jac(X)
         return alpha - np.einsum('ijk,ik->ij', jac.reshape((-1, self.n_outputs_, self.n_outputs_)), parameter)
 
