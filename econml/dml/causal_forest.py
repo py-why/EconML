@@ -426,7 +426,7 @@ class CausalForestDML(_BaseDML):
             Weights for each row
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of :class:`.BootstrapInference`) 'blb' 
+            (or an instance of :class:`.BootstrapInference`) 'blb'
             (or an instance of :class:`.GenericModelFinalWithCovInference`) and 'auto'
             (or an instance of :class:`.GenericModelFinalWithCovInference`)
 

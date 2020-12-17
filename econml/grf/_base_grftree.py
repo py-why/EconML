@@ -472,8 +472,8 @@ class GRFTree(BaseEstimator):
             else:
                 criterion_val = criterion
 
-        if (min_var_leaf >= 0.0 and (not isinstance(criterion, LinearMomentGRFCriterion))
-                and (not isinstance(criterion_val, LinearMomentGRFCriterion))):
+        if (min_var_leaf >= 0.0 and (not isinstance(criterion, LinearMomentGRFCriterion)) and
+                (not isinstance(criterion_val, LinearMomentGRFCriterion))):
             raise ValueError("This criterion does not support min_var_leaf constraint!")
 
         splitter = self.splitter
@@ -673,7 +673,7 @@ class GRFTree(BaseEstimator):
         max_depth : int, default=4
             Splits of depth larger than `max_depth` are not used in this calculation
         depth_decay_exponent: double, default=2.0
-            The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0. 
+            The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0.
         Returns
         -------
         feature_importances_ : ndarray of shape (n_features,)

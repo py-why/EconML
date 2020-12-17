@@ -412,9 +412,9 @@ class CausalIVForest(BaseGRF):
           residualized (centered) then this constraint translates to:
             for all i neq j:
                 E[T[i]Z[i]] E[T[j]Z[j]] - E[T[i] Z[j]]
-                sqrt( Cov(T[i], Z[i] |X in leaf) * Cov(T[j], Z[j]|X in leaf) 
+                sqrt( Cov(T[i], Z[i] |X in leaf) * Cov(T[j], Z[j]|X in leaf)
                         * ( 1 - rho(T[i], Z[j]| in leaf) rho(T[j], Z[i]| in leaf) ) )
-                    > `min_var_fraction_leaf` sqrt( Cov(T[i], Z[i]) * Cov(T[j], Z[j]) 
+                    > `min_var_fraction_leaf` sqrt( Cov(T[i], Z[i]) * Cov(T[j], Z[j])
                                                         * ( 1 - rho(T[i], Z[j]) rho(T[j], Z[i]) ) )
           where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
           constraint also enforces that no two pairs of treatments and instruments be very co-linear within a leaf.

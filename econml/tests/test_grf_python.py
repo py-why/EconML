@@ -71,7 +71,8 @@ class TestGRFPython(unittest.TestCase):
         # testing heterogeneity importances
         feature_importances = np.zeros(X.shape[1])
         feature_importances[0] = 5 * 5 * (np.mean(y[less]) - np.mean(y[~less]))**2 / 100
-        np.testing.assert_array_almost_equal(tree.compute_feature_heterogeneity_importances(normalize=False, max_depth=0),
+        np.testing.assert_array_almost_equal(tree.compute_feature_heterogeneity_importances(normalize=False,
+                                                                                            max_depth=0),
                                              feature_importances, decimal=5)
         feature_importances[0] += .5 * (2 * 2 * 3 * (1)**2 / 5) / 10
         np.testing.assert_array_almost_equal(tree.compute_feature_heterogeneity_importances(normalize=False,
@@ -303,7 +304,8 @@ class TestGRFPython(unittest.TestCase):
                                                                                    criterion, fit_intercept,
                                                                                    sample_weight=sample_weightval),
                                                          self._get_node_quantities(tree.tree_, node_id))]
-                                    if (sample_weight is None) and fit_intercept and (min_var_fraction_leaf is not None):
+                                    if ((sample_weight is None) and
+                                            fit_intercept and (min_var_fraction_leaf is not None)):
                                         mask = np.abs(Xval[:, 0]) > .5
                                         np.testing.assert_allclose(tree.tree_.predict(Xval[mask]),
                                                                    truthval[mask], atol=.07)

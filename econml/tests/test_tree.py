@@ -154,7 +154,8 @@ class TestTree(unittest.TestCase):
         # testing heterogeneity importances
         feature_importances = np.zeros(X.shape[1])
         feature_importances[0] = 5 * 5 * (np.mean(y[less]) - np.mean(y[~less]))**2 / 100
-        np.testing.assert_array_almost_equal(tree.compute_feature_heterogeneity_importances(normalize=False, max_depth=0),
+        np.testing.assert_array_almost_equal(tree.compute_feature_heterogeneity_importances(normalize=False,
+                                                                                            max_depth=0),
                                              feature_importances, decimal=10)
         feature_importances[0] += .5 * (2 * 2 * 3 * (1)**2 / 5) / 10
         np.testing.assert_array_almost_equal(tree.compute_feature_heterogeneity_importances(normalize=False,

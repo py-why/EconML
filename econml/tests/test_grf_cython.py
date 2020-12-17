@@ -116,8 +116,8 @@ class TestGRFCython(unittest.TestCase):
 
     def _get_true_quantities(self, config, X, y, mask, criterion):
         alpha = y[mask, config['n_y']:config['n_y'] + config['n_outputs']]
-        pointJ = y[mask, config['n_y'] + config['n_outputs']:config['n_y']
-                   + (config['n_outputs'] + 1) * config['n_outputs']]
+        pointJ = y[mask, config['n_y'] + config['n_outputs']:
+                   config['n_y'] + (config['n_outputs'] + 1) * config['n_outputs']]
         jac = np.mean(pointJ, axis=0)
         precond = np.mean(alpha, axis=0)
         invJ = np.linalg.inv(jac.reshape((alpha.shape[1], alpha.shape[1])))

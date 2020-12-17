@@ -110,7 +110,7 @@ def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwar
     complains that it cannot pickle it when placed there.
     Combines `_accumulate_prediction` and `_accumulate_prediction_var` in a single
     parallel run, so that out will contain the mean of the predictions across trees
-    and out_var the covariance. 
+    and out_var the covariance.
     """
     prediction = predict(X, *args, check_input=False, **kwargs)
     with lock:
@@ -517,7 +517,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         max_depth : int, default=4
             Splits of depth larger than `max_depth` are not used in this calculation
         depth_decay_exponent: double, default=2.0
-            The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0. 
+            The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0.
         Returns
         -------
         feature_importances_ : ndarray of shape (n_features,)
