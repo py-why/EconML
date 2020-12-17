@@ -106,10 +106,40 @@ class GRFTree(BaseEstimator):
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
-    min_var_leaf : ,
-
-    min_var_leaf_on_val : ,
-
+    min_var_leaf : None or float in (0, 1], default=None
+        A constraint on the minimum degree of identification of the parameter of interest. This avoids performing
+        splits where either the variance of the treatment is small or the correlation of the instrument with the
+        treatment is small, or the variance of the instrument is small. Generically for any linear moment problem
+        this translates to conditions on the leaf jacobian matrix J(leaf) that are proxies for a well-conditioned
+        matrix, which leads to smaller variance of the local estimate. The proxy of the well-conditioning is
+        different for different criterion, primarily for computational efficiency reasons.
+        - If `criterion='het'`, then the diagonal entries of J(leaf) are constraint to have absolute
+          value at least `min_var_leaf`:
+            for all i in {1, ..., n_outputs}: abs(J(leaf)[i, i]) > `min_var_leaf`
+          In the context of a causal tree, when residual treatment is passed
+          at fit time, then, this translates to a requirement on Var(T[i]) for every treatment coordinate i.
+          In the context of an IV tree, with residual instruments and residual treatments passed at fit time
+          this translates to Cov(T[i], Z[i]) > `min_var_leaf` for each coordinate i of the instrument and the
+          treatment.
+        - If `criterion='mse'`, because the criterion stores more information about the leaf jacobian for
+          every candidate split, then we impose further constraints on the pairwise determininants of the
+          leaf jacobian, as they come at small extra computational cost, i.e.
+            for all i neq j: sqrt(abs(J(leaf)[i, i] * J(leaf)[j, j] - J(leaf)[i, j] * J(leaf)[j, i])) > `min_var_leaf`
+          In the context of a causal tree, when residual treatment is passed at fit time, then this
+          translates to a constraint on the pearson correlation coefficient on any two coordinates
+          of the treatment within the leaf, i.e.:
+            for all i neq j: sqrt( Var(T[i]) * Var(T[j]) * (1 - rho(T[i], T[j])^2) ) ) > `min_var_leaf`
+          where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
+          constraint also enforces that no two pairs of treatments be very co-linear within a leaf. This
+          extra constraint primarily has bite in the case of more than two input treatments.
+    min_var_leaf_on_val : bool, default=False
+        Whether the `min_var_leaf` constraint should also be enforced to hold on the validation set of the
+        honest split too. If `min_var_leaf=None` then this flag does nothing. Setting this to True should
+        be done with caution, as this partially violates the honesty structure, since parts of the variables
+        other than the X variable (e.g. the variables that go into the jacobian J of the linear model) are
+        used to inform the split structure of the tree. However, this is a benign dependence and for instance
+        in a causal tree or an IV tree does not use the label y. It only uses the treatment T and the instrument
+        Z and their local correlation structures to decide whether a split is feasible.
     max_features : int, float or {"auto", "sqrt", "log2"}, default=None
         The number of features to consider when looking for the best split:
         - If int, then consider `max_features` features at each split.
@@ -144,27 +174,44 @@ class GRFTree(BaseEstimator):
         left child, and ``N_t_R`` is the number of samples in the right child.
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
-    min_balancedness_tol:,
-
-    honest: ,
+    min_balancedness_tol: float in [0, .5], default=.45
+        How imbalanced a split we can tolerate. This enforces that each split leaves at least
+        (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
+        of the total weight of samples, when sample_weight is not None. Default value, ensures
+        that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
+        balancedness and to .5 for perfectly balanced splits. For the formal inference theory
+        to be valid, this has to be any positive constant bounded away from zero.
+    honest: bool, default=True
+        Whether the data should be split in two equally sized samples, such that the one half-sample
+        is used to determine the optimal split at each node and the other sample is used to determine
+        the value of every node.
 
     Attributes
     ----------
     feature_importances_ : ndarray of shape (n_features,)
-        The feature importances.
+        The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
-        The importance of a feature is computed as the
-        (normalized) total reduction of the criterion brought
-        by that feature. It is also known as the Gini importance [4]_.
-        Warning: impurity-based feature importances can be misleading for
-        high cardinality features (many unique values). See
-        :func:`sklearn.inspection.permutation_importance` as an alternative.
+        The importance of a feature is computed as the (normalized) total heterogeneity that the feature
+        creates. Each split that the feature was chosen adds:
+            parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        to the importance of the feature. Each such quantity is also weighted by the depth of the split.
+        By default splits below `max_depth=4` are not used in this calculation and also each split
+        at depth `depth`, is re-weighted by 1 / (1 + `depth`)**2.0. See the method ``feature_importances``
+        for a method that allows one to change these defaults.
     max_features_ : int
         The inferred value of max_features.
     n_features_ : int
         The number of features when ``fit`` is performed.
     n_outputs_ : int
         The number of outputs when ``fit`` is performed.
+    n_relevant_outputs_ : int
+        The first n_relevant_outputs_ where the ones we cared about when ``fit`` was performed.
+    n_y_ : int
+        The raw label dimension when ``fit`` is performed.
+    n_samples_ : int
+        The number of training samples when ``fit`` is performed.
+    honest_ : int
+        Whether honesty was enabled when ``fit`` was performed
     tree_ : Tree instance
         The underlying Tree object. Please refer to
         ``help(econml.tree._tree.Tree)`` for attributes of Tree object.
@@ -209,6 +256,7 @@ class GRFTree(BaseEstimator):
         """Return the depth of the decision tree.
         The depth of a tree is the maximum distance between the root
         and any leaf.
+
         Returns
         -------
         self.tree_.max_depth : int
@@ -219,6 +267,7 @@ class GRFTree(BaseEstimator):
 
     def get_n_leaves(self):
         """Return the number of leaves of the decision tree.
+
         Returns
         -------
         self.tree_.n_leaves : int
@@ -240,6 +289,28 @@ class GRFTree(BaseEstimator):
         return self
 
     def fit(self, X, y, n_y, n_outputs, n_relevant_outputs, sample_weight=None, check_input=True):
+        """
+        Parameters
+        ----------
+        X : (n, d) array
+            The features to split on
+        y : (n, m) array
+            All the variables required to calculate the criterion function, evaluate splits and
+            estimate local values, i.e. all the values that go into the moment function except X.
+        n_y, n_outputs, n_relevant_outputs : auxiliary info passed to the criterion objects that
+            help the object parse the variable y into each separate variable components.
+            - In the case when `isinstance(criterion, LinearMomentGRFCriterion)`, then the first
+              n_y columns of y are the raw outputs, the next n_outputs columns contain the A part
+              of the moment and the next n_outputs * n_outputs columnts contain the J part of the moment
+              in row contiguous format. The first n_relevant_outputs parameters of the linear moment
+              are the ones that we care about. The rest are nuisance parameters.
+        sample_weight : (n,) array, default=None
+            The sample weights
+        check_input : bool, defaul=True
+            Whether to check the input parameters for validity. Should be set to False to improve
+            running time in parallel execution, if the variables have already been checked by the
+            forest class that spawned this tree.
+        """
 
         random_state = self.random_state_
 
@@ -421,7 +492,8 @@ class GRFTree(BaseEstimator):
         return self
 
     def _validate_X_predict(self, X, check_input):
-        """Validate X whenever one tries to predict, apply, predict_proba"""
+        """Validate X whenever one tries to predict, apply, or any other of the prediction
+        related methods. """
         if check_input:
             X = check_array(X, dtype=DTYPE, accept_sparse=False)
 
@@ -435,6 +507,10 @@ class GRFTree(BaseEstimator):
         return X
 
     def get_train_test_split_inds(self,):
+        """ Regenerate the train_test_split of input sample indices that was used for the training
+        and the evaluation split of the honest tree construction structure. Uses the same random seed
+        that was used at ``fit`` time and re-generates the indices.
+        """
         check_is_fitted(self)
         random_state = check_random_state(self.random_seed_)
         inds = np.arange(self.n_samples_, dtype=np.intp)
@@ -445,23 +521,20 @@ class GRFTree(BaseEstimator):
             return inds, inds
 
     def predict(self, X, check_input=True):
-        """Predict class or regression value for X.
-        For a classification model, the predicted class for each sample in X is
-        returned. For a regression model, the predicted value based on X is
-        returned.
+        """Return the fitted local parameters for each X, i.e. theta(X).
+
         Parameters
         ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+        X : {array-like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
+            ``dtype=np.float64``.
         check_input : bool, default=True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
         Returns
         -------
-        y : array-like of shape (n_samples, n_outputs)
-            The predicted classes, or the predict values.
+        theta(X) : array-like of shape (n_samples, n_relevant_outputs)
+            The estimated target parameters for each row of X
         """
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
