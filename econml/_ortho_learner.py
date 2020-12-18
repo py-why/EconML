@@ -364,7 +364,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     >>> est.score(y, X[:, 0], W=X[:, 1:])
     0.00727995...
     >>> est.model_final.model
-    LinearRegression(fit_intercept=False)
+    LinearRegression(...)
     >>> est.model_final.model.coef_
     array([1.023649...])
 
