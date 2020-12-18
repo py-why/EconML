@@ -8,8 +8,9 @@ Public Module Reference
     econml.cate_interpreter
     econml.deepiv
     econml.dml
-    econml.grf
     econml.drlearner
+    econml.grf
+    econml.inference
     econml.metalearners
     econml.ortho_forest
     econml.ortho_iv
@@ -29,7 +30,6 @@ Private Module Reference
     econml.grf._base_grf
     econml.grf._base_grftree
     econml.grf._criterion
-    econml.inference
 
 Scikit-Learn Extensions
 =======================
