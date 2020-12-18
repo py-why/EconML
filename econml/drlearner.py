@@ -140,7 +140,7 @@ class _ModelFinal:
                 return pred[:, np.newaxis, :]
             return pred
         else:
-            preds = np.array([mdl.predict(X).flatten() for mdl in self.models_cate])
+            preds = np.array([mdl.predict(X).reshape((-1,) + self.d_y) for mdl in self.models_cate])
             return np.moveaxis(preds, 0, -1)  # move treatment dim to end
 
     def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
