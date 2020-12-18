@@ -928,6 +928,7 @@ class RegressionForest(BaseGRF):
         from sklearn.datasets import make_regression
         from sklearn.model_selection import train_test_split
 
+        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X, y = make_regression(n_samples=1000, n_features=4, n_informative=2,
                                random_state=0, shuffle=False)

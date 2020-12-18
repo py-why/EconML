@@ -205,7 +205,7 @@ class _RLearner(_OrthoLearner):
 
         import numpy as np
         from sklearn.linear_model import LinearRegression
-        from econml._rlearner import _RLearner
+        from econml.dml._rlearner import _RLearner
         from sklearn.base import clone
         class ModelFirst:
             def __init__(self, model):
