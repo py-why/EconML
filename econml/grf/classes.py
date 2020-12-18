@@ -105,7 +105,8 @@ class CausalForest(BaseGRF):
 
           .. code-block::
 
-            rho(child) := E[(T;1) @ (T;1).T | X in parent]^{-1} E[(Y - <theta(x), T> - beta(x)) (T;1) | X in child]
+            rho(child) := E[(T;1) @ (T;1).T | X in parent]^{-1}
+                                    * E[(Y - <theta(x), T> - beta(x)) (T;1) | X in child]
 
           This can be thought as a heterogeneity inducing score, but putting more weight on scores
           with a large minimum eigenvalue of the child jacobian ``E[(T;1) @ (T;1).T | X in child]``,
@@ -183,8 +184,8 @@ class CausalForest(BaseGRF):
           .. code-block::
 
             for all i neq j:
-                sqrt( Var(T[i]|X in leaf) * Var(T[j]|X in leaf) * ( 1 - rho(T[i], T[j]| in leaf)^2 ) )
-                    > `min_var_fraction_leaf` sqrt( Var(T[i]) * Var(T[j]) * (1 - rho(T[i], T[j])^2 ) )
+              sqrt(Var(T[i]|X in leaf) * Var(T[j]|X in leaf) * (1 - rho(T[i], T[j]| in leaf)^2))
+                  > `min_var_fraction_leaf` sqrt(Var(T[i]) * Var(T[j]) * (1 - rho(T[i], T[j])^2))
 
           where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
           constraint also enforces that no two pairs of treatments be very co-linear within a leaf. This
@@ -513,10 +514,10 @@ class CausalIVForest(BaseGRF):
 
             for all i neq j:
                 E[T[i]Z[i]] E[T[j]Z[j]] - E[T[i] Z[j]]
-                sqrt( Cov(T[i], Z[i] |X in leaf) * Cov(T[j], Z[j]|X in leaf)
-                        * ( 1 - rho(T[i], Z[j]| in leaf) rho(T[j], Z[i]| in leaf) ) )
-                    > `min_var_fraction_leaf` sqrt( Cov(T[i], Z[i]) * Cov(T[j], Z[j])
-                                                        * ( 1 - rho(T[i], Z[j]) rho(T[j], Z[i]) ) )
+                sqrt(Cov(T[i], Z[i] |X in leaf) * Cov(T[j], Z[j]|X in leaf)
+                        * (1 - rho(T[i], Z[j]|X in leaf) * rho(T[j], Z[i]|X in leaf)))
+                  > `min_var_fraction_leaf` * sqrt(Cov(T[i], Z[i]) * Cov(T[j], Z[j])
+                                                    * (1 - rho(T[i], Z[j]) * rho(T[j], Z[i])))
 
           where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
           constraint also enforces that no two pairs of treatments and instruments be very co-linear within a leaf.

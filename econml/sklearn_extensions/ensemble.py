@@ -168,8 +168,6 @@ def SubsampledHonestForest(n_estimators=100,
     References
     ----------
 
-    .. [1] L. Breiman, "Random Forests", Machine Learning, 45(1), 5-32, 2001.
-
     .. [3] S. Athey, S. Wager, "Estimation and Inference of Heterogeneous Treatment Effects using Random Forests",
             Journal of the American Statistical Association 113.523 (2018): 1228-1242.
 

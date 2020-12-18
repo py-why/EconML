@@ -267,24 +267,24 @@ Below we give a brief description of each of these classes:
       estimator is also a *Meta-Learner*, since all steps of the estimation use out-of-the-box ML algorithms. For more information,
       check out :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 
-    - **CausalForestDML.** This is a child of the :class:`._RLearner` that uses a Causal Forest
-        as a final model (see [Wager2018]_ and [Athey2019]_). The Causal Forest is implemented in the library as a scikit-learn
-        predictor, in the class :class:`.CausalForest`. This estimator
-        offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_.
-        Using this functionality we can also construct confidence intervals for the CATE:
+    * **CausalForestDML.** This is a child of the :class:`._RLearner` that uses a Causal Forest
+      as a final model (see [Wager2018]_ and [Athey2019]_). The Causal Forest is implemented in the library as a scikit-learn
+      predictor, in the class :class:`.CausalForest`. This estimator
+      offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_.
+      Using this functionality we can also construct confidence intervals for the CATE:
 
         .. testcode::
         
-        from econml.dml import CausalForestDML
-        from sklearn.ensemble import GradientBoostingRegressor
-        est = CausalForestDML(model_y=GradientBoostingRegressor(),
-        ...                   model_t=GradientBoostingRegressor())
-        est.fit(y, t, X=X, W=W)
-        point = est.effect(X, T0=t0, T1=t1)
-        lb, ub = est.effect_interval(X, T0=t0, T1=t1, alpha=0.05)
+            from econml.dml import CausalForestDML
+            from sklearn.ensemble import GradientBoostingRegressor
+            est = CausalForestDML(model_y=GradientBoostingRegressor(),
+                                  model_t=GradientBoostingRegressor())
+            est.fit(y, t, X=X, W=W)
+            point = est.effect(X, T0=t0, T1=t1)
+            lb, ub = est.effect_interval(X, T0=t0, T1=t1, alpha=0.05)
 
-        Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
-        alternatives to the :class:`.CausalForestDML`.
+      Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
+      alternatives to the :class:`.CausalForestDML`.
 
     * **_RLearner.** The internal private class :class:`._RLearner` is a parent of the :class:`.DML`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,
