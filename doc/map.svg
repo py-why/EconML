@@ -172,7 +172,7 @@
         </text>
         <rect x="470" y="461" width="226" height="62" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
         <a href="_autosummary/econml.dml.html#econml.dml.SparseLinearDML" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(489.258 488)">SparseLinearDML</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(530 488)">SparseLinearDML</text>
         </a>
         <path d="M489.012 490.461 536.012 490.461 583.012 490.461 630.012 490.461 677.012 490.461 677.012 491.461 630.012 491.461 583.012 491.461 536.012 491.461 489.012 491.461Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <a href="_autosummary/econml.drlearner.html#econml.drlearner.SparseLinearDRLearner" target="_parent">
@@ -181,7 +181,7 @@
         <path d="M514.012 507.461 560.345 507.461 606.678 507.461 653.012 507.461 653.012 508.461 606.678 508.461 560.345 508.461 514.012 508.461Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <rect x="471" y="549" width="226" height="51" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
         <a href="_autosummary/econml.dml.html#econml.dml.LinearDML" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(509.292 571)">LinearDML</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(550 571)">LinearDML</text>
         </a>
         <path d="M509.292 573.095 558.959 573.095 608.626 573.095 658.292 573.095 658.292 574.095 608.626 574.095 558.959 574.095 509.292 574.095Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <a href="_autosummary/econml.drlearner.html#econml.drlearner.LinearDRLearner" target="_parent">
@@ -190,11 +190,11 @@
         <path d="M534.292 590.095 583.792 590.095 633.292 590.095 633.292 591.095 583.792 591.095 534.292 591.095Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <rect x="471" y="614" width="226" height="90" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
         <a href="_autosummary/econml.ortho_forest.html#econml.ortho_forest.DMLOrthoForest" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(482.126 638)">DMLOrthoForest</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(535 638)">DMLOrthoForest</text>
         </a>
         <path d="M482.292 639.866 533.042 639.866 583.792 639.866 634.542 639.866 685.292 639.866 685.292 640.866 634.542 640.866 583.792 640.866 533.042 640.866 482.292 640.866Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <a href="_autosummary/econml.ortho_forest.html#econml.ortho_forest.DROrthoForest" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(491.539 655)">DROrthoForest</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(540 655)">DROrthoForest</text>
         </a>
         <path d="M491.292 656.866 537.292 656.866 583.292 656.866 629.292 656.866 675.292 656.866 675.292 657.866 629.292 657.866 583.292 657.866 537.292 657.866 491.292 657.866Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <a href="_autosummary/econml.drlearner.html#econml.drlearner.ForestDRLearner" target="_parent">
@@ -202,7 +202,7 @@
         </a>
         <path d="M533.292 674.866 583.292 674.866 633.292 674.866 633.292 675.866 583.292 675.866 533.292 675.866Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <a href="_autosummary/econml.dml.html#econml.dml.CausalForestDML" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(508.959 691)">CausalForestDML</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(531 691)">CausalForestDML</text>
         </a>
         <path d="M509.292 692.866 558.959 692.866 608.626 692.866 658.292 692.866 658.292 693.866 608.626 693.866 558.959 693.866 509.292 693.866Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <rect x="471" y="716" width="226" height="131" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
@@ -215,11 +215,11 @@
         </a>
         <path d="M552.296 770.513 583.796 770.513 615.296 770.513 615.296 771.513 583.796 771.513 552.296 771.513Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <a href="_autosummary/econml.dml.html#econml.dml.DML" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(527.629 787)">DML</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(570 787)">DML</text>
         </a>
         <path d="M527.296 788.513 564.629 788.513 601.962 788.513 639.296 788.513 639.296 789.513 601.962 789.513 564.629 789.513 527.296 789.513Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <a href="_autosummary/econml.dml.html#econml.dml.NonParamDML" target="_parent">
-            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(496.042 805)">NonParamDML</text>
+            <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(536 805)">NonParamDML</text>
         </a>
         <path d="M496.296 806.513 540.046 806.513 583.796 806.513 627.546 806.513 671.296 806.513 671.296 807.513 627.546 807.513 583.796 807.513 540.046 807.513 496.296 807.513Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <text fill="#C5E0B4" font-family="Calibri,Calibri_MSFontService,sans-serif" font-style="italic" font-weight="400" font-size="15" transform="translate(499.796 822)">
