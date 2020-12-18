@@ -152,24 +152,26 @@ class CausalForestDML(_BaseDML):
         are "mse" for the mean squared error in a linear moment estimation tree and "het" for
         heterogeneity score.
 
-        - The "mse" criterion finds splits that minimize the score:
-
-              sum_{child in {left, right}} E[(Y - <theta(child), T> - beta(child))^2 | X=child] weight(child)
-
+        - The "mse" criterion finds splits that minimize the score::
+            sum_{child} E[(Y - <theta(child), T> - beta(child))^2 | X=child] weight(child)
           Internally, for the case of more than two treatments or for the case of one treatment with
           `fit_intercept=True` then this criterion is approximated by computationally simpler variants for
-          computationaly purposes. In particular, it is replaced by:
-              sum_{child in {left, right}} weight(child) * rho(child)' @ E[(T;1) @ (T;1)' | X in child] @ rho(child)
-          where:
-              rho(child) := E[(T;1) @ (T;1)' | X in parent]^{-1} E[(Y - <theta(x), T> - beta(x)) (T;1) | X in child]
+          computationaly purposes. In particular, it is replaced by::
+            sum_{child} weight(child) * rho(child)' @ E[(T;1) @ (T;1)' | X in child] @ rho(child)
+          where::
+            rho(child) := E[(T;1) @ (T;1)' | X in parent]^{-1} E[(Y - <theta(x), T> - beta(x)) (T;1) | X in child]
           This can be thought as a heterogeneity inducing score, but putting more weight on scores
           with a large minimum eigenvalue of the child jacobian E[(T;1) @ (T;1)' | X in child], which leads to smaller
           variance of the estimate and stronger identification of the parameters.
 
         - The "het" criterion finds splits that maximize the pure parameter heterogeneity score:
-              sum_{child in {left, right}} weight(child) * rho(child)[1, .., n_T]' @ rho(child)[1, .., n_T]
+
+            sum_{child in {left, right}} weight(child) * rho(child)[1, .., n_T]' @ rho(child)[1, .., n_T]
+
           This can be thought as an approximation to the ideal heterogeneity score:
-              weight(left) * weight(right) || theta(left) - theta(right)||_2^2 / weight(parent)^2
+
+            weight(left) * weight(right) || theta(left) - theta(right)||_2^2 / weight(parent)^2
+
           as outlined in [1]_
 
     max_depth : int, default=None
@@ -207,13 +209,16 @@ class CausalForestDML(_BaseDML):
         is not well identified and has high variance. The proxy of variance is different for different criterion,
         primarily for computational efficiency reasons.
         - If `criterion='het'`, then this constraint translates to:
+
             for all i in {1, ..., T.shape[1]}: Var(T[i] | X in leaf) > `min_var_fraction_leaf` * Var(T[i])
+
         - If `criterion='mse'`, because the criterion stores more information about the leaf for
           every candidate split, then this constraint imposes further constraints on the pairwise correlations
           of different coordinates of each treatment, i.e.:
-            for all i neq j:
-                sqrt( Var(T[i]|X in leaf) * Var(T[j]|X in leaf) * ( 1 - rho(T[i], T[j]| in leaf)^2 ) )
-                    > `min_var_fraction_leaf` sqrt( Var(T[i]) * Var(T[j]) * (1 - rho(T[i], T[j])^2 ) )
+
+            for all i neq j: sqrt( Var(T[i]|X in leaf) * Var(T[j]|X in leaf) * ( 1 - rho(T[i], T[j]| in leaf)^2 ) )
+            > `min_var_fraction_leaf` sqrt( Var(T[i]) * Var(T[j]) * (1 - rho(T[i], T[j])^2 ) )
+
           where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
           constraint also enforces that no two pairs of treatments be very co-linear within a leaf. This
           extra constraint primarily has bite in the case of more than two input treatments and also avoids

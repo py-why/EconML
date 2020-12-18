@@ -9,9 +9,8 @@ Public Module Reference
     econml.cate_interpreter
     econml.causal_tree
     econml.deepiv
-    econml.dml.dml
-    econml.dml.causal_forest
-    econml.grf.classes
+    econml.dml
+    econml.grf
     econml.drlearner
     econml.inference
     econml.metalearners
