@@ -278,7 +278,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return sparse_hstack(indicators).tocsr(), n_nodes_ptr
 
-    def fit(self, X, T, y, *, sample_weight=None, **kwargs):
+    def fit(self, X, T, y, *, sample_weight=None, sample_var=None, **kwargs):
         """
         Build a forest of trees from the training set (X, T, y) and any other auxiliary variables.
 
@@ -295,6 +295,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
+        sample_var : array-like of shape (n_samples,), default=None
+            Currently ignored and raises a warning. Added for API consistency and for raising relevant errors.
         **kwargs : dictionary of array-like items of shape (n_samples, d_var)
             Auxiliary random variables that go into the moment function (e.g. instrument, censoring etc)
             Any of these variables will be passed on as is to the `get_pointJ` and
@@ -303,6 +305,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         -------
         self : object
         """
+
+        if sample_var is not None:
+            warn("`sample_var` is currently being ingored by the estimator. All samples are "
+                 "considered to have equal variance of y.")
 
         y, T, X, _ = check_inputs(y, T, X, W=None, multi_output_T=True, multi_output_Y=True)
 
@@ -916,6 +922,27 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             if self.n_relevant_outputs_ == self.n_outputs_:
                 return y_hat
             return y_hat[:, :self.n_relevant_outputs_]
+
+    def predict_interval(self, X, alpha=0.05):
+        """ Return the confidence interval for the relevant fitted local parameters for each x in X,
+        i.e. theta(x)[1..n_relevant_outputs].
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        alpha : float in (0, 1), default=0.05
+            The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
+            confidence interval.
+        Returns
+        -------
+        lb(x), ub(x) : array-like of shape (n_samples, n_relevant_outputs)
+            The lower and upper end of the confidence interval for each parameter. Return value is omitted if
+            `interval=False`.
+        """
+        _, lb, ub = self.predict(X, interval=True, alpha=alpha)
+        return lb, ub
 
     def predict_and_var(self, X):
         """ Return the prefix of relevant fitted local parameters for each x in X,

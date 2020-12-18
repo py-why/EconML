@@ -433,6 +433,9 @@ class TestGRFPython(unittest.TestCase):
         ub = scipy.stats.norm.ppf(1 - alpha / 2, loc=mean[:, 0], scale=np.sqrt(var[:, 0, 0])).reshape(-1, 1)
 
         np.testing.assert_allclose(var, forest.predict_var(X))
+        lbtest, ubtest = forest.predict_interval(X, alpha=alpha)
+        np.testing.assert_allclose(lb, lbtest)
+        np.testing.assert_allclose(ub, ubtest)
         meantest, lbtest, ubtest = forest.predict(X, interval=True, alpha=alpha)
         np.testing.assert_allclose(mean, meantest)
         np.testing.assert_allclose(lb, lbtest)
