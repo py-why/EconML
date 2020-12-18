@@ -31,64 +31,6 @@ def SubsampledHonestForest(n_estimators=100,
     but uses a scikit-learn regression tree as a base. It provides confidence intervals based on ideas
     described in [3]_ and [4]_
 
-    A random forest is a meta estimator that fits a number of classifying
-    decision trees on various sub-samples of the dataset and uses averaging
-    to improve the predictive accuracy and control over-fitting.
-    The sub-sample size is smaller than the original size and subsampling is
-    performed without replacement. Each decision tree is built in an honest
-    manner: half of the sub-sampled data are used for creating the tree structure
-    (referred to as the splitting sample) and the other half for calculating the
-    constant regression estimate at each leaf of the tree (referred to as the estimation sample).
-    One difference with the algorithm proposed in [3]_ is that we do not ensure balancedness
-    and we do not consider poisson sampling of the features, so that we guarantee
-    that each feature has a positive probability of being selected on each split.
-    Rather we use the original algorithm of Breiman [1]_, which selects the best split
-    among a collection of candidate splits, as long as the max_depth is not reached
-    and as long as there are not more than max_leafs and each child contains
-    at least min_samples_leaf samples and total weight fraction of
-    min_weight_fraction_leaf. Moreover, it allows the use of both mean squared error (MSE)
-    and mean absoulte error (MAE) as the splitting criterion. Finally, we allow
-    for early stopping of the splits if the criterion is not improved by more than
-    min_impurity_decrease. These techniques that date back to the work of [1]_,
-    should lead to finite sample performance improvements, especially for
-    high dimensional features.
-
-    The implementation also provides confidence intervals
-    for each prediction using a bootstrap of little bags approach described in [3]_:
-    subsampling is performed at hierarchical level by first drawing a set of half-samples
-    at random and then sub-sampling from each half-sample to build a forest
-    of forests. All the trees are used for the point prediction and the distribution
-    of predictions returned by each of the sub-forests is used to calculate the standard error
-    of the point prediction.
-
-    In particular we use a variant of the standard error estimation approach proposed in [4]_,
-    where, if :math:`\\theta(X)` is the point prediction at X, then the variance of :math:`\\theta(X)`
-    is computed as:
-
-    .. math ::
-        Var(\\theta(X)) = \\frac{\\hat{V}}{\\left(\\frac{1}{B} \\sum_{b \\in [B], i\\in [n]} w_{b, i}(x)\\right)^2}
-
-    where B is the number of trees, n the number of training points, and:
-
-    .. math ::
-        w_{b, i}(x) = \\text{sample\\_weight}[i] \\cdot \\frac{1\\{i \\in \\text{leaf}(x; b)\\}}{|\\text{leaf}(x; b)|}
-
-    .. math ::
-        \\hat{V} = \\text{Var}_{\\text{random half-samples } S}\\left[ \\frac{1}{B_S}\
-            \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) \\right]
-
-    where :math:`B_S` is the number of trees in half sample S. The latter variance is approximated by:
-
-    .. math ::
-        \\hat{V} = \\frac{1}{|\\text{drawn half samples } S|} \\sum_{S} \\left( \\frac{1}{B_S}\
-            \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) \\right)^2
-
-    This variance calculation does not contain the correction due to finite number of monte carlo half-samples
-    used (as proposed in [4]_), hence can be a bit conservative when a small number of half samples is used.
-    However, it is on the conservative side. We use ceil(sqrt(n_estimators)) half samples, and the forest associated
-    with each such half-sample contains roughly sqrt(n_estimators) trees, amounting to a total of n_estimator trees
-    overall.
-
     Parameters
     ----------
     n_estimators : integer, optional (default=100)
@@ -223,61 +165,10 @@ def SubsampledHonestForest(n_estimators=100,
         The chosen subsample ratio. Eache tree was trained on ``subsample_fr_ * n_samples / 2``
         data points.
 
-    Examples
-    --------
-
-    .. testcode::
-
-        import numpy as np
-        from econml.sklearn_extensions.ensemble import SubsampledHonestForest
-        from sklearn.datasets import make_regression
-        from sklearn.model_selection import train_test_split
-
-        np.random.seed(123)
-        X, y = make_regression(n_samples=1000, n_features=4, n_informative=2,
-                               random_state=0, shuffle=False)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=.5)
-        regr = SubsampledHonestForest(max_depth=None, random_state=0,
-                                      n_estimators=1000)
-
-    >>> regr.fit(X_train, y_train)
-    SubsampledHonestForest(n_estimators=1000, random_state=0)
-    >>> regr.feature_importances_
-    array([0.64..., 0.33..., 0.01..., 0.01...])
-    >>> regr.predict(np.ones((1, 4)))
-    array([112.9...])
-    >>> regr.predict_interval(np.ones((1, 4)), alpha=.05)
-    (array([94.9...]), array([130.9...]))
-    >>> regr.score(X_test, y_test)
-    0.94...
-
-    Notes
-    -----
-    The default values for the parameters controlling the size of the trees
-    (e.g. ``max_depth``, ``min_samples_leaf``, etc.) lead to fully grown and
-    unpruned trees which can potentially be very large on some data sets. To
-    reduce memory consumption, the complexity and size of the trees should be
-    controlled by setting those parameter values. For valid inference, the trees
-    are recommended to be fully grown.
-
-    The features are always randomly permuted at each split. Therefore,
-    the best found split may vary, even with the same training data,
-    ``max_features=n_features``, if the improvement
-    of the criterion is identical for several splits enumerated during the
-    search of the best split. To obtain a deterministic behaviour during
-    fitting, ``random_state`` has to be fixed.
-
-    The default value ``max_features="auto"`` uses ``n_features``
-    rather than ``n_features / 3``. The latter was originally suggested in
-    [1]_, whereas the former was more recently justified empirically in [2]_.
-
     References
     ----------
 
     .. [1] L. Breiman, "Random Forests", Machine Learning, 45(1), 5-32, 2001.
-
-    .. [2] P. Geurts, D. Ernst., and L. Wehenkel, "Extremely randomized
-           trees", Machine Learning, 63(1), 3-42, 2006.
 
     .. [3] S. Athey, S. Wager, "Estimation and Inference of Heterogeneous Treatment Effects using Random Forests",
             Journal of the American Statistical Association 113.523 (2018): 1228-1242.
