@@ -286,7 +286,7 @@ class CausalForest(BaseGRF):
                          subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
                          warm_start=warm_start)
 
-    def fit(self, X, T, y, *, sample_weight=None):
+    def fit(self, X, T, y, *, sample_weight=None, sample_var=None):
         """
         Build a causal forest of trees from the training set (X, T, y).
 
@@ -303,12 +303,14 @@ class CausalForest(BaseGRF):
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
+        sample_var : array-like of shape (n_samples,), default=None
+            Currently ignored and raises a warning. Added for API consistency and for raising relevant errors.
 
         Returns
         -------
         self : object
         """
-        return super().fit(X, T, y, sample_weight=sample_weight)
+        return super().fit(X, T, y, sample_weight=sample_weight, sample_var=sample_var)
 
     def _get_alpha_and_pointJ(self, X, T, y):
         # Append a constant treatment if `fit_intercept=True`, the coefficient
@@ -558,7 +560,7 @@ class CausalIVForest(BaseGRF):
                          subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
                          warm_start=warm_start)
 
-    def fit(self, X, T, y, *, Z, sample_weight=None):
+    def fit(self, X, T, y, *, Z, sample_weight=None, sample_var=None):
         """
         Build an IV forest of trees from the training set (X, T, y, Z).
 
@@ -580,12 +582,14 @@ class CausalIVForest(BaseGRF):
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
+        sample_var : array-like of shape (n_samples,), default=None
+            Currently ignored and raises a warning. Added for API consistency and for raising relevant errors.
 
         Returns
         -------
         self : object
         """
-        return super().fit(X, T, y, Z=Z, sample_weight=sample_weight)
+        return super().fit(X, T, y, Z=Z, sample_weight=sample_weight, sample_var=sample_var)
 
     def _get_alpha_and_pointJ(self, X, T, y, *, Z):
         # Append a constant treatment and constant instrument if `fit_intercept=True`,
@@ -861,7 +865,7 @@ class RegressionForest(BaseGRF):
                          subforest_size=subforest_size, n_jobs=n_jobs, random_state=random_state, verbose=verbose,
                          warm_start=warm_start)
 
-    def fit(self, X, y, *, sample_weight=None):
+    def fit(self, X, y, *, sample_weight=None, sample_var=None):
         """
         Build an IV forest of trees from the training set (X, y).
 
@@ -876,12 +880,14 @@ class RegressionForest(BaseGRF):
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
+        sample_var : array-like of shape (n_samples,), default=None
+            Currently ignored and raises a warning. Added for API consistency and for raising relevant errors.
 
         Returns
         -------
         self : object
         """
-        return super().fit(X, y, np.ones((len(X), 1)), sample_weight=sample_weight)
+        return super().fit(X, y, np.ones((len(X), 1)), sample_weight=sample_weight, sample_var=sample_var)
 
     def _get_alpha_and_pointJ(self, X, y, T):
         jac = np.eye(y.shape[1]).reshape((1, -1))
