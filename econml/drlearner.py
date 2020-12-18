@@ -274,6 +274,7 @@ class DRLearner(_OrthoLearner):
         import scipy.special
         from econml.drlearner import DRLearner
 
+        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
@@ -298,15 +299,15 @@ class DRLearner(_OrthoLearner):
     >>> est.cate_feature_names()
     <BLANKLINE>
     >>> [mdl.coef_ for mdl in est.models_regression]
-    [array([ 1.472104...e+00,  1.984419...e-03, -1.103451...e-02,  6.984376...e-01,
-            2.049695...e+00]), array([ 1.455654..., -0.002110...,  0.005488...,  0.677090...,  1.998648...])]
+    [array([ 1.472...,  0.001..., -0.011...,  0.698..., 2.049...]),
+     array([ 1.455..., -0.002...,  0.005...,  0.677...,  1.998...])]
     >>> [mdl.coef_ for mdl in est.models_propensity]
-    [array([[-0.747137...,  0.153419..., -0.018412...],
-           [ 0.083807..., -0.110360..., -0.076003...],
-           [ 0.663330..., -0.043058... ,  0.094416...]]),
-     array([[-1.048348...e+00,  2.248997...e-04,  3.228087...e-02],
-           [ 1.911900...e-02,  1.241337...e-01, -8.196211...e-02],
-           [ 1.029229...e+00, -1.243586...e-01,  4.968123...e-02]])]
+    [array([[-0.747...,  0.153..., -0.018...],
+           [ 0.083..., -0.110..., -0.076...],
+           [ 0.663..., -0.043... ,  0.094...]]),
+     array([[-1.048...,  0.000...,  0.032...],
+           [ 0.019...,  0.124..., -0.081...],
+           [ 1.029..., -0.124...,  0.049...]])]
 
     Beyond default models:
 
@@ -318,6 +319,7 @@ class DRLearner(_OrthoLearner):
         from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
         from econml.drlearner import DRLearner
 
+        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
@@ -658,6 +660,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         import scipy.special
         from econml.drlearner import DRLearner, LinearDRLearner
 
+        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
@@ -869,6 +872,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         import scipy.special
         from econml.drlearner import DRLearner, SparseLinearDRLearner
 
+        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
