@@ -14,10 +14,10 @@ from sklearn.preprocessing import PolynomialFeatures
 
 
 class TestShap(unittest.TestCase):
-    def test_continues_t(self):
+    def test_continuous_t(self):
         n = 100
         d_x = 3
-        d_w = 5
+        d_w = 2
         X = np.random.normal(size=(n, d_x))
         W = np.random.normal(size=(n, d_w))
         for d_t in [2, 1]:
@@ -35,8 +35,6 @@ class TestShap(unittest.TestCase):
                             NonParamDML(model_y=LinearRegression(
                             ), model_t=LinearRegression(), model_final=RandomForestRegressor(), featurizer=featurizer),
                             ForestDML(model_y=LinearRegression(), model_t=LinearRegression())]
-                    if d_y == 1:
-                        est_list += [DMLOrthoForest()]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             fd_x = featurizer.fit_transform(X).shape[1] if featurizer is not None else d_x
@@ -69,7 +67,7 @@ class TestShap(unittest.TestCase):
     def test_discrete_t(self):
         n = 100
         d_x = 3
-        d_w = 5
+        d_w = 2
         X = np.random.normal(size=(n, d_x))
         W = np.random.normal(size=(n, d_w))
         for d_t in [3, 2]:
@@ -96,8 +94,7 @@ class TestShap(unittest.TestCase):
                     if d_y == 1:
                         est_list += [DRLearner(multitask_model_final=True, featurizer=featurizer),
                                      DRLearner(multitask_model_final=False, featurizer=featurizer),
-                                     ForestDRLearner(),
-                                     DROrthoForest()]
+                                     ForestDRLearner()]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             fd_x = featurizer.fit_transform(X).shape[1] if featurizer is not None else d_x
