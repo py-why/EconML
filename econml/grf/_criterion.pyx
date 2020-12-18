@@ -28,30 +28,37 @@ cdef double INFINITY = np.inf
 
 cdef class LinearMomentGRFCriterion(RegressionCriterion):
     r""" A criterion class that estimates local parameters defined via linear moment equations
-    of the form:
+    of the form::
 
         E[ m(J, A; theta(x)) | X=x] = E[ J * theta(x) - A | X=x] = 0
 
     Calculates impurity based on heterogeneity induced on the estimated parameters, based on the proxy score
-    defined in the Generalized Random Forest paper:
-        Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
-        The Annals of Statistics 47.2 (2019): 1148-1178
-        https://arxiv.org/pdf/1610.01271.pdf
+    defined in the Generalized Random Forest paper::
 
-    Calculates proxy labels for each sample:
+        Athey, Susan, Julie Tibshirani, and Stefan Wager.
+        "Generalized random forests." The Annals of Statistics
+        47.2 (2019): 1148-1178 https://arxiv.org/pdf/1610.01271.pdf.
+
+    Calculates proxy labels for each sample::
+
         rho[i] := - J(Node)^{-1} (J[i] * theta(Node) - A[i])
-    where:
-        J(Node) := E[J[i] | X[i] in Node] and theta(Node) := J(Node)^{-1} E[A[i] | X[i] in Node]
-    Then uses as proxy_impurity_improvement for a split (Left, Right) the quantity:
+        J(Node) := E[J[i] | X[i] in Node]
+        theta(Node) := J(Node)^{-1} E[A[i] | X[i] in Node]
+
+    Then uses as proxy_impurity_improvement for a split (Left, Right) the quantity::
+
         sum_{k=1}^{n_relevant_outputs} E[rho[i, k] | X[i] in Left]^2 + E[rho[i, k] | X[i] in Right]^2
-    Stores as node impurity the quantity:
+
+    Stores as node impurity the quantity::
+
         sum_{k=1}^{n_relevant_outputs} Var(rho[i, k] | X[i] in Node)
          = sum_{k=1}^{n_relevant_outputs} E[rho[i, k]^2 | X[i] in Node] - E[rho[i, k] | X[i] in Node]^2
+
     """
 
     def __cinit__(self, SIZE_t n_outputs, SIZE_t n_relevant_outputs, SIZE_t n_features, SIZE_t n_y,
                   SIZE_t n_samples, SIZE_t max_node_samples, UINT32_t random_state):
-        """Initialize parameters for this criterion. Parent __cinit__ is always called before children.
+        """Initialize parameters for this criterion. Parent `__cinit__` is always called before children.
         So we only perform extra initializations that were not perfomed by the parent classes.
 
         Parameters
@@ -152,7 +159,7 @@ cdef class LinearMomentGRFCriterion(RegressionCriterion):
                                   const DOUBLE_t[:, ::1] pointJ,
                                   DOUBLE_t* sample_weight,
                                   SIZE_t* samples, SIZE_t start, SIZE_t end) nogil except -1:
-        """ Calculate the node un-normalized jacobian
+        """ Calculate the node un-normalized jacobian::
 
             J(node) := E[J[i] | X[i] in Node] weight(node) = sum_{i in Node} w[i] J[i]
 

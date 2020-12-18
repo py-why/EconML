@@ -98,6 +98,8 @@ class CausalForestDML(_BaseDML):
     """A Causal Forest [1]_ combined with double machine learning based residualization of the treatment
     and outcome variables. It fits a forest that solves the local moment equation problem:
 
+    .. code-block::
+
         E[ (Y - E[Y|X, W] - <theta(x), T - E[T|X, W]> - beta(x)) (T;1) | X=x] = 0
 
     where E[Y|X, W] and E[T|X, W] are fitted in a first stage in a cross-fitting manner.
@@ -147,28 +149,45 @@ class CausalForestDML(_BaseDML):
     n_estimators : int, default=100
         Number of trees
 
-    criterion : {"mse", "het"}, default="mse"
+    criterion : {``"mse"``, ``"het"``}, default="mse"
         The function to measure the quality of a split. Supported criteria
-        are "mse" for the mean squared error in a linear moment estimation tree and "het" for
+        are ``"mse"`` for the mean squared error in a linear moment estimation tree and ``"het"`` for
         heterogeneity score.
 
-        - The "mse" criterion finds splits that minimize the score::
+        - The ``"mse"`` criterion finds splits that minimize the score
+
+          .. code-block::
+
             sum_{child} E[(Y - <theta(child), T> - beta(child))^2 | X=child] weight(child)
+
           Internally, for the case of more than two treatments or for the case of one treatment with
-          `fit_intercept=True` then this criterion is approximated by computationally simpler variants for
-          computationaly purposes. In particular, it is replaced by::
-            sum_{child} weight(child) * rho(child)' @ E[(T;1) @ (T;1)' | X in child] @ rho(child)
-          where::
-            rho(child) := E[(T;1) @ (T;1)' | X in parent]^{-1} E[(Y - <theta(x), T> - beta(x)) (T;1) | X in child]
+          ``fit_intercept=True`` then this criterion is approximated by computationally simpler variants for
+          computationaly purposes. In particular, it is replaced by:
+
+          .. code-block::
+
+            sum_{child} weight(child) * rho(child).T @ E[(T;1) @ (T;1).T | X in child] @ rho(child)
+
+          where:
+
+          .. code-block::
+
+                rho(child) := E[(T;1) @ (T;1).T | X in parent]^{-1}
+                                * E[(Y - <theta(x), T> - beta(x)) (T;1) | X in child]
+
           This can be thought as a heterogeneity inducing score, but putting more weight on scores
-          with a large minimum eigenvalue of the child jacobian E[(T;1) @ (T;1)' | X in child], which leads to smaller
-          variance of the estimate and stronger identification of the parameters.
+          with a large minimum eigenvalue of the child jacobian ``E[(T;1) @ (T;1).T | X in child]``,
+          which leads to smaller variance of the estimate and stronger identification of the parameters.
 
-        - The "het" criterion finds splits that maximize the pure parameter heterogeneity score:
+        - The "het" criterion finds splits that maximize the pure parameter heterogeneity score
 
-            sum_{child in {left, right}} weight(child) * rho(child)[1, .., n_T]' @ rho(child)[1, .., n_T]
+          .. code-block::
+
+            sum_{child} weight(child) * rho(child)[:n_T].T @ rho(child)[:n_T]
 
           This can be thought as an approximation to the ideal heterogeneity score:
+
+          .. code-block::
 
             weight(left) * weight(right) || theta(left) - theta(right)||_2^2 / weight(parent)^2
 
@@ -181,9 +200,9 @@ class CausalForestDML(_BaseDML):
 
     min_samples_split : int or float, default=10
         The minimum number of samples required to split an internal node:
+
         - If int, then consider `min_samples_split` as the minimum number.
-        - If float, then `min_samples_split` is a fraction and
-          `ceil(min_samples_split * n_samples)` are the minimum
+        - If float, then `min_samples_split` is a fraction and `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
     min_samples_leaf : int or float, default=5
@@ -192,9 +211,9 @@ class CausalForestDML(_BaseDML):
         least ``min_samples_leaf`` training samples in each of the left and
         right branches.  This may have the effect of smoothing the model,
         especially in regression.
+
         - If int, then consider `min_samples_leaf` as the minimum number.
-        - If float, then `min_samples_leaf` is a fraction and
-          `ceil(min_samples_leaf * n_samples)` are the minimum
+        - If float, then `min_samples_leaf` is a fraction and `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
     min_weight_fraction_leaf : float, default=0.0
@@ -207,26 +226,28 @@ class CausalForestDML(_BaseDML):
         leaf as a percentage of the total variance of the treatment vector on the whole sample. This avoids
         performing splits where either the variance of the treatment is small and hence the local parameter
         is not well identified and has high variance. The proxy of variance is different for different criterion,
-        primarily for computational efficiency reasons.
-        - If `criterion='het'`, then this constraint translates to:
+        primarily for computational efficiency reasons. If ``criterion='het'``, then this constraint translates to::
 
-            for all i in {1, ..., T.shape[1]}: Var(T[i] | X in leaf) > `min_var_fraction_leaf` * Var(T[i])
+            for all i in {1, ..., T.shape[1]}:
+                Var(T[i] | X in leaf) > `min_var_fraction_leaf` * Var(T[i])
 
-        - If `criterion='mse'`, because the criterion stores more information about the leaf for
-          every candidate split, then this constraint imposes further constraints on the pairwise correlations
-          of different coordinates of each treatment, i.e.:
+        If ``criterion='mse'``, because the criterion stores more information about the leaf for
+        every candidate split, then this constraint imposes further constraints on the pairwise correlations
+        of different coordinates of each treatment, i.e.::
 
-            for all i neq j: sqrt( Var(T[i]|X in leaf) * Var(T[j]|X in leaf) * ( 1 - rho(T[i], T[j]| in leaf)^2 ) )
-            > `min_var_fraction_leaf` sqrt( Var(T[i]) * Var(T[j]) * (1 - rho(T[i], T[j])^2 ) )
+            for all i neq j:
+                sqrt( Var(T[i]|X in leaf) * Var(T[j]|X in leaf)
+                    * ( 1 - rho(T[i], T[j]| in leaf)^2 ) )
+                    > `min_var_fraction_leaf` sqrt( Var(T[i]) * Var(T[j]) * (1 - rho(T[i], T[j])^2 ) )
 
-          where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
-          constraint also enforces that no two pairs of treatments be very co-linear within a leaf. This
-          extra constraint primarily has bite in the case of more than two input treatments and also avoids
-          leafs where the parameter estimate has large variance due to local co-linearities of the treatments.
+        where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
+        constraint also enforces that no two pairs of treatments be very co-linear within a leaf. This
+        extra constraint primarily has bite in the case of more than two input treatments and also avoids
+        leafs where the parameter estimate has large variance due to local co-linearities of the treatments.
 
     min_var_leaf_on_val : bool, default=False
         Whether the `min_var_fraction_leaf` constraint should also be enforced to hold on the validation set of the
-        honest split too. If `min_var_leaf=None` then this flag does nothing. Setting this to True should
+        honest split too. If ``min_var_leaf=None`` then this flag does nothing. Setting this to True should
         be done with caution, as this partially violates the honesty structure, since the treatment variable
         of the validation set is used to inform the split structure of the tree. However, this is a benign
         dependence as it only uses local correlation structure of the treatment T to decide whether
@@ -234,14 +255,15 @@ class CausalForestDML(_BaseDML):
 
     max_features : int, float or {"auto", "sqrt", "log2"}, default=None
         The number of features to consider when looking for the best split:
+
         - If int, then consider `max_features` features at each split.
-        - If float, then `max_features` is a fraction and
-          `int(max_features * n_features)` features are considered at each
-          split.
+        - If float, then `max_features` is a fraction and `int(max_features * n_features)` features
+          are considered at each split.
         - If "auto", then `max_features=n_features`.
         - If "sqrt", then `max_features=sqrt(n_features)`.
         - If "log2", then `max_features=log2(n_features)`.
         - If None, then `max_features=n_features`.
+
         Note: the search for a split does not stop until at least one
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
@@ -250,8 +272,10 @@ class CausalForestDML(_BaseDML):
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
+
             N_t / N * (impurity - N_t_R / N_t * right_impurity
                                 - N_t_L / N_t * left_impurity)
+
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
         left child, and ``N_t_R`` is the number of samples in the right child.
@@ -260,10 +284,12 @@ class CausalForestDML(_BaseDML):
 
     max_samples : int or float in (0, 1], default=.45,
         The number of samples to use for each subsample that is used to train each tree:
+
         - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
-        - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
+        - If float, then train each tree on `ceil(`max_samples` * `n_samples`)`, sampled without replacement
           from all the samples.
-        If `inference=True`, then `max_samples` must either be an integer smaller than `n_samples//2` or a float
+
+        If ``inference=True``, then `max_samples` must either be an integer smaller than `n_samples//2` or a float
         less than or equal to .5.
 
     min_balancedness_tol: float in [0, .5], default=.45
@@ -281,7 +307,7 @@ class CausalForestDML(_BaseDML):
 
     inference : bool, default=True
         Whether inference (i.e. confidence interval construction and uncertainty quantification of the estimates)
-        should be enabled. If `inference=True`, then the estimator uses a bootstrap-of-little-bags approach
+        should be enabled. If ``inference=True``, then the estimator uses a bootstrap-of-little-bags approach
         to calculate the covariance of the parameter vector, with am objective Bayesian debiasing correction
         to ensure that variance quantities are positive.
 
@@ -295,7 +321,6 @@ class CausalForestDML(_BaseDML):
     n_jobs : int or None, default=-1
         The number of parallel jobs to be used for parallelism; follows joblib semantics.
         `n_jobs=-1` means all available cpu cores. `n_jobs=None` means no parallelism.
-                 warm_start=False
 
     random_state : int, RandomState instance or None, default=None
         Controls the randomness of the estimator. The features are always
@@ -321,8 +346,11 @@ class CausalForestDML(_BaseDML):
         The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
         The importance of a feature is computed as the (normalized) total heterogeneity that the feature
-        creates. Each split that the feature was chosen adds:
-            parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        creates. Each split that the feature was chosen adds::
+
+            parent_weight * (left_weight * right_weight)
+                * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+
         to the importance of the feature. Each such quantity is also weighted by the depth of the split.
         By default splits below `max_depth=4` are not used in this calculation and also each split
         at depth `depth`, is re-weighted by 1 / (1 + `depth`)**2.0. See the method ``feature_importances``

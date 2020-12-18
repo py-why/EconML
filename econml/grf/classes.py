@@ -69,7 +69,10 @@ class MultiOutputGRF(BaseEstimator):
 
 
 class CausalForest(BaseGRF):
-    """A Causal Forest [1]_. It fits a forest that solves the local moment equation problem:
+    """
+    A Causal Forest [cf1]_. It fits a forest that solves the local moment equation problem:
+
+    .. code-block::
 
         E[ (Y - <theta(x), T> - beta(x)) (T;1) | X=x] = 0
 
@@ -80,74 +83,114 @@ class CausalForest(BaseGRF):
     ----------
     n_estimators : int, default=100
         Number of trees
-    criterion : {"mse", "het"}, default="mse"
+
+    criterion : {``"mse"``, ``"het"``}, default="mse"
         The function to measure the quality of a split. Supported criteria
         are "mse" for the mean squared error in a linear moment estimation tree and "het" for
         heterogeneity score.
 
         - The "mse" criterion finds splits that minimize the score:
 
-              sum_{child in {left, right}} E[(Y - <theta(child), T> - beta(child))^2 | X=child] weight(child)
+          .. code-block::
+
+            sum_{child} E[(Y - <theta(child), T> - beta(child))^2 | X=child] weight(child)
 
           Internally, for the case of more than two treatments or for the case of one treatment with
-          `fit_intercept=True` then this criterion is approximated by computationally simpler variants for
-          computationaly purposes. In particular, it is replaced by:
-              sum_{child in {left, right}} weight(child) * rho(child)' @ E[(T;1) @ (T;1)' | X in child] @ rho(child)
+          ``fit_intercept=True`` then this criterion is approximated by computationally simpler variants for
+          computationaly purposes. In particular, it is replaced by::
+
+              sum_{child} weight(child) * rho(child).T @ E[(T;1) @ (T;1).T | X in child] @ rho(child)
+
           where:
-              rho(child) := E[(T;1) @ (T;1)' | X in parent]^{-1} E[(Y - <theta(x), T> - beta(x)) (T;1) | X in child]
+
+          .. code-block::
+
+            rho(child) := E[(T;1) @ (T;1).T | X in parent]^{-1} E[(Y - <theta(x), T> - beta(x)) (T;1) | X in child]
+
           This can be thought as a heterogeneity inducing score, but putting more weight on scores
-          with a large minimum eigenvalue of the child jacobian E[(T;1) @ (T;1)' | X in child], which leads to smaller
-          variance of the estimate and stronger identification of the parameters.
+          with a large minimum eigenvalue of the child jacobian ``E[(T;1) @ (T;1).T | X in child]``,
+          which leads to smaller variance of the estimate and stronger identification of the parameters.
 
         - The "het" criterion finds splits that maximize the pure parameter heterogeneity score:
-              sum_{child in {left, right}} weight(child) * rho(child)[1, .., n_T]' @ rho(child)[1, .., n_T]
+
+          .. code-block::
+
+            sum_{child} weight(child) * rho(child)[:n_T].T @ rho(child)[:n_T]
+
           This can be thought as an approximation to the ideal heterogeneity score:
+
+          .. code-block::
+
               weight(left) * weight(right) || theta(left) - theta(right)||_2^2 / weight(parent)^2
-          as outlined in [1]_
+
+          as outlined in [cf1]_
+
     max_depth : int, default=None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
+
     min_samples_split : int or float, default=10
         The minimum number of samples required to split an internal node:
+
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
+
     min_samples_leaf : int or float, default=5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
         right branches.  This may have the effect of smoothing the model,
         especially in regression.
+
         - If int, then consider `min_samples_leaf` as the minimum number.
         - If float, then `min_samples_leaf` is a fraction and
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
+
     min_weight_fraction_leaf : float, default=0.0
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
+
     min_var_fraction_leaf : None or float in (0, 1], default=None
         A constraint on some proxy of the variation of the treatment vector that should be contained within each
         leaf as a percentage of the total variance of the treatment vector on the whole sample. This avoids
         performing splits where either the variance of the treatment is small and hence the local parameter
         is not well identified and has high variance. The proxy of variance is different for different criterion,
         primarily for computational efficiency reasons.
-        - If `criterion='het'`, then this constraint translates to:
-            for all i in {1, ..., T.shape[1]}: E[T[i]^2 | X in leaf] > `min_var_fraction_leaf` * E[T[i]^2]
-          When `T` is the residual treatment (i.e. centered), this translates to a requirement that
-            for all i in {1, ..., T.shape[1]}: Var(T[i] | X in leaf) > `min_var_fraction_leaf` * Var(T[i])
-        - If `criterion='mse'`, because the criterion stores more information about the leaf for
+
+        - If ``criterion='het'``, then this constraint translates to:
+
+          .. code-block::
+
+            for all i in {1, ..., T.shape[1]}:
+                E[T[i]^2 | X in leaf] > `min_var_fraction_leaf` * E[T[i]^2]
+
+          When ``T`` is the residual treatment (i.e. centered), this translates to a requirement that
+
+          .. code-block::
+
+            for all i in {1, ..., T.shape[1]}:
+                Var(T[i] | X in leaf) > `min_var_fraction_leaf` * Var(T[i])
+
+        - If ``criterion='mse'``, because the criterion stores more information about the leaf for
           every candidate split, then this constraint imposes further constraints on the pairwise correlations
           of different coordinates of each treatment, i.e.:
+
+          .. code-block::
+
             for all i neq j:
                 sqrt( Var(T[i]|X in leaf) * Var(T[j]|X in leaf) * ( 1 - rho(T[i], T[j]| in leaf)^2 ) )
                     > `min_var_fraction_leaf` sqrt( Var(T[i]) * Var(T[j]) * (1 - rho(T[i], T[j])^2 ) )
+
           where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
           constraint also enforces that no two pairs of treatments be very co-linear within a leaf. This
           extra constraint primarily has bite in the case of more than two input treatments and also avoids
           leafs where the parameter estimate has large variance due to local co-linearities of the treatments.
+
     min_var_leaf_on_val : bool, default=False
         Whether the `min_var_fraction_leaf` constraint should also be enforced to hold on the validation set of the
         honest split too. If `min_var_leaf=None` then this flag does nothing. Setting this to True should
@@ -155,8 +198,10 @@ class CausalForest(BaseGRF):
         of the validation set is used to inform the split structure of the tree. However, this is a benign
         dependence as it only uses local correlation structure of the treatment T to decide whether
         a split is feasible.
+
     max_features : int, float or {"auto", "sqrt", "log2"}, default=None
         The number of features to consider when looking for the best split:
+
         - If int, then consider `max_features` features at each split.
         - If float, then `max_features` is a fraction and
           `int(max_features * n_features)` features are considered at each
@@ -165,27 +210,35 @@ class CausalForest(BaseGRF):
         - If "sqrt", then `max_features=sqrt(n_features)`.
         - If "log2", then `max_features=log2(n_features)`.
         - If None, then `max_features=n_features`.
+
         Note: the search for a split does not stop until at least one
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
+
     min_impurity_decrease : float, default=0.0
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
+
             N_t / N * (impurity - N_t_R / N_t * right_impurity
                                 - N_t_L / N_t * left_impurity)
+
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
         left child, and ``N_t_R`` is the number of samples in the right child.
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
+
     max_samples : int or float in (0, 1], default=.45,
         The number of samples to use for each subsample that is used to train each tree:
+
         - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
         - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
           from all the samples.
-        If `inference=True`, then `max_samples` must either be an integer smaller than `n_samples//2` or a float
+
+        If ``inference=True``, then `max_samples` must either be an integer smaller than `n_samples//2` or a float
         less than or equal to .5.
+
     min_balancedness_tol: float in [0, .5], default=.45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
@@ -193,15 +246,18 @@ class CausalForest(BaseGRF):
         that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
+
     honest : bool, default=True
         Whether each tree should be trained in an honest manner, i.e. the training set is split into two equal
         sized subsets, the train and the val set. All samples in train are used to create the split structure
         and all samples in val are used to calculate the value of each node in the tree.
+
     inference : bool, default=True
         Whether inference (i.e. confidence interval construction and uncertainty quantification of the estimates)
         should be enabled. If `inference=True`, then the estimator uses a bootstrap-of-little-bags approach
         to calculate the covariance of the parameter vector, with am objective Bayesian debiasing correction
         to ensure that variance quantities are positive.
+
     fit_intercept : bool, default=True
         Whether we should fit an intercept nuisance parameter beta(x). If `fit_intercept=False`, then no (;1) is
         appended to the treatment variable in all calculations in this docstring. If `fit_intercept=True`, then
@@ -209,13 +265,15 @@ class CausalForest(BaseGRF):
         of this constant treatment is the intercept beta(x). beta(x) is treated as a nuisance and not returned
         by the predict(X), predict_and_var(X) or the predict_var(X) methods.
         Use predict_full(X) to recover the intercept term too.
+
     subforest_size : int, default=4,
         The number of trees in each sub-forest that is used in the bootstrap-of-little-bags calculation.
         The parameter `n_estimators` must be divisible by `subforest_size`. Should typically be a small constant.
+
     n_jobs : int or None, default=-1
         The number of parallel jobs to be used for parallelism; follows joblib semantics.
-        `n_jobs=-1` means all available cpu cores. `n_jobs=None` means no parallelism.
-                 warm_start=False
+        ``n_jobs=-1`` means all available cpu cores. ``n_jobs=None`` means no parallelism.
+
     random_state : int, RandomState instance or None, default=None
         Controls the randomness of the estimator. The features are always
         randomly permuted at each split. When ``max_features < n_features``, the algorithm will
@@ -225,9 +283,11 @@ class CausalForest(BaseGRF):
         improvement of the criterion is identical for several splits and one
         split has to be selected at random. To obtain a deterministic behaviour
         during fitting, ``random_state`` has to be fixed to an integer.
+
     verbose : int, default=0
         Controls the verbosity when fitting and predicting.
-    warm_start : bool, default=False
+
+    warm_start : bool, default=``False``
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
         new forest.
@@ -238,18 +298,22 @@ class CausalForest(BaseGRF):
         The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
         The importance of a feature is computed as the (normalized) total heterogeneity that the feature
-        creates. Each split that the feature was chosen adds:
-            parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        creates. Each split that the feature was chosen adds::
+
+            parent_weight * (left_weight * right_weight)
+                * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+
         to the importance of the feature. Each such quantity is also weighted by the depth of the split.
-        By default splits below `max_depth=4` are not used in this calculation and also each split
-        at depth `depth`, is re-weighted by 1 / (1 + `depth`)**2.0. See the method ``feature_importances``
+        By default splits below ``max_depth=4`` are not used in this calculation and also each split
+        at depth `depth`, is re-weighted by ``1 / (1 + `depth`)**2.0``. See the method ``feature_importances``
         for a method that allows one to change these defaults.
+
     estimators_ : list of objects of type :class:`~econml.grf.GRFTree`
         The fitted trees.
 
     References
     ----------
-    .. [1] Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
+    .. [cf1] Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
         The Annals of Statistics 47.2 (2019): 1148-1178
         https://arxiv.org/pdf/1610.01271.pdf
 
@@ -328,7 +392,9 @@ class CausalForest(BaseGRF):
 
 
 class CausalIVForest(BaseGRF):
-    """A Causal Forest [1]_. It fits a forest that solves the local moment equation problem:
+    """A Causal IV Forest [cfiv1]_. It fits a forest that solves the local moment equation problem:
+
+    .. code-block
 
         E[ (Y - <theta(x), T> - beta(x)) (Z;1) | X=x] = 0
 
@@ -339,63 +405,82 @@ class CausalIVForest(BaseGRF):
     ----------
     n_estimators : int, default=100
         Number of trees
-    criterion : {"mse", "het"}, default="mse"
+
+    criterion : {``"mse"``, ``"het"``}, default="mse"
         The function to measure the quality of a split. Supported criteria
         are "mse" for the mean squared error in a linear moment estimation tree and "het" for
         heterogeneity score.
 
         - The "mse" criterion finds splits that approximately minimize the score:
 
-              sum_{child in {left, right}} E[(Y - <theta(child), E[T|Z]> - beta(child))^2 | X=child] weight(child)
+          .. code-block::
+
+            sum_{child} E[(Y - <theta(child), E[T|Z]> - beta(child))^2 | X=child] weight(child)
 
           Though we note that the local estimate is still estimated by solving the local moment equation for samples
           that fall within the node and not by minimizing this loss. Internally, for the case of more than two
           treatments or for the case of one treatment with `fit_intercept=True` then this criterion is approximated
           by computationally simpler variants for computationaly purposes. In particular, it is replaced by:
 
-              sum_{child in {left, right}} weight(child) * rho(child)' @ E[(T;1) @ (T;1)' | X in child] @ rho(child)
+          .. code-block::
+
+              sum_{child} weight(child) * rho(child).T @ E[(T;1) @ (Z;1).T | X in child] @ rho(child)
 
           where:
 
-              rho(child) := E[(T;1) @ (Z;1)' | X in parent]^{-1} E[(Y - <theta(x), T> - beta(x)) (Z;1) | X in child]
+          .. code-block::
+
+              rho(child) := E[(T;1) @ (Z;1).T | X in parent]^{-1}
+                                * E[(Y - <theta(x), T> - beta(x)) (Z;1) | X in child]
 
           This can be thought as a heterogeneity inducing score, but putting more weight on scores
-          with a large minimum eigenvalue of the child jacobian E[(T;1) @ (Z;1)' | X in child], which leads to smaller
+          with a large minimum eigenvalue of the child jacobian E[(T;1) @ (Z;1).T | X in child], which leads to smaller
           variance of the estimate and stronger identification of the parameters.
 
-        - The "het" criterion finds splits that maximize the pure parameter heterogeneity score:
+        - The ``"het"`` criterion finds splits that maximize the pure parameter heterogeneity score:
 
-              sum_{child in {left, right}} weight(child) * rho(child)[1, .., n_T]' @ rho(child)[1, .., n_T]
+          .. code-block::
+
+            sum_{child} weight(child) * rho(child)[:n_T].T @ rho(child)[:n_T]
 
           This can be thought as an approximation to the ideal heterogeneity score:
 
+          .. code-block::
+
               weight(left) * weight(right) || theta(left) - theta(right)||_2^2 / weight(parent)^2
 
-          as outlined in [1]_
+          as outlined in [cfiv1]_
+
     max_depth : int, default=None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
+
     min_samples_split : int or float, default=10
         The minimum number of samples required to split an internal node:
+
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
+
     min_samples_leaf : int or float, default=5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
         right branches.  This may have the effect of smoothing the model,
         especially in regression.
+
         - If int, then consider `min_samples_leaf` as the minimum number.
         - If float, then `min_samples_leaf` is a fraction and
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
+
     min_weight_fraction_leaf : float, default=0.0
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
+
     min_var_fraction_leaf : None or float in (0, 1], default=None
         A constraint on some proxy of the variation of the covariance of the treatment vector with the instrument
         vector that should be contained within each leaf as a percentage of the total cov-variance of the treatment
@@ -403,25 +488,41 @@ class CausalIVForest(BaseGRF):
         is small or the variance of the instrument is small or the strength of the instrument on the treatment is
         locally weak and hence the local parameter is not well identified and has high variance.
         The proxy of variance is different for different criterion, primarily for computational efficiency reasons.
-        - If `criterion='het'`, then this constraint translates to:
-            for all i in {1, ..., T.shape[1]}: E[T[i] Z[i] | X in leaf] > `min_var_fraction_leaf` * E[T[i] Z[i]]
+
+        - If ``criterion='het'``, then this constraint translates to:
+
+          .. code-block::
+
+            for all i in {1, ..., T.shape[1]}:
+                E[T[i] Z[i] | X in leaf] > `min_var_fraction_leaf` * E[T[i] Z[i]]
+
           When `T` is the residual treatment and `Z` the residual instrument (i.e. centered),
           this translates to a requirement that:
-            for all i in {1, ..., T.shape[1]}: Cov(T[i], Z[i] | X in leaf) > `min_var_fraction_leaf` * Cov(T[i], Z[i])
-        - If `criterion='mse'`, because the criterion stores more information about the leaf for
+
+          .. code-block::
+
+            for all i in {1, ..., T.shape[1]}:
+                Cov(T[i], Z[i] | X in leaf) > `min_var_fraction_leaf` * Cov(T[i], Z[i])
+
+        - If ``criterion='mse'``, because the criterion stores more information about the leaf for
           every candidate split, then this constraint imposes further constraints on the pairwise correlations
           of different coordinates of each treatment. For instance, when the instrument and treatment are both
           residualized (centered) then this constraint translates to:
+
+          .. code-block::
+
             for all i neq j:
                 E[T[i]Z[i]] E[T[j]Z[j]] - E[T[i] Z[j]]
                 sqrt( Cov(T[i], Z[i] |X in leaf) * Cov(T[j], Z[j]|X in leaf)
                         * ( 1 - rho(T[i], Z[j]| in leaf) rho(T[j], Z[i]| in leaf) ) )
                     > `min_var_fraction_leaf` sqrt( Cov(T[i], Z[i]) * Cov(T[j], Z[j])
                                                         * ( 1 - rho(T[i], Z[j]) rho(T[j], Z[i]) ) )
+
           where rho(X, Y) is the Pearson correlation coefficient of two random variables X, Y. Thus this
           constraint also enforces that no two pairs of treatments and instruments be very co-linear within a leaf.
           This extra constraint primarily has bite in the case of more than two input treatments and also avoids
           leafs where the parameter estimate has large variance due to local co-linearities of the treatments.
+
     min_var_leaf_on_val : bool, default=False
         Whether the `min_var_fraction_leaf` constraint should also be enforced to hold on the validation set of the
         honest split too. If `min_var_leaf=None` then this flag does nothing. Setting this to True should
@@ -429,8 +530,10 @@ class CausalIVForest(BaseGRF):
         other than the X variable (e.g. the variables that go into the jacobian J of the linear model) are
         used to inform the split structure of the tree. However, this is a benign dependence as it only uses
         the treatment T its local correlation structure to decide whether a split is feasible.
+
     max_features : int, float or {"auto", "sqrt", "log2"}, default=None
         The number of features to consider when looking for the best split:
+
         - If int, then consider `max_features` features at each split.
         - If float, then `max_features` is a fraction and
           `int(max_features * n_features)` features are considered at each
@@ -439,27 +542,35 @@ class CausalIVForest(BaseGRF):
         - If "sqrt", then `max_features=sqrt(n_features)`.
         - If "log2", then `max_features=log2(n_features)`.
         - If None, then `max_features=n_features`.
+
         Note: the search for a split does not stop until at least one
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
+
     min_impurity_decrease : float, default=0.0
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
+
             N_t / N * (impurity - N_t_R / N_t * right_impurity
                                 - N_t_L / N_t * left_impurity)
+
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
         left child, and ``N_t_R`` is the number of samples in the right child.
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
+
     max_samples : int or float in (0, 1], default=.45,
         The number of samples to use for each subsample that is used to train each tree:
+
         - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
         - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
           from all the samples.
-        If `inference=True`, then `max_samples` must either be an integer smaller than `n_samples//2` or a float
+
+        If ``inference=True``, then `max_samples` must either be an integer smaller than `n_samples//2` or a float
         less than or equal to .5.
+
     min_balancedness_tol: float in [0, .5], default=.45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
@@ -467,15 +578,18 @@ class CausalIVForest(BaseGRF):
         that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
+
     honest : bool, default=True
         Whether each tree should be trained in an honest manner, i.e. the training set is split into two equal
         sized subsets, the train and the val set. All samples in train are used to create the split structure
         and all samples in val are used to calculate the value of each node in the tree.
+
     inference : bool, default=True
         Whether inference (i.e. confidence interval construction and uncertainty quantification of the estimates)
-        should be enabled. If `inference=True`, then the estimator uses a bootstrap-of-little-bags approach
+        should be enabled. If ``inference=True``, then the estimator uses a bootstrap-of-little-bags approach
         to calculate the covariance of the parameter vector, with am objective Bayesian debiasing correction
         to ensure that variance quantities are positive.
+
     fit_intercept : bool, default=True
         Whether we should fit an intercept nuisance parameter beta(x). If `fit_intercept=False`, then no (;1) is
         appended to the treatment variable in all calculations in this docstring. If `fit_intercept=True`, then
@@ -483,13 +597,15 @@ class CausalIVForest(BaseGRF):
         of this constant treatment is the intercept beta(x). beta(x) is treated as a nuisance and not returned
         by the predict(X), predict_and_var(X) or the predict_var(X) methods.
         Use predict_full(X) to recover the intercept term too.
+
     subforest_size : int, default=4,
         The number of trees in each sub-forest that is used in the bootstrap-of-little-bags calculation.
         The parameter `n_estimators` must be divisible by `subforest_size`. Should typically be a small constant.
+
     n_jobs : int or None, default=-1
         The number of parallel jobs to be used for parallelism; follows joblib semantics.
         `n_jobs=-1` means all available cpu cores. `n_jobs=None` means no parallelism.
-                 warm_start=False
+
     random_state : int, RandomState instance or None, default=None
         Controls the randomness of the estimator. The features are always
         randomly permuted at each split. When ``max_features < n_features``, the algorithm will
@@ -499,8 +615,10 @@ class CausalIVForest(BaseGRF):
         improvement of the criterion is identical for several splits and one
         split has to be selected at random. To obtain a deterministic behaviour
         during fitting, ``random_state`` has to be fixed to an integer.
+
     verbose : int, default=0
         Controls the verbosity when fitting and predicting.
+
     warm_start : bool, default=False
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
@@ -512,18 +630,22 @@ class CausalIVForest(BaseGRF):
         The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
         The importance of a feature is computed as the (normalized) total heterogeneity that the feature
-        creates. Each split that the feature was chosen adds:
-            parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        creates. Each split that the feature was chosen adds::
+
+            parent_weight * (left_weight * right_weight)
+                * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+
         to the importance of the feature. Each such quantity is also weighted by the depth of the split.
         By default splits below `max_depth=4` are not used in this calculation and also each split
-        at depth `depth`, is re-weighted by 1 / (1 + `depth`)**2.0. See the method ``feature_importances``
+        at depth `depth`, is re-weighted by ``1 / (1 + `depth`)**2.0``. See the method ``feature_importances``
         for a method that allows one to change these defaults.
+
     estimators_ : list of objects of type :class:`~econml.grf.GRFTree`
         The fitted trees.
 
     References
     ----------
-    .. [1] Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
+    .. [cfiv1] Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
         The Annals of Statistics 47.2 (2019): 1148-1178
         https://arxiv.org/pdf/1610.01271.pdf
 
@@ -621,9 +743,9 @@ class CausalIVForest(BaseGRF):
 class RegressionForest(BaseGRF):
     """
     An implementation of a subsampled honest random forest regressor on top of an sklearn
-    regression tree. Implements subsampling and honesty as described in [3]_,
+    regression tree. Implements subsampling and honesty as described in [rf3]_,
     but uses a scikit-learn regression tree as a base. It provides confidence intervals based on ideas
-    described in [3]_ and [4]_
+    described in [rf3]_ and [rf4]_
 
     A random forest is a meta estimator that fits a number of classifying
     decision trees on various sub-samples of the dataset and uses averaging
@@ -633,87 +755,66 @@ class RegressionForest(BaseGRF):
     manner: half of the sub-sampled data are used for creating the tree structure
     (referred to as the splitting sample) and the other half for calculating the
     constant regression estimate at each leaf of the tree (referred to as the estimation sample).
-    One difference with the algorithm proposed in [3]_ is that we do not ensure balancedness
+    One difference with the algorithm proposed in [rf3]_ is that we do not ensure balancedness
     and we do not consider poisson sampling of the features, so that we guarantee
     that each feature has a positive probability of being selected on each split.
-    Rather we use the original algorithm of Breiman [1]_, which selects the best split
+    Rather we use the original algorithm of Breiman [rf1]_, which selects the best split
     among a collection of candidate splits, as long as the max_depth is not reached
     and as long as there are not more than max_leafs and each child contains
     at least min_samples_leaf samples and total weight fraction of
     min_weight_fraction_leaf. Moreover, it allows the use of both mean squared error (MSE)
     and mean absoulte error (MAE) as the splitting criterion. Finally, we allow
     for early stopping of the splits if the criterion is not improved by more than
-    min_impurity_decrease. These techniques that date back to the work of [1]_,
+    min_impurity_decrease. These techniques that date back to the work of [rf1]_,
     should lead to finite sample performance improvements, especially for
     high dimensional features.
 
     The implementation also provides confidence intervals
-    for each prediction using a bootstrap of little bags approach described in [3]_:
+    for each prediction using a bootstrap of little bags approach described in [rf3]_:
     subsampling is performed at hierarchical level by first drawing a set of half-samples
     at random and then sub-sampling from each half-sample to build a forest
     of forests. All the trees are used for the point prediction and the distribution
     of predictions returned by each of the sub-forests is used to calculate the standard error
     of the point prediction.
 
-    In particular we use a variant of the standard error estimation approach proposed in [4]_,
-    where, if :math:`\\theta(X)` is the point prediction at X, then the variance of :math:`\\theta(X)`
-    is computed as:
-
-    .. math ::
-        Var(\\theta(X)) = \\frac{\\hat{V}}{\\left(\\frac{1}{B} \\sum_{b \\in [B], i\\in [n]} w_{b, i}(x)\\right)^2}
-
-    where B is the number of trees, n the number of training points, and:
-
-    .. math ::
-        w_{b, i}(x) = \\text{sample\\_weight}[i] \\cdot \\frac{1\\{i \\in \\text{leaf}(x; b)\\}}{|\\text{leaf}(x; b)|}
-
-    .. math ::
-        \\hat{V} = \\text{Var}_{\\text{random half-samples } S}\\left[ \\frac{1}{B_S}\
-            \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) \\right]
-
-    where :math:`B_S` is the number of trees in half sample S. The latter variance is approximated by:
-
-    .. math ::
-        \\hat{V} = \\frac{1}{|\\text{drawn half samples } S|} \\sum_{S} \\left( \\frac{1}{B_S}\
-            \\sum_{b\\in S, i\\in [n]} w_{b, i}(x) (Y_i - \\theta(X)) \\right)^2
-
-    This variance calculation does not contain the correction due to finite number of monte carlo half-samples
-    used (as proposed in [4]_), hence can be a bit conservative when a small number of half samples is used.
-    However, it is on the conservative side. We use ceil(sqrt(n_estimators)) half samples, and the forest associated
-    with each such half-sample contains roughly sqrt(n_estimators) trees, amounting to a total of n_estimator trees
-    overall.
-
-
     Parameters
     ----------
     n_estimators : int, default=100
         Number of trees
+
     max_depth : int, default=None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
+
     min_samples_split : int or float, default=10
         The minimum number of samples required to split an internal node:
+
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
+
     min_samples_leaf : int or float, default=5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
         right branches.  This may have the effect of smoothing the model,
         especially in regression.
+
         - If int, then consider `min_samples_leaf` as the minimum number.
         - If float, then `min_samples_leaf` is a fraction and
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
+
     min_weight_fraction_leaf : float, default=0.0
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
+
     max_features : int, float or {"auto", "sqrt", "log2"}, default=None
         The number of features to consider when looking for the best split:
+
         - If int, then consider `max_features` features at each split.
         - If float, then `max_features` is a fraction and
           `int(max_features * n_features)` features are considered at each
@@ -722,27 +823,35 @@ class RegressionForest(BaseGRF):
         - If "sqrt", then `max_features=sqrt(n_features)`.
         - If "log2", then `max_features=log2(n_features)`.
         - If None, then `max_features=n_features`.
+
         Note: the search for a split does not stop until at least one
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
+
     min_impurity_decrease : float, default=0.0
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
+
             N_t / N * (impurity - N_t_R / N_t * right_impurity
                                 - N_t_L / N_t * left_impurity)
+
         where ``N`` is the total number of samples, ``N_t`` is the number of
         samples at the current node, ``N_t_L`` is the number of samples in the
         left child, and ``N_t_R`` is the number of samples in the right child.
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
+
     max_samples : int or float in (0, 1], default=.45,
         The number of samples to use for each subsample that is used to train each tree:
+
         - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
         - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
           from all the samples.
+
         If `inference=True`, then `max_samples` must either be an integer smaller than `n_samples//2` or a float
         less than or equal to .5.
+
     min_balancedness_tol: float in [0, .5], default=.45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
@@ -750,22 +859,26 @@ class RegressionForest(BaseGRF):
         that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
+
     honest : bool, default=True
         Whether each tree should be trained in an honest manner, i.e. the training set is split into two equal
         sized subsets, the train and the val set. All samples in train are used to create the split structure
         and all samples in val are used to calculate the value of each node in the tree.
+
     inference : bool, default=True
         Whether inference (i.e. confidence interval construction and uncertainty quantification of the estimates)
         should be enabled. If `inference=True`, then the estimator uses a bootstrap-of-little-bags approach
         to calculate the covariance of the parameter vector, with am objective Bayesian debiasing correction
         to ensure that variance quantities are positive.
+
     subforest_size : int, default=4,
         The number of trees in each sub-forest that is used in the bootstrap-of-little-bags calculation.
         The parameter `n_estimators` must be divisible by `subforest_size`. Should typically be a small constant.
+
     n_jobs : int or None, default=-1
         The number of parallel jobs to be used for parallelism; follows joblib semantics.
         `n_jobs=-1` means all available cpu cores. `n_jobs=None` means no parallelism.
-                 warm_start=False
+
     random_state : int, RandomState instance or None, default=None
         Controls the randomness of the estimator. The features are always
         randomly permuted at each split. When ``max_features < n_features``, the algorithm will
@@ -775,8 +888,10 @@ class RegressionForest(BaseGRF):
         improvement of the criterion is identical for several splits and one
         split has to be selected at random. To obtain a deterministic behaviour
         during fitting, ``random_state`` has to be fixed to an integer.
+
     verbose : int, default=0
         Controls the verbosity when fitting and predicting.
+
     warm_start : bool, default=False
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
@@ -788,12 +903,16 @@ class RegressionForest(BaseGRF):
         The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
         The importance of a feature is computed as the (normalized) total heterogeneity that the feature
-        creates. Each split that the feature was chosen adds:
-            parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        creates. Each split that the feature was chosen adds::
+
+            parent_weight * (left_weight * right_weight)
+                * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+
         to the importance of the feature. Each such quantity is also weighted by the depth of the split.
         By default splits below `max_depth=4` are not used in this calculation and also each split
-        at depth `depth`, is re-weighted by 1 / (1 + `depth`)**2.0. See the method ``feature_importances``
+        at depth `depth`, is re-weighted by ``1 / (1 + `depth`)**2.0``. See the method ``feature_importances``
         for a method that allows one to change these defaults.
+
     estimators_ : list of objects of type :class:`~econml.grf.GRFTree`
         The fitted trees.
 
@@ -825,15 +944,12 @@ class RegressionForest(BaseGRF):
     References
     ----------
 
-    .. [1] L. Breiman, "Random Forests", Machine Learning, 45(1), 5-32, 2001.
+    .. [rf1] L. Breiman, "Random Forests", Machine Learning, 45(1), 5-32, 2001.
 
-    .. [2] P. Geurts, D. Ernst., and L. Wehenkel, "Extremely randomized
-           trees", Machine Learning, 63(1), 3-42, 2006.
-
-    .. [3] S. Athey, S. Wager, "Estimation and Inference of Heterogeneous Treatment Effects using Random Forests",
+    .. [rf3] S. Athey, S. Wager, "Estimation and Inference of Heterogeneous Treatment Effects using Random Forests",
             Journal of the American Statistical Association 113.523 (2018): 1228-1242.
 
-    .. [4] S. Athey, J. Tibshirani, and S. Wager, "Generalized random forests",
+    .. [rf4] S. Athey, J. Tibshirani, and S. Wager, "Generalized random forests",
             The Annals of Statistics, 47(2), 1148-1178, 2019.
 
     """

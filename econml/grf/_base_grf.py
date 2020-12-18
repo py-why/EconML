@@ -136,8 +136,10 @@ def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwar
 class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     """
     Base class for Genearlized Random Forests for solving linear moment equations of
-    the form:
-                E[J * theta(x) - A | X = x] = 0
+    the form::
+
+        E[J * theta(x) - A | X = x] = 0
+
     where J is an (d, d) random matrix, A is an (d, 1) random vector and theta(x)
     is a local parameter to be estimated, which might contain both relevant and
     nuisance parameters.
@@ -231,11 +233,13 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     def apply(self, X):
         """
         Apply trees in the forest to X, return leaf indices.
+
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
+
         Returns
         -------
         X_leaves : ndarray of shape (n_samples, n_estimators)
@@ -252,11 +256,13 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     def decision_path(self, X):
         """
         Return the decision path in the forest.
+
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
+
         Returns
         -------
         indicator : sparse matrix of shape (n_samples, n_nodes)
@@ -301,6 +307,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             Auxiliary random variables that go into the moment function (e.g. instrument, censoring etc)
             Any of these variables will be passed on as is to the `get_pointJ` and
             `get_alpha` method of the children classes.
+
         Returns
         -------
         self : object
@@ -513,8 +520,11 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
         The importance of a feature is computed as the (normalized) total heterogeneity that the feature
-        creates. For each tree and for each split that the feature was chosen adds:
-            parent_weight * (left_weight * right_weight) * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+        creates. For each tree and for each split that the feature was chosen adds::
+
+            parent_weight * (left_weight * right_weight)
+                * mean((value_left[k] - value_right[k])**2) / parent_weight**2
+
         to the importance of the feature. Each such quantity is also weighted by the depth of the split.
         These importances are normalized at the tree level and then averaged across trees.
 
@@ -545,9 +555,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     @property
     def feature_importances_(self):
-        """ ndarray of shape (n_features,)
-        Normalized total parameter heterogeneity inducing importance of each feature
-        """
         return self.feature_importances()
 
     def _validate_X_predict(self, X):
@@ -568,6 +575,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
+
         Returns
         -------
         theta(X) : array-like of shape (n_samples, n_outputs)
@@ -605,6 +613,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
+
         Returns
         -------
         theta(X)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
@@ -617,17 +626,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def predict_moment_and_var(self, X, parameter, slice=None, parallel=True):
         """ Return the value of the conditional expected moment vector at each sample and
-        for the given parameter estimate for each sample:
+        for the given parameter estimate for each sample::
 
             M(x; theta(x)) := E[J | X=x] theta(x) - E[A | X=x]
 
-        where conditional expectations are estimated based on the forest weights, i.e.:
+        where conditional expectations are estimated based on the forest weights, i.e.::
 
             M_tree(x; theta(x)) := (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] (J[i] theta(x) - A[i])
             M(x; theta(x) = (1/n_trees) sum_{trees} M_tree(x; theta(x))
 
         where w[i] is the sample weight (1.0 if sample_weight is None), as well as the variance of the local
-        moment vector across trees:
+        moment vector across trees::
 
             Var(M_tree(x; theta(x))) = (1/n_trees) sum_{trees} M_tree(x; theta(x)) @ M_tree(x; theta(x)).T
 
@@ -644,6 +653,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         parallel : bool , default=True
             Whether the averaging should happen using parallelism or not. Parallelism adds some overhead
             but makes it faster with many trees.
+
         Returns
         -------
         moment : array-like of shape (n_samples, n_outputs)
@@ -684,7 +694,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def predict_alpha_and_jac(self, X, slice=None, parallel=True):
         """ Return the value of the conditional jacobian E[J | X=x] and the conditional alpha E[A | X=x]
-        using the forest as kernel weights, i.e.:
+        using the forest as kernel weights, i.e.::
 
             alpha(x) = (1/n_trees) sum_{trees} (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] A[i]
             jac(x) = (1/n_trees) sum_{trees} (1/ |leaf(x)|) sum_{val sample i in leaf(x)} w[i] J[i]
@@ -702,6 +712,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         parallel : bool , default=True
             Whether the averaging should happen using parallelism or not. Parallelism adds some overhead
             but makes it faster with many trees.
+
         Returns
         -------
         alpha : array-like of shape (n_samples, n_outputs)
@@ -760,6 +771,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             be projected and return the inner produce <theta(x), projector(x)> for each sample x.
             Also the variance information will be about the inner product as opposed to the parameter
             theta(x).
+
         Returns
         -------
         point : array-like of shape (n_samples, x)
@@ -872,6 +884,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         alpha : float in (0, 1), default=0.05
             The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
             confidence interval.
+
         Returns
         -------
         theta(x) : array-like of shape (n_samples, n_outputs)
@@ -903,6 +916,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         alpha : float in (0, 1), default=0.05
             The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
             confidence interval.
+
         Returns
         -------
         theta(X)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
@@ -935,6 +949,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         alpha : float in (0, 1), default=0.05
             The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
             confidence interval.
+
         Returns
         -------
         lb(x), ub(x) : array-like of shape (n_samples, n_relevant_outputs)
@@ -953,6 +968,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
+
         Returns
         -------
         theta(x)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
@@ -971,6 +987,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
+
         Returns
         -------
         var(theta(x)) : array-like of shape (n_samples, n_relevant_outputs, n_relevant_outputs)
@@ -987,6 +1004,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         X : array-like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
+
         Returns
         -------
         std(theta(x)) : array-like of shape (n_samples, n_relevant_outputs)
@@ -1007,8 +1025,10 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def predict_projection_and_var(self, X, projector):
         """ Return the inner product of the prefix of relevant fitted local parameters for each x in X,
-        i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.
+        i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
+
             mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
+
         as well as the variance of mu(x).
 
         Parameters
@@ -1018,6 +1038,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             ``dtype=np.float64``.
         projector : array-like of shape (n_samples, n_relevant_outputs)
             The projector vector for each sample x in X
+
         Returns
         -------
         mu(x) : array-like of shape (n_samples, 1)
@@ -1031,7 +1052,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def predict_projection(self, X, projector):
         """ Return the inner product of the prefix of relevant fitted local parameters for each x in X,
-        i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.
+        i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
+
             mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
 
         Parameters
@@ -1041,6 +1063,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             ``dtype=np.float64``.
         projector : array-like of shape (n_samples, n_relevant_outputs)
             The projector vector for each sample x in X
+
         Returns
         -------
         mu(x) : array-like of shape (n_samples, 1)
@@ -1052,7 +1075,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def predict_projection_var(self, X, projector):
         """ Return the variance of the inner product of the prefix of relevant fitted local parameters
-        for each x in X, i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.
+        for each x in X, i.e. theta(x)[1..n_relevant_outputs], with a projector vector projector(x), i.e.::
+
             Var(mu(x)) for mu(x) := <theta(x)[1..n_relevant_outputs], projector(x)>
 
         Parameters
@@ -1062,6 +1086,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             ``dtype=np.float64``.
         projector : array-like of shape (n_samples, n_relevant_outputs)
             The projector vector for each sample x in X
+
         Returns
         -------
         var(mu(x)) : array-like of shape (n_samples, 1)
