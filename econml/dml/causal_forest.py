@@ -14,6 +14,7 @@ from sklearn.pipeline import Pipeline
 from ..utilities import add_intercept, shape, check_inputs, _deprecate_positional
 from ..grf import CausalForest, MultiOutputGRF
 
+
 class _CausalForestFinalWrapper(_FinalWrapper):
 
     def _combine(self, X, fitting=True):
