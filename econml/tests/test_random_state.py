@@ -6,7 +6,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
 from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML
-from econml.dml import NonParamDML, ForestDML
+from econml.dml import NonParamDML, CausalForestDML
 from econml.drlearner import DRLearner, SparseLinearDRLearner, LinearDRLearner, ForestDRLearner
 from econml.ortho_iv import DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV,\
     IntentToTreatDRIV, LinearIntentToTreatDRIV
@@ -64,10 +64,10 @@ class TestRandomState(unittest.TestCase):
                             model_final=RandomForestRegressor(max_depth=3, n_estimators=10, min_samples_leaf=100,
                                                               bootstrap=True, random_state=123),
                             discrete_treatment=True, n_splits=2, random_state=123),
-                ForestDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                          model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                          n_estimators=10,
-                          discrete_treatment=True, n_crossfit_splits=2, random_state=123),
+                CausalForestDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
+                                model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                                n_estimators=10,
+                                discrete_treatment=True, n_crossfit_splits=2, random_state=123),
                 LinearDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                           model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                           discrete_treatment=True, n_splits=2, random_state=123),

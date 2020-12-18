@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+# %%
 import unittest
 import pytest
 import pickle
@@ -619,7 +620,7 @@ class TestDML(unittest.TestCase):
                                       max_samples=.4,
                                       min_samples_leaf=min_samples_leaf,
                                       min_impurity_decrease=0.001,
-                                      verbose=0, min_var_leaf=.03,
+                                      verbose=0, min_var_fraction_leaf=.1,
                                       fit_intercept=False,
                                       random_state=12345)
                 if summarized:
@@ -643,7 +644,7 @@ class TestDML(unittest.TestCase):
                                       max_samples=.4,
                                       min_samples_leaf=min_samples_leaf,
                                       min_impurity_decrease=0.001,
-                                      verbose=0, min_var_leaf=.03,
+                                      verbose=0, min_var_fraction_leaf=.1,
                                       fit_intercept=False,
                                       random_state=12345)
                 if summarized:
@@ -1053,18 +1054,8 @@ class TestDML(unittest.TestCase):
         with pytest.raises(Exception):
             est.fit(y, t, groups=groups)
 
-    def test_deprecation(self):
-        from econml.dml import LinearDMLCateEstimator
 
-        # make sure we warn when using old aliases
-        with self.assertWarns(FutureWarning):
-            est = LinearDMLCateEstimator()
+if __name__ == "__main__":
+    TestDML().test_forest_dml_perf()
 
-        # make sure we can use the old alias as a type
-        self.assertIsInstance(est, LinearDMLCateEstimator)
-
-        # make sure that we can still pickle the old aliases
-        import pickle
-
-        d = pickle.dumps(LinearDMLCateEstimator())
-        e = pickle.loads(d)
+# %%

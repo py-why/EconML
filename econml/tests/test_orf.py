@@ -12,7 +12,6 @@ from sklearn.multioutput import MultiOutputRegressor
 from sklearn.pipeline import Pipeline
 from econml.ortho_forest import DMLOrthoForest, DROrthoForest
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
-from econml.causal_forest import CausalForest
 
 
 class TestOrthoForest(unittest.TestCase):
@@ -86,41 +85,6 @@ class TestOrthoForest(unittest.TestCase):
             self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5)
             self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5)
 
-        # Test Causal Forest API
-        # Generate data with continuous treatments
-        T = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_T) + \
-            TestOrthoForest.eta_sample(TestOrthoForest.n)
-        TE = np.array([self._exp_te(x) for x in TestOrthoForest.X])
-        Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
-            T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-        # Instantiate model with most of the default parameters.
-        est = CausalForest(n_jobs=-1, n_trees=10,
-                           model_T=WeightedLassoCVWrapper(),
-                           model_Y=WeightedLassoCVWrapper())
-        # Test inputs for continuous treatments
-        # --> Check that one can pass in regular lists
-        est.fit(list(Y), list(T), X=list(TestOrthoForest.X), W=list(TestOrthoForest.W))
-        # --> Check that it fails correctly if lists of different shape are passed in
-        self.assertRaises(ValueError, est.fit, Y[:TestOrthoForest.n // 2], T[:TestOrthoForest.n // 2],
-                          TestOrthoForest.X, TestOrthoForest.W)
-        # Check that outputs have the correct shape
-        out_te = est.const_marginal_effect(TestOrthoForest.x_test)
-        self.assertEqual(TestOrthoForest.x_test.shape[0], out_te.shape[0])
-        # Test continuous treatments with controls
-        est = CausalForest(n_jobs=-1, n_trees=100, min_leaf_size=10,
-                           max_depth=50, subsample_ratio=0.50,
-                           model_T=WeightedLassoCVWrapper(),
-                           model_Y=WeightedLassoCVWrapper(), cv=5)
-        est.fit(Y, T, X=TestOrthoForest.X, W=TestOrthoForest.W, inference="blb")
-        self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5)
-        self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5)
-        # Test continuous treatments without controls
-        T = TestOrthoForest.eta_sample(TestOrthoForest.n)
-        Y = T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-        est.fit(Y, T, X=TestOrthoForest.X, inference="blb")
-        self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5)
-        self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5)
-
     def test_binary_treatments(self):
         np.random.seed(123)
         # Generate data with binary treatments
@@ -174,57 +138,6 @@ class TestOrthoForest(unittest.TestCase):
         self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5, treatment_type='discrete')
         self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5, treatment_type='discrete')
 
-        # Test CausalForest API
-        np.random.seed(123)
-        # Generate data with binary treatments
-        log_odds = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_T) + \
-            TestOrthoForest.eta_sample(TestOrthoForest.n)
-        T_sigmoid = 1 / (1 + np.exp(-log_odds))
-        T = np.array([np.random.binomial(1, p) for p in T_sigmoid])
-        TE = np.array([self._exp_te(x) for x in TestOrthoForest.X])
-        Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
-            T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-        # Instantiate model with default params. Using n_jobs=1 since code coverage
-        # does not work well with parallelism.
-        est = CausalForest(n_trees=10, n_jobs=-1,
-                           model_Y=Lasso(),
-                           model_T=LogisticRegressionCV(penalty='l1', solver='saga'))
-        # Test inputs for binary treatments
-        # --> Check that one can pass in regular lists
-        est.fit(list(Y), list(T), X=list(TestOrthoForest.X), W=list(TestOrthoForest.W))
-        # --> Check that it fails correctly if lists of different shape are passed in
-        self.assertRaises(ValueError, est.fit, Y[:TestOrthoForest.n // 2], T[:TestOrthoForest.n // 2],
-                          TestOrthoForest.X, TestOrthoForest.W)
-        # --> Check that it works when T, Y have shape (n, 1)
-        est.fit(Y.reshape(-1, 1), T.reshape(-1, 1), X=TestOrthoForest.X, W=TestOrthoForest.W)
-        # --> Check that it fails correctly when T has shape (n, 2)
-        self.assertRaises(ValueError, est.fit, Y, np.ones((TestOrthoForest.n, 2)),
-                          TestOrthoForest.X, TestOrthoForest.W)
-        # --> Check that it fails correctly when the treatments are not numeric
-        self.assertRaises(ValueError, est.fit, Y, np.array(["a"] * TestOrthoForest.n),
-                          TestOrthoForest.X, TestOrthoForest.W)
-        # Check that outputs have the correct shape
-        out_te = est.const_marginal_effect(TestOrthoForest.x_test)
-        self.assertSequenceEqual((TestOrthoForest.x_test.shape[0], 1, 1), out_te.shape)
-        # Test binary treatments with controls
-        est = CausalForest(n_trees=100, min_leaf_size=10,
-                           max_depth=30, subsample_ratio=0.30, n_jobs=-1,
-                           model_Y=Lasso(),
-                           model_T=LogisticRegressionCV(penalty='l1', solver='saga'),
-                           discrete_treatment=True,
-                           cv=5)
-        est.fit(Y, T, X=TestOrthoForest.X, W=TestOrthoForest.W, inference="blb")
-        self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.7, treatment_type='discrete')
-        self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5, treatment_type='discrete')
-        # Test binary treatments without controls
-        log_odds = TestOrthoForest.eta_sample(TestOrthoForest.n)
-        T_sigmoid = 1 / (1 + np.exp(-log_odds))
-        T = np.array([np.random.binomial(1, p) for p in T_sigmoid])
-        Y = T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-        est.fit(Y, T, X=TestOrthoForest.X, inference="blb")
-        self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5, treatment_type='discrete')
-        self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5, treatment_type='discrete')
-
     def test_multiple_treatments(self):
         np.random.seed(123)
         # Only applicable to continuous treatments
@@ -251,17 +164,6 @@ class TestOrthoForest(unittest.TestCase):
             self._test_te(est, expected_te, tol=0.5, treatment_type='multi')
             self._test_ci(est, expected_te, tol=2.0, treatment_type='multi')
 
-        # Test CausalForest API
-        est = CausalForest(n_trees=100, min_leaf_size=10,
-                           max_depth=50, subsample_ratio=0.50, n_jobs=-1,
-                           model_T=WeightedLassoCVWrapper(cv=5),
-                           model_Y=WeightedLassoCVWrapper(cv=5),
-                           cv=5)
-        est.fit(Y, T, X=TestOrthoForest.X, W=TestOrthoForest.W, inference="blb")
-        expected_te = np.array([TestOrthoForest.expected_exp_te, TestOrthoForest.expected_const_te]).T
-        self._test_te(est, expected_te, tol=0.5, treatment_type='multi')
-        self._test_ci(est, expected_te, tol=2.0, treatment_type='multi')
-
     def test_effect_shape(self):
         import scipy.special
         np.random.seed(123)
@@ -281,46 +183,6 @@ class TestOrthoForest(unittest.TestCase):
                             model_Y=DummyRegressor(strategy='mean'),
                             propensity_model=DummyClassifier(strategy='prior'),
                             n_jobs=1)
-        est.fit(y, T, X=X)
-        assert est.const_marginal_effect(X[:3]).shape == (3, 2), "Const Marginal Effect dimension incorrect"
-        assert est.marginal_effect(1, X[:3]).shape == (3, 2), "Marginal Effect dimension incorrect"
-        assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
-        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
-        assert lb.shape == (3,), "Effect interval dimension incorrect"
-        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
-        assert lb.shape == (3,), "Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_interval(X[:3])
-        assert lb.shape == (3, 2), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
-        assert lb.shape == (3, 2), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_interval(1, X[:3])
-        assert lb.shape == (3, 2), "Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
-        assert lb.shape == (3, 2), "Marginal Effect interval dimension incorrect"
-        est.fit(y.reshape(-1, 1), T, X=X)
-        assert est.const_marginal_effect(X[:3]).shape == (3, 1, 2), "Const Marginal Effect dimension incorrect"
-        assert est.marginal_effect(1, X[:3]).shape == (3, 1, 2), "Marginal Effect dimension incorrect"
-        assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
-        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
-        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
-        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_interval(X[:3])
-        assert lb.shape == (3, 1, 2), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
-        assert lb.shape == (3, 1, 2), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_interval(1, X[:3])
-        assert lb.shape == (3, 1, 2), "Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
-        assert lb.shape == (3, 1, 2), "Marginal Effect interval dimension incorrect"
-        # Test causal foret API
-        est = CausalForest(n_trees=10, model_Y=DummyRegressor(strategy='mean'),
-                           model_T=DummyClassifier(strategy='prior'), discrete_treatment=True,
-                           n_jobs=1)
         est.fit(y, T, X=X)
         assert est.const_marginal_effect(X[:3]).shape == (3, 2), "Const Marginal Effect dimension incorrect"
         assert est.marginal_effect(1, X[:3]).shape == (3, 2), "Marginal Effect dimension incorrect"
@@ -419,65 +281,6 @@ class TestOrthoForest(unittest.TestCase):
             assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
             lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
             assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
-
-        # Test Causal Forest API
-        est = CausalForest(n_trees=10, model_Y=DummyRegressor(strategy='mean'),
-                           model_T=DummyRegressor(strategy='mean'),
-                           n_jobs=1)
-        est.fit(y.reshape(-1, 1), T.reshape(-1, 1), X=X)
-        assert est.const_marginal_effect(X[:3]).shape == (3, 1, 1), "Const Marginal Effect dimension incorrect"
-        assert est.marginal_effect(1, X[:3]).shape == (3, 1, 1), "Marginal Effect dimension incorrect"
-        assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
-        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
-        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
-        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_interval(X[:3])
-        assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
-        assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_interval(1, X[:3])
-        assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
-        assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
-        est.fit(y.reshape(-1, 1), T, X=X)
-        assert est.const_marginal_effect(X[:3]).shape == (3, 1), "Const Marginal Effect dimension incorrect"
-        assert est.marginal_effect(1, X[:3]).shape == (3, 1), "Marginal Effect dimension incorrect"
-        assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
-        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
-        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
-        assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_interval(X[:3])
-        assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
-        assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_interval(1, X[:3])
-        assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
-        assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
-        est.fit(y, T, X=X)
-        assert est.const_marginal_effect(X[:3]).shape == (3,), "Const Marginal Effect dimension incorrect"
-        assert est.marginal_effect(1, X[:3]).shape == (3,), "Marginal Effect dimension incorrect"
-        assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
-        assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
-        lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
-        assert lb.shape == (3,), "Effect interval dimension incorrect"
-        lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
-        assert lb.shape == (3,), "Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_interval(X[:3])
-        assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
-        assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_interval(1, X[:3])
-        assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
-        lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
-        assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
 
     def test_nuisance_model_has_weights(self):
         """Test whether the correct exception is being raised if model_final doesn't have weights."""

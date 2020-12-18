@@ -7,11 +7,11 @@ Public Module Reference
     econml.bootstrap
     econml.cate_estimator
     econml.cate_interpreter
-    econml.causal_forest
     econml.causal_tree
     econml.deepiv
-    econml.dgp
-    econml.dml
+    econml.dml.dml
+    econml.dml.causal_forest
+    econml.grf.classes
     econml.drlearner
     econml.inference
     econml.metalearners
@@ -27,7 +27,7 @@ Private Module Reference
     :toctree: _autosummary
 
     econml._ortho_learner
-    econml._rlearner
+    econml.dml._rlearner
 
 Scikit-Learn Extensions
 =======================
