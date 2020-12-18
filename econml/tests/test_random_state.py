@@ -53,8 +53,8 @@ class TestRandomState(unittest.TestCase):
         te2 = est.effect(X_test)
         est.fit(Y, T, **kwargs)
         te3 = est.effect(X_test)
-        np.testing.assert_array_equal(te1, te2, err_msg='random state fixing does not work')
-        np.testing.assert_array_equal(te1, te3, err_msg='random state fixing does not work')
+        np.testing.assert_allclose(te1, te2, err_msg='random state fixing does not work')
+        np.testing.assert_allclose(te1, te3, err_msg='random state fixing does not work')
 
     def test_dml_random_state(self):
         Y, T, X, W, X_test = TestRandomState._make_data(500, 2)
@@ -66,7 +66,7 @@ class TestRandomState(unittest.TestCase):
                             discrete_treatment=True, n_splits=2, random_state=123),
                 CausalForestDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                                 model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                                n_estimators=10,
+                                n_estimators=8,
                                 discrete_treatment=True, n_crossfit_splits=2, random_state=123),
                 LinearDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                           model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
