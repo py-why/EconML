@@ -11,9 +11,8 @@ from sklearn.linear_model import LogisticRegressionCV
 from sklearn.base import clone, BaseEstimator
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
-from ..utilities import add_intercept, shape, check_inputs
+from ..utilities import add_intercept, shape, check_inputs, _deprecate_positional
 from ..grf import CausalForest, MultiOutputGRF
-
 
 class _CausalForestFinalWrapper(_FinalWrapper):
 
@@ -441,7 +440,9 @@ class CausalForestDML(_BaseDML):
         return options
 
     # override only so that we can update the docstring to indicate support for `blb`
-    def fit(self, Y, T, *, X, W=None, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
