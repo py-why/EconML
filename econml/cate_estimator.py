@@ -784,19 +784,19 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             treatment_names = [f"T{i}" for i in range(d_t)]
         if output_names is None:
             output_names = [f"Y{i}" for i in range(d_y)]
-        if self.featurizer is not None:
+        if hasattr(self, "featurizer") and self.featurizer is not None:
             X = self.featurizer.transform(X)
         X, T = broadcast_unit_treatments(X, d_t)
         d_x = X.shape[1]
         X_new = cross_product(X, T)
         feature_names = self.cate_feature_names(feature_names)
-        if self.fit_cate_intercept and feature_names is not None:
+        if hasattr(self, "fit_cate_intercept") and self.fit_cate_intercept and feature_names is not None:
             feature_names = ["Intercept"] + feature_names
         if feature_names is not None:
             feature_names = np.tile(feature_names, d_t)
         # index of X columns to filter for each T
         ind_x = np.arange(d_t * d_x).reshape(d_t, d_x)
-        if self.fit_cate_intercept:  # skip intercept
+        if hasattr(self, "fit_cate_intercept") and self.fit_cate_intercept:  # skip intercept
             ind_x = ind_x[:, 1:]
 
         shap_outs = defaultdict(dict)
