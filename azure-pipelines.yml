@@ -75,7 +75,7 @@ jobs:
 
         - script: 'python setup.py build_sphinx -b doctest'
           displayName: 'Run doctests'
-      package: '.[automl]'
+      package: '-e .[automl]'
 
 - job: 'Notebooks'
   dependsOn: 'EvalChanges'
@@ -194,9 +194,8 @@ jobs:
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
-      package: '-e .'
       body:
-        - script: 'pip install pytest pytest-cov pytest-xdist && pytest'
+        - script: 'python setup.py pytest'
           displayName: 'Unit tests'
           env:
             PYTEST_ADDOPTS: '-m "not (notebook or automl)"'
