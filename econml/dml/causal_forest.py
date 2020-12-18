@@ -46,7 +46,7 @@ class _CausalForestFinalWrapper(_FinalWrapper):
         return self._model.predict(self._combine(X, fitting=False)).reshape((-1,) + self._d_y + self._d_t)
 
 
-class GenericSingleOutcomeModelFinalWithCovInference(Inference):
+class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
 
     def prefit(self, estimator, *args, **kwargs):
         self.model_final = estimator.model_final
@@ -403,8 +403,8 @@ class CausalForestDML(_BaseDML):
 
     def _get_inference_options(self):
         options = super()._get_inference_options()
-        options.update(blb=GenericSingleOutcomeModelFinalWithCovInference)
-        options.update(auto=GenericSingleOutcomeModelFinalWithCovInference)
+        options.update(blb=_GenericSingleOutcomeModelFinalWithCovInference)
+        options.update(auto=_GenericSingleOutcomeModelFinalWithCovInference)
         return options
 
     # override only so that we can update the docstring to indicate support for `blb`
@@ -426,9 +426,7 @@ class CausalForestDML(_BaseDML):
             Weights for each row
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of :class:`.BootstrapInference`) 'blb'
-            (or an instance of :class:`.GenericModelFinalWithCovInference`) and 'auto'
-            (or an instance of :class:`.GenericModelFinalWithCovInference`)
+            (or an instance of :class:`.BootstrapInference`), 'blb' or 'auto'
 
         Returns
         -------

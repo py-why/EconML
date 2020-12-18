@@ -28,6 +28,9 @@ Private Module Reference
 
     econml._ortho_learner
     econml.dml._rlearner
+    econml.grf._base_grf
+    econml.grf._base_grftree
+    econml.grf._criterion
 
 Scikit-Learn Extensions
 =======================
