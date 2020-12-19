@@ -19,10 +19,6 @@ from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, Linea
     GenericModelFinalInferenceDiscrete
 
 
-def _shap_explain_cme(*args, **kwargs):
-    return None
-
-
 class BaseCateEstimator(metaclass=abc.ABCMeta):
     """Base class for all CATE estimators in this package."""
 
