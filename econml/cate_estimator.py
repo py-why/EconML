@@ -486,7 +486,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
         return _shap_explain_cme(self.const_marginal_effect, X, d_y, d_t, feature_names, treatment_names, output_names)
     
-     def _shap_values(self, models, X, *, feature_names=None, treatment_names=None, output_names=None):
+    def _shap_values(self, models, X, *, feature_names=None, treatment_names=None, output_names=None):
         """ Shap value for the final stage models.
         This is the private method mainly for internal use.
         Parameters
@@ -815,7 +815,6 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         return shap_outs
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
     
-
 
 class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
     """
