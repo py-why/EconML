@@ -9,6 +9,7 @@ from functools import wraps
 from copy import deepcopy
 from warnings import warn
 from collections import defaultdict
+from slicer import Alias
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
                         inverse_onehot, Summary, get_input_columns, broadcast_unit_treatments,
@@ -16,6 +17,10 @@ from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_param
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
+
+
+def _shap_explain_cme(*args, **kwargs):
+    return None
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -459,9 +464,32 @@ class LinearCateEstimator(BaseCateEstimator):
         pass
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
-        """ Shap values
+        """ Shap value for the final stage models (const_marginal_effect)
+
+        Parameters
+        ----------
+        X: (m, d_x) matrix
+            Features for each sample. Should be in the same shape of fitted X in final stage.
+        feature_names: optional None or list of strings of length X.shape[1] (Default=None)
+            The names of input features.
+        treatment_names: optional None or list (Default=None)
+            The name of treatment. In discrete treatment scenario, the name should not include control name.
+        output_names:  optional None or list (Default=None)
+            The name of the outcome.
+
+        Returns
+        -------
+        shap_outs: nested dictionary of Explanation object
+            A nested dictionary by using each Y and each T as key and the shap_values explanation object as value.
         """
-        return None
+        d_t = self._d_t[0] if self._d_t else 1
+        d_y = self._d_y[0] if self._d_y else 1
+        if treatment_names is None:
+            treatment_names = [f"T{i}" for i in range(d_t)]
+        if output_names is None:
+            output_names = [f"Y{i}" for i in range(d_y)]
+
+        return _shap_explain_cme(self.const_marginal_effect, X, d_y, d_t, feature_names, treatment_names, output_names)
 
 
 class TreatmentExpansionMixin(BaseCateEstimator):
