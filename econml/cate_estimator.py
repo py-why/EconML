@@ -20,10 +20,6 @@ from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, Linea
     GenericModelFinalInferenceDiscrete
 
 
-def _shap_explain_cme(*args, **kwargs):
-    return None
-
-
 class BaseCateEstimator(metaclass=abc.ABCMeta):
     """Base class for all CATE estimators in this package."""
 
@@ -467,14 +463,7 @@ class LinearCateEstimator(BaseCateEstimator):
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
         """ Shap values
         """
-        d_t = self._d_t[0] if self._d_t else 1
-        d_y = self._d_y[0] if self._d_y else 1
-        if treatment_names is None:
-            treatment_names = ["T{}".format(i) for i in range(d_t)]
-        if output_names is None:
-            output_names = ["Y{}".format(i) for i in range(d_y)]
-
-        return _shap_explain_cme(self.const_marginal_effect, X, d_y, d_t, feature_names, treatment_names, output_names)
+        return None
 
 
 class TreatmentExpansionMixin(BaseCateEstimator):
