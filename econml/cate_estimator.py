@@ -14,10 +14,14 @@ from slicer import Alias
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
                         inverse_onehot, Summary, get_input_columns, broadcast_unit_treatments,
-                        cross_product, _shap_explain_cme)
+                        cross_product)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
+
+
+def _shap_explain_cme(*args, **kwargs):
+    return None
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -485,7 +489,7 @@ class LinearCateEstimator(BaseCateEstimator):
             output_names = [f"Y{i}" for i in range(d_y)]
 
         return _shap_explain_cme(self.const_marginal_effect, X, d_y, d_t, feature_names, treatment_names, output_names)
-    
+
     def _shap_values(self, models, X, *, feature_names=None, treatment_names=None, output_names=None):
         """ Shap value for the final stage models.
         This is the private method mainly for internal use.
@@ -814,7 +818,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
         return shap_outs
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
-    
+
 
 class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
     """
