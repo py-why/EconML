@@ -3,6 +3,11 @@
 #
 # This code is a fork from:
 # https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/ensemble/_base.py
+# published under the following license and copyright:
+# BSD 3-Clause License
+#
+# Copyright (c) 2007-2020 The scikit-learn developers.
+# All rights reserved.
 
 import numbers
 import numpy as np
