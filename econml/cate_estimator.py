@@ -469,8 +469,8 @@ class LinearCateEstimator(BaseCateEstimator):
         Parameters
         ----------
         X: (m, d_x) matrix
-            Features for each sample. Should be in the same shape of fitted X in final stage.
-        feature_names: optional None or list of strings of length X.shape[1] (Default=None)
+            Features for each sample. Should be in the same shape of fitted `X` in final stage.
+        feature_names: optional None or list of strings of length `X.shape[1]` (Default=None)
             The names of input features.
         treatment_names: optional None or list (Default=None)
             The name of treatment. In discrete treatment scenario, the name should not include control name.
@@ -480,7 +480,7 @@ class LinearCateEstimator(BaseCateEstimator):
         Returns
         -------
         shap_outs: nested dictionary of Explanation object
-            A nested dictionary by using each Y and each T as key and the shap_values explanation object as value.
+            A nested dictionary by using each Y and each T as key and the `shap_values` explanation object as value.
         """
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
