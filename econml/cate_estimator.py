@@ -8,9 +8,13 @@ import numpy as np
 from functools import wraps
 from copy import deepcopy
 from warnings import warn
+from collections import defaultdict
+import shap
+from slicer import Alias
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
-                        inverse_onehot, Summary, get_input_columns)
+                        inverse_onehot, Summary, get_input_columns, broadcast_unit_treatments,
+                        cross_product, _shap_explain_cme)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
@@ -456,6 +460,87 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         pass
 
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        """ Shap value for the final stage models (const_marginal_effect)
+        Parameters
+        ----------
+        X: (m, d_x) matrix
+            Features for each sample. Should be in the same shape of fitted X in final stage.
+        feature_names: optional None or list of strings of length X.shape[1] (Default=None)
+            The names of input features.
+        treatment_names: optional None or list (Default=None)
+            The name of treatment. In discrete treatment scenario, the name should not include control name.
+        output_names:  optional None or list (Default=None)
+            The name of the outcome.
+        Returns
+        -------
+        shap_outs: nested dictionary of Explanation object
+            A nested dictionary by using each Y and each T as key and the shap_values explanation object as value.
+        """
+        d_t = self._d_t[0] if self._d_t else 1
+        d_y = self._d_y[0] if self._d_y else 1
+        if treatment_names is None:
+            treatment_names = [f"T{i}" for i in range(d_t)]
+        if output_names is None:
+            output_names = [f"Y{i}" for i in range(d_y)]
+
+        return _shap_explain_cme(self.const_marginal_effect, X, d_y, d_t, feature_names, treatment_names, output_names)
+    
+     def _shap_values(self, models, X, *, feature_names=None, treatment_names=None, output_names=None):
+        """ Shap value for the final stage models.
+        This is the private method mainly for internal use.
+        Parameters
+        ----------
+        models: a single estimator or a list of estimators with one estimator per treatment
+            models for the model's final stage model.
+        X: (m, d_x) matrix
+            Features for each sample. Should be in the same shape of fitted X in final stage.
+        feature_names: optional None or list of strings of length X.shape[1] (Default=None)
+            The names of input features.
+        treatment_names: optional None or list (Default=None)
+            The name of treatment. In discrete treatment scenario, the name should not include control name.
+        output_names:  optional None or list (Default=None)
+            The name of the outcome.
+        Returns
+        -------
+        shap_outs: nested dictionary of Explanation object
+            A nested dictionary by using each Y and each T as key and the shap_values explanation object as value.
+        """
+
+        d_t = self._d_t[0] if self._d_t else 1
+        d_y = self._d_y[0] if self._d_y else 1
+        if treatment_names is None:
+            treatment_names = [f"T{i}" for i in range(d_t)]
+        if output_names is None:
+            output_names = [f"Y{i}" for i in range(d_y)]
+
+        if not isinstance(models, list):
+            models = [models]
+        assert len(models) == d_t, "Number of final stage models don't equals to number of treatments!"
+        # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
+        background = shap.maskers.Independent(X, max_samples=X.shape[0])
+
+        shap_outs = defaultdict(dict)
+        for i in range(d_t):
+            try:
+                explainer = shap.Explainer(models[i], background,
+                                           feature_names=feature_names)
+            except Exception as e:
+                print("Final model can't be parsed, explain const_marginal_effect() instead!")
+                return _shap_explain_cme(self.const_marginal_effect, X, d_y, d_t, feature_names, treatment_names,
+                                         output_names)
+            shap_out = explainer(X)
+            if d_y > 1:
+                for j in range(d_y):
+                    shap_out_copy = deepcopy(shap_out)
+                    shap_out_copy.base_values = shap_out_copy.base_values[..., j]
+                    shap_out_copy.values = shap_out_copy.values[..., j]
+                    shap_outs[output_names[j]][treatment_names[i]] = shap_out_copy
+            else:
+                shap_outs[output_names[0]][treatment_names[i]] = shap_out
+
+        return shap_outs
+
 
 class TreatmentExpansionMixin(BaseCateEstimator):
     """Mixin which automatically handles promotions of scalar treatments to the appropriate shape."""
@@ -684,6 +769,52 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             print("CATE Intercept Results: ", str(e))
         if len(smry.tables) > 0:
             return smry
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        d_t = self._d_t[0] if self._d_t else 1
+        d_y = self._d_y[0] if self._d_y else 1
+
+        if treatment_names is None:
+            treatment_names = [f"T{i}" for i in range(d_t)]
+        if output_names is None:
+            output_names = [f"Y{i}" for i in range(d_y)]
+        if self.featurizer is not None:
+            X = self.featurizer.transform(X)
+        X, T = broadcast_unit_treatments(X, d_t)
+        d_x = X.shape[1]
+        X_new = cross_product(X, T)
+        feature_names = self.cate_feature_names(feature_names)
+        if self.fit_cate_intercept and feature_names is not None:
+            feature_names = ["Intercept"] + feature_names
+        if feature_names is not None:
+            feature_names = np.tile(feature_names, d_t)
+        # index of X columns to filter for each T
+        ind_x = np.arange(d_t * d_x).reshape(d_t, d_x)
+        if self.fit_cate_intercept:  # skip intercept
+            ind_x = ind_x[:, 1:]
+
+        shap_outs = defaultdict(dict)
+        for i in range(d_t):
+            X_sub = X_new[T[:, i] == 1]
+            # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
+            background = shap.maskers.Independent(X_sub, max_samples=X_sub.shape[0])
+            explainer = shap.Explainer(self.model_final, background, feature_names=feature_names)
+            shap_out = explainer(X_sub)
+            shap_out.data = shap_out.data[:, ind_x[i]]
+            shap_out.feature_names = Alias([feature_names[i] for i in ind_x[i]], 1)
+            if d_y > 1:
+                for j in range(d_y):
+                    shap_out_copy = deepcopy(shap_out)
+                    shap_out_copy.base_values = shap_out_copy.base_values[..., j]
+                    shap_out_copy.values = shap_out_copy.values[..., ind_x[i], j]
+                    shap_outs[output_names[j]][treatment_names[i]] = shap_out_copy
+            else:
+                shap_out.values = shap_out.values[..., ind_x[i]]
+                shap_outs[output_names[0]][treatment_names[i]] = shap_out
+
+        return shap_outs
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
+    
 
 
 class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
