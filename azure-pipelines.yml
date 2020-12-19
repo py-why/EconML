@@ -55,7 +55,7 @@ jobs:
   pool: 
     vmImage: 'ubuntu-18.04'
   variables:
-    python.version: '3.6'
+    python.version: '3.8'
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
