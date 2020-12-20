@@ -807,7 +807,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             explainer = shap.Explainer(self.model_final, background, feature_names=feature_names)
             shap_out = explainer(X_sub)
             shap_out.data = shap_out.data[:, ind_x[i]]
-            shap_out.feature_names = Alias([feature_names[i] for i in ind_x[i]], 1)
+            shap_out.feature_names = [feature_names[i] for i in ind_x[i]]
             if d_y > 1:
                 for j in range(d_y):
                     shap_out_copy = deepcopy(shap_out)
