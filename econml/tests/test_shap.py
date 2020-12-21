@@ -4,6 +4,7 @@
 import numpy as np
 import unittest
 import shap
+from shap.plots import scatter, heatmap, bar, beeswarm, waterfall
 from econml.dml import *
 from econml.ortho_forest import *
 from econml.drlearner import *
@@ -61,8 +62,11 @@ class TestShap(unittest.TestCase):
                             self.assertEqual(len(shap_values["Y0"]["T0"].feature_names), fd_x)
                             self.assertEqual(len(shap_values["Y0"]["T0"][ind].feature_names), fd_x)
                             # test shap could generate the plot from the shap_values
-                            shap.plots.force(shap_values["Y0"]["T0"][ind], show=False)
-                            shap.plots.beeswarm(shap_values["Y0"]["T0"], show=False)
+                            scatter(shap_values["Y0"]["T0"][:, "a"], show=False)
+                            heatmap(shap_values["Y0"]["T0"], show=False)
+                            bar(shap_values["Y0"]["T0"], show=False)
+                            beeswarm(shap_values["Y0"]["T0"], show=False)
+                            waterfall(shap_values["Y0"]["T0"][ind], show=False)
 
     def test_discrete_t(self):
         n = 100
@@ -124,5 +128,59 @@ class TestShap(unittest.TestCase):
                             self.assertEqual(len(shap_values["Y0"]["T0"].feature_names), fd_x)
                             self.assertEqual(len(shap_values["Y0"]["T0"][ind].feature_names), fd_x)
                             # test shap could generate the plot from the shap_values
-                            shap.plots.force(shap_values["Y0"]["T0"][ind], show=False)
-                            shap.plots.beeswarm(shap_values["Y0"]["T0"], show=False)
+                            scatter(shap_values["Y0"]["T0"][:, "a"], show=False)
+                            heatmap(shap_values["Y0"]["T0"], show=False)
+                            bar(shap_values["Y0"]["T0"], show=False)
+                            beeswarm(shap_values["Y0"]["T0"], show=False)
+                            waterfall(shap_values["Y0"]["T0"][ind], show=False)
+
+    def test_identical_output(self):
+        # Treatment effect function
+        def exp_te(x):
+            return np.exp(2 * x[0])
+        n = 500
+        n_w = 10
+        support_size = 5
+        n_x = 2
+        # Outcome support
+        support_Y = np.random.choice(range(n_w), size=support_size, replace=False)
+        coefs_Y = np.random.uniform(0, 1, size=(support_size,))
+
+        def epsilon_sample(n):
+            return np.random.uniform(-1, 1, size=(n,))
+        # Treatment support
+        support_T = support_Y
+        coefs_T = np.random.uniform(0, 1, size=support_size)
+
+        def eta_sample(n):
+            return np.random.uniform(-1, 1, size=n)
+        # Generate controls, covariates, treatments and outcomes
+        W = np.random.normal(0, 1, size=(n, n_w))
+        X = np.random.uniform(0, 1, size=(n, n_x))
+        # Heterogeneous treatment effects
+        TE = np.array([np.exp(2 * x_i[0]) for x_i in X]).flatten()
+        T = np.dot(W[:, support_T], coefs_T) + eta_sample(n)
+        Y = (TE * T) + np.dot(W[:, support_Y], coefs_Y) + epsilon_sample(n)
+        Y = np.tile(Y.reshape(-1, 1), (1, 2))
+        est = LinearDML(model_y=Lasso(),
+                        model_t=Lasso(),
+                        random_state=123,
+                        fit_cate_intercept=True,
+                        featurizer=PolynomialFeatures(degree=2, include_bias=False))
+        est.fit(Y, T, X=X, W=W)
+        shap_values1 = est.shap_values(X[:10], feature_names=["A", "B"], treatment_names=["orange"])
+        est = LinearDML(model_y=Lasso(),
+                        model_t=Lasso(),
+                        random_state=123,
+                        fit_cate_intercept=True,
+                        featurizer=PolynomialFeatures(degree=2, include_bias=False))
+        est.fit(Y[:, 0], T, X=X, W=W)
+        shap_values2 = est.shap_values(X[:10], feature_names=["A", "B"], treatment_names=["orange"])
+        np.testing.assert_allclose(shap_values1["Y0"]["orange"].data,
+                                   shap_values2["Y0"]["orange"].data)
+        np.testing.assert_allclose(shap_values1["Y0"]["orange"].values,
+                                   shap_values2["Y0"]["orange"].values)
+        np.testing.assert_allclose(shap_values1["Y0"]["orange"].main_effects,
+                                   shap_values2["Y0"]["orange"].main_effects)
+        np.testing.assert_allclose(shap_values1["Y0"]["orange"].base_values,
+                                   shap_values2["Y0"]["orange"].base_values)

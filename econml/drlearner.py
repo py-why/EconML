@@ -599,8 +599,10 @@ class DRLearner(_OrthoLearner):
                 for i in range(d_t):
                     base_values = shap_out.base_values[..., i]
                     values = shap_out.values[..., i]
+                    main_effects = None if shap_out.main_effects is not None else shap_out.main_effects[..., i]
                     shap_out_new = Explanation(values, base_values=base_values,
-                                               data=shap_out.data, feature_names=shap_out.feature_names)
+                                               data=shap_out.data, main_effects=main_effects,
+                                               feature_names=shap_out.feature_names)
                     shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
             else:
                 shap_outs[output_names[0]][treatment_names[0]] = shap_out

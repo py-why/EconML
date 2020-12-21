@@ -11,7 +11,6 @@ from warnings import warn
 from collections import defaultdict
 import shap
 from shap import Explanation
-from slicer import Alias
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
                         inverse_onehot, Summary, get_input_columns, broadcast_unit_treatments,
@@ -541,8 +540,10 @@ class LinearCateEstimator(BaseCateEstimator):
                 for j in range(d_y):
                     base_values = shap_out.base_values[..., j]
                     values = shap_out.values[..., j]
+                    main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., j]
                     shap_out_new = Explanation(values, base_values=base_values,
-                                               data=shap_out.data, feature_names=shap_out.feature_names)
+                                               data=shap_out.data, main_effects=main_effects,
+                                               feature_names=shap_out.feature_names)
                     shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
             else:
                 shap_outs[output_names[0]][treatment_names[i]] = shap_out
@@ -792,10 +793,10 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         d_x = X.shape[1]
         X_new = cross_product(X, T)
         feature_names = self.cate_feature_names(feature_names)
-        if hasattr(self, "fit_cate_intercept") and self.fit_cate_intercept and feature_names is not None:
-            feature_names = ["Intercept"] + feature_names
-        if feature_names is not None:
-            feature_names = np.tile(feature_names, d_t)
+        # if hasattr(self, "fit_cate_intercept") and self.fit_cate_intercept and feature_names is not None:
+        #    feature_names = ["Intercept"] + feature_names
+        # if feature_names is not None:
+        #    feature_names = np.tile(feature_names, d_t)
         # index of X columns to filter for each T
         ind_x = np.arange(d_t * d_x).reshape(d_t, d_x)
         if hasattr(self, "fit_cate_intercept") and self.fit_cate_intercept:  # skip intercept
@@ -806,22 +807,24 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             X_sub = X_new[T[:, i] == 1]
             # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
             background = shap.maskers.Independent(X_sub, max_samples=X_sub.shape[0])
-            explainer = shap.Explainer(self.model_final, background,
-                                       feature_names=feature_names)
+            explainer = shap.Explainer(self.model_final, background)
             shap_out = explainer(X_sub)
 
             data = shap_out.data[:, ind_x[i]]
             if d_y > 1:
                 for j in range(d_y):
                     base_values = shap_out.base_values[..., j]
+                    main_effects = shap_out.main_effects[..., ind_x[i], j]
                     values = shap_out.values[..., ind_x[i], j]
-                    shap_out_new = Explanation(values, base_values=base_values, data=data,
-                                               feature_names=[feature_names[ind] for ind in ind_x[i]])
+                    shap_out_new = Explanation(values, base_values=base_values, data=data, main_effects=main_effects,
+                                               feature_names=feature_names)
                     shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
             else:
                 values = shap_out.values[..., ind_x[i]]
+                main_effects = shap_out.main_effects[..., ind_x[i], :]
                 shap_out_new = Explanation(values, base_values=shap_out.base_values, data=data,
-                                           feature_names=[feature_names[ind] for ind in ind_x[i]])
+                                           main_effects=main_effects,
+                                           feature_names=feature_names)
                 shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
 
         return shap_outs
