@@ -31,6 +31,7 @@ from warnings import warn
 from copy import deepcopy
 from collections import defaultdict
 import shap
+from shap import Explanation
 
 import numpy as np
 from sklearn.base import clone
@@ -596,10 +597,11 @@ class DRLearner(_OrthoLearner):
             shap_out = explainer(F)
             if d_t > 1:
                 for i in range(d_t):
-                    shap_out_copy = deepcopy(shap_out)
-                    shap_out_copy.base_values = shap_out_copy.base_values[..., i]
-                    shap_out_copy.values = shap_out_copy.values[..., i]
-                    shap_outs[output_names[0]][treatment_names[i]] = shap_out_copy
+                    base_values = shap_out.base_values[..., i]
+                    values = shap_out.values[..., i]
+                    shap_out_new = Explanation(values, base_values=base_values,
+                                               data=shap_out.data, feature_names=shap_out.feature_names)
+                    shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
             else:
                 shap_outs[output_names[0]][treatment_names[0]] = shap_out
             return shap_outs

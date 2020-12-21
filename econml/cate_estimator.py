@@ -10,6 +10,7 @@ from copy import deepcopy
 from warnings import warn
 from collections import defaultdict
 import shap
+from shap import Explanation
 from slicer import Alias
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
@@ -538,10 +539,11 @@ class LinearCateEstimator(BaseCateEstimator):
             shap_out = explainer(X)
             if d_y > 1:
                 for j in range(d_y):
-                    shap_out_copy = deepcopy(shap_out)
-                    shap_out_copy.base_values = shap_out_copy.base_values[..., j]
-                    shap_out_copy.values = shap_out_copy.values[..., j]
-                    shap_outs[output_names[j]][treatment_names[i]] = shap_out_copy
+                    base_values = shap_out.base_values[..., j]
+                    values = shap_out.values[..., j]
+                    shap_out_new = Explanation(values, base_values=base_values,
+                                               data=shap_out.data, feature_names=shap_out.feature_names)
+                    shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
             else:
                 shap_outs[output_names[0]][treatment_names[i]] = shap_out
 
@@ -804,21 +806,23 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             X_sub = X_new[T[:, i] == 1]
             # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
             background = shap.maskers.Independent(X_sub, max_samples=X_sub.shape[0])
-            explainer = shap.Explainer(self.model_final, background, 
-                                       feature_names=np.arange(d_t * d_x) if feature_names is not None else None)
+            explainer = shap.Explainer(self.model_final, background,
+                                       feature_names=feature_names)
             shap_out = explainer(X_sub)
-            if feature_names is not None:
-                shap_out.feature_names = Alias([feature_names[i] for i in ind_x[i]], 1)
-            shap_out.data = shap_out.data[:, ind_x[i]]
+
+            data = shap_out.data[:, ind_x[i]]
             if d_y > 1:
                 for j in range(d_y):
-                    shap_out_copy = deepcopy(shap_out)                                        
-                    shap_out_copy.base_values = shap_out_copy.base_values[..., j]
-                    shap_out_copy.values = shap_out_copy.values[..., ind_x[i], j]
-                    shap_outs[output_names[j]][treatment_names[i]] = shap_out_copy
+                    base_values = shap_out.base_values[..., j]
+                    values = shap_out.values[..., ind_x[i], j]
+                    shap_out_new = Explanation(values, base_values=base_values, data=data,
+                                               feature_names=[feature_names[ind] for ind in ind_x[i]])
+                    shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
             else:
-                shap_out.values = shap_out.values[..., ind_x[i]]
-                shap_outs[output_names[0]][treatment_names[i]] = shap_out
+                values = shap_out.values[..., ind_x[i]]
+                shap_out_new = Explanation(values, base_values=shap_out.base_values, data=data,
+                                           feature_names=[feature_names[ind] for ind in ind_x[i]])
+                shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
 
         return shap_outs
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
