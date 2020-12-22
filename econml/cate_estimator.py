@@ -8,9 +8,7 @@ import numpy as np
 from functools import wraps
 from copy import deepcopy
 from warnings import warn
-from collections import defaultdict
 import shap
-from shap import Explanation
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
                         inverse_onehot, Summary, get_input_columns, broadcast_unit_treatments,

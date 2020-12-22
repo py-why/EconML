@@ -2,14 +2,13 @@
 # Licensed under the MIT License.
 
 import shap
-from shap import Explanation
 from collections import defaultdict
 import numpy as np
 
 
 def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_names=None, output_names=None):
     """
-    The method to explain `const_marginal_effect` function using shap Explainer()
+    Method to explain `const_marginal_effect` function using shap Explainer().
 
     Parameters
     ----------
@@ -18,7 +17,7 @@ def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_name
     X: (m, d_x) matrix
         Features for each sample. Should be in the same shape of fitted X in final stage.
     d_t: tuple of int
-        Tuple of number of treatment (exclude control in discrete treatment scenario).        
+        Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
@@ -51,8 +50,8 @@ def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_name
 
 def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
                              treatment_names=None, output_names=None):
-    """ 
-    The method to explain `model_cate` using shap Explainer(), will instead explain `const_marignal_effect`
+    """
+    Method to explain `model_cate` using shap Explainer(), will instead explain `const_marignal_effect`
     if `model_cate` can't be parsed.
 
     Parameters
@@ -64,7 +63,7 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
     X: (m, d_x) matrix
         Features for each sample. Should be in the same shape of fitted X in final stage.
     d_t: tuple of int
-        Tuple of number of treatment (exclude control in discrete treatment scenario).        
+        Tuple of number of treatment (exclude control in discrete treatment scenario.
     d_y: tuple of int
         Tuple of number of outcome.
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
@@ -102,9 +101,9 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
                 base_values = shap_out.base_values[..., j]
                 values = shap_out.values[..., j]
                 main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., j]
-                shap_out_new = Explanation(values, base_values=base_values,
-                                           data=shap_out.data, main_effects=main_effects,
-                                           feature_names=shap_out.feature_names)
+                shap_out_new = shap.Explanation(values, base_values=base_values,
+                                                data=shap_out.data, main_effects=main_effects,
+                                                feature_names=shap_out.feature_names)
                 shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
         else:
             shap_outs[output_names[0]][treatment_names[i]] = shap_out
@@ -114,7 +113,7 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
 
 def _shap_explain_dml_model_cate(model_final, X, T, d_t, d_y, fit_cate_intercept,
                                  feature_names=None, treatment_names=None, output_names=None):
-    """ 
+    """
     The method to explain `model_cate` of parametric final stage DML using shap Explainer()
 
     Parameters
@@ -126,7 +125,7 @@ def _shap_explain_dml_model_cate(model_final, X, T, d_t, d_y, fit_cate_intercept
     T: matrix
         Intermediate T
     d_t: tuple of int
-        Tuple of number of treatment (exclude control in discrete treatment scenario).        
+        Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
@@ -166,9 +165,9 @@ def _shap_explain_dml_model_cate(model_final, X, T, d_t, d_y, fit_cate_intercept
         else:
             values = shap_out.values[..., ind_x[i]]
             main_effects = shap_out.main_effects[..., ind_x[i], :]
-            shap_out_new = Explanation(values, base_values=shap_out.base_values, data=data,
-                                       main_effects=main_effects,
-                                       feature_names=feature_names)
+            shap_out_new = shap.Explanation(values, base_values=shap_out.base_values, data=data,
+                                            main_effects=main_effects,
+                                            feature_names=feature_names)
             shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
 
     return shap_outs
@@ -176,8 +175,8 @@ def _shap_explain_dml_model_cate(model_final, X, T, d_t, d_y, fit_cate_intercept
 
 def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, d_y, feature_names=None,
                                        treatment_names=None, output_names=None):
-    """ 
-    The method to explain `multitask_model_cate` for DRLearner
+    """
+    Method to explain `multitask_model_cate` for DRLearner
 
     Parameters
     ----------
@@ -188,7 +187,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
     X: (m, d_x) matrix
         Features for each sample. Should be in the same shape of fitted X in final stage.
     d_t: tuple of int
-        Tuple of number of treatment (exclude control in discrete treatment scenario).        
+        Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
@@ -222,9 +221,9 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
             base_values = shap_out.base_values[..., i]
             values = shap_out.values[..., i]
             main_effects = None if shap_out.main_effects is not None else shap_out.main_effects[..., i]
-            shap_out_new = Explanation(values, base_values=base_values,
-                                       data=shap_out.data, main_effects=main_effects,
-                                       feature_names=shap_out.feature_names)
+            shap_out_new = shap.Explanation(values, base_values=base_values,
+                                            data=shap_out.data, main_effects=main_effects,
+                                            feature_names=shap_out.feature_names)
             shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
     else:
         shap_outs[output_names[0]][treatment_names[0]] = shap_out
@@ -232,13 +231,13 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
 
 
 def _define_names(d_t, d_y, treatment_names, output_names):
-    """ 
+    """
     Helper function to get treatment and output names
 
     Parameters
     ----------
     d_t: tuple of int
-        Tuple of number of treatment (exclude control in discrete treatment scenario).        
+        Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
     treatment_names: optional None or list (Default=None)
