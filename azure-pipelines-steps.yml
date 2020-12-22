@@ -4,8 +4,8 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
 parameters:
-  body: []
-  package: '-e .'
+  post: []
+  env: 'py38'
 
 steps:
 - task: UsePythonVersion@0
@@ -18,13 +18,8 @@ steps:
   displayName: 'Enable long paths on Windows'
   condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
 
-# Install graphviz programmatically on Linux
-- script: 'sudo apt-get -yq install graphviz'
-  displayName: 'Install graphviz on Linux'
-  condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+# Run tox
+- script: 'python -m pip install --upgrade pip && pip install --upgrade tox && tox -e ${{ parameters.env }}'
+  displayName: 'Install and run tox'
 
-# Install the package
-- script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython && pip install ${{ parameters.package }}'
-  displayName: 'Install dependencies'
-
-- ${{ parameters.body }}
+- ${{ parameters.post }}

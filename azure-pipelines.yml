@@ -55,53 +55,34 @@ jobs:
   pool: 
     vmImage: 'ubuntu-18.04'
   variables:
-    python.version: '3.6'
+    python.version: '3.8'
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
-      body:
-        - script: 'sudo apt-get -yq install graphviz'
-          displayName: 'Install graphviz'
-
-        - script: 'pip install sklearn-contrib-lightning'
-          displayName: 'Install lightning'        
-
-        - script: 'pip install git+https://github.com/slundberg/shap.git@d1d2700acc0259f211934373826d5ff71ad514de'
-          displayName: 'Install specific version of shap'  
-
-        - script: 'python setup.py build_sphinx -W'
-          displayName: 'Build documentation'
-
+      post:
         - publish: 'build/sphinx/html'
           artifact: 'Documentation'
           displayName: 'Publish documentation as artifact'
-
-        - script: 'python setup.py build_sphinx -b doctest'
-          displayName: 'Run doctests'
-      package: '-e .[automl]'
+      env: 'doctest'
 
 - job: 'Notebooks'
   dependsOn: 'EvalChanges'
   condition: eq(dependencies.EvalChanges.outputs['output.buildNbs'], 'True')
-  variables:
-    python.version: '3.8'
   pool:
     vmImage: 'ubuntu-18.04'
+  variables:
+    python.version: '3.8'
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
-      body:
-        - script: 'python setup.py pytest'
-          displayName: 'Unit tests'
-          env:
-            PYTEST_ADDOPTS: '-m "notebook"'
-
+      post:
         - task: PublishTestResults@2
           displayName: 'Publish Test Results **/test-results.xml'
           inputs:
             testResultsFiles: '**/test-results.xml'
             testRunTitle: 'Notebooks'
           condition: succeededOrFailed()
+      env: 'notebooks'
 
 # - job: 'AutoML'
 #   dependsOn: 'EvalChanges'
@@ -141,17 +122,19 @@ jobs:
 - job: 'Linting'
   dependsOn: 'EvalChanges'
   condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
-  variables:
-    python.version: '3.8'
   pool:
     vmImage: 'macOS-10.15'
   steps:
-  - template: azure-pipelines-steps.yml
-    parameters:
-      body:
-        - script: 'pip install pycodestyle && pycodestyle econml'
-          failOnStderr: true
-          displayName: Linting
+  - task: UsePythonVersion@0
+    displayName: 'Use Python 3.8'
+    inputs:
+      versionSpec: '3.8'  
+  # note: don't need to install the package itself to lint it
+  - script: 'python -m pip install --upgrade pip && pip install pycodestyle'
+    displayName: 'Install pycodestyle'
+  - script: 'pycodestyle econml'
+    failOnStderr: true
+    displayName: Linting
 
 - job: 'Tests'
   dependsOn: 'EvalChanges'
@@ -160,30 +143,39 @@ jobs:
     matrix:
       Linux, Python 3.6:
         imageName: 'ubuntu-18.04'
+        env: 'py36'
         python.version: '3.6'
       macOS, Python 3.6:
         imageName: 'macOS-10.15'
+        env: 'py36'
         python.version: '3.6'
       Windows, Python 3.6:
         imageName: 'windows-2019'
+        env: 'py36'
         python.version: '3.6'
       Linux, Python 3.7:
         imageName: 'ubuntu-18.04'
+        env: 'py37'
         python.version: '3.7'
       macOS, Python 3.7:
         imageName: 'macOS-10.15'
+        env: 'py37'
         python.version: '3.7'
       Windows, Python 3.7:
         imageName: 'windows-2019'
+        env: 'py37'
         python.version: '3.7'
       Linux, Python 3.8:
         imageName: 'ubuntu-18.04'
+        env: 'py38'
         python.version: '3.8'
       macOS, Python 3.8:
         imageName: 'macOS-10.15'
+        env: 'py38'
         python.version: '3.8'
       Windows, Python 3.8:
         imageName: 'windows-2019'
+        env: 'py38'
         python.version: '3.8'
 
   pool:
@@ -194,12 +186,7 @@ jobs:
   steps:
   - template: azure-pipelines-steps.yml
     parameters:
-      body:
-        - script: 'python setup.py pytest'
-          displayName: 'Unit tests'
-          env:
-            PYTEST_ADDOPTS: '-m "not (notebook or automl)"'
-            COVERAGE_PROCESS_START: 'setup.cfg'
+      post:
         - task: PublishTestResults@2
           displayName: 'Publish Test Results **/test-results.xml'
           inputs:
@@ -212,3 +199,4 @@ jobs:
           inputs:
             codeCoverageTool: Cobertura
             summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+      env: $(env)

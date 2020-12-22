@@ -15,3 +15,12 @@ markers = [
     "notebook",
     "automl"
 ]
+
+[tool.coverage.run]
+omit = "econml/tests/*"
+branch = "True"
+# need to explicitly add support for multiprocessing for OrthoForest
+concurrency = [
+    "thread",
+    "multiprocessing"
+]
