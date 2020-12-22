@@ -48,7 +48,8 @@ from .sklearn_extensions.ensemble import SubsampledHonestForest
 from .sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
 from .utilities import (_deprecate_positional, check_high_dimensional,
-                        filter_none_kwargs, fit_with_groups, inverse_onehot, _shap_explain_cme)
+                        filter_none_kwargs, fit_with_groups, inverse_onehot)
+from .shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
 
 class _ModelNuisance:
@@ -577,39 +578,13 @@ class DRLearner(_OrthoLearner):
         feature_names = self.cate_feature_names(feature_names)
 
         if self._multitask_model_final:
-            d_t = self._d_t[0] if self._d_t else 1
-            if treatment_names is None:
-                treatment_names = [f"T{i}" for i in range(d_t)]
-            if output_names is None:
-                output_names = ["Y0"]
-
-            # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
-            background = shap.maskers.Independent(F, max_samples=F.shape[0])
-            shap_outs = defaultdict(dict)
-            try:
-                explainer = shap.Explainer(self.multitask_model_cate, background,
-                                           feature_names=feature_names)
-            except Exception as e:
-                print("Final model can't be parsed, explain const_marginal_effect() instead!")
-                return _shap_explain_cme(self.const_marginal_effect, F, 1, d_t, feature_names, treatment_names,
-                                         output_names)
-
-            shap_out = explainer(F)
-            if d_t > 1:
-                for i in range(d_t):
-                    base_values = shap_out.base_values[..., i]
-                    values = shap_out.values[..., i]
-                    main_effects = None if shap_out.main_effects is not None else shap_out.main_effects[..., i]
-                    shap_out_new = Explanation(values, base_values=base_values,
-                                               data=shap_out.data, main_effects=main_effects,
-                                               feature_names=shap_out.feature_names)
-                    shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
-            else:
-                shap_outs[output_names[0]][treatment_names[0]] = shap_out
-            return shap_outs
+            return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.multitask_model_cate, F,
+                                                      self._d_t, self._d_y, feature_names,
+                                                      treatment_names, output_names)
         else:
-            return super()._shap_values(super().model_final.models_cate, F, feature_names=feature_names,
-                                        treatment_names=treatment_names, output_names=output_names)
+            return _shap_explain_model_cate(self.const_marginal_effect, super().model_final.models_cate,
+                                            F, self._d_t, self._d_y, feature_names=feature_names,
+                                            treatment_names=treatment_names, output_names=output_names)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
@@ -1292,6 +1267,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
             model = deepcopy(fitted_model)
             model.__class__ = RandomForestRegressor
             models.append(model)
-        return super()._shap_values(models, X, feature_names=feature_names,
-                                    treatment_names=treatment_names, output_names=output_names)
+        return _shap_explain_model_cate(self.const_marginal_effect, models, X, self._d_t, self._d_y,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__

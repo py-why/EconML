@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 import shap
-from shap.plots import scatter, heatmap, bar, beeswarm, waterfall
+from shap.plots import scatter, heatmap, bar, beeswarm, waterfall, force
 from econml.dml import *
 from econml.ortho_forest import *
 from econml.drlearner import *
@@ -61,12 +61,6 @@ class TestShap(unittest.TestCase):
                             ind = 6
                             self.assertEqual(len(shap_values["Y0"]["T0"].feature_names), fd_x)
                             self.assertEqual(len(shap_values["Y0"]["T0"][ind].feature_names), fd_x)
-                            # test shap could generate the plot from the shap_values
-                            scatter(shap_values["Y0"]["T0"][:, "a"], show=False)
-                            heatmap(shap_values["Y0"]["T0"], show=False)
-                            bar(shap_values["Y0"]["T0"], show=False)
-                            beeswarm(shap_values["Y0"]["T0"], show=False)
-                            waterfall(shap_values["Y0"]["T0"][ind], show=False)
 
     def test_discrete_t(self):
         n = 100
@@ -127,12 +121,6 @@ class TestShap(unittest.TestCase):
                             ind = 6
                             self.assertEqual(len(shap_values["Y0"]["T0"].feature_names), fd_x)
                             self.assertEqual(len(shap_values["Y0"]["T0"][ind].feature_names), fd_x)
-                            # test shap could generate the plot from the shap_values
-                            scatter(shap_values["Y0"]["T0"][:, "a"], show=False)
-                            heatmap(shap_values["Y0"]["T0"], show=False)
-                            bar(shap_values["Y0"]["T0"], show=False)
-                            beeswarm(shap_values["Y0"]["T0"], show=False)
-                            waterfall(shap_values["Y0"]["T0"][ind], show=False)
 
     def test_identical_output(self):
         # Treatment effect function
@@ -180,7 +168,16 @@ class TestShap(unittest.TestCase):
                                    shap_values2["Y0"]["orange"].data)
         np.testing.assert_allclose(shap_values1["Y0"]["orange"].values,
                                    shap_values2["Y0"]["orange"].values)
+        # TODO There is a matrix dimension mismatch between multiple outcome and single outcome, should solve that
+        # through shap package.
         np.testing.assert_allclose(shap_values1["Y0"]["orange"].main_effects,
-                                   shap_values2["Y0"]["orange"].main_effects)
+                                   shap_values2["Y0"]["orange"].main_effects[:, :, 0])
         np.testing.assert_allclose(shap_values1["Y0"]["orange"].base_values,
                                    shap_values2["Y0"]["orange"].base_values)
+
+        # test shap could generate the plot from the shap_values
+        heatmap(shap_values1["Y0"]["orange"], show=False)
+        waterfall(shap_values1["Y0"]["orange"][6], show=False)
+        scatter(shap_values1["Y0"]["orange"][:, "A"], show=False)
+        bar(shap_values1["Y0"]["orange"], show=False)
+        beeswarm(shap_values1["Y0"]["orange"], show=False)

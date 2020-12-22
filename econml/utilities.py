@@ -26,7 +26,6 @@ from statsmodels.iolib.summary import summary_return
 from statsmodels.compat.python import lmap
 import copy
 from inspect import signature
-import shap
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -1302,48 +1301,6 @@ class _RegressionWrapper:
         X : features
         """
         return self._clf.predict_proba(X)[:, 1:]
-
-
-def _shap_explain_cme(cme_model, X, d_y, d_t, feature_names=None, treatment_names=None, output_names=None):
-    """
-    Transpose a dictionary of dictionaries, bringing the keys from the second level
-    to the top and vice versa
-
-    Parameters
-    ----------
-    cme_models: function
-        const_marginal_effect function.
-    X: (m, d_x) matrix
-        Features for each sample. Should be in the same shape of fitted X in final stage.
-    d_y: scalar
-        number of outcome.
-    d_t: scalar
-        number of treatment (exclude control in discrete treatment scenario).
-    feature_names: optional None or list of strings of length X.shape[1] (Default=None)
-        The names of input features.
-    treatment_names: optional None or list (Default=None)
-        The name of treatment. In discrete treatment scenario, the name should not include control name.
-    output_names:  optional None or list (Default=None)
-        The name of the outcome.
-
-    Returns
-    -------
-    shap_outs: nested dictionary of Explanation object
-        A nested dictionary by using each Y and each T as a key and the shap_values explanation object as the value.
-
-    """
-    # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
-    background = shap.maskers.Independent(X, max_samples=X.shape[0])
-    shap_outs = defaultdict(dict)
-    for i in range(d_y):
-        for j in range(d_t):
-            def cmd_func(X):
-                return cme_model(X).reshape(-1, d_y, d_t)[:, i, j]
-            explainer = shap.Explainer(cmd_func, background,
-                                       feature_names=feature_names)
-            shap_out = explainer(X)
-            shap_outs[output_names[i]][treatment_names[j]] = shap_out
-    return shap_outs
 
 
 @deprecated("This class will be removed from a future version of this package; "

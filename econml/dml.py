@@ -65,6 +65,7 @@ from .utilities import (_deprecate_positional, add_intercept,
                         cross_product, deprecated, fit_with_groups,
                         hstack, inverse_onehot, ndim, reshape,
                         reshape_treatmentwise_effects, shape, transpose)
+from .shap import _shap_explain_model_cate
 
 
 class _FirstStageWrapper:
@@ -948,8 +949,9 @@ class NonParamDML(_BaseDML):
             F = X
         feature_names = self.cate_feature_names(feature_names)
 
-        return super()._shap_values(self.model_cate, F, feature_names=feature_names,
-                                    treatment_names=treatment_names, output_names=output_names)
+        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, F, self._d_t, self._d_y,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
@@ -1188,8 +1190,9 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         # a RandomForestRegressor, modify the class name in order to be identified as tree models.
         model = copy.deepcopy(self.model_cate)
         model.__class__ = RandomForestRegressor
-        return super()._shap_values(model, X, feature_names=feature_names,
-                                    treatment_names=treatment_names, output_names=output_names)
+        return _shap_explain_model_cate(self.const_marginal_effect, model, X, self._d_t, self._d_y,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
