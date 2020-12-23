@@ -65,6 +65,12 @@ jobs:
 
         - script: 'pip install sklearn-contrib-lightning'
           displayName: 'Install lightning'
+          
+        - script: 'pip install --force-reinstall --no-cache-dir shap'
+          displayName: 'Install public shap'
+
+        - script: 'pip install --force-reinstall scikit-learn==0.23.2'
+          displayName: 'Install public old sklearn'
 
         - script: 'python setup.py build_sphinx -W'
           displayName: 'Build documentation'

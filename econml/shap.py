@@ -38,13 +38,26 @@ def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_name
     background = shap.maskers.Independent(X, max_samples=X.shape[0])
     shap_outs = defaultdict(dict)
     for i in range(dy):
-        for j in range(dt):
-            def cmd_func(X):
-                return cme_model(X).reshape(-1, dy, dt)[:, i, j]
-            explainer = shap.Explainer(cmd_func, background,
-                                       feature_names=feature_names)
-            shap_out = explainer(X)
-            shap_outs[output_names[i]][treatment_names[j]] = shap_out
+        def cmd_func(X):
+            return cme_model(X).reshape(-1, dy, dt)[:, i, :]
+        explainer = shap.Explainer(cmd_func, background,
+                                   feature_names=feature_names)
+        shap_out = explainer(X)
+        if dt > 1:
+            for j in range(dt):
+                base_values = shap_out.base_values[..., j]
+                values = shap_out.values[..., j]
+                main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., j]
+                shap_out_new = shap.Explanation(values, base_values=base_values,
+                                                data=shap_out.data, main_effects=main_effects,
+                                                feature_names=shap_out.feature_names)
+                shap_outs[output_names[i]][treatment_names[j]] = shap_out_new
+        else:
+            base_values = shap_out.base_values[..., 0]
+            shap_out_new = shap.Explanation(shap_out.values, base_values=base_values,
+                                            data=shap_out.data, main_effects=shap_out.main_effects,
+                                            feature_names=shap_out.feature_names)
+            shap_outs[output_names[i]][treatment_names[0]] = shap_out_new
     return shap_outs
 
 
