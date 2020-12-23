@@ -171,7 +171,7 @@ class TestShap(unittest.TestCase):
         # TODO There is a matrix dimension mismatch between multiple outcome and single outcome, should solve that
         # through shap package.
         np.testing.assert_allclose(shap_values1["Y0"]["orange"].main_effects,
-                                   shap_values2["Y0"]["orange"].main_effects[:, :, 0])
+                                   shap_values2["Y0"]["orange"].main_effects)
         np.testing.assert_allclose(shap_values1["Y0"]["orange"].base_values,
                                    shap_values2["Y0"]["orange"].base_values)
 

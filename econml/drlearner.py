@@ -29,7 +29,6 @@ Tsiatis AA (2006).
 
 from warnings import warn
 from copy import deepcopy
-from collections import defaultdict
 
 import numpy as np
 from sklearn.base import clone

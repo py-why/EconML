@@ -111,8 +111,8 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
     return shap_outs
 
 
-def _shap_explain_dml_model_cate(model_final, X, T, d_t, d_y, fit_cate_intercept,
-                                 feature_names=None, treatment_names=None, output_names=None):
+def _shap_explain_joint_linear_model_cate(model_final, X, T, d_t, d_y, fit_cate_intercept,
+                                          feature_names=None, treatment_names=None, output_names=None):
     """
     Method to explain `model_cate` of parametric final stage that was fitted on the cross product of
     `featurizer(X)` and T.
@@ -165,7 +165,7 @@ def _shap_explain_dml_model_cate(model_final, X, T, d_t, d_y, fit_cate_intercept
                 shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
         else:
             values = shap_out.values[..., ind_x[i]]
-            main_effects = shap_out.main_effects[..., ind_x[i], :]
+            main_effects = shap_out.main_effects[..., ind_x[i], 0]
             shap_out_new = shap.Explanation(values, base_values=shap_out.base_values, data=data,
                                             main_effects=main_effects,
                                             feature_names=feature_names)

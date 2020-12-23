@@ -16,7 +16,7 @@ from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_param
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
-from .shap import _shap_explain_cme, _define_names, _shap_explain_dml_model_cate
+from .shap import _shap_explain_cme, _define_names, _shap_explain_joint_linear_model_cate
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -720,9 +720,9 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         d_x = X.shape[1]
         X_new = cross_product(X, T)
         feature_names = self.cate_feature_names(feature_names)
-        return _shap_explain_dml_model_cate(self.model_final, X_new, T, dt, dy, self.fit_cate_intercept,
-                                            feature_names=feature_names, treatment_names=treatment_names,
-                                            output_names=output_names)
+        return _shap_explain_joint_linear_model_cate(self.model_final, X_new, T, dt, dy, self.fit_cate_intercept,
+                                                     feature_names=feature_names, treatment_names=treatment_names,
+                                                     output_names=output_names)
 
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
