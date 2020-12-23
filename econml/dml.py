@@ -243,14 +243,15 @@ class _BaseDML(_RLearner):
     @property
     def model_final(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
-        return self._model_final
+        #      We need to use the rlearner's copy to retain the information from fitting
+        return self.rlearner_model_final._model
 
     @model_final.setter
     def model_final(self, model):
         model = _FinalWrapper(model,
-                              fit_cate_intercept=super().model_final._fit_cate_intercept,
-                              featurizer=super().model_final._original_featurizer,
-                              use_weight_trick=super().model_final._use_weight_trick)
+                              fit_cate_intercept=self.rlearner_model_final._fit_cate_intercept,
+                              featurizer=self.rlearner_model_final._original_featurizer,
+                              use_weight_trick=self.rlearner_model_final._use_weight_trick)
         self._rlearner_model_final = model
 
     @_RLearner.rlearner_model_final.setter
@@ -496,11 +497,12 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                                                random_state=self._random_state)
             else:
                 model_t = WeightedLassoCVWrapper(random_state=self._random_state)
-        return _FirstStageWrapper(model_t, False, self._featurizer, self._linear_first_stages, self._discrete_treatment)
+        return _FirstStageWrapper(model_t, False, self._featurizer,
+                                  self._linear_first_stages, self._discrete_treatment)
 
     def _prepare_final_model(self, model):
         self._model_final = model
-        return _FinalWrapper(self.model_final, self.fit_cate_intercept, self._featurizer, False)
+        return _FinalWrapper(self._model_final, self._fit_cate_intercept, self._featurizer, False)
 
     def _update_models(self):
         self._rlearner_model_y = self._prepare_model_y(self.model_y)

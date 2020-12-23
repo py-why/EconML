@@ -278,7 +278,7 @@ class _RLearner(_OrthoLearner):
 
     def __init__(self, model_y, model_t, model_final,
                  discrete_treatment, categories, n_splits, random_state, monte_carlo_iterations=None):
-        self._rlearner_model_final = _model_final
+        self._rlearner_model_final = model_final
         self._rlearner_model_y = model_y
         self._rlearner_model_t = model_t
         super().__init__(_ModelNuisance(clone(model_y, safe=False), clone(model_t, safe=False)),

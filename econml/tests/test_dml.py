@@ -11,7 +11,7 @@ from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, ForestDML)
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
-from econml.inference import BootstrapInference
+from econml.inference import BootstrapInference, EmpiricalInferenceResults, NormalInferenceResults
 from contextlib import ExitStack
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
@@ -1141,3 +1141,20 @@ class TestDML(unittest.TestCase):
         v2s = [np.var([est.fit(y, T, W=W).effect() for _ in range(10)]) for _ in range(10)]
         # The average variance should be lower when using monte carlo iterations
         assert np.mean(v2s) < np.mean(v1s)
+
+    def test_refit_inference(self):
+        """Test that we can perform inference during refit"""
+        est = LinearDML(linear_first_stages=False, featurizer=PolynomialFeatures(1, include_bias=False))
+
+        X = np.random.choice(np.arange(5), size=(500, 3))
+        y = np.random.normal(size=(500,))
+        T = np.random.choice(np.arange(3), size=(500, 2))
+        W = np.random.normal(size=(500, 2))
+
+        est.fit(y, T, X=X, W=W, cache_values=True, inference='statsmodels')
+
+        assert isinstance(est.effect_inference(X), NormalInferenceResults)
+
+        est.refit(inference=BootstrapInference(2))
+
+        assert isinstance(est.effect_inference(X), EmpiricalInferenceResults)

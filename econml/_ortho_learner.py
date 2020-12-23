@@ -611,7 +611,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             X=cached.X,
             W=cached.W,
             Z=cached.Z,
-            nuisances=cached.nuisances,
             sample_weight=cached.sample_weight,
             sample_var=cached.sample_var
         )
@@ -633,11 +632,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         # fit only the final model
         self._fit_final(cached.Y,
                         cached.T,
+                        nuisances=cached.nuisances,
                         **kwargs)
 
         if inference is not None:
             # NOTE: we call inference fit *after* calling the main fit method
-            inference.fit(self, Y, T, *args, **kwargs)
+            inference.fit(self, cached.Y, cached.T, **kwargs)
         self._inference = inference
 
         return self
