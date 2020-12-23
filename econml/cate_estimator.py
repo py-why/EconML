@@ -469,14 +469,17 @@ class LinearCateEstimator(BaseCateEstimator):
         feature_names: optional None or list of strings of length X.shape[1] (Default=None)
             The names of input features.
         treatment_names: optional None or list (Default=None)
-            The name of treatment. In discrete treatment scenario, the name should not include control name.
+            The name of treatment. In discrete treatment scenario, the name should not include the name of
+            the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
         output_names:  optional None or list (Default=None)
             The name of the outcome.
 
         Returns
         -------
         shap_outs: nested dictionary of Explanation object
-            A nested dictionary by using each Y and each T as key and the shap_values explanation object as value.
+            A nested dictionary by using each output name (e.g. "Y0" when `output_names=None`) and
+            each treatment name (e.g. "T0" when `treatment_names=None`) as key
+            and the shap_values explanation object as value.
 
 
         """

@@ -23,14 +23,17 @@ def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_name
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
         The names of input features.
     treatment_names: optional None or list (Default=None)
-        The name of treatment. In discrete treatment scenario, the name should not include control name.
+        The name of treatment. In discrete treatment scenario, the name should not include the name of
+        the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
 
     Returns
     -------
     shap_outs: nested dictionary of Explanation object
-        A nested dictionary by using each Y and each T as a key and the shap_values explanation object as the value.
+        A nested dictionary by using each output name (e.g. "Y0" when `output_names=None`) and
+        each treatment name (e.g. "T0" when `treatment_names=None`) as key
+        and the shap_values explanation object as value.
 
     """
     (dt, dy, treatment_names, output_names) = _define_names(d_t, d_y, treatment_names, output_names)
@@ -82,14 +85,17 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
         The names of input features.
     treatment_names: optional None or list (Default=None)
-        The name of treatment. In discrete treatment scenario, the name should not include control name.
+        The name of treatment. In discrete treatment scenario, the name should not include the name of
+        the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
 
     Returns
     -------
     shap_outs: nested dictionary of Explanation object
-        A nested dictionary by using each Y and each T as key and the shap_values explanation object as value.
+        A nested dictionary by using each output name (e.g. "Y0" when `output_names=None`) and
+        each treatment name (e.g. "T0" when `treatment_names=None`) as key
+        and the shap_values explanation object as value.
     """
 
     (dt, dy, treatment_names, output_names) = _define_names(d_t, d_y, treatment_names, output_names)
@@ -145,22 +151,27 @@ def _shap_explain_joint_linear_model_cate(model_final, X, T, d_t, d_y, fit_cate_
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
         The names of input features.
     treatment_names: optional None or list (Default=None)
-        The name of treatment. In discrete treatment scenario, the name should not include control name.
+        The name of treatment. In discrete treatment scenario, the name should not include the name of
+        the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
 
     Returns
     -------
     shap_outs: nested dictionary of Explanation object
-        A nested dictionary by using each Y and each T as key and the shap_values explanation object as value.
+        A nested dictionary by using each output name (e.g. "Y0" when `output_names=None`) and
+        each treatment name (e.g. "T0" when `treatment_names=None`) as key
+        and the shap_values explanation object as value.
     """
 
     d_x = X.shape[1]
+    # define the index of d_x to filter for each given T
     ind_x = np.arange(d_x).reshape(d_t, -1)
     if fit_cate_intercept:  # skip intercept
         ind_x = ind_x[:, 1:]
     shap_outs = defaultdict(dict)
     for i in range(d_t):
+        # filter X after broadcast with T for each given T
         X_sub = X[T[:, i] == 1]
         # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
         background = shap.maskers.Independent(X_sub, max_samples=X_sub.shape[0])
@@ -207,14 +218,17 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
         The names of input features.
     treatment_names: optional None or list (Default=None)
-        The name of treatment. In discrete treatment scenario, the name should not include control name.
+        The name of treatment. In discrete treatment scenario, the name should not include the name of
+        the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
 
     Returns
     -------
     shap_outs: nested dictionary of Explanation object
-        A nested dictionary by using each Y and each T as key and the shap_values explanation object as value.
+        A nested dictionary by using each output name (e.g. "Y0" when `output_names=None`) and
+        each treatment name (e.g. "T0" when `treatment_names=None`) as key
+        and the shap_values explanation object as value.
     """
     (dt, dy, treatment_names, output_names) = _define_names(d_t, d_y, treatment_names, output_names)
 
@@ -255,7 +269,8 @@ def _define_names(d_t, d_y, treatment_names, output_names):
     d_y: tuple of int
         Tuple of number of outcome.
     treatment_names: optional None or list (Default=None)
-        The name of treatment. In discrete treatment scenario, the name should not include control name.
+        The name of treatment. In discrete treatment scenario, the name should not include the name of
+        the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
 
