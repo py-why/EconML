@@ -436,7 +436,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     models_nuisance: list of objects of type(model_nuisance)
         A list of instances of the model_nuisance object. Each element corresponds to a crossfitting
         fold and is the model instance that was fitted for that training fold.
-    model_final: object of type(model_final)
+    ortho_learner_model_final: object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float or array of floats
         If the model_final has a score method, then `score_` contains the outcome of the final model
@@ -448,9 +448,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def __init__(self, model_nuisance, model_final, *,
                  discrete_treatment, discrete_instrument, categories, n_splits, random_state):
-        self._model_nuisance = clone(model_nuisance, safe=False)
+        self._ortho_learner_model_nuisance = clone(model_nuisance, safe=False)
         self._models_nuisance = None
-        self._model_final = clone(model_final, safe=False)
+        self._ortho_learner_model_final = clone(model_final, safe=False)
         self._n_splits = n_splits
         self._discrete_treatment = discrete_treatment
         self._discrete_instrument = discrete_instrument
@@ -589,9 +589,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._cache_invalid_message = None
         return self
 
-    # TODO: this doesn't currently allow inference, because that is handled by the wrap_fit attribute
-    #       which can't be directly applied here yet; this will be fixed in a subsequent change
-    def refit(self):
+    def refit(self, inference=None):
         """
         Estimate the counterfactual model using a new final model specification but with cached first stage results.
 
@@ -606,14 +604,39 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         assert self._cached_values, "Refit can only be called if values were cached during the original fit"
         assert self._cache_invalid_message is None, "Can't refit: " + self._cache_invalid_message
         cached = self._cached_values
-        self._fit_final(Y=cached.Y,
-                        T=cached.T,
-                        X=cached.X,
-                        W=cached.W,
-                        Z=cached.Z,
-                        nuisances=cached.nuisances,
-                        sample_weight=cached.sample_weight,
-                        sample_var=cached.sample_var)
+        kwargs = filter_none_kwargs(
+            X=cached.X,
+            W=cached.W,
+            Z=cached.Z,
+            nuisances=cached.nuisances,
+            sample_weight=cached.sample_weight,
+            sample_var=cached.sample_var
+        )
+
+        # in case the final model uses randomness, make sure to reset the internal random state
+        self._random_state = check_random_state(self._init_random_state)
+
+        # this sequence of calls parallels that in BaseCateEstimator.wrap_fit
+
+        inference = self._get_inference(inference)
+
+        # not strictly necessary when refitting
+        self._prefit(cached.Y, cached.T, **kwargs)
+        if inference is not None:
+            # this *is* necessary even when refitting
+            # because we might have a new inference object
+            inference.prefit(self, cached.Y, cached.T, **kwargs)
+
+        # fit only the final model
+        self._fit_final(cached.Y,
+                        cached.T,
+                        **kwargs)
+
+        if inference is not None:
+            # NOTE: we call inference fit *after* calling the main fit method
+            inference.fit(self, Y, T, *args, **kwargs)
+        self._inference = inference
+
         return self
 
     def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -669,7 +692,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             self.transformer = None
 
-        nuisances, fitted_models, fitted_inds, scores = _crossfit(self._model_nuisance, folds,
+        nuisances, fitted_models, fitted_inds, scores = _crossfit(self._ortho_learner_model_nuisance, folds,
                                                                   Y, T, X=X, W=W, Z=Z,
                                                                   sample_weight=sample_weight, groups=groups)
         self._models_nuisance = fitted_models
@@ -677,23 +700,24 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return nuisances, fitted_inds
 
     def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        self._model_final.fit(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                         nuisances=nuisances, sample_weight=sample_weight,
-                                                         sample_var=sample_var))
+        self._ortho_learner_model_final.fit(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
+                                                                       nuisances=nuisances,
+                                                                       sample_weight=sample_weight,
+                                                                       sample_var=sample_var))
         self.score_ = None
-        if hasattr(self._model_final, 'score'):
-            self.score_ = self._model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                             nuisances=nuisances,
-                                                                             sample_weight=sample_weight,
-                                                                             sample_var=sample_var))
+        if hasattr(self._ortho_learner_model_final, 'score'):
+            self.score_ = self._ortho_learner_model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
+                                                                                           nuisances=nuisances,
+                                                                                           sample_weight=sample_weight,
+                                                                                           sample_var=sample_var))
 
     def const_marginal_effect(self, X=None):
         X, = check_input_arrays(X)
         self._check_fitted_dims(X)
         if X is None:
-            return self._model_final.predict()
+            return self._ortho_learner_model_final.predict()
         else:
-            return self._model_final.predict(X)
+            return self._ortho_learner_model_final.predict(X)
     const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
@@ -751,7 +775,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             The score of the final CATE model on the new data. Same type as the return
             type of the model_final.score method.
         """
-        if not hasattr(self._model_final, 'score'):
+        if not hasattr(self._ortho_learner_model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
         Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
         self._check_fitted_dims(X)
@@ -774,24 +798,24 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
 
-        return self._model_final.score(Y, T, nuisances=nuisances,
-                                       **filter_none_kwargs(X=X, W=W, Z=Z, sample_weight=sample_weight))
+        return self._ortho_learner_model_final.score(Y, T, nuisances=nuisances,
+                                                     **filter_none_kwargs(X=X, W=W, Z=Z, sample_weight=sample_weight))
 
     @property
-    def model_final(self):
-        return self._model_final
+    def ortho_learner_model_final(self):
+        return self._ortho_learner_model_final
 
-    @model_final.setter
-    def model_final(self, model_final):
-        self._model_final = clone(model_final, safe=False)
+    @ortho_learner_model_final.setter
+    def ortho_learner_model_final(self, model_final):
+        self._ortho_learner_model_final = clone(model_final, safe=False)
 
     @property
-    def model_nuisance(self):
-        return self._model_nuisance
+    def ortho_learner_model_nuisance(self):
+        return self._ortho_learner_model_nuisance
 
-    @model_nuisance.setter
-    def model_nuisance(self, model_nuisance):
-        self._model_nuisance = clone(model_nuisance, safe=False)
+    @ortho_learner_model_nuisance.setter
+    def ortho_learner_model_nuisance(self, model_nuisance):
+        self._ortho_learner_model_nuisance = clone(model_nuisance, safe=False)
         self._cache_invalid_message = "Setting the nuisance model invalidates the cached nuisances"
 
     @property
@@ -828,6 +852,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     @random_state.setter
     def random_state(self, random_state):
         self._init_random_state = random_state
+        self._random_state = check_random_state(random_state)
         self._cache_invalid_message = "Setting the random state invalidates the cached nuisances"
 
     @property

@@ -237,9 +237,9 @@ class _RLearner(_OrthoLearner):
     array([9.996314...])
     >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
     9.73638006...e-05
-    >>> est.model_final.model
+    >>> est.rlearner_model_final.model
     LinearRegression(fit_intercept=False)
-    >>> est.model_final.model.coef_
+    >>> est.rlearner_model_final.model.coef_
     array([0.999631...])
     >>> est.score_
     9.82623204...e-05
@@ -256,7 +256,7 @@ class _RLearner(_OrthoLearner):
     models_t: list of objects of type(model_t)
         A list of instances of the model_t object. Each element corresponds to a crossfitting
         fold and is the model instance that was fitted for that training fold.
-    model_final : object of type(model_final)
+    rlearner_model_final : object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float
         The MSE in the final residual on residual regression
@@ -275,6 +275,9 @@ class _RLearner(_OrthoLearner):
 
     def __init__(self, model_y, model_t, model_final,
                  discrete_treatment, categories, n_splits, random_state):
+        self._rlearner_model_final = _model_final
+        self._rlearner_model_y = model_y
+        self._rlearner_model_t = model_t
         super().__init__(_ModelNuisance(clone(model_y, safe=False), clone(model_t, safe=False)),
                          _ModelFinal(clone(model_final, safe=False)),
                          discrete_treatment=discrete_treatment,
@@ -355,34 +358,37 @@ class _RLearner(_OrthoLearner):
         return super().score(Y, T, X=X, W=W)
 
     @property
-    def model_final(self):
-        return super().model_final._model_final
+    def rlearner_model_final(self):
+        # NOTE: important to get parent's wrapped copy so that
+        #       after training wrapped featurizer is also trained, etc.
+        return self._ortho_learner_model_final._model_final
 
-    @model_final.setter
-    def model_final(self, model_final):
-        # super().model_final = _ModelFinal(clone(model_final, safe=False))
-        super(_RLearner, _RLearner).model_final.__set__(self, _ModelFinal(clone(model_final, safe=False)))
+    @rlearner_model_final.setter
+    def rlearner_model_final(self, model_final):
+        model_final = clone(model_final, safe=False)
+        self._rlearner_model_final = model_final
+        self._ortho_learner_model_final = _ModelFinal(model_final)
 
     @property
-    def model_y(self):
-        return self._model_nuisance._model_y
+    def rlearner_model_y(self):
+        return self._ortho_learner_model_nuisance._model_y
 
-    @model_y.setter
-    def model_y(self, model_y):
-        # super().model_nuisance = _ModelNuisance(clone(model_y, safe=False), self.model_t)
-        super(_RLearner, _RLearner).model_nuisance.__set__(
-            self, _ModelNuisance(clone(model_y, safe=False), self._model_nuisance._model_t))
+    @rlearner_model_y.setter
+    def rlearner_model_y(self, model_y):
+        model_y = clone(model_y, safe=False)
+        self._rlearner_model_y = model_y
+        self._ortho_learner_model_nuisance = _ModelNuisance(model_y, self._rlearner_model_t)
         self._cache_invalid_message = "Setting the Y model invalidates cached nuisances"
 
     @property
-    def model_t(self):
-        return self._model_nuisance._model_t
+    def rlearner_model_t(self):
+        return self._ortho_learner_model_nuisance._model_t
 
-    @model_t.setter
-    def model_t(self, model_t):
-        # super().model_nuisance = _ModelNuisance(self.model_y, clone(model_t, safe=False))
-        super(_RLearner, _RLearner).model_nuisance.__set__(
-            self, _ModelNuisance(self._model_nuisance._model_y, clone(model_t, safe=False)))
+    @rlearner_model_t.setter
+    def rlearner_model_t(self, model_t):
+        model_t = clone(model_t, safe=False)
+        self._rlearner_model_t = model_t
+        self._ortho_learner_model_nuisance = _ModelNuisance(self._rlearner_model_y, model_t)
         self._cache_invalid_message = "Setting the T model invalidates cached nuisances"
 
     @property
@@ -401,10 +407,15 @@ class _RLearner(_OrthoLearner):
     def nuisance_scores_t(self):
         return self.nuisance_scores_[1]
 
-    @_OrthoLearner.model_nuisance.setter
-    def model_nuisance(self, model):
+    @_OrthoLearner.ortho_learner_model_final.setter
+    def ortho_learner_model_final(self, model):
+        raise AttributeError("OrthoLearner's final model cannot be set directly on an _RLearner instance; "
+                             "set the rlearner_model_final isntead.")
+
+    @_OrthoLearner.ortho_learner_model_nuisance.setter
+    def ortho_learner_model_nuisance(self, model):
         raise AttributeError("Nuisance model cannot be set directly on an _RLearner instance; "
-                             "set the model_y and model_t attributes instead.")
+                             "set the Y and T model attributes instead.")
 
     @_OrthoLearner.discrete_instrument.setter
     def discrete_instrument(self, flag):
