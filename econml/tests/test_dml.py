@@ -1134,9 +1134,10 @@ class TestDML(unittest.TestCase):
         y = np.random.normal(size=30) + [0, 1] * 15
         T = np.random.normal(size=(30,)) + y
         W = np.random.normal(size=(30, 3))
-        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
+        est1 = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
+        est2 = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(), monte_carlo_iterations=2)
         # Run ten experiments, recomputing the variance of 10 estimates of the effect in each experiment
-        v2s = [np.var([est.fit(y, T, W=W, monte_carlo_iterations=2).effect() for _ in range(10)]) for _ in range(10)]
         v1s = [np.var([est.fit(y, T, W=W).effect() for _ in range(10)]) for _ in range(10)]
+        v2s = [np.var([est.fit(y, T, W=W).effect() for _ in range(10)]) for _ in range(10)]
         # The average variance should be lower when using monte carlo iterations
         assert np.mean(v2s) < np.mean(v1s)

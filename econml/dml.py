@@ -447,6 +447,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    monte_carlo_iterations: int, optional
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -457,7 +460,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 random_state=None):
+                 random_state=None,
+                 monte_carlo_iterations=None):
 
         # set random_state and discrete_treatment now even though they're set by super's init
         # so that they can be used to initialize models
@@ -475,7 +479,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         random_state=random_state,
+                         monte_carlo_iterations=monte_carlo_iterations)
 
     def _prepare_model_y(self, model_y):
         self._model_y = model_y
@@ -506,7 +511,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, monte_carlo_iterations=None, inference='auto'):
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -528,8 +533,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        monte_carlo_iterations: int, optional
-            The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
@@ -540,7 +544,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self
         """
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, monte_carlo_iterations=monte_carlo_iterations,
+                           cache_values=cache_values,
                            inference=inference)
 
     @property
@@ -688,6 +692,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    monte_carlo_iterations: int, optional
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -698,7 +704,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 random_state=None):
+                 random_state=None,
+                 monte_carlo_iterations=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=StatsModelsLinearRegression(fit_intercept=False),
@@ -708,13 +715,14 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         random_state=random_state,
+                         monte_carlo_iterations=monte_carlo_iterations)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, monte_carlo_iterations=None, inference='auto'):
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -738,8 +746,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        monte_carlo_iterations: int, optional
-            The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'statsmodels'
@@ -751,7 +758,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         """
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, monte_carlo_iterations=monte_carlo_iterations,
+                           cache_values=cache_values,
                            inference=inference)
 
     @DML.model_final.setter
@@ -840,6 +847,9 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    monte_carlo_iterations: int, optional
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -853,7 +863,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 random_state=None):
+                 random_state=None,
+                 monte_carlo_iterations=None):
         self._alpha = alpha
         self._max_iter = max_iter
         self._tol = tol
@@ -872,12 +883,13 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         random_state=random_state,
+                         monte_carlo_iterations=monte_carlo_iterations)
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, monte_carlo_iterations=None, inference='auto'):
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -902,8 +914,6 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        monte_carlo_iterations: int, optional
-            The number of times to rerun the first stage models to reduce the variance of the nuisances.
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'debiasedlasso'
@@ -923,7 +933,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                                "We recommend using the LinearDML estimator for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
-                           cache_values=cache_values, monte_carlo_iterations=None, inference=inference)
+                           cache_values=cache_values, inference=inference)
 
     @DML.model_final.setter
     def model_final(self, model):
@@ -1057,17 +1067,22 @@ class KernelDML(DML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    monte_carlo_iterations: int, optional
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self, model_y='auto', model_t='auto', fit_cate_intercept=True,
-                 dim=20, bw=1.0, discrete_treatment=False, categories='auto', n_splits=2, random_state=None):
+                 dim=20, bw=1.0, discrete_treatment=False, categories='auto', n_splits=2, random_state=None,
+                 monte_carlo_iterations=None):
         super().__init__(model_y=model_y, model_t=model_t,
                          model_final=ElasticNetCV(fit_intercept=False, random_state=random_state),
                          featurizer=_RandomFeatures(dim, bw, random_state),
                          fit_cate_intercept=fit_cate_intercept,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
-                         n_splits=n_splits, random_state=random_state)
+                         n_splits=n_splits, random_state=random_state,
+                         monte_carlo_iterations=monte_carlo_iterations)
 
     @property
     def bw(self):
@@ -1162,6 +1177,9 @@ class NonParamDML(_BaseDML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    monte_carlo_iterations: int, optional
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -1170,7 +1188,8 @@ class NonParamDML(_BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 random_state=None):
+                 random_state=None,
+                 monte_carlo_iterations=None):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -1188,7 +1207,8 @@ class NonParamDML(_BaseDML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         random_state=random_state,
+                         monte_carlo_iterations=monte_carlo_iterations)
 
     @_BaseDML.featurizer.setter
     def featurizer(self, featurizer):
@@ -1375,6 +1395,9 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    monte_carlo_iterations: int, optional
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -1395,7 +1418,8 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
                  honest=True,
                  n_jobs=None,
                  verbose=0,
-                 random_state=None):
+                 random_state=None,
+                 monte_carlo_iterations=None):
         self._n_estimators = n_estimators
         self._criterion = criterion
         self._max_depth = max_depth
@@ -1427,12 +1451,13 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
                          model_final=model_final, featurizer=None,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
-                         n_splits=n_crossfit_splits, random_state=random_state)
+                         n_splits=n_crossfit_splits, random_state=random_state,
+                         monte_carlo_iterations=monte_carlo_iterations)
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, monte_carlo_iterations=None, inference='auto'):
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -1457,9 +1482,7 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        monte_carlo_iterations: int, optional
-            The number of times to rerun the first stage models to reduce the variance of the nuisances.
-        inference: string, `Inference` instance, or None
+            inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'blb'
             (for Bootstrap-of-Little-Bags based inference)
@@ -1470,7 +1493,7 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         """
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
-                           cache_values=cache_values, monte_carlo_iterations=monte_carlo_iterations,
+                           cache_values=cache_values,
                            inference=inference)
 
     @DML.model_final.setter

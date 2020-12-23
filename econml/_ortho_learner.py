@@ -313,6 +313,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    monte_carlo_iterations: int, optional
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
     Examples
     --------
 
@@ -447,7 +450,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
 
     def __init__(self, model_nuisance, model_final, *,
-                 discrete_treatment, discrete_instrument, categories, n_splits, random_state):
+                 discrete_treatment, discrete_instrument, categories, n_splits, random_state,
+                 monte_carlo_iterations=None):
         self._ortho_learner_model_nuisance = clone(model_nuisance, safe=False)
         self._models_nuisance = None
         self._ortho_learner_model_final = clone(model_final, safe=False)
@@ -457,6 +461,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._init_random_state = random_state
         self._random_state = check_random_state(random_state)
         self._categories = categories
+        self._monte_carlo_iterations = monte_carlo_iterations
         super().__init__()
 
     def _check_input_dims(self, Y, T, X=None, W=None, Z=None, *other_arrays):
@@ -518,7 +523,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X=None, W=None, Z=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, monte_carlo_iterations=None, inference=None):
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -544,8 +549,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache the inputs and computed nuisances, which will allow refitting a different final model
-        monte_carlo_iterations: int, optional
-            The number of times to rerun the first stage models to reduce the variance of the nuisances.
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`).
@@ -562,7 +565,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         all_nuisances = []
         fitted_inds = None
 
-        for _ in range(monte_carlo_iterations or 1):
+        for _ in range(self._monte_carlo_iterations or 1):
             nuisances, new_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
             all_nuisances.append(nuisances)
             if fitted_inds is None:
@@ -570,7 +573,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             elif not np.array_equal(fitted_inds, new_inds):
                 raise AttributeError("Different indices were fit by different folds, so they cannot be aggregated")
 
-        if monte_carlo_iterations is not None:
+        if self._monte_carlo_iterations is not None:
             # TODO: support different ways to aggregate, like median?
             nuisances = np.mean(np.array(all_nuisances), axis=0)
 
@@ -863,6 +866,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def categories(self, categories):
         self._categories = categories
         self._cache_invalid_message = "Setting the categories invalidates the cached nuisances"
+
+    @property
+    def monte_carlo_iterations(self):
+        return self._monte_carlo_iterations
+
+    @monte_carlo_iterations.setter
+    def monte_carlo_iterations(self, monte_carlo_iterations):
+        self._monte_carlo_iterations = monte_carlo_iterations
+        self._cache_invalid_message = "Setting the number of monte carlo iterations invalidates the cached nuisances"
 
     @property
     def models_nuisance(self):
