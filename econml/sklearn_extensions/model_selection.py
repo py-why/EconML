@@ -21,12 +21,13 @@ from sklearn.utils.validation import _num_samples
 
 
 def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
+    random_state = self.random_state if self.shuffle else None
     if is_stratified:
         kfold_model = StratifiedKFold(n_splits=self.n_splits, shuffle=self.shuffle,
-                                      random_state=self.random_state)
+                                      random_state=random_state)
     else:
         kfold_model = KFold(n_splits=self.n_splits, shuffle=self.shuffle,
-                            random_state=self.random_state)
+                            random_state=random_state)
     if sample_weight is None:
         return kfold_model.split(X, y)
     weights_sum = np.sum(sample_weight)
@@ -44,7 +45,12 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
         max_deviations.append(max_deviation)
         # Reseed random generator and try again
         kfold_model.shuffle = True
-        kfold_model.random_state = None
+        if kfold_model.random_state is None:
+            kfold_model.random_state = None
+        elif isinstance(kfold_model, numbers.Integral):
+            kfold_model.random_state = kfold_model.random_state + 1
+        else:
+            kfold_model.random_state = np.random.RandomState(kfold_model.random_state.randint(np.iinfo(np.int32).max))
 
     # If KFold fails after n_trials, we try the next best thing: stratifying by weight groups
     warnings.warn("The KFold algorithm failed to find a weight-balanced partition after " +

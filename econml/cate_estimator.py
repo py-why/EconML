@@ -717,7 +717,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         if hasattr(self, "featurizer") and self.featurizer is not None:
             X = self.featurizer.transform(X)
         feature_names = self.cate_feature_names(feature_names)
-        return _shap_explain_joint_linear_model_cate(self.model_final, X, dt, dy, self.fit_cate_intercept,
+        return _shap_explain_joint_linear_model_cate(self.model_final, X, self._d_t, self._d_y, self.fit_cate_intercept,
                                                      feature_names=feature_names, treatment_names=treatment_names,
                                                      output_names=output_names)
 
