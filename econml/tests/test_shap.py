@@ -35,7 +35,7 @@ class TestShap(unittest.TestCase):
                         est_list += [
                             NonParamDML(model_y=LinearRegression(
                             ), model_t=LinearRegression(), model_final=RandomForestRegressor(), featurizer=featurizer),
-                            ForestDML(model_y=LinearRegression(), model_t=LinearRegression())]
+                            CausalForestDML(model_y=LinearRegression(), model_t=LinearRegression())]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             fd_x = featurizer.fit_transform(X).shape[1] if featurizer is not None else d_x
@@ -43,12 +43,12 @@ class TestShap(unittest.TestCase):
                             shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"])
 
                             # test base values equals to mean of constant marginal effect
-                            if not isinstance(est, (ForestDML, DMLOrthoForest)):
+                            if not isinstance(est, (CausalForestDML, DMLOrthoForest)):
                                 mean_cate = est.const_marginal_effect(X[:10]).mean(axis=0)
                                 mean_cate = mean_cate.flatten()[0] if not np.isscalar(mean_cate) else mean_cate
                                 self.assertAlmostEqual(shap_values["Y0"]["T0"].base_values[0], mean_cate, delta=1e-2)
 
-                            if isinstance(est, (ForestDML, DMLOrthoForest)):
+                            if isinstance(est, (CausalForestDML, DMLOrthoForest)):
                                 fd_x = d_x
 
                             # test shape of shap values output is as expected
@@ -87,8 +87,8 @@ class TestShap(unittest.TestCase):
                             NonParamDML(model_y=LinearRegression(
                             ), model_t=LogisticRegression(), model_final=RandomForestRegressor(),
                                 featurizer=featurizer, discrete_treatment=True),
-                            ForestDML(model_y=LinearRegression(), model_t=LogisticRegression(),
-                                      discrete_treatment=True)]
+                            CausalForestDML(model_y=LinearRegression(), model_t=LogisticRegression(),
+                                            discrete_treatment=True)]
                     if d_y == 1:
                         est_list += [DRLearner(multitask_model_final=True, featurizer=featurizer),
                                      DRLearner(multitask_model_final=False, featurizer=featurizer),
@@ -103,12 +103,12 @@ class TestShap(unittest.TestCase):
                             shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"])
 
                             # test base values equals to mean of constant marginal effect
-                            if not isinstance(est, (ForestDML, ForestDRLearner, DROrthoForest)):
+                            if not isinstance(est, (CausalForestDML, ForestDRLearner, DROrthoForest)):
                                 mean_cate = est.const_marginal_effect(X[:10]).mean(axis=0)
                                 mean_cate = mean_cate.flatten()[0] if not np.isscalar(mean_cate) else mean_cate
                                 self.assertAlmostEqual(shap_values["Y0"]["T0"].base_values[0], mean_cate, delta=1e-2)
 
-                            if isinstance(est, (TLearner, SLearner, XLearner, DomainAdaptationLearner, ForestDML,
+                            if isinstance(est, (TLearner, SLearner, XLearner, DomainAdaptationLearner, CausalForestDML,
                                                 ForestDRLearner, DROrthoForest)):
                                 fd_x = d_x
                             # test shape of shap values output is as expected

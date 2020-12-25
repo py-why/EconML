@@ -1276,16 +1276,3 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     @property
     def fitted_models_final(self):
         return super().model_final.models_cate
-
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
-        models = []
-        for fitted_model in self.fitted_models_final:
-            # SubsampleHonestForest can't be recognized by SHAP, but the tree entries are consistent with a tree in
-            # a RandomForestRegressor, modify the class name in order to be identified as tree models.
-            model = deepcopy(fitted_model)
-            model.__class__ = RandomForestRegressor
-            models.append(model)
-        return _shap_explain_model_cate(self.const_marginal_effect, models, X, self._d_t, self._d_y,
-                                        feature_names=feature_names,
-                                        treatment_names=treatment_names, output_names=output_names)
-    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
