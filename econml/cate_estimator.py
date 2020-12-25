@@ -10,12 +10,11 @@ from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
-                        inverse_onehot, Summary, get_input_columns, broadcast_unit_treatments,
-                        cross_product)
+                        inverse_onehot, Summary, get_input_columns)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
-from .shap import _shap_explain_cme, _define_names, _shap_explain_joint_linear_model_cate
+from .shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -715,14 +714,10 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             return smry
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
-        (dt, dy, treatment_names, output_names) = _define_names(self._d_t, self._d_y, treatment_names, output_names)
         if hasattr(self, "featurizer") and self.featurizer is not None:
             X = self.featurizer.transform(X)
-        X, T = broadcast_unit_treatments(X, dt)
-        d_x = X.shape[1]
-        X_new = cross_product(X, T)
         feature_names = self.cate_feature_names(feature_names)
-        return _shap_explain_joint_linear_model_cate(self.model_final, X_new, T, dt, dy, self.fit_cate_intercept,
+        return _shap_explain_joint_linear_model_cate(self.model_final, X, dt, dy, self.fit_cate_intercept,
                                                      feature_names=feature_names, treatment_names=treatment_names,
                                                      output_names=output_names)
 

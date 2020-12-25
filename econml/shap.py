@@ -4,6 +4,7 @@
 import shap
 from collections import defaultdict
 import numpy as np
+from .utilities import broadcast_unit_treatments, cross_product
 
 
 def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_names=None, output_names=None):
@@ -130,7 +131,7 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
     return shap_outs
 
 
-def _shap_explain_joint_linear_model_cate(model_final, X, T, d_t, d_y, fit_cate_intercept,
+def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_intercept,
                                           feature_names=None, treatment_names=None, output_names=None):
     """
     Method to explain `model_cate` of parametric final stage that was fitted on the cross product of
@@ -141,9 +142,7 @@ def _shap_explain_joint_linear_model_cate(model_final, X, T, d_t, d_y, fit_cate_
     model_final: a single estimator
         the model's final stage model.
     X: matrix
-        Intermediate X
-    T: matrix
-        Intermediate T
+        Featurized X
     d_t: tuple of int
         Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
@@ -163,7 +162,9 @@ def _shap_explain_joint_linear_model_cate(model_final, X, T, d_t, d_y, fit_cate_
         each treatment name (e.g. "T0" when `treatment_names=None`) as key
         and the shap_values explanation object as value.
     """
-
+    (d_t, d_y, treatment_names, output_names) = _define_names(d_t, d_y, treatment_names, output_names)
+    X, T = broadcast_unit_treatments(X, d_t)
+    X = cross_product(X, T)
     d_x = X.shape[1]
     # define the index of d_x to filter for each given T
     ind_x = np.arange(d_x).reshape(d_t, -1)
