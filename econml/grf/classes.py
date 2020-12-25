@@ -63,6 +63,18 @@ class MultiOutputGRF(BaseEstimator):
     def feature_importances_(self):
         return self.feature_importances()
 
+    def __len__(self):
+        """Return the number of estimators in the ensemble for each target y."""
+        return len(self.estimators_[0].estimators_)
+
+    def __getitem__(self, index):
+        """Return a list of the index'th estimator in the ensemble for each target y."""
+        return [forest[index] for forest in self.estimators_]
+
+    def __iter__(self):
+        """Return iterator over tuples of estimators for each target y in the ensemble."""
+        return iter(zip(*self.estimators_))
+
 # =============================================================================
 # Instantiations of Generalized Random Forest
 # =============================================================================

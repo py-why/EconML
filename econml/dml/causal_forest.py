@@ -482,3 +482,15 @@ class CausalForestDML(_BaseDML):
     @property
     def feature_importances_(self):
         return self.feature_importances()
+
+    def __len__(self):
+        """Return the number of estimators in the ensemble."""
+        return self.model_cate.__len__()
+
+    def __getitem__(self, index):
+        """Return the index'th estimator in the ensemble."""
+        return self.model_cate.__getitem__(index)
+
+    def __iter__(self):
+        """Return iterator over estimators in the ensemble."""
+        return self.model_cate.__iter__()
