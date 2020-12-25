@@ -28,22 +28,25 @@ Tsiatis AA (2006).
 """
 
 from warnings import warn
+from copy import deepcopy
 
 import numpy as np
 from sklearn.base import clone
 from sklearn.linear_model import (LassoCV, LinearRegression,
                                   LogisticRegressionCV)
+from sklearn.ensemble import RandomForestRegressor
 
 from ._ortho_learner import _OrthoLearner
 from .cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin,
                              ForestModelFinalCateEstimatorDiscreteMixin,
-                             StatsModelsCateEstimatorDiscreteMixin)
+                             StatsModelsCateEstimatorDiscreteMixin, LinearCateEstimator)
 from .inference import GenericModelFinalInferenceDiscrete
 from .sklearn_extensions.ensemble import SubsampledHonestForest
 from .sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
 from .utilities import (_deprecate_positional, check_high_dimensional,
                         filter_none_kwargs, fit_with_groups, inverse_onehot)
+from .shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
 
 class _ModelNuisance:
@@ -563,6 +566,23 @@ class DRLearner(_OrthoLearner):
             return self.featurizer.get_feature_names(feature_names)
         else:
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        if self.featurizer is not None:
+            F = self.featurizer.transform(X)
+        else:
+            F = X
+        feature_names = self.cate_feature_names(feature_names)
+
+        if self._multitask_model_final:
+            return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.multitask_model_cate, F,
+                                                      self._d_t, self._d_y, feature_names,
+                                                      treatment_names, output_names)
+        else:
+            return _shap_explain_model_cate(self.const_marginal_effect, super().model_final.models_cate,
+                                            F, self._d_t, self._d_y, feature_names=feature_names,
+                                            treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
 class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
@@ -1147,7 +1167,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     """
 
     def __init__(self,
-                 model_regression, model_propensity,
+                 model_regression="auto", model_propensity="auto",
                  min_propensity=1e-6,
                  categories='auto',
                  n_crossfit_splits=2,
@@ -1235,3 +1255,16 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     @property
     def fitted_models_final(self):
         return super().model_final.models_cate
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        models = []
+        for fitted_model in self.fitted_models_final:
+            # SubsampleHonestForest can't be recognized by SHAP, but the tree entries are consistent with a tree in
+            # a RandomForestRegressor, modify the class name in order to be identified as tree models.
+            model = deepcopy(fitted_model)
+            model.__class__ = RandomForestRegressor
+            models.append(model)
+        return _shap_explain_model_cate(self.const_marginal_effect, models, X, self._d_t, self._d_y,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
