@@ -365,7 +365,7 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         Possible inputs for cv are:
         - None, to use the default 3-fold weighted cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`,
+        - :term:`CV splitter`,
         - An iterable yielding (train, test) splits as arrays of indices.
         For integer/None inputs, :class:`WeightedKFold` is used.
 
@@ -472,7 +472,7 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         Possible inputs for cv are:
         - None, to use the default 3-fold weighted cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`,
+        - :term:`CV splitter`,
         - An iterable yielding (train, test) splits as arrays of indices.
         For integer/None inputs, :class:`WeightedKFold` is used.
 

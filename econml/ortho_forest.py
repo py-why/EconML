@@ -493,7 +493,7 @@ class DMLOrthoForest(BaseOrthoForest):
         power, especially when W is not None.
 
     global_res_cv : int, cross-validation generator or an iterable, optional (default=2)
-        The specification of the cv splitter to be used for cross-fitting, when constructing
+        The specification of the CV splitter to be used for cross-fitting, when constructing
         the global residuals of Y and T.
 
     discrete_treatment : bool, optional (default=False)

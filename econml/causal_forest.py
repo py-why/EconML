@@ -53,7 +53,7 @@ def CausalForest(n_trees=500,
         `fit` and `predict` methods.
 
     cv : int, cross-validation generator or an iterable, optional (default=2)
-        The specification of the cv splitter to be used for cross-fitting, when constructing
+        The specification of the CV splitter to be used for cross-fitting, when constructing
         the global residuals of Y and T.
 
     discrete_treatment : bool, optional (default=False)

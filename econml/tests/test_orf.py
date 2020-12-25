@@ -305,7 +305,7 @@ class TestOrthoForest(unittest.TestCase):
         Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Instantiate model with most of the default parameters
-        est = DMLOrthoForest(n_jobs=4, n_trees=10,
+        est = DMLOrthoForest(n_jobs=1, n_trees=10,
                              model_T=NoWeightModel(),
                              model_Y=NoWeightModel())
         est.fit(Y=Y, T=T, X=TestOrthoForest.X, W=TestOrthoForest.W)

@@ -483,7 +483,7 @@ class _BaseDMLIV(_OrthoLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -735,7 +735,7 @@ class DMLIV(_BaseDMLIV):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -830,7 +830,7 @@ class NonParamDMLIV(_BaseDMLIV):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1025,7 +1025,7 @@ class _BaseDRIV(_OrthoLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1321,7 +1321,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1435,7 +1435,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete

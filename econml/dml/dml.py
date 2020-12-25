@@ -40,28 +40,32 @@ import numpy as np
 from sklearn.base import TransformerMixin, clone
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
                                    OneHotEncoder)
 from sklearn.utils import check_random_state
+import copy
 
 from ._rlearner import _RLearner
 from ..cate_estimator import (DebiasedLassoCateEstimatorMixin,
-                              ForestModelFinalCateEstimatorMixin,
-                              LinearModelFinalCateEstimatorMixin,
-                              StatsModelsCateEstimatorMixin)
+                             ForestModelFinalCateEstimatorMixin,
+                             LinearModelFinalCateEstimatorMixin,
+                             StatsModelsCateEstimatorMixin,
+                             LinearCateEstimator)
 from ..inference import StatsModelsInference
 from ..sklearn_extensions.ensemble import SubsampledHonestForest
 from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
-                                               StatsModelsLinearRegression,
-                                               WeightedLassoCVWrapper)
+                                              StatsModelsLinearRegression,
+                                              WeightedLassoCVWrapper)
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..utilities import (_deprecate_positional, add_intercept,
-                         broadcast_unit_treatments, check_high_dimensional,
-                         cross_product, deprecated, fit_with_groups,
-                         hstack, inverse_onehot, ndim, reshape,
-                         reshape_treatmentwise_effects, shape, transpose)
+                        broadcast_unit_treatments, check_high_dimensional,
+                        cross_product, deprecated, fit_with_groups,
+                        hstack, inverse_onehot, ndim, reshape,
+                        reshape_treatmentwise_effects, shape, transpose)
+from ..shap import _shap_explain_model_cate
 
 
 class _FirstStageWrapper:
@@ -416,7 +420,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -541,7 +545,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -683,7 +687,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -834,7 +838,7 @@ class KernelDML(DML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -901,7 +905,7 @@ class NonParamDML(_BaseDML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -939,6 +943,18 @@ class NonParamDML(_BaseDML):
                          categories=categories,
                          n_splits=n_splits,
                          random_state=random_state)
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        if self.featurizer is not None:
+            F = self.featurizer.transform(X)
+        else:
+            F = X
+        feature_names = self.cate_feature_names(feature_names)
+
+        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, F, self._d_t, self._d_y,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
 @deprecated("The ForestDML class has been deprecated by the CausalForestDML with parameter "
@@ -988,7 +1004,7 @@ def ForestDML(model_y, model_t,
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
