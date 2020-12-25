@@ -168,7 +168,7 @@ jobs:
         imageName: 'macOS-10.15'
         python.version: '3.6'
       Windows, Python 3.6:
-        imageName: 'windows-2019'
+        imageName: 'windows-2020'
         python.version: '3.6'
       Linux, Python 3.7:
         imageName: 'ubuntu-18.04'
@@ -177,7 +177,7 @@ jobs:
         imageName: 'macOS-10.15'
         python.version: '3.7'
       Windows, Python 3.7:
-        imageName: 'windows-2019'
+        imageName: 'windows-2020'
         python.version: '3.7'
       Linux, Python 3.8:
         imageName: 'ubuntu-18.04'
@@ -186,7 +186,7 @@ jobs:
         imageName: 'macOS-10.15'
         python.version: '3.8'
       Windows, Python 3.8:
-        imageName: 'windows-2019'
+        imageName: 'windows-2020'
         python.version: '3.8'
 
   pool:
