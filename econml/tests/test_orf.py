@@ -94,7 +94,7 @@ class TestOrthoForest(unittest.TestCase):
         Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Instantiate model with most of the default parameters.
-        est = CausalForest(n_jobs=-1, n_trees=10,
+        est = CausalForest(n_jobs=1, n_trees=10,
                            model_T=WeightedLassoCVWrapper(),
                            model_Y=WeightedLassoCVWrapper())
         # Test inputs for continuous treatments
@@ -107,7 +107,7 @@ class TestOrthoForest(unittest.TestCase):
         out_te = est.const_marginal_effect(TestOrthoForest.x_test)
         self.assertEqual(TestOrthoForest.x_test.shape[0], out_te.shape[0])
         # Test continuous treatments with controls
-        est = CausalForest(n_jobs=-1, n_trees=100, min_leaf_size=10,
+        est = CausalForest(n_jobs=1, n_trees=100, min_leaf_size=10,
                            max_depth=50, subsample_ratio=0.50,
                            model_T=WeightedLassoCVWrapper(),
                            model_Y=WeightedLassoCVWrapper(), cv=5)
@@ -186,7 +186,7 @@ class TestOrthoForest(unittest.TestCase):
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Instantiate model with default params. Using n_jobs=1 since code coverage
         # does not work well with parallelism.
-        est = CausalForest(n_trees=10, n_jobs=-1,
+        est = CausalForest(n_trees=10, n_jobs=1,
                            model_Y=Lasso(),
                            model_T=LogisticRegressionCV(penalty='l1', solver='saga'))
         # Test inputs for binary treatments
@@ -208,7 +208,7 @@ class TestOrthoForest(unittest.TestCase):
         self.assertSequenceEqual((TestOrthoForest.x_test.shape[0], 1, 1), out_te.shape)
         # Test binary treatments with controls
         est = CausalForest(n_trees=100, min_leaf_size=10,
-                           max_depth=30, subsample_ratio=0.30, n_jobs=-1,
+                           max_depth=30, subsample_ratio=0.30, n_jobs=1,
                            model_Y=Lasso(),
                            model_T=LogisticRegressionCV(penalty='l1', solver='saga'),
                            discrete_treatment=True,
@@ -253,7 +253,7 @@ class TestOrthoForest(unittest.TestCase):
 
         # Test CausalForest API
         est = CausalForest(n_trees=100, min_leaf_size=10,
-                           max_depth=50, subsample_ratio=0.50, n_jobs=-1,
+                           max_depth=50, subsample_ratio=0.50, n_jobs=1,
                            model_T=WeightedLassoCVWrapper(cv=5),
                            model_Y=WeightedLassoCVWrapper(cv=5),
                            cv=5)
@@ -502,7 +502,7 @@ class TestOrthoForest(unittest.TestCase):
         Y = np.dot(TestOrthoForest.W[:, TestOrthoForest.support], TestOrthoForest.coefs_Y) + \
             T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
         # Instantiate model with most of the default parameters
-        est = DMLOrthoForest(n_jobs=4, n_trees=10,
+        est = DMLOrthoForest(n_jobs=1, n_trees=10,
                              model_T=NoWeightModel(),
                              model_Y=NoWeightModel())
         est.fit(Y=Y, T=T, X=TestOrthoForest.X, W=TestOrthoForest.W)
