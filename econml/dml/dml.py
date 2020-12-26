@@ -944,7 +944,7 @@ class NonParamDML(_BaseDML):
                          n_splits=n_splits,
                          random_state=random_state)
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         if self.featurizer is not None:
             F = self.featurizer.transform(X)
         else:
@@ -953,7 +953,9 @@ class NonParamDML(_BaseDML):
 
         return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, F, self._d_t, self._d_y,
                                         feature_names=feature_names,
-                                        treatment_names=treatment_names, output_names=output_names)
+                                        treatment_names=treatment_names,
+                                        output_names=output_names,
+                                        background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 

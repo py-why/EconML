@@ -7,7 +7,8 @@ import numpy as np
 from .utilities import broadcast_unit_treatments, cross_product
 
 
-def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_names=None, output_names=None):
+def _shap_explain_cme(cme_model, X, d_t, d_y,
+                      feature_names=None, treatment_names=None, output_names=None, background_samples=100):
     """
     Method to explain `const_marginal_effect` function using shap Explainer().
 
@@ -28,6 +29,8 @@ def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_name
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
+    background_samples: int or None, (Default=None)
+        How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
     -------
@@ -39,7 +42,8 @@ def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_name
     """
     (dt, dy, treatment_names, output_names) = _define_names(d_t, d_y, treatment_names, output_names)
     # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
-    background = shap.maskers.Independent(X, max_samples=X.shape[0])
+    bg_samples = X.shape[0] if background_samples is None else min(background_samples, X.shape[0])
+    background = shap.maskers.Independent(X, max_samples=bg_samples)
     shap_outs = defaultdict(dict)
     for i in range(dy):
         def cmd_func(X):
@@ -66,7 +70,7 @@ def _shap_explain_cme(cme_model, X, d_t, d_y, feature_names=None, treatment_name
 
 
 def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
-                             treatment_names=None, output_names=None):
+                             treatment_names=None, output_names=None, background_samples=100):
     """
     Method to explain `model_cate` using shap Explainer(), will instead explain `const_marignal_effect`
     if `model_cate` can't be parsed. Models should be a list of length d_t. Each element in the list of
@@ -92,6 +96,8 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
+    background_samples: int or None, (Default=None)
+        How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
     -------
@@ -106,7 +112,8 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
         models = [models]
     assert len(models) == dt, "Number of final stage models don't equals to number of treatments!"
     # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
-    background = shap.maskers.Independent(X, max_samples=X.shape[0])
+    bg_samples = X.shape[0] if background_samples is None else min(background_samples, X.shape[0])
+    background = shap.maskers.Independent(X, max_samples=bg_samples)
 
     shap_outs = defaultdict(dict)
     for i in range(dt):
@@ -134,7 +141,8 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
 
 
 def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_intercept,
-                                          feature_names=None, treatment_names=None, output_names=None):
+                                          feature_names=None, treatment_names=None, output_names=None,
+                                          background_samples=100):
     """
     Method to explain `model_cate` of parametric final stage that was fitted on the cross product of
     `featurizer(X)` and T.
@@ -156,6 +164,8 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
+    background_samples: int or None, (Default=None)
+        How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
     -------
@@ -177,7 +187,8 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
         # filter X after broadcast with T for each given T
         X_sub = X[T[:, i] == 1]
         # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
-        background = shap.maskers.Independent(X_sub, max_samples=X_sub.shape[0])
+        bg_samples = X_sub.shape[0] if background_samples is None else min(background_samples, X_sub.shape[0])
+        background = shap.maskers.Independent(X_sub, max_samples=bg_samples)
         explainer = shap.Explainer(model_final, background)
         shap_out = explainer(X_sub)
 
@@ -202,7 +213,7 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
 
 
 def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, d_y, feature_names=None,
-                                       treatment_names=None, output_names=None):
+                                       treatment_names=None, output_names=None, background_samples=100):
     """
     Method to explain a final cate model that is represented in a multi-task manner, i.e. the prediction
     of the method is of dimension equal to the number of treatments and represents the const_marginal_effect
@@ -228,6 +239,8 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
+    background_samples: int or None, (Default=None)
+        How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
     -------
@@ -241,7 +254,8 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
         multitask_model_cate = [multitask_model_cate]
 
     # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
-    background = shap.maskers.Independent(X, max_samples=X.shape[0])
+    bg_samples = X.shape[0] if background_samples is None else min(background_samples, X.shape[0])
+    background = shap.maskers.Independent(X, max_samples=bg_samples)
     shap_outs = defaultdict(dict)
     for j in range(dy):
         try:

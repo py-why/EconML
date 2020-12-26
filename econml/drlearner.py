@@ -569,7 +569,7 @@ class DRLearner(_OrthoLearner):
         else:
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         if self.featurizer is not None:
             F = self.featurizer.transform(X)
         else:
@@ -579,11 +579,13 @@ class DRLearner(_OrthoLearner):
         if self._multitask_model_final:
             return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.multitask_model_cate, F,
                                                       self._d_t, self._d_y, feature_names,
-                                                      treatment_names, output_names)
+                                                      treatment_names, output_names,
+                                                      background_samples=background_samples)
         else:
             return _shap_explain_model_cate(self.const_marginal_effect, super().model_final.models_cate,
                                             F, self._d_t, self._d_y, feature_names=feature_names,
-                                            treatment_names=treatment_names, output_names=output_names)
+                                            treatment_names=treatment_names, output_names=output_names,
+                                            background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 

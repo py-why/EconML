@@ -40,7 +40,8 @@ class TestShap(unittest.TestCase):
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             fd_x = featurizer.fit_transform(X).shape[1] if featurizer is not None else d_x
                             est.fit(Y, T, X, W)
-                            shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"])
+                            shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
+                                                          background_samples=None)
 
                             # test base values equals to mean of constant marginal effect
                             if not isinstance(est, (CausalForestDML, DMLOrthoForest)):
@@ -100,7 +101,8 @@ class TestShap(unittest.TestCase):
                                 est.fit(Y, T, X)
                             else:
                                 est.fit(Y, T, X, W)
-                            shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"])
+                            shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
+                                                          background_samples=None)
 
                             # test base values equals to mean of constant marginal effect
                             if not isinstance(est, (CausalForestDML, ForestDRLearner, DROrthoForest)):
@@ -156,14 +158,16 @@ class TestShap(unittest.TestCase):
                         fit_cate_intercept=True,
                         featurizer=PolynomialFeatures(degree=2, include_bias=False))
         est.fit(Y, T, X=X, W=W)
-        shap_values1 = est.shap_values(X[:10], feature_names=["A", "B"], treatment_names=["orange"])
+        shap_values1 = est.shap_values(X[:10], feature_names=["A", "B"], treatment_names=["orange"],
+                                       background_samples=None)
         est = LinearDML(model_y=Lasso(),
                         model_t=Lasso(),
                         random_state=123,
                         fit_cate_intercept=True,
                         featurizer=PolynomialFeatures(degree=2, include_bias=False))
         est.fit(Y[:, 0], T, X=X, W=W)
-        shap_values2 = est.shap_values(X[:10], feature_names=["A", "B"], treatment_names=["orange"])
+        shap_values2 = est.shap_values(X[:10], feature_names=["A", "B"], treatment_names=["orange"],
+                                       background_samples=None)
         np.testing.assert_allclose(shap_values1["Y0"]["orange"].data,
                                    shap_values2["Y0"]["orange"].data)
         np.testing.assert_allclose(shap_values1["Y0"]["orange"].values,

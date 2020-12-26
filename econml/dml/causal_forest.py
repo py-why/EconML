@@ -481,15 +481,16 @@ class CausalForestDML(_BaseDML):
         imps = self.model_final.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
         return imps.reshape(self._d_y + (-1,))
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         if self.featurizer is not None:
             F = self.featurizer.transform(X)
         else:
             F = X
         feature_names = self.cate_feature_names(feature_names)
         return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.model_cate.estimators_, F,
-                                                  self._d_t, self._d_y, feature_names,
-                                                  treatment_names, output_names)
+                                                  self._d_t, self._d_y, feature_names=feature_names,
+                                                  treatment_names=treatment_names, output_names=output_names,
+                                                  background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
     @property
