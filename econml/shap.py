@@ -29,7 +29,7 @@ def _shap_explain_cme(cme_model, X, d_t, d_y,
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
-    background_samples: int or None, (Default=None)
+    background_samples: int or None, (Default=100)
         How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
@@ -96,7 +96,7 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
-    background_samples: int or None, (Default=None)
+    background_samples: int or None, (Default=100)
         How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
@@ -164,7 +164,7 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
-    background_samples: int or None, (Default=None)
+    background_samples: int or None, (Default=100)
         How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
@@ -239,7 +239,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
     output_names:  optional None or list (Default=None)
         The name of the outcome.
-    background_samples: int or None, (Default=None)
+    background_samples: int or None, (Default=100)
         How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns

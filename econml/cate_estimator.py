@@ -471,7 +471,7 @@ class LinearCateEstimator(BaseCateEstimator):
             the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
         output_names:  optional None or list (Default=None)
             The name of the outcome.
-        background_samples: int or None, (Default=None)
+        background_samples: int or None, (Default=100)
             How many samples to use to compute the baseline effect. If None then all samples are used.
 
         Returns
