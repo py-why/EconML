@@ -233,7 +233,7 @@ class GridSearchCVList(BaseEstimator):
 
     def __init__(self, estimator_list, param_grid_list, scoring=None,
                  n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
-                 error_score='raise-deprecating', return_train_score=False):
+                 error_score=np.nan, return_train_score=False):
         self.estimator_list = estimator_list
         self.param_grid_list = param_grid_list
         self.scoring = scoring
@@ -246,7 +246,7 @@ class GridSearchCVList(BaseEstimator):
         self.return_train_score = return_train_score
         return
 
-    def fit(self, X, y, **fit_params):
+    def fit(self, X, y=None, **fit_params):
         self._gcv_list = [GridSearchCV(estimator, param_grid, scoring=self.scoring,
                                        n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
                                        pre_dispatch=self.pre_dispatch, error_score=self.error_score,
