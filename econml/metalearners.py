@@ -463,6 +463,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         return _shap_explain_model_cate(self.const_marginal_effect, self.final_models, X, self._d_t, self._d_y,
                                         feature_names=feature_names,
-                                        treatment_names=treatment_names, output_names=output_names,
+                                        treatment_names=treatment_names,
+                                        output_names=output_names,
+                                        input_names=self._input_names,
                                         background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__

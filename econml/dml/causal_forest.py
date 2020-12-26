@@ -489,7 +489,9 @@ class CausalForestDML(_BaseDML):
         feature_names = self.cate_feature_names(feature_names)
         return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.model_cate.estimators_, F,
                                                   self._d_t, self._d_y, feature_names=feature_names,
-                                                  treatment_names=treatment_names, output_names=output_names,
+                                                  treatment_names=treatment_names,
+                                                  output_names=output_names,
+                                                  input_names=self._input_names,
                                                   background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 

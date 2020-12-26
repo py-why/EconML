@@ -578,13 +578,19 @@ class DRLearner(_OrthoLearner):
 
         if self._multitask_model_final:
             return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.multitask_model_cate, F,
-                                                      self._d_t, self._d_y, feature_names,
-                                                      treatment_names, output_names,
+                                                      self._d_t, self._d_y,
+                                                      feature_names=feature_names,
+                                                      treatment_names=treatment_names,
+                                                      output_names=output_names,
+                                                      input_names=self._input_names,
                                                       background_samples=background_samples)
         else:
             return _shap_explain_model_cate(self.const_marginal_effect, super().model_final.models_cate,
-                                            F, self._d_t, self._d_y, feature_names=feature_names,
-                                            treatment_names=treatment_names, output_names=output_names,
+                                            F, self._d_t, self._d_y,
+                                            feature_names=feature_names,
+                                            treatment_names=treatment_names,
+                                            output_names=output_names,
+                                            input_names=self._input_names,
                                             background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 

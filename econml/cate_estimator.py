@@ -479,13 +479,15 @@ class LinearCateEstimator(BaseCateEstimator):
         shap_outs: nested dictionary of Explanation object
             A nested dictionary by using each output name (e.g. 'Y0', 'Y1', ... when `output_names=None`) and
             each treatment name (e.g. 'T0', 'T1', ... when `treatment_names=None`) as key
-            and the shap_values explanation object as value.
-
-
+            and the shap_values explanation object as value. If the input data at fit time also contain metadata,
+            (e.g. are pandas DataFrames), then the column metatdata for the treatments, outcomes and features
+            are used instead of the above defaults (unless the user overrides with explicitly passing the
+            corresponding names).
         """
         return _shap_explain_cme(self.const_marginal_effect, X, self._d_t, self._d_y,
                                  feature_names=feature_names, treatment_names=treatment_names,
-                                 output_names=output_names, background_samples=background_samples)
+                                 output_names=output_names, input_names=self._input_names,
+                                 background_samples=background_samples)
 
 
 class TreatmentExpansionMixin(BaseCateEstimator):
@@ -669,7 +671,6 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        feature_names = self.cate_feature_names() if feature_names is None else feature_names
         treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
         output_names = self._input_names["output_names"] if output_names is None else output_names
         # Summary
@@ -723,7 +724,9 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         return _shap_explain_joint_linear_model_cate(self.model_final, X, self._d_t, self._d_y,
                                                      self.fit_cate_intercept,
                                                      feature_names=feature_names, treatment_names=treatment_names,
-                                                     output_names=output_names, background_samples=background_samples)
+                                                     output_names=output_names,
+                                                     input_names=self._input_names,
+                                                     background_samples=background_samples)
 
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 

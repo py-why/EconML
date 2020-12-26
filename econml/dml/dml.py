@@ -955,6 +955,7 @@ class NonParamDML(_BaseDML):
                                         feature_names=feature_names,
                                         treatment_names=treatment_names,
                                         output_names=output_names,
+                                        input_names=self._input_names,
                                         background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
