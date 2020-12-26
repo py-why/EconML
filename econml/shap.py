@@ -196,7 +196,7 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
         if d_y > 1:
             for j in range(d_y):
                 base_values = shap_out.base_values[..., j]
-                main_effects = shap_out.main_effects[..., ind_x[i], j]
+                main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., ind_x[i], j]
                 values = shap_out.values[..., ind_x[i], j]
                 shap_out_new = shap.Explanation(values, base_values=base_values, data=data, main_effects=main_effects,
                                                 feature_names=feature_names)
@@ -271,7 +271,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
             for i in range(dt):
                 base_values = shap_out.base_values[..., i]
                 values = shap_out.values[..., i]
-                main_effects = None if shap_out.main_effects is not None else shap_out.main_effects[..., i]
+                main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., i]
                 shap_out_new = shap.Explanation(values, base_values=base_values,
                                                 data=shap_out.data, main_effects=main_effects,
                                                 feature_names=shap_out.feature_names)
