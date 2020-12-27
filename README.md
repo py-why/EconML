@@ -118,20 +118,7 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effects = est.effect(X_test)
   lb, ub = est.effect_interval(X_test, alpha=0.05) # Confidence intervals via debiased lasso
   ```
-  
-  * Forest last stage
-  
-  ```Python
-  from econml.dml import ForestDML
-  from sklearn.ensemble import GradientBoostingRegressor
 
-  est = ForestDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
-  est.fit(Y, T, X=X, W=W) 
-  treatment_effects = est.effect(X_test)
-  # Confidence intervals via Bootstrap-of-Little-Bags for forests
-  lb, ub = est.effect_interval(X_test, alpha=0.05)
-  ```
-  
   * Generic Machine Learning last stage
   
   ```Python
@@ -152,16 +139,16 @@ To install from source, see [For Developers](#for-developers) section below.
   <summary>Causal Forests (click to expand)</summary>
 
   ```Python
-  from econml.causal_forest import CausalForest
+  from econml.dml import CausalForestDML
   from sklearn.linear_model import LassoCV
   # Use defaults
-  est = CausalForest()
+  est = CausalForestDML()
   # Or specify hyperparameters
-  est = CausalForest(n_trees=500, min_leaf_size=10, 
-                     max_depth=10, subsample_ratio=0.7,
-                     lambda_reg=0.01,
-                     discrete_treatment=False,
-                     model_T=LassoCV(), model_Y=LassoCV())
+  est = CausalForestDML(criterion='het', n_estimators=500,       
+                        min_samples_leaf=10, 
+                        max_depth=10, max_samples=0.5,
+                        discrete_treatment=False,
+                        model_t=LassoCV(), model_y=LassoCV())
   est.fit(Y, T, X=X, W=W)
   treatment_effects = est.effect(X_test)
   # Confidence intervals via Bootstrap-of-Little-Bags for forests
@@ -354,7 +341,7 @@ treatment_effects = est.effect(X_test)
 
 <details>
   <summary>Policy Interpreter of the CATE model (click to expand)</summary>
-  
+
   ```Python
   from econml.cate_interpreter import SingleTreePolicyInterpreter
   # We find a tree-based treatment policy based on the CATE model
@@ -366,7 +353,21 @@ treatment_effects = est.effect(X_test)
   plt.show()
   ```
   ![image](notebooks/images/dr_policy_tree.png)
-  
+
+</details>
+
+<details>
+  <summary>SHAP values for the CATE model (click to expand)</summary>
+
+  ```Python
+  import shap
+  from econml.dml import CausalForestDML
+  est = CausalForestDML()
+  est.fit(Y, T, X=X, W=W)
+  shap_values = est.shap_values(X)
+  shap.summary_plot(shap_values['Y0']['T0'])
+  ```
+
 </details>
 
 ### Inference
