@@ -153,7 +153,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
     instead.
     """
 
-    @abstractmethod
     def __init__(self,
                  n_estimators=100, *,
                  criterion="mse",
