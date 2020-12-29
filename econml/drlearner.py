@@ -948,7 +948,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  tol=1e-4,
                  min_propensity=1e-6,
                  categories='auto',
-                 n_splits=2, random_state=None):
+                 n_splits=2,
+                 random_state=None):
         self.fit_cate_intercept = fit_cate_intercept
         model_final = DebiasedLasso(
             alpha=alpha,
@@ -957,7 +958,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
             n_alphas_cov=n_alphas_cov,
             fit_intercept=fit_cate_intercept,
             max_iter=max_iter,
-            tol=tol)
+            tol=tol,
+            random_state=random_state)
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=model_final,
