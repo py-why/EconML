@@ -1,6 +1,8 @@
 from ..dml import LinearDML
 from sklearn.base import clone
 import numpy as np
+from scipy.special import softmax
+from .ensemble_cate import EnsembleCateEstimator
 
 
 class RScorer:
@@ -66,3 +68,21 @@ class RScorer:
             return 1 - np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0)) / self.base_score_
         else:
             return 1 - np.mean((Y_res - Y_res_pred) ** 2) / self.base_score_
+
+    def best_model(self, cate_models, return_scores=False):
+        rscores = [self.score(mdl) for mdl in cate_models]
+        best = np.argmax(rscores)
+        if return_scores:
+            return cate_models[best], rscores[best], rscores
+        else:
+            return cate_models[best], rscores[best]
+
+    def ensemble(self, cate_models, eta=1000.0, return_scores=False):
+        rscores = np.array([self.score(mdl) for mdl in cate_models])
+        weights = softmax(eta * rscores)
+        ensemble = EnsembleCateEstimator(cate_models=cate_models, weights=weights)
+        ensemble_score = self.score(ensemble)
+        if return_scores:
+            return ensemble, ensemble_score, rscores
+        else:
+            return ensemble, ensemble_score
