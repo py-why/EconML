@@ -681,7 +681,6 @@ class DebiasedLasso(WeightedLasso):
         self._mean_error_variance = self._error_variance / X.shape[0]
         self._coef_variance = self._get_unscaled_coef_var(
             X, self._theta_hat, sample_weight) * self._error_variance
-        self._n_train = X.shape[0]
 
         # Add coefficient correction
         coef_correction = self._get_coef_correction(
@@ -689,11 +688,11 @@ class DebiasedLasso(WeightedLasso):
         self.coef_ += coef_correction
 
         # Set coefficients and intercept standard errors
-        self.coef_stderr_ = np.sqrt(np.diag(self._coef_variance) / self._n_train)
+        self.coef_stderr_ = np.sqrt(np.diag(self._coef_variance))
         if self.fit_intercept:
             self.intercept_stderr_ = np.sqrt(
                 (self._X_offset @ self._coef_variance @ self._X_offset +
-                 self._mean_error_variance) / self._n_train
+                 self._mean_error_variance)
             )
         else:
             self.intercept_stderr_ = 0
@@ -725,7 +724,7 @@ class DebiasedLasso(WeightedLasso):
         var_pred = np.sum(np.matmul(X, self._coef_variance) * X, axis=1)
         if self.fit_intercept:
             var_pred += self._mean_error_variance
-        pred_stderr = np.sqrt(var_pred / self._n_train)
+        pred_stderr = np.sqrt(var_pred)
         return pred_stderr
 
     def predict_interval(self, X, alpha=0.1):
