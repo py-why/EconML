@@ -540,17 +540,25 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         return self
 
 
-def _get_theta_coefs_and_tau_sq(i, X, sample_weight, max_iter, tol):
+def _get_theta_coefs_and_tau_sq(i, X, sample_weight, alpha_cov, n_alphas_cov, max_iter, tol, random_state):
     n_samples, n_features = X.shape
     y = X[:, i]
     X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
     # Call weighted lasso on reduced design matrix
     # Inherit some parameters from the parent
-    local_wlasso = WeightedLassoCV(cv=3, n_alphas=10,
-                                   fit_intercept=False,
-                                   max_iter=max_iter,
-                                   tol=tol, n_jobs=1,
-                                   ).fit(X_reduced, y, sample_weight=sample_weight)
+    if alpha_cov == 'auto':
+        local_wlasso = WeightedLassoCV(cv=3, n_alphas=n_alphas_cov,
+                                       fit_intercept=False,
+                                       max_iter=max_iter,
+                                       tol=tol, n_jobs=1,
+                                       random_state=random_state)
+    else:
+        local_wlasso = WeightedLasso(alpha=alpha_cov,
+                                     fit_intercept=False,
+                                     max_iter=max_iter,
+                                     tol=tol,
+                                     random_state=random_state)
+    local_wlasso.fit(X_reduced, y, sample_weight=sample_weight)
     coefs = local_wlasso.coef_
     # Weighted tau
     if sample_weight is not None:
@@ -576,6 +584,18 @@ class DebiasedLasso(WeightedLasso):
         by the :class:`LinearRegression` object. For numerical
         reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
         Given this, you should use the :class:`.LinearRegression` object.
+
+    n_alphas : int, optional, default 100
+        How many alphas to try if alpha='auto'
+
+    alpha_cov : string | float, optional, default 'auto'
+        The regularization alpha that is used when constructing the pseudo inverse of
+        the covariance matrix Theta used to for correcting the lasso coefficient. Each
+        such regression corresponds to the regression of one feature on the remainder
+        of the features.
+
+    n_alphas_cov : int, optional, default 10
+        How many alpha_cov to try if alpha_cov='auto'.
 
     fit_intercept : boolean, optional, default True
         Whether to calculate the intercept for this model. If set
@@ -645,11 +665,14 @@ class DebiasedLasso(WeightedLasso):
 
     """
 
-    def __init__(self, alpha='auto', fit_intercept=True,
-                 precompute=False, copy_X=True, max_iter=1000,
+    def __init__(self, alpha='auto', n_alphas=100, alpha_cov='auto', n_alphas_cov=10,
+                 fit_intercept=True, precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False,
                  random_state=None, selection='cyclic', n_jobs=None):
         self.n_jobs = n_jobs
+        self.n_alphas = n_alphas
+        self.alpha_cov = alpha_cov
+        self.n_alphas_cov = n_alphas_cov
         super().__init__(
             alpha=alpha, fit_intercept=fit_intercept,
             precompute=precompute, copy_X=copy_X,
@@ -839,7 +862,7 @@ class DebiasedLasso(WeightedLasso):
 
     def _get_optimal_alpha(self, X, y, sample_weight):
         # To be done once per target. Assumes y can be flattened.
-        cv_estimator = WeightedLassoCV(cv=5, fit_intercept=self.fit_intercept,
+        cv_estimator = WeightedLassoCV(cv=5, n_alphas=self.n_alphas, fit_intercept=self.fit_intercept,
                                        precompute=self.precompute, copy_X=True,
                                        max_iter=self.max_iter, tol=self.tol,
                                        random_state=self.random_state,
@@ -858,7 +881,9 @@ class DebiasedLasso(WeightedLasso):
             return np.diag(1 / tausq) @ C_hat
         # Compute Lasso coefficients for the columns of the design matrix
         results = Parallel(n_jobs=self.n_jobs)(
-            delayed(_get_theta_coefs_and_tau_sq)(i, X, sample_weight, self.max_iter, self.tol)
+            delayed(_get_theta_coefs_and_tau_sq)(i, X, sample_weight,
+                                                 self.alpha_cov, self.n_alphas_cov,
+                                                 self.max_iter, self.tol, self.random_state)
             for i in range(n_features))
         coefs, tausq = zip(*results)
         coefs = np.array(coefs)
@@ -899,6 +924,18 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         by the :class:`LinearRegression` object. For numerical
         reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
         Given this, you should use the :class:`LinearRegression` object.
+
+    n_alphas : int, optional, default 100
+        How many alphas to try if alpha='auto'
+
+    alpha_cov : string | float, optional, default 'auto'
+        The regularization alpha that is used when constructing the pseudo inverse of
+        the covariance matrix Theta used to for correcting the lasso coefficient. Each
+        such regression corresponds to the regression of one feature on the remainder
+        of the features.
+
+    n_alphas_cov : int, optional, default 10
+        How many alpha_cov to try if alpha_cov='auto'.
 
     fit_intercept : boolean, optional, default True
         Whether to calculate the intercept for this model. If set
@@ -964,11 +1001,13 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
     """
 
-    def __init__(self, alpha='auto', fit_intercept=True,
+    def __init__(self, alpha='auto', n_alphas=100, alpha_cov='auto', n_alphas_cov=10,
+                 fit_intercept=True,
                  precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False,
                  random_state=None, selection='cyclic', n_jobs=None):
-        self.estimator = DebiasedLasso(alpha=alpha, fit_intercept=fit_intercept,
+        self.estimator = DebiasedLasso(alpha=alpha, n_alphas=n_alphas, alpha_cov=alpha_cov, n_alphas_cov=n_alphas_cov,
+                                       fit_intercept=fit_intercept,
                                        precompute=precompute, copy_X=copy_X, max_iter=max_iter,
                                        tol=tol, warm_start=warm_start,
                                        random_state=random_state, selection=selection,

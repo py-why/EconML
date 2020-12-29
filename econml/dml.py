@@ -651,6 +651,18 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         CATE L1 regularization applied through the debiased lasso in the final model.
         'auto' corresponds to a CV form of the :class:`MultiOutputDebiasedLasso`.
 
+    n_alphas : int, optional, default 100
+        How many alphas to try if alpha='auto'
+
+    alpha_cov : string | float, optional, default 'auto'
+        The regularization alpha that is used when constructing the pseudo inverse of
+        the covariance matrix Theta used to for correcting the final state lasso coefficient
+        in the debiased lasso. Each such regression corresponds to the regression of one feature
+        on the remainder of the features.
+
+    n_alphas_cov : int, optional, default 10
+        How many alpha_cov to try if alpha_cov='auto'.
+
     max_iter : int, optional, default=1000
         The maximum number of iterations in the Debiased Lasso
 
@@ -705,6 +717,9 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
     def __init__(self,
                  model_y='auto', model_t='auto',
                  alpha='auto',
+                 n_alphas=100,
+                 alpha_cov='auto',
+                 n_alphas_cov=10,
                  max_iter=1000,
                  tol=1e-4,
                  n_jobs=None,
@@ -717,6 +732,9 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  random_state=None):
         model_final = MultiOutputDebiasedLasso(
             alpha=alpha,
+            n_alphas=n_alphas,
+            alpha_cov=alpha_cov,
+            n_alphas_cov=n_alphas_cov,
             fit_intercept=False,
             max_iter=max_iter,
             tol=tol,
