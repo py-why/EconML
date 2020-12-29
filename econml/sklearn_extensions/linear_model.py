@@ -35,6 +35,7 @@ from sklearn.base import BaseEstimator
 from statsmodels.tools.tools import add_constant
 from statsmodels.api import RLM
 import statsmodels
+from joblib import Parallel, delayed
 
 
 def _weighted_check_cv(cv=5, y=None, classifier=False):
@@ -539,6 +540,27 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         return self
 
 
+def _get_theta_coefs_and_tau_sq(i, X, sample_weight, max_iter, tol):
+    n_samples, n_features = X.shape
+    y = X[:, i]
+    X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
+    # Call weighted lasso on reduced design matrix
+    # Inherit some parameters from the parent
+    local_wlasso = WeightedLassoCV(cv=3, n_alphas=10,
+                                   fit_intercept=False,
+                                   max_iter=max_iter,
+                                   tol=tol, n_jobs=1,
+                                   ).fit(X_reduced, y, sample_weight=sample_weight)
+    coefs = local_wlasso.coef_
+    # Weighted tau
+    if sample_weight is not None:
+        y_weighted = y * sample_weight / np.sum(sample_weight)
+    else:
+        y_weighted = y / n_samples
+    tausq = np.dot(y - local_wlasso.predict(X_reduced), y_weighted)
+    return coefs, tausq
+
+
 class DebiasedLasso(WeightedLasso):
     """Debiased Lasso model.
 
@@ -597,6 +619,9 @@ class DebiasedLasso(WeightedLasso):
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
 
+    n_jobs : int or None, default None
+        How many jobs to use whenever parallelism is invoked
+
     Attributes
     ----------
     coef_ : array, shape (n_features,)
@@ -623,7 +648,8 @@ class DebiasedLasso(WeightedLasso):
     def __init__(self, alpha='auto', fit_intercept=True,
                  precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False,
-                 random_state=None, selection='cyclic'):
+                 random_state=None, selection='cyclic', n_jobs=None):
+        self.n_jobs = n_jobs
         super().__init__(
             alpha=alpha, fit_intercept=fit_intercept,
             precompute=precompute, copy_X=copy_X,
@@ -817,7 +843,8 @@ class DebiasedLasso(WeightedLasso):
                                        precompute=self.precompute, copy_X=True,
                                        max_iter=self.max_iter, tol=self.tol,
                                        random_state=self.random_state,
-                                       selection=self.selection)
+                                       selection=self.selection,
+                                       n_jobs=self.n_jobs)
         cv_estimator.fit(X, y.flatten(), sample_weight=sample_weight)
         return cv_estimator.alpha_
 
@@ -829,26 +856,13 @@ class DebiasedLasso(WeightedLasso):
             C_hat = np.ones((1, 1))
             tausq = (X.T @ X / n_samples).flatten()
             return np.diag(1 / tausq) @ C_hat
-        coefs = np.empty((n_features, n_features - 1))
-        tausq = np.empty(n_features)
         # Compute Lasso coefficients for the columns of the design matrix
-        for i in range(n_features):
-            y = X[:, i]
-            X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
-            # Call weighted lasso on reduced design matrix
-            # Inherit some parameters from the parent
-            local_wlasso = WeightedLassoCV(cv=3, n_alphas=10,
-                                           fit_intercept=False,
-                                           max_iter=self.max_iter,
-                                           tol=self.tol
-                                           ).fit(X_reduced, y, sample_weight=sample_weight)
-            coefs[i] = local_wlasso.coef_
-            # Weighted tau
-            if sample_weight is not None:
-                y_weighted = y * sample_weight / np.sum(sample_weight)
-            else:
-                y_weighted = y / n_samples
-            tausq[i] = np.dot(y - local_wlasso.predict(X_reduced), y_weighted)
+        results = Parallel(n_jobs=self.n_jobs)(
+            delayed(_get_theta_coefs_and_tau_sq)(i, X, sample_weight, self.max_iter, self.tol)
+            for i in range(n_features))
+        coefs, tausq = zip(*results)
+        coefs = np.array(coefs)
+        tausq = np.array(tausq)
         # Compute C_hat
         C_hat = np.diag(np.ones(n_features))
         C_hat[0][1:] = -coefs[0]

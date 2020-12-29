@@ -707,6 +707,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  alpha='auto',
                  max_iter=1000,
                  tol=1e-4,
+                 n_jobs=None,
                  featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
@@ -719,6 +720,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             fit_intercept=False,
             max_iter=max_iter,
             tol=tol,
+            n_jobs=n_jobs,
             random_state=random_state)
         super().__init__(model_y=model_y,
                          model_t=model_t,
