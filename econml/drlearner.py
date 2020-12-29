@@ -901,7 +901,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     >>> est.effect_interval(X[:3])
     (array([ 0.04..., -0.19..., -0.73...]), array([0.77..., 0.82..., 0.47...]))
     >>> est.coef_(T=1)
-    array([0.45..., -0.003..., 0.06...])
+    array([0.450..., -0.003..., 0.063...])
     >>> est.coef__interval(T=1)
     (array([ 0.24... , -0.19..., -0.13...]), array([0.65..., 0.19..., 0.26...]))
     >>> est.intercept_(T=1)
