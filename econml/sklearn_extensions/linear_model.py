@@ -681,6 +681,7 @@ class DebiasedLasso(WeightedLasso):
         self._mean_error_variance = self._error_variance / X.shape[0]
         self._coef_variance = self._get_unscaled_coef_var(
             X, self._theta_hat, sample_weight) * self._error_variance
+        self._n_train = X.shape[0]
 
         # Add coefficient correction
         coef_correction = self._get_coef_correction(
@@ -688,11 +689,11 @@ class DebiasedLasso(WeightedLasso):
         self.coef_ += coef_correction
 
         # Set coefficients and intercept standard errors
-        self.coef_stderr_ = np.sqrt(np.diag(self._coef_variance))
+        self.coef_stderr_ = np.sqrt(np.diag(self._coef_variance) / self._n_train)
         if self.fit_intercept:
             self.intercept_stderr_ = np.sqrt(
-                self._X_offset @ self._coef_variance @ self._X_offset +
-                self._mean_error_variance
+                (self._X_offset @ self._coef_variance @ self._X_offset +
+                 self._mean_error_variance) / self._n_train
             )
         else:
             self.intercept_stderr_ = 0
@@ -724,7 +725,7 @@ class DebiasedLasso(WeightedLasso):
         var_pred = np.sum(np.matmul(X, self._coef_variance) * X, axis=1)
         if self.fit_intercept:
             var_pred += self._mean_error_variance
-        pred_stderr = np.sqrt(var_pred)
+        pred_stderr = np.sqrt(var_pred / self._n_train)
         return pred_stderr
 
     def predict_interval(self, X, alpha=0.1):
@@ -747,18 +748,8 @@ class DebiasedLasso(WeightedLasso):
         lower = alpha / 2
         upper = 1 - alpha / 2
         y_pred = self.predict(X)
-        y_lower = np.empty(y_pred.shape)
-        y_upper = np.empty(y_pred.shape)
-        # Note that in the case of no intercept, X_offset is 0
-        if self.fit_intercept:
-            X = X - self._X_offset
-        # Calculate the variance of the predictions
-        var_pred = np.sum(np.matmul(X, self._coef_variance) * X, axis=1)
-        if self.fit_intercept:
-            var_pred += self._mean_error_variance
-
         # Calculate prediction confidence intervals
-        sd_pred = np.sqrt(var_pred)
+        sd_pred = self.prediction_stderr(X)
         y_lower = y_pred + \
             np.apply_along_axis(lambda s: norm.ppf(
                 lower, scale=s), 0, sd_pred)
@@ -810,7 +801,7 @@ class DebiasedLasso(WeightedLasso):
 
     def _get_coef_correction(self, X, y, y_pred, sample_weight, theta_hat):
         # Assumes flattened y
-        n_samples, n_features = X.shape
+        n_samples, _ = X.shape
         y_res = np.ndarray.flatten(y) - y_pred
         # Compute weighted residuals
         if sample_weight is not None:
@@ -818,12 +809,16 @@ class DebiasedLasso(WeightedLasso):
         else:
             y_res_scaled = y_res / n_samples
         delta_coef = np.matmul(
-            np.matmul(theta_hat, X.T), y_res_scaled)
+            theta_hat, np.matmul(X.T, y_res_scaled))
         return delta_coef
 
     def _get_optimal_alpha(self, X, y, sample_weight):
         # To be done once per target. Assumes y can be flattened.
-        cv_estimator = WeightedLassoCV(cv=5, fit_intercept=self.fit_intercept)
+        cv_estimator = WeightedLassoCV(cv=5, fit_intercept=self.fit_intercept,
+                                       precompute=self.precompute, copy_X=True,
+                                       max_iter=self.max_iter, tol=self.tol,
+                                       random_state=self.random_state,
+                                       selection=self.selection)
         cv_estimator.fit(X, y.flatten(), sample_weight=sample_weight)
         return cv_estimator.alpha_
 
@@ -843,12 +838,11 @@ class DebiasedLasso(WeightedLasso):
             X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
             # Call weighted lasso on reduced design matrix
             # Inherit some parameters from the parent
-            local_wlasso = WeightedLasso(
-                alpha=self.alpha,
-                fit_intercept=False,
-                max_iter=self.max_iter,
-                tol=self.tol
-            ).fit(X_reduced, y, sample_weight=sample_weight)
+            local_wlasso = WeightedLassoCV(cv=3, n_alphas=10,
+                                           fit_intercept=False,
+                                           max_iter=self.max_iter,
+                                           tol=self.tol
+                                           ).fit(X_reduced, y, sample_weight=sample_weight)
             coefs[i] = local_wlasso.coef_
             # Weighted tau
             if sample_weight is not None:
