@@ -964,9 +964,10 @@ class TestDML(unittest.TestCase):
         dmls = [LinearDML, SparseLinearDML]
         for ctor in dmls:
             dml1 = ctor(LinearRegression(), LogisticRegression(C=1000),
-                        fit_cate_intercept=False, discrete_treatment=True)
+                        fit_cate_intercept=False, discrete_treatment=True, random_state=123)
             dml2 = ctor(LinearRegression(), LogisticRegression(C=1000),
-                        fit_cate_intercept=False, discrete_treatment=True, categories=['c', 'b', 'a'])
+                        fit_cate_intercept=False, discrete_treatment=True, categories=['c', 'b', 'a'],
+                        random_state=123)
 
             # create a simple artificial setup where effect of moving from treatment
             #     a -> b is 2,
