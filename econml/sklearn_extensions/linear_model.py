@@ -942,6 +942,9 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
 
+    n_jobs : int or None, default None
+        How many jobs to use whenever parallelism is invoked
+
     Attributes
     ----------
     coef_ : array, shape (n_targets, n_features) or (n_features,)
@@ -968,7 +971,8 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         self.estimator = DebiasedLasso(alpha=alpha, fit_intercept=fit_intercept,
                                        precompute=precompute, copy_X=copy_X, max_iter=max_iter,
                                        tol=tol, warm_start=warm_start,
-                                       random_state=random_state, selection=selection)
+                                       random_state=random_state, selection=selection,
+                                       n_jobs=n_jobs)
         super().__init__(estimator=self.estimator, n_jobs=n_jobs)
 
     def fit(self, X, y, sample_weight=None):
