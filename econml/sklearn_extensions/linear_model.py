@@ -717,8 +717,8 @@ class DebiasedLasso(WeightedLasso):
         self.coef_stderr_ = np.sqrt(np.diag(self._coef_variance))
         if self.fit_intercept:
             self.intercept_stderr_ = np.sqrt(
-                (self._X_offset @ self._coef_variance @ self._X_offset +
-                 self._mean_error_variance)
+                self._X_offset @ self._coef_variance @ self._X_offset +
+                self._mean_error_variance
             )
         else:
             self.intercept_stderr_ = 0
