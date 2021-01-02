@@ -25,6 +25,7 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
     The Econometrics Journal. https://arxiv.org/abs/1608.00060
 """
 
+from abc import abstractmethod
 import numpy as np
 import copy
 from warnings import warn
@@ -139,31 +140,6 @@ class _RLearner(_OrthoLearner):
 
     Parameters
     ----------
-    model_y: estimator of E[Y | X, W]
-        The estimator for fitting the response to the features and controls. Must implement
-        `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls), i.e. ::
-
-            model_y.fit(X, W, Y, sample_weight=sample_weight)
-            model_y.predict(X, W)
-
-    model_t: estimator of E[T | X, W]
-        The estimator for fitting the treatment to the features and controls. Must implement
-        `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls), i.e. ::
-
-            model_t.fit(X, W, T, sample_weight=sample_weight)
-            model_t.predict(X, W)
-
-    model_final: estimator for fitting the response residuals to the features and treatment residuals
-        Must implement `fit` and `predict` methods. Unlike sklearn estimators the fit methods must
-        take an extra second argument (the treatment residuals). Predict, on the other hand,
-        should just take the features and return the constant marginal effect. More, concretely::
-
-            model_final.fit(X, T_res, Y_res,
-                            sample_weight=sample_weight, sample_var=sample_var)
-            model_final.predict(X)
-
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
@@ -197,60 +173,6 @@ class _RLearner(_OrthoLearner):
     monte_carlo_iterations: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    Examples
-    --------
-    The example code below implements a very simple version of the double machine learning
-    method on top of the :class:`._RLearner` class, for expository purposes.
-    For a more elaborate implementation of a Double Machine Learning child class of the class
-    checkout :class:`.DML` and its child classes:
-
-    .. testcode::
-
-        import numpy as np
-        from sklearn.linear_model import LinearRegression
-        from econml._rlearner import _RLearner
-        from sklearn.base import clone
-        class ModelFirst:
-            def __init__(self, model):
-                self._model = clone(model, safe=False)
-            def fit(self, X, W, Y, sample_weight=None):
-                self._model.fit(np.hstack([X, W]), Y)
-                return self
-            def predict(self, X, W):
-                return self._model.predict(np.hstack([X, W]))
-        class ModelFinal:
-            def fit(self, X, T_res, Y_res, sample_weight=None, sample_var=None):
-                self.model = LinearRegression(fit_intercept=False).fit(X * T_res.reshape(-1, 1),
-                                                                       Y_res)
-                return self
-            def predict(self, X):
-                return self.model.predict(X)
-        np.random.seed(123)
-        X = np.random.normal(size=(1000, 3))
-        y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
-        est = _RLearner(ModelFirst(LinearRegression()),
-                        ModelFirst(LinearRegression()),
-                        ModelFinal(),
-                        n_splits=2, discrete_treatment=False, categories='auto', random_state=None)
-        est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
-
-    >>> est.const_marginal_effect(np.ones((1,1)))
-    array([0.999631...])
-    >>> est.effect(np.ones((1,1)), T0=0, T1=10)
-    array([9.996314...])
-    >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
-    9.73638006...e-05
-    >>> est.rlearner_model_final.model
-    LinearRegression(fit_intercept=False)
-    >>> est.rlearner_model_final.model.coef_
-    array([0.999631...])
-    >>> est.score_
-    9.82623204...e-05
-    >>> [mdl._model for mdl in est.models_y]
-    [LinearRegression(), LinearRegression()]
-    >>> [mdl._model for mdl in est.models_t]
-    [LinearRegression(), LinearRegression()]
-
     Attributes
     ----------
     models_y: list of objects of type(model_y)
@@ -276,19 +198,65 @@ class _RLearner(_OrthoLearner):
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
     """
 
-    def __init__(self, model_y, model_t, model_final,
-                 discrete_treatment, categories, n_splits, random_state, monte_carlo_iterations=None):
-        self._rlearner_model_final = model_final
-        self._rlearner_model_y = model_y
-        self._rlearner_model_t = model_t
-        super().__init__(_ModelNuisance(clone(model_y, safe=False), clone(model_t, safe=False)),
-                         _ModelFinal(clone(model_final, safe=False)),
-                         discrete_treatment=discrete_treatment,
+    def __init__(self, *, discrete_treatment, categories, n_splits, random_state, monte_carlo_iterations=None):
+        super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
                          n_splits=n_splits,
                          random_state=random_state,
                          monte_carlo_iterations=monte_carlo_iterations)
+
+    @abstractmethod
+    def _gen_model_y(self):
+        """
+        Returns
+        -------
+        model_y: estimator of E[Y | X, W]
+            The estimator for fitting the response to the features and controls. Must implement
+            `fit` and `predict` methods.  Unlike sklearn estimators both methods must
+            take an extra second argument (the controls), i.e. ::
+
+                model_y.fit(X, W, Y, sample_weight=sample_weight)
+                model_y.predict(X, W)
+        """
+        pass
+
+    @abstractmethod
+    def _gen_model_t(self):
+        """
+        Returns
+        -------
+        model_t: estimator of E[T | X, W]
+            The estimator for fitting the treatment to the features and controls. Must implement
+            `fit` and `predict` methods.  Unlike sklearn estimators both methods must
+            take an extra second argument (the controls), i.e. ::
+
+                model_t.fit(X, W, T, sample_weight=sample_weight)
+                model_t.predict(X, W)
+        """
+        pass
+
+    @abstractmethod
+    def _gen_rlearner_model_final(self):
+        """
+        Returns
+        -------
+        model_final: estimator for fitting the response residuals to the features and treatment residuals
+            Must implement `fit` and `predict` methods. Unlike sklearn estimators the fit methods must
+            take an extra second argument (the treatment residuals). Predict, on the other hand,
+            should just take the features and return the constant marginal effect. More, concretely::
+
+                model_final.fit(X, T_res, Y_res,
+                                sample_weight=sample_weight, sample_var=sample_var)
+                model_final.predict(X)
+        """
+        pass
+
+    def _gen_ortho_learner_model_nuisance(self):
+        return _ModelNuisance(self._gen_model_y(), self._gen_model_t())
+
+    def _gen_ortho_learner_model_final(self):
+        return _ModelFinal(self._gen_rlearner_model_final())
 
     @_deprecate_positional("X, and should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
@@ -363,35 +331,7 @@ class _RLearner(_OrthoLearner):
     def rlearner_model_final(self):
         # NOTE: important to get parent's wrapped copy so that
         #       after training wrapped featurizer is also trained, etc.
-        return self._ortho_learner_model_final._model_final
-
-    @rlearner_model_final.setter
-    def rlearner_model_final(self, model_final):
-        model_final = clone(model_final, safe=False)
-        self._rlearner_model_final = model_final
-        self._ortho_learner_model_final = _ModelFinal(model_final)
-
-    @property
-    def rlearner_model_y(self):
-        return self._ortho_learner_model_nuisance._model_y
-
-    @rlearner_model_y.setter
-    def rlearner_model_y(self, model_y):
-        model_y = clone(model_y, safe=False)
-        self._rlearner_model_y = model_y
-        self._ortho_learner_model_nuisance = _ModelNuisance(model_y, self._rlearner_model_t)
-        self._cache_invalid_message = "Setting the Y model invalidates cached nuisances"
-
-    @property
-    def rlearner_model_t(self):
-        return self._ortho_learner_model_nuisance._model_t
-
-    @rlearner_model_t.setter
-    def rlearner_model_t(self, model_t):
-        model_t = clone(model_t, safe=False)
-        self._rlearner_model_t = model_t
-        self._ortho_learner_model_nuisance = _ModelNuisance(self._rlearner_model_y, model_t)
-        self._cache_invalid_message = "Setting the T model invalidates cached nuisances"
+        return self.ortho_learner_model_final._model_final
 
     @property
     def models_y(self):
@@ -408,17 +348,3 @@ class _RLearner(_OrthoLearner):
     @property
     def nuisance_scores_t(self):
         return self.nuisance_scores_[1]
-
-    @_OrthoLearner.ortho_learner_model_final.setter
-    def ortho_learner_model_final(self, model):
-        raise AttributeError("OrthoLearner's final model cannot be set directly on an _RLearner instance; "
-                             "set the rlearner_model_final isntead.")
-
-    @_OrthoLearner.ortho_learner_model_nuisance.setter
-    def ortho_learner_model_nuisance(self, model):
-        raise AttributeError("Nuisance model cannot be set directly on an _RLearner instance; "
-                             "set the Y and T model attributes instead.")
-
-    @_OrthoLearner.discrete_instrument.setter
-    def discrete_instrument(self, flag):
-        raise AttributeError("_RLearners don't support instruments, so discrete_instrument will always be False")

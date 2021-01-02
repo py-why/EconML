@@ -511,7 +511,9 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         options.update(auto=LinearModelFinalInference)
         return options
 
-    bias_part_of_coef = False
+    @property
+    def bias_part_of_coef(self):
+        return False
 
     @property
     def coef_(self):
@@ -528,7 +530,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             a vector and not a 2D array. For binary treatment the n_t dimension is
             also omitted.
         """
-        return parse_final_model_params(self.model_final.coef_, self.model_final.intercept_,
+        return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
                                         self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                         self.fit_cate_intercept)[0]
 
@@ -547,7 +549,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         """
         if not self.fit_cate_intercept:
             raise AttributeError("No intercept was fitted!")
-        return parse_final_model_params(self.model_final.coef_, self.model_final.intercept_,
+        return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
                                         self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                         self.fit_cate_intercept)[1]
 
@@ -726,7 +728,7 @@ class ForestModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @property
     def feature_importances_(self):
-        return self.model_final.feature_importances_
+        return self.model_final_.feature_importances_
 
 
 class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):

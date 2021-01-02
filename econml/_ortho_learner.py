@@ -27,6 +27,7 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 import copy
 from collections import namedtuple
 from warnings import warn
+from abc import ABC, abstractmethod
 
 import numpy as np
 from sklearn.base import clone
@@ -189,10 +190,10 @@ def _crossfit(model, folds, *args, **kwargs):
 
 
 CachedValues = namedtuple('_CachedValues', ['nuisances',
-                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'sample_var'])
+                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'sample_var', 'groups'])
 
 
-class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
+class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
     """
     Base class for all orthogonal learners. This class is a parent class to any method that has
     the following architecture:
@@ -247,39 +248,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     Parameters
     ----------
-    model_nuisance: estimator
-        The estimator for fitting the nuisance function. Must implement
-        `fit` and `predict` methods that both have signatures::
-
-            model_nuisance.fit(Y, T, X=X, W=W, Z=Z,
-                               sample_weight=sample_weight, sample_var=sample_var)
-            model_nuisance.predict(Y, T, X=X, W=W, Z=Z,
-                                   sample_weight=sample_weight, sample_var=sample_var)
-
-        In fact we allow for the model method signatures to skip any of the keyword arguments
-        as long as the class is always called with the omitted keyword argument set to ``None``.
-        This can be enforced in child classes by re-implementing the fit and the various effect
-        methods. If ``discrete_treatment=True``, then the input ``T`` to both above calls will be the
-        one-hot encoding of the original input ``T``, excluding the first column of the one-hot.
-
-        If the estimator also provides a score method with the same arguments as fit, it will be used to
-        calculate scores during training.
-
-    model_final: estimator for fitting the response residuals to the features and treatment residuals
-        Must implement `fit` and `predict` methods that must have signatures::
-
-            model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
-                            sample_weight=sample_weight, sample_var=sample_var)
-            model_final.predict(X=X)
-
-        Predict, should just take the features X and return the constant marginal effect. In fact we allow for the
-        model method signatures to skip any of the keyword arguments as long as the class is always called with the
-        omitted keyword argument set to ``None``. Moreover, the predict function of the final model can take no
-        argument if the class is always called with ``X=None``. This can be enforced in child classes by
-        re-implementing the fit and the various effect methods. If ``discrete_treatment=True``, then the input ``T``
-        to both above calls will be the one-hot encoding of the original input ``T``, excluding the first column of
-        the one-hot.
-
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
@@ -313,126 +281,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
-    monte_carlo_iterations: int, optional
+    monte_carlo_iterations: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
-
-    Examples
-    --------
-
-    The example code below implements a very simple version of the double machine learning
-    method on top of the :class:`._OrthoLearner` class, for expository purposes.
-    For a more elaborate implementation of a Double Machine Learning child class of the class
-    :class:`._OrthoLearner` check out :class:`.DML`
-    and its child classes:
-
-    .. testcode::
-
-        import numpy as np
-        from sklearn.linear_model import LinearRegression
-        from econml._ortho_learner import _OrthoLearner
-        class ModelNuisance:
-            def __init__(self, model_t, model_y):
-                self._model_t = model_t
-                self._model_y = model_y
-            def fit(self, Y, T, W=None):
-                self._model_t.fit(W, T)
-                self._model_y.fit(W, Y)
-                return self
-            def predict(self, Y, T, W=None):
-                return Y - self._model_y.predict(W), T - self._model_t.predict(W)
-        class ModelFinal:
-            def __init__(self):
-                return
-            def fit(self, Y, T, W=None, nuisances=None):
-                Y_res, T_res = nuisances
-                self.model = LinearRegression(fit_intercept=False).fit(T_res.reshape(-1, 1), Y_res)
-                return self
-            def predict(self, X=None):
-                return self.model.coef_[0]
-            def score(self, Y, T, W=None, nuisances=None):
-                Y_res, T_res = nuisances
-                return np.mean((Y_res - self.model.predict(T_res.reshape(-1, 1)))**2)
-        np.random.seed(123)
-        X = np.random.normal(size=(100, 3))
-        y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
-        est = _OrthoLearner(ModelNuisance(LinearRegression(), LinearRegression()),
-                            ModelFinal(),
-                            n_splits=2, discrete_treatment=False, discrete_instrument=False,
-                            categories='auto', random_state=None)
-        est.fit(y, X[:, 0], W=X[:, 1:])
-
-    >>> est.score_
-    0.00756830...
-    >>> est.const_marginal_effect()
-    1.02364992...
-    >>> est.effect()
-    array([1.023649...])
-    >>> est.effect(T0=0, T1=10)
-    array([10.236499...])
-    >>> est.score(y, X[:, 0], W=X[:, 1:])
-    0.00727995...
-    >>> est.model_final.model
-    LinearRegression(fit_intercept=False)
-    >>> est.model_final.model.coef_
-    array([1.023649...])
-
-    The following example shows how to do double machine learning with discrete treatments, using
-    the _OrthoLearner:
-
-    .. testcode::
-
-        class ModelNuisance:
-            def __init__(self, model_t, model_y):
-                self._model_t = model_t
-                self._model_y = model_y
-
-            def fit(self, Y, T, W=None):
-                self._model_t.fit(W, np.matmul(T, np.arange(1, T.shape[1]+1)))
-                self._model_y.fit(W, Y)
-                return self
-
-            def predict(self, Y, T, W=None):
-                return Y - self._model_y.predict(W), T - self._model_t.predict_proba(W)[:, 1:]
-
-        class ModelFinal:
-
-            def __init__(self):
-                return
-
-            def fit(self, Y, T, W=None, nuisances=None):
-                Y_res, T_res = nuisances
-                self.model = LinearRegression(fit_intercept=False).fit(T_res.reshape(-1, 1), Y_res)
-                return self
-
-            def predict(self):
-                # theta needs to be of dimension (1, d_t) if T is (n, d_t)
-                return np.array([[self.model.coef_[0]]])
-
-            def score(self, Y, T, W=None, nuisances=None):
-                Y_res, T_res = nuisances
-                return np.mean((Y_res - self.model.predict(T_res.reshape(-1, 1)))**2)
-
-        np.random.seed(123)
-        W = np.random.normal(size=(100, 3))
-        import scipy.special
-        from sklearn.linear_model import LogisticRegression
-        T = np.random.binomial(1, scipy.special.expit(W[:, 0]))
-        y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
-        est = _OrthoLearner(ModelNuisance(LogisticRegression(solver='lbfgs'), LinearRegression()),
-                            ModelFinal(), n_splits=2, discrete_treatment=True, discrete_instrument=False,
-                            categories='auto', random_state=None)
-        est.fit(y, T, W=W)
-
-    >>> est.score_
-    0.00673015...
-    >>> est.const_marginal_effect()
-    array([[1.008401...]])
-    >>> est.effect()
-    array([1.008401...])
-    >>> est.score(y, T, W=W)
-    0.00310431...
-    >>> est.model_final.model.coef_[0]
-    1.00840170...
 
     Attributes
     ----------
@@ -449,20 +299,66 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The out-of-sample scores from training each nuisance model
     """
 
-    def __init__(self, model_nuisance, model_final, *,
+    def __init__(self, *,
                  discrete_treatment, discrete_instrument, categories, n_splits, random_state,
                  monte_carlo_iterations=None):
-        self._ortho_learner_model_nuisance = clone(model_nuisance, safe=False)
         self._models_nuisance = None
-        self._ortho_learner_model_final = clone(model_final, safe=False)
-        self._n_splits = n_splits
-        self._discrete_treatment = discrete_treatment
-        self._discrete_instrument = discrete_instrument
-        self._init_random_state = random_state
-        self._random_state = check_random_state(random_state)
-        self._categories = categories
-        self._monte_carlo_iterations = monte_carlo_iterations
+        self.n_splits = n_splits
+        self.discrete_treatment = discrete_treatment
+        self.discrete_instrument = discrete_instrument
+        self.random_state = random_state
+        self.categories = categories
+        self.monte_carlo_iterations = monte_carlo_iterations
         super().__init__()
+
+    @abstractmethod
+    def _gen_ortho_learner_model_nuisance(self):
+        """ Must return a fresh instance of a nuisance model
+
+        Returns
+        -------
+        model_nuisance: estimator
+            The estimator for fitting the nuisance function. Must implement
+            `fit` and `predict` methods that both have signatures::
+
+                model_nuisance.fit(Y, T, X=X, W=W, Z=Z,
+                                sample_weight=sample_weight, sample_var=sample_var)
+                model_nuisance.predict(Y, T, X=X, W=W, Z=Z,
+                                    sample_weight=sample_weight, sample_var=sample_var)
+
+            In fact we allow for the model method signatures to skip any of the keyword arguments
+            as long as the class is always called with the omitted keyword argument set to ``None``.
+            This can be enforced in child classes by re-implementing the fit and the various effect
+            methods. If ``discrete_treatment=True``, then the input ``T`` to both above calls will be the
+            one-hot encoding of the original input ``T``, excluding the first column of the one-hot.
+
+            If the estimator also provides a score method with the same arguments as fit, it will be used to
+            calculate scores during training.
+        """
+        pass
+
+    @abstractmethod
+    def _gen_ortho_learner_model_final(self):
+        """ Must return a fresh instance of a final model
+
+        Returns
+        -------
+        model_final: estimator for fitting the response residuals to the features and treatment residuals
+            Must implement `fit` and `predict` methods that must have signatures::
+
+                model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
+                                sample_weight=sample_weight, sample_var=sample_var)
+                model_final.predict(X=X)
+
+            Predict, should just take the features X and return the constant marginal effect. In fact we allow for the
+            model method signatures to skip any of the keyword arguments as long as the class is always called with the
+            omitted keyword argument set to ``None``. Moreover, the predict function of the final model can take no
+            argument if the class is always called with ``X=None``. This can be enforced in child classes by
+            re-implementing the fit and the various effect methods. If ``discrete_treatment=True``, then the input ``T``
+            to both above calls will be the one-hot encoding of the original input ``T``, excluding the first column of
+            the one-hot.
+        """
+        pass
 
     def _check_input_dims(self, Y, T, X=None, W=None, Z=None, *other_arrays):
         assert shape(Y)[0] == shape(T)[0], "Dimension mis-match!"
@@ -495,27 +391,28 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _strata(self, Y, T, X=None, W=None, Z=None,
                 sample_weight=None, sample_var=None, groups=None,
                 cache_values=False, monte_carlo_iterations=None):
-        if self._discrete_instrument:
+        if self.discrete_instrument:
             Z = LabelEncoder().fit_transform(np.ravel(Z))
 
-        if self._discrete_treatment:
+        if self.discrete_treatment:
             enc = LabelEncoder()
             T = enc.fit_transform(np.ravel(T))
-            if self._discrete_instrument:
+            if self.discrete_instrument:
                 return T + Z * len(enc.classes_)
             else:
                 return T
-        elif self._discrete_instrument:
+        elif self.discrete_instrument:
             return Z
         else:
             return None
 
-    def _prefit(self, Y, T, *args, **kwargs):
-        categories = self._categories
-        if self._discrete_treatment:
-            if categories != 'auto':
-                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-            self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
+    def _prefit(self, Y, T, *args, only_final=False, **kwargs):
+
+        # generate an instance of the final model
+        self._ortho_learner_model_final = self._gen_ortho_learner_model_final()
+        if not only_final:
+            # generate an instance of the nuisance model
+            self._ortho_learner_model_nuisance = self._gen_ortho_learner_model_nuisance()
 
         super()._prefit(Y, T, *args, **kwargs)
 
@@ -523,7 +420,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, X=None, W=None, Z=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
+            cache_values=False, inference=None, only_final=False, check_input=True):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -552,44 +449,81 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`).
+        only_final: bool, defaul False
+            Whether to fit the nuisance models or use the existing cached values
+        check_input: bool, default True
+            Whether to check if the input is valid
 
         Returns
         -------
         self : _OrthoLearner instance
         """
-        self._random_state = check_random_state(self._init_random_state)
-        Y, T, X, W, Z, sample_weight, sample_var, groups = check_input_arrays(
-            Y, T, X, W, Z, sample_weight, sample_var, groups)
-        self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var, groups)
+        self._random_state = check_random_state(self.random_state)
+        if check_input:
+            Y, T, X, W, Z, sample_weight, sample_var, groups = check_input_arrays(
+                Y, T, X, W, Z, sample_weight, sample_var, groups)
+            self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var, groups)
 
-        all_nuisances = []
-        fitted_inds = None
+        if not only_final:
 
-        for _ in range(self._monte_carlo_iterations or 1):
-            nuisances, new_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
-            all_nuisances.append(nuisances)
-            if fitted_inds is None:
-                fitted_inds = new_inds
-            elif not np.array_equal(fitted_inds, new_inds):
-                raise AttributeError("Different indices were fit by different folds, so they cannot be aggregated")
+            if self.discrete_treatment:
+                categories = self.categories
+                if categories != 'auto':
+                    categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+                self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
+                self._one_hot_encoder.fit(reshape(T, (-1, 1)))
+                self._d_t = (len(self._one_hot_encoder.categories_[0]) - 1,)
+                self.transformer = FunctionTransformer(
+                    func=_EncoderWrapper(self._one_hot_encoder).encode,
+                    validate=False)
+            else:
+                self.transformer = None
 
-        if self._monte_carlo_iterations is not None:
-            # TODO: support different ways to aggregate, like median?
-            nuisances = np.mean(np.array(all_nuisances), axis=0)
+            if self.discrete_instrument:
+                z_enc = LabelEncoder()
+                z_ohe = OneHotEncoder(categories='auto', sparse=False, drop='first')
+                z_ohe.fit(reshape(z_enc.fit_transform(Z.ravel()), (-1, 1)))
+                self.z_transformer = FunctionTransformer(
+                    func=_EncoderWrapper(z_ohe, z_enc).encode,
+                    validate=False)
+            else:
+                self.z_transformer = None
 
-        Y, T, X, W, Z, sample_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
-                                                    for arr in (Y, T, X, W, Z, sample_weight, sample_var))
-        nuisances = tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances])
-        self._cached_values = CachedValues(nuisances=nuisances,
-                                           Y=Y, T=T, X=X, W=W, Z=Z,
-                                           sample_weight=sample_weight,
-                                           sample_var=sample_var) if cache_values else None
+            all_nuisances = []
+            fitted_inds = None
+
+            for _ in range(self.monte_carlo_iterations or 1):
+                nuisances, new_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
+                all_nuisances.append(nuisances)
+                if fitted_inds is None:
+                    fitted_inds = new_inds
+                elif not np.array_equal(fitted_inds, new_inds):
+                    raise AttributeError("Different indices were fit by different folds, so they cannot be aggregated")
+
+            if self.monte_carlo_iterations is not None:
+                # TODO: support different ways to aggregate, like median?
+                nuisances = np.mean(np.array(all_nuisances), axis=0)
+
+            Y, T, X, W, Z, sample_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
+                                                        for arr in (Y, T, X, W, Z, sample_weight, sample_var))
+            nuisances = tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances])
+            self._cached_values = CachedValues(nuisances=nuisances,
+                                               Y=Y, T=T, X=X, W=W, Z=Z,
+                                               sample_weight=sample_weight,
+                                               sample_var=sample_var,
+                                               groups=groups) if cache_values else None
+        else:
+            nuisances = self._cached_values.nuisances
+            # _d_t is altered by fit nuisances to what prefit does. So we need to perform the same
+            # alteration even when we only want to fit_final.
+            if self.transformer is not None:
+                self._d_t = (len(self._one_hot_encoder.categories_[0]) - 1,)
+
         self._fit_final(Y=Y, T=T, X=X, W=W, Z=Z,
                         nuisances=nuisances,
                         sample_weight=sample_weight,
                         sample_var=sample_var)
 
-        self._cache_invalid_message = None
         return self
 
     def refit(self, inference=None):
@@ -605,74 +539,40 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             This instance
         """
         assert self._cached_values, "Refit can only be called if values were cached during the original fit"
-        assert self._cache_invalid_message is None, "Can't refit: " + self._cache_invalid_message
         cached = self._cached_values
         kwargs = filter_none_kwargs(
-            X=cached.X,
-            W=cached.W,
-            Z=cached.Z,
-            sample_weight=cached.sample_weight,
-            sample_var=cached.sample_var
+            Y=cached.Y, T=cached.T, X=cached.X, W=cached.W, Z=cached.Z,
+            sample_weight=cached.sample_weight, sample_var=cached.sample_var,
+            groups=cached.groups,
         )
-
-        # in case the final model uses randomness, make sure to reset the internal random state
-        self._random_state = check_random_state(self._init_random_state)
-
-        # this sequence of calls parallels that in BaseCateEstimator.wrap_fit
-
-        inference = self._get_inference(inference)
-
-        # not strictly necessary when refitting
-        self._prefit(cached.Y, cached.T, **kwargs)
-        if inference is not None:
-            # this *is* necessary even when refitting
-            # because we might have a new inference object
-            inference.prefit(self, cached.Y, cached.T, **kwargs)
-
-        # fit only the final model
-        self._fit_final(cached.Y,
-                        cached.T,
-                        nuisances=cached.nuisances,
-                        **kwargs)
-
-        if inference is not None:
-            # NOTE: we call inference fit *after* calling the main fit method
-            inference.fit(self, cached.Y, cached.T, **kwargs)
-        self._inference = inference
-
+        _OrthoLearner.fit(self, **kwargs,
+                          cache_values=True, inference=inference, only_final=True, check_input=False)
         return self
 
     def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+
         # use a binary array to get stratified split in case of discrete treatment
-        stratify = self._discrete_treatment or self._discrete_instrument
+        stratify = self.discrete_treatment or self.discrete_instrument
         strata = self._strata(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, groups=groups)
         if strata is None:
             strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
 
-        if self._discrete_treatment:
-            T = self._one_hot_encoder.fit_transform(reshape(T, (-1, 1)))
+        if self.discrete_treatment:
+            T = self.transformer.transform(reshape(T, (-1, 1)))
 
-        if self._discrete_instrument:
-            z_enc = LabelEncoder()
-            Z = z_enc.fit_transform(Z.ravel())
-            z_ohe = OneHotEncoder(categories='auto', sparse=False, drop='first')
-            Z = z_ohe.fit_transform(reshape(Z, (-1, 1)))
-            self.z_transformer = FunctionTransformer(
-                func=_EncoderWrapper(z_ohe, z_enc).encode,
-                validate=False)
-        else:
-            self.z_transformer = None
+        if self.discrete_instrument:
+            Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
 
-        if self._n_splits == 1:  # special case, no cross validation
+        if self.n_splits == 1:  # special case, no cross validation
             folds = None
         else:
-            splitter = check_cv(self._n_splits, [0], classifier=stratify)
+            splitter = check_cv(self.n_splits, [0], classifier=stratify)
             # if check_cv produced a new KFold or StratifiedKFold object, we need to set shuffle and random_state
             # TODO: ideally, we'd also infer whether we need a GroupKFold (if groups are passed)
             #       however, sklearn doesn't support both stratifying and grouping (see
             #       https://github.com/scikit-learn/scikit-learn/issues/13621), so for now the user needs to supply
             #       their own object that supports grouping if they want to use groups.
-            if splitter != self._n_splits and isinstance(splitter, (KFold, StratifiedKFold)):
+            if splitter != self.n_splits and isinstance(splitter, (KFold, StratifiedKFold)):
                 splitter.shuffle = True
                 splitter.random_state = self._random_state
 
@@ -686,14 +586,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 folds = splitter.split(to_split, strata, groups=groups)
             else:
                 folds = splitter.split(to_split, strata)
-
-        if self._discrete_treatment:
-            self._d_t = shape(T)[1:]
-            self.transformer = FunctionTransformer(
-                func=_EncoderWrapper(self._one_hot_encoder).encode,
-                validate=False)
-        else:
-            self.transformer = None
 
         nuisances, fitted_models, fitted_inds, scores = _crossfit(self._ortho_learner_model_nuisance, folds,
                                                                   Y, T, X=X, W=W, Z=Z,
@@ -806,76 +698,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @property
     def ortho_learner_model_final(self):
+        if not hasattr(self, '_ortho_learner_model_final'):
+            raise AttributeError("Model is not fitted!")
         return self._ortho_learner_model_final
-
-    @ortho_learner_model_final.setter
-    def ortho_learner_model_final(self, model_final):
-        self._ortho_learner_model_final = clone(model_final, safe=False)
-
-    @property
-    def ortho_learner_model_nuisance(self):
-        return self._ortho_learner_model_nuisance
-
-    @ortho_learner_model_nuisance.setter
-    def ortho_learner_model_nuisance(self, model_nuisance):
-        self._ortho_learner_model_nuisance = clone(model_nuisance, safe=False)
-        self._cache_invalid_message = "Setting the nuisance model invalidates the cached nuisances"
-
-    @property
-    def n_splits(self):
-        return self._n_splits
-
-    @n_splits.setter
-    def n_splits(self, n_splits):
-        self._n_splits = n_splits
-        self._cache_invalid_message = "Setting the number of splits invalidates the cached nuisances"
-
-    @property
-    def discrete_treatment(self):
-        return self._discrete_treatment
-
-    @discrete_treatment.setter
-    def discrete_treatment(self, discrete_treatment):
-        self._discrete_treatment = discrete_treatment
-        self._cache_invalid_message = "Setting discrete_treatment invalidates the cached nuisances"
-
-    @property
-    def discrete_instrument(self):
-        return self._discrete_instrument
-
-    @discrete_instrument.setter
-    def discrete_instrument(self, discrete_instrument):
-        self._discrete_instrument = discrete_instrument
-        self._cache_invalid_message = "Setting discrete_instrument invalidates the cached nuisances"
-
-    @property
-    def random_state(self):
-        return self._init_random_state
-
-    @random_state.setter
-    def random_state(self, random_state):
-        self._init_random_state = random_state
-        self._random_state = check_random_state(random_state)
-        self._cache_invalid_message = "Setting the random state invalidates the cached nuisances"
-
-    @property
-    def categories(self):
-        return self._categories
-
-    @categories.setter
-    def categories(self, categories):
-        self._categories = categories
-        self._cache_invalid_message = "Setting the categories invalidates the cached nuisances"
-
-    @property
-    def monte_carlo_iterations(self):
-        return self._monte_carlo_iterations
-
-    @monte_carlo_iterations.setter
-    def monte_carlo_iterations(self, monte_carlo_iterations):
-        self._monte_carlo_iterations = monte_carlo_iterations
-        self._cache_invalid_message = "Setting the number of monte carlo iterations invalidates the cached nuisances"
 
     @property
     def models_nuisance(self):
+        if not hasattr(self, '_models_nuisance'):
+            raise AttributeError("Model is not fitted!")
         return self._models_nuisance
