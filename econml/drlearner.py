@@ -261,8 +261,12 @@ class DRLearner(_OrthoLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None
         If int, random_state is the seed used by the random number generator;
@@ -374,7 +378,8 @@ class DRLearner(_OrthoLearner):
                  min_propensity=1e-6,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         self.model_propensity = clone(model_propensity, safe=False)
         self.model_regression = clone(model_regression, safe=False)
@@ -383,7 +388,8 @@ class DRLearner(_OrthoLearner):
         self.featurizer = clone(featurizer, safe=False)
         self.min_propensity = min_propensity
         super().__init__(n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          discrete_treatment=True,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
@@ -613,7 +619,7 @@ class DRLearner(_OrthoLearner):
             F = X
         feature_names = self.cate_feature_names(feature_names)
 
-        if self._multitask_model_final:
+        if self.ortho_learner_model_final._multitask_model_final:
             return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.multitask_model_cate, F,
                                                       self._d_t, self._d_y, feature_names,
                                                       treatment_names, output_names)
@@ -701,8 +707,12 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None
         If int, random_state is the seed used by the random number generator;
@@ -762,7 +772,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  min_propensity=1e-6,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(model_propensity=model_propensity,
@@ -773,7 +784,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          min_propensity=min_propensity,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_model_final(self):
@@ -825,6 +837,10 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     def refit(self, *, inference='auto'):
         super().refit(inference=inference)
+
+    @property
+    def fit_cate_intercept_(self):
+        return self.model_final_.fit_intercept
 
     @property
     def multitask_model_cate(self):
@@ -940,8 +956,12 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None
         If int, random_state is the seed used by the random number generator;
@@ -1004,9 +1024,13 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  min_propensity=1e-6,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         self.fit_cate_intercept = fit_cate_intercept
+        self.alpha = alpha
+        self.max_iter = max_iter
+        self.tol = tol
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=None,
@@ -1015,7 +1039,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          min_propensity=min_propensity,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_model_final(self):
@@ -1080,6 +1105,10 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         super().refit(inference=inference)
 
     @property
+    def fit_cate_intercept_(self):
+        return self.model_final_.fit_intercept
+
+    @property
     def multitask_model_final(self):
         return False
 
@@ -1139,8 +1168,16 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    n_crossfit_splits: int or 'raise', optional (default='raise')
+        Deprecated by parameter `n_splits` and will be removed in next version. Can be used
+        interchangeably with `n_splits`.
+
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     n_estimators : integer, optional (default=100)
         The total number of trees in the forest. The forest consists of a
@@ -1263,7 +1300,9 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                  min_propensity=1e-6,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 n_crossfit_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
                  n_estimators=1000,
                  criterion="mse",
                  max_depth=None,
@@ -1291,6 +1330,9 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         self.honest = honest
         self.n_jobs = n_jobs
         self.verbose = verbose
+        self.n_crossfit_splits = n_crossfit_splits
+        if self.n_crossfit_splits != 'raise':
+            n_splits = self.n_crossfit_splits
         super().__init__(model_regression=model_regression,
                          model_propensity=model_propensity,
                          model_final=None,
@@ -1299,7 +1341,8 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                          min_propensity=min_propensity,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_model_final(self):
@@ -1386,6 +1429,16 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     def model_final(self, model):
         if model is not None:
             raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
+
+    @property
+    def n_crossfit_splits(self):
+        return self.n_splits
+
+    @n_crossfit_splits.setter
+    def n_crossfit_splits(self, value):
+        if value != 'raise':
+            warn("Deprecated by parameter `n_splits` and will be removed in next version.")
+        self.n_splits = value
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
         if self.featurizer_ is not None:

@@ -38,6 +38,7 @@ from sklearn.utils import check_random_state
 
 from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                              TreatmentExpansionMixin)
+from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, _EncoderWrapper, check_input_arrays,
                         cross_product, filter_none_kwargs,
                         inverse_onehot, ndim, reshape, shape, transpose)
@@ -281,8 +282,129 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
+    Examples
+    --------
+
+    The example code below implements a very simple version of the double machine learning
+    method on top of the :class:`._OrthoLearner` class, for expository purposes.
+    For a more elaborate implementation of a Double Machine Learning child class of the class
+    :class:`._OrthoLearner` check out :class:`.DML`
+    and its child classes:
+
+    .. testcode::
+
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        from econml._ortho_learner import _OrthoLearner
+        class ModelNuisance:
+            def __init__(self, model_t, model_y):
+                self._model_t = model_t
+                self._model_y = model_y
+            def fit(self, Y, T, W=None):
+                self._model_t.fit(W, T)
+                self._model_y.fit(W, Y)
+                return self
+            def predict(self, Y, T, W=None):
+                return Y - self._model_y.predict(W), T - self._model_t.predict(W)
+        class ModelFinal:
+            def __init__(self):
+                return
+            def fit(self, Y, T, W=None, nuisances=None):
+                Y_res, T_res = nuisances
+                self.model = LinearRegression(fit_intercept=False).fit(T_res.reshape(-1, 1), Y_res)
+                return self
+            def predict(self, X=None):
+                return self.model.coef_[0]
+            def score(self, Y, T, W=None, nuisances=None):
+                Y_res, T_res = nuisances
+                return np.mean((Y_res - self.model.predict(T_res.reshape(-1, 1)))**2)
+        class OrthoLearner(_OrthoLearner):
+            def _gen_ortho_learner_model_nuisance(self):
+                return ModelNuisance(LinearRegression(), LinearRegression())
+            def _gen_ortho_learner_model_final(self):
+                return ModelFinal()
+        np.random.seed(123)
+        X = np.random.normal(size=(100, 3))
+        y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
+        est = OrthoLearner(n_splits=2, discrete_treatment=False, discrete_instrument=False,
+                           categories='auto', random_state=None)
+        est.fit(y, X[:, 0], W=X[:, 1:])
+
+    >>> est.score_
+    0.00756830...
+    >>> est.const_marginal_effect()
+    1.02364992...
+    >>> est.effect()
+    array([1.023649...])
+    >>> est.effect(T0=0, T1=10)
+    array([10.236499...])
+    >>> est.score(y, X[:, 0], W=X[:, 1:])
+    0.00727995...
+    >>> est.ortho_learner_model_final.model
+    LinearRegression(fit_intercept=False)
+    >>> est.ortho_learner_model_final.model.coef_
+    array([1.023649...])
+
+    The following example shows how to do double machine learning with discrete treatments, using
+    the _OrthoLearner:
+
+    .. testcode::
+
+        class ModelNuisance:
+            def __init__(self, model_t, model_y):
+                self._model_t = model_t
+                self._model_y = model_y
+            def fit(self, Y, T, W=None):
+                self._model_t.fit(W, np.matmul(T, np.arange(1, T.shape[1]+1)))
+                self._model_y.fit(W, Y)
+                return self
+            def predict(self, Y, T, W=None):
+                return Y - self._model_y.predict(W), T - self._model_t.predict_proba(W)[:, 1:]
+        class ModelFinal:
+            def __init__(self):
+                return
+            def fit(self, Y, T, W=None, nuisances=None):
+                Y_res, T_res = nuisances
+                self.model = LinearRegression(fit_intercept=False).fit(T_res.reshape(-1, 1), Y_res)
+                return self
+            def predict(self):
+                # theta needs to be of dimension (1, d_t) if T is (n, d_t)
+                return np.array([[self.model.coef_[0]]])
+            def score(self, Y, T, W=None, nuisances=None):
+                Y_res, T_res = nuisances
+                return np.mean((Y_res - self.model.predict(T_res.reshape(-1, 1)))**2)
+        from sklearn.linear_model import LogisticRegression
+        class OrthoLearner(_OrthoLearner):
+            def _gen_ortho_learner_model_nuisance(self):
+                return ModelNuisance(LogisticRegression(solver='lbfgs'), LinearRegression())
+            def _gen_ortho_learner_model_final(self):
+                return ModelFinal()
+        np.random.seed(123)
+        W = np.random.normal(size=(100, 3))
+        import scipy.special
+        T = np.random.binomial(1, scipy.special.expit(W[:, 0]))
+        y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
+        est = OrthoLearner(n_splits=2, discrete_treatment=True, discrete_instrument=False,
+                           categories='auto', random_state=None)
+        est.fit(y, T, W=W)
+
+    >>> est.score_
+    0.00673015...
+    >>> est.const_marginal_effect()
+    array([[1.008401...]])
+    >>> est.effect()
+    array([1.008401...])
+    >>> est.score(y, T, W=W)
+    0.00310431...
+    >>> est.ortho_learner_model_final.model.coef_[0]
+    1.00840170...
 
     Attributes
     ----------
@@ -301,14 +423,14 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
 
     def __init__(self, *,
                  discrete_treatment, discrete_instrument, categories, n_splits, random_state,
-                 monte_carlo_iterations=None):
-        self._models_nuisance = None
+                 mc_iters=None, mc_agg='mean'):
         self.n_splits = n_splits
         self.discrete_treatment = discrete_treatment
         self.discrete_instrument = discrete_instrument
         self.random_state = random_state
         self.categories = categories
-        self.monte_carlo_iterations = monte_carlo_iterations
+        self.mc_iters = mc_iters
+        self.mc_agg = mc_agg
         super().__init__()
 
     @abstractmethod
@@ -350,13 +472,13 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
                                 sample_weight=sample_weight, sample_var=sample_var)
                 model_final.predict(X=X)
 
-            Predict, should just take the features X and return the constant marginal effect. In fact we allow for the
-            model method signatures to skip any of the keyword arguments as long as the class is always called with the
-            omitted keyword argument set to ``None``. Moreover, the predict function of the final model can take no
-            argument if the class is always called with ``X=None``. This can be enforced in child classes by
-            re-implementing the fit and the various effect methods. If ``discrete_treatment=True``, then the input ``T``
-            to both above calls will be the one-hot encoding of the original input ``T``, excluding the first column of
-            the one-hot.
+            Predict, should just take the features X and return the constant marginal effect. In fact we allow
+            for the model method signatures to skip any of the keyword arguments as long as the class is always
+            called with the omitted keyword argument set to ``None``. Moreover, the predict function of the final
+            model can take no argument if the class is always called with ``X=None``. This can be enforced in child
+            classes by re-implementing the fit and the various effect methods. If ``discrete_treatment=True``,
+            then the input ``T`` to both above calls will be the one-hot encoding of the original input ``T``,
+            excluding the first column of the one-hot.
         """
         pass
 
@@ -390,7 +512,7 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
 
     def _strata(self, Y, T, X=None, W=None, Z=None,
                 sample_weight=None, sample_var=None, groups=None,
-                cache_values=False, monte_carlo_iterations=None):
+                cache_values=False, only_final=False, check_input=True):
         if self.discrete_instrument:
             Z = LabelEncoder().fit_transform(np.ravel(Z))
 
@@ -492,7 +614,7 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
             all_nuisances = []
             fitted_inds = None
 
-            for _ in range(self.monte_carlo_iterations or 1):
+            for _ in range(self.mc_iters or 1):
                 nuisances, new_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
                 all_nuisances.append(nuisances)
                 if fitted_inds is None:
@@ -500,9 +622,16 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
                 elif not np.array_equal(fitted_inds, new_inds):
                     raise AttributeError("Different indices were fit by different folds, so they cannot be aggregated")
 
-            if self.monte_carlo_iterations is not None:
-                # TODO: support different ways to aggregate, like median?
-                nuisances = np.mean(np.array(all_nuisances), axis=0)
+            if self.mc_iters is not None:
+                if self.mc_agg == 'mean':
+                    nuisances = tuple(np.mean(nuisance_mc_variants, axis=0)
+                                      for nuisance_mc_variants in list(zip(*all_nuisances)))
+                elif self.mc_agg == 'median':
+                    nuisances = tuple(np.median(nuisance_mc_variants, axis=0)
+                                      for nuisance_mc_variants in list(zip(*all_nuisances)))
+                else:
+                    raise ValueError(
+                        "Parameter `mc_agg` must be one of {'mean', 'median'}. Got {}".format(self.mc_agg))
 
             Y, T, X, W, Z, sample_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
                                                         for arr in (Y, T, X, W, Z, sample_weight, sample_var))
@@ -526,6 +655,10 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
 
         return self
 
+    @property
+    def _illegal_refit_inference_methods(self):
+        return (BootstrapInference,)
+
     def refit(self, inference=None):
         """
         Estimate the counterfactual model using a new final model specification but with cached first stage results.
@@ -539,6 +672,8 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
             This instance
         """
         assert self._cached_values, "Refit can only be called if values were cached during the original fit"
+        if isinstance(self._get_inference(inference), self._illegal_refit_inference_methods):
+            raise ValueError("The chosen inference method does not allow only for model final re-fitting.")
         cached = self._cached_values
         kwargs = filter_none_kwargs(
             Y=cached.Y, T=cached.T, X=cached.X, W=cached.W, Z=cached.Z,

@@ -67,7 +67,7 @@ class TestRandomState(unittest.TestCase):
                 ForestDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                           model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                           n_estimators=10,
-                          discrete_treatment=True, n_crossfit_splits=2, random_state=123),
+                          discrete_treatment=True, n_splits=2, random_state=123),
                 LinearDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                           model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                           discrete_treatment=True, n_splits=2, random_state=123),
@@ -87,7 +87,7 @@ class TestRandomState(unittest.TestCase):
                                                                        random_state=123),
                                 model_propensity=RandomForestClassifier(
                     n_estimators=10, max_depth=4, random_state=123),
-                    n_crossfit_splits=2, random_state=123)]:
+                    n_splits=2, random_state=123)]:
             TestRandomState._test_random_state(est, X_test, Y, T, X=X, W=W)
 
     def test_orthoiv_random_state(self):

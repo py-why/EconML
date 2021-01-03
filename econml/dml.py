@@ -434,17 +434,18 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
-
-    monte_carlo_iterations: int, optional
-        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -455,7 +456,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
 
         # set random_state and discrete_treatment now even though they're set by super's init
@@ -474,7 +476,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_model_y(self):
@@ -551,6 +554,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     def bias_part_of_coef(self):
         return self.rlearner_model_final._fit_cate_intercept
 
+    @property
+    def fit_cate_intercept_(self):
+        return self.rlearner_model_final._fit_cate_intercept
+
 
 class LinearDML(StatsModelsCateEstimatorMixin, DML):
     """
@@ -605,17 +612,18 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
-
-    monte_carlo_iterations: int, optional
-        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -626,7 +634,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
@@ -637,7 +646,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state,)
 
     def _gen_model_final(self):
@@ -770,17 +780,18 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
-
-    monte_carlo_iterations: int, optional
-        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -794,7 +805,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         self.alpha = alpha
         self.max_iter = max_iter
@@ -808,7 +820,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_model_final(self):
@@ -860,7 +873,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
-                               discrete_treatment=self._discrete_treatment,
+                               discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
                                "We recommend using the LinearDML estimator for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
@@ -946,22 +959,23 @@ class KernelDML(DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
-
-    monte_carlo_iterations: int, optional
-        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self, model_y='auto', model_t='auto', fit_cate_intercept=True,
                  dim=20, bw=1.0, discrete_treatment=False, categories='auto', n_splits=2,
-                 monte_carlo_iterations=None, random_state=None):
+                 mc_iters=None, mc_agg='mean', random_state=None):
         self.dim = dim
         self.bw = bw
         super().__init__(model_y=model_y,
@@ -972,7 +986,8 @@ class KernelDML(DML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_model_final(self):
@@ -1050,17 +1065,18 @@ class NonParamDML(_BaseDML):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
-
-    monte_carlo_iterations: int, optional
-        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -1069,7 +1085,8 @@ class NonParamDML(_BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
 
         # TODO: consider whether we need more care around stateful featurizers,
@@ -1081,7 +1098,8 @@ class NonParamDML(_BaseDML):
         super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _get_inference_options(self):
@@ -1106,6 +1124,45 @@ class NonParamDML(_BaseDML):
 
     def _gen_rlearner_model_final(self):
         return _FinalWrapper(self._gen_model_final(), False, self.featurizer, True)
+
+    # override only so that we can update the docstring to indicate support for `StatsModelsInference`
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
+        """
+        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+
+        Parameters
+        ----------
+        Y: (n × d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n × dₜ) matrix or vector of length n
+            Treatments for each sample
+        X: optional (n × dₓ) matrix
+            Features for each sample
+        W: optional (n × d_w) matrix
+            Controls for each sample
+        sample_weight: optional (n,) vector
+            Weights for each row
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'auto'
+            (or an instance of :class:`.GenericSingleTreatmentModelFinalInference`)
+
+        Returns
+        -------
+        self
+        """
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
+                           inference=inference)
 
     def refit(self, *, inference='auto'):
         super().refit(inference=inference)
@@ -1162,8 +1219,16 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    n_crossfit_splits: int or 'raise', optional (default='raise')
+        Deprecated by parameter `n_splits` and will be removed in next version. Can be used
+        interchangeably with `n_splits`.
+
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     n_estimators : integer, optional (default=100)
         The total number of trees in the forest. The forest consists of a
@@ -1277,9 +1342,6 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
-
-    monte_carlo_iterations: int, optional
-        The number of times to rerun the first stage models to reduce the variance of the nuisances.
     """
 
     def __init__(self,
@@ -1288,7 +1350,9 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 n_crossfit_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
                  n_estimators=100,
                  criterion="mse",
                  max_depth=None,
@@ -1316,6 +1380,9 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         self.honest = honest
         self.n_jobs = n_jobs
         self.verbose = verbose
+        self.n_crossfit_splits = n_crossfit_splits
+        if self.n_crossfit_splits != 'raise':
+            n_splits = self.n_crossfit_splits
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=None,
@@ -1323,7 +1390,8 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_model_final(self):
@@ -1392,6 +1460,16 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
     def model_final(self, model):
         if model is not None:
             raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
+
+    @property
+    def n_crossfit_splits(self):
+        return self.n_splits
+
+    @n_crossfit_splits.setter
+    def n_crossfit_splits(self, value):
+        if value != 'raise':
+            warn("Deprecated by parameter `n_splits` and will be removed in next version.")
+        self.n_splits = value
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
         # SubsampleHonestForest can't be recognized by SHAP, but the tree entries are consistent with a tree in

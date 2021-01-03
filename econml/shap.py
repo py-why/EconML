@@ -148,6 +148,8 @@ def _shap_explain_joint_linear_model_cate(model_final, X, T, d_t, d_y, fit_cate_
         Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
+    fit_cate_intercept: bool
+        Whether the intercept is the first entry of the coefficient
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
         The names of input features.
     treatment_names: optional None or list (Default=None)

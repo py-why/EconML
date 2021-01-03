@@ -20,7 +20,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 
 from ._ortho_learner import _OrthoLearner
-from .cate_estimator import StatsModelsCateEstimatorMixin
+from .cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin
 from .dml import _FinalWrapper
 from .inference import StatsModelsInference
 from .sklearn_extensions.linear_model import StatsModelsLinearRegression
@@ -140,13 +140,15 @@ class _BaseDMLATEIV(_OrthoLearner):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_ortho_learner_model_final(self):
@@ -285,7 +287,8 @@ class DMLATEIV(_BaseDMLATEIV):
                  discrete_instrument=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         self.model_Y_W = clone(model_Y_W, safe=False)
         self.model_T_W = clone(model_T_W, safe=False)
@@ -294,7 +297,8 @@ class DMLATEIV(_BaseDMLATEIV):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_ortho_learner_model_nuisance(self):
@@ -355,7 +359,8 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
                  discrete_instrument=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         self.model_Y_W = clone(model_Y_W, safe=False)
         self.model_T_W = clone(model_T_W, safe=False)
@@ -364,7 +369,8 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _gen_ortho_learner_model_nuisance(self):
@@ -372,7 +378,7 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
             model_Y_W=_FirstStageWrapper(clone(self.model_Y_W, safe=False), discrete_target=False),
             model_T_W=_FirstStageWrapper(clone(self.model_T_W, safe=False), discrete_target=self.discrete_treatment),
             model_T_WZ=_FirstStageWrapper(clone(self.model_T_WZ, safe=False),
-                                          discrete_target=self.discrete_instrument))
+                                          discrete_target=self.discrete_treatment))
 
 
 class _BaseDMLIVModelNuisance:
@@ -522,8 +528,12 @@ class _BaseDMLIV(_OrthoLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
@@ -533,12 +543,13 @@ class _BaseDMLIV(_OrthoLearner):
     """
 
     def __init__(self, discrete_instrument=False, discrete_treatment=False, categories='auto',
-                 n_splits=2, monte_carlo_iterations=None, random_state=None):
+                 n_splits=2, mc_iters=None, mc_agg='mean', random_state=None):
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     @_deprecate_positional("Z and X should be passed by keyword only. In a future release "
@@ -726,7 +737,7 @@ class _BaseDMLIV(_OrthoLearner):
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
-class DMLIV(_BaseDMLIV):
+class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
     """
     A child of the _BaseDMLIV class that specifies a particular effect model
     where the treatment effect is linear in some featurization of the variable X
@@ -780,8 +791,12 @@ class DMLIV(_BaseDMLIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
@@ -804,17 +819,19 @@ class DMLIV(_BaseDMLIV):
                  featurizer=None,
                  fit_cate_intercept=True,
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  discrete_instrument=False, discrete_treatment=False,
                  categories='auto', random_state=None):
         self.model_Y_X = clone(model_Y_X, safe=False)
-        self.model_T_X = clone(model_Y_X, safe=False)
-        self.model_T_XZ = clone(model_Y_X, safe=False)
+        self.model_T_X = clone(model_T_X, safe=False)
+        self.model_T_XZ = clone(model_T_XZ, safe=False)
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
@@ -833,6 +850,10 @@ class DMLIV(_BaseDMLIV):
 
     @property
     def bias_part_of_coef(self):
+        return self.ortho_learner_model_final._model_final._fit_cate_intercept
+
+    @property
+    def fit_cate_intercept_(self):
         return self.ortho_learner_model_final._model_final._fit_cate_intercept
 
 
@@ -894,8 +915,12 @@ class NonParamDMLIV(_BaseDMLIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
@@ -916,21 +941,22 @@ class NonParamDMLIV(_BaseDMLIV):
     """
 
     def __init__(self, *, model_Y_X, model_T_X, model_T_XZ, model_final,
-                 featurizer=None, fit_cate_intercept=True,
+                 featurizer=None,
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  discrete_instrument=False,
                  discrete_treatment=False,
                  categories='auto',
                  random_state=None):
         self.model_Y_X = clone(model_Y_X, safe=False)
-        self.model_T_X = clone(model_Y_X, safe=False)
-        self.model_T_XZ = clone(model_Y_X, safe=False)
+        self.model_T_X = clone(model_T_X, safe=False)
+        self.model_T_XZ = clone(model_T_XZ, safe=False)
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
-        self.fit_cate_intercept = fit_cate_intercept
         super().__init__(n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
@@ -943,7 +969,7 @@ class NonParamDMLIV(_BaseDMLIV):
 
     def _gen_ortho_learner_model_final(self):
         return _BaseDMLIVModelFinal(_FinalWrapper(clone(self.model_final, safe=False),
-                                                  fit_cate_intercept=self.fit_cate_intercept,
+                                                  fit_cate_intercept=False,
                                                   featurizer=clone(self.featurizer, safe=False),
                                                   use_weight_trick=True))
 
@@ -1107,8 +1133,12 @@ class _BaseDRIV(_OrthoLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
@@ -1127,7 +1157,8 @@ class _BaseDRIV(_OrthoLearner):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
@@ -1136,7 +1167,7 @@ class _BaseDRIV(_OrthoLearner):
         self.opt_reweighted = opt_reweighted
         super().__init__(discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
                          categories=categories, n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations, random_state=random_state)
+                         mc_iters=mc_iters, mc_agg=mc_agg, random_state=random_state)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
@@ -1336,7 +1367,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  opt_reweighted=False,
                  categories='auto',
                  random_state=None):
@@ -1351,7 +1383,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          discrete_instrument=True,
                          discrete_treatment=True,
                          categories=categories,
@@ -1432,8 +1465,12 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     opt_reweighted : bool, optional, default False
         Whether to reweight the samples to minimize variance. If True then
@@ -1461,11 +1498,12 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  opt_reweighted=False,
                  categories='auto',
                  random_state=None):
-        self.flexible_model_effect = flexible_model_effect
+        self.flexible_model_effect = clone(flexible_model_effect, safe=False)
         super().__init__(model_Y_X=model_Y_X,
                          model_T_XZ=model_T_XZ,
                          prel_model_effect=None,
@@ -1474,7 +1512,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          opt_reweighted=opt_reweighted,
                          categories=categories,
                          random_state=random_state)
@@ -1567,8 +1606,12 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    monte_carlo_iterations: int, optional (default=None)
+    mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
@@ -1588,7 +1631,8 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  n_splits=3,
-                 monte_carlo_iterations=None,
+                 mc_iters=None,
+                 mc_agg='mean',
                  categories='auto',
                  random_state=None):
         super().__init__(model_Y_X=model_Y_X,
@@ -1599,7 +1643,8 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          model_final=None,
                          cov_clip=cov_clip,
                          n_splits=n_splits,
-                         monte_carlo_iterations=monte_carlo_iterations,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          opt_reweighted=False,
                          categories=categories, random_state=random_state)
 
@@ -1657,6 +1702,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         return self.ortho_learner_model_final._fit_cate_intercept
 
     @property
+    def fit_cate_intercept_(self):
+        return self.ortho_learner_model_final._fit_cate_intercept
+
+    @property
     def model_final(self):
         return self._gen_model_final()
 
@@ -1671,5 +1720,5 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
 
     @opt_reweighted.setter
     def opt_reweighted(self, value):
-        if not (value == False):
+        if not (value is False):
             raise ValueError("Parameter `value` cannot be altered from `False` for this estimator.")

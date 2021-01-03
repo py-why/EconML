@@ -555,7 +555,7 @@ class TestDML(unittest.TestCase):
                   discrete_treatment=True)
         est.fit(Y, T, X=X)
         assert isinstance(est.original_featurizer, PolynomialFeatures)
-        assert isinstance(est.featurizer, Pipeline)
+        assert isinstance(est.featurizer_, Pipeline)
         assert isinstance(est.model_cate, WeightedLasso)
         for mdl in est.models_y:
             assert isinstance(mdl, WeightedLasso)
@@ -571,7 +571,7 @@ class TestDML(unittest.TestCase):
                   discrete_treatment=True)
         est.fit(Y, T, X=X)
         assert est.original_featurizer is None
-        assert isinstance(est.featurizer, FunctionTransformer)
+        assert isinstance(est.featurizer_, FunctionTransformer)
         assert isinstance(est.model_cate, WeightedLasso)
         for mdl in est.models_y:
             assert isinstance(mdl, WeightedLasso)
@@ -1064,97 +1064,3 @@ class TestDML(unittest.TestCase):
 
         d = pickle.dumps(LinearDMLCateEstimator())
         e = pickle.loads(d)
-
-    def test_refit(self):
-        """Test setting attributes and refitting"""
-        dml = DML(LinearRegression(), LinearRegression(), StatsModelsLinearRegression(
-            fit_intercept=False), linear_first_stages=False)
-        ldml = LinearDML(linear_first_stages=False, featurizer=PolynomialFeatures(1, include_bias=False))
-
-        X = np.random.choice(np.arange(5), size=(500, 3))
-        y = np.random.normal(size=(500,))
-        T = np.random.choice(np.arange(3), size=(500, 2))
-        W = np.random.normal(size=(500, 2))
-
-        # can't refit if we don't cache values
-        ldml.fit(y, T, X=X, W=W)
-        dml.fit(y, T, X=X, W=W)
-        with pytest.raises(Exception):
-            ldml.refit()
-        with pytest.raises(Exception):
-            dml.refit()
-
-        ldml.fit(y, T, X=X, W=W, cache_values=True)
-        dml.fit(y, T, X=X, W=W, cache_values=True)
-        # can set final model for plain DML, but can't for LinearDML (hardcoded to StatsModelsRegression)
-        dml.model_final = StatsModelsRLM()
-        dml.refit()
-
-        with pytest.raises(AttributeError):
-            ldml.model_final = StatsModelsRLM()
-
-        # can change the featurizer and refit, for either
-        ldml.featurizer = PolynomialFeatures(1, include_bias=False)
-        dml.featurizer = PolynomialFeatures(1, include_bias=False)
-        ldml.refit()
-        dml.refit()
-
-        # after setting linear_first_stages to True, can fit (but not refit)
-        ldml.linear_first_stages = True
-        dml.linear_first_stages = True
-        ldml.fit(y, T, X=X, W=W, cache_values=True)
-        dml.fit(y, T, X=X, W=W, cache_values=True)
-
-        # can't change the featurizer and refit if linear_first_stages is true
-        ldml.featurizer = None
-        dml.featurizer = None
-        with pytest.raises(Exception):
-            ldml.refit()
-        with pytest.raises(Exception):
-            dml.refit()
-
-    def test_can_set_discrete_treatment(self):
-        X = np.random.choice(np.arange(5), size=(500, 3))
-        y = np.random.normal(size=(500,))
-        T = np.random.choice(np.arange(3), size=(500, 1))
-        W = np.random.normal(size=(500, 2))
-        est = LinearDML(model_y=RandomForestRegressor(),
-                        model_t=RandomForestClassifier(min_samples_leaf=10),
-                        discrete_treatment=True,
-                        linear_first_stages=False,
-                        n_splits=3)
-        est.fit(y, T, X=X, W=W)
-        est.effect(X)
-        est.discrete_treatment = False
-        est.fit(y, T, X=X, W=W)
-        est.effect(X)
-
-    def test_montecarlo(self):
-        """Test that we can perform nuisance averaging, and that it reduces the variance in a simple example."""
-        y = np.random.normal(size=30) + [0, 1] * 15
-        T = np.random.normal(size=(30,)) + y
-        W = np.random.normal(size=(30, 3))
-        est1 = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
-        est2 = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(), monte_carlo_iterations=2)
-        # Run ten experiments, recomputing the variance of 10 estimates of the effect in each experiment
-        v1s = [np.var([est.fit(y, T, W=W).effect() for _ in range(10)]) for _ in range(10)]
-        v2s = [np.var([est.fit(y, T, W=W).effect() for _ in range(10)]) for _ in range(10)]
-        # The average variance should be lower when using monte carlo iterations
-        assert np.mean(v2s) < np.mean(v1s)
-
-    def test_refit_inference(self):
-        """Test that we can perform inference during refit"""
-        est = LinearDML(linear_first_stages=False, featurizer=PolynomialFeatures(1, include_bias=False))
-
-        X = np.random.choice(np.arange(5), size=(500, 3))
-        y = np.random.normal(size=(500,))
-        T = np.random.choice(np.arange(3), size=(500, 2))
-        W = np.random.normal(size=(500, 2))
-
-        est.fit(y, T, X=X, W=W, cache_values=True, inference='statsmodels')
-
-        assert isinstance(est.effect_inference(X), NormalInferenceResults)
-
-        est.refit(inference=BootstrapInference(2))
-
-        assert isinstance(est.effect_inference(X), EmpiricalInferenceResults)

@@ -27,7 +27,7 @@ class TestCateInterpreter(unittest.TestCase):
             for y_shape in [(n,), (n, 1)]:
                 X = np.random.normal(size=(n, 4))
                 T = np.random.binomial(1, 0.5, size=t_shape)
-                Y = np.random.normal(size=y_shape)
+                Y = (2 * (X[:, 0] > 0) - 1).reshape(y_shape)
                 est = LinearDML(discrete_treatment=True)
                 est.fit(Y, T, X=X)
                 for intrp in [SingleTreeCateInterpreter(), SingleTreePolicyInterpreter()]:
@@ -48,7 +48,7 @@ class TestCateInterpreter(unittest.TestCase):
         n = 100
         X = np.random.normal(size=(n, 4))
         T = np.random.binomial(1, 0.5, size=(n,))
-        Y = np.random.normal(size=(n,))
+        Y = 2 * (X[:, 0] > 0) - 1
         est = LinearDML(discrete_treatment=True)
         est.fit(Y, T, X=X, inference=None)
 
@@ -69,7 +69,7 @@ class TestCateInterpreter(unittest.TestCase):
         n = 100
         X = np.random.normal(size=(n, 4))
         T = np.random.binomial(1, 0.5, size=(n,))
-        Y = np.random.normal(size=(n,))
+        Y = 2 * (X[:, 0] > 0) - 1
         est = LinearDML(discrete_treatment=True)
         est.fit(Y, T, X=X)
 
@@ -93,7 +93,7 @@ class TestCateInterpreter(unittest.TestCase):
             X = np.random.normal(size=(n, 4))
             X2 = np.random.normal(size=(10, 4))
             T = np.random.binomial(1, 0.5, size=t_shape) if discrete_t else np.random.normal(size=t_shape)
-            Y = np.random.normal(size=y_shape)
+            Y = (2 * (X[:, 0] > 0) - 1).reshape(y_shape)
 
             est = LinearDML(discrete_treatment=discrete_t)
 
