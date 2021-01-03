@@ -40,18 +40,21 @@ import numpy as np
 from sklearn.base import TransformerMixin, clone
 from sklearn.exceptions import NotFittedError
 from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
                                    OneHotEncoder)
 from sklearn.utils import check_random_state
+import copy
 
 from ._ortho_learner import _OrthoLearner
 from ._rlearner import _RLearner
 from .cate_estimator import (DebiasedLassoCateEstimatorMixin,
                              ForestModelFinalCateEstimatorMixin,
                              LinearModelFinalCateEstimatorMixin,
-                             StatsModelsCateEstimatorMixin)
+                             StatsModelsCateEstimatorMixin,
+                             LinearCateEstimator)
 from .inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from .sklearn_extensions.ensemble import SubsampledHonestForest
 from .sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
@@ -63,6 +66,7 @@ from .utilities import (_deprecate_positional, add_intercept,
                         cross_product, deprecated, fit_with_groups,
                         hstack, inverse_onehot, ndim, reshape,
                         reshape_treatmentwise_effects, shape, transpose)
+from .shap import _shap_explain_model_cate
 
 
 class _FirstStageWrapper:
@@ -1106,6 +1110,18 @@ class NonParamDML(_BaseDML):
     def refit(self, *, inference='auto'):
         super().refit(inference=inference)
 
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        if self.featurizer_ is not None:
+            F = self.featurizer_.transform(X)
+        else:
+            F = X
+        feature_names = self.cate_feature_names(feature_names)
+
+        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, F, self._d_t, self._d_y,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
+
 
 class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
     """ Instance of NonParamDML with a
@@ -1376,6 +1392,21 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
     def model_final(self, model):
         if model is not None:
             raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        # SubsampleHonestForest can't be recognized by SHAP, but the tree entries are consistent with a tree in
+        # a RandomForestRegressor, modify the class name in order to be identified as tree models.
+        if self.featurizer_ is not None:
+            F = self.featurizer_.transform(X)
+        else:
+            F = X
+        feature_names = self.cate_feature_names(feature_names)
+        model = copy.deepcopy(self.model_cate)
+        model.__class__ = RandomForestRegressor
+        return _shap_explain_model_cate(self.const_marginal_effect, model, X, self._d_t, self._d_y,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
 @deprecated("The DMLCateEstimator class has been renamed to DML; "

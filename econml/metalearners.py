@@ -17,6 +17,7 @@ from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from .utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
                         inverse_onehot, transpose, _EncoderWrapper, _deprecate_positional)
+from .shap import _shap_explain_model_cate
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -458,3 +459,9 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             last_step_name = model_instance.steps[-1][0]
             model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+        return _shap_explain_model_cate(self.const_marginal_effect, self.final_models, X, self._d_t, self._d_y,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names, output_names=output_names)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
