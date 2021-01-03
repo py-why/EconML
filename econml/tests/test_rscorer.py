@@ -3,9 +3,8 @@
 
 import unittest
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LassoCV
+from sklearn.linear_model import LinearRegression, LogisticRegression
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from joblib import Parallel, delayed
@@ -29,8 +28,8 @@ class TestRScorer(unittest.TestCase):
         return y, T, X
 
     def test_comparison(self):
-        def reg(): return RandomForestRegressor(min_samples_leaf=10)
-        def clf(): return RandomForestClassifier(min_samples_leaf=10)
+        def reg(): return LinearRegression()
+        def clf(): return LogisticRegression()
         y, T, X = self._get_data()
         X_train, X_val, T_train, T_val, Y_train, Y_val = train_test_split(X, T, y, test_size=.4)
 
@@ -47,7 +46,7 @@ class TestRScorer(unittest.TestCase):
                                           model_final=reg(), n_splits=3)),
                   ('rlearner', NonParamDML(model_y=reg(), model_t=clf(), model_final=reg(),
                                            discrete_treatment=True, n_splits=3)),
-                  ('dml3dlasso', DML(model_y=reg(), model_t=clf(), model_final=LassoCV(), discrete_treatment=True,
+                  ('dml3dlasso', DML(model_y=reg(), model_t=clf(), model_final=reg(), discrete_treatment=True,
                                      featurizer=PolynomialFeatures(degree=3),
                                      linear_first_stages=False, n_splits=3))
                   ]
@@ -57,7 +56,7 @@ class TestRScorer(unittest.TestCase):
                                                 for name, mdl in models)
 
         scorer = RScorer(model_y=reg(), model_t=clf(),
-                         discrete_treatment=True, n_splits=3, mc_iters=2)
+                         discrete_treatment=True, n_splits=3, mc_iters=2, mc_agg='median')
         scorer.fit(Y_val, T_val, X=X_val)
         rscore = [scorer.score(mdl) for _, mdl in models]
         expected_te_val = np.zeros(X_val.shape[0])
