@@ -1,0 +1,67 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+import unittest
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LassoCV
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from joblib import Parallel, delayed
+
+from econml.dml import DML, LinearDML, SparseLinearDML, NonParamDML
+from econml.metalearners import XLearner, TLearner, SLearner, DomainAdaptationLearner
+from econml.drlearner import DRLearner
+from econml.score import RScorer
+
+
+def _fit_model(name, model, Y, T, X):
+    return name, model.fit(Y, T, X=X)
+
+
+class TestRScorer(unittest.TestCase):
+
+    def _get_data(self):
+        X = np.random.choice(np.arange(5), size=(500, 3))
+        y = np.random.normal(size=(500,))
+        T = np.random.binomial(1, .5, size=(500,))
+        return y, T, X
+
+    def test_comparison(self):
+        def reg(): return RandomForestRegressor(min_samples_leaf=10)
+        def clf(): return RandomForestClassifier(min_samples_leaf=10)
+        y, T, X = self._get_data()
+        X_train, X_val, T_train, T_val, Y_train, Y_val = train_test_split(X, T, y, test_size=.4)
+
+        models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
+                                     linear_first_stages=False, n_splits=3)),
+                  ('sldml', SparseLinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
+                                            featurizer=PolynomialFeatures(degree=2, include_bias=False),
+                                            linear_first_stages=False, n_splits=3)),
+                  ('xlearner', XLearner(models=reg(), cate_models=reg(), propensity_model=clf())),
+                  ('dalearner', DomainAdaptationLearner(models=reg(), final_models=reg(), propensity_model=clf())),
+                  ('slearner', SLearner(overall_model=reg())),
+                  ('tlearner', TLearner(models=reg())),
+                  ('drlearner', DRLearner(model_propensity=clf(), model_regression=reg(),
+                                          model_final=reg(), n_splits=3)),
+                  ('rlearner', NonParamDML(model_y=reg(), model_t=clf(), model_final=reg(),
+                                           discrete_treatment=True, n_splits=3)),
+                  ('dml3dlasso', DML(model_y=reg(), model_t=clf(), model_final=LassoCV(), discrete_treatment=True,
+                                     featurizer=PolynomialFeatures(degree=3),
+                                     linear_first_stages=False, n_splits=3))
+                  ]
+
+        models = Parallel(n_jobs=-1, verbose=1)(delayed(_fit_model)(name, mdl,
+                                                                    Y_train, T_train, X_train)
+                                                for name, mdl in models)
+
+        scorer = RScorer(model_y=reg(), model_t=clf(),
+                         discrete_treatment=True, n_splits=3, mc_iters=2)
+        scorer.fit(Y_val, T_val, X=X_val)
+        rscore = [scorer.score(mdl) for _, mdl in models]
+        expected_te_val = np.zeros(X_val.shape[0])
+        mdl, score = scorer.best_model([mdl for _, mdl in models])
+        rootpehe_best = np.sqrt(np.mean((expected_te_val.flatten() - mdl.effect(X_val).flatten())**2))
+        mdl, score = scorer.ensemble([mdl for _, mdl in models])
+        rootpehe_ensemble = np.sqrt(np.mean((expected_te_val.flatten() - mdl.effect(X_val).flatten())**2))

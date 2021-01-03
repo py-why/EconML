@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 from ..dml import LinearDML
 from sklearn.base import clone
 import numpy as np
@@ -29,14 +32,15 @@ class RScorer:
     def __init__(self, *, model_y, model_t,
                  discrete_treatment=False, n_splits=2,
                  categories='auto', random_state=None,
-                 monte_carlo_iterations=None):
+                 mc_iters=None, mc_agg='mean'):
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.discrete_treatment = discrete_treatment
         self.n_splits = n_splits
         self.categories = categories
         self.random_state = random_state
-        self.monte_carlo_iterations = monte_carlo_iterations
+        self.mc_iters = mc_iters
+        self.mc_agg = mc_agg
 
     def fit(self, y, T, X=None, W=None, sample_weight=None):
         if X is None:
@@ -48,7 +52,8 @@ class RScorer:
                                     discrete_treatment=self.discrete_treatment,
                                     categories=self.categories,
                                     random_state=self.random_state,
-                                    monte_carlo_iterations=self.monte_carlo_iterations)
+                                    mc_iters=self.mc_iters,
+                                    mc_agg=self.mc_agg)
         self.lineardml_.fit(y, T, X=None, W=np.hstack([v for v in [X, W] if v is not None]),
                             sample_weight=sample_weight, cache_values=True)
         self.base_score_ = self.lineardml_.score_
