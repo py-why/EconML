@@ -835,8 +835,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
-    def refit(self, *, inference='auto'):
-        super().refit(inference=inference)
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def fit_cate_intercept_(self):
@@ -1101,8 +1102,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            cache_values=cache_values, inference=inference)
 
-    def refit(self, *, inference='auto'):
-        super().refit(inference=inference)
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def fit_cate_intercept_(self):
@@ -1405,8 +1407,9 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            cache_values=cache_values, inference=inference)
 
-    def refit(self, *, inference='auto'):
-        super().refit(inference=inference)
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def multitask_model_cate(self):
         # Replacing to remove docstring

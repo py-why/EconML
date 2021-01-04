@@ -547,8 +547,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                            cache_values=cache_values,
                            inference=inference)
 
-    def refit(self, *, inference='auto'):
-        super().refit(inference=inference)
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def bias_part_of_coef(self):
@@ -1164,8 +1165,9 @@ class NonParamDML(_BaseDML):
                            cache_values=cache_values,
                            inference=inference)
 
-    def refit(self, *, inference='auto'):
-        super().refit(inference=inference)
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
         if self.featurizer_ is not None:

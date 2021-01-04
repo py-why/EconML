@@ -659,16 +659,24 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
     def _illegal_refit_inference_methods(self):
         return (BootstrapInference,)
 
-    def refit(self, inference=None):
+    def refit_final(self, inference=None):
         """
         Estimate the counterfactual model using a new final model specification but with cached first stage results.
 
-        In order for this to succeed, ``fit`` must have been called with ``cache_values=True``, and no settings which
-        would invalidate the fit have been modified.
+        In order for this to succeed, ``fit`` must have been called with ``cache_values=True``. This call
+        will only refit the final model. This call we use the current setting of any parameters that change the
+        final stage estimation. If any parameters that change how the first stage nuisance estimates
+        has also been changed then it will have no effect. You need to call fit again to change the
+        first stage estimation results.
+
+        Parameters
+        ----------
+        inference : inference method, optional
+            The string or object that represents the inference method
 
         Returns
         -------
-        self : _OrthoLearner
+        self : object
             This instance
         """
         assert self._cached_values, "Refit can only be called if values were cached during the original fit"

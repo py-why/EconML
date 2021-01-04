@@ -34,10 +34,10 @@ class TestRefit(unittest.TestCase):
                   random_state=123)
         dml.fit(y, T, X=X, W=W)
         with pytest.raises(Exception):
-            dml.refit()
+            dml.refit_final()
         dml.fit(y, T, X=X, W=W, cache_values=True)
         dml.model_final = StatsModelsRLM(fit_intercept=False)
-        dml.refit()
+        dml.refit_final()
         assert isinstance(dml.model_cate, StatsModelsRLM)
         np.testing.assert_array_equal(dml.model_cate.coef_[1:].flatten(), dml.coef_.flatten())
         lb, ub = dml.model_cate.coef__interval(alpha=0.01)
@@ -47,7 +47,7 @@ class TestRefit(unittest.TestCase):
         intcpt = dml.intercept_
         dml.fit_cate_intercept = False
         np.testing.assert_equal(dml.intercept_, intcpt)
-        dml.refit()
+        dml.refit_final()
         np.testing.assert_array_equal(dml.model_cate.coef_.flatten(), dml.coef_.flatten())
         lb, ub = dml.model_cate.coef__interval(alpha=0.01)
         lbt, ubt = dml.coef__interval(alpha=0.01)
@@ -58,14 +58,14 @@ class TestRefit(unittest.TestCase):
         with pytest.raises(AttributeError):
             dml.intercept__interval()
         dml.model_final = DebiasedLasso(fit_intercept=False)
-        dml.refit()
+        dml.refit_final()
         assert isinstance(dml.model_cate, DebiasedLasso)
         dml.featurizer = PolynomialFeatures(degree=2, include_bias=False)
         dml.model_final = StatsModelsLinearRegression(fit_intercept=False)
-        dml.refit()
+        dml.refit_final()
         assert isinstance(dml.featurizer_, PolynomialFeatures)
         dml.fit_cate_intercept = True
-        dml.refit()
+        dml.refit_final()
         assert isinstance(dml.featurizer_, Pipeline)
         np.testing.assert_array_equal(dml.coef_.shape, (X.shape[1]**2))
         np.testing.assert_array_equal(dml.coef__interval()[0].shape, (X.shape[1]**2))
@@ -106,7 +106,7 @@ class TestRefit(unittest.TestCase):
         ldml.alpha = 0.01
         ldml.max_iter = 10
         ldml.tol = 0.01
-        ldml.refit()
+        ldml.refit_final()
         np.testing.assert_equal(ldml.model_cate.estimators_[0].alpha, 0.01)
         np.testing.assert_equal(ldml.model_cate.estimators_[0].max_iter, 10)
         np.testing.assert_equal(ldml.model_cate.estimators_[0].tol, 0.01)
@@ -120,14 +120,14 @@ class TestRefit(unittest.TestCase):
                           random_state=123)
         dml.fit(y, T, X=X, W=W)
         with pytest.raises(Exception):
-            dml.refit()
+            dml.refit_final()
         dml.fit(y, T, X=X, W=W, cache_values=True)
         dml.model_final = DebiasedLasso(fit_intercept=False)
-        dml.refit()
+        dml.refit_final()
         assert isinstance(dml.model_cate, DebiasedLasso)
         dml.effect_interval(X[:1])
         dml.featurizer = PolynomialFeatures(degree=2, include_bias=False)
-        dml.refit()
+        dml.refit_final()
         assert isinstance(dml.featurizer_, PolynomialFeatures)
         dml.effect_interval(X[:1])
         dml.discrete_treatment = True
@@ -162,18 +162,18 @@ class TestRefit(unittest.TestCase):
             est.min_propensity = .1
             est.mc_iters = 2
             est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
-            est.refit()
+            est.refit_final()
             assert isinstance(est.featurizer_, PolynomialFeatures)
             np.testing.assert_equal(est.mc_iters, 2)
             intcpt = est.intercept_(T=1)
             est.fit_cate_intercept = False
             np.testing.assert_equal(est.intercept_(T=1), intcpt)
-            est.refit()
+            est.refit_final()
             with pytest.raises(AttributeError):
                 est.intercept(T=1)
             est.fit(y, T, X=X, W=W, cache_values=False)
             with pytest.raises(AssertionError):
-                est.refit()
+                est.refit_final()
 
     def test_orthoiv(self):
         y, T, X, W = self._get_data()
@@ -183,7 +183,7 @@ class TestRefit(unittest.TestCase):
                        model_Z_W=LinearRegression(),
                        mc_iters=2)
         est.fit(y, T, W=W, Z=Z, cache_values=True)
-        est.refit()
+        est.refit_final()
         est.model_Y_W = Lasso()
         est.model_T_W = ElasticNet()
         est.model_Z_W = WeightedLasso()
@@ -197,7 +197,7 @@ class TestRefit(unittest.TestCase):
                                 model_T_WZ=LinearRegression(),
                                 mc_iters=2)
         est.fit(y, T, W=W, Z=Z, cache_values=True)
-        est.refit()
+        est.refit_final()
         est.model_Y_W = Lasso()
         est.model_T_W = ElasticNet()
         est.model_T_WZ = WeightedLasso()
@@ -214,12 +214,12 @@ class TestRefit(unittest.TestCase):
         est.fit(y, T, X=X, Z=Z, cache_values=True)
         np.testing.assert_equal(len(est.coef_), X.shape[1])
         est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
-        est.refit()
+        est.refit_final()
         np.testing.assert_equal(len(est.coef_), X.shape[1]**2)
         est.intercept_
         est.fit_cate_intercept = False
         est.intercept_
-        est.refit()
+        est.refit_final()
         with pytest.raises(AttributeError):
             est.intercept_
         est.model_Y_X = Lasso()
@@ -238,12 +238,12 @@ class TestRefit(unittest.TestCase):
         est.fit(y, T, X=X, Z=Z, cache_values=True)
         np.testing.assert_equal(len(est.coef_), X.shape[1])
         est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
-        est.refit()
+        est.refit_final()
         np.testing.assert_equal(len(est.coef_), X.shape[1]**2)
         est.intercept_
         est.fit_cate_intercept = False
         est.intercept_
-        est.refit()
+        est.refit_final()
         with pytest.raises(AttributeError):
             est.intercept_
         est.model_Y_X = Lasso()
@@ -262,7 +262,7 @@ class TestRefit(unittest.TestCase):
         est.fit(y, T, X=X, Z=Z, cache_values=True)
         est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
         est.model_final = WeightedLasso()
-        est.refit()
+        est.refit_final()
         assert isinstance(est.model_cate, WeightedLasso)
         assert isinstance(est.featurizer_, PolynomialFeatures)
 
@@ -272,11 +272,11 @@ class TestRefit(unittest.TestCase):
         assert est.model_final is None
         assert isinstance(est.model_final_, LinearRegression)
         est.flexible_model_effect = Lasso()
-        est.refit()
+        est.refit_final()
         assert est.model_final is None
         assert isinstance(est.model_final_, Lasso)
         est.model_final = Lasso()
-        est.refit()
+        est.refit_final()
         assert isinstance(est.model_final, Lasso)
         assert isinstance(est.model_final_, Lasso)
         assert isinstance(est.models_nuisance[0]._prel_model_effect.model_final_, LinearRegression)
@@ -289,7 +289,7 @@ class TestRefit(unittest.TestCase):
         est.fit_cate_intercept = False
         est.intercept_
         est.intercept__interval()
-        est.refit()
+        est.refit_final()
         with pytest.raises(AttributeError):
             est.intercept_
         with pytest.raises(AttributeError):
@@ -316,8 +316,8 @@ class TestRefit(unittest.TestCase):
         est.fit(y, T, X=X, W=W)
         est.effect(X)
 
-    def test_refit_inference(self):
-        """Test that we can perform inference during refit"""
+    def test_refit_final_inference(self):
+        """Test that we can perform inference during refit_final"""
         est = LinearDML(linear_first_stages=False, featurizer=PolynomialFeatures(1, include_bias=False))
 
         X = np.random.choice(np.arange(5), size=(500, 3))
@@ -330,7 +330,7 @@ class TestRefit(unittest.TestCase):
         assert isinstance(est.effect_inference(X), NormalInferenceResults)
 
         with pytest.raises(ValueError):
-            est.refit(inference=BootstrapInference(2))
+            est.refit_final(inference=BootstrapInference(2))
 
     def test_rlearner_residuals(self):
         y, T, X, W = self._get_data()

@@ -1694,8 +1694,9 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
-    def refit(self, inference='auto'):
-        return super().refit(inference=inference)
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def bias_part_of_coef(self):
