@@ -28,8 +28,12 @@ class TestRScorer(unittest.TestCase):
         return y, T, X
 
     def test_comparison(self):
-        def reg(): return LinearRegression()
-        def clf(): return LogisticRegression()
+        def reg():
+            return LinearRegression()
+
+        def clf():
+            return LogisticRegression()
+
         y, T, X = self._get_data()
         X_train, X_val, T_train, T_val, Y_train, Y_val = train_test_split(X, T, y, test_size=.4)
 

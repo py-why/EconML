@@ -27,12 +27,62 @@ class RScorer:
     in the effect as captured by the cate model, as opposed to always predicting a constant effect.
     A negative score, means that the cate model performs even worse than a constant effect model
     and hints at overfitting during training of the cate model.
+
+    Parameters
+    ----------
+    model_y: estimator
+        The estimator for fitting the response to the features. Must implement
+        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
+
+    model_t: estimator
+        The estimator for fitting the treatment to the features. Must implement
+        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
+
+    discrete_treatment: bool, optional (default is ``False``)
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`cv splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self, *, model_y, model_t,
-                 discrete_treatment=False, n_splits=2,
-                 categories='auto', random_state=None,
-                 mc_iters=None, mc_agg='mean'):
+                 discrete_treatment=False,
+                 categories='auto',
+                 n_splits=2,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None):
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.discrete_treatment = discrete_treatment
@@ -42,7 +92,30 @@ class RScorer:
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
 
-    def fit(self, y, T, X=None, W=None, sample_weight=None):
+    def fit(self, y, T, X=None, W=None, sample_weight=None, groups=None):
+        """
+
+        Parameters
+        ----------
+        Y: (n × d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n × dₜ) matrix or vector of length n
+            Treatments for each sample
+        X: optional (n × dₓ) matrix
+            Features for each sample
+        W: optional (n × d_w) matrix
+            Controls for each sample
+        sample_weight: optional (n,) vector
+            Weights for each row
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+
+        Returns
+        -------
+        self
+        """
         if X is None:
             raise ValueError("X cannot be None for the RScorer!")
 
@@ -55,11 +128,22 @@ class RScorer:
                                     mc_iters=self.mc_iters,
                                     mc_agg=self.mc_agg)
         self.lineardml_.fit(y, T, X=None, W=np.hstack([v for v in [X, W] if v is not None]),
-                            sample_weight=sample_weight, cache_values=True)
+                            sample_weight=sample_weight, groups=groups, cache_values=True)
         self.base_score_ = self.lineardml_.score_
         self.dx_ = X.shape[1]
+        return self
 
     def score(self, cate_model):
+        """
+        Parameters
+        ----------
+        cate_model : instance of fitted BaseCateEstimator
+
+        Returns
+        -------
+        score : double
+            An analogue of the R-square loss for the causal setting.
+        """
         Y_res, T_res = self.lineardml_._cached_values.nuisances
         X = self.lineardml_._cached_values.W[:, :self.dx_]
         sample_weight = self.lineardml_._cached_values.sample_weight
@@ -75,6 +159,22 @@ class RScorer:
             return 1 - np.mean((Y_res - Y_res_pred) ** 2) / self.base_score_
 
     def best_model(self, cate_models, return_scores=False):
+        """ Chooses the best among a list of models
+
+        Parameters
+        ----------
+        cate_models : list of instances of fitted BaseCateEstimator
+        return_scores : bool, optional (default=False)
+            Whether to return the list scores of each model
+        Returns
+        -------
+        best_model : instance of fitted BaseCateEstimator
+            The model that achieves the best score
+        best_score : double
+            The score of the best model
+        scores : list of double
+            The list of scores for each of the input models. Returned only if `return_scores=True`.
+        """
         rscores = [self.score(mdl) for mdl in cate_models]
         best = np.argmax(rscores)
         if return_scores:
@@ -83,6 +183,26 @@ class RScorer:
             return cate_models[best], rscores[best]
 
     def ensemble(self, cate_models, eta=1000.0, return_scores=False):
+        """ Ensembles a list of models based on their performance
+
+        Parameters
+        ----------
+        cate_models : list of instances of fitted BaseCateEstimator
+        eta : double, optional (default=1000)
+            The soft-max parameter for the ensemble
+        return_scores : bool, optional (default=False)
+            Whether to return the list scores of each model
+        Returns
+        -------
+        ensemble_model : instance of fitted EnsembleCateEstimator
+            A fitted ensemble cate model that calculates effects based on a weighted
+            version of the input cate models, weighted by a softmax of their score
+            performance
+        ensemble_score : double
+            The score of the ensemble model
+        scores : list of double
+            The list of scores for each of the input models. Returned only if `return_scores=True`.
+        """
         rscores = np.array([self.score(mdl) for mdl in cate_models])
         weights = softmax(eta * rscores)
         ensemble = EnsembleCateEstimator(cate_models=cate_models, weights=weights)
