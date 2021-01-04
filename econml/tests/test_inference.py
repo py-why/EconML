@@ -5,8 +5,8 @@ import numpy as np
 import unittest
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from econml.dml import LinearDML
+from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
+from econml.dml import LinearDML, DML, NonParamDML
 from econml.drlearner import LinearDRLearner
 from econml.inference import (BootstrapInference, NormalInferenceResults,
                               EmpiricalInferenceResults, PopulationSummaryResults)
@@ -276,6 +276,33 @@ class TestInference(unittest.TestCase):
             TestInference.W,
             inference=BootstrapInference(5)
         ).summary(1)
+
+    def test_inference_with_none_stderr(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        est = DML(model_y=LinearRegression(),
+                  model_t=LinearRegression(),
+                  model_final=Lasso(alpha=0.1, fit_intercept=False),
+                  featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                  random_state=123)
+        est.fit(Y, T, X=X, W=W)
+        est.summary()
+        est.coef__inference().summary_frame()
+        est.intercept__inference().summary_frame()
+        est.effect_inference(X).summary_frame()
+        est.effect_inference(X).population_summary()
+        est.const_marginal_effect_inference(X).summary_frame()
+        est.marginal_effect_inference(T, X).summary_frame()
+
+        est = NonParamDML(model_y=LinearRegression(),
+                          model_t=LinearRegression(),
+                          model_final=LinearRegression(fit_intercept=False),
+                          featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                          random_state=123)
+        est.fit(Y, T, X=X, W=W)
+        est.effect_inference(X).summary_frame()
+        est.effect_inference(X).population_summary()
+        est.const_marginal_effect_inference(X).summary_frame()
+        est.marginal_effect_inference(T, X).summary_frame()
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):

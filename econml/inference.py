@@ -235,7 +235,6 @@ class LinearModelFinalInference(GenericModelFinalInference):
         coef = parse_final_model_params(coef, intercept,
                                         self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                         self.fit_cate_intercept)[0]
-        coef_stderr = None
         if hasattr(self.model_final, 'coef_stderr_') and hasattr(self.model_final, 'intercept_stderr_'):
             coef_stderr = self.model_final.coef_stderr_
             intercept_stderr = self.model_final.intercept_stderr_
@@ -245,6 +244,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         else:
             warn("Final model doesn't have a `coef_stderr_` and `intercept_stderr_` attributes, "
                  "only point estimates will be available.")
+            coef_stderr = None
 
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
@@ -280,10 +280,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         intercept = parse_final_model_params(coef, intercept,
                                              self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                              self.fit_cate_intercept)[1]
-        intercept_stderr = None
         if hasattr(self.model_final, 'coef_stderr_') and hasattr(self.model_final, 'intercept_stderr_'):
-            warn("Final model doesn't have a `coef_stderr_` and `intercept_stderr_` attributes, "
-                 "only point estimates will be available.")
             coef_stderr = self.model_final.coef_stderr_
             intercept_stderr = self.model_final.intercept_stderr_
             intercept_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
@@ -292,6 +289,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         else:
             warn("Final model doesn't have a `coef_stderr_` and `intercept_stderr_` attributes, "
                  "only point estimates will be available.")
+            intercept_stderr = None
 
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
                                       inf_type='intercept', **self._input_names)
@@ -360,7 +358,6 @@ class GenericModelFinalInferenceDiscrete(Inference):
             X = self.featurizer.transform(X)
         pred = np.moveaxis(np.array([mdl.predict(X).reshape((-1,) + self._d_y)
                                      for mdl in self.fitted_models_final]), 0, -1)
-        pred_stderr = None
         if hasattr(self.fitted_models_final[0], 'prediction_stderr'):
             # send treatment to the end, pull bounds to the front
             pred_stderr = np.moveaxis(np.array([mdl.prediction_stderr(X).reshape((-1,) + self._d_y)
@@ -369,6 +366,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
         else:
             warn("Final model doesn't have a `prediction_stderr` method. "
                  "Only point estimates will be available.")
+            pred_stderr = None
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, inf_type='effect',
                                       **self._input_names)
@@ -458,7 +456,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
         if hasattr(self.fitted_models_final[ind], 'intercept_stderr_'):
-            coef_stderr = self.fitted_models_final[ind].intercept_stderr_
+            intercept_stderr = self.fitted_models_final[ind].intercept_stderr_
         else:
             warn("Final model doesn't have a `intercept_stderr_` attribute. "
                  "Only point estimates will be available.")
