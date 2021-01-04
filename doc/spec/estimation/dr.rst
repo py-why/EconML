@@ -242,7 +242,7 @@ Below we give a brief description of each of these classes:
                             }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         est = DRLearner(model_regression=model_reg(), model_propensity=model_clf(),
-                        model_final=model_reg(), n_splits=5)
+                        model_final=model_reg(), cv=5)
         est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
 
@@ -427,7 +427,7 @@ Usage FAQs
                             }, cv=5, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         est = DRLearner(model_regression=model_reg(), model_propensity=model_clf(),
-                        model_final=model_reg(), n_splits=5)
+                        model_final=model_reg(), cv=5)
         est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
 
@@ -467,7 +467,7 @@ Usage FAQs
     If one uses cross-validated estimators as first stages, then model selection for the first stage models
     is performed automatically.
 
-- **How should I set the parameter `n_splits`?**
+- **How should I set the parameter `cv`?**
 
     This parameter defines the number of data partitions to create in order to fit the first stages in a
     crossfittin manner (see :class:`._OrthoLearner`). The default is 2, which
