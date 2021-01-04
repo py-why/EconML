@@ -239,15 +239,17 @@ class LinearModelFinalInference(GenericModelFinalInference):
 
     def coef__inference(self):
         coef = self.model_final.coef_
-        coef_stderr = self.model_final.coef_stderr_
         intercept = self.model_final.intercept_
-        intercept_stderr = self.model_final.intercept_stderr_
         coef = parse_final_model_params(coef, intercept,
                                         self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                         self.fit_cate_intercept)[0]
-        coef_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
-                                               self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
-                                               self.fit_cate_intercept)[0]
+        coef_stderr = None
+        if hasattr(self.model_final, 'coef_stderr_') and hasattr(self.model_final, 'intercept_stderr_'):
+            coef_stderr = self.model_final.coef_stderr_
+            intercept_stderr = self.model_final.intercept_stderr_
+            coef_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
+                                                   self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                                   self.fit_cate_intercept)[0]
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
 
@@ -638,20 +640,21 @@ class InferenceResults(metaclass=abc.ABCMeta):
         feature_names = self.feature_names if feature_names is None else feature_names
         treatment_names = self.treatment_names if treatment_names is None else treatment_names
         output_names = self.output_names if output_names is None else output_names
-        ci_mean = self.conf_int(alpha=alpha)
         to_include = OrderedDict()
         to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.point_estimate,
                                                             output_names=output_names, treatment_names=treatment_names)
-        to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr,
-                                                    output_names=output_names, treatment_names=treatment_names)
-        to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value),
-                                                   output_names=output_names, treatment_names=treatment_names)
-        to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value),
-                                                    output_names=output_names, treatment_names=treatment_names)
-        to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0],
-                                                      output_names=output_names, treatment_names=treatment_names)
-        to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1],
-                                                      output_names=output_names, treatment_names=treatment_names)
+        if self.stderr is not None:
+            ci_mean = self.conf_int(alpha=alpha)
+            to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr,
+                                                        output_names=output_names, treatment_names=treatment_names)
+            to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value),
+                                                       output_names=output_names, treatment_names=treatment_names)
+            to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value),
+                                                        output_names=output_names, treatment_names=treatment_names)
+            to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0],
+                                                          output_names=output_names, treatment_names=treatment_names)
+            to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1],
+                                                          output_names=output_names, treatment_names=treatment_names)
         res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
         if self.d_t == 1:
             res.columns = res.columns.droplevel(1)
