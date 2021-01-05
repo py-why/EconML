@@ -3,13 +3,15 @@
 
 import numpy as np
 import unittest
+import pytest
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 from econml.dml import LinearDML, DML, NonParamDML
-from econml.drlearner import LinearDRLearner
+from econml.drlearner import LinearDRLearner, DRLearner
 from econml.inference import (BootstrapInference, NormalInferenceResults,
                               EmpiricalInferenceResults, PopulationSummaryResults)
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
 
 
 class TestInference(unittest.TestCase):
@@ -303,6 +305,64 @@ class TestInference(unittest.TestCase):
         est.effect_inference(X).population_summary()
         est.const_marginal_effect_inference(X).summary_frame()
         est.marginal_effect_inference(T, X).summary_frame()
+
+        est = DRLearner(model_regression=LinearRegression(),
+                        model_propensity=LogisticRegression(),
+                        model_final=LinearRegression())
+        est.fit(Y, T, X=X, W=W)
+        est.effect_inference(X).summary_frame()
+        est.effect_inference(X).population_summary()
+        est.const_marginal_effect_inference(X).summary_frame()
+        est.marginal_effect_inference(T, X).summary_frame()
+
+    def test_auto_inference(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        est = DRLearner(model_regression=LinearRegression(),
+                        model_propensity=LogisticRegression(),
+                        model_final=StatsModelsLinearRegression())
+        est.fit(Y, T, X=X, W=W)
+        est.effect_inference(X).summary_frame()
+        est.effect_inference(X).population_summary()
+        est.const_marginal_effect_inference(X).summary_frame()
+        est.marginal_effect_inference(T, X).summary_frame()
+        est = DRLearner(model_regression=LinearRegression(),
+                        model_propensity=LogisticRegression(),
+                        model_final=LinearRegression(),
+                        multitask_model_final=True)
+        est.fit(Y, T, X=X, W=W)
+        with pytest.raises(AttributeError):
+            est.effect_inference(X)
+
+        est = DML(model_y=LinearRegression(),
+                  model_t=LinearRegression(),
+                  model_final=StatsModelsLinearRegression(fit_intercept=False),
+                  random_state=123)
+        est.fit(Y, T, X=X, W=W)
+        est.summary()
+        est.coef__inference().summary_frame()
+        assert est.coef__inference().stderr is not None
+        est.intercept__inference().summary_frame()
+        assert est.intercept__inference().stderr is not None
+        est.effect_inference(X).summary_frame()
+        assert est.effect_inference(X).stderr is not None
+        est.effect_inference(X).population_summary()
+        est.const_marginal_effect_inference(X).summary_frame()
+        assert est.const_marginal_effect_inference(X).stderr is not None
+        est.marginal_effect_inference(T, X).summary_frame()
+        assert est.marginal_effect_inference(T, X).stderr is not None
+
+        est = NonParamDML(model_y=LinearRegression(),
+                          model_t=LinearRegression(),
+                          model_final=DebiasedLasso(),
+                          random_state=123)
+        est.fit(Y, T, X=X, W=W)
+        est.effect_inference(X).summary_frame()
+        assert est.effect_inference(X).stderr is not None
+        est.effect_inference(X).population_summary()
+        est.const_marginal_effect_inference(X).summary_frame()
+        assert est.const_marginal_effect_inference(X).stderr is not None
+        est.marginal_effect_inference(T, X).summary_frame()
+        assert est.marginal_effect_inference(T, X).stderr is not None
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):
