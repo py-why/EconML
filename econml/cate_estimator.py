@@ -183,9 +183,51 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         pass
 
     def ate(self, X=None, *, T0, T1):
+        """
+        Calculate the average treatment effect :math:`E_X[\\tau(X, T0, T1)]`.
+
+        The effect is calculated between the two treatment points and is averaged over
+        the population of X variables.
+
+        Parameters
+        ----------
+        T0: (m, d_t) matrix or vector of length m
+            Base treatments for each sample
+        T1: (m, d_t) matrix or vector of length m
+            Target treatments for each sample
+        X: optional (m, d_x) matrix
+            Features for each sample
+
+        Returns
+        -------
+        τ: float or (d_y,) array
+            Average treatment effects on each outcome
+            Note that when Y is a vector rather than a 2-dimensional array, the result will be a scalar
+        """
         return np.mean(self.effect(X=X, T0=T0, T1=T1), axis=0)
 
     def marginal_ate(self, T, X=None):
+        """
+        Calculate the average marginal effect :math:`E_{T, X}[\\partial\\tau(T, X)]`.
+
+        The marginal effect is calculated around a base treatment
+        point and averaged over the population of X.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix
+            Features for each sample
+
+        Returns
+        -------
+        grad_tau: (d_y, d_t) array
+            Average marginal effects on each outcome
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
         return np.mean(self.marginal_effect(T, X=X), axis=0)
 
     def _expand_treatments(self, X=None, *Ts):
@@ -312,20 +354,97 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     @_defer_to_inference
     def ate_interval(self, X=None, *, T0, T1, alpha=0.1):
+        """ Confidence intervals for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`ate(X, T0, T1)<ate>`, type of :meth:`ate(X, T0, T1))<ate>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
         pass
 
     @_defer_to_inference
-    def ate_inference(self, X=None, *, T0, T1, alpha=0.1, value=0, decimals=3,
-                      output_names=None, treatment_names=None):
+    def ate_inference(self, X=None, *, T0, T1):
+        """ Inference results for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+
+        Returns
+        -------
+        PopulationSummaryResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
         pass
 
     @_defer_to_inference
     def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`marginal_ate(T, X)<marginal_ate>`, \
+                             type of :meth:`marginal_ate(T, X)<marginal_ate>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
         pass
 
     @_defer_to_inference
-    def marginal_ate_inference(self, T, X=None, *, alpha=0.1, value=0, decimals=3,
-                               output_names=None, treatment_names=None):
+    def marginal_ate_inference(self, T, X=None):
+        """ Inference results for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        PopulationSummaryResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
         pass
 
 
@@ -440,9 +559,6 @@ class LinearCateEstimator(BaseCateEstimator):
         return cme_inf
     marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
-    def const_marginal_ate(self, X=None):
-        return np.mean(self.const_marginal_effect(X=X), axis=0)
-
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\theta(X)` produced
@@ -485,13 +601,65 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         pass
 
+    def const_marginal_ate(self, X=None):
+        """
+        Calculate the average constant marginal CATE :math:`E_X[\\theta(X)]`.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
+
+        Returns
+        -------
+        theta: (d_y, d_t) matrix
+            Average constant marginal CATE of each treatment on each outcome.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
+        return np.mean(self.const_marginal_effect(X=X), axis=0)
+
     @BaseCateEstimator._defer_to_inference
     def const_marginal_ate_interval(self, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`E_X[\\theta(X)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`const_marginal_ate(X)<const_marginal_ate>` ,\
+                             type of :meth:`const_marginal_ate(X)<const_marginal_ate>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def const_marginal_ate_inference(self, X=None, *, alpha=0.1, value=0, decimals=3,
-                                     output_names=None, treatment_names=None):
+    def const_marginal_ate_inference(self, X=None):
+        """ Inference results for the quantities :math:`E_X[\\theta(X)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        PopulationSummaryResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
         pass
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
@@ -564,10 +732,8 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         return super().ate_interval(self, X=X, T0=T0, T1=T1, alpha=alpha)
     ate_interval.__doc__ = BaseCateEstimator.ate_interval.__doc__
 
-    def ate_inference(self, X=None, *, T0=0, T1=1, alpha=0.1, value=0, decimals=3,
-                      output_names=None, treatment_names=None):
-        return super().ate_inference(X=X, T0=T0, T1=T1, alpha=alpha, value=value, decimals=decimals,
-                                     output_names=output_names, treatment_names=treatment_names)
+    def ate_inference(self, X=None, *, T0=0, T1=1):
+        return super().ate_inference(X=X, T0=T0, T1=T1)
     ate_inference.__doc__ = BaseCateEstimator.ate_inference.__doc__
 
 

@@ -38,32 +38,20 @@ class Inference(metaclass=abc.ABCMeta):
     def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
         return self.effect_inference(X=X, T0=T0, T1=T1).population_summary(alpha=alpha).conf_int_mean()
 
-    def ate_inference(self, X=None, *, T0=0, T1=1, alpha=0.1, value=0, decimals=3,
-                      output_names=None, treatment_names=None):
-        return self.effect_inference(X=X, T0=T0, T1=T1).population_summary(alpha=alpha, value=value,
-                                                                           decimals=decimals,
-                                                                           output_names=output_names,
-                                                                           treatment_names=treatment_names)
+    def ate_inference(self, X=None, *, T0=0, T1=1):
+        return self.effect_inference(X=X, T0=T0, T1=T1).population_summary()
 
     def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
         return self.marginal_effect_inference(T, X=X).population_summary(alpha=alpha).conf_int_mean()
 
-    def marginal_ate_inference(self, T, X=None, *, alpha=0.1, value=0, decimals=3,
-                               output_names=None, treatment_names=None):
-        return self.marginal_effect_inference(T, X=X).population_summary(alpha=alpha, value=value,
-                                                                         decimals=decimals,
-                                                                         output_names=output_names,
-                                                                         treatment_names=treatment_names)
+    def marginal_ate_inference(self, T, X=None):
+        return self.marginal_effect_inference(T, X=X).population_summary()
 
     def const_marginal_ate_interval(self, X=None, *, alpha=0.1):
         return self.const_marginal_effect_inference(X=X).population_summary(alpha=alpha).conf_int_mean()
 
-    def const_marginal_ate_inference(self, X=None, *, alpha=0.1, value=0, decimals=3,
-                                     output_names=None, treatment_names=None):
-        return self.const_marginal_effect_inference(X=X).population_summary(alpha=alpha, value=value,
-                                                                            decimals=decimals,
-                                                                            output_names=output_names,
-                                                                            treatment_names=treatment_names)
+    def const_marginal_ate_inference(self, X=None):
+        return self.const_marginal_effect_inference(X=X).population_summary()
 
 
 class BootstrapInference(Inference):
@@ -1162,7 +1150,7 @@ class PopulationSummaryResults:
         """
         return np.sqrt(self.stderr_mean**2 + self.std_point**2)
 
-    def conf_int_point(self, *, alpha=None):
+    def conf_int_point(self, *, alpha=None, tol=None):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
 
@@ -1175,12 +1163,17 @@ class PopulationSummaryResults:
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         alpha = self.alpha if alpha is None else alpha
-        lower_ci_point = np.array([self._mixture_ppf(alpha / 2, self.pred, self.pred_stderr, self.tol)])
-        upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, self.tol)])
+        tol = self.tol if tol is None else tol
+        lower_ci_point = np.array([self._mixture_ppf(alpha / 2, self.pred, self.pred_stderr, tol)])
+        upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, tol)])
         return np.array([lower_ci_point]) if np.isscalar(lower_ci_point) else lower_ci_point,\
             np.array([upper_ci_point]) if np.isscalar(upper_ci_point) else upper_ci_point
 
-    def print(self):
+    def summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
+        return self.print(alpha=alpha, value=value, decimals=decimals,
+                          tol=tol, output_names=output_names, treatment_names=treatment_names)
+
+    def print(self, *, alpha=None, value=None, decimals=None, tol=None, output_names=None, treatment_names=None):
         """
         Output the summary inferences above.
 
@@ -1190,19 +1183,25 @@ class PopulationSummaryResults:
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
         """
+        alpha = self.alpha if alpha is None else alpha
+        value = self.value if value is None else value
+        decimals = self.decimals if decimals is None else decimals
+        tol = self.tol if tol is None else tol
+        treatment_names = self.treatment_names if treatment_names is None else treatment_names
+        output_names = self.output_names if output_names is None else output_names
 
         # 1. Uncertainty of Mean Point Estimate
-        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, self.decimals)
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, self.decimals)))
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.zstat(), self.decimals)))
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue(), self.decimals)))
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean()[0], self.decimals)))
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean()[1], self.decimals)))
+        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, decimals)
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, decimals)))
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.zstat(value=value), decimals)))
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue(value=value), decimals)))
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.conf_int_mean(alpha=alpha)[0], decimals)))
+        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.conf_int_mean(alpha=alpha)[1], decimals)))
 
-        treatment_names = self.treatment_names
         if treatment_names is None:
             treatment_names = ['T' + str(i) for i in range(self.d_t)]
-        output_names = self.output_names
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(self.d_y)]
 
@@ -1214,9 +1213,11 @@ class PopulationSummaryResults:
         text1 = "Note: The stderr_mean is a conservative upper bound."
 
         # 2. Distribution of Point Estimate
-        res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, self.decimals)
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point()[0], self.decimals)))
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point()[1], self.decimals)))
+        res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, decimals)
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.percentile_point(alpha=alpha)[0], decimals)))
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.percentile_point(alpha=alpha)[1], decimals)))
         metric_name2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
         myheaders2 = [name + '\n' + tname for name in metric_name2 for tname in treatment_names
                       ] if self.d_t > 1 else [name for name in metric_name2]
@@ -1224,11 +1225,11 @@ class PopulationSummaryResults:
         title2 = "Distribution of Point Estimate"
 
         # 3. Total Variance of Point Estimate
-        res3 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, self.decimals)
+        res3 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, decimals)
         res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
-                                                     self.conf_int_point()[0], self.decimals)))
+                                                     self.conf_int_point(alpha=alpha, tol=tol)[0], decimals)))
         res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
-                                                     self.conf_int_point()[1], self.decimals)))
+                                                     self.conf_int_point(alpha=alpha, tol=tol)[1], decimals)))
         metric_name3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
         myheaders3 = [name + '\n' + tname for name in metric_name3 for tname in treatment_names
                       ] if self.d_t > 1 else [name for name in metric_name3]
