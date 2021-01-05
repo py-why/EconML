@@ -1094,13 +1094,16 @@ class PopulationSummaryResults:
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         alpha = self.alpha if alpha is None else alpha
-        return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
-                                           [self.stderr_mean] if np.isscalar(self.stderr_mean)
-                                           else self.stderr_mean)]),\
-            np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                      for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
-                                        [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)])
+        mean_point = self.mean_point
+        stderr_mean = self.stderr_mean
+        if np.isscalar(mean_point):
+            return (_safe_norm_ppf(alpha / 2, loc=mean_point, scale=stderr_mean),
+                    _safe_norm_ppf(1 - alpha / 2, loc=mean_point, scale=stderr_mean))
+        else:
+            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                             for p, err in zip(mean_point, stderr_mean)]),\
+                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                          for p, err in zip(mean_point, stderr_mean)])
 
     @property
     def std_point(self):
@@ -1132,8 +1135,7 @@ class PopulationSummaryResults:
         alpha = self.alpha if alpha is None else alpha
         lower_percentile_point = np.percentile(self.pred, (alpha / 2) * 100, axis=0)
         upper_percentile_point = np.percentile(self.pred, (1 - alpha / 2) * 100, axis=0)
-        return np.array([lower_percentile_point]) if np.isscalar(lower_percentile_point) else lower_percentile_point, \
-            np.array([upper_percentile_point]) if np.isscalar(upper_percentile_point) else upper_percentile_point
+        return lower_percentile_point, upper_percentile_point
 
     @property
     def stderr_point(self):
@@ -1166,8 +1168,7 @@ class PopulationSummaryResults:
         tol = self.tol if tol is None else tol
         lower_ci_point = np.array([self._mixture_ppf(alpha / 2, self.pred, self.pred_stderr, tol)])
         upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, tol)])
-        return np.array([lower_ci_point]) if np.isscalar(lower_ci_point) else lower_ci_point,\
-            np.array([upper_ci_point]) if np.isscalar(upper_ci_point) else upper_ci_point
+        return lower_ci_point, upper_ci_point
 
     def summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
         return self.print(alpha=alpha, value=value, decimals=decimals,

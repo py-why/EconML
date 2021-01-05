@@ -729,7 +729,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     ate.__doc__ = BaseCateEstimator.ate.__doc__
 
     def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
-        return super().ate_interval(self, X=X, T0=T0, T1=T1, alpha=alpha)
+        return super().ate_interval(X=X, T0=T0, T1=T1, alpha=alpha)
     ate_interval.__doc__ = BaseCateEstimator.ate_interval.__doc__
 
     def ate_inference(self, X=None, *, T0=0, T1=1):

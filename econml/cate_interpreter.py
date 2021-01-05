@@ -13,6 +13,7 @@ from ._tree_exporter import _CateTreeDOTExporter, _CateTreeMPLExporter, _PolicyT
 class _SingleTreeInterpreter(metaclass=abc.ABCMeta):
 
     tree_model = None
+    node_dict = None
 
     @abc.abstractmethod
     def interpret(self, cate_estimator, X):
@@ -156,7 +157,7 @@ class _SingleTreeInterpreter(metaclass=abc.ABCMeta):
             exporter = self._make_dot_exporter(out_file=out_file, feature_names=feature_names, filled=filled,
                                                leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
                                                special_characters=special_characters, precision=precision)
-            exporter.export(self.tree_model)
+            exporter.export(self.tree_model, node_dict=self.node_dict)
 
             if return_string:
                 return out_file.getvalue()
@@ -249,7 +250,7 @@ class _SingleTreeInterpreter(metaclass=abc.ABCMeta):
         check_is_fitted(self.tree_model, 'tree_')
         exporter = self._make_mpl_exporter(title=title, feature_names=feature_names, filled=filled,
                                            rounded=rounded, precision=precision, fontsize=fontsize)
-        exporter.export(self.tree_model, ax=ax)
+        exporter.export(self.tree_model, node_dict=self.node_dict, ax=ax)
 
 
 class SingleTreeCateInterpreter(_SingleTreeInterpreter):
@@ -261,7 +262,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
     include_uncertainty : bool, optional, default False
         Whether to include confidence interval information when building a
         simplified model of the cate model. If set to True, then
-        cate estimator needs to support the `effect_interval` method.
+        cate estimator needs to support the `const_marginal_ate_inference` method.
 
     uncertainty_level : double, optional, default .05
         The uncertainty level for the confidence intervals to be constructed
@@ -370,20 +371,22 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
                                                 min_impurity_decrease=self.min_impurity_decrease)
         y_pred = cate_estimator.const_marginal_effect(X)
 
-        assert all(d == 1 for d in y_pred.shape[1:]), ("Interpretation is only available for "
-                                                       "single-dimensional treatments and outcomes")
-
-        if y_pred.ndim != 2:
-            y_pred = y_pred.reshape(-1, 1)
-
-        if self.include_uncertainty:
-            y_lower, y_upper = cate_estimator.const_marginal_effect_interval(X, alpha=self.uncertainty_level)
-            if y_lower.ndim != 2:
-                y_lower = y_lower.reshape(-1, 1)
-                y_upper = y_upper.reshape(-1, 1)
-            y_pred = np.hstack([y_pred, y_lower, y_upper])
-        self.tree_model.fit(X, y_pred)
-
+        self.tree_model.fit(X, y_pred.reshape((y_pred.shape[0], -1)))
+        paths = self.tree_model.decision_path(X[:, :4])
+        node_dict = {}
+        for node_id in range(paths.shape[1]):
+            mask = paths.getcol(node_id).toarray().flatten().astype(bool)
+            Xsub = X[mask]
+            if self.include_uncertainty:
+                res = cate_estimator.const_marginal_ate_inference(Xsub)
+                node_dict[node_id] = {'mean': res.mean_point,
+                                      'std': res.std_point,
+                                      'ci': res.conf_int_mean(alpha=self.uncertainty_level)}
+            else:
+                cate_node = y_pred[mask]
+                node_dict[node_id] = {'mean': np.mean(cate_node, axis=0),
+                                      'std': np.std(cate_node, axis=0)}
+        self.node_dict = node_dict
         return self
 
     def _make_dot_exporter(self, *, out_file, feature_names, filled,
