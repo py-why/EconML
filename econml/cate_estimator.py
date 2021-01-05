@@ -182,6 +182,12 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         pass
 
+    def ate(self, X=None, *, T0, T1):
+        return np.mean(self.effect(X=X, T0=T0, T1=T1), axis=0)
+
+    def marginal_ate(self, T, X=None):
+        return np.mean(self.marginal_effect(T, X=X), axis=0)
+
     def _expand_treatments(self, X=None, *Ts):
         """
         Given a set of features and treatments, return possibly modified features and treatments.
@@ -304,6 +310,24 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         pass
 
+    @_defer_to_inference
+    def ate_interval(self, X=None, *, T0, T1, alpha=0.1):
+        pass
+
+    @_defer_to_inference
+    def ate_inference(self, X=None, *, T0, T1, alpha=0.1, value=0, decimals=3,
+                      output_names=None, treatment_names=None):
+        pass
+
+    @_defer_to_inference
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+        pass
+
+    @_defer_to_inference
+    def marginal_ate_inference(self, T, X=None, *, alpha=0.1, value=0, decimals=3,
+                               output_names=None, treatment_names=None):
+        pass
+
 
 class LinearCateEstimator(BaseCateEstimator):
     """Base class for all CATE estimators with linear treatment effects in this package."""
@@ -416,6 +440,9 @@ class LinearCateEstimator(BaseCateEstimator):
         return cme_inf
     marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
+    def const_marginal_ate(self, X=None):
+        return np.mean(self.const_marginal_effect(X=X), axis=0)
+
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
         """ Confidence intervals for the quantities :math:`\\theta(X)` produced
@@ -456,6 +483,15 @@ class LinearCateEstimator(BaseCateEstimator):
             can on demand calculate confidence interval, z statistic and p value. It can also output
             a dataframe summary of these inference results.
         """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def const_marginal_ate_interval(self, X=None, *, alpha=0.1):
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def const_marginal_ate_inference(self, X=None, *, alpha=0.1, value=0, decimals=3,
+                                     output_names=None, treatment_names=None):
         pass
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
@@ -519,6 +555,20 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         # NOTE: don't explicitly expand treatments here, because it's done in the super call
         return super().effect(X, T0=T0, T1=T1)
     effect.__doc__ = BaseCateEstimator.effect.__doc__
+
+    def ate(self, X=None, *, T0=0, T1=1):
+        return super().ate(X=X, T0=T0, T1=T1)
+    ate.__doc__ = BaseCateEstimator.ate.__doc__
+
+    def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        return super().ate_interval(self, X=X, T0=T0, T1=T1, alpha=alpha)
+    ate_interval.__doc__ = BaseCateEstimator.ate_interval.__doc__
+
+    def ate_inference(self, X=None, *, T0=0, T1=1, alpha=0.1, value=0, decimals=3,
+                      output_names=None, treatment_names=None):
+        return super().ate_inference(X=X, T0=T0, T1=T1, alpha=alpha, value=value, decimals=decimals,
+                                     output_names=output_names, treatment_names=treatment_names)
+    ate_inference.__doc__ = BaseCateEstimator.ate_inference.__doc__
 
 
 class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
