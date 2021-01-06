@@ -122,6 +122,9 @@ class GenericModelFinalInference(Inference):
         if hasattr(self.model_final, 'prediction_stderr'):
             pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)),
                                                         self._d_t, self._d_y)
+        else:
+            warn("Final model doesn't have a `prediction_stderr` method, "
+                 "only point estimates will be returned.")
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, inf_type='effect', **self._input_names)
 
