@@ -154,7 +154,7 @@ cdef class Splitter:
         for i in range(np_samples.shape[0]):
             ind = np_samples[i]
             # Only work with positively weighted samples
-            if sample_weight == NULL or sample_weight[ind] != 0.0:
+            if sample_weight == NULL or sample_weight[ind] > 0.0:
                 samples[j] = ind
                 j += 1
 
@@ -424,14 +424,14 @@ cdef class BestSplitter(Splitter):
             n_visited_features += 1
 
             # Loop invariant: elements of features in
-            # - [:n_drawn_constant[ holds drawn and known constant features;
-            # - [n_drawn_constant:n_known_constant[ holds known constant
+            # - [0, n_drawn_constant) holds drawn and known constant features;
+            # - [n_drawn_constant, n_known_constant) holds known constant
             #   features that haven't been drawn yet;
-            # - [n_known_constant:n_total_constant[ holds newly found constant
+            # - [n_known_constant, n_total_constant) holds newly found constant
             #   features;
-            # - [n_total_constant:f_i[ holds features that haven't been drawn
+            # - [n_total_constant, f_i) holds features that haven't been drawn
             #   yet and aren't constant apriori.
-            # - [f_i:n_features[ holds features that have been drawn
+            # - [f_i, n_features) holds features that have been drawn
             #   and aren't constant.
 
 

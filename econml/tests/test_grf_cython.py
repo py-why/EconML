@@ -296,12 +296,3 @@ class TestGRFCython(unittest.TestCase):
                     matinv(np.asfortranarray(A), ours)
                     true = np.linalg.inv(A)
                     np.testing.assert_allclose(ours, true, atol=.00001, rtol=.0)
-
-
-if __name__ == "__main__":
-    TestGRFCython().test_honest_dishonest_equivalency()
-    TestGRFCython().test_honest_tree()
-    TestGRFCython().test_dishonest_tree()
-    TestGRFCython().test_min_var_leaf()
-    TestGRFCython().test_fast_eigv()
-    TestGRFCython().test_linalg()

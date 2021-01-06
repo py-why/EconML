@@ -23,6 +23,7 @@ np.import_array()
 
 
 cdef inline UINT32_t DEFAULT_SEED = 1
+cdef inline double LN_TWO = ln(2.0)
 
 # =============================================================================
 # Helper functions
@@ -91,7 +92,7 @@ cdef inline double rand_uniform(double low, double high,
 
 
 cdef inline double log(double x) nogil:
-    return ln(x) / ln(2.0)
+    return ln(x) / LN_TWO
 
 
 # =============================================================================

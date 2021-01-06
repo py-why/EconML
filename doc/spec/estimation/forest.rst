@@ -69,7 +69,7 @@ the heterogeneous treatment effect :math:`\theta(X)`, on a lower dimensional set
 Moreover, the estimates are asymptotically normal and hence have theoretical properties
 that render bootstrap based confidence intervals asymptotically valid.
 
-In the case of continuous treatments (see :class:`.DMLOrthoForest`) the method estimates :math:`\theta(x)`
+For continuous or discrete treatments (see :class:`.DMLOrthoForest`) the method estimates :math:`\theta(x)`
 for some target :math:`x` by solving the same set of moment equations as the ones used in the Double Machine Learning
 framework, albeit, it tries to solve them locally for every possible :math:`X=x`. The method makes the following
 structural equations assumptions on the data generating process:
@@ -257,7 +257,11 @@ Then the criterion implicit in the reduction is the weighted mean squared error,
 where :math:`Var_n`, denotes the empirical variance. Essentially, this criterion tries to maximize heterogeneity
 (as captured by maximizing the sum of squares of the two estimates), while penalizing splits that create nodes
 with small variation in the treatment. On the contrary the criterion proposed in [Athey2019]_ ignores the within
-child variation of the treatment and solely maximizes the hetergoeneity, i.e. :math:`\max_{S_1, S_2} \theta_1^2 + \theta_2^2`.
+child variation of the treatment and solely maximizes the hetergoeneity, i.e.
+
+.. math::
+
+    \max_{S_1, S_2} \theta_1^2 + \theta_2^2
 
 For more details on Double Machine Learning and how the :class:`.CausalForestDML` fits into our overall
 set of DML based CATE estimators, check out the :ref:`Double Machine Learning User Guide <dmluserguide>`.
@@ -302,7 +306,7 @@ Class Hierarchy Structure
 .. inheritance-diagram:: econml.ortho_forest.DMLOrthoForest econml.ortho_forest.DROrthoForest econml.drlearner.ForestDRLearner econml.dml.CausalForestDML
         :parts: 1
         :private-bases:
-        :top-classes: econml._ortho_learner._OrthoLearner, econml.ortho_forest.BaseOrthoForest, econml.cate_estimator.LinearCateEstimator
+        :top-classes: econml._ortho_learner._OrthoLearner, econml.ortho_forest.BaseOrthoForest, econml._cate_estimator.LinearCateEstimator
 
 
 Usage Examples

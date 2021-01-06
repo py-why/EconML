@@ -1,7 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-# %%
 import unittest
 import pytest
 import pickle
@@ -1053,9 +1052,3 @@ class TestDML(unittest.TestCase):
         est = LinearDML(n_splits=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, groups=groups)
-
-
-if __name__ == "__main__":
-    TestDML().test_forest_dml_perf()
-
-# %%

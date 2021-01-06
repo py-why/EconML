@@ -688,18 +688,3 @@ class TestGRFPython(unittest.TestCase):
             np.testing.assert_allclose(imps[0, :], imps[1, :])
 
         return
-
-
-if __name__ == "__main__":
-    TestGRFPython().test_multioutput()
-    TestGRFPython().test_warm_start()
-    TestGRFPython().test_raise_exceptions()
-    TestGRFPython().test_non_standard_input()
-    TestGRFPython().test_feature_importances()
-    TestGRFPython().test_projection()
-    TestGRFPython().test_var()
-    TestGRFPython().test_causal_tree()
-    TestGRFPython().test_min_var_leaf()
-    TestGRFPython().test_iv_tree()
-    TestGRFPython().test_regression_tree_internals()
-    TestGRFPython().test_subsampling()

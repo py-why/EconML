@@ -49,11 +49,11 @@ from sklearn.utils import check_random_state
 import copy
 
 from ._rlearner import _RLearner
-from ..cate_estimator import (DebiasedLassoCateEstimatorMixin,
-                              ForestModelFinalCateEstimatorMixin,
-                              LinearModelFinalCateEstimatorMixin,
-                              StatsModelsCateEstimatorMixin,
-                              LinearCateEstimator)
+from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
+                               ForestModelFinalCateEstimatorMixin,
+                               LinearModelFinalCateEstimatorMixin,
+                               StatsModelsCateEstimatorMixin,
+                               LinearCateEstimator)
 from ..inference import StatsModelsInference
 from ..sklearn_extensions.ensemble import SubsampledHonestForest
 from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
@@ -65,7 +65,7 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          cross_product, deprecated, fit_with_groups,
                          hstack, inverse_onehot, ndim, reshape,
                          reshape_treatmentwise_effects, shape, transpose)
-from ..shap import _shap_explain_model_cate
+from .._shap import _shap_explain_model_cate
 
 
 class _FirstStageWrapper:

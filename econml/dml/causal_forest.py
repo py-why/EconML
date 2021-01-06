@@ -13,8 +13,8 @@ from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
 from ..utilities import add_intercept, shape, check_inputs, _deprecate_positional
 from ..grf import CausalForest, MultiOutputGRF
-from ..cate_estimator import LinearCateEstimator
-from ..shap import _shap_explain_multitask_model_cate
+from .._cate_estimator import LinearCateEstimator
+from .._shap import _shap_explain_multitask_model_cate
 
 
 class _CausalForestFinalWrapper(_FinalWrapper):

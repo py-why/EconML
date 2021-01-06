@@ -25,6 +25,13 @@ Tsiatis AA (2006).
     Semiparametric Theory and Missing Data.
     New York: Springer; 2006.
 
+.. testcode::
+    :hide:
+
+    import numpy as np
+    import scipy.special
+    np.set_printoptions(suppress=True)
+
 """
 
 from warnings import warn
@@ -37,9 +44,9 @@ from sklearn.linear_model import (LassoCV, LinearRegression,
 from sklearn.ensemble import RandomForestRegressor
 
 from ._ortho_learner import _OrthoLearner
-from .cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin,
-                             ForestModelFinalCateEstimatorDiscreteMixin,
-                             StatsModelsCateEstimatorDiscreteMixin, LinearCateEstimator)
+from ._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin,
+                              ForestModelFinalCateEstimatorDiscreteMixin,
+                              StatsModelsCateEstimatorDiscreteMixin, LinearCateEstimator)
 from .inference import GenericModelFinalInferenceDiscrete
 from .grf import RegressionForest
 from .sklearn_extensions.linear_model import (
@@ -273,11 +280,8 @@ class DRLearner(_OrthoLearner):
 
     .. testcode::
 
-        import numpy as np
-        import scipy.special
         from econml.drlearner import DRLearner
 
-        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
@@ -316,13 +320,10 @@ class DRLearner(_OrthoLearner):
 
     .. testcode::
 
-        import scipy.special
-        import numpy as np
         from sklearn.linear_model import LassoCV
         from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
         from econml.drlearner import DRLearner
 
-        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
@@ -1203,8 +1204,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         if criterion != 'deprecated':
             warn("The parameter 'criterion' has been deprecated and will be removed in the next version. "
                  "Only the 'mse' criterion is supported.")
-        if max_leaf_nodes != 'deprecated':
-            warn("The parameter 'max_leaf_nodes' has been deprecated and will be removed in the next version.")
         if max_leaf_nodes != 'deprecated':
             warn("The parameter 'max_leaf_nodes' has been deprecated and will be removed in the next version.")
         if subsample_fr != 'deprecated':

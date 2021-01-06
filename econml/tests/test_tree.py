@@ -295,11 +295,3 @@ class TestTree(unittest.TestCase):
         X_test[:, 0] = np.linspace(np.percentile(X, 10), np.percentile(X, 90), 100)
         y_test = 1.0 * X_test[:, [0]] * (X_test[:, [0]] > 0)
         np.testing.assert_array_almost_equal(tree.predict(X_test), y_test, decimal=1)
-
-
-if __name__ == "__main__":
-    TestTree().test_honest_tree()
-    TestTree().test_dishonest_tree()
-    TestTree().test_multivariable_split()
-    TestTree().test_honest_values()
-    TestTree().test_noisy_instance()

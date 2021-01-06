@@ -24,8 +24,8 @@ Private Module Reference
     :toctree: _autosummary
 
     econml._ortho_learner
-    econml.cate_estimator
-    econml.causal_tree
+    econml._cate_estimator
+    econml._causal_tree
     econml.dml._rlearner
     econml.grf._base_grf
     econml.grf._base_grftree

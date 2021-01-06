@@ -45,11 +45,9 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
         max_deviations.append(max_deviation)
         # Reseed random generator and try again
         kfold_model.shuffle = True
-        if kfold_model.random_state is None:
-            kfold_model.random_state = None
-        elif isinstance(kfold_model, numbers.Integral):
+        if isinstance(kfold_model.random_state, numbers.Integral):
             kfold_model.random_state = kfold_model.random_state + 1
-        else:
+        elif kfold_model.random_state is not None:
             kfold_model.random_state = np.random.RandomState(kfold_model.random_state.randint(np.iinfo(np.int32).max))
 
     # If KFold fails after n_trials, we try the next best thing: stratifying by weight groups
@@ -378,6 +376,9 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     # independent, and that it is pickle-able.
     parallel = Parallel(n_jobs=n_jobs, verbose=verbose,
                         pre_dispatch=pre_dispatch)
+    # TODO. The API of the private scikit-learn `_fit_and_predict` has changed
+    # between 0.23.2 and 0.24. For this to work with <0.24, we need to add a
+    # case analysis based on sklearn version.
     predictions = parallel(delayed(_fit_and_predict)(
         clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
         for train, test in splits)

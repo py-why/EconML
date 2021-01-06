@@ -9,7 +9,7 @@ For more details on these CATE methods, see <https://arxiv.org/abs/1706.03461>
 
 import numpy as np
 import warnings
-from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
+from ._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from sklearn import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline

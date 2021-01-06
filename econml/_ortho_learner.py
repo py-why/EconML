@@ -34,8 +34,8 @@ from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
                                    OneHotEncoder)
 from sklearn.utils import check_random_state
 
-from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                             TreatmentExpansionMixin)
+from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
+                              TreatmentExpansionMixin)
 from .utilities import (_deprecate_positional, _EncoderWrapper, check_input_arrays,
                         cross_product, filter_none_kwargs,
                         inverse_onehot, ndim, reshape, shape, transpose)
