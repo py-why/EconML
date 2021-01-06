@@ -14,7 +14,7 @@ from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_param
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
-from .shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
+from ._shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):

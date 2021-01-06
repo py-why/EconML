@@ -46,7 +46,7 @@ from .sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
 from .utilities import (_deprecate_positional, check_high_dimensional,
                         filter_none_kwargs, fit_with_groups, inverse_onehot)
-from .shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
+from ._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
 
 class _ModelNuisance:

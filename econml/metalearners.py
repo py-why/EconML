@@ -17,7 +17,7 @@ from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from .utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
                         inverse_onehot, transpose, _EncoderWrapper, _deprecate_positional)
-from .shap import _shap_explain_model_cate
+from ._shap import _shap_explain_model_cate
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
