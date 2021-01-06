@@ -271,6 +271,11 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         in a leaf have similar target prediction but also similar alpha
         confidence intervals.
 
+    uncertainty_only_on_leaves : bool, optional, default True
+        Whether uncertainty information should be displayed only on leaf nodes.
+        If False, then interpretation can be slightly slower, especially for cate
+        models that have a computationally expensive inference method.
+
     splitter : string, optional, default "best"
         The strategy used to choose the split at each node. Supported
         strategies are "best" to choose the best split and "random" to choose
@@ -336,6 +341,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
     def __init__(self,
                  include_model_uncertainty=False,
                  uncertainty_level=.1,
+                 uncertainty_only_on_leaves=True,
                  splitter="best",
                  max_depth=None,
                  min_samples_split=2,
@@ -347,6 +353,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
                  min_impurity_decrease=0.):
         self.include_uncertainty = include_model_uncertainty
         self.uncertainty_level = uncertainty_level
+        self.uncertainty_only_on_leaves = uncertainty_only_on_leaves
         self.criterion = "mse"
         self.splitter = splitter
         self.max_depth = max_depth
@@ -372,12 +379,13 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         y_pred = cate_estimator.const_marginal_effect(X)
 
         self.tree_model.fit(X, y_pred.reshape((y_pred.shape[0], -1)))
-        paths = self.tree_model.decision_path(X[:, :4])
+        paths = self.tree_model.decision_path(X)
         node_dict = {}
         for node_id in range(paths.shape[1]):
             mask = paths.getcol(node_id).toarray().flatten().astype(bool)
             Xsub = X[mask]
-            if self.include_uncertainty:
+            if (self.include_uncertainty and
+                    ((not self.uncertainty_only_on_leaves) or (self.tree_model.tree_.children_left[node_id] < 0))):
                 res = cate_estimator.const_marginal_ate_inference(Xsub)
                 node_dict[node_id] = {'mean': res.mean_point,
                                       'std': res.std_point,
