@@ -662,6 +662,18 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         pass
 
+    def marginal_ate(self, T, X=None):
+        return self.const_marginal_ate(X=X)
+    marginal_ate.__doc__ = BaseCateEstimator.marginal_ate.__doc__
+
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+        return self.const_marginal_ate_interval(X=X, alpha=alpha)
+    marginal_ate_interval.__doc__ = BaseCateEstimator.marginal_ate_interval.__doc__
+
+    def marginal_ate_inference(self, T, X=None):
+        return self.const_marginal_ate_inference(X=X)
+    marginal_ate_inference.__doc__ = BaseCateEstimator.marginal_ate_inference.__doc__
+
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
         """ Shap value for the final stage models (const_marginal_effect)
 
