@@ -113,13 +113,9 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
         each treatment name (e.g. "T0" when `treatment_names=None`) as key
         and the shap_values explanation object as value.
     """
-    def fall_back():
-        return _shap_explain_cme(cme_model, X, d_t, d_y,
-                                 feature_names=feature_names,
-                                 treatment_names=treatment_names,
-                                 output_names=output_names,
-                                 input_names=input_names,
-                                 background_samples=background_samples)
+    d_t_, d_y_ = d_t, d_y
+    feature_names_, treatment_names_ = feature_names, treatment_names,
+    output_names_, input_names_ = output_names, input_names
     (dt, dy, treatment_names, output_names, feature_names) = _define_names(d_t, d_y, treatment_names, output_names,
                                                                            feature_names, input_names)
     if not isinstance(models, list):
@@ -135,8 +131,13 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
             explainer = shap.Explainer(models[i], background,
                                        feature_names=feature_names)
         except Exception as e:
-            print("Final model can't be parsed, explain const_marginal_effect() instead!")
-            return fall_back()
+            print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
+            return _shap_explain_cme(cme_model, X, d_t_, d_y_,
+                                     feature_names=feature_names_,
+                                     treatment_names=treatment_names_,
+                                     output_names=output_names_,
+                                     input_names=input_names_,
+                                     background_samples=background_samples)
         shap_out = explainer(X)
         if dy > 1:
             for j in range(dy):
@@ -271,13 +272,9 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
         each treatment name (e.g. "T0" when `treatment_names=None`) as key
         and the shap_values explanation object as value.
     """
-    def fall_back():
-        return _shap_explain_cme(cme_model, X, d_t, d_y,
-                                 feature_names=feature_names,
-                                 treatment_names=treatment_names,
-                                 output_names=output_names,
-                                 input_names=input_names,
-                                 background_samples=background_samples)
+    d_t_, d_y_ = d_t, d_y
+    feature_names_, treatment_names_ = feature_names, treatment_names,
+    output_names_, input_names_ = output_names, input_names
     (dt, dy, treatment_names, output_names, feature_names) = _define_names(d_t, d_y, treatment_names, output_names,
                                                                            feature_names, input_names)
     if dy == 1 and (not isinstance(multitask_model_cate, list)):
@@ -292,8 +289,13 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
             explainer = shap.Explainer(multitask_model_cate[j], background,
                                        feature_names=feature_names)
         except Exception as e:
-            print("Final model can't be parsed, explain const_marginal_effect() instead!")
-            return fall_back()
+            print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
+            return _shap_explain_cme(cme_model, X, d_t_, d_y_,
+                                     feature_names=feature_names_,
+                                     treatment_names=treatment_names_,
+                                     output_names=output_names_,
+                                     input_names=input_names_,
+                                     background_samples=background_samples)
 
         shap_out = explainer(X)
         if dt > 1:
