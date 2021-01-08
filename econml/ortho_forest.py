@@ -369,7 +369,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         # Generate subsample indices
         subsample_ind = self._get_blb_indices(X)
         # Build trees in parallel
-        trees = [CausalTree(self.min_leaf_size, self.max_depth, 5000, .5,
+        trees = [CausalTree(self.min_leaf_size, self.max_depth, 1000, .4,
                             check_random_state(self.random_state.randint(MAX_RAND_SEED)))
                  for _ in range(len(subsample_ind))]
         return subsample_ind, Parallel(n_jobs=self.n_jobs, backend=self.backend,
@@ -515,6 +515,9 @@ class DMLOrthoForest(BaseOrthoForest):
 
     verbose : int, optional (default=3)
         Verbosity level
+
+    batch_size : int or 'auto', optional (default='auto')
+        Batch_size of jobs for parallelism
 
     random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
@@ -876,6 +879,9 @@ class DROrthoForest(BaseOrthoForest):
 
     verbose : int, optional (default=3)
         Verbosity level
+
+    batch_size : int or 'auto', optional (default='auto')
+        Batch_size of jobs for parallelism
 
     random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;

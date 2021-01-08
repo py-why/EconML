@@ -8,6 +8,7 @@ class :class:`Node` represents the core unit of the :class:`CausalTree` class.
 """
 
 import numpy as np
+from sklearn.utils import check_random_state
 
 
 class Node:
@@ -102,7 +103,7 @@ class CausalTree:
         self.max_depth = max_depth
         self.balancedness_tol = balancedness_tol
         self.n_proposals = n_proposals
-        self.random_state = random_state
+        self.random_state = check_random_state(random_state)
         # Tree structure
         self.tree = None
 
