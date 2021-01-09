@@ -5,7 +5,7 @@
 
 import numpy as np
 import keras
-from .cate_estimator import BaseCateEstimator
+from ._cate_estimator import BaseCateEstimator
 from .utilities import deprecated
 from keras import backend as K
 import keras.layers as L

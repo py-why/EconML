@@ -9,7 +9,7 @@ from sklearn import clone
 from sklearn.linear_model import LinearRegression
 from .utilities import shape, transpose, reshape, cross_product, ndim, size,\
     _deprecate_positional, check_input_arrays
-from .cate_estimator import BaseCateEstimator, LinearCateEstimator
+from ._cate_estimator import BaseCateEstimator, LinearCateEstimator
 from numpy.polynomial.hermite_e import hermeval
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import PolynomialFeatures

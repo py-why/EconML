@@ -36,8 +36,8 @@ from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
                                    OneHotEncoder)
 from sklearn.utils import check_random_state
 
-from .cate_estimator import (BaseCateEstimator, LinearCateEstimator,
-                             TreatmentExpansionMixin)
+from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
+                              TreatmentExpansionMixin)
 from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, _EncoderWrapper, check_input_arrays,
                         cross_product, filter_none_kwargs,
@@ -265,7 +265,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete

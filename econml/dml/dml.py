@@ -50,23 +50,23 @@ import copy
 
 from ._ortho_learner import _OrthoLearner
 from ._rlearner import _RLearner
-from .cate_estimator import (DebiasedLassoCateEstimatorMixin,
-                             ForestModelFinalCateEstimatorMixin,
-                             LinearModelFinalCateEstimatorMixin,
-                             StatsModelsCateEstimatorMixin,
-                             LinearCateEstimator)
-from .inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
-from .sklearn_extensions.ensemble import SubsampledHonestForest
-from .sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
-                                              StatsModelsLinearRegression,
-                                              WeightedLassoCVWrapper)
-from .sklearn_extensions.model_selection import WeightedStratifiedKFold
-from .utilities import (_deprecate_positional, add_intercept,
-                        broadcast_unit_treatments, check_high_dimensional,
-                        cross_product, deprecated, fit_with_groups,
-                        hstack, inverse_onehot, ndim, reshape,
-                        reshape_treatmentwise_effects, shape, transpose)
-from .shap import _shap_explain_model_cate
+from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
+                               ForestModelFinalCateEstimatorMixin,
+                               LinearModelFinalCateEstimatorMixin,
+                               StatsModelsCateEstimatorMixin,
+                               LinearCateEstimator)
+from ..inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
+from ..sklearn_extensions.ensemble import SubsampledHonestForest
+from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
+                                               StatsModelsLinearRegression,
+                                               WeightedLassoCVWrapper)
+from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
+from ..utilities import (_deprecate_positional, add_intercept,
+                         broadcast_unit_treatments, check_high_dimensional,
+                         cross_product, deprecated, fit_with_groups,
+                         hstack, inverse_onehot, ndim, reshape,
+                         reshape_treatmentwise_effects, shape, transpose)
+from .._shap import _shap_explain_model_cate
 
 
 class _FirstStageWrapper:
@@ -106,6 +106,7 @@ class _FirstStageWrapper:
                             sample_weight=sample_weight)
         else:
             fit_with_groups(self._model, self._combine(X, W, Target.shape[0]), Target, groups=groups)
+        return self
 
     def predict(self, X, W):
         n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
@@ -214,6 +215,7 @@ class _FinalWrapper:
                 self._model.fit(F, target, sample_weight=T_res.flatten()**2)
         else:
             raise AttributeError("This combination is not a feasible one!")
+        return self
 
     def predict(self, X):
         X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),
@@ -422,7 +424,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -473,12 +475,16 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          mc_agg=mc_agg,
                          random_state=random_state)
 
+    def _gen_featurizer(self):
+        return clone(self.featurizer, safe=False)
+
     def _gen_model_y(self):
         if self.model_y == 'auto':
             model_y = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y = clone(self.model_y, safe=False)
-        return _FirstStageWrapper(model_y, True, self.featurizer, self.linear_first_stages, self.discrete_treatment)
+        return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
+                                  self.linear_first_stages, self.discrete_treatment)
 
     def _gen_model_t(self):
         if self.model_t == 'auto':
@@ -489,17 +495,14 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                 model_t = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_t = clone(self.model_t, safe=False)
-        return _FirstStageWrapper(model_t, False, self.featurizer,
+        return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
-
-    def _gen_featurizer(self):
-        return clone(self.featurizer, safe=False)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
 
     def _gen_rlearner_model_final(self):
-        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self.featurizer, False)
+        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
@@ -596,7 +599,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -730,6 +733,18 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         CATE L1 regularization applied through the debiased lasso in the final model.
         'auto' corresponds to a CV form of the :class:`MultiOutputDebiasedLasso`.
 
+    n_alphas : int, optional, default 100
+        How many alphas to try if alpha='auto'
+
+    alpha_cov : string | float, optional, default 'auto'
+        The regularization alpha that is used when constructing the pseudo inverse of
+        the covariance matrix Theta used to for correcting the final state lasso coefficient
+        in the debiased lasso. Each such regression corresponds to the regression of one feature
+        on the remainder of the features.
+
+    n_alphas_cov : int, optional, default 10
+        How many alpha_cov to try if alpha_cov='auto'.
+
     max_iter : int, optional, default=1000
         The maximum number of iterations in the Debiased Lasso
 
@@ -738,6 +753,11 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         smaller than ``tol``, the optimization code checks the
         dual gap for optimality and continues until it is smaller
         than ``tol``.
+
+    n_jobs : int or None, optional (default=None)
+        The number of jobs to run in parallel for both `fit` and `predict`.
+        ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
+        ``-1`` means using all processors.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -764,7 +784,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -791,8 +811,12 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
     def __init__(self, *,
                  model_y='auto', model_t='auto',
                  alpha='auto',
+                 n_alphas=100,
+                 alpha_cov='auto',
+                 n_alphas_cov=10,
                  max_iter=1000,
                  tol=1e-4,
+                 n_jobs=None,
                  featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
@@ -803,8 +827,12 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  mc_agg='mean',
                  random_state=None):
         self.alpha = alpha
+        self.n_alphas = n_alphas
+        self.alpha_cov = alpha_cov
+        self.n_alphas_cov = n_alphas_cov
         self.max_iter = max_iter
         self.tol = tol
+        self.n_jobs = n_jobs
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=None,
@@ -820,9 +848,13 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
     def _gen_model_final(self):
         return MultiOutputDebiasedLasso(alpha=self.alpha,
+                                        n_alphas=self.n_alphas,
+                                        alpha_cov=self.alpha_cov,
+                                        n_alphas_cov=self.n_alphas_cov,
                                         fit_intercept=False,
                                         max_iter=self.max_iter,
                                         tol=self.tol,
+                                        n_jobs=self.n_jobs,
                                         random_state=self.random_state)
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
@@ -943,7 +975,7 @@ class KernelDML(DML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1048,7 +1080,7 @@ class NonParamDML(_BaseDML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1102,22 +1134,22 @@ class NonParamDML(_BaseDML):
         options.update(auto=GenericSingleTreatmentModelFinalInference)
         return options
 
+    def _gen_featurizer(self):
+        return clone(self.featurizer, safe=False)
+
     def _gen_model_y(self):
         return _FirstStageWrapper(clone(self.model_y, safe=False), True,
-                                  self.featurizer, False, self.discrete_treatment)
+                                  self._gen_featurizer(), False, self.discrete_treatment)
 
     def _gen_model_t(self):
         return _FirstStageWrapper(clone(self.model_t, safe=False), False,
-                                  self.featurizer, False, self.discrete_treatment)
-
-    def _gen_featurizer(self):
-        return clone(self.featurizer, safe=False)
+                                  self._gen_featurizer(), False, self.discrete_treatment)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
 
     def _gen_rlearner_model_final(self):
-        return _FinalWrapper(self._gen_model_final(), False, self.featurizer, True)
+        return _FinalWrapper(self._gen_model_final(), False, self._gen_featurizer(), True)
 
     # override only so that we can update the docstring to indicate
     # support for `GenericSingleTreatmentModelFinalInference`
@@ -1163,7 +1195,7 @@ class NonParamDML(_BaseDML):
         return super().refit_final(inference=inference)
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         if self.featurizer_ is not None:
             F = self.featurizer_.transform(X)
         else:
@@ -1172,11 +1204,33 @@ class NonParamDML(_BaseDML):
 
         return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, F, self._d_t, self._d_y,
                                         feature_names=feature_names,
-                                        treatment_names=treatment_names, output_names=output_names)
+                                        treatment_names=treatment_names,
+                                        output_names=output_names,
+                                        input_names=self._input_names,
+                                        background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
-class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
+@deprecated("The ForestDML class has been deprecated by the CausalForestDML with parameter "
+            "`criterion='mse'`; an upcoming release will remove support for the old class")
+def ForestDML(model_y, model_t,
+              discrete_treatment=False,
+              categories='auto',
+              n_crossfit_splits=2,
+              n_estimators=100,
+              criterion="mse",
+              max_depth=None,
+              min_samples_split=2,
+              min_samples_leaf=1,
+              min_weight_fraction_leaf=0.,
+              max_features="auto",
+              max_leaf_nodes=None,
+              min_impurity_decrease=0.,
+              subsample_fr='auto',
+              honest=True,
+              n_jobs=None,
+              verbose=0,
+              random_state=None):
     """ Instance of NonParamDML with a
     :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
     as a final model, so as to enable non-parametric inference.
@@ -1204,7 +1258,7 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1339,181 +1393,22 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
     """
-
-    def __init__(self, *,
-                 model_y, model_t,
-                 featurizer=None,
-                 discrete_treatment=False,
-                 categories='auto',
-                 n_splits=2,
-                 n_crossfit_splits='raise',
-                 mc_iters=None,
-                 mc_agg='mean',
-                 n_estimators=100,
-                 criterion="mse",
-                 max_depth=None,
-                 min_samples_split=2,
-                 min_samples_leaf=1,
-                 min_weight_fraction_leaf=0.,
-                 max_features="auto",
-                 max_leaf_nodes=None,
-                 min_impurity_decrease=0.,
-                 subsample_fr='auto',
-                 honest=True,
-                 n_jobs=None,
-                 verbose=0,
-                 random_state=None):
-        self.n_estimators = n_estimators
-        self.criterion = criterion
-        self.max_depth = max_depth
-        self.min_samples_split = min_samples_split
-        self.min_samples_leaf = min_samples_leaf
-        self.min_weight_fraction_leaf = min_weight_fraction_leaf
-        self.max_features = max_features
-        self.max_leaf_nodes = max_leaf_nodes
-        self.min_impurity_decrease = min_impurity_decrease
-        self.subsample_fr = subsample_fr
-        self.honest = honest
-        self.n_jobs = n_jobs
-        self.verbose = verbose
-        self.n_crossfit_splits = n_crossfit_splits
-        if self.n_crossfit_splits != 'raise':
-            n_splits = self.n_crossfit_splits
-        super().__init__(model_y=model_y,
-                         model_t=model_t,
-                         model_final=None,
-                         featurizer=featurizer,
-                         discrete_treatment=discrete_treatment,
-                         categories=categories,
-                         n_splits=n_splits,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state)
-
-    def _gen_model_final(self):
-        return SubsampledHonestForest(n_estimators=self.n_estimators,
-                                      criterion=self.criterion,
-                                      max_depth=self.max_depth,
-                                      min_samples_split=self.min_samples_split,
-                                      min_samples_leaf=self.min_samples_leaf,
-                                      min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                      max_features=self.max_features,
-                                      max_leaf_nodes=self.max_leaf_nodes,
-                                      min_impurity_decrease=self.min_impurity_decrease,
-                                      subsample_fr=self.subsample_fr,
-                                      honest=self.honest,
-                                      n_jobs=self.n_jobs,
-                                      random_state=self.random_state,
-                                      verbose=self.verbose)
-
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto'):
-        """
-        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
-
-        Parameters
-        ----------
-        Y: (n × d_y) matrix or vector of length n
-            Outcomes for each sample
-        T: (n × dₜ) matrix or vector of length n
-            Treatments for each sample
-        X: optional (n × dₓ) matrix
-            Features for each sample
-        W: optional (n × d_w) matrix
-            Controls for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
-        sample_var: optional (n, n_y) vector
-            Variance of sample, in case it corresponds to summary of many samples. Currently
-            not in use by this method (as inference method does not require sample variance info).
-        groups: (n,) vector, optional
-            All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
-            must support a 'groups' argument to its split method.
-        cache_values: bool, default False
-            Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, `Inference` instance, or None
-            Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of :class:`.BootstrapInference`) and 'blb'
-            (for Bootstrap-of-Little-Bags based inference)
-
-        Returns
-        -------
-        self
-        """
-        return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=None, groups=groups,
-                           cache_values=cache_values,
-                           inference=inference)
-
-    @property
-    def model_final(self):
-        return self._gen_model_final()
-
-    @model_final.setter
-    def model_final(self, model):
-        if model is not None:
-            raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
-
-    @property
-    def n_crossfit_splits(self):
-        return self.n_splits
-
-    @n_crossfit_splits.setter
-    def n_crossfit_splits(self, value):
-        if value != 'raise':
-            warn("Deprecated by parameter `n_splits` and will be removed in next version.")
-        self.n_splits = value
-
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
-        # SubsampleHonestForest can't be recognized by SHAP, but the tree entries are consistent with a tree in
-        # a RandomForestRegressor, modify the class name in order to be identified as tree models.
-        if self.featurizer_ is not None:
-            F = self.featurizer_.transform(X)
-        else:
-            F = X
-        feature_names = self.cate_feature_names(feature_names)
-        model = copy.deepcopy(self.model_cate)
-        model.__class__ = RandomForestRegressor
-        return _shap_explain_model_cate(self.const_marginal_effect, model, X, self._d_t, self._d_y,
-                                        feature_names=feature_names,
-                                        treatment_names=treatment_names, output_names=output_names)
-    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
-
-
-@deprecated("The DMLCateEstimator class has been renamed to DML; "
-            "an upcoming release will remove support for the old name")
-class DMLCateEstimator(DML):
-    pass
-
-
-@deprecated("The LinearDMLCateEstimator class has been renamed to LinearDML; "
-            "an upcoming release will remove support for the old name")
-class LinearDMLCateEstimator(LinearDML):
-    pass
-
-
-@deprecated("The SparseLinearDMLCateEstimator class has been renamed to SparseLinearDML; "
-            "an upcoming release will remove support for the old name")
-class SparseLinearDMLCateEstimator(SparseLinearDML):
-    pass
-
-
-@deprecated("The KernelDMLCateEstimator class has been renamed to KernelDML; "
-            "an upcoming release will remove support for the old name")
-class KernelDMLCateEstimator(KernelDML):
-    pass
-
-
-@deprecated("The NonParamDMLCateEstimator class has been renamed to NonParamDML; "
-            "an upcoming release will remove support for the old name")
-class NonParamDMLCateEstimator(NonParamDML):
-    pass
-
-
-@deprecated("The ForestDMLCateEstimator class has been renamed to ForestDML; "
-            "an upcoming release will remove support for the old name")
-class ForestDMLCateEstimator(ForestDML):
-    pass
+    from . import CausalForestDML
+    return CausalForestDML(model_y=model_y,
+                           model_t=model_t,
+                           discrete_treatment=discrete_treatment,
+                           categories=categories,
+                           n_crossfit_splits=n_crossfit_splits,
+                           n_estimators=n_estimators,
+                           criterion="mse",
+                           max_depth=max_depth,
+                           min_samples_split=min_samples_split,
+                           min_samples_leaf=min_samples_leaf,
+                           min_weight_fraction_leaf=min_weight_fraction_leaf,
+                           max_features=max_features,
+                           min_impurity_decrease=min_impurity_decrease,
+                           max_samples=.45 if subsample_fr == 'auto' else subsample_fr / 2,
+                           honest=honest,
+                           n_jobs=n_jobs,
+                           verbose=verbose,
+                           random_state=random_state)

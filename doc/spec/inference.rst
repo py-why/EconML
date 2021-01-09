@@ -110,16 +110,16 @@ Subsampled Honest Forest Inference
 
 For estimators where the final stage CATE estimate is a non-parametric model based on a Random Forest, we offer
 confidence intervals via the bootstrap-of-little-bags approach (see [Athey2019]_) for estimating the uncertainty of
-an Honest Random Forest. This for instance holds for the :class:`.ForestDML`
+an Honest Random Forest. This for instance holds for the :class:`.CausalForestDML`
 and the :class:`.ForestDRLearner`. Such intervals are enabled by leaving inference at its default setting of ``'auto'``
 or by explicitly setting ``inference='blb'``, e.g.:
 
 .. testcode::
 
-    from econml.dml import ForestDML
+    from econml.dml import CausalForestDML
     from sklearn.ensemble import RandomForestRegressor
-    est = ForestDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
-                                 model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
+    est = CausalForestDML(model_y=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
+                          model_t=RandomForestRegressor(n_estimators=10, min_samples_leaf=10))
     est.fit(y, t, X=X, W=W)
     point = est.const_marginal_effect(X)
     lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)
@@ -141,19 +141,19 @@ This inference is enabled by our implementation of the :class:`.SubsampledHonest
 OrthoForest Bootstrap of Little Bags Inference
 ==============================================
 
-For the Orthogonal Random Forest estimators (see :class:`.ContinuousTreatmentOrthoForest`, :class:`.DiscreteTreatmentOrthoForest`), 
+For the Orthogonal Random Forest estimators (see :class:`.DMLOrthoForest`, :class:`.DROrthoForest`), 
 we provide confidence intervals built via the bootstrap-of-little-bags approach ([Athey2019]_). This technique is well suited for
 estimating the uncertainty of the honest causal forests underlying the OrthoForest estimators. Such intervals are enabled by leaving 
 inference at its default setting of ``'auto'`` or by explicitly setting ``inference='blb'``, e.g.:
 
 .. testcode::
 
-    from econml.ortho_forest import ContinuousTreatmentOrthoForest
+    from econml.ortho_forest import DMLOrthoForest
     from econml.sklearn_extensions.linear_model import WeightedLasso
-    est = ContinuousTreatmentOrthoForest(n_trees=10,
-                                         min_leaf_size=3,
-                                         model_T=WeightedLasso(alpha=0.01),
-                                         model_Y=WeightedLasso(alpha=0.01))
+    est = DMLOrthoForest(n_trees=10,
+                         min_leaf_size=3,
+                         model_T=WeightedLasso(alpha=0.01),
+                         model_Y=WeightedLasso(alpha=0.01))
     est.fit(y, t, X=X, W=W)
     point = est.const_marginal_effect(X)
     lb, ub = est.const_marginal_effect_interval(X, alpha=0.05)

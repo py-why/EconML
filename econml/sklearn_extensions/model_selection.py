@@ -21,12 +21,13 @@ from sklearn.utils.validation import _num_samples
 
 
 def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
+    random_state = self.random_state if self.shuffle else None
     if is_stratified:
         kfold_model = StratifiedKFold(n_splits=self.n_splits, shuffle=self.shuffle,
-                                      random_state=self.random_state)
+                                      random_state=random_state)
     else:
         kfold_model = KFold(n_splits=self.n_splits, shuffle=self.shuffle,
-                            random_state=self.random_state)
+                            random_state=random_state)
     if sample_weight is None:
         return kfold_model.split(X, y)
     weights_sum = np.sum(sample_weight)
@@ -44,7 +45,10 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
         max_deviations.append(max_deviation)
         # Reseed random generator and try again
         kfold_model.shuffle = True
-        kfold_model.random_state = None
+        if isinstance(kfold_model.random_state, numbers.Integral):
+            kfold_model.random_state = kfold_model.random_state + 1
+        elif kfold_model.random_state is not None:
+            kfold_model.random_state = np.random.RandomState(kfold_model.random_state.randint(np.iinfo(np.int32).max))
 
     # If KFold fails after n_trials, we try the next best thing: stratifying by weight groups
     warnings.warn("The KFold algorithm failed to find a weight-balanced partition after " +
@@ -227,7 +231,7 @@ class GridSearchCVList(BaseEstimator):
 
     def __init__(self, estimator_list, param_grid_list, scoring=None,
                  n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
-                 error_score='raise-deprecating', return_train_score=False):
+                 error_score=np.nan, return_train_score=False):
         self.estimator_list = estimator_list
         self.param_grid_list = param_grid_list
         self.scoring = scoring
@@ -240,7 +244,7 @@ class GridSearchCVList(BaseEstimator):
         self.return_train_score = return_train_score
         return
 
-    def fit(self, X, y, **fit_params):
+    def fit(self, X, y=None, **fit_params):
         self._gcv_list = [GridSearchCV(estimator, param_grid, scoring=self.scoring,
                                        n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
                                        pre_dispatch=self.pre_dispatch, error_score=self.error_score,
@@ -347,6 +351,11 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     X, y, groups = indexable(X, y, groups)
 
     cv = check_cv(cv, y, classifier=is_classifier(estimator))
+    splits = list(cv.split(X, y, groups))
+
+    test_indices = np.concatenate([test for _, test in splits])
+    if not _check_is_permutation(test_indices, _num_samples(X)):
+        raise ValueError('cross_val_predict only works for partitions')
 
     # If classification methods produce multiple columns of output,
     # we need to manually encode classes to ensure consistent column ordering.
@@ -358,7 +367,7 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
             le = LabelEncoder()
             y = le.fit_transform(y)
         elif y.ndim == 2:
-            y_enc = np.zeros_like(y, dtype=np.int)
+            y_enc = np.zeros_like(y, dtype=int)
             for i_label in range(y.shape[1]):
                 y_enc[:, i_label] = LabelEncoder().fit_transform(y[:, i_label])
             y = y_enc
@@ -367,17 +376,12 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     # independent, and that it is pickle-able.
     parallel = Parallel(n_jobs=n_jobs, verbose=verbose,
                         pre_dispatch=pre_dispatch)
-    prediction_blocks = parallel(delayed(_fit_and_predict)(
+    # TODO. The API of the private scikit-learn `_fit_and_predict` has changed
+    # between 0.23.2 and 0.24. For this to work with <0.24, we need to add a
+    # case analysis based on sklearn version.
+    predictions = parallel(delayed(_fit_and_predict)(
         clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
-        for train, test in cv.split(X, y, groups))
-
-    # Concatenate the predictions
-    predictions = [pred_block_i for pred_block_i, _ in prediction_blocks]
-    test_indices = np.concatenate([indices_i
-                                   for _, indices_i in prediction_blocks])
-
-    if not _check_is_permutation(test_indices, _num_samples(X)):
-        raise ValueError('cross_val_predict only works for partitions')
+        for train, test in splits)
 
     inv_test_indices = np.empty(len(test_indices), dtype=int)
     inv_test_indices[test_indices] = np.arange(len(test_indices))

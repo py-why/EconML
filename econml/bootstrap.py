@@ -76,7 +76,7 @@ class BootstrapEstimator:
 
         The full signature of this method is the same as that of the wrapped object's `fit` method.
         """
-        from .cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
+        from ._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
 
         index_chunks = None
         if isinstance(self._instances[0], BaseCateEstimator):
@@ -188,7 +188,7 @@ class BootstrapEstimator:
         def get_inference():
             # can't import from econml.inference at top level without creating cyclical dependencies
             from .inference import EmpiricalInferenceResults, NormalInferenceResults
-            from .cate_estimator import LinearModelFinalCateEstimatorDiscreteMixin
+            from ._cate_estimator import LinearModelFinalCateEstimatorDiscreteMixin
 
             prefix = name[: - len("_inference")]
 

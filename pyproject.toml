@@ -1,0 +1,17 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "Cython",
+    "numpy == 1.19.3",
+    "scipy"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=setup.cfg --cov=econml --cov-report=xml"
+markers = [    
+    "slow",
+    "notebook",
+    "automl"
+]

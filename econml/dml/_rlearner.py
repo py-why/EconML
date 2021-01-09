@@ -29,10 +29,10 @@ from abc import abstractmethod
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, filter_none_kwargs, _deprecate_positional)
+from ..utilities import (shape, reshape, ndim, hstack, filter_none_kwargs, _deprecate_positional)
 from sklearn.linear_model import LinearRegression
 from sklearn.base import clone
-from ._ortho_learner import _OrthoLearner
+from .._ortho_learner import _OrthoLearner
 
 
 class _ModelNuisance:
@@ -153,7 +153,7 @@ class _RLearner(_OrthoLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -189,7 +189,7 @@ class _RLearner(_OrthoLearner):
 
         import numpy as np
         from sklearn.linear_model import LinearRegression
-        from econml._rlearner import _RLearner
+        from econml.dml._rlearner import _RLearner
         from sklearn.base import clone
         class ModelFirst:
             def __init__(self, model):

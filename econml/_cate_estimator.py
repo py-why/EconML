@@ -10,12 +10,11 @@ from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
-                        inverse_onehot, Summary, get_input_columns, broadcast_unit_treatments,
-                        cross_product)
+                        inverse_onehot, Summary, get_input_columns)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
-from .shap import _shap_explain_cme, _define_names, _shap_explain_joint_linear_model_cate
+from ._shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -458,7 +457,7 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         pass
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         """ Shap value for the final stage models (const_marginal_effect)
 
         Parameters
@@ -472,18 +471,23 @@ class LinearCateEstimator(BaseCateEstimator):
             the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
         output_names:  optional None or list (Default=None)
             The name of the outcome.
+        background_samples: int or None, (Default=100)
+            How many samples to use to compute the baseline effect. If None then all samples are used.
 
         Returns
         -------
         shap_outs: nested dictionary of Explanation object
-            A nested dictionary by using each output name (e.g. "Y0" when `output_names=None`) and
-            each treatment name (e.g. "T0" when `treatment_names=None`) as key
-            and the shap_values explanation object as value.
-
-
+            A nested dictionary by using each output name (e.g. 'Y0', 'Y1', ... when `output_names=None`) and
+            each treatment name (e.g. 'T0', 'T1', ... when `treatment_names=None`) as key
+            and the shap_values explanation object as value. If the input data at fit time also contain metadata,
+            (e.g. are pandas DataFrames), then the column metatdata for the treatments, outcomes and features
+            are used instead of the above defaults (unless the user overrides with explicitly passing the
+            corresponding names).
         """
-        return _shap_explain_cme(self.const_marginal_effect, X, self._d_t, self._d_y, feature_names, treatment_names,
-                                 output_names)
+        return _shap_explain_cme(self.const_marginal_effect, X, self._d_t, self._d_y,
+                                 feature_names=feature_names, treatment_names=treatment_names,
+                                 output_names=output_names, input_names=self._input_names,
+                                 background_samples=background_samples)
 
 
 class TreatmentExpansionMixin(BaseCateEstimator):
@@ -672,7 +676,6 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        feature_names = self.cate_feature_names() if feature_names is None else feature_names
         treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
         output_names = self._input_names["output_names"] if output_names is None else output_names
         # Summary
@@ -719,16 +722,17 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         if len(smry.tables) > 0:
             return smry
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
-        (dt, dy, treatment_names, output_names) = _define_names(self._d_t, self._d_y, treatment_names, output_names)
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         if hasattr(self, "featurizer_") and self.featurizer_ is not None:
             X = self.featurizer_.transform(X)
-        X, T = broadcast_unit_treatments(X, dt)
-        X_new = cross_product(X, T)
         feature_names = self.cate_feature_names(feature_names)
-        return _shap_explain_joint_linear_model_cate(self.model_final_, X_new, T, dt, dy, self.bias_part_of_coef,
+        return _shap_explain_joint_linear_model_cate(self.model_final_, X, self._d_t, self._d_y,
+                                                     self.bias_part_of_coef,
                                                      feature_names=feature_names, treatment_names=treatment_names,
-                                                     output_names=output_names)
+                                                     output_names=output_names,
+                                                     input_names=self._input_names,
+                                                     background_samples=background_samples)
+
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 

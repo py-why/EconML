@@ -20,8 +20,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 
 from ._ortho_learner import _OrthoLearner
-from .cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin
-from .dml import _FinalWrapper
+from ._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin
+from .dml.dml import _FinalWrapper
 from .inference import StatsModelsInference
 from .sklearn_extensions.linear_model import StatsModelsLinearRegression
 from .utilities import (_deprecate_positional, add_intercept, fit_with_groups, filter_none_kwargs,
@@ -523,7 +523,7 @@ class _BaseDMLIV(_OrthoLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -786,7 +786,7 @@ class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -914,7 +914,7 @@ class NonParamDMLIV(_BaseDMLIV):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1136,7 +1136,7 @@ class _BaseDRIV(_OrthoLearner):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1469,7 +1469,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1612,7 +1612,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete

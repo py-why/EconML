@@ -12,15 +12,15 @@ This section describes the different estimation methods provided in the package 
 to model the treatment effect heterogeneity. We collect these methods in a single user guide to better illustrate
 their comparisons and differences. Currently, our package offers three such estimation methods:
 
-* The Orthogonal Random Forest Estimator (see :class:`.ContinuousTreatmentOrthoForest`, :class:`.DiscreteTreatmentOrthoForest`)
-* The Forest Double Machine Learning Estimator (aka Causal Forest) (see :class:`.ForestDML`)
+* The Orthogonal Random Forest Estimator (see :class:`.DMLOrthoForest`, :class:`.DROrthoForest`)
+* The Forest Double Machine Learning Estimator (aka Causal Forest) (see :class:`.CausalForestDML`)
 * The Forest Doubly Robust Estimator (see :class:`.ForestDRLearner`).
 
 These estimators, similar to the DML and DR sections require the unconfoundedness assumption, i.e. that all potential
 variables that could simultaneously have affected the treatment and the outcome to be observed.
 
-There many commonalities among these estimators. In particular the :class:`.ContinuousTreatmentOrthoForest` shares
-many similarities with the :class:`.ForestDML` and the :class:`.DiscreteTreatmentOrthoForest` shares
+There many commonalities among these estimators. In particular the :class:`.DMLOrthoForest` shares
+many similarities with the :class:`.CausalForestDML` and the :class:`.DROrthoForest` shares
 many similarities with the :class:`.ForestDRLearner`. Specifically, the corresponding classes use the same estimating (moment)
 equations to identify the heterogeneous treatment effect. However, they differ in a substantial manner in how they
 estimate the first stage regression/classification (nuisance) models. In particular, the OrthoForest methods fit
@@ -40,9 +40,9 @@ and uses the same metric for the local fitting of the nuisances as well as the f
 What are the relevant estimator classes?
 ========================================
 
-This section describes the methodology implemented in the classes, :class:`.ContinuousTreatmentOrthoForest`,
-:class:`.DiscreteTreatmentOrthoForest`,
-:class:`.ForestDML`, :class:`.ForestDRLearner`.
+This section describes the methodology implemented in the classes, :class:`.DMLOrthoForest`,
+:class:`.DROrthoForest`,
+:class:`.CausalForestDML`, :class:`.ForestDRLearner`.
 Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
@@ -69,7 +69,7 @@ the heterogeneous treatment effect :math:`\theta(X)`, on a lower dimensional set
 Moreover, the estimates are asymptotically normal and hence have theoretical properties
 that render bootstrap based confidence intervals asymptotically valid.
 
-In the case of continuous treatments (see :class:`.ContinuousTreatmentOrthoForest`) the method estimates :math:`\theta(x)`
+For continuous or discrete treatments (see :class:`.DMLOrthoForest`) the method estimates :math:`\theta(x)`
 for some target :math:`x` by solving the same set of moment equations as the ones used in the Double Machine Learning
 framework, albeit, it tries to solve them locally for every possible :math:`X=x`. The method makes the following
 structural equations assumptions on the data generating process:
@@ -165,15 +165,15 @@ some extensions to the scikit-learn library that enable sample weights, such as 
     .. testcode:: intro
         :hide:
 
-        from econml.ortho_forest import ContinuousTreatmentOrthoForest
+        from econml.ortho_forest import DMLOrthoForest
         from econml.sklearn_extensions.linear_model import WeightedLasso
 
     .. doctest:: intro
 
-        >>> est = ContinuousTreatmentOrthoForest(model_Y=WeightedLasso(), model_T=WeightedLasso())
+        >>> est = DMLOrthoForest(model_Y=WeightedLasso(), model_T=WeightedLasso())
 
 
-In the case of discrete treatments (see :class:`.DiscreteTreatmentOrthoForest`) the
+In the case of discrete treatments (see :class:`.DROrthoForest`) the
 method estimates :math:`\theta(x)` for some target :math:`x` by solving a slightly different
 set of equations, similar to the Doubly Robust Learner (see [Oprescu2019]_ for a theoretical exposition of why a different set of
 estimating equations is used). In particular, suppose that the treatment :math:`T` takes
@@ -213,14 +213,14 @@ a multi-class classification model and should support :code:`predict_proba`.
 For more details on the input parameters of the orthogonal forest classes and how to customize
 the estimator checkout the two modules:
 
-- :class:`.DiscreteTreatmentOrthoForest`
-- :class:`.ContinuousTreatmentOrthoForest`
+- :class:`.DROrthoForest`
+- :class:`.DMLOrthoForest`
 
 CausalForest (aka Forest Double Machine Learning)
 --------------------------------------------------
 
 In this package we implement the double machine learning version of Causal Forests/Generalized Random Forests (see [Wager2018]_, [Athey2019]_) 
-as for instance described in Section 6.1.1 of [Athey2019]_. This version follows a similar structure to the ContinuousTreatmentOrthoForest approach,
+as for instance described in Section 6.1.1 of [Athey2019]_. This version follows a similar structure to the DMLOrthoForest approach,
 in that the estimation is based on solving a local residual on residual moment condition:
 
 .. math::
@@ -239,23 +239,12 @@ This difference can potentially lead to an improvement in the estimation error o
 Causal Forest. However, it does add significant computation cost, as a nuisance function needs to be estimated locally
 for each target prediction.
 
-Our implementation of a Causal Forest is restricted to binary treatment or single-dimensional continuous treatment
-and is based on an extra observation that for such settings, we can view the local square loss above as a normal regression
-square loss with sample weights, i.e.:
+Our implementation of a Causal Forest allows for any number of continuous treatments or a multi-valued discrete
+treatment. The causal forest is implemented in :class:`.CausalForest` in a high-performance Cython implementation
+as a scikit-learn predictor.
 
-.. math::
-
-    \hat{\theta}(x) = \argmin_{\theta} \sum_{i=1}^n K_x(X_i)\cdot \tilde{T}_i^2 \cdot \left( \tilde{Y}_i/\tilde{T}_i - \theta\right)^2
-
-where :math:`\tilde{T}_i = T_i - \hat{f}(X_i, W_i)` and :math:`\tilde{Y}_i = Y_i - \hat{q}(X_i, W_i)`. Thus we can apply
-a normal regression forest to estimate the :math:`\theta`. Albeit for valid confidence intervals we need a forest
-that is based on subsampling and uses honesty to define the leaf estimates. Thus we can re-use the splitting machinery
-of a scikit-learn regressor and augment it with honesty and subsampling capabilities. We implement this in our
-:class:`.SubsampledHonestForest` scikit-learn extension.
-
-The causal criterion that is implicit in the above reduction approach is slightly different than the one
-proposed in [Athey2019]_. However, the exact criterion is not crucial for the theoretical developments and the
-validity of the confidence intervals is maintained. The difference can potentially lead to small finite sample
+Apart from the criterion proposed in [Athey2019]_ we also implemented an MSE criterion that penalizes splits
+with low variance in the treatment. The difference can potentially lead to small finite sample
 differences. In particular, suppose that we want to decide how to split a node in two subsets of samples :math:`S_1`
 and :math:`S_2` and let :math:`\theta_1` and :math:`\theta_2` be the estimates on each of these partitions.
 Then the criterion implicit in the reduction is the weighted mean squared error, which boils down to
@@ -268,30 +257,13 @@ Then the criterion implicit in the reduction is the weighted mean squared error,
 where :math:`Var_n`, denotes the empirical variance. Essentially, this criterion tries to maximize heterogeneity
 (as captured by maximizing the sum of squares of the two estimates), while penalizing splits that create nodes
 with small variation in the treatment. On the contrary the criterion proposed in [Athey2019]_ ignores the within
-child variation of the treatment and solely maximizes the hetergoeneity, i.e. :math:`\max_{S_1, S_2} \theta_1^2 + \theta_2^2`.
-
-Moreover, a subtle point is that in order to mirror the Genearlized Random Forest algorithm, our final prediction is not just
-the average of the tree estimates. Instead we use the tree to define sample weights as describe in [Athey2019]_ and then
-calculate the solution to the weighted moment equation or equivalently the minimizer of the square loss, which boils down to:
+child variation of the treatment and solely maximizes the hetergoeneity, i.e.
 
 .. math::
 
-    \hat{\theta}(x) = \frac{\sum_{i=1}^{n} K_x(X_i) \cdot \tilde{Y}_i \cdot \tilde{T}_i}{\sum_{i=1}^n K_x(X_i) \cdot \tilde{T}_i^2}
+    \max_{S_1, S_2} \theta_1^2 + \theta_2^2
 
-From our reduction prespective, this is equivalent to saying that we will train a regression forest with sample weights
-:math:`k_i`, features :math:`X_i` and labels :math:`Y_i` and then in the end, we will define the overall estimate at some target :math:`x`, as:
-
-.. math::
-
-    \hat{\theta}(x) =~& \frac{\sum_{b=1}^B \sum_{i=1}^n w_{bi}\cdot Y_i}{\sum_{b=1}^B \sum_{i=1}^n w_{bi}}\\
-    w_{bi} =~& \frac{k_i\cdot 1\{i \in L_{b}(x)\}}{|L_b(x)|}
-
-where :math:`L_b(x)` is the leaf the sample :math:`x` falls into in the :math:`b`-th tree of the forest.
-This is exactly what is implemented in the SubsampledHonestForest (see :class:`.SubsampledHonestForest`). Combining
-these ideas leads to a "reduction-based" approach implementation of the Causal Forest, that re-uses and only slightly modifies
-existing impementations of regression forests.
-
-For more details on Double Machine Learning and how the :class:`.ForestDML` fits into our overall
+For more details on Double Machine Learning and how the :class:`.CausalForestDML` fits into our overall
 set of DML based CATE estimators, check out the :ref:`Double Machine Learning User Guide <dmluserguide>`.
 
 Forest Doubly Robust Learner
@@ -302,7 +274,7 @@ The Forest Doubly Robust Learner is a variant of the Generalized Random Forest a
 to the double machine learning moments (see the :ref:`Doubly Robust Learning User Guide <druserguide>`).
 The method only applies for categorical treatments.
 
-Essentially, it is an analogue of the :class:`.DiscreteTreatmentOrthoForest`, that instead of local nuisance estimation
+Essentially, it is an analogue of the :class:`.DROrthoForest`, that instead of local nuisance estimation
 it conducts global nuisance estimation and does not couple the implicit similarity metric used for the nuisance
 estimates, with the final stage similarity metric. 
 
@@ -325,22 +297,22 @@ manner (see e.g. :class:`._OrthoLearner` for more details on cross fitting).
 The similarity metric :math:`K_x(X_i)` is trained in a data-adaptive manner by constructing a Subsampled Honest Random Regression Forest
 where the target label is :math:`Y_{i, t}^{DR} - Y_{i, 0}^{DR}` and the features are :math:`X` and roughly calculating
 how frequently sample :math:`x` falls in the same leaf as
-sample :math:`X_i`. This is implemented in the SubsampledHonestForest (see :class:`.SubsampledHonestForest`).
+sample :math:`X_i`. This is implemented in the RegressionForest (see :class:`.RegressionForest`).
 
 
 Class Hierarchy Structure
 =========================
 
-.. inheritance-diagram:: econml.ortho_forest.ContinuousTreatmentOrthoForest econml.ortho_forest.DiscreteTreatmentOrthoForest econml.drlearner.ForestDRLearner econml.dml.ForestDML
+.. inheritance-diagram:: econml.ortho_forest.DMLOrthoForest econml.ortho_forest.DROrthoForest econml.drlearner.ForestDRLearner econml.dml.CausalForestDML
         :parts: 1
         :private-bases:
-        :top-classes: econml._ortho_learner._OrthoLearner, econml.ortho_forest.BaseOrthoForest, econml.cate_estimator.LinearCateEstimator
+        :top-classes: econml._ortho_learner._OrthoLearner, econml.ortho_forest.BaseOrthoForest, econml._cate_estimator.LinearCateEstimator
 
 
 Usage Examples
 ==================================
 
-Here is a simple example of how to call :class:`.ContinuousTreatmentOrthoForest`
+Here is a simple example of how to call :class:`.DMLOrthoForest`
 and what the returned values correspond to in a simple data generating process.
 For more examples check out our 
 `OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/master/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
@@ -351,30 +323,30 @@ and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/bl
 
         import numpy as np
         import sklearn
-        from econml.ortho_forest import ContinuousTreatmentOrthoForest, DiscreteTreatmentOrthoForest
+        from econml.ortho_forest import DMLOrthoForest, DROrthoForest
         np.random.seed(123)
 
     >>> T = np.array([0, 1]*60)
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
     >>> Y = (.2 * W[:, 0] + 1) * T + .5
-    >>> est = ContinuousTreatmentOrthoForest(n_trees=1, max_depth=1, subsample_ratio=1,
-    ...                                      model_T=sklearn.linear_model.LinearRegression(),
-    ...                                      model_Y=sklearn.linear_model.LinearRegression())
+    >>> est = DMLOrthoForest(n_trees=1, max_depth=1, subsample_ratio=1,
+    ...                      model_T=sklearn.linear_model.LinearRegression(),
+    ...                      model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, X=W, W=W)
-    <econml.ortho_forest.ContinuousTreatmentOrthoForest object at 0x...>
+    <econml.ortho_forest.DMLOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [1.00...  1.19...]
 
-Similarly, we can call :class:`.DiscreteTreatmentOrthoForest`:
+Similarly, we can call :class:`.DROrthoForest`:
 
     >>> T = np.array([0, 1]*60)
     >>> W = np.array([0, 1, 1, 0]*30).reshape(-1, 1)
     >>> Y = (.2 * W[:, 0] + 1) * T + .5
-    >>> est = DiscreteTreatmentOrthoForest(n_trees=1, max_depth=1, subsample_ratio=1,
-    ...                                    propensity_model=sklearn.linear_model.LogisticRegression(),
-    ...                                    model_Y=sklearn.linear_model.LinearRegression())
+    >>> est = DROrthoForest(n_trees=1, max_depth=1, subsample_ratio=1,
+    ...                     propensity_model=sklearn.linear_model.LogisticRegression(),
+    ...                     model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, X=W, W=W)
-    <econml.ortho_forest.DiscreteTreatmentOrthoForest object at 0x...>
+    <econml.ortho_forest.DROrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [0.99...  1.35...]
 
@@ -383,8 +355,8 @@ and with more realistic noisy data. In this case we can just use the default par
 of the class, which specify the use of the :class:`~sklearn.linear_model.LassoCV` for 
 both the treatment and the outcome regressions, in the case of continuous treatments.
 
-    >>> from econml.ortho_forest import ContinuousTreatmentOrthoForest
-    >>> from econml.ortho_forest import ContinuousTreatmentOrthoForest
+    >>> from econml.ortho_forest import DMLOrthoForest
+    >>> from econml.ortho_forest import DMLOrthoForest
     >>> from econml.sklearn_extensions.linear_model import WeightedLasso
     >>> import matplotlib.pyplot as plt
     >>> np.random.seed(123)
@@ -393,12 +365,12 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     >>> support = np.random.choice(50, 4, replace=False)
     >>> T = np.dot(W[:, support], np.random.normal(size=4)) + np.random.normal(size=4000)
     >>> Y = np.exp(2*X[:, 0]) * T + np.dot(W[:, support], np.random.normal(size=4)) + .5
-    >>> est = ContinuousTreatmentOrthoForest(n_trees=100,
-    ...                                     max_depth=5,
-    ...                                     model_Y=WeightedLasso(alpha=0.01),
-    ...                                     model_T=WeightedLasso(alpha=0.01))
+    >>> est = DMLOrthoForest(n_trees=100,
+    ...                      max_depth=5,
+    ...                      model_Y=WeightedLasso(alpha=0.01),
+    ...                      model_T=WeightedLasso(alpha=0.01))
     >>> est.fit(Y, T, X=X, W=W)
-    <econml.ortho_forest.ContinuousTreatmentOrthoForest object at 0x...>
+    <econml.ortho_forest.DMLOrthoForest object at 0x...>
     >>> X_test = np.linspace(-1, 1, 30).reshape(-1, 1)
     >>> treatment_effects = est.effect(X_test)
     >>> plt.plot(X_test[:, 0], treatment_effects, label='ORF estimate')
