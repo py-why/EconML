@@ -545,7 +545,6 @@ def _get_theta_coefs_and_tau_sq(i, X, sample_weight, alpha_cov, n_alphas_cov, ma
     y = X[:, i]
     X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
     # Call weighted lasso on reduced design matrix
-    # Inherit some parameters from the parent
     if alpha_cov == 'auto':
         local_wlasso = WeightedLassoCV(cv=3, n_alphas=n_alphas_cov,
                                        fit_intercept=False,
