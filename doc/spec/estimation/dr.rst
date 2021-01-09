@@ -198,7 +198,7 @@ structure of the implemented CATE estimators is as follows.
     .. inheritance-diagram:: econml.drlearner.DRLearner econml.drlearner.LinearDRLearner econml.drlearner.SparseLinearDRLearner econml.drlearner.ForestDRLearner
         :parts: 1
         :private-bases:
-        :top-classes: econml._ortho_learner._OrthoLearner, econml.cate_estimator.StatsModelsCateEstimatorDiscreteMixin, econml.cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin
+        :top-classes: econml._ortho_learner._OrthoLearner, econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin, econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin
 
 Below we give a brief description of each of these classes:
 

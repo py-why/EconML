@@ -27,7 +27,7 @@ class TestCateInterpreter(unittest.TestCase):
             for y_shape in [(n,), (n, 1)]:
                 X = np.random.normal(size=(n, 4))
                 T = np.random.binomial(1, 0.5, size=t_shape)
-                Y = np.random.normal(size=y_shape)
+                Y = T.flatten() * (X[:, 0] > 0)
                 est = LinearDML(discrete_treatment=True)
                 est.fit(Y, T, X=X)
                 for intrp in [SingleTreeCateInterpreter(), SingleTreePolicyInterpreter()]:
