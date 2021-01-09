@@ -658,8 +658,8 @@ class TestDML(unittest.TestCase):
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
         dmls = [
-            LinearDML(LinearRegression(), LinearRegression(), fit_cate_intercept=False),
-            SparseLinearDML(LinearRegression(), LinearRegression(), fit_cate_intercept=False)
+            LinearDML(model_y=LinearRegression(), model_t=LinearRegression(), fit_cate_intercept=False),
+            SparseLinearDML(model_y=LinearRegression(), model_t=LinearRegression(), fit_cate_intercept=False)
         ]
         for dml in dmls:
             dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
@@ -670,8 +670,8 @@ class TestDML(unittest.TestCase):
     def test_can_use_sample_weights(self):
         """Test that we can pass sample weights to an estimator."""
         dmls = [
-            LinearDML(LinearRegression(), 'auto', fit_cate_intercept=False),
-            SparseLinearDML(LinearRegression(), 'auto', fit_cate_intercept=False)
+            LinearDML(model_y=LinearRegression(), model_t='auto', fit_cate_intercept=False),
+            SparseLinearDML(model_y=LinearRegression(), model_t='auto', fit_cate_intercept=False)
         ]
         for dml in dmls:
             dml.fit(np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2, 3]),
@@ -681,9 +681,9 @@ class TestDML(unittest.TestCase):
     def test_discrete_treatments(self):
         """Test that we can use discrete treatments"""
         dmls = [
-            LinearDML(LinearRegression(), LogisticRegression(C=1000),
+            LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                       fit_cate_intercept=False, discrete_treatment=True),
-            SparseLinearDML(LinearRegression(), LogisticRegression(C=1000),
+            SparseLinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                             fit_cate_intercept=False, discrete_treatment=True)
         ]
         for dml in dmls:
@@ -707,13 +707,13 @@ class TestDML(unittest.TestCase):
 
     def test_can_custom_splitter(self):
         # test that we can fit with a KFold instance
-        dml = LinearDML(LinearRegression(), LogisticRegression(C=1000),
+        dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                         discrete_treatment=True, n_splits=KFold())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
         # test that we can fit with a train/test iterable
-        dml = LinearDML(LinearRegression(), LogisticRegression(C=1000),
+        dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                         discrete_treatment=True, n_splits=[([0, 1, 2], [3, 4, 5])])
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
@@ -725,7 +725,7 @@ class TestDML(unittest.TestCase):
         splits = ([0, 2, 3, 6, 8, 11, 13, 15, 16],
                   [1, 4, 5, 7, 9, 10, 12, 14, 17])
 
-        dml = LinearDML(LinearRegression(), LinearRegression(),
+        dml = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(),
                         fit_cate_intercept=False, featurizer=OneHotEncoder(sparse=False),
                         n_splits=[splits, splits[::-1]])
 
@@ -750,7 +750,7 @@ class TestDML(unittest.TestCase):
 
     def test_can_use_statsmodel_inference(self):
         """Test that we can use statsmodels to generate confidence intervals"""
-        dml = LinearDML(LinearRegression(), LogisticRegression(C=1000),
+        dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                         discrete_treatment=True)
         dml.fit(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array(
             [3, 2, 1, 2, 3, 1, 1, 1]), X=np.ones((8, 1)))
@@ -807,7 +807,7 @@ class TestDML(unittest.TestCase):
                 return np.zeros(X.shape[0])
 
         # (incorrectly) use a final model with an intercept
-        dml = DML(LinearRegression(), LinearRegression(),
+        dml = DML(model_y=LinearRegression(), model_t=LinearRegression(),
                   model_final=InterceptModel())
         # Because final model is fixed, actual values of T and Y don't matter
         t = np.random.normal(size=100)
@@ -941,8 +941,9 @@ class TestDML(unittest.TestCase):
             y[fold * n:(fold + 1) * n] = y_f
             t[fold * n:(fold + 1) * n] = t_f
 
-        dml = SparseLinearDML(LinearRegression(fit_intercept=False), LinearRegression(
-            fit_intercept=False), fit_cate_intercept=False)
+        dml = SparseLinearDML(model_y=LinearRegression(fit_intercept=False),
+                              model_t=LinearRegression(fit_intercept=False),
+                              fit_cate_intercept=False)
         dml.fit(y, t, X=x, W=w)
 
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
@@ -1012,7 +1013,7 @@ class TestDML(unittest.TestCase):
             est.fit(y, t, groups=groups)
 
         # test outer grouping
-        est = LinearDML(LinearRegression(), LinearRegression(), n_splits=GroupKFold(2))
+        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(), n_splits=GroupKFold(2))
         est.fit(y, t, groups=groups)
 
         # test nested grouping
@@ -1039,7 +1040,7 @@ class TestDML(unittest.TestCase):
                 return super().fit(X, y)
 
         # test nested grouping
-        est = LinearDML(NestedModel(cv=2), NestedModel(cv=2), n_splits=GroupKFold(2))
+        est = LinearDML(model_y=NestedModel(cv=2), model_t=NestedModel(cv=2), n_splits=GroupKFold(2))
         est.fit(y, t, groups=groups)
 
         # by default, we use 5 split cross-validation for our T and Y models

@@ -149,8 +149,10 @@ class Test2SLS(unittest.TestCase):
         p_fresh = x_fresh + z_fresh * e_fresh + np.random.uniform(size=(n, d_t))
 
         for (dt, dx, dz) in [(0, 0, 0), (1, 1, 1), (5, 5, 5), (10, 10, 10), (3, 3, 10), (10, 10, 3)]:
-            np2sls = NonparametricTwoStageLeastSquares(HermiteFeatures(
-                dt), HermiteFeatures(dx), HermiteFeatures(dz), HermiteFeatures(dt, shift=1))
+            np2sls = NonparametricTwoStageLeastSquares(t_featurizer=HermiteFeatures(dt),
+                                                       x_featurizer=HermiteFeatures(dx),
+                                                       z_featurizer=HermiteFeatures(dz),
+                                                       dt_featurizer=HermiteFeatures(dt, shift=1))
             np2sls.fit(y, p, X=x, W=w, Z=z)
             effect = np2sls.effect(x_fresh, np.zeros(shape(p_fresh)), p_fresh)
             losses.append(np.mean(np.square(p_fresh * x_fresh - effect)))

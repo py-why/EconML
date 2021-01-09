@@ -498,7 +498,7 @@ class DRLearner(_OrthoLearner):
             vector of outcomes correspond to the CATE model for each treatment, compared to baseline.
             Available only when multitask_model_final=True.
         """
-        if not self.ortho_learner_model_final._multitask_model_final:
+        if not self.ortho_learner_model_final_._multitask_model_final:
             raise AttributeError("Separate CATE models were fitted for each treatment! Use model_cate.")
         return self.ortho_learner_model_final_.model_cate
 

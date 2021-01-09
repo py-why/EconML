@@ -14,7 +14,7 @@ import keras.backend as K
 import pytest
 
 from econml.deepiv import _zero_grad
-from econml.deepiv import mog_model, mog_loss_model, mog_sample_model, response_loss_model, DeepIVEstimator
+from econml.deepiv import mog_model, mog_loss_model, mog_sample_model, response_loss_model, DeepIV
 from econml.utilities import reshape
 
 
@@ -80,19 +80,19 @@ class TestDeepIV(unittest.TestCase):
                                                keras.layers.Dropout(0.17),
                                                keras.layers.Dense(d_y)])
 
-            deepIv = DeepIVEstimator(n_components=10,  # number of gaussians in our mixture density network
-                                     m=lambda z, x: treatment_model(
-                                         keras.layers.concatenate([z, x])),  # treatment model
-                                     h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
-                                     n_samples=1,  # number of samples to use to estimate the response
-                                     use_upper_bound_loss=False,  # whether to use an approximation to the true loss
-                                     # number of samples to use in second estimate of the response
-                                     # (to make loss estimate unbiased)
-                                     n_gradient_samples=1,
-                                     # Keras optimizer to use for training - see https://keras.io/optimizers/
-                                     optimizer='adam',
-                                     first_stage_options=fit_opts,
-                                     second_stage_options=fit_opts)
+            deepIv = DeepIV(n_components=10,  # number of gaussians in our mixture density network
+                            m=lambda z, x: treatment_model(
+                                keras.layers.concatenate([z, x])),  # treatment model
+                            h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
+                            n_samples=1,  # number of samples to use to estimate the response
+                            use_upper_bound_loss=False,  # whether to use an approximation to the true loss
+                            # number of samples to use in second estimate of the response
+                            # (to make loss estimate unbiased)
+                            n_gradient_samples=1,
+                            # Keras optimizer to use for training - see https://keras.io/optimizers/
+                            optimizer='adam',
+                            first_stage_options=fit_opts,
+                            second_stage_options=fit_opts)
 
             deepIv.fit(Y=y, T=t, X=x, Z=z)
             # do something with predictions...
@@ -140,19 +140,19 @@ class TestDeepIV(unittest.TestCase):
                                                keras.layers.Dropout(0.17),
                                                keras.layers.Dense(1)])
 
-            deepIv = DeepIVEstimator(n_components=10,  # number of gaussians in our mixture density network
-                                     m=lambda z, x: treatment_model(
-                                         keras.layers.concatenate([z, x])),  # treatment model
-                                     h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
-                                     n_samples=1,  # number of samples to use to estimate the response
-                                     use_upper_bound_loss=False,  # whether to use an approximation to the true loss
-                                     # number of samples to use in second estimate of the response
-                                     # (to make loss estimate unbiased)
-                                     n_gradient_samples=1,
-                                     # Keras optimizer to use for training - see https://keras.io/optimizers/
-                                     optimizer='adam',
-                                     first_stage_options=fit_opts,
-                                     second_stage_options=fit_opts)
+            deepIv = DeepIV(n_components=10,  # number of gaussians in our mixture density network
+                            m=lambda z, x: treatment_model(
+                                keras.layers.concatenate([z, x])),  # treatment model
+                            h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # response model
+                            n_samples=1,  # number of samples to use to estimate the response
+                            use_upper_bound_loss=False,  # whether to use an approximation to the true loss
+                            # number of samples to use in second estimate of the response
+                            # (to make loss estimate unbiased)
+                            n_gradient_samples=1,
+                            # Keras optimizer to use for training - see https://keras.io/optimizers/
+                            optimizer='adam',
+                            first_stage_options=fit_opts,
+                            second_stage_options=fit_opts)
 
             deepIv.fit(Y=y, T=t, X=x, Z=z)
             # do something with predictions...
@@ -189,11 +189,11 @@ class TestDeepIV(unittest.TestCase):
                                        keras.layers.Dense(10, activation='relu'),
                                        keras.layers.Dense(1)])
 
-            deepIv = DeepIVEstimator(10,
-                                     lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
-                                     lambda t, x: hmodel(keras.layers.concatenate([t, x])),
-                                     n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
+            deepIv = DeepIV(n_components=10,
+                            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
+                            h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
+                            n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
+                            first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
             deepIv.fit(y, p, X=x, Z=z)
 
             losses.append(np.mean(np.square(y_fresh - deepIv.predict(p_fresh, x_fresh))))
@@ -330,11 +330,11 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                        keras.layers.Dropout(0.17),
                                        keras.layers.Dense(1)])
 
-            deepIv = DeepIVEstimator(10,
-                                     lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
-                                     lambda t, x: hmodel(keras.layers.concatenate([t, x])),
-                                     n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
+            deepIv = DeepIV(n_components=10,
+                            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
+                            h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
+                            n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
+                            first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
             deepIv.fit(y, t, X=x, Z=z)
 
             losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
@@ -438,11 +438,11 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         x, z, t, y, g_true = datafunction(n, 1)
 
         print("Data shapes:\n\
-Features:{x},\n\
-Instruments:{z},\n\
-Treament:{t},\n\
-Response:{y}".format(**{'x': x.shape, 'z': z.shape,
-                        't': t.shape, 'y': y.shape}))
+                Features:{x},\n\
+                Instruments:{z},\n\
+                Treament:{t},\n\
+                Response:{y}".format(**{'x': x.shape, 'z': z.shape,
+                                        't': t.shape, 'y': y.shape}))
 
         losses = []
 
@@ -456,11 +456,11 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                        keras.layers.Dense(25, activation='relu'),
                                        keras.layers.Dense(1)])
 
-            deepIv = DeepIVEstimator(10,
-                                     lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
-                                     lambda t, x: hmodel(keras.layers.concatenate([t, x])),
-                                     n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
+            deepIv = DeepIV(n_components=10,
+                            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
+                            h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
+                            n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
+                            first_stage_options={'epochs': epochs}, second_stage_options={'epochs': epochs})
             deepIv.fit(y, t, X=x, Z=z)
 
             losses.append(monte_carlo_error(lambda x, z, t: deepIv.predict(
@@ -611,11 +611,11 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
                                        keras.layers.Dropout(0.2),
                                        keras.layers.Dense(1)])
 
-            deepIv = DeepIVEstimator(s,
-                                     lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
-                                     lambda t, x: hmodel(keras.layers.concatenate([t, x])),
-                                     n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
-                                     first_stage_options={'epochs': 20}, second_stage_options={'epochs': 20})
+            deepIv = DeepIV(n_components=s,
+                            m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),
+                            h=lambda t, x: hmodel(keras.layers.concatenate([t, x])),
+                            n_samples=n1, use_upper_bound_loss=u, n_gradient_samples=n2,
+                            first_stage_options={'epochs': 20}, second_stage_options={'epochs': 20})
             deepIv.fit(y[:n // 2], t[:n // 2], X=x[:n // 2], Z=z[:n // 2])
 
             results.append({'s': s, 'n1': n1, 'u': u, 'n2': n2,
