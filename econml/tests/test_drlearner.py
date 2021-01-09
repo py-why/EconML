@@ -610,7 +610,7 @@ class TestDRLearner(unittest.TestCase):
                                         out_feat_names = featurizer.fit(
                                             X).get_feature_names(feature_names)
                                         np.testing.assert_array_equal(
-                                            est.featurizer.n_input_features_, 2)
+                                            est.featurizer_.n_input_features_, 2)
                                     np.testing.assert_array_equal(est.cate_feature_names(feature_names),
                                                                   out_feat_names)
 

@@ -48,7 +48,7 @@ from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
 from sklearn.utils import check_random_state
 import copy
 
-from ._ortho_learner import _OrthoLearner
+from .._ortho_learner import _OrthoLearner
 from ._rlearner import _RLearner
 from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
                                ForestModelFinalCateEstimatorMixin,
