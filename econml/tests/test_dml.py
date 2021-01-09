@@ -967,9 +967,10 @@ class TestDML(unittest.TestCase):
         dmls = [LinearDML, SparseLinearDML]
         for ctor in dmls:
             dml1 = ctor(LinearRegression(), LogisticRegression(C=1000),
-                        fit_cate_intercept=False, discrete_treatment=True)
+                        fit_cate_intercept=False, discrete_treatment=True, random_state=123)
             dml2 = ctor(LinearRegression(), LogisticRegression(C=1000),
-                        fit_cate_intercept=False, discrete_treatment=True, categories=['c', 'b', 'a'])
+                        fit_cate_intercept=False, discrete_treatment=True, categories=['c', 'b', 'a'],
+                        random_state=123)
 
             # create a simple artificial setup where effect of moving from treatment
             #     a -> b is 2,
@@ -1003,9 +1004,9 @@ class TestDML(unittest.TestCase):
             # but const_marginal_effect should be reordered based on the explicit cagetories
             cme1 = dml1.const_marginal_effect(np.ones((1, 1))).reshape(-1)
             cme2 = dml2.const_marginal_effect(np.ones((1, 1))).reshape(-1)
-            self.assertAlmostEqual(cme1[1], -cme2[1], places=4)  # 1->3 in original ordering; 3->1 in new ordering
+            self.assertAlmostEqual(cme1[1], -cme2[1], places=3)  # 1->3 in original ordering; 3->1 in new ordering
             # 1-> 2 in original ordering; combination of 3->1 and 3->2
-            self.assertAlmostEqual(cme1[0], -cme2[1] + cme2[0], places=4)
+            self.assertAlmostEqual(cme1[0], -cme2[1] + cme2[0], places=3)
 
     def test_groups(self):
         groups = [1, 2, 3, 4, 5, 6] * 10

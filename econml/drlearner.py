@@ -853,6 +853,18 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         CATE L1 regularization applied through the debiased lasso in the final model.
         'auto' corresponds to a CV form of the :class:`DebiasedLasso`.
 
+    n_alphas : int, optional, default 100
+        How many alphas to try if alpha='auto'
+
+    alpha_cov : string | float, optional, default 'auto'
+        The regularization alpha that is used when constructing the pseudo inverse of
+        the covariance matrix Theta used to for correcting the final state lasso coefficient
+        in the debiased lasso. Each such regression corresponds to the regression of one feature
+        on the remainder of the features.
+
+    n_alphas_cov : int, optional, default 10
+        How many alpha_cov to try if alpha_cov='auto'.
+
     max_iter : int, optional, default 1000
         The maximum number of iterations in the Debiased Lasso
 
@@ -910,17 +922,17 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.418400...,  0.306400..., -0.130733...])
+    array([ 0.41...,  0.31..., -0.12...])
     >>> est.effect_interval(X[:3])
-    (array([ 0.056783..., -0.206438..., -0.739296...]), array([0.780017..., 0.819239..., 0.477828...]))
+    (array([ 0.04..., -0.19..., -0.73...]), array([0.77..., 0.82..., 0.47...]))
     >>> est.coef_(T=1)
-    array([0.449779..., 0.004807..., 0.061954...])
+    array([ 0.45..., -0.00..., 0.06...])
     >>> est.coef__interval(T=1)
-    (array([ 0.242194... , -0.190825..., -0.139646...]), array([0.657365..., 0.200440..., 0.263556...]))
+    (array([ 0.24... , -0.19..., -0.13...]), array([0.65..., 0.19..., 0.26...]))
     >>> est.intercept_(T=1)
-    0.88436847...
+    0.88...
     >>> est.intercept__interval(T=1)
-    (0.68683788..., 1.08189907...)
+    (0.68..., 1.08...)
 
     Attributes
     ----------
@@ -942,17 +954,25 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  featurizer=None,
                  fit_cate_intercept=True,
                  alpha='auto',
+                 n_alphas=100,
+                 alpha_cov='auto',
+                 n_alphas_cov=10,
                  max_iter=1000,
                  tol=1e-4,
                  min_propensity=1e-6,
                  categories='auto',
-                 n_splits=2, random_state=None):
+                 n_splits=2,
+                 random_state=None):
         self.fit_cate_intercept = fit_cate_intercept
         model_final = DebiasedLasso(
             alpha=alpha,
+            n_alphas=n_alphas,
+            alpha_cov=alpha_cov,
+            n_alphas_cov=n_alphas_cov,
             fit_intercept=fit_cate_intercept,
             max_iter=max_iter,
-            tol=tol)
+            tol=tol,
+            random_state=random_state)
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=model_final,

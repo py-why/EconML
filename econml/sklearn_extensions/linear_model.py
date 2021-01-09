@@ -35,6 +35,7 @@ from sklearn.base import BaseEstimator
 from statsmodels.tools.tools import add_constant
 from statsmodels.api import RLM
 import statsmodels
+from joblib import Parallel, delayed
 
 
 def _weighted_check_cv(cv=5, y=None, classifier=False):
@@ -539,6 +540,34 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         return self
 
 
+def _get_theta_coefs_and_tau_sq(i, X, sample_weight, alpha_cov, n_alphas_cov, max_iter, tol, random_state):
+    n_samples, n_features = X.shape
+    y = X[:, i]
+    X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
+    # Call weighted lasso on reduced design matrix
+    if alpha_cov == 'auto':
+        local_wlasso = WeightedLassoCV(cv=3, n_alphas=n_alphas_cov,
+                                       fit_intercept=False,
+                                       max_iter=max_iter,
+                                       tol=tol, n_jobs=1,
+                                       random_state=random_state)
+    else:
+        local_wlasso = WeightedLasso(alpha=alpha_cov,
+                                     fit_intercept=False,
+                                     max_iter=max_iter,
+                                     tol=tol,
+                                     random_state=random_state)
+    local_wlasso.fit(X_reduced, y, sample_weight=sample_weight)
+    coefs = local_wlasso.coef_
+    # Weighted tau
+    if sample_weight is not None:
+        y_weighted = y * sample_weight / np.sum(sample_weight)
+    else:
+        y_weighted = y / n_samples
+    tausq = np.dot(y - local_wlasso.predict(X_reduced), y_weighted)
+    return coefs, tausq
+
+
 class DebiasedLasso(WeightedLasso):
     """Debiased Lasso model.
 
@@ -554,6 +583,18 @@ class DebiasedLasso(WeightedLasso):
         by the :class:`LinearRegression` object. For numerical
         reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
         Given this, you should use the :class:`.LinearRegression` object.
+
+    n_alphas : int, optional, default 100
+        How many alphas to try if alpha='auto'
+
+    alpha_cov : string | float, optional, default 'auto'
+        The regularization alpha that is used when constructing the pseudo inverse of
+        the covariance matrix Theta used to for correcting the lasso coefficient. Each
+        such regression corresponds to the regression of one feature on the remainder
+        of the features.
+
+    n_alphas_cov : int, optional, default 10
+        How many alpha_cov to try if alpha_cov='auto'.
 
     fit_intercept : boolean, optional, default True
         Whether to calculate the intercept for this model. If set
@@ -597,6 +638,9 @@ class DebiasedLasso(WeightedLasso):
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
 
+    n_jobs : int or None, default None
+        How many jobs to use whenever parallelism is invoked
+
     Attributes
     ----------
     coef_ : array, shape (n_features,)
@@ -620,10 +664,14 @@ class DebiasedLasso(WeightedLasso):
 
     """
 
-    def __init__(self, alpha='auto', fit_intercept=True,
-                 precompute=False, copy_X=True, max_iter=1000,
+    def __init__(self, alpha='auto', n_alphas=100, alpha_cov='auto', n_alphas_cov=10,
+                 fit_intercept=True, precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False,
-                 random_state=None, selection='cyclic'):
+                 random_state=None, selection='cyclic', n_jobs=None):
+        self.n_jobs = n_jobs
+        self.n_alphas = n_alphas
+        self.alpha_cov = alpha_cov
+        self.n_alphas_cov = n_alphas_cov
         super().__init__(
             alpha=alpha, fit_intercept=fit_intercept,
             precompute=precompute, copy_X=copy_X,
@@ -747,18 +795,8 @@ class DebiasedLasso(WeightedLasso):
         lower = alpha / 2
         upper = 1 - alpha / 2
         y_pred = self.predict(X)
-        y_lower = np.empty(y_pred.shape)
-        y_upper = np.empty(y_pred.shape)
-        # Note that in the case of no intercept, X_offset is 0
-        if self.fit_intercept:
-            X = X - self._X_offset
-        # Calculate the variance of the predictions
-        var_pred = np.sum(np.matmul(X, self._coef_variance) * X, axis=1)
-        if self.fit_intercept:
-            var_pred += self._mean_error_variance
-
         # Calculate prediction confidence intervals
-        sd_pred = np.sqrt(var_pred)
+        sd_pred = self.prediction_stderr(X)
         y_lower = y_pred + \
             np.apply_along_axis(lambda s: norm.ppf(
                 lower, scale=s), 0, sd_pred)
@@ -810,7 +848,7 @@ class DebiasedLasso(WeightedLasso):
 
     def _get_coef_correction(self, X, y, y_pred, sample_weight, theta_hat):
         # Assumes flattened y
-        n_samples, n_features = X.shape
+        n_samples, _ = X.shape
         y_res = np.ndarray.flatten(y) - y_pred
         # Compute weighted residuals
         if sample_weight is not None:
@@ -818,12 +856,17 @@ class DebiasedLasso(WeightedLasso):
         else:
             y_res_scaled = y_res / n_samples
         delta_coef = np.matmul(
-            np.matmul(theta_hat, X.T), y_res_scaled)
+            theta_hat, np.matmul(X.T, y_res_scaled))
         return delta_coef
 
     def _get_optimal_alpha(self, X, y, sample_weight):
         # To be done once per target. Assumes y can be flattened.
-        cv_estimator = WeightedLassoCV(cv=5, fit_intercept=self.fit_intercept)
+        cv_estimator = WeightedLassoCV(cv=5, n_alphas=self.n_alphas, fit_intercept=self.fit_intercept,
+                                       precompute=self.precompute, copy_X=True,
+                                       max_iter=self.max_iter, tol=self.tol,
+                                       random_state=self.random_state,
+                                       selection=self.selection,
+                                       n_jobs=self.n_jobs)
         cv_estimator.fit(X, y.flatten(), sample_weight=sample_weight)
         return cv_estimator.alpha_
 
@@ -835,27 +878,15 @@ class DebiasedLasso(WeightedLasso):
             C_hat = np.ones((1, 1))
             tausq = (X.T @ X / n_samples).flatten()
             return np.diag(1 / tausq) @ C_hat
-        coefs = np.empty((n_features, n_features - 1))
-        tausq = np.empty(n_features)
         # Compute Lasso coefficients for the columns of the design matrix
-        for i in range(n_features):
-            y = X[:, i]
-            X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
-            # Call weighted lasso on reduced design matrix
-            # Inherit some parameters from the parent
-            local_wlasso = WeightedLasso(
-                alpha=self.alpha,
-                fit_intercept=False,
-                max_iter=self.max_iter,
-                tol=self.tol
-            ).fit(X_reduced, y, sample_weight=sample_weight)
-            coefs[i] = local_wlasso.coef_
-            # Weighted tau
-            if sample_weight is not None:
-                y_weighted = y * sample_weight / np.sum(sample_weight)
-            else:
-                y_weighted = y / n_samples
-            tausq[i] = np.dot(y - local_wlasso.predict(X_reduced), y_weighted)
+        results = Parallel(n_jobs=self.n_jobs)(
+            delayed(_get_theta_coefs_and_tau_sq)(i, X, sample_weight,
+                                                 self.alpha_cov, self.n_alphas_cov,
+                                                 self.max_iter, self.tol, self.random_state)
+            for i in range(n_features))
+        coefs, tausq = zip(*results)
+        coefs = np.array(coefs)
+        tausq = np.array(tausq)
         # Compute C_hat
         C_hat = np.diag(np.ones(n_features))
         C_hat[0][1:] = -coefs[0]
@@ -892,6 +923,18 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         by the :class:`LinearRegression` object. For numerical
         reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
         Given this, you should use the :class:`LinearRegression` object.
+
+    n_alphas : int, optional, default 100
+        How many alphas to try if alpha='auto'
+
+    alpha_cov : string | float, optional, default 'auto'
+        The regularization alpha that is used when constructing the pseudo inverse of
+        the covariance matrix Theta used to for correcting the lasso coefficient. Each
+        such regression corresponds to the regression of one feature on the remainder
+        of the features.
+
+    n_alphas_cov : int, optional, default 10
+        How many alpha_cov to try if alpha_cov='auto'.
 
     fit_intercept : boolean, optional, default True
         Whether to calculate the intercept for this model. If set
@@ -935,6 +978,9 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
 
+    n_jobs : int or None, default None
+        How many jobs to use whenever parallelism is invoked
+
     Attributes
     ----------
     coef_ : array, shape (n_targets, n_features) or (n_features,)
@@ -954,14 +1000,17 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
     """
 
-    def __init__(self, alpha='auto', fit_intercept=True,
+    def __init__(self, alpha='auto', n_alphas=100, alpha_cov='auto', n_alphas_cov=10,
+                 fit_intercept=True,
                  precompute=False, copy_X=True, max_iter=1000,
                  tol=1e-4, warm_start=False,
                  random_state=None, selection='cyclic', n_jobs=None):
-        self.estimator = DebiasedLasso(alpha=alpha, fit_intercept=fit_intercept,
+        self.estimator = DebiasedLasso(alpha=alpha, n_alphas=n_alphas, alpha_cov=alpha_cov, n_alphas_cov=n_alphas_cov,
+                                       fit_intercept=fit_intercept,
                                        precompute=precompute, copy_X=copy_X, max_iter=max_iter,
                                        tol=tol, warm_start=warm_start,
-                                       random_state=random_state, selection=selection)
+                                       random_state=random_state, selection=selection,
+                                       n_jobs=n_jobs)
         super().__init__(estimator=self.estimator, n_jobs=n_jobs)
 
     def fit(self, X, y, sample_weight=None):
