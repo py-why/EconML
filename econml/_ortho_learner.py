@@ -410,7 +410,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     ----------
     models_nuisance_: list of objects of type(model_nuisance)
         A list of instances of the model_nuisance object. Each element corresponds to a crossfitting
-        fold and is the model instance that was fitted for that training fold.
+        fold and is the model instance that was fitted for that training fold. If `mc_iters` is > 1,
+        then the fitted models from the last monte carlo iteration are being stored and returned.
+        TODO. Enable returning all fitted nuisance models from all monte carlo iterations.
     ortho_learner_model_final_: object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float or array of floats
@@ -851,10 +853,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @property
     def models_nuisance_(self):
-        """ This stores the fitted nuisances. If `mc_iters` is > 1, then the fitted models from the
-        last monte carlo iteration are being stored and returned.
-        TODO. We could enable returning all fitted nuisance models from all monte carlo iterations.
-        """
         if not hasattr(self, '_models_nuisance'):
             raise AttributeError("Model is not fitted!")
         return self._models_nuisance

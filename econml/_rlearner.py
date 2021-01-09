@@ -217,6 +217,7 @@ class _RLearner(_OrthoLearner):
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
         est = RLearner(n_splits=2, discrete_treatment=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
+
     >>> est.const_marginal_effect(np.ones((1,1)))
     array([0.999631...])
     >>> est.effect(np.ones((1,1)), T0=0, T1=10)
