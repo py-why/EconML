@@ -178,7 +178,7 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)
         np.testing.assert_almost_equal(est.score(y, X[:, 0], W=X[:, 1:]), sigma**2, decimal=3)
         np.testing.assert_almost_equal(est.score_, sigma**2, decimal=3)
-        np.testing.assert_almost_equal(est.ortho_learner_model_final.model.coef_[0], 1, decimal=3)
+        np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=3)
         # Nuisance model has no score method, so nuisance_scores_ should be none
         assert est.nuisance_scores_ is None
 
@@ -196,7 +196,7 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)
         np.testing.assert_almost_equal(est.score(y, X[:, 0], None, X[:, 1:]), sigma**2, decimal=3)
         np.testing.assert_almost_equal(est.score_, sigma**2, decimal=3)
-        np.testing.assert_almost_equal(est.ortho_learner_model_final.model.coef_[0], 1, decimal=3)
+        np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=3)
 
         # Test custom splitter
         np.random.seed(123)
@@ -212,7 +212,7 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)
         np.testing.assert_almost_equal(est.score(y, X[:, 0], W=X[:, 1:]), sigma**2, decimal=3)
         np.testing.assert_almost_equal(est.score_, sigma**2, decimal=3)
-        np.testing.assert_almost_equal(est.ortho_learner_model_final.model.coef_[0], 1, decimal=3)
+        np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=3)
 
         # Test incomplete set of test folds
         np.random.seed(123)
@@ -228,7 +228,7 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=1)
         np.testing.assert_almost_equal(est.score(y, X[:, 0], W=X[:, 1:]), sigma**2, decimal=2)
         np.testing.assert_almost_equal(est.score_, sigma**2, decimal=2)
-        np.testing.assert_almost_equal(est.ortho_learner_model_final.model.coef_[0], 1, decimal=2)
+        np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=2)
 
     def test_ol_no_score_final(self):
         class ModelNuisance:
@@ -275,7 +275,7 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)
         assert est.score_ is None
-        np.testing.assert_almost_equal(est.ortho_learner_model_final.model.coef_[0], 1, decimal=3)
+        np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=3)
 
     def test_ol_nuisance_scores(self):
         class ModelNuisance:
@@ -324,7 +324,7 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
         np.testing.assert_array_almost_equal(est.effect(T0=0, T1=10), np.ones(1) * 10, decimal=2)
-        np.testing.assert_almost_equal(est.ortho_learner_model_final.model.coef_[0], 1, decimal=3)
+        np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=3)
         nuisance_scores_y = est.nuisance_scores_[0]
         nuisance_scores_t = est.nuisance_scores_[1]
         assert len(nuisance_scores_y) == len(nuisance_scores_t) == 2  # as many scores as splits
@@ -385,4 +385,4 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
         np.testing.assert_almost_equal(est.score(y, T, W=X), sigma**2, decimal=3)
-        np.testing.assert_almost_equal(est.ortho_learner_model_final.model.coef_[0], 1, decimal=3)
+        np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=3)

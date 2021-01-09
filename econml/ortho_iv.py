@@ -282,7 +282,10 @@ class DMLATEIV(_BaseDMLATEIV):
     a biased ATE.
     """
 
-    def __init__(self, *, model_Y_W, model_T_W, model_Z_W,
+    def __init__(self, *,
+                 model_Y_W,
+                 model_T_W,
+                 model_Z_W,
                  discrete_treatment=False,
                  discrete_instrument=False,
                  categories='auto',
@@ -354,7 +357,10 @@ class _ProjectedDMLATEIVModelNuisance:
 
 class ProjectedDMLATEIV(_BaseDMLATEIV):
 
-    def __init__(self, *, model_Y_W, model_T_W, model_T_WZ,
+    def __init__(self, *,
+                 model_Y_W,
+                 model_T_W,
+                 model_T_WZ,
                  discrete_treatment=False,
                  discrete_instrument=False,
                  categories='auto',
@@ -623,18 +629,18 @@ class _BaseDMLIV(_OrthoLearner):
 
     @property
     def original_featurizer(self):
-        return self.ortho_learner_model_final._model_final._original_featurizer
+        return self.ortho_learner_model_final_._model_final._original_featurizer
 
     @property
     def featurizer_(self):
         # NOTE This is used by the inference methods and has to be the overall featurizer. intended
         # for internal use by the library
-        return self.ortho_learner_model_final._model_final._featurizer
+        return self.ortho_learner_model_final_._model_final._featurizer
 
     @property
     def model_final_(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
-        return self.ortho_learner_model_final._model_final._model
+        return self.ortho_learner_model_final_._model_final._model
 
     @property
     def model_cate(self):
@@ -647,7 +653,7 @@ class _BaseDMLIV(_OrthoLearner):
             An instance of the model_final object that was fitted after calling fit which corresponds
             to the constant marginal CATE model.
         """
-        return self.ortho_learner_model_final._model_final._model
+        return self.ortho_learner_model_final_._model_final._model
 
     @property
     def models_Y_X(self):
@@ -660,7 +666,7 @@ class _BaseDMLIV(_OrthoLearner):
             A list of instances of the `model_Y_X` object. Each element corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_Y_X._model for mdl in super().models_nuisance]
+        return [mdl._model_Y_X._model for mdl in super().models_nuisance_]
 
     @property
     def models_T_X(self):
@@ -673,7 +679,7 @@ class _BaseDMLIV(_OrthoLearner):
             A list of instances of the `model_T_X` object. Each element corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_T_X._model for mdl in super().models_nuisance]
+        return [mdl._model_T_X._model for mdl in super().models_nuisance_]
 
     @property
     def models_T_XZ(self):
@@ -686,7 +692,7 @@ class _BaseDMLIV(_OrthoLearner):
             A list of instances of the `model_T_XZ` object. Each element corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_T_XZ._model for mdl in super().models_nuisance]
+        return [mdl._model_T_XZ._model for mdl in super().models_nuisance_]
 
     @property
     def nuisance_scores_Y_X(self):
@@ -815,7 +821,11 @@ class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, *, model_Y_X, model_T_X, model_T_XZ, model_final,
+    def __init__(self, *,
+                 model_Y_X,
+                 model_T_X,
+                 model_T_XZ,
+                 model_final,
                  featurizer=None,
                  fit_cate_intercept=True,
                  n_splits=2,
@@ -850,11 +860,11 @@ class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
 
     @property
     def bias_part_of_coef(self):
-        return self.ortho_learner_model_final._model_final._fit_cate_intercept
+        return self.ortho_learner_model_final_._model_final._fit_cate_intercept
 
     @property
     def fit_cate_intercept_(self):
-        return self.ortho_learner_model_final._model_final._fit_cate_intercept
+        return self.ortho_learner_model_final_._model_final._fit_cate_intercept
 
 
 class NonParamDMLIV(_BaseDMLIV):
@@ -940,7 +950,11 @@ class NonParamDMLIV(_BaseDMLIV):
 
     """
 
-    def __init__(self, *, model_Y_X, model_T_X, model_T_XZ, model_final,
+    def __init__(self, *,
+                 model_Y_X,
+                 model_T_X,
+                 model_T_XZ,
+                 model_final,
                  featurizer=None,
                  n_splits=2,
                  mc_iters=None,
@@ -1147,7 +1161,7 @@ class _BaseDRIV(_OrthoLearner):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_final,
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -1259,18 +1273,18 @@ class _BaseDRIV(_OrthoLearner):
 
     @property
     def original_featurizer(self):
-        return self.ortho_learner_model_final._original_featurizer
+        return self.ortho_learner_model_final_._original_featurizer
 
     @property
     def featurizer_(self):
         # NOTE This is used by the inference methods and has to be the overall featurizer. intended
         # for internal use by the library
-        return self.ortho_learner_model_final._featurizer
+        return self.ortho_learner_model_final_._featurizer
 
     @property
     def model_final_(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
-        return self.ortho_learner_model_final._model_final
+        return self.ortho_learner_model_final_._model_final
 
     def cate_feature_names(self, feature_names=None):
         """
@@ -1359,7 +1373,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
     Helper class for the DRIV algorithm for the intent-to-treat A/B test setting
     """
 
-    def __init__(self, *, model_Y_X,
+    def __init__(self, *,
+                 model_Y_X,
                  model_T_XZ,
                  prel_model_effect,
                  model_final,
@@ -1378,7 +1393,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
         self.model_T_XZ = clone(model_T_XZ, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
         # TODO: check that Y, T, Z do not have multiple columns
-        super().__init__(model_final,
+        super().__init__(model_final=model_final,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
@@ -1491,7 +1506,9 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, *, model_Y_X, model_T_XZ,
+    def __init__(self, *,
+                 model_Y_X,
+                 model_T_XZ,
                  flexible_model_effect,
                  model_final=None,
                  featurizer=None,
@@ -1535,11 +1552,11 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     @property
     def models_Y_X(self):
-        return [mdl._model_Y_X._model for mdl in super().models_nuisance]
+        return [mdl._model_Y_X._model for mdl in super().models_nuisance_]
 
     @property
     def models_T_XZ(self):
-        return [mdl._model_T_XZ._model for mdl in super().models_nuisance]
+        return [mdl._model_T_XZ._model for mdl in super().models_nuisance_]
 
     @property
     def nuisance_scores_Y_X(self):
@@ -1624,7 +1641,8 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, *, model_Y_X,
+    def __init__(self, *,
+                 model_Y_X,
                  model_T_XZ,
                  flexible_model_effect,
                  featurizer=None,
@@ -1700,11 +1718,11 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
 
     @property
     def bias_part_of_coef(self):
-        return self.ortho_learner_model_final._fit_cate_intercept
+        return self.ortho_learner_model_final_._fit_cate_intercept
 
     @property
     def fit_cate_intercept_(self):
-        return self.ortho_learner_model_final._fit_cate_intercept
+        return self.ortho_learner_model_final_._fit_cate_intercept
 
     @property
     def model_final(self):

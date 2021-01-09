@@ -193,7 +193,11 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
 
     """
 
-    def __init__(self, t_featurizer, x_featurizer, z_featurizer, dt_featurizer):
+    def __init__(self, *,
+                 t_featurizer,
+                 x_featurizer,
+                 z_featurizer,
+                 dt_featurizer):
         self._t_featurizer = clone(t_featurizer, safe=False)
         self._x_featurizer = clone(x_featurizer, safe=False)
         self._z_featurizer = clone(z_featurizer, safe=False)

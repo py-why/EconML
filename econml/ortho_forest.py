@@ -517,7 +517,7 @@ class DMLOrthoForest(BaseOrthoForest):
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  n_trees=500,
                  min_leaf_size=10, max_depth=10,
                  subsample_ratio=0.7,
@@ -858,7 +858,7 @@ class DROrthoForest(BaseOrthoForest):
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  n_trees=500,
                  min_leaf_size=10, max_depth=10,
                  subsample_ratio=0.7,

@@ -233,22 +233,21 @@ class _BaseDML(_RLearner):
 
     @property
     def original_featurizer(self):
-        # NOTE: important to use the rlearner_model_final property instead of the
-        #       _rlearner_model_final attribute so that the trained featurizer will
-        #       be passed through
-        return self.rlearner_model_final._original_featurizer
+        # NOTE: important to use the rlearner_model_final_ attribute instead of the
+        #       attribute so that the trained featurizer will be passed through
+        return self.rlearner_model_final_._original_featurizer
 
     @property
     def featurizer_(self):
         # NOTE This is used by the inference methods and has to be the overall featurizer. intended
         # for internal use by the library
-        return self.rlearner_model_final._featurizer
+        return self.rlearner_model_final_._featurizer
 
     @property
     def model_final_(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
         #      We need to use the rlearner's copy to retain the information from fitting
-        return self.rlearner_model_final._model
+        return self.rlearner_model_final_._model
 
     @property
     def model_cate(self):
@@ -261,7 +260,7 @@ class _BaseDML(_RLearner):
             An instance of the model_final object that was fitted after calling fit which corresponds
             to the constant marginal CATE model.
         """
-        return self.rlearner_model_final._model
+        return self.rlearner_model_final_._model
 
     @property
     def models_y(self):
@@ -448,7 +447,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y, model_t, model_final,
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -459,12 +458,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
-
-        # set random_state and discrete_treatment now even though they're set by super's init
-        # so that they can be used to initialize models
-        self.random_state = random_state
-        self.discrete_treatment = discrete_treatment
-
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
@@ -553,11 +546,11 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     @property
     def bias_part_of_coef(self):
-        return self.rlearner_model_final._fit_cate_intercept
+        return self.rlearner_model_final_._fit_cate_intercept
 
     @property
     def fit_cate_intercept_(self):
-        return self.rlearner_model_final._fit_cate_intercept
+        return self.rlearner_model_final_._fit_cate_intercept
 
 
 class LinearDML(StatsModelsCateEstimatorMixin, DML):
@@ -627,7 +620,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y='auto', model_t='auto',
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -795,7 +788,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y='auto', model_t='auto',
                  alpha='auto',
                  max_iter=1000,
@@ -892,7 +885,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
 
 class _RandomFeatures(TransformerMixin):
-    def __init__(self, dim, bw, random_state):
+    def __init__(self, *, dim, bw, random_state):
         self.dim = dim
         self.bw = bw
         self.random_state = random_state
@@ -995,7 +988,7 @@ class KernelDML(DML):
         return ElasticNetCV(fit_intercept=False, random_state=self.random_state)
 
     def _gen_featurizer(self):
-        return _RandomFeatures(self.dim, self.bw, self.random_state)
+        return _RandomFeatures(dim=self.dim, bw=self.bw, random_state=self.random_state)
 
     @property
     def featurizer(self):
@@ -1080,7 +1073,7 @@ class NonParamDML(_BaseDML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y, model_t, model_final,
                  featurizer=None,
                  discrete_treatment=False,
@@ -1346,7 +1339,7 @@ class ForestDML(ForestModelFinalCateEstimatorMixin, NonParamDML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y, model_t,
                  featurizer=None,
                  discrete_treatment=False,

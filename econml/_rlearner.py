@@ -177,6 +177,63 @@ class _RLearner(_OrthoLearner):
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
+    Examples
+    --------
+    The example code below implements a very simple version of the double machine learning
+    method on top of the :class:`._RLearner` class, for expository purposes.
+    For a more elaborate implementation of a Double Machine Learning child class of the class
+    checkout :class:`.DML` and its child classes:
+
+    .. testcode::
+
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        from econml._rlearner import _RLearner
+        from sklearn.base import clone
+        class ModelFirst:
+            def __init__(self, model):
+                self._model = clone(model, safe=False)
+            def fit(self, X, W, Y, sample_weight=None):
+                self._model.fit(np.hstack([X, W]), Y)
+                return self
+            def predict(self, X, W):
+                return self._model.predict(np.hstack([X, W]))
+        class ModelFinal:
+            def fit(self, X, T_res, Y_res, sample_weight=None, sample_var=None):
+                self.model = LinearRegression(fit_intercept=False).fit(X * T_res.reshape(-1, 1),
+                                                                       Y_res)
+                return self
+            def predict(self, X):
+                return self.model.predict(X)
+        class RLearner(_RLearner):
+            def _gen_model_y(self):
+                return ModelFirst(LinearRegression())
+            def _gen_model_t(self):
+                return ModelFirst(LinearRegression())
+            def _gen_rlearner_model_final(self):
+                return ModelFinal()
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 3))
+        y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
+        est = RLearner(n_splits=2, discrete_treatment=False, categories='auto', random_state=None)
+        est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
+    >>> est.const_marginal_effect(np.ones((1,1)))
+    array([0.999631...])
+    >>> est.effect(np.ones((1,1)), T0=0, T1=10)
+    array([9.996314...])
+    >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
+    9.73638006...e-05
+    >>> est.rlearner_model_final_.model
+    LinearRegression(fit_intercept=False)
+    >>> est.rlearner_model_final_.model.coef_
+    array([0.999631...])
+    >>> est.score_
+    9.82623204...e-05
+    >>> [mdl._model for mdl in est.models_y]
+    [LinearRegression(), LinearRegression()]
+    >>> [mdl._model for mdl in est.models_t]
+    [LinearRegression(), LinearRegression()]
+
     Attributes
     ----------
     models_y: list of objects of type(model_y)
@@ -185,7 +242,7 @@ class _RLearner(_OrthoLearner):
     models_t: list of objects of type(model_t)
         A list of instances of the model_t object. Each element corresponds to a crossfitting
         fold and is the model instance that was fitted for that training fold.
-    rlearner_model_final : object of type(model_final)
+    rlearner_model_final_ : object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float
         The MSE in the final residual on residual regression
@@ -333,18 +390,18 @@ class _RLearner(_OrthoLearner):
         return super().score(Y, T, X=X, W=W)
 
     @property
-    def rlearner_model_final(self):
+    def rlearner_model_final_(self):
         # NOTE: important to get parent's wrapped copy so that
         #       after training wrapped featurizer is also trained, etc.
-        return self.ortho_learner_model_final._model_final
+        return self.ortho_learner_model_final_._model_final
 
     @property
     def models_y(self):
-        return [mdl._model_y for mdl in super().models_nuisance]
+        return [mdl._model_y for mdl in super().models_nuisance_]
 
     @property
     def models_t(self):
-        return [mdl._model_t for mdl in super().models_nuisance]
+        return [mdl._model_t for mdl in super().models_nuisance_]
 
     @property
     def nuisance_scores_y(self):

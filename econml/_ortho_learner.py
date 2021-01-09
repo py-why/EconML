@@ -27,7 +27,7 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
 import copy
 from collections import namedtuple
 from warnings import warn
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 import numpy as np
 from sklearn.base import clone
@@ -194,7 +194,7 @@ CachedValues = namedtuple('_CachedValues', ['nuisances',
                                             'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'sample_var', 'groups'])
 
 
-class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
+class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
     Base class for all orthogonal learners. This class is a parent class to any method that has
     the following architecture:
@@ -347,9 +347,9 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
     array([10.236499...])
     >>> est.score(y, X[:, 0], W=X[:, 1:])
     0.00727995...
-    >>> est.ortho_learner_model_final.model
+    >>> est.ortho_learner_model_final_.model
     LinearRegression(fit_intercept=False)
-    >>> est.ortho_learner_model_final.model.coef_
+    >>> est.ortho_learner_model_final_.model.coef_
     array([1.023649...])
 
     The following example shows how to do double machine learning with discrete treatments, using
@@ -403,15 +403,15 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
     array([1.008401...])
     >>> est.score(y, T, W=W)
     0.00310431...
-    >>> est.ortho_learner_model_final.model.coef_[0]
+    >>> est.ortho_learner_model_final_.model.coef_[0]
     1.00840170...
 
     Attributes
     ----------
-    models_nuisance: list of objects of type(model_nuisance)
+    models_nuisance_: list of objects of type(model_nuisance)
         A list of instances of the model_nuisance object. Each element corresponds to a crossfitting
         fold and is the model instance that was fitted for that training fold.
-    ortho_learner_model_final: object of type(model_final)
+    ortho_learner_model_final_: object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float or array of floats
         If the model_final has a score method, then `score_` contains the outcome of the final model
@@ -573,12 +573,16 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
             (or an instance of :class:`.BootstrapInference`).
         only_final: bool, defaul False
             Whether to fit the nuisance models or use the existing cached values
+            Note. This parameter is only used internally by the `refit` method and should not be exposed
+            publicly by overwrites of the `fit` method in public classes.
         check_input: bool, default True
             Whether to check if the input is valid
+            Note. This parameter is only used internally by the `refit` method and should not be exposed
+            publicly by overwrites of the `fit` method in public classes.
 
         Returns
         -------
-        self : _OrthoLearner instance
+        self : object
         """
         self._random_state = check_random_state(self.random_state)
         if check_input:
@@ -625,10 +629,10 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
             if self.mc_iters is not None:
                 if self.mc_agg == 'mean':
                     nuisances = tuple(np.mean(nuisance_mc_variants, axis=0)
-                                      for nuisance_mc_variants in list(zip(*all_nuisances)))
+                                      for nuisance_mc_variants in zip(*all_nuisances))
                 elif self.mc_agg == 'median':
                     nuisances = tuple(np.median(nuisance_mc_variants, axis=0)
-                                      for nuisance_mc_variants in list(zip(*all_nuisances)))
+                                      for nuisance_mc_variants in zip(*all_nuisances))
                 else:
                     raise ValueError(
                         "Parameter `mc_agg` must be one of {'mean', 'median'}. Got {}".format(self.mc_agg))
@@ -840,13 +844,17 @@ class _OrthoLearner(ABC, TreatmentExpansionMixin, LinearCateEstimator):
                                                      **filter_none_kwargs(X=X, W=W, Z=Z, sample_weight=sample_weight))
 
     @property
-    def ortho_learner_model_final(self):
+    def ortho_learner_model_final_(self):
         if not hasattr(self, '_ortho_learner_model_final'):
             raise AttributeError("Model is not fitted!")
         return self._ortho_learner_model_final
 
     @property
-    def models_nuisance(self):
+    def models_nuisance_(self):
+        """ This stores the fitted nuisances. If `mc_iters` is > 1, then the fitted models from the
+        last monte carlo iteration are being stored and returned.
+        TODO. We could enable returning all fitted nuisance models from all monte carlo iterations.
+        """
         if not hasattr(self, '_models_nuisance'):
             raise AttributeError("Model is not fitted!")
         return self._models_nuisance

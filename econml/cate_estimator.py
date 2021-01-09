@@ -983,7 +983,7 @@ class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscret
     Mixin class that offers `inference='statsmodels'` options to the CATE estimator
     that inherits it.
 
-    Such an estimator must implement a :attr:`model_final` attribute that points
+    Such an estimator must implement a :attr:`model_final_` attribute that points
     to a :class:`.StatsModelsLinearRegression` object that is cloned to fit
     each discrete treatment target CATE model and a :attr:`fitted_models_final` attribute
     that returns the list of fitted final models that represent the CATE for each categorical treatment.

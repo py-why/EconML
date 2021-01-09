@@ -500,7 +500,7 @@ class DRLearner(_OrthoLearner):
         """
         if not self.ortho_learner_model_final._multitask_model_final:
             raise AttributeError("Separate CATE models were fitted for each treatment! Use model_cate.")
-        return self.ortho_learner_model_final.model_cate
+        return self.ortho_learner_model_final_.model_cate
 
     def model_cate(self, T=1):
         """
@@ -517,12 +517,12 @@ class DRLearner(_OrthoLearner):
             An instance of the model_final object that was fitted after calling fit which corresponds
             to the CATE model for treatment T=t, compared to baseline. Available when multitask_model_final=False.
         """
-        if self.ortho_learner_model_final._multitask_model_final:
+        if self.ortho_learner_model_final_._multitask_model_final:
             raise AttributeError("A single multitask model was fitted for all treatments! Use multitask_model_cate.")
         _, T = self._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
-        return self.ortho_learner_model_final.models_cate[ind]
+        return self.ortho_learner_model_final_.models_cate[ind]
 
     @property
     def models_propensity(self):
@@ -535,7 +535,7 @@ class DRLearner(_OrthoLearner):
             A list of instances of the `model_propensity` object. Each element corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_propensity for mdl in super().models_nuisance]
+        return [mdl._model_propensity for mdl in super().models_nuisance_]
 
     @property
     def models_regression(self):
@@ -548,7 +548,7 @@ class DRLearner(_OrthoLearner):
             A list of instances of the model_regression object. Each element corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_regression for mdl in super().models_nuisance]
+        return [mdl._model_regression for mdl in super().models_nuisance_]
 
     @property
     def nuisance_scores_propensity(self):
@@ -571,7 +571,7 @@ class DRLearner(_OrthoLearner):
             An instance of the fitted featurizer that was used to preprocess X in the final CATE model training.
             Available only when featurizer is not None and X is not None.
         """
-        return self.ortho_learner_model_final._featurizer
+        return self.ortho_learner_model_final_._featurizer
 
     def cate_feature_names(self, feature_names=None):
         """
@@ -606,11 +606,11 @@ class DRLearner(_OrthoLearner):
 
     @property
     def model_final_(self):
-        return self.ortho_learner_model_final._model_final
+        return self.ortho_learner_model_final_._model_final
 
     @property
     def fitted_models_final(self):
-        return self.ortho_learner_model_final.models_cate
+        return self.ortho_learner_model_final_.models_cate
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
         if self.featurizer_ is not None:
@@ -619,7 +619,7 @@ class DRLearner(_OrthoLearner):
             F = X
         feature_names = self.cate_feature_names(feature_names)
 
-        if self.ortho_learner_model_final._multitask_model_final:
+        if self.ortho_learner_model_final_._multitask_model_final:
             return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.multitask_model_cate, F,
                                                       self._d_t, self._d_y, feature_names,
                                                       treatment_names, output_names)
