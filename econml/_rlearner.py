@@ -179,6 +179,7 @@ class _RLearner(_OrthoLearner):
 
     Examples
     --------
+
     The example code below implements a very simple version of the double machine learning
     method on top of the :class:`._RLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
