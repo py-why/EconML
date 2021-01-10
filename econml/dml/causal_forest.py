@@ -538,7 +538,7 @@ class CausalForestDML(_BaseDML):
                            inference=inference)
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
-        imps = self.model_final.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+        imps = self.model_final_.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
         return imps.reshape(self._d_y + (-1,))
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
