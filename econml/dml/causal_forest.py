@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+from warnings import warn
+
 import numpy as np
 from .dml import _BaseDML
 from .dml import _FirstStageWrapper, _FinalWrapper
@@ -51,8 +53,8 @@ class _CausalForestFinalWrapper(_FinalWrapper):
 class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
 
     def prefit(self, estimator, *args, **kwargs):
-        self.model_final = estimator.model_final
-        self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
+        self.model_final = estimator.model_final_
+        self.featurizer = estimator.featurizer_ if hasattr(estimator, 'featurizer_') else None
 
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
@@ -132,7 +134,7 @@ class CausalForestDML(_BaseDML):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_crossfit_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -373,6 +375,9 @@ class CausalForestDML(_BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
+                 n_crossfit_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
                  n_estimators=100,
                  criterion="mse",
                  max_depth=None,
@@ -421,10 +426,15 @@ class CausalForestDML(_BaseDML):
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.warm_start = warm_start
+        self.n_crossfit_splits = n_crossfit_splits
+        if self.n_crossfit_splits != 'raise':
+            cv = self.n_crossfit_splits
         super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
-                         # TODO. replace `n_splits` with cv once merged with the n_splits deprecation PR
+                         # TODO. change to `cv=cv, n_splits='raise` when merged with the `n_splits` deprecation PR
                          n_splits=cv,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _get_inference_options(self):
@@ -482,7 +492,8 @@ class CausalForestDML(_BaseDML):
     # override only so that we can update the docstring to indicate support for `blb`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -498,9 +509,19 @@ class CausalForestDML(_BaseDML):
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
+        sample_var: optional (n, n_y) vector
+            Variance of sample, in case it corresponds to summary of many samples. Currently
+            not in use by this method (as inference method does not require sample variance info).
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the `cv` argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`), 'blb' or 'auto'
+            (for Bootstrap-of-Little-Bags based inference)
 
         Returns
         -------
@@ -511,7 +532,9 @@ class CausalForestDML(_BaseDML):
         if X is None:
             raise ValueError("This estimator does not support X=None!")
         Y, T, X, W = check_inputs(Y, T, X, W=W, multi_output_T=True, multi_output_Y=True)
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
                            inference=inference)
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
@@ -519,8 +542,8 @@ class CausalForestDML(_BaseDML):
         return imps.reshape(self._d_y + (-1,))
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        if self.featurizer is not None:
-            F = self.featurizer.transform(X)
+        if self.featurizer_ is not None:
+            F = self.featurizer_.transform(X)
         else:
             F = X
         feature_names = self.cate_feature_names(feature_names)
@@ -556,3 +579,17 @@ class CausalForestDML(_BaseDML):
     def __iter__(self):
         """Return iterator over estimators in the ensemble."""
         return self.model_cate.__iter__()
+
+    #######################################################
+    # These should be removed once `n_splits` is deprecated
+    #######################################################
+
+    @property
+    def n_crossfit_splits(self):
+        return self.cv
+
+    @n_crossfit_splits.setter
+    def n_crossfit_splits(self, value):
+        if value != 'raise':
+            warn("Deprecated by parameter `n_crossfit_splits` and will be removed in next version.")
+        self.cv = value

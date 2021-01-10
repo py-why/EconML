@@ -67,7 +67,7 @@ class TestRandomState(unittest.TestCase):
                 CausalForestDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                                 model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                                 n_estimators=8,
-                                discrete_treatment=True, n_crossfit_splits=2, random_state=123),
+                                discrete_treatment=True, cv=2, random_state=123),
                 LinearDML(model_y=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                           model_t=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                           discrete_treatment=True, n_splits=2, random_state=123),

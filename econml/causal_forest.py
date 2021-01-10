@@ -84,7 +84,7 @@ def CausalForest(n_trees=500,
     return CausalForestDML(
         model_t=model_T,
         model_y=model_Y,
-        n_crossfit_splits=cv,
+        cv=cv,
         discrete_treatment=discrete_treatment,
         categories=categories,
         n_estimators=n_trees,
