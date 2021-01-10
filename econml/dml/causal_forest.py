@@ -17,6 +17,7 @@ from ..utilities import add_intercept, shape, check_inputs, _deprecate_positiona
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
+from .._ortho_learner import _OrthoLearner
 
 
 class _CausalForestFinalWrapper(_FinalWrapper):
@@ -543,6 +544,10 @@ class CausalForestDML(_BaseDML):
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values,
                            inference=inference)
+
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         imps = self.model_final_.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
