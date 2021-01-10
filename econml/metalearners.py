@@ -35,7 +35,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The first category will be treated as the control treatment.
     """
 
-    def __init__(self, models, categories='auto'):
+    def __init__(self, *,
+                 models,
+                 categories='auto'):
         self.models = clone(models, safe=False)
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -122,7 +124,9 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The first category will be treated as the control treatment.
     """
 
-    def __init__(self, overall_model, categories='auto'):
+    def __init__(self, *,
+                 overall_model,
+                 categories='auto'):
         self.overall_model = clone(overall_model, safe=False)
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -226,7 +230,8 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The first category will be treated as the control treatment.
     """
 
-    def __init__(self, models,
+    def __init__(self, *,
+                 models,
                  cate_models=None,
                  propensity_model=LogisticRegression(),
                  categories='auto'):
@@ -353,7 +358,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The first category will be treated as the control treatment.
     """
 
-    def __init__(self, models,
+    def __init__(self, *,
+                 models,
                  final_models,
                  propensity_model=LogisticRegression(),
                  categories='auto'):

@@ -1,39 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-"""Double Machine Learning. The method uses machine learning methods to identify the
-part of the observed outcome and treatment that is not predictable by the controls X, W
-(aka residual outcome and residual treatment).
-Then estimates a CATE model by regressing the residual outcome on the residual treatment
-in a manner that accounts for heterogeneity in the regression coefficient, with respect
-to X.
-
-References
-----------
-
-\\ V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newey.
-    Double Machine Learning for Treatment and Causal Parameters.
-    https://arxiv.org/abs/1608.00060, 2016.
-
-\\ X. Nie and S. Wager.
-    Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
-    arXiv preprint arXiv:1712.04912, 2017. URL http://arxiv.org/abs/1712.04912.
-
-\\ V. Chernozhukov, M. Goldman, V. Semenova, and M. Taddy.
-    Orthogonal Machine Learning for Demand Estimation: High Dimensional Causal Inference in Dynamic Panels.
-    https://arxiv.org/abs/1712.09988, December 2017.
-
-\\ V. Chernozhukov, D. Nekipelov, V. Semenova, and V. Syrgkanis.
-    Two-Stage Estimation with a High-Dimensional Second Stage.
-    https://arxiv.org/abs/1806.04823, 2018.
-
-\\ Dylan Foster, Vasilis Syrgkanis (2019).
-    Orthogonal Statistical Learning.
-    ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
-
-"""
-
-
 from warnings import warn
 
 import numpy as np
@@ -48,13 +15,14 @@ from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
 from sklearn.utils import check_random_state
 import copy
 
+from .._ortho_learner import _OrthoLearner
 from ._rlearner import _RLearner
 from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
                                ForestModelFinalCateEstimatorMixin,
                                LinearModelFinalCateEstimatorMixin,
                                StatsModelsCateEstimatorMixin,
                                LinearCateEstimator)
-from ..inference import StatsModelsInference
+from ..inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from ..sklearn_extensions.ensemble import SubsampledHonestForest
 from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
                                                StatsModelsLinearRegression,
@@ -234,18 +202,21 @@ class _BaseDML(_RLearner):
 
     @property
     def original_featurizer(self):
-        return super().model_final._original_featurizer
+        # NOTE: important to use the rlearner_model_final_ attribute instead of the
+        #       attribute so that the trained featurizer will be passed through
+        return self.rlearner_model_final_._original_featurizer
 
     @property
-    def featurizer(self):
+    def featurizer_(self):
         # NOTE This is used by the inference methods and has to be the overall featurizer. intended
         # for internal use by the library
-        return super().model_final._featurizer
+        return self.rlearner_model_final_._featurizer
 
     @property
-    def model_final(self):
+    def model_final_(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
-        return super().model_final._model
+        #      We need to use the rlearner's copy to retain the information from fitting
+        return self.rlearner_model_final_._model
 
     @property
     def model_cate(self):
@@ -258,7 +229,7 @@ class _BaseDML(_RLearner):
             An instance of the model_final object that was fitted after calling fit which corresponds
             to the constant marginal CATE model.
         """
-        return super().model_final._model
+        return self.rlearner_model_final_._model
 
     @property
     def models_y(self):
@@ -431,6 +402,13 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -438,7 +416,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y, model_t, model_final,
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -446,34 +424,58 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
-
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
-        if model_y == 'auto':
-            model_y = WeightedLassoCVWrapper(random_state=random_state)
-        if model_t == 'auto':
-            if discrete_treatment:
-                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=random_state),
-                                               random_state=random_state)
-            else:
-                model_t = WeightedLassoCVWrapper(random_state=random_state)
-        self.bias_part_of_coef = fit_cate_intercept
         self.fit_cate_intercept = fit_cate_intercept
-        super().__init__(model_y=_FirstStageWrapper(model_y, True,
-                                                    featurizer, linear_first_stages, discrete_treatment),
-                         model_t=_FirstStageWrapper(model_t, False,
-                                                    featurizer, linear_first_stages, discrete_treatment),
-                         model_final=_FinalWrapper(model_final, fit_cate_intercept, featurizer, False),
-                         discrete_treatment=discrete_treatment,
+        self.linear_first_stages = linear_first_stages
+        self.featurizer = clone(featurizer, safe=False)
+        self.model_y = clone(model_y, safe=False)
+        self.model_t = clone(model_t, safe=False)
+        self.model_final = clone(model_final, safe=False)
+        super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
+
+    def _gen_featurizer(self):
+        return clone(self.featurizer, safe=False)
+
+    def _gen_model_y(self):
+        if self.model_y == 'auto':
+            model_y = WeightedLassoCVWrapper(random_state=self.random_state)
+        else:
+            model_y = clone(self.model_y, safe=False)
+        return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
+                                  self.linear_first_stages, self.discrete_treatment)
+
+    def _gen_model_t(self):
+        if self.model_t == 'auto':
+            if self.discrete_treatment:
+                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                               random_state=self.random_state)
+            else:
+                model_t = WeightedLassoCVWrapper(random_state=self.random_state)
+        else:
+            model_t = clone(self.model_t, safe=False)
+        return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
+                                  self.linear_first_stages, self.discrete_treatment)
+
+    def _gen_model_final(self):
+        return clone(self.model_final, safe=False)
+
+    def _gen_rlearner_model_final(self):
+        return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -489,6 +491,12 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
@@ -499,7 +507,20 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self
         """
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
                            inference=inference)
+
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
+
+    @property
+    def bias_part_of_coef(self):
+        return self.rlearner_model_final_._fit_cate_intercept
+
+    @property
+    def fit_cate_intercept_(self):
+        return self.rlearner_model_final_._fit_cate_intercept
 
 
 class LinearDML(StatsModelsCateEstimatorMixin, DML):
@@ -555,15 +576,21 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
-
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y='auto', model_t='auto',
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -571,22 +598,30 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
-                         model_final=StatsModelsLinearRegression(fit_intercept=False),
+                         model_final=None,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state,)
+
+    def _gen_model_final(self):
+        return StatsModelsLinearRegression(fit_intercept=False)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -608,6 +643,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the n_splits argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'statsmodels'
@@ -619,7 +656,17 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         """
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
                            inference=inference)
+
+    @property
+    def model_final(self):
+        return self._gen_model_final()
+
+    @model_final.setter
+    def model_final(self, model):
+        if model is not None:
+            raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
 
 
 class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
@@ -674,6 +721,11 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
+    n_jobs : int or None, optional (default=None)
+        The number of jobs to run in parallel for both `fit` and `predict`.
+        ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
+        ``-1`` means using all processors.
+
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
@@ -709,6 +761,13 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -716,7 +775,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y='auto', model_t='auto',
                  alpha='auto',
                  n_alphas=100,
@@ -731,31 +790,44 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
-        model_final = MultiOutputDebiasedLasso(
-            alpha=alpha,
-            n_alphas=n_alphas,
-            alpha_cov=alpha_cov,
-            n_alphas_cov=n_alphas_cov,
-            fit_intercept=False,
-            max_iter=max_iter,
-            tol=tol,
-            n_jobs=n_jobs,
-            random_state=random_state)
+        self.alpha = alpha
+        self.n_alphas = n_alphas
+        self.alpha_cov = alpha_cov
+        self.n_alphas_cov = n_alphas_cov
+        self.max_iter = max_iter
+        self.tol = tol
+        self.n_jobs = n_jobs
         super().__init__(model_y=model_y,
                          model_t=model_t,
-                         model_final=model_final,
+                         model_final=None,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
+
+    def _gen_model_final(self):
+        return MultiOutputDebiasedLasso(alpha=self.alpha,
+                                        n_alphas=self.n_alphas,
+                                        alpha_cov=self.alpha_cov,
+                                        n_alphas_cov=self.n_alphas_cov,
+                                        fit_intercept=False,
+                                        max_iter=self.max_iter,
+                                        tol=self.tol,
+                                        n_jobs=self.n_jobs,
+                                        random_state=self.random_state)
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -778,6 +850,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the n_splits argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'debiasedlasso'
@@ -792,28 +866,38 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             warn("This estimator does not yet support sample variances and inference does not take "
                  "sample variances into account. This feature will be supported in a future release.")
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
-                               discrete_treatment=self._discrete_treatment,
+                               discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
                                "We recommend using the LinearDML estimator for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
+
+    @property
+    def model_final(self):
+        return self._gen_model_final()
+
+    @model_final.setter
+    def model_final(self, model):
+        if model is not None:
+            raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
 
 
 class _RandomFeatures(TransformerMixin):
-    def __init__(self, dim, bw, random_state):
-        self._dim = dim
-        self._bw = bw
-        self._random_state = random_state
+    def __init__(self, *, dim, bw, random_state):
+        self.dim = dim
+        self.bw = bw
+        self.random_state = random_state
 
     def fit(self, X):
-        random_state = check_random_state(self._random_state)
-        self.omegas = random_state.normal(0, 1 / self._bw, size=(shape(X)[1], self._dim))
-        self.biases = random_state.uniform(0, 2 * np.pi, size=(1, self._dim))
+        random_state = check_random_state(self.random_state)
+        self.omegas_ = random_state.normal(0, 1 / self.bw, size=(shape(X)[1], self.dim))
+        self.biases_ = random_state.uniform(0, 2 * np.pi, size=(1, self.dim))
+        self.dim_ = self.dim
         return self
 
     def transform(self, X):
-        return np.sqrt(2 / self._dim) * np.cos(np.matmul(X, self.omegas) + self.biases)
+        return np.sqrt(2 / self.dim_) * np.cos(np.matmul(X, self.omegas_) + self.biases_)
 
 
 class KernelDML(DML):
@@ -868,6 +952,13 @@ class KernelDML(DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -876,14 +967,45 @@ class KernelDML(DML):
     """
 
     def __init__(self, model_y='auto', model_t='auto', fit_cate_intercept=True,
-                 dim=20, bw=1.0, discrete_treatment=False, categories='auto', n_splits=2, random_state=None):
-        super().__init__(model_y=model_y, model_t=model_t,
-                         model_final=ElasticNetCV(fit_intercept=False, random_state=random_state),
-                         featurizer=_RandomFeatures(dim, bw, random_state),
+                 dim=20, bw=1.0, discrete_treatment=False, categories='auto', n_splits=2,
+                 mc_iters=None, mc_agg='mean', random_state=None):
+        self.dim = dim
+        self.bw = bw
+        super().__init__(model_y=model_y,
+                         model_t=model_t,
+                         model_final=None,
+                         featurizer=None,
                          fit_cate_intercept=fit_cate_intercept,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
-                         n_splits=n_splits, random_state=random_state)
+                         n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state)
+
+    def _gen_model_final(self):
+        return ElasticNetCV(fit_intercept=False, random_state=self.random_state)
+
+    def _gen_featurizer(self):
+        return _RandomFeatures(dim=self.dim, bw=self.bw, random_state=self.random_state)
+
+    @property
+    def featurizer(self):
+        return self._gen_featurizer()
+
+    @featurizer.setter
+    def featurizer(self, value):
+        if value is not None:
+            raise ValueError("Parameter `featurizer` cannot be altered for this estimator!")
+
+    @property
+    def model_final(self):
+        return self._gen_model_final()
+
+    @model_final.setter
+    def model_final(self, model):
+        if model is not None:
+            raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
 
 
 class NonParamDML(_BaseDML):
@@ -936,6 +1058,13 @@ class NonParamDML(_BaseDML):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -943,30 +1072,99 @@ class NonParamDML(_BaseDML):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  model_y, model_t, model_final,
                  featurizer=None,
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,
+                 mc_iters=None,
+                 mc_agg='mean',
                  random_state=None):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
-
-        super().__init__(model_y=_FirstStageWrapper(model_y, True,
-                                                    featurizer, False, discrete_treatment),
-                         model_t=_FirstStageWrapper(model_t, False,
-                                                    featurizer, False, discrete_treatment),
-                         model_final=_FinalWrapper(model_final, False, featurizer, True),
-                         discrete_treatment=discrete_treatment,
+        self.model_y = clone(model_y, safe=False)
+        self.model_t = clone(model_t, safe=False)
+        self.featurizer = clone(featurizer, safe=False)
+        self.model_final = clone(model_final, safe=False)
+        super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
                          n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
+    def _get_inference_options(self):
+        # add blb to parent's options
+        options = super()._get_inference_options()
+        options.update(auto=GenericSingleTreatmentModelFinalInference)
+        return options
+
+    def _gen_featurizer(self):
+        return clone(self.featurizer, safe=False)
+
+    def _gen_model_y(self):
+        return _FirstStageWrapper(clone(self.model_y, safe=False), True,
+                                  self._gen_featurizer(), False, self.discrete_treatment)
+
+    def _gen_model_t(self):
+        return _FirstStageWrapper(clone(self.model_t, safe=False), False,
+                                  self._gen_featurizer(), False, self.discrete_treatment)
+
+    def _gen_model_final(self):
+        return clone(self.model_final, safe=False)
+
+    def _gen_rlearner_model_final(self):
+        return _FinalWrapper(self._gen_model_final(), False, self._gen_featurizer(), True)
+
+    # override only so that we can update the docstring to indicate
+    # support for `GenericSingleTreatmentModelFinalInference`
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
+        """
+        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+
+        Parameters
+        ----------
+        Y: (n × d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n × dₜ) matrix or vector of length n
+            Treatments for each sample
+        X: optional (n × dₓ) matrix
+            Features for each sample
+        W: optional (n × d_w) matrix
+            Controls for each sample
+        sample_weight: optional (n,) vector
+            Weights for each row
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the n_splits argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'auto'
+            (or an instance of :class:`.GenericSingleTreatmentModelFinalInference`)
+
+        Returns
+        -------
+        self
+        """
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
+                           inference=inference)
+
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
+
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        if self.featurizer is not None:
-            F = self.featurizer.transform(X)
+        if self.featurizer_ is not None:
+            F = self.featurizer_.transform(X)
         else:
             F = X
         feature_names = self.cate_feature_names(feature_names)
@@ -985,7 +1183,10 @@ class NonParamDML(_BaseDML):
 def ForestDML(model_y, model_t,
               discrete_treatment=False,
               categories='auto',
-              n_crossfit_splits=2,
+              cv=2,
+              n_crossfit_splits='raise',
+              mc_iters=None,
+              mc_agg='mean',
               n_estimators=100,
               criterion="mse",
               max_depth=None,
@@ -1021,7 +1222,7 @@ def ForestDML(model_y, model_t,
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_crossfit_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1037,6 +1238,17 @@ def ForestDML(model_y, model_t,
 
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    n_crossfit_splits: int or 'raise', optional (default='raise')
+        Deprecated by parameter `n_splits` and will be removed in next version. Can be used
+        interchangeably with `n_splits`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     n_estimators : integer, optional (default=100)
         The total number of trees in the forest. The forest consists of a
@@ -1156,7 +1368,10 @@ def ForestDML(model_y, model_t,
                            model_t=model_t,
                            discrete_treatment=discrete_treatment,
                            categories=categories,
+                           cv=cv,
                            n_crossfit_splits=n_crossfit_splits,
+                           mc_iters=mc_iters,
+                           mc_agg=mc_agg,
                            n_estimators=n_estimators,
                            criterion="mse",
                            max_depth=max_depth,

@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+from warnings import warn
+
 import numpy as np
 from .dml import _BaseDML
 from .dml import _FirstStageWrapper, _FinalWrapper
@@ -15,6 +17,7 @@ from ..utilities import add_intercept, shape, check_inputs, _deprecate_positiona
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
+from .._ortho_learner import _OrthoLearner
 
 
 class _CausalForestFinalWrapper(_FinalWrapper):
@@ -51,8 +54,8 @@ class _CausalForestFinalWrapper(_FinalWrapper):
 class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
 
     def prefit(self, estimator, *args, **kwargs):
-        self.model_final = estimator.model_final
-        self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
+        self.model_final = estimator.model_final_
+        self.featurizer = estimator.featurizer_ if hasattr(estimator, 'featurizer_') else None
 
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
@@ -132,7 +135,7 @@ class CausalForestDML(_BaseDML):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_crossfit_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -147,6 +150,13 @@ class CausalForestDML(_BaseDML):
         (with a random shuffle in either case).
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     n_estimators : int, default=100
         Number of trees
@@ -372,7 +382,10 @@ class CausalForestDML(_BaseDML):
                  featurizer=None,
                  discrete_treatment=False,
                  categories='auto',
-                 n_crossfit_splits=2,
+                 cv=2,
+                 n_crossfit_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
                  n_estimators=100,
                  criterion="mse",
                  max_depth=None,
@@ -396,44 +409,40 @@ class CausalForestDML(_BaseDML):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
-        if model_y == 'auto':
-            model_y = WeightedLassoCVWrapper(random_state=random_state)
-        if model_t == 'auto':
-            if discrete_treatment:
-                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=random_state),
-                                               random_state=random_state)
-            else:
-                model_t = WeightedLassoCVWrapper(random_state=random_state)
-        self.bias_part_of_coef = False
-        self.fit_cate_intercept = False
-        model_final = MultiOutputGRF(CausalForest(n_estimators=n_estimators,
-                                                  criterion=criterion,
-                                                  max_depth=max_depth,
-                                                  min_samples_split=min_samples_split,
-                                                  min_samples_leaf=min_samples_leaf,
-                                                  min_weight_fraction_leaf=min_weight_fraction_leaf,
-                                                  min_var_fraction_leaf=min_var_fraction_leaf,
-                                                  min_var_leaf_on_val=min_var_leaf_on_val,
-                                                  max_features=max_features,
-                                                  min_impurity_decrease=min_impurity_decrease,
-                                                  max_samples=max_samples,
-                                                  min_balancedness_tol=min_balancedness_tol,
-                                                  honest=honest,
-                                                  inference=inference,
-                                                  fit_intercept=fit_intercept,
-                                                  subforest_size=subforest_size,
-                                                  n_jobs=n_jobs,
-                                                  random_state=random_state,
-                                                  verbose=verbose,
-                                                  warm_start=warm_start))
-        super().__init__(model_y=_FirstStageWrapper(model_y, True,
-                                                    featurizer, False, discrete_treatment),
-                         model_t=_FirstStageWrapper(model_t, False,
-                                                    featurizer, False, discrete_treatment),
-                         model_final=_CausalForestFinalWrapper(model_final, False, featurizer, False),
-                         discrete_treatment=discrete_treatment,
+        self.model_y = clone(model_y, safe=False)
+        self.model_t = clone(model_t, safe=False)
+        self.featurizer = clone(featurizer, safe=False)
+        self.discrete_instrument = discrete_treatment
+        self.categories = categories
+        self.cv = cv
+        self.n_estimators = n_estimators
+        self.criterion = criterion
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.min_weight_fraction_leaf = min_weight_fraction_leaf
+        self.min_var_fraction_leaf = min_var_fraction_leaf
+        self.min_var_leaf_on_val = min_var_leaf_on_val
+        self.max_features = max_features
+        self.min_impurity_decrease = min_impurity_decrease
+        self.max_samples = max_samples
+        self.min_balancedness_tol = min_balancedness_tol
+        self.honest = honest
+        self.inference = inference
+        self.fit_intercept = fit_intercept
+        self.subforest_size = subforest_size
+        self.n_jobs = n_jobs
+        self.verbose = verbose
+        self.warm_start = warm_start
+        self.n_crossfit_splits = n_crossfit_splits
+        if self.n_crossfit_splits != 'raise':
+            cv = self.n_crossfit_splits
+        super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
-                         n_splits=n_crossfit_splits,
+                         # TODO. change to `cv=cv, n_splits='raise` when merged with the `n_splits` deprecation PR
+                         n_splits=cv,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          random_state=random_state)
 
     def _get_inference_options(self):
@@ -442,10 +451,57 @@ class CausalForestDML(_BaseDML):
         options.update(auto=_GenericSingleOutcomeModelFinalWithCovInference)
         return options
 
+    def _gen_featurizer(self):
+        return clone(self.featurizer, safe=False)
+
+    def _gen_model_y(self):
+        if self.model_y == 'auto':
+            model_y = WeightedLassoCVWrapper(random_state=self.random_state)
+        else:
+            model_y = clone(self.model_y, safe=False)
+        return _FirstStageWrapper(model_y, True, self._gen_featurizer(), False, self.discrete_treatment)
+
+    def _gen_model_t(self):
+        if self.model_t == 'auto':
+            if self.discrete_treatment:
+                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                               random_state=self.random_state)
+            else:
+                model_t = WeightedLassoCVWrapper(random_state=self.random_state)
+        else:
+            model_t = clone(self.model_t, safe=False)
+        return _FirstStageWrapper(model_t, False, self._gen_featurizer(), False, self.discrete_treatment)
+
+    def _gen_model_final(self):
+        return MultiOutputGRF(CausalForest(n_estimators=self.n_estimators,
+                                           criterion=self.criterion,
+                                           max_depth=self.max_depth,
+                                           min_samples_split=self.min_samples_split,
+                                           min_samples_leaf=self.min_samples_leaf,
+                                           min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+                                           min_var_fraction_leaf=self.min_var_fraction_leaf,
+                                           min_var_leaf_on_val=self.min_var_leaf_on_val,
+                                           max_features=self.max_features,
+                                           min_impurity_decrease=self.min_impurity_decrease,
+                                           max_samples=self.max_samples,
+                                           min_balancedness_tol=self.min_balancedness_tol,
+                                           honest=self.honest,
+                                           inference=self.inference,
+                                           fit_intercept=self.fit_intercept,
+                                           subforest_size=self.subforest_size,
+                                           n_jobs=self.n_jobs,
+                                           random_state=self.random_state,
+                                           verbose=self.verbose,
+                                           warm_start=self.warm_start))
+
+    def _gen_rlearner_model_final(self):
+        return _CausalForestFinalWrapper(self._gen_model_final(), False, self._gen_featurizer(), False)
+
     # override only so that we can update the docstring to indicate support for `blb`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
@@ -461,9 +517,19 @@ class CausalForestDML(_BaseDML):
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
+        sample_var: optional (n, n_y) vector
+            Variance of sample, in case it corresponds to summary of many samples. Currently
+            not in use by this method (as inference method does not require sample variance info).
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the `cv` argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`), 'blb' or 'auto'
+            (for Bootstrap-of-Little-Bags based inference)
 
         Returns
         -------
@@ -474,16 +540,22 @@ class CausalForestDML(_BaseDML):
         if X is None:
             raise ValueError("This estimator does not support X=None!")
         Y, T, X, W = check_inputs(Y, T, X, W=W, multi_output_T=True, multi_output_Y=True)
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
                            inference=inference)
 
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
+
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
-        imps = self.model_final.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
+        imps = self.model_final_.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
         return imps.reshape(self._d_y + (-1,))
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        if self.featurizer is not None:
-            F = self.featurizer.transform(X)
+        if self.featurizer_ is not None:
+            F = self.featurizer_.transform(X)
         else:
             F = X
         feature_names = self.cate_feature_names(feature_names)
@@ -499,6 +571,15 @@ class CausalForestDML(_BaseDML):
     def feature_importances_(self):
         return self.feature_importances()
 
+    @property
+    def model_final(self):
+        return self._gen_model_final()
+
+    @model_final.setter
+    def model_final(self, model):
+        if model is not None:
+            raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
+
     def __len__(self):
         """Return the number of estimators in the ensemble."""
         return self.model_cate.__len__()
@@ -510,3 +591,17 @@ class CausalForestDML(_BaseDML):
     def __iter__(self):
         """Return iterator over estimators in the ensemble."""
         return self.model_cate.__iter__()
+
+    #######################################################
+    # These should be removed once `n_splits` is deprecated
+    #######################################################
+
+    @property
+    def n_crossfit_splits(self):
+        return self.cv
+
+    @n_crossfit_splits.setter
+    def n_crossfit_splits(self, value):
+        if value != 'raise':
+            warn("Deprecated by parameter `n_crossfit_splits` and will be removed in next version.")
+        self.cv = value

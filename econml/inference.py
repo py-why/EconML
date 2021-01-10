@@ -95,8 +95,8 @@ class GenericModelFinalInference(Inference):
     """
 
     def prefit(self, estimator, *args, **kwargs):
-        self.model_final = estimator.model_final
-        self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
+        self.model_final = estimator.model_final_
+        self.featurizer = estimator.featurizer_ if hasattr(estimator, 'featurizer_') else None
 
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
@@ -326,8 +326,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
     """
 
     def prefit(self, estimator, *args, **kwargs):
-        self.model_final = estimator.model_final
-        self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
+        self.model_final = estimator.model_final_
+        self.featurizer = estimator.featurizer_ if hasattr(estimator, 'featurizer_') else None
 
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here

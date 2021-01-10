@@ -101,7 +101,13 @@ class BootstrapEstimator:
             return x  # Explicitly return x in case fit fails to return its target
 
         def convertArg(arg, inds):
-            return np.asarray(arg)[inds] if arg is not None else None
+            if arg is None:
+                return None
+            arr = np.asarray(arg)
+            if arr.ndim > 0:
+                return arr[inds]
+            else:  # arg was a scalar, so we shouldn't have converted it
+                return arg
 
         self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
             delayed(fit)(obj,
