@@ -150,6 +150,13 @@ class CausalForestDML(_BaseDML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     n_estimators : int, default=100
         Number of trees
 
