@@ -20,7 +20,7 @@ class EnsembleCateEstimator:
     weights : np.ndarray of shape (len(cate_models),)
         The weight placed on each model. Weights must be non-positive. The
         ensemble will predict effects based on the weighted average predictions
-        of the cate_models estiamtors, weighted by the corresponding weight in `weights`. 
+        of the cate_models estiamtors, weighted by the corresponding weight in `weights`.
     """
 
     def __init__(self, *, cate_models, weights):

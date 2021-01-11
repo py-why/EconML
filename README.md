@@ -319,7 +319,7 @@ treatment_effects = est.effect(X_test)
 ```
 </details>
 
- See the <a href="#references">References</a> section for more details.
+See the <a href="#references">References</a> section for more details.
 
 ### Interpretability
 <details>
@@ -366,6 +366,54 @@ treatment_effects = est.effect(X_test)
   est.fit(Y, T, X=X, W=W)
   shap_values = est.shap_values(X)
   shap.summary_plot(shap_values['Y0']['T0'])
+  ```
+
+</details>
+
+
+### Causal Model Selection and Cross-Validation
+
+
+<details>
+  <summary>Causal model selection with the `RScorer` (click to expand)</summary>
+
+  ```Python
+  from econml.score import Rscorer
+
+  # split data in train-validation
+  X_train, X_val, T_train, T_val, Y_train, Y_val = train_test_split(X, T, y, test_size=.4)
+
+  # define list of CATE estimators to select among
+  reg = lambda: RandomForestRegressor(min_samples_leaf=20)
+  clf = lambda: RandomForestClassifier(min_samples_leaf=20)
+  models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
+                               linear_first_stages=False, n_splits=3)),
+            ('xlearner', XLearner(models=reg(), cate_models=reg(), propensity_model=clf())),
+            ('dalearner', DomainAdaptationLearner(models=reg(), final_models=reg(), propensity_model=clf())),
+            ('slearner', SLearner(overall_model=reg())),
+            ('drlearner', DRLearner(model_propensity=clf(), model_regression=reg(),
+                                    model_final=reg(), n_splits=3)),
+            ('rlearner', NonParamDML(model_y=reg(), model_t=clf(), model_final=reg(),
+                                     discrete_treatment=True, n_splits=3)),
+            ('dml3dlasso', DML(model_y=reg(), model_t=clf(),
+                               model_final=LassoCV(cv=3, fit_intercept=False),
+                               discrete_treatment=True,
+                               featurizer=PolynomialFeatures(degree=3),
+                               linear_first_stages=False, n_splits=3))
+  ]
+
+  # fit cate models on train data
+  models = [(name, mdl.fit(Y_train, T_train, X=X_train)) for name, mdl in models]
+
+  # score cate models on validation data
+  scorer = RScorer(model_y=reg(), model_t=clf(),
+                   discrete_treatment=True, n_splits=3, mc_iters=2, mc_agg='median')
+  scorer.fit(Y_val, T_val, X=X_val)
+  rscore = [scorer.score(mdl) for _, mdl in models]
+  # select the best model
+  mdl, _ = scorer.best_model([mdl for _, mdl in models])
+  # create weighted ensemble model based on score performance
+  mdl, _ = scorer.ensemble([mdl for _, mdl in models])
   ```
 
 </details>
