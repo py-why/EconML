@@ -32,6 +32,9 @@ class RScorer:
     A negative score, means that the cate model performs even worse than a constant effect model
     and hints at overfitting during training of the cate model.
 
+    This method was also advocated in recent work of [Schuleretal2018]_ when compared among several alternatives
+    for causal model selection and introduced in the work of [NieWager2017]_.
+
     Parameters
     ----------
     model_y: estimator
@@ -78,6 +81,19 @@ class RScorer:
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    References
+    ----------
+    .. [NieWager2017] X. Nie and S. Wager.
+        Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
+        arXiv preprint arXiv:1712.04912, 2017.
+        https://arxiv.org/pdf/1712.04912.pdf
+
+    .. [Schuleretal2018] Alejandro Schuler, Michael Baiocchi, Robert Tibshirani, Nigam Shah.
+        "A comparison of methods for model selection when estimating individual treatment effects."
+        Arxiv, 2018
+        https://arxiv.org/pdf/1804.05146.pdf
+
     """
 
     def __init__(self, *,
@@ -182,7 +198,7 @@ class RScorer:
             The list of scores for each of the input models. Returned only if `return_scores=True`.
         """
         rscores = [self.score(mdl) for mdl in cate_models]
-        best = np.argmax(rscores)
+        best = np.nanargmax(rscores)
         if return_scores:
             return cate_models[best], rscores[best], rscores
         else:
@@ -210,8 +226,10 @@ class RScorer:
             The list of scores for each of the input models. Returned only if `return_scores=True`.
         """
         rscores = np.array([self.score(mdl) for mdl in cate_models])
-        weights = softmax(eta * rscores)
-        ensemble = EnsembleCateEstimator(cate_models=cate_models, weights=weights)
+        goodinds = np.isfinite(rscores)
+        weights = softmax(eta * rscores[goodinds])
+        goodmodels = [mdl for mdl, good in zip(cate_models, goodinds) if good]
+        ensemble = EnsembleCateEstimator(cate_models=goodmodels, weights=weights)
         ensemble_score = self.score(ensemble)
         if return_scores:
             return ensemble, ensemble_score, rscores
