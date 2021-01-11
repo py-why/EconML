@@ -10,14 +10,18 @@ from .ensemble_cate import EnsembleCateEstimator
 
 class RScorer:
     """ Scorer based on the RLearner loss. Fits residual models at fit time and calculates
-    residuals of the evaluation data, Yres, Tres. Then for any given cate model calculates
-    the loss::
+    residuals of the evaluation data in a cross-fitting manner::
 
-        loss(cate) = E_n[(Yres - cate(X)'Tres)^2]
+        Yres = Y - E[Y|X, W]
+        Tres = T - E[T|X, W]
+
+    Then for any given cate model calculates the loss::
+
+        loss(cate) = E_n[(Yres - <cate(X), Tres>)^2]
 
     Also calculates a baseline loss based on a constant treatment effect model, i.e.::
 
-        base_loss = min_{theta} E_n[(Yres - theta'Tres)^2]
+        base_loss = min_{theta} E_n[(Yres - <theta, Tres>)^2]
 
     Returns an analogue of the R-square score for regression::
 
@@ -32,11 +36,11 @@ class RScorer:
     ----------
     model_y: estimator
         The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
+        `fit` and `predict` methods.
 
     model_t: estimator
         The estimator for fitting the treatment to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
+        `fit` and `predict` methods.
 
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
@@ -51,7 +55,7 @@ class RScorer:
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -76,7 +80,9 @@ class RScorer:
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, *, model_y, model_t,
+    def __init__(self, *,
+                 model_y,
+                 model_t,
                  discrete_treatment=False,
                  categories='auto',
                  n_splits=2,

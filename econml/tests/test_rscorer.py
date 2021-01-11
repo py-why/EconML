@@ -22,10 +22,10 @@ def _fit_model(name, model, Y, T, X):
 class TestRScorer(unittest.TestCase):
 
     def _get_data(self):
-        X = np.random.choice(np.arange(5), size=(500, 3))
-        y = np.random.normal(size=(500,))
+        X = np.random.normal(0, 1, size=(500, 2))
         T = np.random.binomial(1, .5, size=(500,))
-        return y, T, X
+        y = X[:, 0] * T + np.random.normal(size=(500,))
+        return y, T, X, X[:, 0]
 
     def test_comparison(self):
         def reg():
@@ -34,8 +34,9 @@ class TestRScorer(unittest.TestCase):
         def clf():
             return LogisticRegression()
 
-        y, T, X = self._get_data()
-        X_train, X_val, T_train, T_val, Y_train, Y_val = train_test_split(X, T, y, test_size=.4)
+        y, T, X, true_eff = self._get_data()
+        (X_train, X_val, T_train, T_val,
+         Y_train, Y_val, _, true_eff_val) = train_test_split(X, T, y, true_eff, test_size=.4)
 
         models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
                                      linear_first_stages=False, n_splits=3)),
@@ -63,8 +64,12 @@ class TestRScorer(unittest.TestCase):
                          discrete_treatment=True, n_splits=3, mc_iters=2, mc_agg='median')
         scorer.fit(Y_val, T_val, X=X_val)
         rscore = [scorer.score(mdl) for _, mdl in models]
-        expected_te_val = np.zeros(X_val.shape[0])
-        mdl, score = scorer.best_model([mdl for _, mdl in models])
-        rootpehe_best = np.sqrt(np.mean((expected_te_val.flatten() - mdl.effect(X_val).flatten())**2))
-        mdl, score = scorer.ensemble([mdl for _, mdl in models])
-        rootpehe_ensemble = np.sqrt(np.mean((expected_te_val.flatten() - mdl.effect(X_val).flatten())**2))
+        rootpehe_score = [np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
+                          for _, mdl in models]
+        assert LinearRegression().fit(np.array(rscore).reshape(-1, 1), np.array(rootpehe_score)).coef_ < 0.5
+        mdl, _ = scorer.best_model([mdl for _, mdl in models])
+        rootpehe_best = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
+        assert rootpehe_best < 1.2 * np.min(rootpehe_score)
+        mdl, _ = scorer.ensemble([mdl for _, mdl in models])
+        rootpehe_ensemble = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
+        assert rootpehe_ensemble < 1.2 * np.min(rootpehe_score)
