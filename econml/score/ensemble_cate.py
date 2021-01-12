@@ -24,8 +24,8 @@ class EnsembleCateEstimator:
     """
 
     def __init__(self, *, cate_models, weights):
-        self._cate_models = cate_models
-        self._weights = weights
+        self.cate_models = cate_models
+        self.weights = weights
 
     def effect(self, X=None, *, T0=0, T1=1):
         return np.average([mdl.effect(X=X, T0=T0, T1=T1) for mdl in self.cate_models],
@@ -51,7 +51,7 @@ class EnsembleCateEstimator:
 
     @cate_models.setter
     def cate_models(self, value):
-        if not isinstance(value, list):
+        if (not isinstance(value, list)) or (not np.all([isinstance(model, BaseCateEstimator) for model in value])):
             raise ValueError('Parameter `cate_models` should be a list of `BaseCateEstimator` objects.')
         self._cate_models = value
 
