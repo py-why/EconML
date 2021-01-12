@@ -14,6 +14,7 @@ Public Module Reference
     econml.metalearners
     econml.ortho_forest
     econml.ortho_iv
+    econml.score
     econml.two_stage_least_squares
     econml.utilities
 
