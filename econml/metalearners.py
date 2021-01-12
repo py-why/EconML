@@ -3,7 +3,7 @@
 
 """Metalearners for heterogeneous treatment effects in the context of discrete treatments.
 
-For more details on these CATE methods, see <https://arxiv.org/abs/1706.03461>
+For more details on these CATE methods, see `<https://arxiv.org/abs/1706.03461>`_
 (Künzel S., Sekhon J., Bickel P., Yu B.) on Arxiv.
 """
 

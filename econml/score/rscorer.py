@@ -87,12 +87,12 @@ class RScorer:
     .. [NieWager2017] X. Nie and S. Wager.
         Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
         arXiv preprint arXiv:1712.04912, 2017.
-        https://arxiv.org/pdf/1712.04912.pdf
+        `<https://arxiv.org/pdf/1712.04912.pdf>`_
 
     .. [Schuleretal2018] Alejandro Schuler, Michael Baiocchi, Robert Tibshirani, Nigam Shah.
         "A comparison of methods for model selection when estimating individual treatment effects."
         Arxiv, 2018
-        https://arxiv.org/pdf/1804.05146.pdf
+        `<https://arxiv.org/pdf/1804.05146.pdf>`_
 
     """
 

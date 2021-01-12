@@ -12,25 +12,25 @@ to X.
 References
 ----------
 
-\\ V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newey.
+.. [dml] V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newey.
     Double Machine Learning for Treatment and Causal Parameters.
-    https://arxiv.org/abs/1608.00060, 2016.
+    `<https://arxiv.org/abs/1608.00060>`_, 2016.
 
-\\ X. Nie and S. Wager.
+.. [rlearner] X. Nie and S. Wager.
     Quasi-Oracle Estimation of Heterogeneous Treatment Effects.
-    arXiv preprint arXiv:1712.04912, 2017. URL http://arxiv.org/abs/1712.04912.
+    arXiv preprint arXiv:1712.04912, 2017. URL `<http://arxiv.org/abs/1712.04912>`_.
 
-\\ V. Chernozhukov, M. Goldman, V. Semenova, and M. Taddy.
+.. [paneldml] V. Chernozhukov, M. Goldman, V. Semenova, and M. Taddy.
     Orthogonal Machine Learning for Demand Estimation: High Dimensional Causal Inference in Dynamic Panels.
-    https://arxiv.org/abs/1712.09988, December 2017.
+    `<https://arxiv.org/abs/1712.09988>`_, December 2017.
 
-\\ V. Chernozhukov, D. Nekipelov, V. Semenova, and V. Syrgkanis.
+.. [lassodml] V. Chernozhukov, D. Nekipelov, V. Semenova, and V. Syrgkanis.
     Two-Stage Estimation with a High-Dimensional Second Stage.
-    https://arxiv.org/abs/1806.04823, 2018.
+    `<https://arxiv.org/abs/1806.04823>`_, 2018.
 
-\\ Dylan Foster, Vasilis Syrgkanis (2019).
+.. [ortholearner] Dylan Foster, Vasilis Syrgkanis (2019).
     Orthogonal Statistical Learning.
-    ACM Conference on Learning Theory. https://arxiv.org/abs/1901.09036
+    ACM Conference on Learning Theory. `<https://arxiv.org/abs/1901.09036>`_
 
 """
 
