@@ -101,7 +101,7 @@ def test_dominicks():
         dml = LinearDML(model_y=RandomForestRegressor(),
                         model_t=RandomForestRegressor(),
                         featurizer=ft,
-                        n_splits=2)
+                        cv=2)
 
         effects = []
         for store in stores:
@@ -129,7 +129,7 @@ def test_dominicks():
     dml = LinearDML(model_y=RandomForestRegressor(),
                     model_t=RandomForestRegressor(),
                     featurizer=ConstFt(),
-                    n_splits=2)
+                    cv=2)
 
     effects = []
     for store in stores:

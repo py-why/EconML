@@ -27,10 +27,6 @@ The latter translates to estimating a local gradient around a treatment vector c
     \partial\tau(\vec{t}, \vec{x}) = \E\left[\nabla_{\vec{t}} Y(\vec{t}) | X=\vec{x}\right] \tag{marginal CATE}
 
 We will refer to the latter as the *heterogeneous marginal effect*. [1]_ 
-Finally, we might not only be interested in the effect but also in the actual *counterfactual prediction*, i.e. estimating the quatity: 
-
-.. math ::
-    \mu(\vec{t}, \vec{x}) = \E\left[Y(\vec{t}) | X=\vec{x}\right] \tag{counterfactual prediction}
 
 We assume we have data that are generated from some collection policy. In particular, we assume that we have data of the form: 
 :math:`\{Y_i(T_i), T_i, X_i, W_i, Z_i\}`, where :math:`Y_i(T_i)` is the observed outcome for the chosen treatment, 
@@ -42,6 +38,19 @@ We will refer to variables :math:`W_i` as *controls* and variables :math:`Z_i` a
 The variables :math:`X_i` can also be thought of as *control* variables, but they are special in the sense that 
 they are a subset of the controls with respect to which we want to measure treatment effect heterogeneity. 
 We will refer to them as *features*.
+
+Finally, some times we might not only be interested in the effect but also in the actual *counterfactual prediction*, i.e. estimating the quatity: 
+
+.. math ::
+    \mu(\vec{t}, \vec{x}) = \E\left[Y(\vec{t}) | X=\vec{x}\right] \tag{counterfactual prediction}
+
+Our package does not offer support for counterfactual prediction. However, for most of our estimators (the ones
+assuming a linear-in-treatment model), counterfactual prediction can be easily constructed by combining any baseline predictive model
+with our causal effect model, i.e. train any machine learning model :math:`b(\vec{t}, \vec{x})` to solve the regression/classification
+problem :math:`\E[Y | T=\vec{t}, X=\vec{x}]`, and then set :math:`\mu(vec{t}, \vec{x}) = \tau(\vec{t}, T, \vec{x}) + b(T, \vec{x})`,
+where :math:`T` is either the observed treatment for that sample under the observational policy or the treatment
+that the observational policy would have assigned to that sample. These auxiliary ML models can be trained
+with any machine learning package outside of EconML.
 
 .. rubric:: 
     Structural Equation Formulation

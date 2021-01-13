@@ -1,9 +1,26 @@
 from .ortho_forest import DMLOrthoForest
-from .utilities import LassoCVWrapper
+from .utilities import LassoCVWrapper, deprecated
 from sklearn.linear_model import LogisticRegressionCV
+from .dml import CausalForestDML
 
 
-class CausalForest(DMLOrthoForest):
+@deprecated("The CausalForest class has been deprecated by the CausalForestDML; "
+            "an upcoming release will remove support for the old class")
+def CausalForest(n_trees=500,
+                 min_leaf_size=10,
+                 max_depth=10,
+                 subsample_ratio=0.7,
+                 lambda_reg=0.01,
+                 model_T='auto',
+                 model_Y=LassoCVWrapper(cv=3),
+                 cv=2,
+                 discrete_treatment=False,
+                 categories='auto',
+                 n_jobs=-1,
+                 backend='threading',
+                 verbose=0,
+                 batch_size='auto',
+                 random_state=None):
     """CausalForest for continuous treatments. To apply to discrete
     treatments, first one-hot-encode your treatments and then pass the one-hot-encoding.
 
@@ -36,7 +53,7 @@ class CausalForest(DMLOrthoForest):
         `fit` and `predict` methods.
 
     cv : int, cross-validation generator or an iterable, optional (default=2)
-        The specification of the cv splitter to be used for cross-fitting, when constructing
+        The specification of the CV splitter to be used for cross-fitting, when constructing
         the global residuals of Y and T.
 
     discrete_treatment : bool, optional (default=False)
@@ -53,6 +70,9 @@ class CausalForest(DMLOrthoForest):
         ``-1`` means using all processors. Since OrthoForest methods are
         computationally heavy, it is recommended to set `n_jobs` to -1.
 
+    backend : 'threading' or 'multiprocessing'
+        What backend should be used for parallelization with the joblib library.
+
     random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -61,32 +81,19 @@ class CausalForest(DMLOrthoForest):
 
     """
 
-    def __init__(self,
-                 n_trees=500,
-                 min_leaf_size=10,
-                 max_depth=10,
-                 subsample_ratio=0.7,
-                 lambda_reg=0.01,
-                 model_T='auto',
-                 model_Y=LassoCVWrapper(cv=3),
-                 cv=2,
-                 discrete_treatment=False,
-                 categories='auto',
-                 n_jobs=-1,
-                 random_state=None):
-        super().__init__(n_trees=n_trees,
-                         min_leaf_size=min_leaf_size,
-                         max_depth=max_depth,
-                         subsample_ratio=subsample_ratio,
-                         bootstrap=False,
-                         lambda_reg=lambda_reg,
-                         model_T=model_T,
-                         model_Y=model_Y,
-                         model_T_final=None,
-                         model_Y_final=None,
-                         global_residualization=True,
-                         global_res_cv=cv,
-                         discrete_treatment=discrete_treatment,
-                         categories=categories,
-                         n_jobs=n_jobs,
-                         random_state=random_state)
+    return CausalForestDML(
+        model_t=model_T,
+        model_y=model_Y,
+        cv=cv,
+        discrete_treatment=discrete_treatment,
+        categories=categories,
+        n_estimators=n_trees,
+        criterion='het',
+        min_samples_leaf=min_leaf_size,
+        max_depth=max_depth,
+        max_samples=subsample_ratio / 2,
+        min_balancedness_tol=.3,
+        n_jobs=n_jobs,
+        verbose=verbose,
+        random_state=random_state
+    )

@@ -76,7 +76,7 @@ class BootstrapEstimator:
 
         The full signature of this method is the same as that of the wrapped object's `fit` method.
         """
-        from .cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
+        from ._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
 
         index_chunks = None
         if isinstance(self._instances[0], BaseCateEstimator):
@@ -101,7 +101,13 @@ class BootstrapEstimator:
             return x  # Explicitly return x in case fit fails to return its target
 
         def convertArg(arg, inds):
-            return np.asarray(arg)[inds] if arg is not None else None
+            if arg is None:
+                return None
+            arr = np.asarray(arg)
+            if arr.ndim > 0:
+                return arr[inds]
+            else:  # arg was a scalar, so we shouldn't have converted it
+                return arg
 
         self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
             delayed(fit)(obj,
@@ -182,7 +188,7 @@ class BootstrapEstimator:
         def get_inference():
             # can't import from econml.inference at top level without creating cyclical dependencies
             from .inference import EmpiricalInferenceResults, NormalInferenceResults
-            from .cate_estimator import LinearModelFinalCateEstimatorDiscreteMixin
+            from ._cate_estimator import LinearModelFinalCateEstimatorDiscreteMixin
 
             prefix = name[: - len("_inference")]
 

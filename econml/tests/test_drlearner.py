@@ -326,7 +326,7 @@ class TestDRLearner(unittest.TestCase):
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
                                   C=1000, solver='lbfgs', multi_class='auto'),
-                              n_splits=KFold(n_splits=3))
+                              cv=KFold(n_splits=3))
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
@@ -336,7 +336,7 @@ class TestDRLearner(unittest.TestCase):
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
                                   C=1000, solver='lbfgs', multi_class='auto'),
-                              n_splits=[([0, 1, 2], [3, 4, 5])])
+                              cv=[([0, 1, 2], [3, 4, 5])])
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
@@ -451,7 +451,7 @@ class TestDRLearner(unittest.TestCase):
                                             out_feat_names = featurizer.fit(
                                                 X).get_feature_names(feature_names)
                                             np.testing.assert_array_equal(
-                                                est.featurizer.n_input_features_, 3)
+                                                est.featurizer_.n_input_features_, 3)
                                         np.testing.assert_array_equal(est.cate_feature_names(feature_names),
                                                                       out_feat_names)
 
@@ -514,178 +514,181 @@ class TestDRLearner(unittest.TestCase):
             for W in [None, controls]:
                 for sample_weight, sample_var in [(None, None), (np.ones(T.shape[0]), np.zeros(T.shape[0]))]:
                     for featurizer in [None, PolynomialFeatures(degree=2, include_bias=False)]:
-                        for models in [(GradientBoostingClassifier(), GradientBoostingRegressor()),
-                                       (LogisticRegression(solver='lbfgs', multi_class='auto'),
-                                        LinearRegression())]:
-                            for est_class,\
-                                inference in [(ForestDRLearner, 'auto'),
-                                              (LinearDRLearner, 'auto'),
-                                              (LinearDRLearner, StatsModelsInferenceDiscrete(
+                        for model_t, model_y, est_class,\
+                                inference in [(GradientBoostingClassifier(), GradientBoostingRegressor(),
+                                               ForestDRLearner, 'auto'),
+                                              (LogisticRegression(solver='lbfgs', multi_class='auto'),
+                                               LinearRegression(), LinearDRLearner, 'auto'),
+                                              (LogisticRegression(solver='lbfgs', multi_class='auto'),
+                                               LinearRegression(), LinearDRLearner, StatsModelsInferenceDiscrete(
                                                   cov_type='nonrobust')),
-                                              (SparseLinearDRLearner, 'auto')]:
-                                with self.subTest(X=X, W=W, sample_weight=sample_weight, sample_var=sample_var,
-                                                  featurizer=featurizer, models=models,
-                                                  est_class=est_class, inference=inference):
-                                    if (X is None) and (est_class == SparseLinearDRLearner):
-                                        continue
-                                    if (X is None) and (est_class == ForestDRLearner):
-                                        continue
-                                    if (featurizer is not None) and (est_class == ForestDRLearner):
-                                        continue
+                                              (LogisticRegression(solver='lbfgs', multi_class='auto'),
+                                               LinearRegression(), SparseLinearDRLearner, 'auto')
+                                              ]:
+                            with self.subTest(X=X, W=W, sample_weight=sample_weight, sample_var=sample_var,
+                                              featurizer=featurizer, model_y=model_y, model_t=model_t,
+                                              est_class=est_class, inference=inference):
+                                if (X is None) and (est_class == SparseLinearDRLearner):
+                                    continue
+                                if (X is None) and (est_class == ForestDRLearner):
+                                    continue
+                                if (featurizer is not None) and (est_class == ForestDRLearner):
+                                    continue
 
-                                    if est_class == ForestDRLearner:
-                                        est = est_class(model_propensity=models[0],
-                                                        model_regression=models[1])
-                                    else:
-                                        est = est_class(model_propensity=models[0],
-                                                        model_regression=models[1],
-                                                        featurizer=featurizer)
+                                if est_class == ForestDRLearner:
+                                    est = est_class(model_propensity=model_t,
+                                                    model_regression=model_y,
+                                                    n_estimators=1000)
+                                else:
+                                    est = est_class(model_propensity=model_t,
+                                                    model_regression=model_y,
+                                                    featurizer=featurizer)
 
-                                    if (X is None) and (W is None):
-                                        with pytest.raises(AttributeError) as e_info:
-                                            est.fit(
-                                                y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
-                                        continue
-                                    est.fit(y, T, X=X, W=W, sample_weight=sample_weight,
-                                            sample_var=sample_var, inference=inference)
+                                if (X is None) and (W is None):
+                                    with pytest.raises(AttributeError) as e_info:
+                                        est.fit(
+                                            y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var)
+                                    continue
+                                est.fit(y, T, X=X, W=W, sample_weight=sample_weight,
+                                        sample_var=sample_var, inference=inference)
+                                if X is not None:
+                                    lower, upper = est.effect_interval(
+                                        X[:3], T0=0, T1=1)
+                                    point = est.effect(X[:3], T0=0, T1=1)
+                                    truth = 1 + .5 * X[:3, 0]
+                                    TestDRLearner._check_with_interval(
+                                        truth, point, lower, upper)
+                                    lower, upper = est.const_marginal_effect_interval(
+                                        X[:3])
+                                    point = est.const_marginal_effect(
+                                        X[:3])
+                                    truth = np.hstack(
+                                        [1 + .5 * X[:3, [0]], 2 * (1 + .5 * X[:3, [0]])])
+                                    TestDRLearner._check_with_interval(
+                                        truth, point, lower, upper)
+                                else:
+                                    lower, upper = est.effect_interval(
+                                        T0=0, T1=1)
+                                    point = est.effect(T0=0, T1=1)
+                                    truth = np.array([1])
+                                    TestDRLearner._check_with_interval(
+                                        truth, point, lower, upper)
+                                    lower, upper = est.const_marginal_effect_interval()
+                                    point = est.const_marginal_effect()
+                                    truth = np.array([[1, 2]])
+                                    TestDRLearner._check_with_interval(
+                                        truth, point, lower, upper)
+
+                                for t in [1, 2]:
                                     if X is not None:
-                                        lower, upper = est.effect_interval(
-                                            X[:3], T0=0, T1=1)
-                                        point = est.effect(X[:3], T0=0, T1=1)
-                                        truth = 1 + .5 * X[:3, 0]
-                                        TestDRLearner._check_with_interval(
-                                            truth, point, lower, upper)
-                                        lower, upper = est.const_marginal_effect_interval(
-                                            X[:3])
-                                        point = est.const_marginal_effect(
-                                            X[:3])
+                                        lower, upper = est.marginal_effect_interval(
+                                            t, X[:3])
+                                        point = est.marginal_effect(
+                                            t, X[:3])
                                         truth = np.hstack(
                                             [1 + .5 * X[:3, [0]], 2 * (1 + .5 * X[:3, [0]])])
                                         TestDRLearner._check_with_interval(
                                             truth, point, lower, upper)
                                     else:
-                                        lower, upper = est.effect_interval(
-                                            T0=0, T1=1)
-                                        point = est.effect(T0=0, T1=1)
-                                        truth = np.array([1])
-                                        TestDRLearner._check_with_interval(
-                                            truth, point, lower, upper)
-                                        lower, upper = est.const_marginal_effect_interval()
-                                        point = est.const_marginal_effect()
+                                        lower, upper = est.marginal_effect_interval(
+                                            t)
+                                        point = est.marginal_effect(t)
                                         truth = np.array([[1, 2]])
                                         TestDRLearner._check_with_interval(
                                             truth, point, lower, upper)
+                                assert isinstance(est.score_, float)
+                                assert isinstance(
+                                    est.score(y, T, X=X, W=W), float)
 
-                                    for t in [1, 2]:
-                                        if X is not None:
-                                            lower, upper = est.marginal_effect_interval(
-                                                t, X[:3])
-                                            point = est.marginal_effect(
-                                                t, X[:3])
-                                            truth = np.hstack(
-                                                [1 + .5 * X[:3, [0]], 2 * (1 + .5 * X[:3, [0]])])
-                                            TestDRLearner._check_with_interval(
-                                                truth, point, lower, upper)
-                                        else:
-                                            lower, upper = est.marginal_effect_interval(
-                                                t)
-                                            point = est.marginal_effect(t)
-                                            truth = np.array([[1, 2]])
-                                            TestDRLearner._check_with_interval(
-                                                truth, point, lower, upper)
-                                    assert isinstance(est.score_, float)
-                                    assert isinstance(
-                                        est.score(y, T, X=X, W=W), float)
+                                if X is not None:
+                                    feature_names = ['A', 'B']
+                                else:
+                                    feature_names = []
+                                out_feat_names = feature_names
+                                if X is not None:
+                                    if (featurizer is not None):
+                                        out_feat_names = featurizer.fit(
+                                            X).get_feature_names(feature_names)
+                                        np.testing.assert_array_equal(
+                                            est.featurizer_.n_input_features_, 2)
+                                    np.testing.assert_array_equal(est.cate_feature_names(feature_names),
+                                                                  out_feat_names)
 
+                                if isinstance(model_t, GradientBoostingClassifier):
+                                    np.testing.assert_array_equal(np.array([mdl.feature_importances_
+                                                                            for mdl
+                                                                            in est.models_regression]).shape,
+                                                                  [2, 2 + len(feature_names) +
+                                                                   (W.shape[1] if W is not None else 0)])
+                                    np.testing.assert_array_equal(np.array([mdl.feature_importances_
+                                                                            for mdl
+                                                                            in est.models_propensity]).shape,
+                                                                  [2, len(feature_names) +
+                                                                   (W.shape[1] if W is not None else 0)])
+                                else:
+                                    np.testing.assert_array_equal(np.array([mdl.coef_
+                                                                            for mdl
+                                                                            in est.models_regression]).shape,
+                                                                  [2, 2 + len(feature_names) +
+                                                                   (W.shape[1] if W is not None else 0)])
+                                    np.testing.assert_array_equal(np.array([mdl.coef_
+                                                                            for mdl
+                                                                            in est.models_propensity]).shape,
+                                                                  [2, 3, len(feature_names) +
+                                                                   (W.shape[1] if W is not None else 0)])
+
+                                if isinstance(est, LinearDRLearner) or isinstance(est, SparseLinearDRLearner):
                                     if X is not None:
-                                        feature_names = ['A', 'B']
-                                    else:
-                                        feature_names = []
-                                    out_feat_names = feature_names
-                                    if X is not None:
-                                        if (featurizer is not None):
-                                            out_feat_names = featurizer.fit(
-                                                X).get_feature_names(feature_names)
-                                            np.testing.assert_array_equal(
-                                                est.featurizer.n_input_features_, 2)
-                                        np.testing.assert_array_equal(est.cate_feature_names(feature_names),
-                                                                      out_feat_names)
-
-                                    if isinstance(models[0], GradientBoostingClassifier):
-                                        np.testing.assert_array_equal(np.array([mdl.feature_importances_
-                                                                                for mdl
-                                                                                in est.models_regression]).shape,
-                                                                      [2, 2 + len(feature_names) +
-                                                                       (W.shape[1] if W is not None else 0)])
-                                        np.testing.assert_array_equal(np.array([mdl.feature_importances_
-                                                                                for mdl
-                                                                                in est.models_propensity]).shape,
-                                                                      [2, len(feature_names) +
-                                                                       (W.shape[1] if W is not None else 0)])
-                                    else:
-                                        np.testing.assert_array_equal(np.array([mdl.coef_
-                                                                                for mdl
-                                                                                in est.models_regression]).shape,
-                                                                      [2, 2 + len(feature_names) +
-                                                                       (W.shape[1] if W is not None else 0)])
-                                        np.testing.assert_array_equal(np.array([mdl.coef_
-                                                                                for mdl
-                                                                                in est.models_propensity]).shape,
-                                                                      [2, 3, len(feature_names) +
-                                                                       (W.shape[1] if W is not None else 0)])
-
-                                    if isinstance(est, LinearDRLearner) or isinstance(est, SparseLinearDRLearner):
-                                        if X is not None:
-                                            for t in [1, 2]:
-                                                true_coef = np.zeros(
-                                                    len(out_feat_names))
-                                                true_coef[0] = .5 * t
-                                                lower, upper = est.model_cate(
-                                                    T=t).coef__interval()
-                                                point = est.model_cate(
-                                                    T=t).coef_
-                                                truth = true_coef
-                                                TestDRLearner._check_with_interval(
-                                                    truth, point, lower, upper)
-
-                                                lower, upper = est.coef__interval(
-                                                    t)
-                                                point = est.coef_(t)
-                                                truth = true_coef
-                                                TestDRLearner._check_with_interval(
-                                                    truth, point, lower, upper)
-                                                # test coef__inference function works
-                                                est.coef__inference(
-                                                    t).summary_frame()
-                                                np.testing.assert_array_almost_equal(
-                                                    est.coef__inference(t).conf_int()[0], lower, decimal=5)
                                         for t in [1, 2]:
+                                            true_coef = np.zeros(
+                                                len(out_feat_names))
+                                            true_coef[0] = .5 * t
                                             lower, upper = est.model_cate(
-                                                T=t).intercept__interval()
+                                                T=t).coef__interval()
                                             point = est.model_cate(
-                                                T=t).intercept_
-                                            truth = t
+                                                T=t).coef_
+                                            truth = true_coef
                                             TestDRLearner._check_with_interval(
                                                 truth, point, lower, upper)
 
-                                            lower, upper = est.intercept__interval(
+                                            lower, upper = est.coef__interval(
                                                 t)
-                                            point = est.intercept_(t)
-                                            truth = t
+                                            point = est.coef_(t)
+                                            truth = true_coef
                                             TestDRLearner._check_with_interval(
                                                 truth, point, lower, upper)
-                                            # test intercept__inference function works
-                                            est.intercept__inference(
+                                            # test coef__inference function works
+                                            est.coef__inference(
                                                 t).summary_frame()
                                             np.testing.assert_array_almost_equal(
-                                                est.intercept__inference(t).conf_int()[0], lower, decimal=5)
-                                            # test summary function works
-                                            est.summary(t)
+                                                est.coef__inference(t).conf_int()[0], lower, decimal=5)
+                                    for t in [1, 2]:
+                                        lower, upper = est.model_cate(
+                                            T=t).intercept__interval()
+                                        point = est.model_cate(
+                                            T=t).intercept_
+                                        truth = t
+                                        TestDRLearner._check_with_interval(
+                                            truth, point, lower, upper)
 
-                                    if isinstance(est, ForestDRLearner):
-                                        for t in [1, 2]:
-                                            np.testing.assert_array_equal(est.feature_importances_(t).shape,
-                                                                          [X.shape[1]])
+                                        lower, upper = est.intercept__interval(
+                                            t)
+                                        point = est.intercept_(t)
+                                        truth = t
+                                        TestDRLearner._check_with_interval(
+                                            truth, point, lower, upper)
+                                        # test intercept__inference function works
+                                        est.intercept__inference(
+                                            t).summary_frame()
+                                        np.testing.assert_array_almost_equal(
+                                            est.intercept__inference(t).conf_int()[0], lower, decimal=5)
+                                        # test summary function works
+                                        est.summary(t)
+
+                                if isinstance(est, ForestDRLearner):
+                                    for t in [1, 2]:
+                                        np.testing.assert_array_equal(est.feature_importances_(t).shape,
+                                                                      [X.shape[1]])
 
     @staticmethod
     def _check_with_interval(truth, point, lower, upper):
@@ -767,7 +770,8 @@ class TestDRLearner(unittest.TestCase):
 
         # test outer grouping
         # NOTE: we should ideally use a stratified split with grouping, but sklearn doesn't have one yet
-        est = LinearDRLearner(LogisticRegression(), LinearRegression(), n_splits=GroupKFold(2))
+        est = LinearDRLearner(model_propensity=LogisticRegression(),
+                              model_regression=LinearRegression(), cv=GroupKFold(2))
         est.fit(y, t, W=w, groups=groups)
 
         # test nested grouping
@@ -794,13 +798,14 @@ class TestDRLearner(unittest.TestCase):
                 return super().fit(X, y)
 
         # test nested grouping
-        est = LinearDRLearner(LogisticRegression(), NestedModel(cv=2), n_splits=GroupKFold(2))
+        est = LinearDRLearner(model_propensity=LogisticRegression(),
+                              model_regression=NestedModel(cv=2), cv=GroupKFold(2))
         est.fit(y, t, W=w, groups=groups)
 
         # by default, we use 5 split cross-validation for our T and Y models
         # but we don't have enough groups here to split both the outer and inner samples with grouping
         # TODO: does this imply we should change some defaults to make this more likely to succeed?
-        est = LinearDRLearner(n_splits=GroupKFold(2))
+        est = LinearDRLearner(cv=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, W=w, groups=groups)
 

@@ -9,7 +9,7 @@ from sklearn import clone
 from sklearn.linear_model import LinearRegression
 from .utilities import shape, transpose, reshape, cross_product, ndim, size,\
     _deprecate_positional, check_input_arrays
-from .cate_estimator import BaseCateEstimator, LinearCateEstimator
+from ._cate_estimator import BaseCateEstimator, LinearCateEstimator
 from numpy.polynomial.hermite_e import hermeval
 from sklearn.base import TransformerMixin
 from sklearn.preprocessing import PolynomialFeatures
@@ -193,7 +193,11 @@ class NonparametricTwoStageLeastSquares(BaseCateEstimator):
 
     """
 
-    def __init__(self, t_featurizer, x_featurizer, z_featurizer, dt_featurizer):
+    def __init__(self, *,
+                 t_featurizer,
+                 x_featurizer,
+                 z_featurizer,
+                 dt_featurizer):
         self._t_featurizer = clone(t_featurizer, safe=False)
         self._x_featurizer = clone(x_featurizer, safe=False)
         self._z_featurizer = clone(z_featurizer, safe=False)

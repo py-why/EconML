@@ -48,7 +48,7 @@ class TestCateInterpreter(unittest.TestCase):
         n = 100
         X = np.random.normal(size=(n, 4))
         T = np.random.binomial(1, 0.5, size=(n,))
-        Y = (2 * (X[:, 0] > 0) - 1) * T
+        Y = (2 * (X[:, 0] > 0) - 1) * T.flatten()
         est = LinearDML(discrete_treatment=True)
         est.fit(Y, T, X=X, inference=None)
 
@@ -69,7 +69,7 @@ class TestCateInterpreter(unittest.TestCase):
         n = 100
         X = np.random.normal(size=(n, 4))
         T = np.random.binomial(1, 0.5, size=(n,))
-        Y = (2 * (X[:, 0] > 0) - 1) * T
+        Y = (2 * (X[:, 0] > 0) - 1) * T.flatten()
         est = LinearDML(discrete_treatment=True)
         est.fit(Y, T, X=X)
 

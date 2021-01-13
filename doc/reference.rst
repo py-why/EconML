@@ -5,18 +5,16 @@ Public Module Reference
     :toctree: _autosummary
 
     econml.bootstrap
-    econml.cate_estimator
     econml.cate_interpreter
-    econml.causal_forest
-    econml.causal_tree
     econml.deepiv
-    econml.dgp
     econml.dml
     econml.drlearner
+    econml.grf
     econml.inference
     econml.metalearners
     econml.ortho_forest
     econml.ortho_iv
+    econml.score
     econml.two_stage_least_squares
     econml.utilities
 
@@ -27,7 +25,12 @@ Private Module Reference
     :toctree: _autosummary
 
     econml._ortho_learner
-    econml._rlearner
+    econml._cate_estimator
+    econml._causal_tree
+    econml.dml._rlearner
+    econml.grf._base_grf
+    econml.grf._base_grftree
+    econml.grf._criterion
 
 Scikit-Learn Extensions
 =======================
@@ -37,4 +40,3 @@ Scikit-Learn Extensions
 
     econml.sklearn_extensions.linear_model
     econml.sklearn_extensions.model_selection
-    econml.sklearn_extensions.ensemble

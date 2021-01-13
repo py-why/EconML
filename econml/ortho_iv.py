@@ -20,8 +20,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
 
 from ._ortho_learner import _OrthoLearner
-from .cate_estimator import StatsModelsCateEstimatorMixin
-from .dml import _FinalWrapper
+from ._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin
+from .dml.dml import _FinalWrapper
 from .inference import StatsModelsInference
 from .sklearn_extensions.linear_model import StatsModelsLinearRegression
 from .utilities import (_deprecate_positional, add_intercept, fit_with_groups, filter_none_kwargs,
@@ -136,19 +136,30 @@ class _BaseDMLATEIVModelFinal:
 
 
 class _BaseDMLATEIV(_OrthoLearner):
-    def __init__(self, model_nuisance,
-                 discrete_instrument=False, discrete_treatment=False,
+    def __init__(self, discrete_instrument=False,
+                 discrete_treatment=False,
                  categories='auto',
-                 n_splits=2, random_state=None):
-
-        super().__init__(model_nuisance, _BaseDMLATEIVModelFinal(),
-                         discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
+                 cv=2,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None):
+        super().__init__(discrete_treatment=discrete_treatment,
+                         discrete_instrument=discrete_instrument,
                          categories=categories,
-                         n_splits=n_splits, random_state=random_state)
+                         cv=cv,
+                         n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state)
+
+    def _gen_ortho_learner_model_final(self):
+        return _BaseDMLATEIVModelFinal()
 
     @_deprecate_positional("W and Z should be passed by keyword only. In a future release "
                            "we will disallow passing W and Z by position.", ['W', 'Z'])
-    def fit(self, Y, T, Z, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
+    def fit(self, Y, T, Z, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -168,8 +179,10 @@ class _BaseDMLATEIV(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -181,7 +194,7 @@ class _BaseDMLATEIV(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to enforce W=None and improve the docstring
         return super().fit(Y, T, W=W, Z=Z,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
 
     def score(self, Y, T, Z, W=None):
         """
@@ -271,22 +284,39 @@ class DMLATEIV(_BaseDMLATEIV):
     a biased ATE.
     """
 
-    def __init__(self, model_Y_W, model_T_W, model_Z_W,
-                 discrete_treatment=False, discrete_instrument=False,
+    def __init__(self, *,
+                 model_Y_W,
+                 model_T_W,
+                 model_Z_W,
+                 discrete_treatment=False,
+                 discrete_instrument=False,
                  categories='auto',
-                 n_splits=2, random_state=None):
-
-        super().__init__(_DMLATEIVModelNuisance(model_Y_W=_FirstStageWrapper(model_Y_W, discrete_target=False),
-                                                model_T_W=_FirstStageWrapper(
-                                                    model_T_W, discrete_target=discrete_treatment),
-                                                model_Z_W=_FirstStageWrapper(
-                                                    model_Z_W, discrete_target=discrete_instrument)),
-                         discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
+                 cv=2,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None):
+        self.model_Y_W = clone(model_Y_W, safe=False)
+        self.model_T_W = clone(model_T_W, safe=False)
+        self.model_Z_W = clone(model_Z_W, safe=False)
+        super().__init__(discrete_instrument=discrete_instrument,
+                         discrete_treatment=discrete_treatment,
                          categories=categories,
-                         n_splits=n_splits, random_state=random_state)
+                         cv=cv,
+                         n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state)
+
+    def _gen_ortho_learner_model_nuisance(self):
+        return _DMLATEIVModelNuisance(
+            model_Y_W=_FirstStageWrapper(clone(self.model_Y_W, safe=False), discrete_target=False),
+            model_T_W=_FirstStageWrapper(clone(self.model_T_W, safe=False), discrete_target=self.discrete_treatment),
+            model_Z_W=_FirstStageWrapper(clone(self.model_Z_W, safe=False), discrete_target=self.discrete_instrument))
 
 
 class _ProjectedDMLATEIVModelNuisance:
+
     def __init__(self, model_Y_W, model_T_W, model_T_WZ):
         self._model_Y_W = clone(model_Y_W, safe=False)
         self._model_T_W = clone(model_T_W, safe=False)
@@ -330,21 +360,37 @@ class _ProjectedDMLATEIVModelNuisance:
 
 
 class ProjectedDMLATEIV(_BaseDMLATEIV):
-    def __init__(self, model_Y_W, model_T_W, model_T_WZ,
-                 discrete_treatment=False, discrete_instrument=False,
-                 categories='auto',
-                 n_splits=2, random_state=None):
 
-        super().__init__(_ProjectedDMLATEIVModelNuisance(
-            model_Y_W=_FirstStageWrapper(
-                model_Y_W, discrete_target=False),
-            model_T_W=_FirstStageWrapper(
-                model_T_W, discrete_target=discrete_treatment),
-            model_T_WZ=_FirstStageWrapper(
-                model_T_WZ, discrete_target=discrete_treatment)),
-            discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
-            categories=categories,
-            n_splits=n_splits, random_state=random_state)
+    def __init__(self, *,
+                 model_Y_W,
+                 model_T_W,
+                 model_T_WZ,
+                 discrete_treatment=False,
+                 discrete_instrument=False,
+                 categories='auto',
+                 cv=2,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None):
+        self.model_Y_W = clone(model_Y_W, safe=False)
+        self.model_T_W = clone(model_T_W, safe=False)
+        self.model_T_WZ = clone(model_T_WZ, safe=False)
+        super().__init__(discrete_instrument=discrete_instrument,
+                         discrete_treatment=discrete_treatment,
+                         categories=categories,
+                         cv=cv,
+                         n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state)
+
+    def _gen_ortho_learner_model_nuisance(self):
+        return _ProjectedDMLATEIVModelNuisance(
+            model_Y_W=_FirstStageWrapper(clone(self.model_Y_W, safe=False), discrete_target=False),
+            model_T_W=_FirstStageWrapper(clone(self.model_T_W, safe=False), discrete_target=self.discrete_treatment),
+            model_T_WZ=_FirstStageWrapper(clone(self.model_T_WZ, safe=False),
+                                          discrete_target=self.discrete_treatment))
 
 
 class _BaseDMLIVModelNuisance:
@@ -477,13 +523,13 @@ class _BaseDMLIV(_OrthoLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -494,6 +540,13 @@ class _BaseDMLIV(_OrthoLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -501,18 +554,24 @@ class _BaseDMLIV(_OrthoLearner):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final,
-                 discrete_instrument=False, discrete_treatment=False, categories='auto',
-                 n_splits=2, random_state=None):
-        super().__init__(_BaseDMLIVModelNuisance(model_Y_X, model_T_X, model_T_XZ),
-                         _BaseDMLIVModelFinal(model_final),
-                         discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
+    def __init__(self, discrete_instrument=False, discrete_treatment=False, categories='auto',
+                 cv=2,
+                 n_splits='raise',
+                 mc_iters=None, mc_agg='mean',
+                 random_state=None):
+        super().__init__(discrete_treatment=discrete_treatment,
+                         discrete_instrument=discrete_instrument,
                          categories=categories,
-                         n_splits=n_splits, random_state=random_state)
+                         cv=cv,
+                         n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state)
 
     @_deprecate_positional("Z and X should be passed by keyword only. In a future release "
                            "we will disallow passing Z and X by position.", ['X', 'Z'])
-    def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
+    def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -532,8 +591,10 @@ class _BaseDMLIV(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -545,7 +606,7 @@ class _BaseDMLIV(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to enforce W=None and improve the docstring
         return super().fit(Y, T, X=X, Z=Z,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
 
     def score(self, Y, T, Z, X=None):
         """
@@ -578,18 +639,18 @@ class _BaseDMLIV(_OrthoLearner):
 
     @property
     def original_featurizer(self):
-        return super().model_final._model_final._original_featurizer
+        return self.ortho_learner_model_final_._model_final._original_featurizer
 
     @property
-    def featurizer(self):
+    def featurizer_(self):
         # NOTE This is used by the inference methods and has to be the overall featurizer. intended
         # for internal use by the library
-        return super().model_final._model_final._featurizer
+        return self.ortho_learner_model_final_._model_final._featurizer
 
     @property
-    def model_final(self):
+    def model_final_(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
-        return super().model_final._model_final._model
+        return self.ortho_learner_model_final_._model_final._model
 
     @property
     def model_cate(self):
@@ -602,7 +663,7 @@ class _BaseDMLIV(_OrthoLearner):
             An instance of the model_final object that was fitted after calling fit which corresponds
             to the constant marginal CATE model.
         """
-        return super().model_final._model_final._model
+        return self.ortho_learner_model_final_._model_final._model
 
     @property
     def models_Y_X(self):
@@ -615,7 +676,7 @@ class _BaseDMLIV(_OrthoLearner):
             A list of instances of the `model_Y_X` object. Each element corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model for mdl in super().models_Y_X]
+        return [mdl._model_Y_X._model for mdl in super().models_nuisance_]
 
     @property
     def models_T_X(self):
@@ -628,7 +689,7 @@ class _BaseDMLIV(_OrthoLearner):
             A list of instances of the `model_T_X` object. Each element corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model for mdl in super().models_T_X]
+        return [mdl._model_T_X._model for mdl in super().models_nuisance_]
 
     @property
     def models_T_XZ(self):
@@ -641,7 +702,7 @@ class _BaseDMLIV(_OrthoLearner):
             A list of instances of the `model_T_XZ` object. Each element corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model for mdl in super().models_T_XZ]
+        return [mdl._model_T_XZ._model for mdl in super().models_nuisance_]
 
     @property
     def nuisance_scores_Y_X(self):
@@ -692,7 +753,7 @@ class _BaseDMLIV(_OrthoLearner):
             raise AttributeError("Featurizer does not have a method: get_feature_names!")
 
 
-class DMLIV(_BaseDMLIV):
+class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
     """
     A child of the _BaseDMLIV class that specifies a particular effect model
     where the treatment effect is linear in some featurization of the variable X
@@ -729,13 +790,13 @@ class DMLIV(_BaseDMLIV):
     fit_cate_intercept : bool, optional, default True
         Whether the linear CATE model should have a constant term.
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -745,6 +806,13 @@ class DMLIV(_BaseDMLIV):
 
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
@@ -763,24 +831,52 @@ class DMLIV(_BaseDMLIV):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final, featurizer=None,
+    def __init__(self, *,
+                 model_Y_X,
+                 model_T_X,
+                 model_T_XZ,
+                 model_final,
+                 featurizer=None,
                  fit_cate_intercept=True,
-                 n_splits=2, discrete_instrument=False, discrete_treatment=False,
+                 cv=2,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
+                 discrete_instrument=False, discrete_treatment=False,
                  categories='auto', random_state=None):
-        self.bias_part_of_coef = fit_cate_intercept
+        self.model_Y_X = clone(model_Y_X, safe=False)
+        self.model_T_X = clone(model_T_X, safe=False)
+        self.model_T_XZ = clone(model_T_XZ, safe=False)
+        self.model_final = clone(model_final, safe=False)
+        self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
-        super().__init__(_FirstStageWrapper(model_Y_X, False),
-                         _FirstStageWrapper(model_T_X, discrete_treatment),
-                         _FirstStageWrapper(model_T_XZ, discrete_treatment),
-                         _FinalWrapper(model_final,
-                                       fit_cate_intercept=fit_cate_intercept,
-                                       featurizer=featurizer,
-                                       use_weight_trick=False),
+        super().__init__(cv=cv,
                          n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          random_state=random_state)
+
+    def _gen_ortho_learner_model_nuisance(self):
+        return _BaseDMLIVModelNuisance(_FirstStageWrapper(clone(self.model_Y_X, safe=False), False),
+                                       _FirstStageWrapper(clone(self.model_T_X, safe=False), self.discrete_treatment),
+                                       _FirstStageWrapper(clone(self.model_T_XZ, safe=False), self.discrete_treatment))
+
+    def _gen_ortho_learner_model_final(self):
+        return _BaseDMLIVModelFinal(_FinalWrapper(clone(self.model_final, safe=False),
+                                                  fit_cate_intercept=self.fit_cate_intercept,
+                                                  featurizer=clone(self.featurizer, safe=False),
+                                                  use_weight_trick=False))
+
+    @property
+    def bias_part_of_coef(self):
+        return self.ortho_learner_model_final_._model_final._fit_cate_intercept
+
+    @property
+    def fit_cate_intercept_(self):
+        return self.ortho_learner_model_final_._model_final._fit_cate_intercept
 
 
 class NonParamDMLIV(_BaseDMLIV):
@@ -824,13 +920,13 @@ class NonParamDMLIV(_BaseDMLIV):
     model_final : estimator
         final model for predicting :math:`\\tilde{Y}` from X with sample weights V(X)
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -840,6 +936,13 @@ class NonParamDMLIV(_BaseDMLIV):
 
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
@@ -859,22 +962,44 @@ class NonParamDMLIV(_BaseDMLIV):
 
     """
 
-    def __init__(self, model_Y_X, model_T_X, model_T_XZ, model_final,
-                 featurizer=None, fit_cate_intercept=True,
-                 n_splits=2, discrete_instrument=False, discrete_treatment=False, categories='auto',
+    def __init__(self, *,
+                 model_Y_X,
+                 model_T_X,
+                 model_T_XZ,
+                 model_final,
+                 featurizer=None,
+                 cv=2,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
+                 discrete_instrument=False,
+                 discrete_treatment=False,
+                 categories='auto',
                  random_state=None):
-        super().__init__(_FirstStageWrapper(model_Y_X, False),
-                         _FirstStageWrapper(model_T_X, discrete_treatment),
-                         _FirstStageWrapper(model_T_XZ, discrete_treatment),
-                         _FinalWrapper(model_final,
-                                       fit_cate_intercept=fit_cate_intercept,
-                                       featurizer=featurizer,
-                                       use_weight_trick=True),
+        self.model_Y_X = clone(model_Y_X, safe=False)
+        self.model_T_X = clone(model_T_X, safe=False)
+        self.model_T_XZ = clone(model_T_XZ, safe=False)
+        self.model_final = clone(model_final, safe=False)
+        self.featurizer = clone(featurizer, safe=False)
+        super().__init__(cv=cv,
                          n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          random_state=random_state)
+
+    def _gen_ortho_learner_model_nuisance(self):
+        return _BaseDMLIVModelNuisance(_FirstStageWrapper(clone(self.model_Y_X, safe=False), False),
+                                       _FirstStageWrapper(clone(self.model_T_X, safe=False), self.discrete_treatment),
+                                       _FirstStageWrapper(clone(self.model_T_XZ, safe=False), self.discrete_treatment))
+
+    def _gen_ortho_learner_model_final(self):
+        return _BaseDMLIVModelFinal(_FinalWrapper(clone(self.model_final, safe=False),
+                                                  fit_cate_intercept=False,
+                                                  featurizer=clone(self.featurizer, safe=False),
+                                                  use_weight_trick=True))
 
 
 class _BaseDRIVModelFinal:
@@ -1019,13 +1144,13 @@ class _BaseDRIV(_OrthoLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1036,6 +1161,13 @@ class _BaseDRIV(_OrthoLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
@@ -1043,34 +1175,50 @@ class _BaseDRIV(_OrthoLearner):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self,
-                 nuisance_models,
+    def __init__(self, *,
                  model_final,
                  featurizer=None,
                  fit_cate_intercept=True,
-                 cov_clip=0.1, opt_reweighted=False,
-                 discrete_instrument=False, discrete_treatment=False,
+                 cov_clip=0.1,
+                 opt_reweighted=False,
+                 discrete_instrument=False,
+                 discrete_treatment=False,
                  categories='auto',
-                 n_splits=2, random_state=None):
-
+                 cv=2,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None):
+        self.model_final = clone(model_final, safe=False)
+        self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
-        self.bias_part_of_coef = fit_cate_intercept
-
         self.cov_clip = cov_clip
         self.opt_reweighted = opt_reweighted
-        super().__init__(nuisance_models, _BaseDRIVModelFinal(model_final,
-                                                              featurizer,
-                                                              discrete_treatment,
-                                                              discrete_instrument,
-                                                              fit_cate_intercept,
-                                                              cov_clip,
-                                                              opt_reweighted),
-                         discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
-                         categories=categories, n_splits=n_splits, random_state=random_state)
+        super().__init__(discrete_instrument=discrete_instrument,
+                         discrete_treatment=discrete_treatment,
+                         categories=categories,
+                         cv=cv,
+                         n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state)
+
+    def _gen_model_final(self):
+        return clone(self.model_final, safe=False)
+
+    def _gen_ortho_learner_model_final(self):
+        return _BaseDRIVModelFinal(self._gen_model_final(),
+                                   clone(self.featurizer, safe=False),
+                                   self.discrete_treatment,
+                                   self.discrete_instrument,
+                                   self.fit_cate_intercept,
+                                   self.cov_clip,
+                                   self.opt_reweighted)
 
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1092,8 +1240,10 @@ class _BaseDRIV(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -1105,7 +1255,7 @@ class _BaseDRIV(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
         return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
@@ -1143,18 +1293,18 @@ class _BaseDRIV(_OrthoLearner):
 
     @property
     def original_featurizer(self):
-        return super().model_final._original_featurizer
+        return self.ortho_learner_model_final_._original_featurizer
 
     @property
-    def featurizer(self):
+    def featurizer_(self):
         # NOTE This is used by the inference methods and has to be the overall featurizer. intended
         # for internal use by the library
-        return super().model_final._featurizer
+        return self.ortho_learner_model_final_._featurizer
 
     @property
-    def model_final(self):
+    def model_final_(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
-        return super().model_final._model_final
+        return self.ortho_learner_model_final_._model_final
 
     def cate_feature_names(self, feature_names=None):
         """
@@ -1243,30 +1393,50 @@ class _IntentToTreatDRIV(_BaseDRIV):
     Helper class for the DRIV algorithm for the intent-to-treat A/B test setting
     """
 
-    def __init__(self, model_Y_X, model_T_XZ,
+    def __init__(self, *,
+                 model_Y_X,
+                 model_T_XZ,
                  prel_model_effect,
-                 model_effect,
+                 model_final,
                  featurizer=None,
                  fit_cate_intercept=True,
                  cov_clip=.1,
-                 n_splits=3,
+                 cv=3,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
                  opt_reweighted=False,
                  categories='auto',
                  random_state=None):
         """
         """
-
+        self.model_Y_X = clone(model_Y_X, safe=False)
+        self.model_T_XZ = clone(model_T_XZ, safe=False)
+        self.prel_model_effect = clone(prel_model_effect, safe=False)
         # TODO: check that Y, T, Z do not have multiple columns
-        super().__init__(_IntentToTreatDRIVModelNuisance(model_Y_X, model_T_XZ, prel_model_effect),
-                         model_effect,
+        super().__init__(model_final=model_final,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
+                         cv=cv,
                          n_splits=n_splits,
-                         discrete_instrument=True, discrete_treatment=True,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         discrete_instrument=True,
+                         discrete_treatment=True,
                          categories=categories,
                          opt_reweighted=opt_reweighted,
                          random_state=random_state)
+
+    def _gen_prel_model_effect(self):
+        return clone(self.prel_model_effect, safe=False)
+
+    def _gen_ortho_learner_model_nuisance(self):
+        return _IntentToTreatDRIVModelNuisance(_FirstStageWrapper(clone(self.model_Y_X, safe=False),
+                                                                  discrete_target=False),
+                                               _FirstStageWrapper(clone(self.model_T_XZ, safe=False),
+                                                                  discrete_target=True),
+                                               self._gen_prel_model_effect())
 
 
 class _DummyCATE:
@@ -1277,7 +1447,7 @@ class _DummyCATE:
     def __init__(self):
         return
 
-    def fit(self, y, T, *, Z, X, W=None, sample_weight=None, groups=None):
+    def fit(self, y, T, *, Z, X, W=None, sample_weight=None, groups=None, **kwargs):
         return self
 
     def effect(self, X):
@@ -1315,13 +1485,13 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 3
+    cv: int, cross-validation generator or an iterable, optional, default 3
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1331,6 +1501,13 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     opt_reweighted : bool, optional, default False
         Whether to reweight the samples to minimize variance. If True then
@@ -1351,44 +1528,59 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_Y_X, model_T_XZ,
+    def __init__(self, *,
+                 model_Y_X,
+                 model_T_XZ,
                  flexible_model_effect,
-                 final_model_effect=None,
+                 model_final=None,
                  featurizer=None,
                  fit_cate_intercept=True,
                  cov_clip=.1,
-                 n_splits=3,
+                 cv=3,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
                  opt_reweighted=False,
                  categories='auto',
                  random_state=None):
-        model_Y_X = _FirstStageWrapper(model_Y_X, discrete_target=False)
-        model_T_XZ = _FirstStageWrapper(model_T_XZ, discrete_target=True)
-        prel_model_effect = _IntentToTreatDRIV(model_Y_X,
-                                               model_T_XZ,
-                                               _DummyCATE(),
-                                               flexible_model_effect,
-                                               cov_clip=1e-7, n_splits=1,
-                                               opt_reweighted=True,
-                                               random_state=random_state)
-        if final_model_effect is None:
-            final_model_effect = flexible_model_effect
-        super().__init__(model_Y_X, model_T_XZ, prel_model_effect,
-                         final_model_effect,
+        self.flexible_model_effect = clone(flexible_model_effect, safe=False)
+        super().__init__(model_Y_X=model_Y_X,
+                         model_T_XZ=model_T_XZ,
+                         prel_model_effect=None,
+                         model_final=model_final,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
+                         cv=cv,
                          n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
                          opt_reweighted=opt_reweighted,
                          categories=categories,
                          random_state=random_state)
 
+    def _gen_model_final(self):
+        if self.model_final is None:
+            return clone(self.flexible_model_effect, safe=False)
+        return clone(self.model_final, safe=False)
+
+    def _gen_prel_model_effect(self):
+        return _IntentToTreatDRIV(model_Y_X=clone(self.model_Y_X, safe=False),
+                                  model_T_XZ=clone(self.model_T_XZ, safe=False),
+                                  prel_model_effect=_DummyCATE(),
+                                  model_final=clone(self.flexible_model_effect, safe=False),
+                                  cov_clip=1e-7,
+                                  cv=1,
+                                  opt_reweighted=True,
+                                  random_state=self.random_state)
+
     @property
     def models_Y_X(self):
-        return [mdl._model_Y_X._model for mdl in super().models_nuisance]
+        return [mdl._model_Y_X._model for mdl in super().models_nuisance_]
 
     @property
     def models_T_XZ(self):
-        return [mdl._model_T_XZ._model for mdl in super().models_nuisance]
+        return [mdl._model_T_XZ._model for mdl in super().models_nuisance_]
 
     @property
     def nuisance_scores_Y_X(self):
@@ -1401,6 +1593,15 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     @property
     def nuisance_scores_effect(self):
         return self.nuisance_scores_[2]
+
+    @property
+    def prel_model_effect(self):
+        return self._gen_prel_model_effect()
+
+    @prel_model_effect.setter
+    def prel_model_effect(self, value):
+        if value is not None:
+            raise ValueError("Parameter `prel_model_effect` cannot be altered for this estimator.")
 
 
 class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
@@ -1429,13 +1630,13 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 3
+    cv: int, cross-validation generator or an iterable, optional, default 3
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -1445,6 +1646,13 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
 
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
@@ -1457,26 +1665,41 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         by :mod:`np.random<numpy.random>`.
     """
 
-    def __init__(self, model_Y_X, model_T_XZ,
+    def __init__(self, *,
+                 model_Y_X,
+                 model_T_XZ,
                  flexible_model_effect,
                  featurizer=None,
                  fit_cate_intercept=True,
                  cov_clip=.1,
-                 n_splits=3,
+                 cv=3,
+                 n_splits='raise',
+                 mc_iters=None,
+                 mc_agg='mean',
                  categories='auto',
                  random_state=None):
-        super().__init__(model_Y_X, model_T_XZ,
+        super().__init__(model_Y_X=model_Y_X,
+                         model_T_XZ=model_T_XZ,
                          flexible_model_effect=flexible_model_effect,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
-                         final_model_effect=StatsModelsLinearRegression(fit_intercept=False),
-                         cov_clip=cov_clip, n_splits=n_splits, opt_reweighted=False,
+                         model_final=None,
+                         cov_clip=cov_clip,
+                         cv=cv,
+                         n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         opt_reweighted=False,
                          categories=categories, random_state=random_state)
+
+    def _gen_model_final(self):
+        return StatsModelsLinearRegression(fit_intercept=False)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference='auto'):
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -1498,8 +1721,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`) and 'statsmodels'
@@ -1511,4 +1736,34 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         """
         return super().fit(Y, T, Z=Z, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
-                           inference=inference)
+                           cache_values=cache_values, inference=inference)
+
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
+
+    @property
+    def bias_part_of_coef(self):
+        return self.ortho_learner_model_final_._fit_cate_intercept
+
+    @property
+    def fit_cate_intercept_(self):
+        return self.ortho_learner_model_final_._fit_cate_intercept
+
+    @property
+    def model_final(self):
+        return self._gen_model_final()
+
+    @model_final.setter
+    def model_final(self, value):
+        if value is not None:
+            raise ValueError("Parameter `model_final` cannot be altered for this estimator.")
+
+    @property
+    def opt_reweighted(self):
+        return False
+
+    @opt_reweighted.setter
+    def opt_reweighted(self, value):
+        if not (value is False):
+            raise ValueError("Parameter `value` cannot be altered from `False` for this estimator.")

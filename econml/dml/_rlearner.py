@@ -25,13 +25,14 @@ Chernozhukov et al. (2017). Double/debiased machine learning for treatment and s
     The Econometrics Journal. https://arxiv.org/abs/1608.00060
 """
 
+from abc import abstractmethod
 import numpy as np
 import copy
 from warnings import warn
-from .utilities import (shape, reshape, ndim, hstack, filter_none_kwargs, _deprecate_positional)
+from ..utilities import (shape, reshape, ndim, hstack, filter_none_kwargs, _deprecate_positional)
 from sklearn.linear_model import LinearRegression
 from sklearn.base import clone
-from ._ortho_learner import _OrthoLearner
+from .._ortho_learner import _OrthoLearner
 
 
 class _ModelNuisance:
@@ -42,8 +43,8 @@ class _ModelNuisance:
     """
 
     def __init__(self, model_y, model_t):
-        self._model_y = clone(model_y, safe=False)
-        self._model_t = clone(model_t, safe=False)
+        self._model_y = model_y
+        self._model_t = model_t
 
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         assert Z is None, "Cannot accept instrument!"
@@ -88,7 +89,7 @@ class _ModelFinal:
     """
 
     def __init__(self, model_final):
-        self._model_final = clone(model_final, safe=False)
+        self._model_final = model_final
 
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
         Y_res, T_res = nuisances
@@ -139,31 +140,6 @@ class _RLearner(_OrthoLearner):
 
     Parameters
     ----------
-    model_y: estimator of E[Y | X, W]
-        The estimator for fitting the response to the features and controls. Must implement
-        `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls), i.e. ::
-
-            model_y.fit(X, W, Y, sample_weight=sample_weight)
-            model_y.predict(X, W)
-
-    model_t: estimator of E[T | X, W]
-        The estimator for fitting the treatment to the features and controls. Must implement
-        `fit` and `predict` methods.  Unlike sklearn estimators both methods must
-        take an extra second argument (the controls), i.e. ::
-
-            model_t.fit(X, W, T, sample_weight=sample_weight)
-            model_t.predict(X, W)
-
-    model_final: estimator for fitting the response residuals to the features and treatment residuals
-        Must implement `fit` and `predict` methods. Unlike sklearn estimators the fit methods must
-        take an extra second argument (the treatment residuals). Predict, on the other hand,
-        should just take the features and return the constant marginal effect. More, concretely::
-
-            model_final.fit(X, T_res, Y_res,
-                            sample_weight=sample_weight, sample_var=sample_var)
-            model_final.predict(X)
-
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
@@ -171,13 +147,13 @@ class _RLearner(_OrthoLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable
+    cv: int, cross-validation generator or an iterable
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
         - None, to use the default 3-fold cross-validation,
         - integer, to specify the number of folds.
-        - :term:`cv splitter`
+        - :term:`CV splitter`
         - An iterable yielding (train, test) splits as arrays of indices.
 
         For integer/None inputs, if the treatment is discrete
@@ -194,8 +170,16 @@ class _RLearner(_OrthoLearner):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    mc_iters: int, optional
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
     Examples
     --------
+
     The example code below implements a very simple version of the double machine learning
     method on top of the :class:`._RLearner` class, for expository purposes.
     For a more elaborate implementation of a Double Machine Learning child class of the class
@@ -205,7 +189,7 @@ class _RLearner(_OrthoLearner):
 
         import numpy as np
         from sklearn.linear_model import LinearRegression
-        from econml._rlearner import _RLearner
+        from econml.dml._rlearner import _RLearner
         from sklearn.base import clone
         class ModelFirst:
             def __init__(self, model):
@@ -222,13 +206,17 @@ class _RLearner(_OrthoLearner):
                 return self
             def predict(self, X):
                 return self.model.predict(X)
+        class RLearner(_RLearner):
+            def _gen_model_y(self):
+                return ModelFirst(LinearRegression())
+            def _gen_model_t(self):
+                return ModelFirst(LinearRegression())
+            def _gen_rlearner_model_final(self):
+                return ModelFinal()
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
-        est = _RLearner(ModelFirst(LinearRegression()),
-                        ModelFirst(LinearRegression()),
-                        ModelFinal(),
-                        n_splits=2, discrete_treatment=False, categories='auto', random_state=None)
+        est = RLearner(cv=2, discrete_treatment=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
 
     >>> est.const_marginal_effect(np.ones((1,1)))
@@ -237,9 +225,9 @@ class _RLearner(_OrthoLearner):
     array([9.996314...])
     >>> est.score(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
     9.73638006...e-05
-    >>> est.model_final.model
+    >>> est.rlearner_model_final_.model
     LinearRegression(fit_intercept=False)
-    >>> est.model_final.model.coef_
+    >>> est.rlearner_model_final_.model.coef_
     array([0.999631...])
     >>> est.score_
     9.82623204...e-05
@@ -256,7 +244,7 @@ class _RLearner(_OrthoLearner):
     models_t: list of objects of type(model_t)
         A list of instances of the model_t object. Each element corresponds to a crossfitting
         fold and is the model instance that was fitted for that training fold.
-    model_final : object of type(model_final)
+    rlearner_model_final_ : object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float
         The MSE in the final residual on residual regression
@@ -273,20 +261,73 @@ class _RLearner(_OrthoLearner):
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
     """
 
-    def __init__(self, model_y, model_t, model_final,
-                 discrete_treatment, categories, n_splits, random_state):
-
-        super().__init__(_ModelNuisance(model_y, model_t),
-                         _ModelFinal(model_final),
-                         discrete_treatment=discrete_treatment,
+    def __init__(self, *, discrete_treatment, categories, cv, random_state,
+                 n_splits='raise', mc_iters=None, mc_agg='mean'):
+        super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
+                         cv=cv,
                          n_splits=n_splits,
-                         random_state=random_state)
+                         random_state=random_state,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg)
+
+    @abstractmethod
+    def _gen_model_y(self):
+        """
+        Returns
+        -------
+        model_y: estimator of E[Y | X, W]
+            The estimator for fitting the response to the features and controls. Must implement
+            `fit` and `predict` methods.  Unlike sklearn estimators both methods must
+            take an extra second argument (the controls), i.e. ::
+
+                model_y.fit(X, W, Y, sample_weight=sample_weight)
+                model_y.predict(X, W)
+        """
+        pass
+
+    @abstractmethod
+    def _gen_model_t(self):
+        """
+        Returns
+        -------
+        model_t: estimator of E[T | X, W]
+            The estimator for fitting the treatment to the features and controls. Must implement
+            `fit` and `predict` methods.  Unlike sklearn estimators both methods must
+            take an extra second argument (the controls), i.e. ::
+
+                model_t.fit(X, W, T, sample_weight=sample_weight)
+                model_t.predict(X, W)
+        """
+        pass
+
+    @abstractmethod
+    def _gen_rlearner_model_final(self):
+        """
+        Returns
+        -------
+        model_final: estimator for fitting the response residuals to the features and treatment residuals
+            Must implement `fit` and `predict` methods. Unlike sklearn estimators the fit methods must
+            take an extra second argument (the treatment residuals). Predict, on the other hand,
+            should just take the features and return the constant marginal effect. More, concretely::
+
+                model_final.fit(X, T_res, Y_res,
+                                sample_weight=sample_weight, sample_var=sample_var)
+                model_final.predict(X)
+        """
+        pass
+
+    def _gen_ortho_learner_model_nuisance(self):
+        return _ModelNuisance(self._gen_model_y(), self._gen_model_t())
+
+    def _gen_ortho_learner_model_final(self):
+        return _ModelFinal(self._gen_rlearner_model_final())
 
     @_deprecate_positional("X, and should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None, inference=None):
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -306,8 +347,10 @@ class _RLearner(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
         inference: string,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
@@ -319,6 +362,7 @@ class _RLearner(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values,
                            inference=inference)
 
     def score(self, Y, T, X=None, W=None):
@@ -350,16 +394,18 @@ class _RLearner(_OrthoLearner):
         return super().score(Y, T, X=X, W=W)
 
     @property
-    def model_final(self):
-        return super().model_final._model_final
+    def rlearner_model_final_(self):
+        # NOTE: important to get parent's wrapped copy so that
+        #       after training wrapped featurizer is also trained, etc.
+        return self.ortho_learner_model_final_._model_final
 
     @property
     def models_y(self):
-        return [mdl._model_y for mdl in super().models_nuisance]
+        return [mdl._model_y for mdl in super().models_nuisance_]
 
     @property
     def models_t(self):
-        return [mdl._model_t for mdl in super().models_nuisance]
+        return [mdl._model_t for mdl in super().models_nuisance_]
 
     @property
     def nuisance_scores_y(self):
@@ -368,3 +414,18 @@ class _RLearner(_OrthoLearner):
     @property
     def nuisance_scores_t(self):
         return self.nuisance_scores_[1]
+
+    @property
+    def residuals_(self):
+        """
+        A tuple (y_res, T_res, X, W), of the residuals from the first stage estimation
+        along with the associated X and W. Samples are not guaranteed to be in the same
+        order as the input order.
+        """
+        if not hasattr(self, '_cached_values'):
+            raise AttributeError("Estimator is not fitted yet!")
+        if self._cached_values is None:
+            raise AttributeError("`fit` was called with `cache_values=False`. "
+                                 "Set to `True` to enable residual storage.")
+        Y_res, T_res = self._cached_values.nuisances
+        return Y_res, T_res, self._cached_values.X, self._cached_values.W
