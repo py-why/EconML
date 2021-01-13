@@ -400,6 +400,14 @@ class DRLearner(_OrthoLearner):
                          categories=categories,
                          random_state=random_state)
 
+    def _get_inference_options(self):
+        options = super()._get_inference_options()
+        if not self.multitask_model_final:
+            options.update(auto=GenericModelFinalInferenceDiscrete)
+        else:
+            options.update(auto=lambda: None)
+        return options
+
     def _gen_ortho_learner_model_nuisance(self):
         if self.model_propensity == 'auto':
             model_propensity = LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto',
@@ -426,7 +434,7 @@ class DRLearner(_OrthoLearner):
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -462,6 +470,10 @@ class DRLearner(_OrthoLearner):
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
+
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def score(self, Y, T, X=None, W=None):
         """
@@ -851,10 +863,6 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
-
     @property
     def fit_cate_intercept_(self):
         return self.model_final_.fit_intercept
@@ -1150,10 +1158,6 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            cache_values=cache_values, inference=inference)
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def fit_cate_intercept_(self):
@@ -1464,10 +1468,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            cache_values=cache_values, inference=inference)
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def multitask_model_cate(self):
         # Replacing to remove docstring
