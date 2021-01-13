@@ -100,7 +100,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
 
 
 class CausalForestDML(_BaseDML):
-    """A Causal Forest [1]_ combined with double machine learning based residualization of the treatment
+    """A Causal Forest [cfdml1]_ combined with double machine learning based residualization of the treatment
     and outcome variables. It fits a forest that solves the local moment equation problem:
 
     .. code-block::
@@ -203,7 +203,7 @@ class CausalForestDML(_BaseDML):
 
             weight(left) * weight(right) || theta(left) - theta(right)||_2^2 / weight(parent)^2
 
-          as outlined in [1]_
+          as outlined in [cfdml1]_
 
     max_depth : int, default=None
         The maximum depth of the tree. If None, then nodes are expanded until
@@ -370,7 +370,7 @@ class CausalForestDML(_BaseDML):
 
     References
     ----------
-    .. [1] Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
+    .. [cfdml1] Athey, Susan, Julie Tibshirani, and Stefan Wager. "Generalized random forests."
         The Annals of Statistics 47.2 (2019): 1148-1178
         https://arxiv.org/pdf/1610.01271.pdf
 
