@@ -1303,9 +1303,9 @@ class PopulationSummaryResults:
         # 2. Distribution of Point Estimate
         res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, decimals)
         res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
-                                                     self._percentile_point(alpha=alpha)[0], decimals)))
+                                                     self.percentile_point(alpha=alpha)[0], decimals)))
         res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
-                                                     self._percentile_point(alpha=alpha)[1], decimals)))
+                                                     self.percentile_point(alpha=alpha)[1], decimals)))
         metric_name2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
         myheaders2 = [name + '\n' + tname for name in metric_name2 for tname in treatment_names
                       ] if self.d_t > 1 else [name for name in metric_name2]
