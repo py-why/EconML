@@ -163,6 +163,7 @@ Inference
 .. autosummary::
     :toctree: _autosummary
 
+    econml.bootstrap
     econml.inference
 
 Utilities
@@ -179,7 +180,6 @@ Private Module Reference
 .. autosummary::
     :toctree: _autosummary
 
-    econml.bootstrap
     econml._ortho_learner
     econml._cate_estimator
     econml._causal_tree
