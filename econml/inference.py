@@ -1134,7 +1134,7 @@ class PopulationSummaryResults:
         ----------
         alpha: optional float in [0, 1] (default=.1)
             The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported. 
+            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -1179,7 +1179,7 @@ class PopulationSummaryResults:
         ----------
         alpha: optional float in [0, 1] (default=.1)
             The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported. 
+            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -1202,7 +1202,7 @@ class PopulationSummaryResults:
         ----------
         alpha: optional float in [0, 1] (default=.1)
             The overall level of confidence of the reported interval.
-            The alpha/2, 1-alpha/2 confidence interval is reported. 
+            The alpha/2, 1-alpha/2 confidence interval is reported.
         tol:  optinal float(default=.001)
             The stopping criterion. The iterations will stop when the outcome is less than ``tol``
 
