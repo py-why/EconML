@@ -88,16 +88,17 @@ class _CateTreeMixin(_TreeExporter):
         super().__init__(*args, **kwargs)
 
     def get_fill_color(self, tree, node_id):
+
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
             # red for negative, green for positive
             self.colors['rgb'] = [(179, 108, 96), (81, 157, 96)]
 
         # in multi-target use first target
-        tree_min = np.min(tree.value, axis=0, keepdims=True)[(0,) * tree.value.ndim]
-        tree_max = np.max(tree.value, axis=0, keepdims=True)[(0,) * tree.value.ndim]
+        tree_min = np.min(np.mean(tree.value, axis=1))
+        tree_max = np.max(np.mean(tree.value, axis=1))
 
-        node_val = tree.value[(node_id,) + (0,) * (tree.value.ndim - 1)]
+        node_val = np.mean(tree.value[node_id])
 
         if node_val > 0:
             value = [max(0, tree_min) / tree_max, node_val / tree_max]
