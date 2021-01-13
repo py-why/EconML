@@ -4,6 +4,8 @@ Public Module Reference
 CATE Estimators
 ---------------
 
+.. _dml_api:
+
 Double Machine Learning (DML)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -16,6 +18,8 @@ Double Machine Learning (DML)
     econml.dml.CausalForestDML
     econml.dml.NonParamDML
 
+.. _dr_api:
+
 Doubly Robust (DR)
 ^^^^^^^^^^^^^^^^^^
 
@@ -27,6 +31,8 @@ Doubly Robust (DR)
     econml.drlearner.SparseLinearDRLearner
     econml.drlearner.ForestDRLearner
 
+.. _metalearners_api:
+
 Meta-Learners
 ^^^^^^^^^^^^^
 
@@ -37,6 +43,8 @@ Meta-Learners
     econml.metalearners.TLearner
     econml.metalearners.SLearner
     econml.metalearners.DomainAdaptationLearner
+
+.. _orf_api:
 
 Orthogonal Random Forest (ORF)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -50,6 +58,8 @@ Orthogonal Random Forest (ORF)
 Instrumental Variable CATE Estimators
 -------------------------------------
 
+.. _dmliv_api:
+
 Double Machine Learning (DML) IV
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -61,6 +71,8 @@ Double Machine Learning (DML) IV
     econml.ortho_iv.DMLIV
     econml.ortho_iv.NonParamDMLIV
 
+.. _driv_api:
+
 Doubly Robust (DR) IV
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -69,6 +81,8 @@ Doubly Robust (DR) IV
 
     econml.ortho_iv.IntentToTreatDRIV
     econml.ortho_iv.LinearIntentToTreatDRIV
+
+.. _deepiv_api:
 
 DeepIV
 ^^^^^^
@@ -82,6 +96,8 @@ DeepIV
     econml.deepiv.mog_sample_model
     econml.deepiv.response_loss_model
 
+.. _tsls_api:
+
 Two Stage Least Squares (2SLS)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -93,6 +109,8 @@ Two Stage Least Squares (2SLS)
     econml.two_stage_least_squares.DPolynomialFeatures
 
 
+.. _interpreters_api:
+
 CATE Interpreters
 -----------------
 
@@ -101,6 +119,8 @@ CATE Interpreters
 
     econml.cate_interpreter.SingleTreeCateInterpreter
     econml.cate_interpreter.SingleTreePolicyInterpreter
+
+.. _scorers_api:
 
 CATE Scorers
 ------------
@@ -111,6 +131,8 @@ CATE Scorers
     econml.score.RScorer
     econml.score.EnsembleCateEstimator
 
+
+.. _grf_api:
 
 Generalized Random Forests
 --------------------------
@@ -131,6 +153,8 @@ Generalized Random Forests
 Scikit-Learn Extensions
 -----------------------
 
+.. _sklearn_linear_api:
+
 Linear Model Extensions
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -147,6 +171,8 @@ Linear Model Extensions
     econml.sklearn_extensions.linear_model.WeightedMultiTaskLassoCV
     econml.sklearn_extensions.linear_model.WeightedLassoCVWrapper
 
+.. _sklearn_model_api:
+
 Model Selection Extensions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -157,6 +183,9 @@ Model Selection Extensions
     econml.sklearn_extensions.model_selection.WeightedKFold
     econml.sklearn_extensions.model_selection.WeightedStratifiedKFold
 
+
+.. _inference_api:
+
 Inference
 ---------
 
@@ -165,6 +194,9 @@ Inference
 
     econml.bootstrap
     econml.inference
+
+
+.. _utilities_api:
 
 Utilities
 ---------
