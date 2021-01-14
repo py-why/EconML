@@ -34,16 +34,16 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder, PolynomialFeatures, FunctionTransformer
 from sklearn.utils import check_random_state, check_array, column_or_1d
-from .sklearn_extensions.linear_model import WeightedLassoCVWrapper
-from ._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
+from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
+from .._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from ._causal_tree import CausalTree
-from .inference import Inference, NormalInferenceResults
-from .utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
-                        cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
-                        _RegressionWrapper, deprecated)
+from ..inference import Inference, NormalInferenceResults
+from ..utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
+                         cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
+                         _RegressionWrapper, deprecated)
 from sklearn.model_selection import check_cv
 # TODO: consider working around relying on sklearn implementation details
-from .sklearn_extensions.model_selection import _cross_val_predict
+from ..sklearn_extensions.model_selection import _cross_val_predict
 
 
 def _build_tree_in_parallel(tree, Y, T, X, W,

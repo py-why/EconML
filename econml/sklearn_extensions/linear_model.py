@@ -199,6 +199,17 @@ class WeightedLasso(WeightedModelMixin, Lasso):
     n_iter_ : int | array-like, shape (n_targets,)
         number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
+
+    .. testcode::
+        :hide:
+
+        # Our classes that derive from sklearn ones sometimes include
+        # inherited docstrings that have embedded doctests; we need the following imports
+        # so that they don't break.
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
+
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True,
@@ -294,6 +305,17 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
     n_iter_ : int | array-like, shape (n_targets,)
         number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
+
+    .. testcode::
+        :hide:
+
+        # Our classes that derive from sklearn ones sometimes include
+        # inherited docstrings that have embedded doctests; we need the following imports
+        # so that they don't break.
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
+
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
@@ -397,6 +419,17 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         rather than looping over features sequentially by default. This
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
+
+    .. testcode::
+        :hide:
+
+        # Our classes that derive from sklearn ones sometimes include
+        # inherited docstrings that have embedded doctests; we need the following imports
+        # so that they don't break.
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
+
     """
 
     def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
@@ -502,6 +535,17 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         rather than looping over features sequentially by default. This
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
+
+    .. testcode::
+        :hide:
+
+        # Our classes that derive from sklearn ones sometimes include
+        # inherited docstrings that have embedded doctests; we need the following imports
+        # so that they don't break.
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
+
     """
 
     def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
@@ -661,6 +705,16 @@ class DebiasedLasso(WeightedLasso):
 
     intercept_stderr_ : float
         Estimated standard error intercept (see ``intercept_`` attribute).
+
+    .. testcode::
+        :hide:
+
+        # Our classes that derive from sklearn ones sometimes include
+        # inherited docstrings that have embedded doctests; we need the following imports
+        # so that they don't break.
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
 
     """
 
@@ -997,6 +1051,16 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
     intercept_stderr_ : array, shape (n_targets, ) or float
         Estimated standard error intercept (see ``intercept_`` attribute).
+
+    .. testcode::
+        :hide:
+
+        # Our classes that derive from sklearn ones sometimes include
+        # inherited docstrings that have embedded doctests; we need the following imports
+        # so that they don't break.
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
 
     """
 

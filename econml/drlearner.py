@@ -286,6 +286,13 @@ class DRLearner(_OrthoLearner):
     A simple example with the default models:
 
     .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
 
         from econml.drlearner import DRLearner
 
@@ -750,12 +757,16 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     A simple example with the default models:
 
     .. testcode::
+        :hide:
 
         import numpy as np
         import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
         from econml.drlearner import DRLearner, LinearDRLearner
 
-        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
@@ -1016,12 +1027,16 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     A simple example with the default models:
 
     .. testcode::
+        :hide:
 
         import numpy as np
         import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
         from econml.drlearner import DRLearner, SparseLinearDRLearner
 
-        np.set_printoptions(suppress=True)
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))

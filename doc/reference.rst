@@ -52,8 +52,8 @@ Orthogonal Random Forest (ORF)
 .. autosummary::
     :toctree: _autosummary
 
-    econml.ortho_forest.DMLOrthoForest
-    econml.ortho_forest.DROrthoForest
+    econml.orf.DMLOrthoForest
+    econml.orf.DROrthoForest
 
 Instrumental Variable CATE Estimators
 -------------------------------------
@@ -150,6 +150,18 @@ Generalized Random Forests
     econml.grf._base_grftree.GRFTree
 
 
+Integration with AzureML AutoML
+-------------------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.automated_ml.setAutomatedMLWorkspace
+    econml.automated_ml.addAutomatedML
+    econml.automated_ml.AutomatedMLModel
+    econml.automated_ml.AutomatedMLMixin
+    econml.automated_ml.EconAutoMLConfig
+
 Scikit-Learn Extensions
 -----------------------
 
@@ -215,5 +227,9 @@ Private Module Reference
     econml._ortho_learner
     econml._cate_estimator
     econml._causal_tree
+    econml._shap
+    econml.cate_interpreter._tree_exporter
+    econml.cate_interpreter._interpreters
     econml.dml._rlearner
-
+    econml.orf._causal_tree
+    econml.orf._ortho_forest
