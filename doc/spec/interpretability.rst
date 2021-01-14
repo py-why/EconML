@@ -55,7 +55,7 @@ For instance:
     # We find a tree-based treatment policy based on the CATE model
     # sample_treatment_costs is the cost of treatment. Policy will treat if effect is above this cost.
     intrp = SingleTreePolicyInterpreter(risk_level=0.05, max_depth=2, min_samples_leaf=1,min_impurity_decrease=.001)
-    intrp.interpret(est, X, sample_treatment_costs=0.2)
+    intrp.interpret(est, X, sample_treatment_costs=0.05)
     # Plot the tree
     intrp.plot(feature_names=['A', 'B', 'C'], fontsize=12)
 
@@ -90,6 +90,6 @@ For instance:
     shap_values = est.shap_values(X)
     # local view: explain hetergoeneity for a given observation
     ind=0
-    shap.plots.force(shap_values["Y0"]["T0"][ind]
+    shap.plots.force(shap_values["Y0"]["T0"][ind], matplotlib=True)
     # global view: explain hetergoeneity for a sample of dataset
     shap.summary_plot(shap_values['Y0']['T0'])
