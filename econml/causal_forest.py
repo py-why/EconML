@@ -1,4 +1,4 @@
-from .ortho_forest import DMLOrthoForest
+from .orf import DMLOrthoForest
 from .utilities import LassoCVWrapper, deprecated
 from sklearn.linear_model import LogisticRegressionCV
 from .dml import CausalForestDML

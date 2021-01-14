@@ -226,7 +226,6 @@ Private Module Reference
 
     econml._ortho_learner
     econml._cate_estimator
-    econml._causal_tree
     econml._shap
     econml.cate_interpreter._tree_exporter
     econml.cate_interpreter._interpreters
