@@ -1,3 +1,6 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 from ._automated_ml import (setAutomatedMLWorkspace, addAutomatedML,
                             AutomatedMLModel, AutomatedMLMixin, EconAutoMLConfig)
 
