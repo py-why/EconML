@@ -150,13 +150,13 @@ Generalized Random Forests
     econml.grf._base_grftree.GRFTree
 
 
-Integration with AzureML AutoML
--------------------------------
+.. Integration with AzureML AutoML
+.. -------------------------------
 
-.. autosummary::
-    :toctree: _autosummary
+.. .. autosummary::
+..     :toctree: _autosummary
 
-    econml.automated_ml
+..     econml.automated_ml
 
 Scikit-Learn Extensions
 -----------------------
