@@ -291,7 +291,7 @@ class TestBootstrap(unittest.TestCase):
         Y = [1, 2, 3, 4, 5, 6, 7, 8]
         X = np.array([1, 1, 2, 2, 1, 2, 1, 2]).reshape(-1, 1)
         est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(), model_T_XZ=LogisticRegression(),
-                                      flexible_model_effect=LinearRegression(), n_splits=2)
+                                      flexible_model_effect=LinearRegression(), cv=2)
         inference = BootstrapInference(n_bootstrap_samples=20)
         est.fit(Y, T, Z=Z, X=X, inference=inference)
         est.const_marginal_effect_interval(X)
@@ -300,7 +300,7 @@ class TestBootstrap(unittest.TestCase):
         T = [1, 0, 1, 2, 0, 2] * 5
         Y = [1, 2, 3, 4, 5, 6] * 5
         X = np.array([1, 1, 2, 2, 1, 2] * 5).reshape(-1, 1)
-        est = LinearDML(n_splits=2)
+        est = LinearDML(cv=2)
         for kind in ['percentile', 'pivot', 'normal']:
             with self.subTest(kind=kind):
                 inference = BootstrapInference(n_bootstrap_samples=5, bootstrap_type=kind)

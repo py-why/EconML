@@ -326,7 +326,7 @@ class TestDRLearner(unittest.TestCase):
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
                                   C=1000, solver='lbfgs', multi_class='auto'),
-                              n_splits=KFold(n_splits=3))
+                              cv=KFold(n_splits=3))
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
@@ -336,7 +336,7 @@ class TestDRLearner(unittest.TestCase):
         dml = LinearDRLearner(model_regression=LinearRegression(),
                               model_propensity=LogisticRegression(
                                   C=1000, solver='lbfgs', multi_class='auto'),
-                              n_splits=[([0, 1, 2], [3, 4, 5])])
+                              cv=[([0, 1, 2], [3, 4, 5])])
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array(
             [1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array(
@@ -771,7 +771,7 @@ class TestDRLearner(unittest.TestCase):
         # test outer grouping
         # NOTE: we should ideally use a stratified split with grouping, but sklearn doesn't have one yet
         est = LinearDRLearner(model_propensity=LogisticRegression(),
-                              model_regression=LinearRegression(), n_splits=GroupKFold(2))
+                              model_regression=LinearRegression(), cv=GroupKFold(2))
         est.fit(y, t, W=w, groups=groups)
 
         # test nested grouping
@@ -799,13 +799,13 @@ class TestDRLearner(unittest.TestCase):
 
         # test nested grouping
         est = LinearDRLearner(model_propensity=LogisticRegression(),
-                              model_regression=NestedModel(cv=2), n_splits=GroupKFold(2))
+                              model_regression=NestedModel(cv=2), cv=GroupKFold(2))
         est.fit(y, t, W=w, groups=groups)
 
         # by default, we use 5 split cross-validation for our T and Y models
         # but we don't have enough groups here to split both the outer and inner samples with grouping
         # TODO: does this imply we should change some defaults to make this more likely to succeed?
-        est = LinearDRLearner(n_splits=GroupKFold(2))
+        est = LinearDRLearner(cv=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, W=w, groups=groups)
 

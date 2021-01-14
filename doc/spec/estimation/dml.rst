@@ -551,10 +551,10 @@ Usage FAQs
     If one uses cross-validated estimators as first stages, then model selection for the first stage models
     is performed automatically.
 
-- **How should I set the parameter `n_splits`?**
+- **How should I set the parameter `cv`?**
 
     This parameter defines the number of data partitions to create in order to fit the first stages in a
-    crossfittin manner (see :class:`._OrthoLearner`). The default is 2, which
+    crossfitting manner (see :class:`._OrthoLearner`). The default is 2, which
     is the minimal. However, larger values like 5 or 6 can lead to greater statistical stability of the method,
     especially if the number of samples is small. So we advise that for small datasets, one should raise this
     value. This can increase the computational cost as more first stage models are being fitted.

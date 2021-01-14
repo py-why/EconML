@@ -439,8 +439,8 @@ class CausalForestDML(_BaseDML):
             cv = self.n_crossfit_splits
         super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
-                         # TODO. change to `cv=cv, n_splits='raise` when merged with the `n_splits` deprecation PR
-                         n_splits=cv,
+                         cv=cv,
+                         n_splits=n_crossfit_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
