@@ -9,10 +9,10 @@ Tree Interpreter
 
 Tree Interpreter provides a presentation-ready summary of the key features that explain the biggest differences in responsiveness to an intervention.
 
-:class:`.SingleTreeCateInterpreter` trains a single shallow decision tree for the treatment effect :math:`\theta(X)` you learnt from any of
+:class:`.SingleTreeCateInterpreter` trains a single shallow decision tree for the treatment effect :math:`\theta(X)` you learned from any of
 our available CATE estimators on a small set of feature :math:`X` that you are interested to learn heterogeneity from. The model will split on the cutoff
-points that maximize the treatment effect difference in each leaf. Finally each leaf will be a subgroup of customers respond to a treatment differently
-with other leaves. 
+points that maximize the treatment effect difference in each leaf. Finally each leaf will be a subgroup of samples that respond to a treatment differently
+from other leaves. 
 
 For instance: 
 
@@ -43,8 +43,8 @@ Policy Interpreter
 ------------------
 Policy Interpreter offers similar functionality but taking cost into consideration. 
 
-Instead of training a tree model regressor on :math:`\theta(X)`, :class:`.SingleTreePolicyInterpreter` trains a tree model classifier by using whether the effect is above the cost as
-label. Finally we could make simple rules about what kind of customers we should target on in order to maximum the outcome of interest.
+Instead of training a tree model regressor on :math:`\theta(X)`, :class:`.SingleTreePolicyInterpreter` trains a tree model classifier by using whether
+the effect is above the cost as label. This results in simple rules to segment the samples in order to maximize the outcome of interest.
 
 
 For instance: 
