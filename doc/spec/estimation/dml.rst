@@ -430,18 +430,39 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.dml import DML
+        from econml.dml import SparseLinearDML
         from sklearn.ensemble import RandomForestRegressor
         from sklearn.model_selection import GridSearchCV
         first_stage = lambda: GridSearchCV(
                         estimator=RandomForestRegressor(),
                         param_grid={
                                 'max_depth': [3, None],
-                                'n_estimators': (10, 30, 50, 100, 200, 400, 600, 800, 1000),
+                                'n_estimators': (10, 30, 50, 100, 200),
                                 'max_features': (2,4,6)
                             }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         est = SparseLinearDML(model_y=first_stage(), model_t=first_stage())
+
+    Alternatively, you can pick the best first stage models outside of the EconML framework and pass in the selected models to EconML. 
+    This can save on runtime and computational resources. E.g.:
+
+    .. testcode::
+
+        from econml.dml import LinearDML
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.model_selection import GridSearchCV
+        first_stage = lambda: GridSearchCV(
+                        estimator=RandomForestRegressor(),
+                        param_grid={
+                                'max_depth': [3, None],
+                                'n_estimators': (10, 30, 50, 100, 200),
+                                'max_features': (2,4,6)
+                            }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
+                        )
+        model_y = first_stage().fit(X, Y).best_estimator_
+        model_t = first_stage().fit(X, T).best_estimator_
+        est = LinearDML(model_y=model_y, model_t=model_t)
+
 
 - **How do I select the hyperparameters of the final model (if any)?**
 

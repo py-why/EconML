@@ -31,6 +31,7 @@ For information on use cases and background material on causal inference and het
   - [Usage Examples](#usage-examples)
     - [Estimation Methods](#estimation-methods)
     - [Interpretability](#interpretability)
+    - [Causal Model Selection and Cross-Validation](#causal-model-selection-and-cross-validation)
     - [Inference](#inference)
 - [For Developers](#for-developers)
   - [Running the tests](#running-the-tests)
@@ -415,6 +416,39 @@ See the <a href="#references">References</a> section for more details.
   # create weighted ensemble model based on score performance
   mdl, _ = scorer.ensemble([mdl for _, mdl in models])
   ```
+
+</details>
+
+<details>
+  <summary>First Stage Model Selection (click to expand)</summary>
+
+First stage models can be selected either by passing in cross-validated models (e.g. `sklearn.linear_model.LassoCV`) to EconML's estimators or perform the first stage model selection outside of EconML and pass in the selected model. 
+
+```Python
+from econml.dml import LinearDML
+from sklearn import clone
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV
+
+cv_model = GridSearchCV(
+              estimator=RandomForestRegressor(),
+              param_grid={
+                  "max_depth": [3, None],
+                  "n_estimators": (10, 30, 50, 100, 200),
+                  "max_features": (2, 4, 6),
+              },
+              cv=5,
+           )
+# First stage model selection within EconML
+# This is slower, but more direct
+est = LinearDML(model_y=cv_model, model_t=cv_model)
+# First stage model selection ouside of EconML
+# Faster, but needs boilerplate code
+model_t = clone(cv_model).fit(W, T).best_estimator_
+model_y = clone(cv_model).fit(W, Y).best_estimator_
+est = LinearDML(model_y=model_t, model_t=model_y)
+```
+
 
 </details>
 
