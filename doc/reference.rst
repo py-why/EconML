@@ -156,11 +156,7 @@ Integration with AzureML AutoML
 .. autosummary::
     :toctree: _autosummary
 
-    econml.automated_ml.setAutomatedMLWorkspace
-    econml.automated_ml.addAutomatedML
-    econml.automated_ml.AutomatedMLModel
-    econml.automated_ml.AutomatedMLMixin
-    econml.automated_ml.EconAutoMLConfig
+    econml.automated_ml
 
 Scikit-Learn Extensions
 -----------------------
@@ -226,9 +222,4 @@ Private Module Reference
 
     econml._ortho_learner
     econml._cate_estimator
-    econml._shap
-    econml.cate_interpreter._tree_exporter
-    econml.cate_interpreter._interpreters
     econml.dml._rlearner
-    econml.orf._causal_tree
-    econml.orf._ortho_forest
