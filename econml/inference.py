@@ -35,6 +35,24 @@ class Inference(metaclass=abc.ABCMeta):
         """
         pass
 
+    def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        return self.effect_inference(X=X, T0=T0, T1=T1).population_summary(alpha=alpha).conf_int_mean()
+
+    def ate_inference(self, X=None, *, T0=0, T1=1):
+        return self.effect_inference(X=X, T0=T0, T1=T1).population_summary()
+
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+        return self.marginal_effect_inference(T, X=X).population_summary(alpha=alpha).conf_int_mean()
+
+    def marginal_ate_inference(self, T, X=None):
+        return self.marginal_effect_inference(T, X=X).population_summary()
+
+    def const_marginal_ate_interval(self, X=None, *, alpha=0.1):
+        return self.const_marginal_effect_inference(X=X).population_summary(alpha=alpha).conf_int_mean()
+
+    def const_marginal_ate_inference(self, X=None):
+        return self.const_marginal_effect_inference(X=X).population_summary()
+
 
 class BootstrapInference(Inference):
     """
@@ -1028,11 +1046,11 @@ class PopulationSummaryResults:
         self.treatment_names = treatment_names
 
     def __str__(self):
-        return self.print().as_text()
+        return self._print().as_text()
 
     def _repr_html_(self):
         '''Display as HTML in IPython notebook.'''
-        return self.print().as_html()
+        return self._print().as_html()
 
     @property
     def mean_point(self):
@@ -1067,10 +1085,14 @@ class PopulationSummaryResults:
             raise AttributeError("Only point estimates are available!")
         return np.sqrt(np.mean(self.pred_stderr**2, axis=0))
 
-    @property
-    def zstat(self):
+    def zstat(self, *, value=0):
         """
         Get the z statistic of the mean point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
@@ -1080,13 +1102,18 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will be a scalar)
         """
-        zstat = (self.mean_point - self.value) / self.stderr_mean
+        value = self.value if value is None else value
+        zstat = (self.mean_point - value) / self.stderr_mean
         return zstat
 
-    @property
-    def pvalue(self):
+    def pvalue(self, *, value=0):
         """
         Get the p value of the z test of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
@@ -1096,13 +1123,18 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will be a scalar)
         """
-        pvalue = norm.sf(np.abs(self.zstat), loc=0, scale=1) * 2
+        pvalue = norm.sf(np.abs(self.zstat(value=value)), loc=0, scale=1) * 2
         return pvalue
 
-    @property
-    def conf_int_mean(self):
+    def conf_int_mean(self, *, alpha=.1):
         """
         Get the confidence interval of the mean point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -1112,14 +1144,17 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-
-        return np.array([_safe_norm_ppf(self.alpha / 2, loc=p, scale=err)
-                         for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
-                                           [self.stderr_mean] if np.isscalar(self.stderr_mean)
-                                           else self.stderr_mean)]),\
-            np.array([_safe_norm_ppf(1 - self.alpha / 2, loc=p, scale=err)
-                      for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
-                                        [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)])
+        alpha = self.alpha if alpha is None else alpha
+        mean_point = self.mean_point
+        stderr_mean = self.stderr_mean
+        if np.isscalar(mean_point):
+            return (_safe_norm_ppf(alpha / 2, loc=mean_point, scale=stderr_mean),
+                    _safe_norm_ppf(1 - alpha / 2, loc=mean_point, scale=stderr_mean))
+        else:
+            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                             for p, err in zip(mean_point, stderr_mean)]),\
+                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                          for p, err in zip(mean_point, stderr_mean)])
 
     @property
     def std_point(self):
@@ -1136,10 +1171,15 @@ class PopulationSummaryResults:
         """
         return np.std(self.pred, axis=0)
 
-    @property
-    def percentile_point(self):
+    def percentile_point(self, *, alpha=.1):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -1149,10 +1189,38 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        lower_percentile_point = np.percentile(self.pred, (self.alpha / 2) * 100, axis=0)
-        upper_percentile_point = np.percentile(self.pred, (1 - self.alpha / 2) * 100, axis=0)
-        return np.array([lower_percentile_point]) if np.isscalar(lower_percentile_point) else lower_percentile_point, \
-            np.array([upper_percentile_point]) if np.isscalar(upper_percentile_point) else upper_percentile_point
+        alpha = self.alpha if alpha is None else alpha
+        lower_percentile_point = np.percentile(self.pred, (alpha / 2) * 100, axis=0)
+        upper_percentile_point = np.percentile(self.pred, (1 - alpha / 2) * 100, axis=0)
+        return lower_percentile_point, upper_percentile_point
+
+    def conf_int_point(self, *, alpha=.1, tol=.001):
+        """
+        Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        tol:  optinal float(default=.001)
+            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+
+        Returns
+        -------
+        lower, upper: tuple of arrays, shape (d_y, d_t)
+            The lower and the upper bounds of the confidence interval for each quantity.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        if self.pred_stderr is None:
+            raise AttributeError("Only point estimates are available!")
+        alpha = self.alpha if alpha is None else alpha
+        tol = self.tol if tol is None else tol
+        lower_ci_point = np.array([self._mixture_ppf(alpha / 2, self.pred, self.pred_stderr, tol)])
+        upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, tol)])
+        return lower_ci_point, upper_ci_point
 
     @property
     def stderr_point(self):
@@ -1169,29 +1237,25 @@ class PopulationSummaryResults:
         """
         return np.sqrt(self.stderr_mean**2 + self.std_point**2)
 
-    @property
-    def conf_int_point(self):
-        """
-        Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
-
-        Returns
-        -------
-        lower, upper: tuple of arrays, shape (d_y, d_t)
-            The lower and the upper bounds of the confidence interval for each quantity.
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will also be a vector)
-        """
-        if self.pred_stderr is None:
-            raise AttributeError("Only point estimates are available!")
-        lower_ci_point = np.array([self._mixture_ppf(self.alpha / 2, self.pred, self.pred_stderr, self.tol)])
-        upper_ci_point = np.array([self._mixture_ppf(1 - self.alpha / 2, self.pred, self.pred_stderr, self.tol)])
-        return np.array([lower_ci_point]) if np.isscalar(lower_ci_point) else lower_ci_point,\
-            np.array([upper_ci_point]) if np.isscalar(upper_ci_point) else upper_ci_point
-
-    def print(self):
+    def summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
         """
         Output the summary inferences above.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        tol:  optinal float (default=0.001)
+            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+        output_names: optional list of strings or None (default is None)
+                The names of the outputs
+        treatment_names: optional list of strings or None (default is None)
+            The names of the treatments
 
         Returns
         -------
@@ -1199,20 +1263,34 @@ class PopulationSummaryResults:
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
         """
+        return self._print(alpha=alpha, value=value, decimals=decimals,
+                           tol=tol, output_names=output_names, treatment_names=treatment_names)
+
+    def _print(self, *, alpha=None, value=None, decimals=None, tol=None, output_names=None, treatment_names=None):
+        """
+        Helper function to be used by both `summary` and `__repr__`, in the former case with passed attributes
+        in the latter case with None inputs, hence using the `__init__` params.
+        """
+        alpha = self.alpha if alpha is None else alpha
+        value = self.value if value is None else value
+        decimals = self.decimals if decimals is None else decimals
+        tol = self.tol if tol is None else tol
+        treatment_names = self.treatment_names if treatment_names is None else treatment_names
+        output_names = self.output_names if output_names is None else output_names
 
         # 1. Uncertainty of Mean Point Estimate
-        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, self.decimals)
+        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, decimals)
         if self.pred_stderr is not None:
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, self.decimals)))
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.zstat, self.decimals)))
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue, self.decimals)))
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[0], self.decimals)))
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[1], self.decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.zstat(value=value), decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue(value=value), decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y,
+                                                         self.conf_int_mean(alpha=alpha)[0], decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y,
+                                                         self.conf_int_mean(alpha=alpha)[1], decimals)))
 
-        treatment_names = self.treatment_names
         if treatment_names is None:
             treatment_names = ['T' + str(i) for i in range(self.d_t)]
-        output_names = self.output_names
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(self.d_y)]
 
@@ -1223,9 +1301,11 @@ class PopulationSummaryResults:
         title1 = "Uncertainty of Mean Point Estimate"
 
         # 2. Distribution of Point Estimate
-        res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, self.decimals)
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[0], self.decimals)))
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[1], self.decimals)))
+        res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, decimals)
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.percentile_point(alpha=alpha)[0], decimals)))
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.percentile_point(alpha=alpha)[1], decimals)))
         metric_name2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
         myheaders2 = [name + '\n' + tname for name in metric_name2 for tname in treatment_names
                       ] if self.d_t > 1 else [name for name in metric_name2]
@@ -1243,9 +1323,11 @@ class PopulationSummaryResults:
             # 3. Total Variance of Point Estimate
             res3 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, self.decimals)
             res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
-                                                         self.conf_int_point[0], self.decimals)))
+                                                         self.conf_int_point(alpha=alpha, tol=tol)[0],
+                                                         self.decimals)))
             res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
-                                                         self.conf_int_point[1], self.decimals)))
+                                                         self.conf_int_point(alpha=alpha, tol=tol)[1],
+                                                         self.decimals)))
             metric_name3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
             myheaders3 = [name + '\n' + tname for name in metric_name3 for tname in treatment_names
                           ] if self.d_t > 1 else [name for name in metric_name3]

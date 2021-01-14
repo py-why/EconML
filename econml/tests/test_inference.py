@@ -260,7 +260,8 @@ class TestInference(unittest.TestCase):
 
             pop = PopulationSummaryResults(np.mean(predictions, axis=0).reshape(1, 2), np.std(
                 predictions, axis=0).reshape(1, 2), d_t=1, d_y=2, alpha=0.05, value=0, decimals=3, tol=0.001)
-            pop.print()  # verify that we can access all attributes even in degenerate case
+            pop._print()  # verify that we can access all attributes even in degenerate case
+            pop.summary()
 
     def test_can_summarize(self):
         LinearDML(model_t=LinearRegression(), model_y=LinearRegression()).fit(
