@@ -701,7 +701,6 @@ lightning package implements such a class::
     from econml.dml import DML
     from sklearn.preprocessing import PolynomialFeatures
     from lightning.regression import FistaRegressor
-    from econml.bootstrap import BootstrapEstimator
     from sklearn.linear_model import MultiTaskElasticNet
 
     est = DML(model_y=MultiTaskElasticNet(alpha=0.1),

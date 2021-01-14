@@ -94,24 +94,24 @@
         <path d="M9.50005 785.667C9.50005 771.768 20.7678 760.5 34.6674 760.5L369.333 760.5C383.232 760.5 394.5 771.768 394.5 785.667L394.5 886.333C394.5 900.232 383.232 911.5 369.333 911.5L34.6674 911.5C20.7678 911.5 9.50005 900.232 9.50005 886.333Z" stroke="#7030A0" stroke-width="1.33333" stroke-miterlimit="8" fill="#7030A0" fill-rule="evenodd" fill-opacity="0.341176"/>
         <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(111.984 896)">Exploit Explicit Randomization</text>
         <rect x="26" y="781" width="178" height="97" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
-        <a href="_autosummary/econml.two_stage_least_squares.NonparametricTwoStageLeastSquares.html" target="_parent">
+        <a href="_autosummary/econml.iv.tsls.NonparametricTSLS.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(93.7427 817)">2SLS IV</text>
         </a>
         <path d="M93.7427 819.138 114.743 819.138 135.743 819.138 135.743 820.138 114.743 820.138 93.7427 820.138Z" fill="#FFFFFF" fill-rule="evenodd"/>
-        <a href="_autosummary/econml.ortho_iv.IntentToTreatDRIV" target="_parent">
+        <a href="_autosummary/econml.iv.dr.IntentToTreatDRIV" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(59.2427 834)">IntentToTreatDRIV</text>
         </a>
         <path d="M59.7427 836.138 96.7427 836.138 133.743 836.138 170.743 836.138 170.743 837.138 133.743 837.138 96.7427 837.138 59.7427 837.138Z" fill="#FFFFFF" fill-rule="evenodd"/>
-        <a href="_autosummary/econml.ortho_iv.LinearIntentToTreatDRIV.html" target="_parent">
+        <a href="_autosummary/econml.iv.dr.LinearIntentToTreatDRIV.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(40.9094 852)">LinearIntentToTreatDRIV</text>
         </a>
         <path d="M40.7427 854.138 77.7427 854.138 114.743 854.138 151.743 854.138 188.743 854.138 188.743 855.138 151.743 855.138 114.743 855.138 77.7427 855.138 40.7427 855.138Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <rect x="216" y="781" width="163" height="97" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
-        <a href="_autosummary/econml.deepiv.DeepIV.html" target="_parent">
+        <a href="_autosummary/econml.iv.nnet.DeepIV.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(274.239 808)">Deep IV</text>
         </a>
         <path d="M274.659 810.338 297.659 810.338 320.659 810.338 320.659 811.338 297.659 811.338 274.659 811.338Z" fill="#FFFFFF" fill-rule="evenodd"/>
-        <a href="_autosummary/econml.ortho_iv.NonParamDMLIV.html" target="_parent">
+        <a href="_autosummary/econml.iv.dr.NonParamDMLIV.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(246.159 825)">NonParamDMLIV</text>
         </a>
         <path d="M246.659 827.338 280.659 827.338 314.659 827.338 348.659 827.338 348.659 828.338 314.659 828.338 280.659 828.338 246.659 828.338Z" fill="#FFFFFF" fill-rule="evenodd"/>
@@ -175,7 +175,7 @@
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(530 488)">SparseLinearDML</text>
         </a>
         <path d="M489.012 490.461 536.012 490.461 583.012 490.461 630.012 490.461 677.012 490.461 677.012 491.461 630.012 491.461 583.012 491.461 536.012 491.461 489.012 491.461Z" fill="#FFFFFF" fill-rule="evenodd"/>
-        <a href="_autosummary/econml.drlearner.SparseLinearDRLearner.html" target="_parent">
+        <a href="_autosummary/econml.dr.SparseLinearDRLearner.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(513.845 505)">SparseLinearDRLearner</text>
         </a>
         <path d="M514.012 507.461 560.345 507.461 606.678 507.461 653.012 507.461 653.012 508.461 606.678 508.461 560.345 508.461 514.012 508.461Z" fill="#FFFFFF" fill-rule="evenodd"/>
@@ -184,20 +184,20 @@
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(550 571)">LinearDML</text>
         </a>
         <path d="M509.292 573.095 558.959 573.095 608.626 573.095 658.292 573.095 658.292 574.095 608.626 574.095 558.959 574.095 509.292 574.095Z" fill="#FFFFFF" fill-rule="evenodd"/>
-        <a href="_autosummary/econml.drlearner.LinearDRLearner.html" target="_parent">
+        <a href="_autosummary/econml.dr.LinearDRLearner.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(533.872 588)">LinearDRLearner</text>
         </a>
         <path d="M534.292 590.095 583.792 590.095 633.292 590.095 633.292 591.095 583.792 591.095 534.292 591.095Z" fill="#FFFFFF" fill-rule="evenodd"/>
         <rect x="471" y="614" width="226" height="90" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
-        <a href="_autosummary/econml.ortho_forest.DMLOrthoForest.html" target="_parent">
+        <a href="_autosummary/econml.orf.DMLOrthoForest.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(535 638)">DMLOrthoForest</text>
         </a>
         <path d="M482.292 639.866 533.042 639.866 583.792 639.866 634.542 639.866 685.292 639.866 685.292 640.866 634.542 640.866 583.792 640.866 533.042 640.866 482.292 640.866Z" fill="#FFFFFF" fill-rule="evenodd"/>
-        <a href="_autosummary/econml.ortho_forest.DROrthoForest.html" target="_parent">
+        <a href="_autosummary/econml.orf.DROrthoForest.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(540 655)">DROrthoForest</text>
         </a>
         <path d="M491.292 656.866 537.292 656.866 583.292 656.866 629.292 656.866 675.292 656.866 675.292 657.866 629.292 657.866 583.292 657.866 537.292 657.866 491.292 657.866Z" fill="#FFFFFF" fill-rule="evenodd"/>
-        <a href="_autosummary/econml.drlearner.ForestDRLearner.html" target="_parent">
+        <a href="_autosummary/econml.dr.ForestDRLearner.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(533.539 673)">ForestDRLearner</text>
         </a>
         <path d="M533.292 674.866 583.292 674.866 633.292 674.866 633.292 675.866 583.292 675.866 533.292 675.866Z" fill="#FFFFFF" fill-rule="evenodd"/>
@@ -210,7 +210,7 @@
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(542.042 752)">MetaLearners</text>
         </a>
         <path d="M542.296 753.513 583.796 753.513 625.296 753.513 625.296 754.513 583.796 754.513 542.296 754.513Z" fill="#FFFFFF" fill-rule="evenodd"/>
-        <a href="_autosummary/econml.drlearner.DRLearner.html" target="_parent">
+        <a href="_autosummary/econml.dr.DRLearner.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(552.209 769)">DRLearner</text>
         </a>
         <path d="M552.296 770.513 583.796 770.513 615.296 770.513 615.296 771.513 583.796 771.513 552.296 771.513Z" fill="#FFFFFF" fill-rule="evenodd"/>

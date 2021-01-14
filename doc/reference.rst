@@ -26,10 +26,10 @@ Doubly Robust (DR)
 .. autosummary::
     :toctree: _autosummary
 
-    econml.drlearner.DRLearner
-    econml.drlearner.LinearDRLearner
-    econml.drlearner.SparseLinearDRLearner
-    econml.drlearner.ForestDRLearner
+    econml.dr.DRLearner
+    econml.dr.LinearDRLearner
+    econml.dr.SparseLinearDRLearner
+    econml.dr.ForestDRLearner
 
 .. _metalearners_api:
 
@@ -66,10 +66,10 @@ Double Machine Learning (DML) IV
 .. autosummary::
     :toctree: _autosummary
 
-    econml.ortho_iv.DMLATEIV
-    econml.ortho_iv.ProjectedDMLATEIV
-    econml.ortho_iv.DMLIV
-    econml.ortho_iv.NonParamDMLIV
+    econml.iv.dml.DMLATEIV
+    econml.iv.dml.ProjectedDMLATEIV
+    econml.iv.dml.DMLIV
+    econml.iv.dml.NonParamDMLIV
 
 .. _driv_api:
 
@@ -79,8 +79,8 @@ Doubly Robust (DR) IV
 .. autosummary::
     :toctree: _autosummary
 
-    econml.ortho_iv.IntentToTreatDRIV
-    econml.ortho_iv.LinearIntentToTreatDRIV
+    econml.iv.dr.IntentToTreatDRIV
+    econml.iv.dr.LinearIntentToTreatDRIV
 
 .. _deepiv_api:
 
@@ -90,11 +90,7 @@ DeepIV
 .. autosummary::
     :toctree: _autosummary
 
-    econml.deepiv.DeepIV
-    econml.deepiv.mog_loss_model
-    econml.deepiv.mog_loss_model
-    econml.deepiv.mog_sample_model
-    econml.deepiv.response_loss_model
+    econml.iv.nnet.DeepIV
 
 .. _tsls_api:
 
@@ -104,9 +100,9 @@ Two Stage Least Squares (2SLS)
 .. autosummary::
     :toctree: _autosummary
 
-    econml.two_stage_least_squares.NonparametricTwoStageLeastSquares
-    econml.two_stage_least_squares.HermiteFeatures
-    econml.two_stage_least_squares.DPolynomialFeatures
+    econml.iv.tsls.NonparametricTSLS
+    econml.iv.tsls.HermiteFeatures
+    econml.iv.tsls.DPolynomialFeatures
 
 
 .. _interpreters_api:
@@ -200,7 +196,6 @@ Inference
 .. autosummary::
     :toctree: _autosummary
 
-    econml.bootstrap
     econml.inference
 
 
@@ -223,3 +218,4 @@ Private Module Reference
     econml._ortho_learner
     econml._cate_estimator
     econml.dml._rlearner
+    econml.inference._bootstrap

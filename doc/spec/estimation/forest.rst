@@ -165,7 +165,7 @@ some extensions to the scikit-learn library that enable sample weights, such as 
     .. testcode:: intro
         :hide:
 
-        from econml.ortho_forest import DMLOrthoForest
+        from econml.orf import DMLOrthoForest
         from econml.sklearn_extensions.linear_model import WeightedLasso
 
     .. doctest:: intro
@@ -303,10 +303,10 @@ sample :math:`X_i`. This is implemented in the RegressionForest (see :class:`.Re
 Class Hierarchy Structure
 =========================
 
-.. inheritance-diagram:: econml.ortho_forest.DMLOrthoForest econml.ortho_forest.DROrthoForest econml.drlearner.ForestDRLearner econml.dml.CausalForestDML
+.. inheritance-diagram:: econml.orf.DMLOrthoForest econml.orf.DROrthoForest econml.dr.ForestDRLearner econml.dml.CausalForestDML
         :parts: 1
         :private-bases:
-        :top-classes: econml._ortho_learner._OrthoLearner, econml.ortho_forest.BaseOrthoForest, econml._cate_estimator.LinearCateEstimator
+        :top-classes: econml._ortho_learner._OrthoLearner, econml.orf.BaseOrthoForest, econml._cate_estimator.LinearCateEstimator
 
 
 Usage Examples
@@ -323,7 +323,7 @@ and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/bl
 
         import numpy as np
         import sklearn
-        from econml.ortho_forest import DMLOrthoForest, DROrthoForest
+        from econml.orf import DMLOrthoForest, DROrthoForest
         np.random.seed(123)
 
     >>> T = np.array([0, 1]*60)
@@ -333,7 +333,7 @@ and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/bl
     ...                      model_T=sklearn.linear_model.LinearRegression(),
     ...                      model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, X=W, W=W)
-    <econml.ortho_forest.DMLOrthoForest object at 0x...>
+    <econml.orf.DMLOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [1.00...  1.19...]
 
@@ -346,7 +346,7 @@ Similarly, we can call :class:`.DROrthoForest`:
     ...                     propensity_model=sklearn.linear_model.LogisticRegression(),
     ...                     model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, X=W, W=W)
-    <econml.ortho_forest.DROrthoForest object at 0x...>
+    <econml.orf.DROrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [0.99...  1.35...]
 
@@ -355,8 +355,8 @@ and with more realistic noisy data. In this case we can just use the default par
 of the class, which specify the use of the :class:`~sklearn.linear_model.LassoCV` for 
 both the treatment and the outcome regressions, in the case of continuous treatments.
 
-    >>> from econml.ortho_forest import DMLOrthoForest
-    >>> from econml.ortho_forest import DMLOrthoForest
+    >>> from econml.orf import DMLOrthoForest
+    >>> from econml.orf import DMLOrthoForest
     >>> from econml.sklearn_extensions.linear_model import WeightedLasso
     >>> import matplotlib.pyplot as plt
     >>> np.random.seed(123)
@@ -370,7 +370,7 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     ...                      model_Y=WeightedLasso(alpha=0.01),
     ...                      model_T=WeightedLasso(alpha=0.01))
     >>> est.fit(Y, T, X=X, W=W)
-    <econml.ortho_forest.DMLOrthoForest object at 0x...>
+    <econml.orf.DMLOrthoForest object at 0x...>
     >>> X_test = np.linspace(-1, 1, 30).reshape(-1, 1)
     >>> treatment_effects = est.effect(X_test)
     >>> plt.plot(X_test[:, 0], treatment_effects, label='ORF estimate')

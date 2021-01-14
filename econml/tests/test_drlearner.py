@@ -13,7 +13,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from sklearn.model_selection import KFold, GroupKFold
 from sklearn.preprocessing import PolynomialFeatures
-from econml.drlearner import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
+from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
 from contextlib import ExitStack

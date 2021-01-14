@@ -60,7 +60,7 @@ This for instance holds for the :class:`.LinearDML` and the :class:`.LinearDRLea
 
 .. testcode::
 
-    from econml.drlearner import LinearDRLearner
+    from econml.dr import LinearDRLearner
     from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
     est = LinearDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                           model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
@@ -92,7 +92,7 @@ explicitly setting ``inference='debiasedlasso'``, e.g.:
 
 .. testcode::
 
-    from econml.drlearner import SparseLinearDRLearner
+    from econml.dr import SparseLinearDRLearner
     from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
     est = SparseLinearDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                                 model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
@@ -126,7 +126,7 @@ or by explicitly setting ``inference='blb'``, e.g.:
 
 .. testcode::
 
-    from econml.drlearner import ForestDRLearner
+    from econml.dr import ForestDRLearner
     from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
     est = ForestDRLearner(model_regression=RandomForestRegressor(n_estimators=10, min_samples_leaf=10),
                           model_propensity=RandomForestClassifier(n_estimators=10, min_samples_leaf=10))
@@ -148,7 +148,7 @@ inference at its default setting of ``'auto'`` or by explicitly setting ``infere
 
 .. testcode::
 
-    from econml.ortho_forest import DMLOrthoForest
+    from econml.orf import DMLOrthoForest
     from econml.sklearn_extensions.linear_model import WeightedLasso
     est = DMLOrthoForest(n_trees=10,
                          min_leaf_size=3,
