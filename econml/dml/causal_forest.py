@@ -8,7 +8,8 @@ from .dml import _BaseDML
 from .dml import _FirstStageWrapper, _FinalWrapper
 from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
-from ..inference import Inference, NormalInferenceResults
+from ..inference import NormalInferenceResults
+from ..inference._inference import Inference
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.base import clone, BaseEstimator
 from sklearn.preprocessing import FunctionTransformer
