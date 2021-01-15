@@ -43,8 +43,12 @@ Policy Interpreter
 ------------------
 Policy Interpreter offers similar functionality but taking cost into consideration. 
 
-Instead of training a tree model regressor on :math:`\theta(X)`, :class:`.SingleTreePolicyInterpreter` trains a tree model classifier by using whether
-the effect is above the cost as label. This results in simple rules to segment the samples in order to maximize the outcome of interest.
+Instead of fitting a tree to learn groups that have a different treatment effect, :class:`.SingleTreePolicyInterpreter` tries to split the samples into different treatment groups.
+So in the case of binary treatments it tries to create sub-groups such that all samples within the group have either all positive effect or all negative effect. Thus it tries to
+separate responders from non-responders, as opposed to trying to find groups that have different levels of response.
+
+This way you can construct an interpretable personalized policy where you treat the groups with a postive effect and don't treat the group with a negative effect.
+Our policy tree provides the recommended treatment at each leaf node.
 
 
 For instance: 
