@@ -671,7 +671,11 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     def effect_influence(self, X, T0, T1, outcome_names=None, flatten=True):
         '''
-
+        Returns an influence result (or a list, if multiple X)
+        containing['Outcome', 'Sample']. Meaning
+        an entry result[a].influences[i][j] contains the influence
+        of the j - th sample on on the effect when X[a]
+        in terms of the i - th outcome when changing from T0 to T1. 
         '''
         const_marginal_influences = self.const_marginal_effect_influence(X, outcome_names, flatten=False)
         X = np.array(X)
@@ -697,18 +701,21 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     def marginal_effect_influence(self, T, X, flatten=True):
         '''
-
+        Equivalent to const_marginal_effect_influence for LinearDML
         '''
-        # get coef influence
 
         return self.const_marginal_effect_influence(X, flatten=flatten)
 
     def const_marginal_effect_influence(self, X, outcome_names=None, treatment_names=None, flatten=True):
         '''
         Returns an influence result (or a list, if multiple X)
-        containing ['Outcome','Treatment','Sample']
+        containing ['Outcome','Treatment','Sample']. Meaning
+        an entry result[a].influences[i][j][k] contains the influence
+        of the j-th treatment of the k-th sample on on the marginal effect when X[a]
+        in terms of the i-th outcome. Often, the user may not care about how a sample's
+        influence is divided between particular treatments and may wish to
+        result[a].aggregate(['Treatment']) 
         '''
-        # First, we use the cached values, and featurizer to get what was originally fit with
         final_model = self._ortho_learner_model_final._model_final
         Y_res, T_res = self._cached_values.nuisances
         d_y = 1
@@ -745,7 +752,13 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
             return np.array(all_influences)
 
     def coef_influence(self, outcome_names=None, treatment_names=None, feature_names=None, flatten=True):
-        # First, we use the cached values, and featurizer to get what was originally fit with
+        '''
+        Returns an influence result (or a list, if multiple X)
+        containing ['Outcome','Treatment','Sample', 'Feature']. Meaning
+        an entry result[a].influences[i][j][k][l] contains the influence
+        of the j-th treatment of the k-th sample on the marginal effect when X[a]
+        in terms of the l-th feature's coefficient for the i-th outcome.
+        '''
         final_model = self._ortho_learner_model_final._model_final
         Y_res, T_res = self._cached_values.nuisances
         d_y = 1
@@ -783,7 +796,12 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         pass
 
     def loo_influence(self, outcome_names=None, treatment_names=None, flatten=True):
-        # First, we use the cached values, and featurizer to get what was originally fit with
+        '''
+        Returns an influence result (or a list, if multiple X)
+        containing ['Outcome','Treatment','Sample']. Meaning
+        an entry result[a].influences[i][j][k] contains the LOO influence
+        of the j-th treatment of the k-th sample in terms of the i-th outcome. 
+        '''
         final_model = self._ortho_learner_model_final._model_final
         Y_res, T_res = self._cached_values.nuisances
         d_y = 1

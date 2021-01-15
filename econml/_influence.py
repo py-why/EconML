@@ -84,3 +84,6 @@ class InfluenceResult():
             if axis_aggregates[i] in self.axis_labels:
                 axis_inds.append(self.axis_labels.index(axis_aggregates[i]))
         self._aggregate_dim_inds(tuple(axis_inds))
+
+    def to_dict(self):
+        pass
