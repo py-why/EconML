@@ -147,7 +147,7 @@ class _RLearner(_OrthoLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable
+    cv: int, cross-validation generator or an iterable
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -216,7 +216,7 @@ class _RLearner(_OrthoLearner):
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
-        est = RLearner(n_splits=2, discrete_treatment=False, categories='auto', random_state=None)
+        est = RLearner(cv=2, discrete_treatment=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
 
     >>> est.const_marginal_effect(np.ones((1,1)))
@@ -261,10 +261,12 @@ class _RLearner(_OrthoLearner):
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
     """
 
-    def __init__(self, *, discrete_treatment, categories, n_splits, random_state, mc_iters=None, mc_agg='mean'):
+    def __init__(self, *, discrete_treatment, categories, cv, random_state,
+                 n_splits='raise', mc_iters=None, mc_agg='mean'):
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
+                         cv=cv,
                          n_splits=n_splits,
                          random_state=random_state,
                          mc_iters=mc_iters,
@@ -345,7 +347,7 @@ class _RLearner(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model

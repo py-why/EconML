@@ -122,7 +122,7 @@ class TestOrthoIV(unittest.TestCase):
                                     estimators.append((
                                         LinearIntentToTreatDRIV(model_Y_X=Lasso(), model_T_XZ=model_t,
                                                                 flexible_model_effect=WeightedLasso(),
-                                                                n_splits=2),
+                                                                cv=2),
                                         False,
                                         all_infs + ['auto']))
 
@@ -245,16 +245,16 @@ class TestOrthoIV(unittest.TestCase):
         W = np.ones((8, 1))
         ok = np.array([1, 2, 3, 1, 2, 3, 1, 2])
         est = DMLATEIV(model_Y_W=Lasso(), model_T_W=Lasso(), model_Z_W=Lasso(),
-                       n_splits=[(np.arange(4, 8), np.arange(4))])
+                       cv=[(np.arange(4, 8), np.arange(4))])
         est.fit(Y, T=bad, Z=bad, W=W)  # imbalance ok with continuous instrument/treatment
 
         est = DMLATEIV(model_Y_W=Lasso(), model_T_W=LogisticRegression(), model_Z_W=Lasso(),
-                       n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
+                       cv=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
         with pytest.raises(AttributeError):
             est.fit(Y, T=bad, Z=ok, W=W)
 
         est = DMLATEIV(model_Y_W=Lasso(), model_T_W=Lasso(), model_Z_W=LogisticRegression(),
-                       n_splits=[(np.arange(4, 8), np.arange(4))], discrete_instrument=True)
+                       cv=[(np.arange(4, 8), np.arange(4))], discrete_instrument=True)
         with pytest.raises(AttributeError):
             est.fit(Y, T=ok, Z=bad, W=W)
 
