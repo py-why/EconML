@@ -333,7 +333,7 @@ and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/bl
     ...                      model_T=sklearn.linear_model.LinearRegression(),
     ...                      model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, X=W, W=W)
-    <econml.orf.DMLOrthoForest object at 0x...>
+    <econml.orf._ortho_forest.DMLOrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [1.00...  1.19...]
 
@@ -346,7 +346,7 @@ Similarly, we can call :class:`.DROrthoForest`:
     ...                     propensity_model=sklearn.linear_model.LogisticRegression(),
     ...                     model_Y=sklearn.linear_model.LinearRegression())
     >>> est.fit(Y, T, X=W, W=W)
-    <econml.orf.DROrthoForest object at 0x...>
+    <econml.orf._ortho_forest.DROrthoForest object at 0x...>
     >>> print(est.effect(W[:2]))
     [0.99...  1.35...]
 
@@ -370,7 +370,7 @@ both the treatment and the outcome regressions, in the case of continuous treatm
     ...                      model_Y=WeightedLasso(alpha=0.01),
     ...                      model_T=WeightedLasso(alpha=0.01))
     >>> est.fit(Y, T, X=X, W=W)
-    <econml.orf.DMLOrthoForest object at 0x...>
+    <econml.orf._ortho_forest.DMLOrthoForest object at 0x...>
     >>> X_test = np.linspace(-1, 1, 30).reshape(-1, 1)
     >>> treatment_effects = est.effect(X_test)
     >>> plt.plot(X_test[:, 0], treatment_effects, label='ORF estimate')
