@@ -88,8 +88,8 @@ For instance:
 .. testcode::
 
     import shap
-    from econml.dml import CausalForestDML
-    est = CausalForestDML()
+    from econml.dml import LinearDML
+    est = LinearDML()
     est.fit(Y, T, X=X, W=W)
     shap_values = est.shap_values(X)
     # local view: explain hetergoeneity for a given observation
