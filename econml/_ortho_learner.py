@@ -191,7 +191,7 @@ def _crossfit(model, folds, *args, **kwargs):
 
 
 CachedValues = namedtuple('_CachedValues', ['nuisances',
-                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'sample_var', 'groups'])
+                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'sample_var', 'groups', 'original_inds'])
 
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -646,7 +646,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                Y=Y, T=T, X=X, W=W, Z=Z,
                                                sample_weight=sample_weight,
                                                sample_var=sample_var,
-                                               groups=groups) if cache_values else None
+                                               groups=groups,
+                                               original_inds=fitted_inds) if cache_values else None
         else:
             nuisances = self._cached_values.nuisances
             # _d_t is altered by fit nuisances to what prefit does. So we need to perform the same

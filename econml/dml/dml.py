@@ -34,6 +34,7 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          hstack, inverse_onehot, ndim, reshape,
                          reshape_treatmentwise_effects, shape, transpose)
 from .._shap import _shap_explain_model_cate
+from .._influence import (_get_coef_influence, _get_corrected_influence, _gen_names, InfluenceResult)
 
 
 class _FirstStageWrapper:
@@ -667,6 +668,150 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     def model_final(self, model):
         if model is not None:
             raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
+
+    def effect_influence(self, X, T0, T1, outcome_names=None, flatten=True):
+        '''
+
+        '''
+        const_marginal_influences = self.const_marginal_effect_influence(X, outcome_names, flatten=False)
+        X = np.array(X)
+        if len(X.shape) == 1:
+            X = np.array([X])
+            T0 = np.array([T0])
+            T1 = np.array([T1])
+            const_marginal_influences = np.array([const_marginal_influences])
+        d_y = const_marginal_influences[0].influences.shape[0]
+        if outcome_names == None:
+            outcome_names = _gen_names('Outcome', d_y)
+        d_t = T0.shape[1]
+        all_influences = list()
+        axis_labels = ['Outcome', 'Sample']
+        slice_labels = [outcome_names, self._cached_values.original_inds]
+        for i in range(0, len(X)):
+            influence_results = list()
+            for j in range(0, d_y):
+                influence_results.append(const_marginal_influences[i].influences[j].T @ (T1[i] - T0[i]))
+            influence_results = np.array(influence_results)
+            all_influences.append(InfluenceResult(influence_results, axis_labels, slice_labels))
+        return all_influences
+
+    def marginal_effect_influence(self, T, X, flatten=True):
+        '''
+
+        '''
+        # get coef influence
+
+        return self.const_marginal_effect_influence(X, flatten=flatten)
+
+    def const_marginal_effect_influence(self, X, outcome_names=None, treatment_names=None, flatten=True):
+        '''
+        Returns an influence result (or a list, if multiple X)
+        containing ['Outcome','Treatment','Sample']
+        '''
+        # First, we use the cached values, and featurizer to get what was originally fit with
+        final_model = self._ortho_learner_model_final._model_final
+        Y_res, T_res = self._cached_values.nuisances
+        d_y = 1
+        if len(Y_res.shape) > 1:
+            d_y = Y_res.shape[1]
+        d_t = 1
+        if len(T_res.shape) > 1:
+            d_t = T_res.shape[1]
+        if outcome_names == None:
+            outcome_names = _gen_names('Outcome', d_y)
+        if treatment_names == None:
+            treatment_names = _gen_names('Treatment', d_t)
+        influence_coeffs = self.coef_influence(outcome_names=outcome_names,
+                                               treatment_names=treatment_names, flatten=False).influences
+        all_influences = list()
+        axis_labels = ['Outcome', 'Treatment', 'Sample']
+        slice_labels = [outcome_names, treatment_names, self._cached_values.original_inds]
+        X = np.array(X)
+        if len(X.shape) == 1:
+            X = np.array([X])
+        for i in range(0, len(X)):
+            fts = final_model._combine(X[i].reshape(1, -1), np.ones(d_t))
+            influence_results = list()
+            for j in range(0, d_y):
+                outcome_influences = list()
+                for k in range(0, d_t):
+                    outcome_influences.append(np.ravel(influence_coeffs[j][k] @ fts.T))
+                influence_results.append(np.array(outcome_influences))
+            influence_results = np.array(influence_results)
+            all_influences.append(InfluenceResult(influence_results, axis_labels, slice_labels, flatten=flatten))
+        if len(all_influences) == 1:
+            return all_influences[0]
+        else:
+            return np.array(all_influences)
+
+    def coef_influence(self, outcome_names=None, treatment_names=None, feature_names=None, flatten=True):
+        # First, we use the cached values, and featurizer to get what was originally fit with
+        final_model = self._ortho_learner_model_final._model_final
+        Y_res, T_res = self._cached_values.nuisances
+        d_y = 1
+        if len(Y_res.shape) > 1:
+            d_y = Y_res.shape[1]
+        d_t = 1
+        if len(T_res.shape) > 1:
+            d_t = T_res.shape[1]
+        X = self._cached_values.X
+        fts = final_model._combine(X, T_res)
+        d_f = 1
+        if len(fts.shape) > 1:
+            d_f = fts.shape[1] // d_t
+            assert(fts.shape[1] % d_t == 0)
+        if outcome_names == None:
+            outcome_names = _gen_names('Outcome', d_y)
+        if treatment_names == None:
+            treatment_names = _gen_names('Treatment', d_t)
+        if feature_names == None:
+            feature_names = _gen_names('Feature', d_f)
+        fitted_coefs = final_model._model.coef_
+        influence_results = list()
+        if len(Y_res.shape) == 1:
+            Y_res = np.array([Y_res])
+            fitted_coefs = np.array([fitted_coefs])
+        for i in range(0, d_y):
+            influences = np.array(np.split(_get_coef_influence(fts, Y_res[i, :], fitted_coefs[i]), d_t))
+            influence_results.append(influences)
+        influence_results = np.array(influence_results)
+        axis_labels = ['Outcome', 'Treatment', 'Sample', 'Feature']
+        slice_labels = [outcome_names, treatment_names, self._cached_values.original_inds, feature_names]
+        return InfluenceResult(influence_results, axis_labels, slice_labels, flatten=flatten)
+
+    def intercept_influence():
+        pass
+
+    def loo_influence(self, outcome_names=None, treatment_names=None, flatten=True):
+        # First, we use the cached values, and featurizer to get what was originally fit with
+        final_model = self._ortho_learner_model_final._model_final
+        Y_res, T_res = self._cached_values.nuisances
+        d_y = 1
+        if len(Y_res.shape) > 1:
+            d_y = Y_res.shape[1]
+        d_t = 1
+        if len(T_res.shape) > 1:
+            d_t = T_res.shape[1]
+        if outcome_names == None:
+            outcome_names = _gen_names('Outcome', d_y)
+        if treatment_names == None:
+            treatment_names = _gen_names('Treatment', d_t)
+        fts = final_model._combine(self._cached_values.X, T_res)
+        fitted_coefs = final_model._model.coef_
+        influence_results = list()
+        if len(Y_res.shape) == 1:
+            Y_res = np.array([Y_res])
+            fitted_coefs = np.array([fitted_coefs])
+        for i in range(0, d_y):
+            influences = _get_corrected_influence(fts, Y_res[i, :], fitted_coefs[i], d_t)
+            outcome_influences = list()
+            for j in range(0, d_t):
+                outcome_influences.append(influences[j])
+            influence_results.append(np.array(outcome_influences))
+        axis_labels = ['Outcome', 'Treatment', 'Sample']
+        slice_labels = [outcome_names, treatment_names, self._cached_values.original_inds]
+        influence_results = np.array(influence_results)
+        return InfluenceResult(influence_results, axis_labels, slice_labels, flatten=flatten)
 
 
 class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
