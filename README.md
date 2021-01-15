@@ -422,7 +422,7 @@ See the <a href="#references">References</a> section for more details.
 <details>
   <summary>First Stage Model Selection (click to expand)</summary>
 
-First stage models can be selected either by passing in cross-validated models (e.g. `sklearn.linear_model.LassoCV`) to EconML's estimators or perform the first stage model selection outside of EconML and pass in the selected model. 
+First stage models can be selected either by passing in cross-validated models (e.g. `sklearn.linear_model.LassoCV`) to EconML's estimators or perform the first stage model selection outside of EconML and pass in the selected model. Unless selecting among a large set of hyperparameters, choosing first stage models externally is the preferred method due to statistical and computational advantages.
 
 ```Python
 from econml.dml import LinearDML
@@ -440,10 +440,10 @@ cv_model = GridSearchCV(
               cv=5,
            )
 # First stage model selection within EconML
-# This is slower, but more direct
+# This is more direct, but computationally and statistically less efficient
 est = LinearDML(model_y=cv_model, model_t=cv_model)
 # First stage model selection ouside of EconML
-# Faster, but needs boilerplate code
+# This is the most efficient, but requires boilerplate code
 model_t = clone(cv_model).fit(W, T).best_estimator_
 model_y = clone(cv_model).fit(W, Y).best_estimator_
 est = LinearDML(model_y=model_t, model_t=model_y)

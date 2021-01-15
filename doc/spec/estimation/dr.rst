@@ -432,7 +432,8 @@ Usage FAQs
         point = est.effect(X, T0=T0, T1=T1)
 
     Alternatively, you can pick the best first stage models outside of the EconML framework and pass in the selected models to EconML. 
-    This can save on runtime and computational resources. E.g.:
+    This can save on runtime and computational resources. Furthermore, it is statistically more stable since all data is being used for
+    training rather than a fold. E.g.:
 
     .. testcode::
 
