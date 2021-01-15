@@ -13,17 +13,17 @@ class DRLearner(dr.DRLearner):
 
 @deprecated("The econml.drlearner.LinearDRLearner class has been moved to econml.dr.LinearDRLearner; "
             "an upcoming release will remove support for the old name")
-class DRLearner(dr.DRLearner):
+class LinearDRLearner(dr.LinearDRLearner):
     pass
 
 
 @deprecated("The econml.drlearner.SparseLinearDRLearner class has been moved to econml.dr.SparseLinearDRLearner; "
             "an upcoming release will remove support for the old name")
-class DRLearner(dr.DRLearner):
+class SparseLinearDRLearner(dr.SparseLinearDRLearner):
     pass
 
 
 @deprecated("The econml.drlearner.ForestDRLearner class has been moved to econml.dr.ForestDRLearner; "
             "an upcoming release will remove support for the old name")
-class DRLearner(dr.DRLearner):
+class ForestDRLearner(dr.ForestDRLearner):
     pass

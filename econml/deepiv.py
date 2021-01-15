@@ -5,9 +5,9 @@ import econml.iv.nnet as nnet
 from .utilities import deprecated
 
 
-@deprecated("The econml.deepiv.DeepIVEstimator class has moved to econml.iv.nnet.DeepIV; "
+@deprecated("The econml.deepiv.DeepIV class has renamed to econml.iv.nnet.DeepIV; "
             "an upcoming release will remove support for the old name")
-class DeepIVEstimator(nnet.DeepIV):
+class DeepIV(nnet.DeepIV):
     pass
 
 

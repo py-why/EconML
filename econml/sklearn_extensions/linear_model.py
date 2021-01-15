@@ -3,8 +3,7 @@
 
 """Collection of scikit-learn extensions for linear models.
 
-.. testcode::
-    :hide:
+.. testsetup::
 
     # Our classes that derive from sklearn ones sometimes include
     # inherited docstrings that have embedded doctests; we need the following imports
@@ -200,16 +199,6 @@ class WeightedLasso(WeightedModelMixin, Lasso):
         number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
 
-    .. testcode::
-        :hide:
-
-        # Our classes that derive from sklearn ones sometimes include
-        # inherited docstrings that have embedded doctests; we need the following imports
-        # so that they don't break.
-
-        import numpy as np
-        from sklearn.linear_model import lasso_path
-
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True,
@@ -306,16 +295,6 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
         number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
 
-    .. testcode::
-        :hide:
-
-        # Our classes that derive from sklearn ones sometimes include
-        # inherited docstrings that have embedded doctests; we need the following imports
-        # so that they don't break.
-
-        import numpy as np
-        from sklearn.linear_model import lasso_path
-
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
@@ -348,12 +327,7 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
 class WeightedLassoCV(WeightedModelMixin, LassoCV):
     """Version of sklearn LassoCV that accepts weights.
 
-    .. testcode::
-        :hide:
-
-        # Our classes that derive from sklearn ones sometimes include
-        # inherited docstrings that have embedded doctests; we need the following imports
-        # so that they don't break.
+    .. testsetup::
 
         import numpy as np
         from sklearn.linear_model import lasso_path
@@ -471,12 +445,7 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
 class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
     """Version of sklearn MultiTaskLassoCV that accepts weights.
 
-    .. testcode::
-        :hide:
-
-        # Our classes that derive from sklearn ones sometimes include
-        # inherited docstrings that have embedded doctests; we need the following imports
-        # so that they don't break.
+    .. testsetup::
 
         import numpy as np
         from sklearn.linear_model import lasso_path
@@ -619,12 +588,7 @@ class DebiasedLasso(WeightedLasso):
 
     Only implemented for single-dimensional output.
 
-    .. testcode::
-        :hide:
-
-        # Our classes that derive from sklearn ones sometimes include
-        # inherited docstrings that have embedded doctests; we need the following imports
-        # so that they don't break.
+    .. testsetup::
 
         import numpy as np
         from sklearn.linear_model import lasso_path
