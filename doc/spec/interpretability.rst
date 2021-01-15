@@ -58,8 +58,8 @@ For instance:
     from econml.cate_interpreter import SingleTreePolicyInterpreter
     # We find a tree-based treatment policy based on the CATE model
     # sample_treatment_costs is the cost of treatment. Policy will treat if effect is above this cost.
-    intrp = SingleTreePolicyInterpreter(risk_level=0.05, max_depth=2, min_samples_leaf=1,min_impurity_decrease=.001)
-    intrp.interpret(est, X, sample_treatment_costs=0.05)
+    intrp = SingleTreePolicyInterpreter(risk_level=None, max_depth=2, min_samples_leaf=1,min_impurity_decrease=.001)
+    intrp.interpret(est, X, sample_treatment_costs=0.02)
     # Plot the tree
     intrp.plot(feature_names=['A', 'B', 'C'], fontsize=12)
 
@@ -90,7 +90,7 @@ For instance:
     import shap
     from econml.dml import LinearDML
     est = LinearDML()
-    est.fit(Y, T, X=X, W=W)
+    est.fit(y, t, X=X, W=W)
     shap_values = est.shap_values(X)
     # local view: explain hetergoeneity for a given observation
     ind=0
