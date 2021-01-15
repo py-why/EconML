@@ -52,7 +52,7 @@ class RScorer:
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -101,14 +101,14 @@ class RScorer:
                  model_t,
                  discrete_treatment=False,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.discrete_treatment = discrete_treatment
-        self.n_splits = n_splits
+        self.cv = cv
         self.categories = categories
         self.random_state = random_state
         self.mc_iters = mc_iters
@@ -131,7 +131,7 @@ class RScorer:
             Weights for each row
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
 
         Returns
@@ -143,7 +143,7 @@ class RScorer:
 
         self.lineardml_ = LinearDML(model_y=self.model_y,
                                     model_t=self.model_t,
-                                    n_splits=self.n_splits,
+                                    cv=self.cv,
                                     discrete_treatment=self.discrete_treatment,
                                     categories=self.categories,
                                     random_state=self.random_state,

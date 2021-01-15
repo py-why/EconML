@@ -259,7 +259,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable
+    cv: int, cross-validation generator or an iterable
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -333,7 +333,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         np.random.seed(123)
         X = np.random.normal(size=(100, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
-        est = OrthoLearner(n_splits=2, discrete_treatment=False, discrete_instrument=False,
+        est = OrthoLearner(cv=2, discrete_treatment=False, discrete_instrument=False,
                            categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
@@ -391,7 +391,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         import scipy.special
         T = np.random.binomial(1, scipy.special.expit(W[:, 0]))
         y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
-        est = OrthoLearner(n_splits=2, discrete_treatment=True, discrete_instrument=False,
+        est = OrthoLearner(cv=2, discrete_treatment=True, discrete_instrument=False,
                            categories='auto', random_state=None)
         est.fit(y, T, W=W)
 
@@ -424,8 +424,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
 
     def __init__(self, *,
-                 discrete_treatment, discrete_instrument, categories, n_splits, random_state,
-                 mc_iters=None, mc_agg='mean'):
+                 discrete_treatment, discrete_instrument, categories, cv, random_state,
+                 n_splits='raise', mc_iters=None, mc_agg='mean'):
+        self.cv = cv
         self.n_splits = n_splits
         self.discrete_treatment = discrete_treatment
         self.discrete_instrument = discrete_instrument
@@ -566,7 +567,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the cv argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache the inputs and computed nuisances, which will allow refitting a different final model
@@ -713,16 +714,16 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if self.discrete_instrument:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
 
-        if self.n_splits == 1:  # special case, no cross validation
+        if self.cv == 1:  # special case, no cross validation
             folds = None
         else:
-            splitter = check_cv(self.n_splits, [0], classifier=stratify)
+            splitter = check_cv(self.cv, [0], classifier=stratify)
             # if check_cv produced a new KFold or StratifiedKFold object, we need to set shuffle and random_state
             # TODO: ideally, we'd also infer whether we need a GroupKFold (if groups are passed)
             #       however, sklearn doesn't support both stratifying and grouping (see
             #       https://github.com/scikit-learn/scikit-learn/issues/13621), so for now the user needs to supply
             #       their own object that supports grouping if they want to use groups.
-            if splitter != self.n_splits and isinstance(splitter, (KFold, StratifiedKFold)):
+            if splitter != self.cv and isinstance(splitter, (KFold, StratifiedKFold)):
                 splitter.shuffle = True
                 splitter.random_state = self._random_state
 
@@ -857,3 +858,18 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if not hasattr(self, '_models_nuisance'):
             raise AttributeError("Model is not fitted!")
         return self._models_nuisance
+
+    #######################################################
+    # These should be removed once `n_splits` is deprecated
+    #######################################################
+
+    @property
+    def n_splits(self):
+        return self.cv
+
+    @n_splits.setter
+    def n_splits(self, value):
+        if value != 'raise':
+            warn("Parameter `n_splits` has been deprecated and will be removed in the next version. "
+                 "Use parameter `cv` instead.")
+            self.cv = value

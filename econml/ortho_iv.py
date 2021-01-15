@@ -139,13 +139,15 @@ class _BaseDMLATEIV(_OrthoLearner):
     def __init__(self, discrete_instrument=False,
                  discrete_treatment=False,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -177,7 +179,7 @@ class _BaseDMLATEIV(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
@@ -289,7 +291,8 @@ class DMLATEIV(_BaseDMLATEIV):
                  discrete_treatment=False,
                  discrete_instrument=False,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -299,6 +302,7 @@ class DMLATEIV(_BaseDMLATEIV):
         super().__init__(discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -364,7 +368,8 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
                  discrete_treatment=False,
                  discrete_instrument=False,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -374,6 +379,7 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
         super().__init__(discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -517,7 +523,7 @@ class _BaseDMLIV(_OrthoLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -549,10 +555,14 @@ class _BaseDMLIV(_OrthoLearner):
     """
 
     def __init__(self, discrete_instrument=False, discrete_treatment=False, categories='auto',
-                 n_splits=2, mc_iters=None, mc_agg='mean', random_state=None):
+                 cv=2,
+                 n_splits='raise',
+                 mc_iters=None, mc_agg='mean',
+                 random_state=None):
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -581,7 +591,7 @@ class _BaseDMLIV(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
@@ -780,7 +790,7 @@ class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
     fit_cate_intercept : bool, optional, default True
         Whether the linear CATE model should have a constant term.
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -828,7 +838,8 @@ class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
                  model_final,
                  featurizer=None,
                  fit_cate_intercept=True,
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  discrete_instrument=False, discrete_treatment=False,
@@ -839,7 +850,8 @@ class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
-        super().__init__(n_splits=n_splits,
+        super().__init__(cv=cv,
+                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          discrete_instrument=discrete_instrument,
@@ -908,7 +920,7 @@ class NonParamDMLIV(_BaseDMLIV):
     model_final : estimator
         final model for predicting :math:`\\tilde{Y}` from X with sample weights V(X)
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -956,7 +968,8 @@ class NonParamDMLIV(_BaseDMLIV):
                  model_T_XZ,
                  model_final,
                  featurizer=None,
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  discrete_instrument=False,
@@ -968,7 +981,8 @@ class NonParamDMLIV(_BaseDMLIV):
         self.model_T_XZ = clone(model_T_XZ, safe=False)
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
-        super().__init__(n_splits=n_splits,
+        super().__init__(cv=cv,
+                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          discrete_instrument=discrete_instrument,
@@ -1130,7 +1144,7 @@ class _BaseDRIV(_OrthoLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1170,7 +1184,8 @@ class _BaseDRIV(_OrthoLearner):
                  discrete_instrument=False,
                  discrete_treatment=False,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -1179,9 +1194,14 @@ class _BaseDRIV(_OrthoLearner):
         self.fit_cate_intercept = fit_cate_intercept
         self.cov_clip = cov_clip
         self.opt_reweighted = opt_reweighted
-        super().__init__(discrete_instrument=discrete_instrument, discrete_treatment=discrete_treatment,
-                         categories=categories, n_splits=n_splits,
-                         mc_iters=mc_iters, mc_agg=mc_agg, random_state=random_state)
+        super().__init__(discrete_instrument=discrete_instrument,
+                         discrete_treatment=discrete_treatment,
+                         categories=categories,
+                         cv=cv,
+                         n_splits=n_splits,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
@@ -1220,7 +1240,7 @@ class _BaseDRIV(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
@@ -1381,7 +1401,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  featurizer=None,
                  fit_cate_intercept=True,
                  cov_clip=.1,
-                 n_splits=3,
+                 cv=3,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  opt_reweighted=False,
@@ -1397,6 +1418,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -1463,7 +1485,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 3
+    cv: int, cross-validation generator or an iterable, optional, default 3
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1514,7 +1536,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  featurizer=None,
                  fit_cate_intercept=True,
                  cov_clip=.1,
-                 n_splits=3,
+                 cv=3,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  opt_reweighted=False,
@@ -1528,6 +1551,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -1546,7 +1570,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                   prel_model_effect=_DummyCATE(),
                                   model_final=clone(self.flexible_model_effect, safe=False),
                                   cov_clip=1e-7,
-                                  n_splits=1,
+                                  cv=1,
                                   opt_reweighted=True,
                                   random_state=self.random_state)
 
@@ -1606,7 +1630,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 3
+    cv: int, cross-validation generator or an iterable, optional, default 3
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1648,7 +1672,8 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  featurizer=None,
                  fit_cate_intercept=True,
                  cov_clip=.1,
-                 n_splits=3,
+                 cv=3,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  categories='auto',
@@ -1660,6 +1685,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          model_final=None,
                          cov_clip=cov_clip,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -1695,7 +1721,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
