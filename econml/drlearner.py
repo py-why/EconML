@@ -1502,7 +1502,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     @n_crossfit_splits.setter
     def n_crossfit_splits(self, value):
         if value != 'raise':
-            warn("Deprecated by parameter `n_splits` and will be removed in next version.")
+            warn("Deprecated by parameter `cv` and will be removed in next version.")
         self.cv = value
 
     @property
@@ -1534,4 +1534,4 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
             warn("The parameter 'subsample_fr' has been deprecated and will be removed in the next version. "
                  "Use 'max_samples' instead, with the convention that "
                  "'subsample_fr=x' is equivalent to 'max_samples=x/2'.")
-            max_samples = .45 if value == 'auto' else value / 2
+            self.max_samples = .45 if value == 'auto' else value / 2
