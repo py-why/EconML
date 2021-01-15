@@ -37,7 +37,8 @@ from sklearn.utils import check_random_state, check_array, column_or_1d
 from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from .._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from ._causal_tree import CausalTree
-from ..inference import Inference, NormalInferenceResults
+from ..inference import NormalInferenceResults
+from ..inference._inference import Inference
 from ..utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
                          cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
                          _RegressionWrapper, deprecated)
