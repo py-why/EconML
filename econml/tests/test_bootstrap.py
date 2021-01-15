@@ -81,7 +81,7 @@ class TestBootstrap(unittest.TestCase):
         t2 = np.random.normal(size=(1000, 1))
         y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
-        est = LinearDML(LinearRegression(), LinearRegression())
+        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
         est.fit(y, t, X=x)
 
         bs = BootstrapEstimator(est, 50)
@@ -195,7 +195,7 @@ class TestBootstrap(unittest.TestCase):
         t2 = np.random.normal(size=(1000, 1))
         y = x[:, 0:1] * 0.5 + t + np.random.normal(size=(1000, 1))
 
-        est = LinearDML(LinearRegression(), LinearRegression())
+        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
         est.fit(y, t, X=x, inference='bootstrap')
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
@@ -235,10 +235,10 @@ class TestBootstrap(unittest.TestCase):
 
         opts = BootstrapInference(50, 2)
 
-        est = NonparametricTwoStageLeastSquares(PolynomialFeatures(2),
-                                                PolynomialFeatures(2),
-                                                PolynomialFeatures(2),
-                                                None)
+        est = NonparametricTwoStageLeastSquares(t_featurizer=PolynomialFeatures(2),
+                                                x_featurizer=PolynomialFeatures(2),
+                                                z_featurizer=PolynomialFeatures(2),
+                                                dt_featurizer=None)
         est.fit(y, t, X=x, W=None, Z=z, inference=opts)
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
@@ -291,7 +291,7 @@ class TestBootstrap(unittest.TestCase):
         Y = [1, 2, 3, 4, 5, 6, 7, 8]
         X = np.array([1, 1, 2, 2, 1, 2, 1, 2]).reshape(-1, 1)
         est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(), model_T_XZ=LogisticRegression(),
-                                      flexible_model_effect=LinearRegression(), n_splits=2)
+                                      flexible_model_effect=LinearRegression(), cv=2)
         inference = BootstrapInference(n_bootstrap_samples=20)
         est.fit(Y, T, Z=Z, X=X, inference=inference)
         est.const_marginal_effect_interval(X)
@@ -300,7 +300,7 @@ class TestBootstrap(unittest.TestCase):
         T = [1, 0, 1, 2, 0, 2] * 5
         Y = [1, 2, 3, 4, 5, 6] * 5
         X = np.array([1, 1, 2, 2, 1, 2] * 5).reshape(-1, 1)
-        est = LinearDML(n_splits=2)
+        est = LinearDML(cv=2)
         for kind in ['percentile', 'pivot', 'normal']:
             with self.subTest(kind=kind):
                 inference = BootstrapInference(n_bootstrap_samples=5, bootstrap_type=kind)

@@ -3,13 +3,13 @@
 
 """Metalearners for heterogeneous treatment effects in the context of discrete treatments.
 
-For more details on these CATE methods, see <https://arxiv.org/abs/1706.03461>
+For more details on these CATE methods, see `<https://arxiv.org/abs/1706.03461>`_
 (Künzel S., Sekhon J., Bickel P., Yu B.) on Arxiv.
 """
 
 import numpy as np
 import warnings
-from .cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
+from ._cate_estimator import BaseCateEstimator, LinearCateEstimator, TreatmentExpansionMixin
 from sklearn import clone
 from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
@@ -17,7 +17,7 @@ from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from .utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
                         inverse_onehot, transpose, _EncoderWrapper, _deprecate_positional)
-from .shap import _shap_explain_model_cate
+from ._shap import _shap_explain_model_cate
 
 
 class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -35,7 +35,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The first category will be treated as the control treatment.
     """
 
-    def __init__(self, models, categories='auto'):
+    def __init__(self, *,
+                 models,
+                 categories='auto'):
         self.models = clone(models, safe=False)
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -122,7 +124,9 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The first category will be treated as the control treatment.
     """
 
-    def __init__(self, overall_model, categories='auto'):
+    def __init__(self, *,
+                 overall_model,
+                 categories='auto'):
         self.overall_model = clone(overall_model, safe=False)
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -226,7 +230,8 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The first category will be treated as the control treatment.
     """
 
-    def __init__(self, models,
+    def __init__(self, *,
+                 models,
                  cate_models=None,
                  propensity_model=LogisticRegression(),
                  categories='auto'):
@@ -353,7 +358,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The first category will be treated as the control treatment.
     """
 
-    def __init__(self, models,
+    def __init__(self, *,
+                 models,
                  final_models,
                  propensity_model=LogisticRegression(),
                  categories='auto'):
@@ -460,8 +466,11 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             last_step_name = model_instance.steps[-1][0]
             model_instance.fit(X, y, **{"{0}__sample_weight".format(last_step_name): sample_weight})
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         return _shap_explain_model_cate(self.const_marginal_effect, self.final_models, X, self._d_t, self._d_y,
                                         feature_names=feature_names,
-                                        treatment_names=treatment_names, output_names=output_names)
+                                        treatment_names=treatment_names,
+                                        output_names=output_names,
+                                        input_names=self._input_names,
+                                        background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__

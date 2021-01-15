@@ -5,7 +5,7 @@
 
 import numpy as np
 import keras
-from .cate_estimator import BaseCateEstimator
+from ._cate_estimator import BaseCateEstimator
 from .utilities import deprecated
 from keras import backend as K
 import keras.layers as L
@@ -273,7 +273,10 @@ class DeepIV(BaseCateEstimator):
 
     """
 
-    def __init__(self, n_components, m, h,
+    def __init__(self, *,
+                 n_components,
+                 m,
+                 h,
                  n_samples, use_upper_bound_loss=False, n_gradient_samples=0,
                  optimizer='adam',
                  first_stage_options={"epochs": 100},

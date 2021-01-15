@@ -10,12 +10,11 @@ from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
-                        inverse_onehot, Summary, get_input_columns, broadcast_unit_treatments,
-                        cross_product)
+                        inverse_onehot, Summary, get_input_columns)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
-from .shap import _shap_explain_cme, _define_names, _shap_explain_joint_linear_model_cate
+from ._shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -182,6 +181,54 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         pass
 
+    def ate(self, X=None, *, T0, T1):
+        """
+        Calculate the average treatment effect :math:`E_X[\\tau(X, T0, T1)]`.
+
+        The effect is calculated between the two treatment points and is averaged over
+        the population of X variables.
+
+        Parameters
+        ----------
+        T0: (m, d_t) matrix or vector of length m
+            Base treatments for each sample
+        T1: (m, d_t) matrix or vector of length m
+            Target treatments for each sample
+        X: optional (m, d_x) matrix
+            Features for each sample
+
+        Returns
+        -------
+        τ: float or (d_y,) array
+            Average treatment effects on each outcome
+            Note that when Y is a vector rather than a 2-dimensional array, the result will be a scalar
+        """
+        return np.mean(self.effect(X=X, T0=T0, T1=T1), axis=0)
+
+    def marginal_ate(self, T, X=None):
+        """
+        Calculate the average marginal effect :math:`E_{T, X}[\\partial\\tau(T, X)]`.
+
+        The marginal effect is calculated around a base treatment
+        point and averaged over the population of X.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix
+            Features for each sample
+
+        Returns
+        -------
+        grad_tau: (d_y, d_t) array
+            Average marginal effects on each outcome
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
+        return np.mean(self.marginal_effect(T, X=X), axis=0)
+
     def _expand_treatments(self, X=None, *Ts):
         """
         Given a set of features and treatments, return possibly modified features and treatments.
@@ -298,6 +345,101 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         Returns
         -------
         InferenceResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
+        pass
+
+    @_defer_to_inference
+    def ate_interval(self, X=None, *, T0, T1, alpha=0.1):
+        """ Confidence intervals for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`ate(X, T0, T1)<ate>`, type of :meth:`ate(X, T0, T1))<ate>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @_defer_to_inference
+    def ate_inference(self, X=None, *, T0, T1):
+        """ Inference results for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix
+            Features for each sample
+        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+            Base treatments for each sample
+        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+            Target treatments for each sample
+
+        Returns
+        -------
+        PopulationSummaryResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
+        pass
+
+    @_defer_to_inference
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`marginal_ate(T, X)<marginal_ate>`, \
+                             type of :meth:`marginal_ate(T, X)<marginal_ate>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @_defer_to_inference
+    def marginal_ate_inference(self, T, X=None):
+        """ Inference results for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        T: (m, d_t) matrix
+            Base treatments for each sample
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        PopulationSummaryResults: object
             The inference results instance contains prediction and prediction standard error and
             can on demand calculate confidence interval, z statistic and p value. It can also output
             a dataframe summary of these inference results.
@@ -458,7 +600,80 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         pass
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
+    def const_marginal_ate(self, X=None):
+        """
+        Calculate the average constant marginal CATE :math:`E_X[\\theta(X)]`.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
+
+        Returns
+        -------
+        theta: (d_y, d_t) matrix
+            Average constant marginal CATE of each treatment on each outcome.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
+        return np.mean(self.const_marginal_effect(X=X), axis=0)
+
+    @BaseCateEstimator._defer_to_inference
+    def const_marginal_ate_interval(self, X=None, *, alpha=0.1):
+        """ Confidence intervals for the quantities :math:`E_X[\\theta(X)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+        alpha: optional float in [0, 1] (Default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+
+        Returns
+        -------
+        lower, upper : tuple(type of :meth:`const_marginal_ate(X)<const_marginal_ate>` ,\
+                             type of :meth:`const_marginal_ate(X)<const_marginal_ate>` )
+            The lower and the upper bounds of the confidence interval for each quantity.
+        """
+        pass
+
+    @BaseCateEstimator._defer_to_inference
+    def const_marginal_ate_inference(self, X=None):
+        """ Inference results for the quantities :math:`E_X[\\theta(X)]` produced
+        by the model. Available only when ``inference`` is not ``None``, when
+        calling the fit method.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample
+
+        Returns
+        -------
+        PopulationSummaryResults: object
+            The inference results instance contains prediction and prediction standard error and
+            can on demand calculate confidence interval, z statistic and p value. It can also output
+            a dataframe summary of these inference results.
+        """
+        pass
+
+    def marginal_ate(self, T, X=None):
+        return self.const_marginal_ate(X=X)
+    marginal_ate.__doc__ = BaseCateEstimator.marginal_ate.__doc__
+
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+        return self.const_marginal_ate_interval(X=X, alpha=alpha)
+    marginal_ate_interval.__doc__ = BaseCateEstimator.marginal_ate_interval.__doc__
+
+    def marginal_ate_inference(self, T, X=None):
+        return self.const_marginal_ate_inference(X=X)
+    marginal_ate_inference.__doc__ = BaseCateEstimator.marginal_ate_inference.__doc__
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         """ Shap value for the final stage models (const_marginal_effect)
 
         Parameters
@@ -472,18 +687,23 @@ class LinearCateEstimator(BaseCateEstimator):
             the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
         output_names:  optional None or list (Default=None)
             The name of the outcome.
+        background_samples: int or None, (Default=100)
+            How many samples to use to compute the baseline effect. If None then all samples are used.
 
         Returns
         -------
         shap_outs: nested dictionary of Explanation object
-            A nested dictionary by using each output name (e.g. "Y0" when `output_names=None`) and
-            each treatment name (e.g. "T0" when `treatment_names=None`) as key
-            and the shap_values explanation object as value.
-
-
+            A nested dictionary by using each output name (e.g. 'Y0', 'Y1', ... when `output_names=None`) and
+            each treatment name (e.g. 'T0', 'T1', ... when `treatment_names=None`) as key
+            and the shap_values explanation object as value. If the input data at fit time also contain metadata,
+            (e.g. are pandas DataFrames), then the column metatdata for the treatments, outcomes and features
+            are used instead of the above defaults (unless the user overrides with explicitly passing the
+            corresponding names).
         """
-        return _shap_explain_cme(self.const_marginal_effect, X, self._d_t, self._d_y, feature_names, treatment_names,
-                                 output_names)
+        return _shap_explain_cme(self.const_marginal_effect, X, self._d_t, self._d_y,
+                                 feature_names=feature_names, treatment_names=treatment_names,
+                                 output_names=output_names, input_names=self._input_names,
+                                 background_samples=background_samples)
 
 
 class TreatmentExpansionMixin(BaseCateEstimator):
@@ -520,13 +740,28 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         return super().effect(X, T0=T0, T1=T1)
     effect.__doc__ = BaseCateEstimator.effect.__doc__
 
+    def ate(self, X=None, *, T0=0, T1=1):
+        return super().ate(X=X, T0=T0, T1=T1)
+    ate.__doc__ = BaseCateEstimator.ate.__doc__
+
+    def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        return super().ate_interval(X=X, T0=T0, T1=T1, alpha=alpha)
+    ate_interval.__doc__ = BaseCateEstimator.ate_interval.__doc__
+
+    def ate_inference(self, X=None, *, T0=0, T1=1):
+        return super().ate_inference(X=X, T0=T0, T1=T1)
+    ate_inference.__doc__ = BaseCateEstimator.ate_inference.__doc__
+
 
 class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
     """
     Base class for models where the final stage is a linear model.
 
-    Subclasses must expose a ``model_final`` attribute containing the model's
-    final stage model.
+    Such an estimator must implement a :attr:`model_final_` attribute that points
+    to the fitted final :class:`.StatsModelsLinearRegression` object that
+    represents the fitted CATE model. Also must implement :attr:`featurizer_` that points
+    to the fitted featurizer and :attr:`bias_part_of_coef` that designates
+    if the intercept is the first element of the :attr:`model_final_` coefficient.
 
     Attributes
     ----------
@@ -540,7 +775,9 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         options.update(auto=LinearModelFinalInference)
         return options
 
-    bias_part_of_coef = False
+    @property
+    def bias_part_of_coef(self):
+        return False
 
     @property
     def coef_(self):
@@ -557,9 +794,9 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             a vector and not a 2D array. For binary treatment the n_t dimension is
             also omitted.
         """
-        return parse_final_model_params(self.model_final.coef_, self.model_final.intercept_,
+        return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
                                         self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
-                                        self.fit_cate_intercept)[0]
+                                        self.fit_cate_intercept_)[0]
 
     @property
     def intercept_(self):
@@ -574,11 +811,11 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             a vector and not a 2D array. For binary treatment the n_t dimension is
             also omitted.
         """
-        if not self.fit_cate_intercept:
+        if not self.fit_cate_intercept_:
             raise AttributeError("No intercept was fitted!")
-        return parse_final_model_params(self.model_final.coef_, self.model_final.intercept_,
+        return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
                                         self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
-                                        self.fit_cate_intercept)[1]
+                                        self.fit_cate_intercept_)[1]
 
     @BaseCateEstimator._defer_to_inference
     def coef__interval(self, *, alpha=0.1):
@@ -667,7 +904,6 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        feature_names = self.cate_feature_names() if feature_names is None else feature_names
         treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
         output_names = self._input_names["output_names"] if output_names is None else output_names
         # Summary
@@ -714,17 +950,16 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         if len(smry.tables) > 0:
             return smry
 
-    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None):
-        (dt, dy, treatment_names, output_names) = _define_names(self._d_t, self._d_y, treatment_names, output_names)
-        if hasattr(self, "featurizer") and self.featurizer is not None:
-            X = self.featurizer.transform(X)
-        X, T = broadcast_unit_treatments(X, dt)
-        d_x = X.shape[1]
-        X_new = cross_product(X, T)
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
+        if hasattr(self, "featurizer_") and self.featurizer_ is not None:
+            X = self.featurizer_.transform(X)
         feature_names = self.cate_feature_names(feature_names)
-        return _shap_explain_joint_linear_model_cate(self.model_final, X_new, T, dt, dy, self.fit_cate_intercept,
+        return _shap_explain_joint_linear_model_cate(self.model_final_, X, self._d_t, self._d_y,
+                                                     self.bias_part_of_coef,
                                                      feature_names=feature_names, treatment_names=treatment_names,
-                                                     output_names=output_names)
+                                                     output_names=output_names,
+                                                     input_names=self._input_names,
+                                                     background_samples=background_samples)
 
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
@@ -734,9 +969,11 @@ class StatsModelsCateEstimatorMixin(LinearModelFinalCateEstimatorMixin):
     Mixin class that offers `inference='statsmodels'` options to the CATE estimator
     that inherits it.
 
-    Such an estimator must implement a :attr:`model_final` attribute that points
+    Such an estimator must implement a :attr:`model_final_` attribute that points
     to the fitted final :class:`.StatsModelsLinearRegression` object that
-    represents the fitted CATE model.
+    represents the fitted CATE model. Also must implement :attr:`featurizer_` that points
+    to the fitted featurizer and :attr:`bias_part_of_coef` that designates
+    if the intercept is the first element of the :attr:`model_final_` coefficient.
     """
 
     def _get_inference_options(self):
@@ -769,7 +1006,7 @@ class ForestModelFinalCateEstimatorMixin(BaseCateEstimator):
 
     @property
     def feature_importances_(self):
-        return self.model_final.feature_importances_
+        return self.model_final_.feature_importances_
 
 
 class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
@@ -820,7 +1057,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         -------
         intercept: float or (n_y,) array like
         """
-        if not self.fit_cate_intercept:
+        if not self.fit_cate_intercept_:
             raise AttributeError("No intercept was fitted!")
         _, T = self._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
@@ -978,7 +1215,7 @@ class StatsModelsCateEstimatorDiscreteMixin(LinearModelFinalCateEstimatorDiscret
     Mixin class that offers `inference='statsmodels'` options to the CATE estimator
     that inherits it.
 
-    Such an estimator must implement a :attr:`model_final` attribute that points
+    Such an estimator must implement a :attr:`model_final_` attribute that points
     to a :class:`.StatsModelsLinearRegression` object that is cloned to fit
     each discrete treatment target CATE model and a :attr:`fitted_models_final` attribute
     that returns the list of fitted final models that represent the CATE for each categorical treatment.

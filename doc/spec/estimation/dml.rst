@@ -34,7 +34,7 @@ What are the relevant estimator classes?
 This section describes the methodology implemented in the classes, :class:`._RLearner`,
 :class:`.DML`, :class:`.LinearDML`,
 :class:`.SparseLinearDML`, :class:`.KernelDML`, :class:`.NonParamDML`,
-:class:`.ForestDML`.
+:class:`.CausalForestDML`.
 Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
@@ -72,7 +72,7 @@ linear on some pre-defined; potentially high-dimensional; featurization). These 
 :class:`.DML`, :class:`.LinearDML`,
 :class:`.SparseLinearDML`, :class:`.KernelDML`.
 For fullly non-parametric heterogeneous treatment effect models, checkout the :class:`.NonParamDML`
-and the :class:`.ForestDML`. For more options of non-parametric CATE estimators, 
+and the :class:`.CausalForestDML`. For more options of non-parametric CATE estimators, 
 check out the :ref:`Forest Estimators User Guide <orthoforestuserguide>` 
 and the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 
@@ -155,10 +155,10 @@ Class Hierarchy Structure
 In this library we implement variants of several of the approaches mentioned in the last section. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.dml.LinearDML econml.dml.SparseLinearDML econml.dml.KernelDML econml.dml.NonParamDML econml.dml.ForestDML
+    .. inheritance-diagram:: econml.dml.LinearDML econml.dml.SparseLinearDML econml.dml.KernelDML econml.dml.NonParamDML econml.dml.CausalForestDML
         :parts: 1
         :private-bases:
-        :top-classes: econml._rlearner._RLearner, econml.cate_estimator.StatsModelsCateEstimatorMixin, econml.cate_estimator.DebiasedLassoCateEstimatorMixin
+        :top-classes: econml._rlearner._RLearner, econml._cate_estimator.StatsModelsCateEstimatorMixin, econml._cate_estimator.DebiasedLassoCateEstimatorMixin
 
 Below we give a brief description of each of these classes:
 
@@ -267,24 +267,24 @@ Below we give a brief description of each of these classes:
       estimator is also a *Meta-Learner*, since all steps of the estimation use out-of-the-box ML algorithms. For more information,
       check out :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 
-        - **ForestDML.** This is a child of the :class:`.NonParamDML` that uses a Subsampled Honest Forest regressor
-          as a final model (see [Wager2018]_ and [Athey2019]_). The subsampled honest forest is implemented in the library as a scikit-learn extension
-          of the :class:`~sklearn.ensemble.RandomForestRegressor`, in the class :class:`.SubsampledHonestForest`. This estimator
-          offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_. Using this functionality we can
-          also construct confidence intervals for the CATE:
+    * **CausalForestDML.** This is a child of the :class:`._RLearner` that uses a Causal Forest
+      as a final model (see [Wager2018]_ and [Athey2019]_). The Causal Forest is implemented in the library as a scikit-learn
+      predictor, in the class :class:`.CausalForest`. This estimator
+      offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_.
+      Using this functionality we can also construct confidence intervals for the CATE:
 
-          .. testcode::
-            
-            from econml.dml import ForestDML
+        .. testcode::
+        
+            from econml.dml import CausalForestDML
             from sklearn.ensemble import GradientBoostingRegressor
-            est = ForestDML(model_y=GradientBoostingRegressor(),
-                            model_t=GradientBoostingRegressor())
+            est = CausalForestDML(model_y=GradientBoostingRegressor(),
+                                  model_t=GradientBoostingRegressor())
             est.fit(y, t, X=X, W=W)
             point = est.effect(X, T0=t0, T1=t1)
             lb, ub = est.effect_interval(X, T0=t0, T1=t1, alpha=0.05)
 
-          Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
-          alternatives to the :class:`.ForestDML`.
+      Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
+      alternatives to the :class:`.CausalForestDML`.
 
     * **_RLearner.** The internal private class :class:`._RLearner` is a parent of the :class:`.DML`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,
@@ -320,7 +320,7 @@ Usage FAQs
         lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=.05)
     
     If you have a single dimensional continuous treatment or a binary treatment, then you can also fit non-linear
-    models and have confidence intervals by using the :class:`.ForestDML`. This class will also
+    models and have confidence intervals by using the :class:`.CausalForestDML`. This class will also
     perform well with high dimensional features, as long as only few of these features are actually relevant.
 
 - **Why not just run a simple big linear regression with all the treatments, features and controls?**
@@ -356,7 +356,7 @@ Usage FAQs
         1) If effect heterogeneity does not have a linear form, then this approach is not valid.
         One might want to then create more complex featurization, in which case the problem could
         become too high-dimensional for OLS. Our :class:`.SparseLinearDML`
-        can handle such settings via the use of the debiased Lasso. Our :class:`.ForestDML` does not
+        can handle such settings via the use of the debiased Lasso. Our :class:`.CausalForestDML` does not
         even need explicit featurization and learns non-linear forest based CATE models, automatically. Also see the
         :ref:`Forest Estimators User Guide <orthoforestuserguide>` and the :ref:`Meta Learners User Guide <metalearnersuserguide>`,
         if you want even more flexible CATE models.
@@ -378,15 +378,15 @@ Usage FAQs
         est.fit(y, T, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
     
-    Alternatively, you can also use a forest based estimator such as :class:`.ForestDML`. This 
+    Alternatively, you can also use a forest based estimator such as :class:`.CausalForestDML`. This 
     estimator can also handle many features, albeit typically smaller number of features than the sparse linear DML.
     Moreover, this estimator essentially performs automatic featurization and can fit non-linear models.
 
     .. testcode::
 
-        from econml.dml import ForestDML
+        from econml.dml import CausalForestDML
         from sklearn.ensemble import GradientBoostingRegressor
-        est = ForestDML(model_y=GradientBoostingRegressor(),
+        est = CausalForestDML(model_y=GradientBoostingRegressor(),
                         model_t=GradientBoostingRegressor())
         est.fit(y, t, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
@@ -396,7 +396,7 @@ Usage FAQs
 
 - **What if I have too many features that can create heterogeneity?**
 
-    Use the :class:`.SparseLinearDML` or :class:`.ForestDML` (see above).
+    Use the :class:`.SparseLinearDML` or :class:`.CausalForestDML` (see above).
 
 - **What if I have too many features I want to control for?**
 
@@ -551,10 +551,10 @@ Usage FAQs
     If one uses cross-validated estimators as first stages, then model selection for the first stage models
     is performed automatically.
 
-- **How should I set the parameter `n_splits`?**
+- **How should I set the parameter `cv`?**
 
     This parameter defines the number of data partitions to create in order to fit the first stages in a
-    crossfittin manner (see :class:`._OrthoLearner`). The default is 2, which
+    crossfitting manner (see :class:`._OrthoLearner`). The default is 2, which
     is the minimal. However, larger values like 5 or 6 can lead to greater statistical stability of the method,
     especially if the number of samples is small. So we advise that for small datasets, one should raise this
     value. This can increase the computational cost as more first stage models are being fitted.

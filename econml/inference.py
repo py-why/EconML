@@ -35,6 +35,24 @@ class Inference(metaclass=abc.ABCMeta):
         """
         pass
 
+    def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        return self.effect_inference(X=X, T0=T0, T1=T1).population_summary(alpha=alpha).conf_int_mean()
+
+    def ate_inference(self, X=None, *, T0=0, T1=1):
+        return self.effect_inference(X=X, T0=T0, T1=T1).population_summary()
+
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+        return self.marginal_effect_inference(T, X=X).population_summary(alpha=alpha).conf_int_mean()
+
+    def marginal_ate_inference(self, T, X=None):
+        return self.marginal_effect_inference(T, X=X).population_summary()
+
+    def const_marginal_ate_interval(self, X=None, *, alpha=0.1):
+        return self.const_marginal_effect_inference(X=X).population_summary(alpha=alpha).conf_int_mean()
+
+    def const_marginal_ate_inference(self, X=None):
+        return self.const_marginal_effect_inference(X=X).population_summary()
+
 
 class BootstrapInference(Inference):
     """
@@ -95,8 +113,8 @@ class GenericModelFinalInference(Inference):
     """
 
     def prefit(self, estimator, *args, **kwargs):
-        self.model_final = estimator.model_final
-        self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
+        self.model_final = estimator.model_final_
+        self.featurizer = estimator.featurizer_ if hasattr(estimator, 'featurizer_') else None
 
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
@@ -118,10 +136,13 @@ class GenericModelFinalInference(Inference):
             X = self.featurizer.transform(X)
         X, T = broadcast_unit_treatments(X, self.d_t)
         pred = reshape_treatmentwise_effects(self._predict(cross_product(X, T)), self._d_t, self._d_y)
-        if not hasattr(self.model_final, 'prediction_stderr'):
-            raise AttributeError("Final model doesn't support prediction standard eror, "
-                                 "please call const_marginal_effect_interval to get confidence interval.")
-        pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)), self._d_t, self._d_y)
+        pred_stderr = None
+        if hasattr(self.model_final, 'prediction_stderr'):
+            pred_stderr = reshape_treatmentwise_effects(self._prediction_stderr(cross_product(X, T)),
+                                                        self._d_t, self._d_y)
+        else:
+            warn("Final model doesn't have a `prediction_stderr` method, "
+                 "only point estimates will be returned.")
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, inf_type='effect', **self._input_names)
 
@@ -129,6 +150,10 @@ class GenericModelFinalInference(Inference):
         return self.model_final.predict(X)
 
     def _prediction_stderr(self, X):
+        if not hasattr(self.model_final, 'prediction_stderr'):
+            warn("Final model doesn't have a `prediction_stderr` method, "
+                 "only point estimates will be returned.")
+            return None
         return self.model_final.prediction_stderr(X)
 
 
@@ -146,19 +171,7 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
                                  "or binary categorical treatment")
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
-        # We can write effect interval as a function of const_marginal_effect_interval for a single treatment
-        X, T0, T1 = self._est._expand_treatments(X, T0, T1)
-        lb_pre, ub_pre = self.const_marginal_effect_interval(X, alpha=alpha)
-        dT = T1 - T0
-        einsum_str = 'myt,mt->my'
-        if ndim(dT) == 1:
-            einsum_str = einsum_str.replace('t', '')
-        if ndim(lb_pre) == ndim(dT):  # y is a vector, rather than a 2D array
-            einsum_str = einsum_str.replace('y', '')
-        intrv_pre = np.array([np.einsum(einsum_str, lb_pre, dT), np.einsum(einsum_str, ub_pre, dT)])
-        lb = np.min(intrv_pre, axis=0)
-        ub = np.max(intrv_pre, axis=0)
-        return lb, ub
+        return self.effect_inference(X, T0=T0, T1=T1).conf_int(alpha=alpha)
 
     def effect_inference(self, X, *, T0, T1):
         # We can write effect inference as a function of const_marginal_effect_inference for a single treatment
@@ -172,7 +185,7 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         if ndim(cme_pred) == ndim(dT):  # y is a vector, rather than a 2D array
             einsum_str = einsum_str.replace('y', '')
         e_pred = np.einsum(einsum_str, cme_pred, dT)
-        e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(dT))
+        e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(dT)) if cme_stderr is not None else None
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
@@ -239,15 +252,21 @@ class LinearModelFinalInference(GenericModelFinalInference):
 
     def coef__inference(self):
         coef = self.model_final.coef_
-        coef_stderr = self.model_final.coef_stderr_
         intercept = self.model_final.intercept_
-        intercept_stderr = self.model_final.intercept_stderr_
         coef = parse_final_model_params(coef, intercept,
                                         self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                         self.fit_cate_intercept)[0]
-        coef_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
-                                               self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
-                                               self.fit_cate_intercept)[0]
+        if hasattr(self.model_final, 'coef_stderr_') and hasattr(self.model_final, 'intercept_stderr_'):
+            coef_stderr = self.model_final.coef_stderr_
+            intercept_stderr = self.model_final.intercept_stderr_
+            coef_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
+                                                   self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                                   self.fit_cate_intercept)[0]
+        else:
+            warn("Final model doesn't have a `coef_stderr_` and `intercept_stderr_` attributes, "
+                 "only point estimates will be available.")
+            coef_stderr = None
+
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
 
@@ -278,15 +297,21 @@ class LinearModelFinalInference(GenericModelFinalInference):
         if not self.fit_cate_intercept:
             raise AttributeError("No intercept was fitted!")
         coef = self.model_final.coef_
-        coef_stderr = self.model_final.coef_stderr_
         intercept = self.model_final.intercept_
-        intercept_stderr = self.model_final.intercept_stderr_
         intercept = parse_final_model_params(coef, intercept,
                                              self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                              self.fit_cate_intercept)[1]
-        intercept_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
-                                                    self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
-                                                    self.fit_cate_intercept)[1]
+        if hasattr(self.model_final, 'coef_stderr_') and hasattr(self.model_final, 'intercept_stderr_'):
+            coef_stderr = self.model_final.coef_stderr_
+            intercept_stderr = self.model_final.intercept_stderr_
+            intercept_stderr = parse_final_model_params(coef_stderr, intercept_stderr,
+                                                        self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                                        self.fit_cate_intercept)[1]
+        else:
+            warn("Final model doesn't have a `coef_stderr_` and `intercept_stderr_` attributes, "
+                 "only point estimates will be available.")
+            intercept_stderr = None
+
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
                                       inf_type='intercept', **self._input_names)
 
@@ -326,8 +351,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
     """
 
     def prefit(self, estimator, *args, **kwargs):
-        self.model_final = estimator.model_final
-        self.featurizer = estimator.featurizer if hasattr(estimator, 'featurizer') else None
+        self.model_final = estimator.model_final_
+        self.featurizer = estimator.featurizer_ if hasattr(estimator, 'featurizer_') else None
 
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
@@ -345,20 +370,26 @@ class GenericModelFinalInferenceDiscrete(Inference):
     def const_marginal_effect_interval(self, X, *, alpha=0.1):
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.transform(X)
-        preds = np.array([mdl.predict_interval(X, alpha=alpha) for mdl in self.fitted_models_final])
+        preds = np.array([tuple(map(lambda x: x.reshape((-1,) + self._d_y), mdl.predict_interval(X, alpha=alpha)))
+                          for mdl in self.fitted_models_final])
         return tuple(np.moveaxis(preds, [0, 1], [-1, 0]))  # send treatment to the end, pull bounds to the front
 
     def const_marginal_effect_inference(self, X):
         if (X is not None) and (self.featurizer is not None):
             X = self.featurizer.transform(X)
-        pred = np.array([mdl.predict(X) for mdl in self.fitted_models_final])
-        if not hasattr(self.fitted_models_final[0], 'prediction_stderr'):
-            raise AttributeError("Final model doesn't support prediction standard eror, "
-                                 "please call const_marginal_effect_interval to get confidence interval.")
-        pred_stderr = np.array([mdl.prediction_stderr(X) for mdl in self.fitted_models_final])
-        return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=np.moveaxis(pred, 0, -1),
-                                      # send treatment to the end, pull bounds to the front
-                                      pred_stderr=np.moveaxis(pred_stderr, 0, -1), inf_type='effect',
+        pred = np.moveaxis(np.array([mdl.predict(X).reshape((-1,) + self._d_y)
+                                     for mdl in self.fitted_models_final]), 0, -1)
+        if hasattr(self.fitted_models_final[0], 'prediction_stderr'):
+            # send treatment to the end, pull bounds to the front
+            pred_stderr = np.moveaxis(np.array([mdl.prediction_stderr(X).reshape((-1,) + self._d_y)
+                                                for mdl in self.fitted_models_final]),
+                                      0, -1)
+        else:
+            warn("Final model doesn't have a `prediction_stderr` method. "
+                 "Only point estimates will be available.")
+            pred_stderr = None
+        return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
+                                      pred_stderr=pred_stderr, inf_type='effect',
                                       **self._input_names)
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
@@ -382,13 +413,16 @@ class GenericModelFinalInferenceDiscrete(Inference):
         pred = self.const_marginal_effect_inference(X).point_estimate
         pred = np.concatenate([np.zeros(pred.shape[0:-1] + (1,)), pred], -1)
         pred_stderr = self.const_marginal_effect_inference(X).stderr
-        pred_stderr = np.concatenate([np.zeros(pred_stderr.shape[0:-1] + (1,)), pred_stderr], -1)
+        if pred_stderr is not None:
+            pred_stderr = np.concatenate([np.zeros(pred_stderr.shape[0:-1] + (1,)), pred_stderr], -1)
         if X is None:  # Then const_marginal_effect_interval will return a single row
             pred = np.repeat(pred, T0.shape[0], axis=0)
-            pred_stderr = np.repeat(pred_stderr, T0.shape[0], axis=0)
+            pred_stderr = np.repeat(pred_stderr, T0.shape[0], axis=0) if pred_stderr is not None else None
+        pred = pred[np.arange(T0.shape[0]), ..., ind]
+        pred_stderr = pred_stderr[np.arange(T0.shape[0]), ..., ind] if pred_stderr is not None else None
         # d_t=1 here since we measure the effect across all Ts
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred[np.arange(T0.shape[0]), ..., ind],
-                                      pred_stderr=pred_stderr[np.arange(T0.shape[0]), ..., ind],
+        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
+                                      pred_stderr=pred_stderr,
                                       inf_type='effect', **self._input_names)
 
 
@@ -410,7 +444,12 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
         coef = self.fitted_models_final[ind].coef_
-        coef_stderr = self.fitted_models_final[ind].coef_stderr_
+        if hasattr(self.fitted_models_final[ind], 'coef_stderr_'):
+            coef_stderr = self.fitted_models_final[ind].coef_stderr_
+        else:
+            warn("Final model doesn't have a `coef_stderr_` attribute. "
+                 "Only point estimates will be available.")
+            coef_stderr = None
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
         if hasattr(self._est, 'cate_feature_names') and callable(self._est.cate_feature_names):
@@ -437,8 +476,14 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
+        if hasattr(self.fitted_models_final[ind], 'intercept_stderr_'):
+            intercept_stderr = self.fitted_models_final[ind].intercept_stderr_
+        else:
+            warn("Final model doesn't have a `intercept_stderr_` attribute. "
+                 "Only point estimates will be available.")
+            intercept_stderr = None
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
-                                      pred_stderr=self.fitted_models_final[ind].intercept_stderr_,
+                                      pred_stderr=intercept_stderr,
                                       inf_type='intercept', **self._input_names)
 
 
@@ -544,7 +589,9 @@ class InferenceResults(metaclass=abc.ABCMeta):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        return self.stderr**2
+        if self.stderr is not None:
+            return self.stderr**2
+        return None
 
     @abc.abstractmethod
     def conf_int(self, alpha=0.1):
@@ -604,6 +651,8 @@ class InferenceResults(metaclass=abc.ABCMeta):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
+        if self.stderr is None:
+            raise AttributeError("Only point estimates are available!")
         return (self.point_estimate - value) / self.stderr
 
     def summary_frame(self, alpha=0.1, value=0, decimals=3,
@@ -636,20 +685,21 @@ class InferenceResults(metaclass=abc.ABCMeta):
         feature_names = self.feature_names if feature_names is None else feature_names
         treatment_names = self.treatment_names if treatment_names is None else treatment_names
         output_names = self.output_names if output_names is None else output_names
-        ci_mean = self.conf_int(alpha=alpha)
         to_include = OrderedDict()
         to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.point_estimate,
                                                             output_names=output_names, treatment_names=treatment_names)
-        to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr,
-                                                    output_names=output_names, treatment_names=treatment_names)
-        to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value),
-                                                   output_names=output_names, treatment_names=treatment_names)
-        to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value),
-                                                    output_names=output_names, treatment_names=treatment_names)
-        to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0],
-                                                      output_names=output_names, treatment_names=treatment_names)
-        to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1],
-                                                      output_names=output_names, treatment_names=treatment_names)
+        if self.stderr is not None:
+            ci_mean = self.conf_int(alpha=alpha)
+            to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr,
+                                                        output_names=output_names, treatment_names=treatment_names)
+            to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value),
+                                                       output_names=output_names, treatment_names=treatment_names)
+            to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value),
+                                                        output_names=output_names, treatment_names=treatment_names)
+            to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0],
+                                                          output_names=output_names, treatment_names=treatment_names)
+            to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1],
+                                                          output_names=output_names, treatment_names=treatment_names)
         res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
         if self.d_t == 1:
             res.columns = res.columns.droplevel(1)
@@ -812,14 +862,16 @@ class NormalInferenceResults(InferenceResults):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        if np.isscalar(self.pred):
-            return _safe_norm_ppf(alpha / 2, loc=self.pred, scale=self.pred_stderr),\
-                _safe_norm_ppf(1 - alpha / 2, loc=self.pred, scale=self.pred_stderr)
+        if self.stderr is None:
+            raise AttributeError("Only point estimates are available!")
+        if np.isscalar(self.point_estimate):
+            return _safe_norm_ppf(alpha / 2, loc=self.point_estimate, scale=self.stderr),\
+                _safe_norm_ppf(1 - alpha / 2, loc=self.point_estimate, scale=self.stderr)
         else:
             return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                             for p, err in zip(self.pred, self.pred_stderr)]),\
+                             for p, err in zip(self.point_estimate, self.stderr)]),\
                 np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
-                          for p, err in zip(self.pred, self.pred_stderr)])
+                          for p, err in zip(self.point_estimate, self.stderr)])
 
     def pvalue(self, value=0):
         """
@@ -838,13 +890,12 @@ class NormalInferenceResults(InferenceResults):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-
         return norm.sf(np.abs(self.zstat(value)), loc=0, scale=1) * 2
 
     def _expand_outputs(self, n_rows):
         assert shape(self.pred)[0] == shape(self.pred_stderr)[0] == 1
         pred = np.repeat(self.pred, n_rows, axis=0)
-        pred_stderr = np.repeat(self.pred_stderr, n_rows, axis=0)
+        pred_stderr = np.repeat(self.pred_stderr, n_rows, axis=0) if self.pred_stderr is not None else None
         return NormalInferenceResults(self.d_t, self.d_y, pred, pred_stderr, self.inf_type,
                                       self.fname_transformer, self.feature_names,
                                       self.output_names, self.treatment_names)
@@ -995,11 +1046,11 @@ class PopulationSummaryResults:
         self.treatment_names = treatment_names
 
     def __str__(self):
-        return self.print().as_text()
+        return self._print().as_text()
 
     def _repr_html_(self):
         '''Display as HTML in IPython notebook.'''
-        return self.print().as_html()
+        return self._print().as_html()
 
     @property
     def mean_point(self):
@@ -1030,12 +1081,18 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will be a scalar)
         """
+        if self.pred_stderr is None:
+            raise AttributeError("Only point estimates are available!")
         return np.sqrt(np.mean(self.pred_stderr**2, axis=0))
 
-    @property
-    def zstat(self):
+    def zstat(self, *, value=0):
         """
         Get the z statistic of the mean point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
@@ -1045,13 +1102,18 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will be a scalar)
         """
-        zstat = (self.mean_point - self.value) / self.stderr_mean
+        value = self.value if value is None else value
+        zstat = (self.mean_point - value) / self.stderr_mean
         return zstat
 
-    @property
-    def pvalue(self):
+    def pvalue(self, *, value=0):
         """
         Get the p value of the z test of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
@@ -1061,13 +1123,18 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will be a scalar)
         """
-        pvalue = norm.sf(np.abs(self.zstat), loc=0, scale=1) * 2
+        pvalue = norm.sf(np.abs(self.zstat(value=value)), loc=0, scale=1) * 2
         return pvalue
 
-    @property
-    def conf_int_mean(self):
+    def conf_int_mean(self, *, alpha=.1):
         """
         Get the confidence interval of the mean point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -1077,14 +1144,17 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-
-        return np.array([_safe_norm_ppf(self.alpha / 2, loc=p, scale=err)
-                         for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
-                                           [self.stderr_mean] if np.isscalar(self.stderr_mean)
-                                           else self.stderr_mean)]),\
-            np.array([_safe_norm_ppf(1 - self.alpha / 2, loc=p, scale=err)
-                      for p, err in zip([self.mean_point] if np.isscalar(self.mean_point) else self.mean_point,
-                                        [self.stderr_mean] if np.isscalar(self.stderr_mean) else self.stderr_mean)])
+        alpha = self.alpha if alpha is None else alpha
+        mean_point = self.mean_point
+        stderr_mean = self.stderr_mean
+        if np.isscalar(mean_point):
+            return (_safe_norm_ppf(alpha / 2, loc=mean_point, scale=stderr_mean),
+                    _safe_norm_ppf(1 - alpha / 2, loc=mean_point, scale=stderr_mean))
+        else:
+            return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
+                             for p, err in zip(mean_point, stderr_mean)]),\
+                np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
+                          for p, err in zip(mean_point, stderr_mean)])
 
     @property
     def std_point(self):
@@ -1101,10 +1171,15 @@ class PopulationSummaryResults:
         """
         return np.std(self.pred, axis=0)
 
-    @property
-    def percentile_point(self):
+    def percentile_point(self, *, alpha=.1):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
@@ -1114,10 +1189,38 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        lower_percentile_point = np.percentile(self.pred, (self.alpha / 2) * 100, axis=0)
-        upper_percentile_point = np.percentile(self.pred, (1 - self.alpha / 2) * 100, axis=0)
-        return np.array([lower_percentile_point]) if np.isscalar(lower_percentile_point) else lower_percentile_point, \
-            np.array([upper_percentile_point]) if np.isscalar(upper_percentile_point) else upper_percentile_point
+        alpha = self.alpha if alpha is None else alpha
+        lower_percentile_point = np.percentile(self.pred, (alpha / 2) * 100, axis=0)
+        upper_percentile_point = np.percentile(self.pred, (1 - alpha / 2) * 100, axis=0)
+        return lower_percentile_point, upper_percentile_point
+
+    def conf_int_point(self, *, alpha=.1, tol=.001):
+        """
+        Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        tol:  optinal float(default=.001)
+            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+
+        Returns
+        -------
+        lower, upper: tuple of arrays, shape (d_y, d_t)
+            The lower and the upper bounds of the confidence interval for each quantity.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        if self.pred_stderr is None:
+            raise AttributeError("Only point estimates are available!")
+        alpha = self.alpha if alpha is None else alpha
+        tol = self.tol if tol is None else tol
+        lower_ci_point = np.array([self._mixture_ppf(alpha / 2, self.pred, self.pred_stderr, tol)])
+        upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, tol)])
+        return lower_ci_point, upper_ci_point
 
     @property
     def stderr_point(self):
@@ -1134,27 +1237,25 @@ class PopulationSummaryResults:
         """
         return np.sqrt(self.stderr_mean**2 + self.std_point**2)
 
-    @property
-    def conf_int_point(self):
-        """
-        Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
-
-        Returns
-        -------
-        lower, upper: tuple of arrays, shape (d_y, d_t)
-            The lower and the upper bounds of the confidence interval for each quantity.
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will also be a vector)
-        """
-        lower_ci_point = np.array([self._mixture_ppf(self.alpha / 2, self.pred, self.pred_stderr, self.tol)])
-        upper_ci_point = np.array([self._mixture_ppf(1 - self.alpha / 2, self.pred, self.pred_stderr, self.tol)])
-        return np.array([lower_ci_point]) if np.isscalar(lower_ci_point) else lower_ci_point,\
-            np.array([upper_ci_point]) if np.isscalar(upper_ci_point) else upper_ci_point
-
-    def print(self):
+    def summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
         """
         Output the summary inferences above.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        tol:  optinal float (default=0.001)
+            The stopping criterion. The iterations will stop when the outcome is less than ``tol``
+        output_names: optional list of strings or None (default is None)
+                The names of the outputs
+        treatment_names: optional list of strings or None (default is None)
+            The names of the treatments
 
         Returns
         -------
@@ -1162,19 +1263,34 @@ class PopulationSummaryResults:
             this holds the summary tables and text, which can be printed or
             converted to various output formats.
         """
+        return self._print(alpha=alpha, value=value, decimals=decimals,
+                           tol=tol, output_names=output_names, treatment_names=treatment_names)
+
+    def _print(self, *, alpha=None, value=None, decimals=None, tol=None, output_names=None, treatment_names=None):
+        """
+        Helper function to be used by both `summary` and `__repr__`, in the former case with passed attributes
+        in the latter case with None inputs, hence using the `__init__` params.
+        """
+        alpha = self.alpha if alpha is None else alpha
+        value = self.value if value is None else value
+        decimals = self.decimals if decimals is None else decimals
+        tol = self.tol if tol is None else tol
+        treatment_names = self.treatment_names if treatment_names is None else treatment_names
+        output_names = self.output_names if output_names is None else output_names
 
         # 1. Uncertainty of Mean Point Estimate
-        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, self.decimals)
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, self.decimals)))
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.zstat, self.decimals)))
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue, self.decimals)))
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[0], self.decimals)))
-        res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.conf_int_mean[1], self.decimals)))
+        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, decimals)
+        if self.pred_stderr is not None:
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.zstat(value=value), decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue(value=value), decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y,
+                                                         self.conf_int_mean(alpha=alpha)[0], decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y,
+                                                         self.conf_int_mean(alpha=alpha)[1], decimals)))
 
-        treatment_names = self.treatment_names
         if treatment_names is None:
             treatment_names = ['T' + str(i) for i in range(self.d_t)]
-        output_names = self.output_names
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(self.d_y)]
 
@@ -1183,35 +1299,42 @@ class PopulationSummaryResults:
                       ] if self.d_t > 1 else [name for name in metric_name1]
         mystubs1 = output_names if self.d_y > 1 else []
         title1 = "Uncertainty of Mean Point Estimate"
-        text1 = "Note: The stderr_mean is a conservative upper bound."
 
         # 2. Distribution of Point Estimate
-        res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, self.decimals)
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[0], self.decimals)))
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y, self.percentile_point[1], self.decimals)))
+        res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, decimals)
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.percentile_point(alpha=alpha)[0], decimals)))
+        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
+                                                     self.percentile_point(alpha=alpha)[1], decimals)))
         metric_name2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
         myheaders2 = [name + '\n' + tname for name in metric_name2 for tname in treatment_names
                       ] if self.d_t > 1 else [name for name in metric_name2]
         mystubs2 = output_names if self.d_y > 1 else []
         title2 = "Distribution of Point Estimate"
 
-        # 3. Total Variance of Point Estimate
-        res3 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, self.decimals)
-        res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
-                                                     self.conf_int_point[0], self.decimals)))
-        res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
-                                                     self.conf_int_point[1], self.decimals)))
-        metric_name3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
-        myheaders3 = [name + '\n' + tname for name in metric_name3 for tname in treatment_names
-                      ] if self.d_t > 1 else [name for name in metric_name3]
-        mystubs3 = output_names if self.d_y > 1 else []
-        title3 = "Total Variance of Point Estimate"
-
         smry = Summary()
         smry.add_table(res1, myheaders1, mystubs1, title1)
-        smry.add_extra_txt([text1])
+        if self.pred_stderr is not None:
+            text1 = "Note: The stderr_mean is a conservative upper bound."
+            smry.add_extra_txt([text1])
         smry.add_table(res2, myheaders2, mystubs2, title2)
-        smry.add_table(res3, myheaders3, mystubs3, title3)
+
+        if self.pred_stderr is not None:
+            # 3. Total Variance of Point Estimate
+            res3 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, self.decimals)
+            res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
+                                                         self.conf_int_point(alpha=alpha, tol=tol)[0],
+                                                         self.decimals)))
+            res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
+                                                         self.conf_int_point(alpha=alpha, tol=tol)[1],
+                                                         self.decimals)))
+            metric_name3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
+            myheaders3 = [name + '\n' + tname for name in metric_name3 for tname in treatment_names
+                          ] if self.d_t > 1 else [name for name in metric_name3]
+            mystubs3 = output_names if self.d_y > 1 else []
+            title3 = "Total Variance of Point Estimate"
+
+            smry.add_table(res3, myheaders3, mystubs3, title3)
         return smry
 
     def _mixture_ppf(self, alpha, mean, stderr, tol):

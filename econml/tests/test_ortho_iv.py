@@ -122,7 +122,7 @@ class TestOrthoIV(unittest.TestCase):
                                     estimators.append((
                                         LinearIntentToTreatDRIV(model_Y_X=Lasso(), model_T_XZ=model_t,
                                                                 flexible_model_effect=WeightedLasso(),
-                                                                n_splits=2),
+                                                                cv=2),
                                         False,
                                         all_infs + ['auto']))
 
@@ -244,17 +244,17 @@ class TestOrthoIV(unittest.TestCase):
         bad = np.array([2, 2, 1, 2, 1, 1, 1, 1])
         W = np.ones((8, 1))
         ok = np.array([1, 2, 3, 1, 2, 3, 1, 2])
-        models = [Lasso(), Lasso(), Lasso()]
-        est = DMLATEIV(*models, n_splits=[(np.arange(4, 8), np.arange(4))])
+        est = DMLATEIV(model_Y_W=Lasso(), model_T_W=Lasso(), model_Z_W=Lasso(),
+                       cv=[(np.arange(4, 8), np.arange(4))])
         est.fit(Y, T=bad, Z=bad, W=W)  # imbalance ok with continuous instrument/treatment
 
-        models = [Lasso(), LogisticRegression(), Lasso()]
-        est = DMLATEIV(*models, n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
+        est = DMLATEIV(model_Y_W=Lasso(), model_T_W=LogisticRegression(), model_Z_W=Lasso(),
+                       cv=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
         with pytest.raises(AttributeError):
             est.fit(Y, T=bad, Z=ok, W=W)
 
-        models = [Lasso(), Lasso(), LogisticRegression()]
-        est = DMLATEIV(*models, n_splits=[(np.arange(4, 8), np.arange(4))], discrete_instrument=True)
+        est = DMLATEIV(model_Y_W=Lasso(), model_T_W=Lasso(), model_Z_W=LogisticRegression(),
+                       cv=[(np.arange(4, 8), np.arange(4))], discrete_instrument=True)
         with pytest.raises(AttributeError):
             est.fit(Y, T=ok, Z=bad, W=W)
 
@@ -269,13 +269,14 @@ class TestOrthoIV(unittest.TestCase):
         three_class = np.array([1, 2, 3, 1, 2, 3, 1, 2])
         two_class = np.array([1, 2, 1, 1, 2, 1, 1, 2])
 
-        est = NonParamDMLIV(Lasso(), LogisticRegression(), LogisticRegression(),
-                            WeightedLasso(), discrete_treatment=True)
+        est = NonParamDMLIV(model_Y_X=Lasso(), model_T_X=LogisticRegression(), model_T_XZ=LogisticRegression(),
+                            model_final=WeightedLasso(), discrete_treatment=True)
 
         with pytest.raises(AttributeError):
             est.fit(Y, T=three_class, Z=two_class)
 
-        est = IntentToTreatDRIV(Lasso(), LogisticRegression(), WeightedLasso())
+        est = IntentToTreatDRIV(model_Y_X=Lasso(), model_T_XZ=LogisticRegression(),
+                                flexible_model_effect=WeightedLasso())
 
         with pytest.raises(AttributeError):
             est.fit(Y, T=three_class, Z=two_class)
@@ -287,7 +288,9 @@ class TestOrthoIV(unittest.TestCase):
         """
         Test that API related to accessing the nuisance models, cate_model and featurizer is working.
         """
-        est = LinearIntentToTreatDRIV(LinearRegression(), LogisticRegression(C=1000), WeightedLasso(),
+        est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(),
+                                      model_T_XZ=LogisticRegression(C=1000),
+                                      flexible_model_effect=WeightedLasso(),
                                       featurizer=PolynomialFeatures(degree=2, include_bias=False))
         Y = np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2])
         T = np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2])
@@ -295,8 +298,8 @@ class TestOrthoIV(unittest.TestCase):
         X = np.array([1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]).reshape(-1, 1)
         est.fit(Y, T, Z=Z, X=X)
         assert isinstance(est.original_featurizer, PolynomialFeatures)
-        assert isinstance(est.featurizer, Pipeline)
-        assert isinstance(est.model_final, StatsModelsLinearRegression)
+        assert isinstance(est.featurizer_, Pipeline)
+        assert isinstance(est.model_final_, StatsModelsLinearRegression)
         for mdl in est.models_Y_X:
             assert isinstance(mdl, LinearRegression)
         for mdl in est.models_T_XZ:
@@ -304,12 +307,14 @@ class TestOrthoIV(unittest.TestCase):
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
         np.testing.assert_array_equal(est.cate_feature_names(), ['x0', 'x0^2'])
 
-        est = LinearIntentToTreatDRIV(LinearRegression(), LogisticRegression(C=1000), WeightedLasso(),
+        est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(),
+                                      model_T_XZ=LogisticRegression(C=1000),
+                                      flexible_model_effect=WeightedLasso(),
                                       featurizer=None)
         est.fit(Y, T, Z=Z, X=X)
         assert est.original_featurizer is None
-        assert isinstance(est.featurizer, FunctionTransformer)
-        assert isinstance(est.model_final, StatsModelsLinearRegression)
+        assert isinstance(est.featurizer_, FunctionTransformer)
+        assert isinstance(est.model_final_, StatsModelsLinearRegression)
         for mdl in est.models_Y_X:
             assert isinstance(mdl, LinearRegression)
         for mdl in est.models_T_XZ:
@@ -318,7 +323,9 @@ class TestOrthoIV(unittest.TestCase):
 
     def test_can_use_statsmodel_inference(self):
         """Test that we can use statsmodels to generate confidence intervals"""
-        est = LinearIntentToTreatDRIV(LinearRegression(), LogisticRegression(C=1000), WeightedLasso())
+        est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(),
+                                      model_T_XZ=LogisticRegression(C=1000),
+                                      flexible_model_effect=WeightedLasso())
         est.fit(np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2]),
                 np.array([1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 2, 2]),
                 Z=np.array([1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2]),
