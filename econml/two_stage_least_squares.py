@@ -20,7 +20,7 @@ class DPolynomialFeatures(tsls.DPolynomialFeatures):
 
 
 @deprecated("The econml.two_stage_least_squares.NonparametricTwoStageLeastSquares class has been moved "
-            "to econml.iv.tsls.NonparametricTSLS; "
+            "to econml.iv.tsls.NonParamTSLS; "
             "an upcoming release will remove support for the old name")
-class NonparametricTwoStageLeastSquares(tsls.NonparametricTSLS):
+class NonparametricTwoStageLeastSquares(tsls.NonParamTSLS):
     pass

@@ -100,7 +100,7 @@ Two Stage Least Squares (2SLS)
 .. autosummary::
     :toctree: _autosummary
 
-    econml.iv.tsls.NonparametricTSLS
+    econml.iv.tsls.NonParamTSLS
     econml.iv.tsls.HermiteFeatures
     econml.iv.tsls.DPolynomialFeatures
 
