@@ -14,7 +14,8 @@ import keras.backend as K
 import pytest
 
 from econml.iv.nnet._deepiv import _zero_grad
-from econml.iv.nnet import mog_model, mog_loss_model, mog_sample_model, response_loss_model, DeepIV
+from econml.iv.nnet import DeepIV
+from econml.iv.nnet._deepiv import mog_model, mog_loss_model, mog_sample_model, response_loss_model
 from econml.utilities import reshape
 
 
