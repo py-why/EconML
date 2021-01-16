@@ -1,6 +1,17 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+"""Helper functions to get shap values for different cate estimators.
+
+References
+----------
+Scott Lundberg, Su-In Lee (2017)
+    A Unified Approach to Interpreting Model Predictions.
+    NeurIPS, https://arxiv.org/abs/1705.07874
+
+
+"""
+
 import shap
 from collections import defaultdict
 import numpy as np
