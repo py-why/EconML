@@ -94,15 +94,15 @@ DeepIV
 
 .. _tsls_api:
 
-Two Stage Least Squares (2SLS)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Sieve Methods
+^^^^^^^^^^^^^
 
 .. autosummary::
     :toctree: _autosummary
 
-    econml.iv.tsls.NonParamTSLS
-    econml.iv.tsls.HermiteFeatures
-    econml.iv.tsls.DPolynomialFeatures
+    econml.iv.sieve.SieveTSLS
+    econml.iv.sieve.HermiteFeatures
+    econml.iv.sieve.DPolynomialFeatures
 
 
 .. _interpreters_api:

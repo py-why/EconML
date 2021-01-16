@@ -168,7 +168,7 @@ def _add_zeros(arr):
     return np.hstack([np.zeros((shape(arr)[0], 1)), arr])
 
 
-class NonParamTSLS(BaseCateEstimator):
+class SieveTSLS(BaseCateEstimator):
     """
     Non-parametric instrumental variables estimator.
 

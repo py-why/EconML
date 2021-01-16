@@ -94,7 +94,7 @@
         <path d="M9.50005 785.667C9.50005 771.768 20.7678 760.5 34.6674 760.5L369.333 760.5C383.232 760.5 394.5 771.768 394.5 785.667L394.5 886.333C394.5 900.232 383.232 911.5 369.333 911.5L34.6674 911.5C20.7678 911.5 9.50005 900.232 9.50005 886.333Z" stroke="#7030A0" stroke-width="1.33333" stroke-miterlimit="8" fill="#7030A0" fill-rule="evenodd" fill-opacity="0.341176"/>
         <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(111.984 896)">Exploit Explicit Randomization</text>
         <rect x="26" y="781" width="178" height="97" stroke="#FFFFFF" stroke-width="2" stroke-miterlimit="8" fill="#70AD47"/>
-        <a href="_autosummary/econml.iv.tsls.NonParamTSLS.html" target="_parent">
+        <a href="_autosummary/econml.iv.sieve.SieveTSLS.html" target="_parent">
             <text fill="#FFFFFF" font-family="Calibri,Calibri_MSFontService,sans-serif" font-weight="400" font-size="15" transform="translate(93.7427 817)">2SLS IV</text>
         </a>
         <path d="M93.7427 819.138 114.743 819.138 135.743 819.138 135.743 820.138 114.743 820.138 93.7427 820.138Z" fill="#FFFFFF" fill-rule="evenodd"/>

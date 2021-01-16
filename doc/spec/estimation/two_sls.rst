@@ -2,7 +2,7 @@
 Sieve 2SLS Instrumental Variable Estimation
 ===========================================
 
-The sieve based instrumental variable module is based on a two-stage least squares estimation procedure.
+The sieve based instrumental variable estimator :class:`.SieveTSLS` is based on a two-stage least squares estimation procedure.
 The user must specify the sieve basis for :math:`T`, :math:`X` and :math:`Y` (Hermite polynomial or a set of indicator 
 functions), and the number of elements of the basis expansion to include. Formally, we now assume that we can write:
 

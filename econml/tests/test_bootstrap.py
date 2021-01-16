@@ -5,7 +5,7 @@ from econml.inference._bootstrap import BootstrapEstimator
 from econml.inference import BootstrapInference
 from econml.dml import LinearDML
 from econml.iv.dr import LinearIntentToTreatDRIV
-from econml.iv.tsls import NonParamTSLS
+from econml.iv.sieve import SieveTSLS
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures
 import numpy as np
@@ -235,10 +235,10 @@ class TestBootstrap(unittest.TestCase):
 
         opts = BootstrapInference(50, 2)
 
-        est = NonParamTSLS(t_featurizer=PolynomialFeatures(2),
-                           x_featurizer=PolynomialFeatures(2),
-                           z_featurizer=PolynomialFeatures(2),
-                           dt_featurizer=None)
+        est = SieveTSLS(t_featurizer=PolynomialFeatures(2),
+                        x_featurizer=PolynomialFeatures(2),
+                        z_featurizer=PolynomialFeatures(2),
+                        dt_featurizer=None)
         est.fit(y, t, X=x, W=None, Z=z, inference=opts)
 
         # test that we can get an interval for the same attribute for the bootstrap as the original,
