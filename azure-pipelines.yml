@@ -4,43 +4,41 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
 trigger:
-  - master
+- master
 
 jobs:
-  - job: "EvalChanges"
-    displayName: "Analyze changed files to determine which job to run"
-    pool:
-      vmImage: "macOS-10.15"
-    steps:
-      # We want to enforce the following rules for PRs:
-      # * if all modifications are to README.md
-      #     no testing is needed
-      # * if there are modifications to docs/* or to any code
-      #     then docs need to be built to verify consistency
-      # * if there are modifications to notebooks/* or to any code
-      #     then notebooks need to be run to verify consistency
-      # * for any code changes (or changes to metadata files)
-      #     linting and testing should be run
-      # For a PR build, HEAD will be the merge commit, and we want to diff against the base branch,
-      #  which will be the first parent: HEAD^
-      # (For non-PR changes, we will always perform all CI tasks)
-      - powershell: |
-          if ($env:BUILD_REASON -eq 'PullRequest') {
-            $editedFiles = git diff HEAD^ --name-only
-            $editedFiles # echo edited files to enable easier debugging
-            $codeChanges = $false
-            $docChanges = $false
-            $nbChanges = $false
-            $changeType = "none"
-            foreach ($file in $editedFiles) {
-              switch -Wildcard ($file) {
-                "README.md" { Continue }
-                "prototypes/*" { Continue }
-                "doc/*" { $docChanges = $true; Continue }
-                "notebooks/*" { $nbChanges = $true; Continue }
-                default { $codeChanges = $true; Continue }
-              }
-            }
+- job: "EvalChanges"
+  displayName: "Analyze changed files to determine which job to run"
+  pool:
+    vmImage: "macOS-10.15"
+  steps:
+    # We want to enforce the following rules for PRs:
+    # * if all modifications are to README.md
+    #     no testing is needed
+    # * if there are modifications to docs/* or to any code
+    #     then docs need to be built to verify consistency
+    # * if there are modifications to notebooks/* or to any code
+    #     then notebooks need to be run to verify consistency
+    # * for any code changes (or changes to metadata files)
+    #     linting and testing should be run
+    # For a PR build, HEAD will be the merge commit, and we want to diff against the base branch,
+    #  which will be the first parent: HEAD^
+    # (For non-PR changes, we will always perform all CI tasks)
+    - powershell: |
+        if ($env:BUILD_REASON -eq 'PullRequest') {
+          $editedFiles = git diff HEAD^ --name-only
+          $editedFiles # echo edited files to enable easier debugging
+          $codeChanges = $false
+          $docChanges = $false
+          $nbChanges = $false
+          $changeType = "none"
+          foreach ($file in $editedFiles) {
+            switch -Wildcard ($file) {
+              "README.md" { Continue }
+              "prototypes/*" { Continue }
+              "doc/*" { $docChanges = $true; Continue }
+              "notebooks/*" { $nbChanges = $true; Continue }
+              default { $codeChanges = $true; Continue }
           }
         }
       }
