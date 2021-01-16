@@ -519,13 +519,13 @@ class TestDML(unittest.TestCase):
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([2, 2, 1, 2, 1, 1, 1, 1])
         X = np.ones((8, 1))
-        est = LinearDML(n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
+        est = LinearDML(cv=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
         with pytest.raises(AttributeError):
             est.fit(Y, T, X=X)
         Y = np.array([2, 3, 1, 3, 2, 1, 1, 1])
         T = np.array([2, 2, 1, 2, 2, 2, 2, 2])
         X = np.ones((8, 1))
-        est = LinearDML(n_splits=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
+        est = LinearDML(cv=[(np.arange(4, 8), np.arange(4))], discrete_treatment=True)
         with pytest.raises(AttributeError):
             est.fit(Y, T, X=X)
 
@@ -712,13 +712,13 @@ class TestDML(unittest.TestCase):
     def test_can_custom_splitter(self):
         # test that we can fit with a KFold instance
         dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
-                        discrete_treatment=True, n_splits=KFold())
+                        discrete_treatment=True, cv=KFold())
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
         # test that we can fit with a train/test iterable
         dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
-                        discrete_treatment=True, n_splits=[([0, 1, 2], [3, 4, 5])])
+                        discrete_treatment=True, cv=[([0, 1, 2], [3, 4, 5])])
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
@@ -731,7 +731,7 @@ class TestDML(unittest.TestCase):
 
         dml = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(),
                         fit_cate_intercept=False, featurizer=OneHotEncoder(sparse=False),
-                        n_splits=[splits, splits[::-1]])
+                        cv=[splits, splits[::-1]])
 
         T = np.tile([1, 2, 3], 6)
         Y = np.array([1, 2, 3, 1, 2, 3])
@@ -959,10 +959,10 @@ class TestDML(unittest.TestCase):
         y = np.random.normal(size=(100,))
         T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
-        for n_splits in [1, 2, 3]:
-            est = LinearDML(n_splits=n_splits)
+        for cv in [1, 2, 3]:
+            est = LinearDML(cv=cv)
             est.fit(y, T, X=X, W=W)
-            assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == n_splits
+            assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == cv
 
     def test_categories(self):
         dmls = [LinearDML, SparseLinearDML]
@@ -1018,7 +1018,7 @@ class TestDML(unittest.TestCase):
             est.fit(y, t, groups=groups)
 
         # test outer grouping
-        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(), n_splits=GroupKFold(2))
+        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(), cv=GroupKFold(2))
         est.fit(y, t, groups=groups)
 
         # test nested grouping
@@ -1045,12 +1045,12 @@ class TestDML(unittest.TestCase):
                 return super().fit(X, y)
 
         # test nested grouping
-        est = LinearDML(model_y=NestedModel(cv=2), model_t=NestedModel(cv=2), n_splits=GroupKFold(2))
+        est = LinearDML(model_y=NestedModel(cv=2), model_t=NestedModel(cv=2), cv=GroupKFold(2))
         est.fit(y, t, groups=groups)
 
         # by default, we use 5 split cross-validation for our T and Y models
         # but we don't have enough groups here to split both the outer and inner samples with grouping
         # TODO: does this imply we should change some defaults to make this more likely to succeed?
-        est = LinearDML(n_splits=GroupKFold(2))
+        est = LinearDML(cv=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, groups=groups)

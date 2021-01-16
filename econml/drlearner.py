@@ -251,7 +251,7 @@ class DRLearner(_OrthoLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional (default is 2)
+    cv: int, cross-validation generator or an iterable, optional (default is 2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -380,7 +380,8 @@ class DRLearner(_OrthoLearner):
                  featurizer=None,
                  min_propensity=1e-6,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -390,13 +391,22 @@ class DRLearner(_OrthoLearner):
         self.multitask_model_final = multitask_model_final
         self.featurizer = clone(featurizer, safe=False)
         self.min_propensity = min_propensity
-        super().__init__(n_splits=n_splits,
+        super().__init__(cv=cv,
+                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          discrete_treatment=True,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
                          random_state=random_state)
+
+    def _get_inference_options(self):
+        options = super()._get_inference_options()
+        if not self.multitask_model_final:
+            options.update(auto=GenericModelFinalInferenceDiscrete)
+        else:
+            options.update(auto=lambda: None)
+        return options
 
     def _gen_ortho_learner_model_nuisance(self):
         if self.model_propensity == 'auto':
@@ -424,7 +434,7 @@ class DRLearner(_OrthoLearner):
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -444,7 +454,7 @@ class DRLearner(_OrthoLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
@@ -460,6 +470,10 @@ class DRLearner(_OrthoLearner):
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
+
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def score(self, Y, T, X=None, W=None):
         """
@@ -702,7 +716,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional (default is 2)
+    cv: int, cross-validation generator or an iterable, optional (default is 2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -783,7 +797,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  fit_cate_intercept=True,
                  min_propensity=1e-6,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -795,6 +810,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          multitask_model_final=False,
                          min_propensity=min_propensity,
                          categories=categories,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -829,7 +845,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
@@ -846,10 +862,6 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def fit_cate_intercept_(self):
@@ -970,7 +982,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, optional, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1058,7 +1070,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  n_jobs=None,
                  min_propensity=1e-6,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
+                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -1077,6 +1090,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          multitask_model_final=False,
                          min_propensity=min_propensity,
                          categories=categories,
+                         cv=cv,
                          n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
@@ -1119,7 +1133,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
             Sample variance for each sample
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
@@ -1144,10 +1158,6 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            cache_values=cache_values, inference=inference)
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def fit_cate_intercept_(self):
@@ -1196,7 +1206,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_splits: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, optional (Default=2)
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1214,8 +1224,8 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
     n_crossfit_splits: int or 'raise', optional (default='raise')
-        Deprecated by parameter `n_splits` and will be removed in next version. Can be used
-        interchangeably with `n_splits`.
+        Deprecated by parameter `cv` and will be removed in next version. Can be used
+        interchangeably with `cv`.
 
     mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
@@ -1344,7 +1354,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                  featurizer=None,
                  min_propensity=1e-6,
                  categories='auto',
-                 n_splits=2,
+                 cv=2,
                  n_crossfit_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
@@ -1380,7 +1390,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         self.verbose = verbose
         self.n_crossfit_splits = n_crossfit_splits
         if self.n_crossfit_splits != 'raise':
-            n_splits = self.n_crossfit_splits
+            cv = self.n_crossfit_splits
         self.subsample_fr = subsample_fr
         self.max_leaf_nodes = max_leaf_nodes
         self.criterion = criterion
@@ -1391,7 +1401,8 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                          multitask_model_final=False,
                          min_propensity=min_propensity,
                          categories=categories,
-                         n_splits=n_splits,
+                         cv=cv,
+                         n_splits='raise',
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -1441,7 +1452,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
             not in use by this method (as inference method does not require sample variance info).
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the n_splits argument passed to this class's initializer
+            If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
@@ -1457,10 +1468,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, sample_var=None, groups=groups,
                            cache_values=cache_values, inference=inference)
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def multitask_model_cate(self):
         # Replacing to remove docstring
@@ -1490,13 +1497,13 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
     @property
     def n_crossfit_splits(self):
-        return self.n_splits
+        return self.cv
 
     @n_crossfit_splits.setter
     def n_crossfit_splits(self, value):
         if value != 'raise':
-            warn("Deprecated by parameter `n_splits` and will be removed in next version.")
-        self.n_splits = value
+            warn("Deprecated by parameter `cv` and will be removed in next version.")
+        self.cv = value
 
     @property
     def criterion(self):
@@ -1527,4 +1534,4 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
             warn("The parameter 'subsample_fr' has been deprecated and will be removed in the next version. "
                  "Use 'max_samples' instead, with the convention that "
                  "'subsample_fr=x' is equivalent to 'max_samples=x/2'.")
-            max_samples = .45 if value == 'auto' else value / 2
+            self.max_samples = .45 if value == 'auto' else value / 2

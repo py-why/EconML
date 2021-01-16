@@ -614,7 +614,7 @@ class TestStatsModels(unittest.TestCase):
                         est = LinearDML(
                             model_y=LinearRegression(),
                             model_t=LinearRegression(),
-                            n_splits=SplitterSum(),
+                            cv=SplitterSum(),
                             linear_first_stages=False,
                             discrete_treatment=False).fit(y_sum,
                                                           X_final[:, -1], X_final[:, :-1],
@@ -633,7 +633,7 @@ class TestStatsModels(unittest.TestCase):
                         lr = LinearDML(
                             model_y=LinearRegression(),
                             model_t=LinearRegression(),
-                            n_splits=Splitter(),
+                            cv=Splitter(),
                             linear_first_stages=False,
                             discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None,
                                                           inference=StatsModelsInference(cov_type=cov_type))
@@ -688,7 +688,7 @@ class TestStatsModels(unittest.TestCase):
                         est = LinearDML(
                             model_y=first_stage_model(),
                             model_t=first_stage_model(),
-                            n_splits=SplitterSum(),
+                            cv=SplitterSum(),
                             linear_first_stages=False,
                             discrete_treatment=False).fit(y_sum, X_final[:, -1], X_final[:, :-1], None,
                                                           sample_weight=n_sum,
@@ -706,7 +706,7 @@ class TestStatsModels(unittest.TestCase):
                         lr = LinearDML(
                             model_y=first_stage_model(),
                             model_t=first_stage_model(),
-                            n_splits=Splitter(),
+                            cv=Splitter(),
                             linear_first_stages=False,
                             discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None,
                                                           inference=StatsModelsInference(cov_type=cov_type))
@@ -761,7 +761,7 @@ class TestStatsModels(unittest.TestCase):
                         est = LinearDML(
                             model_y=first_stage_model(),
                             model_t=first_stage_model(),
-                            n_splits=SplitterSum(),
+                            cv=SplitterSum(),
                             linear_first_stages=False,
                             discrete_treatment=False).fit(y_sum, X_final[:, -1], X_final[:, :-1], None,
                                                           sample_weight=n_sum,
@@ -779,7 +779,7 @@ class TestStatsModels(unittest.TestCase):
                         lr = LinearDML(
                             model_y=first_stage_model(),
                             model_t=first_stage_model(),
-                            n_splits=Splitter(),
+                            cv=Splitter(),
                             linear_first_stages=False,
                             discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None,
                                                           inference=StatsModelsInference(cov_type=cov_type))
@@ -886,7 +886,7 @@ class TestStatsModels(unittest.TestCase):
                             est = LinearDML(
                                 model_y=LinearRegression(),
                                 model_t=LinearRegression(),
-                                n_splits=SplitterSum(),
+                                cv=SplitterSum(),
                                 linear_first_stages=False,
                                 discrete_treatment=False).fit(y_sum,
                                                               X_final[:, d:],
