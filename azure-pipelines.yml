@@ -66,8 +66,8 @@ jobs:
         - script: 'pip install sklearn-contrib-lightning'
           displayName: 'Install lightning'
           
-        - script: 'pip install --force-reinstall --no-cache-dir shap'
-          displayName: 'Install public shap'
+        - script: 'pip install git+https://github.com/slundberg/shap.git@d1d2700acc0259f211934373826d5ff71ad514de'
+          displayName: 'Install specific version of shap'  
 
         - script: 'python setup.py build_sphinx -W'
           displayName: 'Build documentation'
