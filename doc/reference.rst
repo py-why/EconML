@@ -193,10 +193,30 @@ Model Selection Extensions
 Inference
 ---------
 
+Inference Results
+^^^^^^^^^^^^^^^^^
+
 .. autosummary::
     :toctree: _autosummary
 
-    econml.inference
+    econml.inference.NormalInferenceResults
+    econml.inference.EmpiricalInferenceResults
+    econml.inference.PopulationSummaryResults
+
+Inference Methods
+^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.inference.BootstrapInference
+    econml.inference.GenericModelFinalInference
+    econml.inference.GenericSingleTreatmentModelFinalInference
+    econml.inference.LinearModelFinalInference
+    econml.inference.StatsModelsInference
+    econml.inference.GenericModelFinalInferenceDiscrete
+    econml.inference.LinearModelFinalInferenceDiscrete
+    econml.inference.StatsModelsInferenceDiscrete
 
 
 .. _utilities_api:

@@ -45,10 +45,10 @@ try:
     AutomatedKernelDML = addAutomatedML(KernelDML)
     AutomatedNonParamDML = \
         addAutomatedML(NonParamDML)
-    AutomatedForestDML = addAutomatedML(ForestDML)
+    AutomatedCausalForestDML = addAutomatedML(CausalForestDML)
 
     AUTOML_SETTINGS_REG = {
-        'experiment_timeout_minutes': 1,
+        'experiment_timeout_minutes': 15,
         'enable_early_stopping': True,
         'iteration_timeout_minutes': 1,
         'max_cores_per_iteration': 1,
@@ -61,7 +61,7 @@ try:
     }
 
     AUTOML_SETTINGS_CLF = {
-        'experiment_timeout_minutes': 1,
+        'experiment_timeout_minutes': 15,
         'enable_early_stopping': True,
         'iteration_timeout_minutes': 1,
         'max_cores_per_iteration': 1,
@@ -118,7 +118,7 @@ except ImportError:
 
 
 @pytest.mark.automl
-class TestAutomatedDML(unittest.TestCase):
+class TestAutomatedML(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -134,7 +134,6 @@ class TestAutomatedDML(unittest.TestCase):
 
     def test_nonparam(self):
         """Testing the completion of the fit and effect estimation of an automated Nonparametic DML"""
-        Y, T, X, _ = ihdp_surface_B()
         est = AutomatedNonParamDML(model_y=automl_model_reg(),
                                    model_t=automl_model_clf(),
                                    model_final=automl_model_sample_weight_reg(), featurizer=None,
@@ -144,7 +143,6 @@ class TestAutomatedDML(unittest.TestCase):
 
     def test_param(self):
         """Testing the completion of the fit and effect estimation of an automated Parametric DML"""
-        Y, T, X, _ = ihdp_surface_B()
         est = AutomatedLinearDML(model_y=automl_model_reg(),
                                  model_t=GradientBoostingClassifier(),
                                  featurizer=None,
@@ -154,28 +152,21 @@ class TestAutomatedDML(unittest.TestCase):
 
     def test_forest_dml(self):
         """Testing the completion of the fit and effect estimation of an AutomatedForestDML"""
-
-        Y, T, X, _ = ihdp_surface_B()
-        est = AutomatedForestDML(model_y=automl_model_reg(),
-                                 model_t=GradientBoostingClassifier(),
-                                 discrete_treatment=True,
-                                 n_estimators=1000,
-                                 subsample_fr=.8,
-                                 min_samples_leaf=10,
-                                 min_impurity_decrease=0.001,
-                                 verbose=0, min_weight_fraction_leaf=.01)
+        est = AutomatedCausalForestDML(model_y=automl_model_reg(),
+                                       model_t=GradientBoostingClassifier(),
+                                       discrete_treatment=True,
+                                       n_estimators=1000,
+                                       max_samples=.4,
+                                       min_samples_leaf=10,
+                                       min_impurity_decrease=0.001,
+                                       verbose=0, min_weight_fraction_leaf=.01)
         est.fit(Y, T, X=X)
         _ = est.effect(X)
-
-
-@pytest.mark.automl
-class TestAutomatedMetalearners(unittest.TestCase):
 
     def test_TLearner(self):
         """Testing the completion of the fit and effect estimation of an AutomatedTLearner"""
         # TLearner test
         # Instantiate TLearner
-        Y, T, X, _ = ihdp_surface_B()
         est = AutomatedTLearner(models=automl_model_reg())
 
         # Test constant and heterogeneous treatment effect, single and multi output y
@@ -188,7 +179,6 @@ class TestAutomatedMetalearners(unittest.TestCase):
         # Test constant treatment effect with multi output Y
         # Test heterogeneous treatment effect
         # Need interactions between T and features
-        Y, T, X, _ = ihdp_surface_B()
         est = AutomatedSLearner(overall_model=automl_model_reg())
 
         est.fit(Y, T, X=X)
@@ -206,3 +196,20 @@ class TestAutomatedMetalearners(unittest.TestCase):
 
         est.fit(Y, T, X=X)
         _ = est.effect(X)
+
+    def test_positional(self):
+        """Test that positional arguments can be used with AutoML wrappers"""
+
+        class TestEstimator:
+            def __init__(self, model_x):
+                self.model_x = model_x
+
+            def fit(self, X, Y):
+                self.model_x.fit(X, Y)
+                return self
+
+            def predict(self, X):
+                return self.model_x.predict(X)
+
+        AutoMLTestEstimator = addAutomatedML(TestEstimator)
+        AutoMLTestEstimator(automl_model_reg()).fit(X, Y).predict(X)
