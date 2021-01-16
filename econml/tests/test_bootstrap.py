@@ -274,7 +274,7 @@ class TestBootstrap(unittest.TestCase):
         Y = [1, 2, 3, 4, 5, 6]
         X = np.array([1, 1, 2, 2, 1, 2]).reshape(-1, 1)
         est = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True)
-        inference = BootstrapInference(n_bootstrap_samples=5)
+        inference = BootstrapInference(n_bootstrap_samples=5, n_jobs=-1, verbose=0)
         est.fit(Y, T, inference=inference)
         est.const_marginal_effect_interval()
 
@@ -292,7 +292,7 @@ class TestBootstrap(unittest.TestCase):
         X = np.array([1, 1, 2, 2, 1, 2, 1, 2]).reshape(-1, 1)
         est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(), model_T_XZ=LogisticRegression(),
                                       flexible_model_effect=LinearRegression(), cv=2)
-        inference = BootstrapInference(n_bootstrap_samples=20)
+        inference = BootstrapInference(n_bootstrap_samples=20, n_jobs=-1, verbose=3)
         est.fit(Y, T, Z=Z, X=X, inference=inference)
         est.const_marginal_effect_interval(X)
 
@@ -303,7 +303,7 @@ class TestBootstrap(unittest.TestCase):
         est = LinearDML(cv=2)
         for kind in ['percentile', 'pivot', 'normal']:
             with self.subTest(kind=kind):
-                inference = BootstrapInference(n_bootstrap_samples=5, bootstrap_type=kind)
+                inference = BootstrapInference(n_bootstrap_samples=5, n_jobs=-1, verbose=0, bootstrap_type=kind)
                 est.fit(Y, T, inference=inference)
                 i = est.const_marginal_effect_interval()
                 inf = est.const_marginal_effect_inference()

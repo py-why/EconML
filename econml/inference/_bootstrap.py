@@ -33,11 +33,14 @@ class BootstrapEstimator:
         This object must support a `fit` method which takes numpy arrays with consistent first dimensions
         as arguments.
 
-    n_bootstrap_samples : int
+    n_bootstrap_samples : int, default: 100
         How many draws to perform.
 
     n_jobs: int, default: None
         The maximum number of concurrently running jobs, as in joblib.Parallel.
+
+    verbose: int, default: 0
+        Verbosity level
 
     compute_means : bool, default: True
         Whether to pass calls through to the underlying collection and return the mean.  Setting this
@@ -50,10 +53,16 @@ class BootstrapEstimator:
         assuming the replicates are normally distributed.
     """
 
-    def __init__(self, wrapped, n_bootstrap_samples=1000, n_jobs=None, compute_means=True, bootstrap_type='pivot'):
+    def __init__(self, wrapped,
+                 n_bootstrap_samples=100,
+                 n_jobs=None,
+                 verbose=0,
+                 compute_means=True,
+                 bootstrap_type='pivot'):
         self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
+        self._verbose = verbose
         self._compute_means = compute_means
         self._bootstrap_type = bootstrap_type
         self._wrapped = wrapped
@@ -109,7 +118,7 @@ class BootstrapEstimator:
             else:  # arg was a scalar, so we shouldn't have converted it
                 return arg
 
-        self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
+        self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
             delayed(fit)(obj,
                          *[convertArg(arg, inds) for arg in args],
                          **{arg: convertArg(named_args[arg], inds) for arg in named_args})
@@ -130,7 +139,7 @@ class BootstrapEstimator:
 
         def proxy(make_call, name, summary):
             def summarize_with(f):
-                results = np.array(Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=3)(
+                results = np.array(Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
                     (f, (obj, name), {}) for obj in self._instances)), f(self._wrapped, name)
                 return summary(*results)
             if make_call:
