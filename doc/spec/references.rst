@@ -109,3 +109,8 @@ References
     Friedberg, R., Tibshirani, J., Athey, S., & Wager, S. (2018).
     Local linear forests.
     arXiv preprint arXiv:1807.11408.
+
+.. [Lundberg2017]
+    Lundberg, S.,  Lee, S. (2017).
+    A Unified Approach to Interpreting Model Predictions.
+    URL https://arxiv.org/abs/1705.07874

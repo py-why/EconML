@@ -27,6 +27,7 @@ Private Module Reference
     econml._ortho_learner
     econml._cate_estimator
     econml._causal_tree
+    econml._shap
     econml.dml._rlearner
     econml.grf._base_grf
     econml.grf._base_grftree
