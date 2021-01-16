@@ -134,7 +134,7 @@ or by explicitly setting ``inference='blb'``, e.g.:
     point = est.effect(X)
     lb, ub = est.effect_interval(X, alpha=0.05)
 
-This inference is enabled by our implementation of the :class:`.SubsampledHonestForest` extension to the scikit-learn
+This inference is enabled by our implementation of the :class:`~econml.grf.RegressionForest` extension to the scikit-learn
 :class:`~sklearn.ensemble.RandomForestRegressor`.
 
 

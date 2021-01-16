@@ -292,7 +292,7 @@ Below we give a brief description of each of these classes:
 
         - **ForestDRLearner.** The child class :class:`.ForestDRLearner` uses a Subsampled Honest Forest regressor
           as a final model (see [Wager2018]_ and [Athey2019]_). The subsampled honest forest is implemented in our library as a scikit-learn extension
-          of the :class:`~sklearn.ensemble.RandomForestRegressor`, in the class :class:`.SubsampledHonestForest`. This estimator
+          of the :class:`~sklearn.ensemble.RandomForestRegressor`, in the class :class:`~econml.grf.RegressionForest`. This estimator
           offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_.
           Using this functionality we can also construct confidence intervals for the CATE:
 
