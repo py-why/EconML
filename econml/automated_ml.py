@@ -41,11 +41,10 @@ SAMPLE_WEIGHTS_MODELS_SET = set([
 
 def setAutomatedMLWorkspace(create_workspace=False,
                             create_resource_group=False, workspace_region=None, *,
-                            subscription_id=None, resource_group=None, workspace_name=None, auth=None):
+                            auth=None, subscription_id, resource_group, workspace_name):
     """Set configuration file for AutomatedML actions with the EconML library. If
     ``create_workspace`` is set true, a new workspace is created
-    for the user. If ``create_workspace`` is set true, a new workspace is
-    created for the user.
+    for the user.
 
     Parameters
     ----------
@@ -68,8 +67,7 @@ def setAutomatedMLWorkspace(create_workspace=False,
         authentication portal in the browser.
 
     subscription_id: String, required
-       Definition of a class that will serve as the parent class of the
-       AutomatedMLMixin. This class must inherit from _BaseDML.
+       Azure subscription ID for the subscription under which to run the models
 
     resource_group: String, required
        Name of resource group of workspace to be created or set.
@@ -285,12 +283,12 @@ class AutomatedMLMixin():
         # Loop through the kwargs and args if any of them is an AutoMLConfig file, pass them
         # create model and pass model into final.
         new_args = ()
-        for var in args:
+        for idx, arg in enumerate(args):
             # If item is an automl config, get its corresponding
             # AutomatedML Model and add it to new_Args
-            if isinstance(var, EconAutoMLConfig):
-                var = self._get_automated_ml_model(kwarg, key)
-            new_args += (var,)
+            if isinstance(arg, EconAutoMLConfig):
+                arg = self._get_automated_ml_model(arg, f"arg{idx}")
+            new_args += (arg,)
 
         for key in kwargs:
             kwarg = kwargs[key]

@@ -309,7 +309,7 @@ class TestRefit(unittest.TestCase):
                         model_t=RandomForestClassifier(min_samples_leaf=10),
                         discrete_treatment=True,
                         linear_first_stages=False,
-                        n_splits=3)
+                        cv=3)
         est.fit(y, T, X=X, W=W)
         est.effect(X)
         est.discrete_treatment = False
@@ -337,7 +337,7 @@ class TestRefit(unittest.TestCase):
 
         dml = DML(model_y=LinearRegression(),
                   model_t=LinearRegression(),
-                  n_splits=1,
+                  cv=1,
                   model_final=StatsModelsLinearRegression(fit_intercept=False),
                   linear_first_stages=False,
                   random_state=123)

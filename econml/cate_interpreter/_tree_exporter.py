@@ -87,9 +87,10 @@ class _MPLExporter(_MPLTreeExporter):
         self.title = title
         super().__init__(*args, **kwargs)
 
-    def export(self, decision_tree, ax=None):
+    def export(self, decision_tree, node_dict=None, ax=None):
         if ax is None:
             ax = plt.gca()
+        self.node_dict = node_dict
         anns = super().export(decision_tree, ax=ax)
         if self.title is not None:
             ax.set_title(self.title)
@@ -104,6 +105,10 @@ class _DOTExporter(_DOTTreeExporter):
     def __init__(self, *args, title=None, **kwargs):
         self.title = title
         super().__init__(*args, **kwargs)
+
+    def export(self, decision_tree, node_dict=None):
+        self.node_dict = node_dict
+        return super().export(decision_tree)
 
     def tail(self):
         if self.title is not None:
@@ -123,16 +128,17 @@ class _CateTreeMixin(_TreeExporter):
         super().__init__(*args, **kwargs)
 
     def get_fill_color(self, tree, node_id):
+
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
             # red for negative, green for positive
             self.colors['rgb'] = [(179, 108, 96), (81, 157, 96)]
 
         # in multi-target use first target
-        tree_min = np.min(tree.value, axis=0, keepdims=True)[(0,) * tree.value.ndim]
-        tree_max = np.max(tree.value, axis=0, keepdims=True)[(0,) * tree.value.ndim]
+        tree_min = np.min(np.mean(tree.value, axis=1))
+        tree_max = np.max(np.mean(tree.value, axis=1))
 
-        node_val = tree.value[(node_id,) + (0,) * (tree.value.ndim - 1)]
+        node_val = np.mean(tree.value[node_id])
 
         if node_val > 0:
             value = [max(0, tree_min) / tree_max, node_val / tree_max]
@@ -142,27 +148,64 @@ class _CateTreeMixin(_TreeExporter):
         return self.get_color(value)
 
     def node_replacement_text(self, tree, node_id, criterion):
-        if tree.n_outputs == 1:
-            value = tree.value[node_id][0, :]
-        else:
-            value = tree.value[node_id]
 
         # Write node mean CATE
-        node_string = 'CATE mean = '
-        value_text = np.array2string(value[0, 0] if self.include_uncertainty else value[0], precision=self.precision)
-        node_string += value_text + self.characters[4]
+        node_info = self.node_dict[node_id]
+        node_string = 'CATE mean' + self.characters[4]
+        value_text = ""
+        mean = node_info['mean']
+        if hasattr(mean, 'shape') and (len(mean.shape) > 0):
+            if len(mean.shape) == 1:
+                for i in range(mean.shape[0]):
+                    value_text += "{}".format(np.around(mean[i], self.precision))
+                    if 'ci' in node_info:
+                        value_text += " ({}, {})".format(np.around(node_info['ci'][0][i], self.precision),
+                                                         np.around(node_info['ci'][1][i], self.precision))
+                    if i != mean.shape[0] - 1:
+                        value_text += ", "
+                value_text += self.characters[4]
+            elif len(mean.shape) == 2:
+                for i in range(mean.shape[0]):
+                    for j in range(mean.shape[1]):
+                        value_text += "{}".format(np.around(mean[i, j], self.precision))
+                        if 'ci' in node_info:
+                            value_text += " ({}, {})".format(np.around(node_info['ci'][0][i, j], self.precision),
+                                                             np.around(node_info['ci'][1][i, j], self.precision))
+                        if j != mean.shape[1] - 1:
+                            value_text += ", "
+                    value_text += self.characters[4]
+            else:
+                raise ValueError("can only handle up to 2d values")
+        else:
+            value_text += "{}".format(np.around(mean, self.precision))
+            if 'ci' in node_info:
+                value_text += " ({}, {})".format(np.around(node_info['ci'][0], self.precision),
+                                                 np.around(node_info['ci'][1], self.precision)) + self.characters[4]
+        node_string += value_text
 
         # Write node std of CATE
-        node_string += "CATE std = "
-        value_text = np.array2string(np.sqrt(np.clip(tree.impurity[node_id], 0, np.inf)), precision=self.precision)
-        node_string += value_text + self.characters[4]
-
-        # Write confidence interval information if at leaf node
-        if (tree.children_left[node_id] == _tree.TREE_LEAF) and self.include_uncertainty:
-            ci_text = "Mean Endpoints of {}% CI: ({}, {})".format(int((1 - self.uncertainty_level) * 100),
-                                                                  np.around(value[1, 0], self.precision),
-                                                                  np.around(value[2, 0], self.precision))
-            node_string += ci_text + self.characters[4]
+        node_string += "CATE std" + self.characters[4]
+        std = node_info['std']
+        value_text = ""
+        if hasattr(std, 'shape') and (len(std.shape) > 0):
+            if len(std.shape) == 1:
+                for i in range(std.shape[0]):
+                    value_text += "{}".format(np.around(std[i], self.precision))
+                    if i != std.shape[0] - 1:
+                        value_text += ", "
+            elif len(std.shape) == 2:
+                for i in range(std.shape[0]):
+                    for j in range(std.shape[1]):
+                        value_text += "{}".format(np.around(std[i, j], self.precision))
+                        if j != std.shape[1] - 1:
+                            value_text += ", "
+                    if i != std.shape[0] - 1:
+                        value_text += self.characters[4]
+            else:
+                raise ValueError("can only handle up to 2d values")
+        else:
+            value_text += "{}".format(np.around(std, self.precision))
+        node_string += value_text
 
         return node_string
 

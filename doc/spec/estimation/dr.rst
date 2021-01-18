@@ -242,7 +242,7 @@ Below we give a brief description of each of these classes:
                             }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         est = DRLearner(model_regression=model_reg(), model_propensity=model_clf(),
-                        model_final=model_reg(), n_splits=5)
+                        model_final=model_reg(), cv=5)
         est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
 
@@ -427,9 +427,42 @@ Usage FAQs
                             }, cv=5, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         est = DRLearner(model_regression=model_reg(), model_propensity=model_clf(),
-                        model_final=model_reg(), n_splits=5)
+                        model_final=model_reg(), cv=5)
         est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
+
+    Alternatively, you can pick the best first stage models outside of the EconML framework and pass in the selected models to EconML. 
+    This can save on runtime and computational resources. Furthermore, it is statistically more stable since all data is being used for
+    training rather than a fold. E.g.:
+
+    .. testcode::
+
+        from econml.drlearner import DRLearner
+        from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+        from sklearn.model_selection import GridSearchCV
+        model_reg = lambda: GridSearchCV(
+                        estimator=RandomForestRegressor(),
+                        param_grid={
+                                'max_depth': [3, None],
+                                'n_estimators': (10, 50, 100)
+                            }, cv=5, n_jobs=-1, scoring='neg_mean_squared_error'
+                        )
+        model_clf = lambda: GridSearchCV(
+                        estimator=RandomForestClassifier(min_samples_leaf=10),
+                        param_grid={
+                                'max_depth': [3, None],
+                                'n_estimators': (10, 50, 100)
+                            }, cv=5, n_jobs=-1, scoring='neg_mean_squared_error'
+                        )
+        XW = np.hstack([X, W])
+        model_regression = model_reg().fit(XW, Y).best_estimator_
+        model_propensity = model_clf().fit(XW, T).best_estimator_
+        est = DRLearner(model_regression=model_regression, 
+                        model_propensity=model_propensity,
+                        model_final=model_regression, cv=5)
+        est.fit(y, T, X=X, W=W)
+        point = est.effect(X, T0=T0, T1=T1)
+
 
 - **What if I have many treatments?**
 
@@ -467,10 +500,10 @@ Usage FAQs
     If one uses cross-validated estimators as first stages, then model selection for the first stage models
     is performed automatically.
 
-- **How should I set the parameter `n_splits`?**
+- **How should I set the parameter `cv`?**
 
     This parameter defines the number of data partitions to create in order to fit the first stages in a
-    crossfittin manner (see :class:`._OrthoLearner`). The default is 2, which
+    crossfitting manner (see :class:`._OrthoLearner`). The default is 2, which
     is the minimal. However, larger values like 5 or 6 can lead to greater statistical stability of the method,
     especially if the number of samples is small. So we advise that for small datasets, one should raise this
     value. This can increase the computational cost as more first stage models are being fitted.

@@ -430,18 +430,40 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.dml import DML
+        from econml.dml import SparseLinearDML
         from sklearn.ensemble import RandomForestRegressor
         from sklearn.model_selection import GridSearchCV
         first_stage = lambda: GridSearchCV(
                         estimator=RandomForestRegressor(),
                         param_grid={
                                 'max_depth': [3, None],
-                                'n_estimators': (10, 30, 50, 100, 200, 400, 600, 800, 1000),
+                                'n_estimators': (10, 30, 50, 100, 200),
                                 'max_features': (2,4,6)
                             }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         est = SparseLinearDML(model_y=first_stage(), model_t=first_stage())
+
+    Alternatively, you can pick the best first stage models outside of the EconML framework and pass in the selected models to EconML. 
+    This can save on runtime and computational resources. Furthermore, it is statistically more stable since all data is being used for
+    training rather than a fold. E.g.:
+
+    .. testcode::
+
+        from econml.dml import LinearDML
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.model_selection import GridSearchCV
+        first_stage = lambda: GridSearchCV(
+                        estimator=RandomForestRegressor(),
+                        param_grid={
+                                'max_depth': [3, None],
+                                'n_estimators': (10, 30, 50, 100, 200),
+                                'max_features': (2,4,6)
+                            }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
+                        )
+        model_y = first_stage().fit(X, Y).best_estimator_
+        model_t = first_stage().fit(X, T).best_estimator_
+        est = LinearDML(model_y=model_y, model_t=model_t)
+
 
 - **How do I select the hyperparameters of the final model (if any)?**
 
@@ -551,10 +573,10 @@ Usage FAQs
     If one uses cross-validated estimators as first stages, then model selection for the first stage models
     is performed automatically.
 
-- **How should I set the parameter `n_splits`?**
+- **How should I set the parameter `cv`?**
 
     This parameter defines the number of data partitions to create in order to fit the first stages in a
-    crossfittin manner (see :class:`._OrthoLearner`). The default is 2, which
+    crossfitting manner (see :class:`._OrthoLearner`). The default is 2, which
     is the minimal. However, larger values like 5 or 6 can lead to greater statistical stability of the method,
     especially if the number of samples is small. So we advise that for small datasets, one should raise this
     value. This can increase the computational cost as more first stage models are being fitted.
