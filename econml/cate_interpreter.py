@@ -525,7 +525,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
             The cost of treatment.  Can be a scalar or a variable cost with the same number of rows as ``X``
 
         treatment_names : list of string, optional
-            The names of the treatments
+            The names of the treatments (excluding the control/baseline treatment)
         """
         self.tree_model = PolicyTree(criterion='neg_welfare',
                                      splitter='best',
