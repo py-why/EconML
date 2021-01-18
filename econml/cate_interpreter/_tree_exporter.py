@@ -4,7 +4,6 @@
 import numpy as np
 import re
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 # HACK: We're relying on some of sklearn's non-public classes which are not completely stable.
