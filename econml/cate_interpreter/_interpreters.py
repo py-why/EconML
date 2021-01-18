@@ -5,7 +5,7 @@ import abc
 import numpy as np
 from io import StringIO
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
-from .policy import PolicyTree
+from ..policy import PolicyTree
 from sklearn.utils.validation import check_is_fitted
 import graphviz
 from ._tree_exporter import _CateTreeDOTExporter, _CateTreeMPLExporter, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
