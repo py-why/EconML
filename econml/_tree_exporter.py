@@ -16,6 +16,46 @@ except ImportError:  # prior to sklearn 0.22.0, the ``export`` submodule was pub
     from sklearn.tree.export import _BaseTreeExporter, _MPLTreeExporter, _DOTTreeExporter
 
 
+def _color_brew(n):
+    """Generate n colors with equally spaced hues.
+    Parameters
+    ----------
+    n : int
+        The number of colors required.
+    Returns
+    -------
+    color_list : list, length n
+        List of n tuples of form (R, G, B) being the components of each color.
+    """
+    color_list = []
+
+    # Initialize saturation & value; calculate chroma & value shift
+    s, v = 0.75, 0.9
+    c = s * v
+    m = v - c
+
+    for h in np.arange(25, 385, 360. / n).astype(int):
+        # Calculate some intermediate values
+        h_bar = h / 60.
+        x = c * (1 - abs((h_bar % 2) - 1))
+        # Initialize RGB with same hue & chroma as our color
+        rgb = [(c, x, 0),
+               (x, c, 0),
+               (0, c, x),
+               (0, x, c),
+               (x, 0, c),
+               (c, 0, x),
+               (c, x, 0)]
+        r, g, b = rgb[int(h_bar)]
+        # Shift the initial RGB values to match value and store
+        rgb = [(int(255 * (r + m))),
+               (int(255 * (g + m))),
+               (int(255 * (b + m)))]
+        color_list.append(rgb)
+
+    return color_list
+
+
 class _TreeExporter(_BaseTreeExporter):
     """
     Tree exporter that supports replacing the "value" part of each node's text with something customized
@@ -142,24 +182,25 @@ class _PolicyTreeMixin(_TreeExporter):
         super().__init__(*args, **kwargs)
 
     def get_fill_color(self, tree, node_id):
+        # TODO. Create our own color pallete for multiple treatments. The one below is for binary treatments.
         # Fetch appropriate color for node
         if 'rgb' not in self.colors:
-            # red for negative, green for positive
-            self.colors['rgb'] = [(179, 108, 96), (81, 157, 96)]
+            self.colors['rgb'] = _color_brew(tree.n_outputs)  # [(179, 108, 96), (81, 157, 96)]
 
-        node_val = tree.value[node_id][0, :] / tree.weighted_n_node_samples[node_id]
+        node_val = tree.value[node_id][:, 0]
+        node_val = node_val - np.min(node_val)
+        if np.max(node_val) > 0:
+            node_val = node_val / np.max(node_val)
         return self.get_color(node_val)
 
     def node_replacement_text(self, tree, node_id, criterion):
-        value = tree.value[node_id][0, :]
-        node_string = '(effect - cost) mean = %s' % np.round((value[1] -
-                                                              value[0]) / tree.n_node_samples[node_id],
-                                                             self.precision)
+        value = tree.value[node_id][:, 0]
+        node_string = 'value = %s' % np.round(value[1:], self.precision)
         node_string += self.characters[4]
 
         if tree.children_left[node_id] == _tree.TREE_LEAF:
             # Write node mean CATE
-            node_string += 'Recommended Treatment = '
+            node_string += 'Treatment = '
             if self.treatment_names:
                 class_name = self.treatment_names[np.argmax(value)]
             else:

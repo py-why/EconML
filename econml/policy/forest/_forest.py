@@ -149,7 +149,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
                  min_weight_fraction_leaf=0.,
                  max_features="auto",
                  min_impurity_decrease=0.,
-                 max_samples=.45,
+                 max_samples=.5,
                  min_balancedness_tol=.45,
                  honest=True,
                  n_jobs=-1,
@@ -411,7 +411,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
-    def predict(self, X):
+    def predict_value(self, X):
         """ 
         """
 
@@ -428,9 +428,12 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         # Parallel loop
         lock = threading.Lock()
         Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
-            delayed(_accumulate_prediction)(e.predict, X, [y_hat], lock)
+            delayed(_accumulate_prediction)(e.predict_value, X, [y_hat], lock)
             for e in self.estimators_)
 
         y_hat /= len(self.estimators_)
 
         return y_hat
+
+    def predict(self, X):
+        return np.argmax(self.predict_value(X), axis=1)

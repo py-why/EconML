@@ -525,7 +525,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
             The cost of treatment.  Can be a scalar or a variable cost with the same number of rows as ``X``
 
         treatment_names : list of string, optional
-            The names of the two treatments
+            The names of the treatments
         """
         self.tree_model = PolicyTree(criterion='neg_welfare',
                                      splitter='best',
@@ -538,12 +538,18 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
                                      min_balancedness_tol=self.min_balancedness_tol,
                                      honest=False,
                                      random_state=self.random_state)
+        if (len(cate_estimator._d_y) > 0) and cate_estimator._d_y[0] > 1:
+            raise ValueError("Can only interpret estimators fit with a single outcome!")
+
         if self.risk_level is None:
             y_pred = cate_estimator.const_marginal_effect(X)
         elif not self.risk_seeking:
             y_pred, _ = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
         else:
             _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
+
+        # remove the outcome dimension if it exists
+        y_pred = y_pred.reshape((-1, y_pred.shape[-1]))
 
         if sample_treatment_costs is not None:
             assert sample_treatment_costs.shape == y_pred.shape,\
@@ -554,9 +560,9 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         all_y = np.hstack([np.zeros((y_pred.shape[0], 1)), np.atleast_1d(y_pred)])
 
         self.tree_model.fit(X, all_y)
-        self.policy_value = np.mean(np.sum(all_y * self.tree_model.predict(X), axis=1))
-        self.always_treat_value = np.mean(y_pred)
-        self.treatment_names = treatment_names
+        self.policy_value = np.mean(np.max(self.tree_model.predict_value(X), axis=1))
+        self.always_treat_value = np.mean(y_pred, axis=0)
+        self.treatment_names = ['None'] + treatment_names
         return self
 
     def treat(self, X):
@@ -581,7 +587,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
                            leaves_parallel, rotate, rounded,
                            special_characters, precision):
         title = "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
-        title += "Average policy gains over always treating: {}".format(
+        title += "Average policy gains over constant treatment policies for each treatment: {}".format(
             np.around(self.policy_value - self.always_treat_value, precision))
         return _PolicyTreeDOTExporter(out_file=out_file, title=title,
                                       treatment_names=self.treatment_names, feature_names=feature_names,
@@ -593,7 +599,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
                            rounded, precision, fontsize):
         title = "" if title is None else title
         title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value, precision))
-        title += "Average policy gains over always treating: {}".format(
+        title += "Average policy gains over constant treatment policies for each treatment: {}".format(
             np.around(self.policy_value - self.always_treat_value, precision))
         return _PolicyTreeMPLExporter(treatment_names=self.treatment_names, title=title,
                                       feature_names=feature_names, filled=filled,

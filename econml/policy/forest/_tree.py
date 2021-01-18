@@ -428,7 +428,7 @@ class PolicyTree(BaseEstimator):
             return inds, inds
 
     def predict(self, X, check_input=True):
-        """Return the prefix of relevant fitted local parameters for each X, i.e. theta(X).
+        """
 
         Parameters
         ----------
@@ -441,8 +441,26 @@ class PolicyTree(BaseEstimator):
 
         Returns
         -------
-        theta(X)[:n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
-            The estimated relevant parameters for each row of X
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        pred = self.tree_.predict(X)
+        return np.argmax(pred, axis=1)
+
+    def predict_value(self, X, check_input=True):
+        """
+
+        Parameters
+        ----------
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
         """
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
