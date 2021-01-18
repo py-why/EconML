@@ -5,6 +5,7 @@ import abc
 import numpy as np
 from io import StringIO
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
+from .policy import PolicyTree
 from sklearn.utils.validation import check_is_fitted
 import graphviz
 from ._tree_exporter import _CateTreeDOTExporter, _CateTreeMPLExporter, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
@@ -420,11 +421,6 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         Whether to use an optimistic or pessimistic value for the effect estimate at a
         sample point. Used only when risk_level is not None.
 
-    splitter : string, optional, default "best"
-        The strategy used to choose the split at each node. Supported
-        strategies are "best" to choose the best split and "random" to choose
-        the best random split.
-
     max_depth : int or None, optional, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
@@ -455,17 +451,6 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    random_state : int, RandomState instance or None, optional, default None
-        If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-
-    max_leaf_nodes : int or None, optional, default None
-        Grow a tree with ``max_leaf_nodes`` in best-first fashion.
-        Best nodes are defined as relative reduction in impurity.
-        If None then unlimited number of leaf nodes.
-
     min_impurity_decrease : float, optional, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
@@ -480,6 +465,12 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         left child, and ``N_t_R`` is the number of samples in the right child.
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
+
+    random_state : int, RandomState instance or None, optional, default None
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
 
     Attributes
     ----------
@@ -497,27 +488,24 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
     def __init__(self,
                  risk_level=None,
                  risk_seeking=False,
-                 splitter="best",
                  max_depth=None,
                  min_samples_split=2,
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
                  max_features=None,
-                 random_state=None,
-                 max_leaf_nodes=None,
-                 min_impurity_decrease=0.):
+                 min_balancedness_tol=.45,
+                 min_impurity_decrease=0.,
+                 random_state=None):
         self.risk_level = risk_level
         self.risk_seeking = risk_seeking
-        self.criterion = "gini"
-        self.splitter = splitter
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.min_weight_fraction_leaf = min_weight_fraction_leaf
         self.max_features = max_features
         self.random_state = random_state
-        self.max_leaf_nodes = max_leaf_nodes
         self.min_impurity_decrease = min_impurity_decrease
+        self.min_balancedness_tol = min_balancedness_tol
 
     def interpret(self, cate_estimator, X, sample_treatment_costs=None, treatment_names=None):
         """
@@ -539,16 +527,17 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         treatment_names : list of string, optional
             The names of the two treatments
         """
-        self.tree_model = DecisionTreeClassifier(criterion=self.criterion,
-                                                 splitter=self.splitter,
-                                                 max_depth=self.max_depth,
-                                                 min_samples_split=self.min_samples_split,
-                                                 min_samples_leaf=self.min_samples_leaf,
-                                                 min_weight_fraction_leaf=self.min_weight_fraction_leaf,
-                                                 max_features=self.max_features,
-                                                 random_state=self.random_state,
-                                                 max_leaf_nodes=self.max_leaf_nodes,
-                                                 min_impurity_decrease=self.min_impurity_decrease)
+        self.tree_model = PolicyTree(criterion='neg_welfare',
+                                     splitter='best',
+                                     max_depth=self.max_depth,
+                                     min_samples_split=self.min_samples_split,
+                                     min_samples_leaf=self.min_samples_leaf,
+                                     min_weight_fraction_leaf=self.min_weight_fraction_leaf,
+                                     max_features=self.max_features,
+                                     min_impurity_decrease=self.min_impurity_decrease,
+                                     min_balancedness_tol=self.min_balancedness_tol,
+                                     honest=False,
+                                     random_state=self.random_state)
         if self.risk_level is None:
             y_pred = cate_estimator.const_marginal_effect(X)
         elif not self.risk_seeking:
@@ -556,32 +545,16 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         else:
             _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
 
-        # TODO: generalize to multiple treatment case?
-        assert all(d == 1 for d in y_pred.shape[1:]), ("Interpretation is only available for "
-                                                       "single-dimensional treatments and outcomes")
-
-        y_pred = y_pred.ravel()
-
         if sample_treatment_costs is not None:
-            assert np.ndim(sample_treatment_costs) < 2, "Sample treatment costs should be a vector or scalar"
+            assert sample_treatment_costs.shape == y_pred.shape,\
+                "`sample_treatment_costs` should have dimension (n_samples, n_treatments)"
             y_pred -= sample_treatment_costs
 
         # get index of best treatment
-        all_y = np.hstack([np.zeros((y_pred.shape[0], 1)), y_pred.reshape(-1, 1)])
-        best_y = np.argmax(all_y, axis=-1)
+        all_y = np.hstack([np.zeros((y_pred.shape[0], 1)), np.atleast_1d(y_pred)])
 
-        used_t = np.unique(best_y)
-        if len(used_t) == 1:
-            best_y, = used_t
-            if best_y > 0:
-                raise AttributeError("All samples should be treated with the given treatment costs. " +
-                                     "Consider increasing the cost!")
-            else:
-                raise AttributeError("No samples should be treated with the given treatment costs. " +
-                                     "Consider decreasing the cost!")
-
-        self.tree_model.fit(X, best_y, sample_weight=np.abs(y_pred))
-        self.policy_value = np.mean(all_y[:, self.tree_model.predict(X)])
+        self.tree_model.fit(X, all_y)
+        self.policy_value = np.mean(np.sum(all_y * self.tree_model.predict(X), axis=1))
         self.always_treat_value = np.mean(y_pred)
         self.treatment_names = treatment_names
         return self

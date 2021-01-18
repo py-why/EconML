@@ -14,7 +14,7 @@ from warnings import catch_warnings, simplefilter, warn
 from abc import ABCMeta, abstractmethod
 import numpy as np
 import threading
-from ._ensemble import BaseEnsemble, _partition_estimators
+from .._ensemble import BaseEnsemble, _partition_estimators
 from ..utilities import check_inputs, cross_product
 from ..tree._tree import DTYPE, DOUBLE
 from ._base_grftree import GRFTree

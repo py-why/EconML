@@ -12,13 +12,13 @@
 import numpy as np
 import numbers
 from math import ceil
-from ..tree import Tree
+from ...tree import Tree
+from ...tree._criterion import Criterion
+from ...tree._splitter import Splitter, BestSplitter
+from ...tree import DepthFirstTreeBuilder
+from ...tree import _tree
 from ._criterion import LinearPolicyCriterion
-from ..tree._criterion import Criterion
-from ..tree._splitter import Splitter, BestSplitter
-from ..tree import DepthFirstTreeBuilder
 from . import _criterion
-from ..tree import _tree
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import train_test_split
 from sklearn.utils import check_array, check_X_y
@@ -34,7 +34,7 @@ import copy
 DTYPE = _tree.DTYPE
 DOUBLE = _tree.DOUBLE
 
-CRITERIA_POLICY = {"linear": LinearPolicyCriterion}
+CRITERIA_POLICY = {"neg_welfare": LinearPolicyCriterion}
 
 SPLITTERS = {"best": BestSplitter, }
 
@@ -50,6 +50,9 @@ class PolicyTree(BaseEstimator):
 
     Parameters
     ----------
+    criterion : {``'neg_welfare'``}, default='neg_welfare'
+        The criterion type
+
     splitter : {"best"}, default="best"
         The strategy used to choose the split at each node. Supported
         strategies are "best" to choose the best split.
@@ -143,16 +146,6 @@ class PolicyTree(BaseEstimator):
     feature_importances_ : ndarray of shape (n_features,)
         The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
-        The importance of a feature is computed as the (normalized) total heterogeneity that the feature
-        creates. Each split that the feature was chosen adds::
-
-            parent_weight * (left_weight * right_weight)
-                * mean((value_left[k] - value_right[k])**2) / parent_weight**2
-
-        to the importance of the feature. Each such quantity is also weighted by the depth of the split.
-        By default splits below `max_depth=4` are not used in this calculation and also each split
-        at depth `depth`, is re-weighted by 1 / (1 + `depth`)**2.0. See the method ``feature_importances``
-        for a method that allows one to change these defaults.
 
     max_features_ : int
         The inferred value of max_features.
@@ -176,6 +169,7 @@ class PolicyTree(BaseEstimator):
     """
 
     def __init__(self, *,
+                 criterion='neg_welfare',
                  splitter="best",
                  max_depth=None,
                  min_samples_split=10,
@@ -186,6 +180,7 @@ class PolicyTree(BaseEstimator):
                  min_impurity_decrease=0.,
                  min_balancedness_tol=0.45,
                  honest=True):
+        self.criterion = criterion
         self.splitter = splitter
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -221,7 +216,10 @@ class PolicyTree(BaseEstimator):
         check_is_fitted(self)
         return self.tree_.n_leaves
 
-    def fit(self, X, y, sample_weight=None, check_input=True):
+    def init(self,):
+        return self
+
+    def fit(self, X, y, *, sample_weight=None, check_input=True):
         """ Fit the tree from the data
 
         Parameters
@@ -247,7 +245,7 @@ class PolicyTree(BaseEstimator):
 
         # Determine output settings
         if check_input:
-            X, y = check_X_y(X, y)
+            X, y = check_X_y(X, y, multi_output=True, y_numeric=True)
         n_samples, self.n_features_ = X.shape
         self.n_outputs_ = 1 if y.ndim == 1 else y.shape[1]
         self.n_samples_ = n_samples
@@ -255,8 +253,7 @@ class PolicyTree(BaseEstimator):
 
         # Important: This must be the first invocation of the random state at fit time, so that
         # train/test splits are re-generatable from an external object simply by knowing the
-        # random_state parameter of the tree. Can be useful in the future if one wants to create local
-        # linear predictions. Currently is also useful for testing.
+        # random_state parameter of the tree.
         inds = np.arange(n_samples, dtype=np.intp)
         if self.honest:
             random_state.shuffle(inds)
@@ -363,15 +360,18 @@ class PolicyTree(BaseEstimator):
         if self.honest:
             max_val = len(samples_val) if sample_weight is None else np.count_nonzero(sample_weight[samples_val])
         # Initialize the criterion object and the criterion_val object if honest.
-        criterion = CRITERIA_POLICY['linear'](
-            self.n_outputs_, self.n_outputs_, self.n_features_, self.n_outputs_, n_samples, max_train,
-            random_state.randint(np.iinfo(np.int32).max))
-        if self.honest:
-            criterion_val = CRITERIA_POLICY['linear'](
-                self.n_outputs_, self.n_outputs_, self.n_features_, self.n_outputs_, n_samples, max_val,
+        if self.criterion == 'neg_welfare':
+            criterion = CRITERIA_POLICY['neg_welfare'](
+                self.n_outputs_, self.n_outputs_, self.n_features_, self.n_outputs_, n_samples, max_train,
                 random_state.randint(np.iinfo(np.int32).max))
+            if self.honest:
+                criterion_val = CRITERIA_POLICY['neg_welfare'](
+                    self.n_outputs_, self.n_outputs_, self.n_features_, self.n_outputs_, n_samples, max_val,
+                    random_state.randint(np.iinfo(np.int32).max))
+            else:
+                criterion_val = criterion
         else:
-            criterion_val = criterion
+            raise ValueError("Only `criterion='neg_welfare'` is currently supported.")
 
         splitter = self.splitter
         if not isinstance(self.splitter, Splitter):
@@ -381,7 +381,7 @@ class PolicyTree(BaseEstimator):
                                                 min_weight_leaf,
                                                 self.min_balancedness_tol,
                                                 self.honest,
-                                                None,
+                                                -1.0,
                                                 False,
                                                 random_state.randint(np.iinfo(np.int32).max))
 
