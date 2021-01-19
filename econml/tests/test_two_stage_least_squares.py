@@ -9,7 +9,7 @@ import warnings
 import pytest
 
 from econml.utilities import shape, reshape
-from econml.two_stage_least_squares import (NonparametricTwoStageLeastSquares, HermiteFeatures, DPolynomialFeatures)
+from econml.iv.sieve import (SieveTSLS, HermiteFeatures, DPolynomialFeatures)
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
@@ -73,7 +73,7 @@ class Test2SLS(unittest.TestCase):
                         d_w = 1
                         if d_z >= n_t:
                             T, Y, X, Z, W = [make_random(d) for d in [d_t, d_y, d_x, d_z, d_w]]
-                            est = NonparametricTwoStageLeastSquares(
+                            est = SieveTSLS(
                                 t_featurizer=PolynomialFeatures(),
                                 x_featurizer=PolynomialFeatures(),
                                 z_featurizer=PolynomialFeatures(),
@@ -100,7 +100,7 @@ class Test2SLS(unittest.TestCase):
         T = np.hstack([np.cross(X, Z).reshape(-1, 1) + W, (np.prod(X, axis=1) + np.prod(Z, axis=1)).reshape(-1, 1)])
         Y = X * T + X**2
 
-        est = NonparametricTwoStageLeastSquares(
+        est = SieveTSLS(
             t_featurizer=PolynomialFeatures(degree=2, interaction_only=False, include_bias=True),
             x_featurizer=PolynomialFeatures(degree=2, interaction_only=False, include_bias=True),
             z_featurizer=PolynomialFeatures(degree=2, interaction_only=False, include_bias=True),
@@ -149,10 +149,10 @@ class Test2SLS(unittest.TestCase):
         p_fresh = x_fresh + z_fresh * e_fresh + np.random.uniform(size=(n, d_t))
 
         for (dt, dx, dz) in [(0, 0, 0), (1, 1, 1), (5, 5, 5), (10, 10, 10), (3, 3, 10), (10, 10, 3)]:
-            np2sls = NonparametricTwoStageLeastSquares(t_featurizer=HermiteFeatures(dt),
-                                                       x_featurizer=HermiteFeatures(dx),
-                                                       z_featurizer=HermiteFeatures(dz),
-                                                       dt_featurizer=HermiteFeatures(dt, shift=1))
+            np2sls = SieveTSLS(t_featurizer=HermiteFeatures(dt),
+                               x_featurizer=HermiteFeatures(dx),
+                               z_featurizer=HermiteFeatures(dz),
+                               dt_featurizer=HermiteFeatures(dt, shift=1))
             np2sls.fit(y, p, X=x, W=w, Z=z)
             effect = np2sls.effect(x_fresh, np.zeros(shape(p_fresh)), p_fresh)
             losses.append(np.mean(np.square(p_fresh * x_fresh - effect)))

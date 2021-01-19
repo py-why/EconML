@@ -6,10 +6,10 @@ import unittest
 import shap
 from shap.plots import scatter, heatmap, bar, beeswarm, waterfall, force
 from econml.dml import *
-from econml.ortho_forest import *
-from econml.drlearner import *
+from econml.orf import *
+from econml.dr import *
 from econml.metalearners import *
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import PolynomialFeatures
 

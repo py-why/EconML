@@ -11,7 +11,7 @@ from joblib import Parallel, delayed
 
 from econml.dml import DML, LinearDML, SparseLinearDML, NonParamDML
 from econml.metalearners import XLearner, TLearner, SLearner, DomainAdaptationLearner
-from econml.drlearner import DRLearner
+from econml.dr import DRLearner
 from econml.score import RScorer
 
 

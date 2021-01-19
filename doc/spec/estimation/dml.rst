@@ -445,7 +445,8 @@ Usage FAQs
 
     Alternatively, you can pick the best first stage models outside of the EconML framework and pass in the selected models to EconML. 
     This can save on runtime and computational resources. Furthermore, it is statistically more stable since all data is being used for
-    training rather than a fold. E.g.:
+    hyper-parameter tuning rather than a single fold inside of the DML algorithm (as long as the number of hyperparameter values
+    that you are selecting over is not exponential in the number of samples, this approach is statistically valid). E.g.:
 
     .. testcode::
 
@@ -723,7 +724,6 @@ lightning package implements such a class::
     from econml.dml import DML
     from sklearn.preprocessing import PolynomialFeatures
     from lightning.regression import FistaRegressor
-    from econml.bootstrap import BootstrapEstimator
     from sklearn.linear_model import MultiTaskElasticNet
 
     est = DML(model_y=MultiTaskElasticNet(alpha=0.1),

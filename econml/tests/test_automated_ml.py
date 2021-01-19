@@ -11,7 +11,7 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, \
 from sklearn.model_selection import KFold
 from econml.dml import *
 from econml.metalearners import *
-from econml.drlearner import DRLearner
+from econml.dr import DRLearner
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, \
     cross_product

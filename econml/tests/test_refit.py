@@ -6,9 +6,9 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
 from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, ForestDML)
-from econml.drlearner import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
-from econml.ortho_iv import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV,
-                             IntentToTreatDRIV, LinearIntentToTreatDRIV)
+from econml.dr import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
+from econml.iv.dml import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV)
+from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
 from econml.sklearn_extensions.linear_model import (DebiasedLasso, WeightedLasso,
                                                     StatsModelsRLM, StatsModelsLinearRegression)
 from econml.inference import NormalInferenceResults, BootstrapInference
