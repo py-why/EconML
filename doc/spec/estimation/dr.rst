@@ -68,7 +68,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
 .. testcode::
 
-    from econml.drlearner import LinearDRLearner
+    from econml.dr import LinearDRLearner
     est = LinearDRLearner()
     est.fit(y, T, X=X, W=W)
     est.effect(X, T0=t0, T1=t1)
@@ -195,7 +195,7 @@ is chosen for the final stage. The user can choose any regression/classification
 in all these variants. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.drlearner.DRLearner econml.drlearner.LinearDRLearner econml.drlearner.SparseLinearDRLearner econml.drlearner.ForestDRLearner
+    .. inheritance-diagram:: econml.dr.DRLearner econml.dr.LinearDRLearner econml.dr.SparseLinearDRLearner econml.dr.ForestDRLearner
         :parts: 1
         :private-bases:
         :top-classes: econml._ortho_learner._OrthoLearner, econml._cate_estimator.StatsModelsCateEstimatorDiscreteMixin, econml._cate_estimator.DebiasedLassoCateEstimatorDiscreteMixin
@@ -209,7 +209,7 @@ Below we give a brief description of each of these classes:
 
       .. testcode::
 
-        from econml.drlearner import DRLearner
+        from econml.dr import DRLearner
         from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
         est = DRLearner(model_regression=GradientBoostingRegressor(),
                         model_propensity=GradientBoostingClassifier(),
@@ -224,7 +224,7 @@ Below we give a brief description of each of these classes:
 
       .. testcode::
 
-        from econml.drlearner import DRLearner
+        from econml.dr import DRLearner
         from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
         from sklearn.model_selection import GridSearchCV
         model_reg = lambda: GridSearchCV(
@@ -260,7 +260,7 @@ Below we give a brief description of each of these classes:
 
           .. testcode::
 
-            from econml.drlearner import LinearDRLearner
+            from econml.dr import LinearDRLearner
             est = LinearDRLearner()
             est.fit(y, T, X=X, W=W)
             point = est.effect(X, T1=t1)
@@ -281,7 +281,7 @@ Below we give a brief description of each of these classes:
 
           .. testcode::
 
-            from econml.drlearner import SparseLinearDRLearner
+            from econml.dr import SparseLinearDRLearner
             est = SparseLinearDRLearner()
             est.fit(y, T, X=X, W=W)
             point = est.effect(X, T1=T1)
@@ -292,13 +292,13 @@ Below we give a brief description of each of these classes:
 
         - **ForestDRLearner.** The child class :class:`.ForestDRLearner` uses a Subsampled Honest Forest regressor
           as a final model (see [Wager2018]_ and [Athey2019]_). The subsampled honest forest is implemented in our library as a scikit-learn extension
-          of the :class:`~sklearn.ensemble.RandomForestRegressor`, in the class :class:`.SubsampledHonestForest`. This estimator
+          of the :class:`~sklearn.ensemble.RandomForestRegressor`, in the class :class:`~econml.grf.RegressionForest`. This estimator
           offers confidence intervals via the Bootstrap-of-Little-Bags as described in [Athey2019]_.
           Using this functionality we can also construct confidence intervals for the CATE:
 
           .. testcode::
 
-            from econml.drlearner import ForestDRLearner
+            from econml.dr import ForestDRLearner
             from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
             est = ForestDRLearner(model_regression=GradientBoostingRegressor(),
                                   model_propensity=GradientBoostingClassifier())
@@ -323,7 +323,7 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.drlearner import LinearDRLearner
+        from econml.dr import LinearDRLearner
         est = LinearDRLearner()
         est.fit(y, T, X=X, W=W)
         lb, ub = est.const_marginal_effect_interval(X, alpha=.05)
@@ -341,7 +341,7 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.drlearner import SparseLinearDRLearner
+        from econml.dr import SparseLinearDRLearner
         from sklearn.preprocessing import PolynomialFeatures
         est = SparseLinearDRLearner(featurizer=PolynomialFeatures(degree=3, include_bias=False))
         est.fit(y, T, X=X, W=W)
@@ -355,7 +355,7 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.drlearner import ForestDRLearner
+        from econml.dr import ForestDRLearner
         from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
         est = ForestDRLearner(model_regression=GradientBoostingRegressor(),
                               model_propensity=GradientBoostingClassifier())
@@ -383,7 +383,7 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.drlearner import SparseLinearDRLearner
+        from econml.dr import SparseLinearDRLearner
         from sklearn.linear_model import LassoCV, LogisticRegressionCV, ElasticNetCV
         from sklearn.ensemble import GradientBoostingRegressor
         est = SparseLinearDRLearner(model_regression=LassoCV(),
@@ -409,7 +409,7 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.drlearner import DRLearner
+        from econml.dr import DRLearner
         from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
         from sklearn.model_selection import GridSearchCV
         model_reg = lambda: GridSearchCV(
@@ -431,6 +431,40 @@ Usage FAQs
         est.fit(y, T, X=X, W=W)
         point = est.effect(X, T0=T0, T1=T1)
 
+    Alternatively, you can pick the best first stage models outside of the EconML framework and pass in the selected models to EconML. 
+    This can save on runtime and computational resources. Furthermore, it is statistically more stable since all data is being used for
+    hyper-parameter tuning rather than a single fold inside of the DML algorithm (as long as the number of hyperparameter values
+    that you are selecting over is not exponential in the number of samples, this approach is statistically valid). E.g.:
+
+    .. testcode::
+
+        from econml.drlearner import DRLearner
+        from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+        from sklearn.model_selection import GridSearchCV
+        model_reg = lambda: GridSearchCV(
+                        estimator=RandomForestRegressor(),
+                        param_grid={
+                                'max_depth': [3, None],
+                                'n_estimators': (10, 50, 100)
+                            }, cv=5, n_jobs=-1, scoring='neg_mean_squared_error'
+                        )
+        model_clf = lambda: GridSearchCV(
+                        estimator=RandomForestClassifier(min_samples_leaf=10),
+                        param_grid={
+                                'max_depth': [3, None],
+                                'n_estimators': (10, 50, 100)
+                            }, cv=5, n_jobs=-1, scoring='neg_mean_squared_error'
+                        )
+        XW = np.hstack([X, W])
+        model_regression = model_reg().fit(XW, Y).best_estimator_
+        model_propensity = model_clf().fit(XW, T).best_estimator_
+        est = DRLearner(model_regression=model_regression, 
+                        model_propensity=model_propensity,
+                        model_final=model_regression, cv=5)
+        est.fit(y, T, X=X, W=W)
+        point = est.effect(X, T0=T0, T1=T1)
+
+
 - **What if I have many treatments?**
 
     The method allows for multiple discrete (categorical) treatments and will estimate a CATE model for each treatment.
@@ -442,7 +476,7 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.drlearner import DRLearner
+        from econml.dr import DRLearner
         from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
         est = DRLearner(model_regression=RandomForestRegressor(oob_score=True),
                         model_propensity=RandomForestClassifier(min_samples_leaf=10, oob_score=True),

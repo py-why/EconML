@@ -5,7 +5,7 @@ import time
 import argparse
 import warnings
 import joblib
-from econml.sklearn_extensions.ensemble import SubsampledHonestForest
+from econml.grf import RegressionForest
 
 
 def monte_carlo():
@@ -19,7 +19,7 @@ def monte_carlo():
         print(it)
         X = np.random.normal(0, 1, size=(n, d))
         y = X[:, 0] + np.random.normal(size=(n,))
-        est = SubsampledHonestForest(n_estimators=1000, verbose=1)
+        est = RegressionForest(n_estimators=1000, verbose=1)
         est.fit(X, y)
         point = est.predict(X_test)
         low, up = est.predict_interval(X_test, alpha=0.05)
@@ -47,5 +47,5 @@ def monte_carlo():
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Monte Carlo Coverage Tests for the SubsampledHonestForest')
+    parser = argparse.ArgumentParser(description='Monte Carlo Coverage Tests for the RegressionForest')
     monte_carlo()

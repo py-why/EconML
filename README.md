@@ -31,6 +31,7 @@ For information on use cases and background material on causal inference and het
   - [Usage Examples](#usage-examples)
     - [Estimation Methods](#estimation-methods)
     - [Interpretability](#interpretability)
+    - [Causal Model Selection and Cross-Validation](#causal-model-selection-and-cross-validation)
     - [Inference](#inference)
 - [For Developers](#for-developers)
   - [Running the tests](#running-the-tests)
@@ -161,7 +162,7 @@ To install from source, see [For Developers](#for-developers) section below.
   <summary>Orthogonal Random Forests (click to expand)</summary>
 
   ```Python
-  from econml.ortho_forest import DMLOrthoForest, DROrthoForest
+  from econml.orf import DMLOrthoForest, DROrthoForest
   from econml.sklearn_extensions.linear_model import WeightedLasso, WeightedLassoCV
   # Use defaults
   est = DMLOrthoForest()
@@ -232,7 +233,7 @@ To install from source, see [For Developers](#for-developers) section below.
 * Linear final stage
 
 ```Python
-from econml.drlearner import LinearDRLearner
+from econml.dr import LinearDRLearner
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 
 est = LinearDRLearner(model_propensity=GradientBoostingClassifier(),
@@ -245,7 +246,7 @@ lb, ub = est.effect_interval(X_test, alpha=0.05)
 * Sparse linear final stage
 
 ```Python
-from econml.drlearner import SparseLinearDRLearner
+from econml.dr import SparseLinearDRLearner
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 
 est = SparseLinearDRLearner(model_propensity=GradientBoostingClassifier(),
@@ -258,7 +259,7 @@ lb, ub = est.effect_interval(X_test, alpha=0.05)
 * Nonparametric final stage
 
 ```Python
-from econml.drlearner import ForestDRLearner
+from econml.dr import ForestDRLearner
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 
 est = ForestDRLearner(model_propensity=GradientBoostingClassifier(),
@@ -275,7 +276,7 @@ lb, ub = est.effect_interval(X_test, alpha=0.05)
 * Intent to Treat Doubly Robust Learner (discrete instrument, discrete treatment)
 
 ```Python
-from econml.ortho_iv import LinearIntentToTreatDRIV
+from econml.iv.dr import LinearIntentToTreatDRIV
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.linear_model import LinearRegression
 
@@ -294,7 +295,7 @@ lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 
 ```Python
 import keras
-from econml.deepiv import DeepIVEstimator
+from econml.iv.nnet import DeepIV
 
 treatment_model = keras.Sequential([keras.layers.Dense(128, activation='relu', input_shape=(2,)),
                                     keras.layers.Dropout(0.17),
@@ -309,11 +310,11 @@ response_model = keras.Sequential([keras.layers.Dense(128, activation='relu', in
                                   keras.layers.Dense(32, activation='relu'),
                                   keras.layers.Dropout(0.17),
                                   keras.layers.Dense(1)])
-est = DeepIVEstimator(n_components=10, # Number of gaussians in the mixture density networks)
-                      m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])), # Treatment model
-                      h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
-                      n_samples=1 # Number of samples used to estimate the response
-                      )
+est = DeepIV(n_components=10, # Number of gaussians in the mixture density networks)
+             m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])), # Treatment model
+             h=lambda t, x: response_model(keras.layers.concatenate([t, x])), # Response model
+             n_samples=1 # Number of samples used to estimate the response
+             )
 est.fit(Y, T, X=X, Z=Z) # Z -> instrumental variables
 treatment_effects = est.effect(X_test)
 ```
@@ -415,6 +416,39 @@ See the <a href="#references">References</a> section for more details.
   # create weighted ensemble model based on score performance
   mdl, _ = scorer.ensemble([mdl for _, mdl in models])
   ```
+
+</details>
+
+<details>
+  <summary>First Stage Model Selection (click to expand)</summary>
+
+First stage models can be selected either by passing in cross-validated models (e.g. `sklearn.linear_model.LassoCV`) to EconML's estimators or perform the first stage model selection outside of EconML and pass in the selected model. Unless selecting among a large set of hyperparameters, choosing first stage models externally is the preferred method due to statistical and computational advantages.
+
+```Python
+from econml.dml import LinearDML
+from sklearn import clone
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV
+
+cv_model = GridSearchCV(
+              estimator=RandomForestRegressor(),
+              param_grid={
+                  "max_depth": [3, None],
+                  "n_estimators": (10, 30, 50, 100, 200),
+                  "max_features": (2, 4, 6),
+              },
+              cv=5,
+           )
+# First stage model selection within EconML
+# This is more direct, but computationally and statistically less efficient
+est = LinearDML(model_y=cv_model, model_t=cv_model)
+# First stage model selection ouside of EconML
+# This is the most efficient, but requires boilerplate code
+model_t = clone(cv_model).fit(W, T).best_estimator_
+model_y = clone(cv_model).fit(W, Y).best_estimator_
+est = LinearDML(model_y=model_t, model_t=model_y)
+```
+
 
 </details>
 

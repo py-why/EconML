@@ -8,7 +8,7 @@ from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 from econml.dml import LinearDML, DML, NonParamDML
-from econml.drlearner import LinearDRLearner, DRLearner
+from econml.dr import LinearDRLearner, DRLearner
 from econml.inference import (BootstrapInference, NormalInferenceResults,
                               EmpiricalInferenceResults, PopulationSummaryResults)
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso

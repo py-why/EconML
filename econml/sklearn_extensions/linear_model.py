@@ -3,8 +3,7 @@
 
 """Collection of scikit-learn extensions for linear models.
 
-.. testcode::
-    :hide:
+.. testsetup::
 
     # Our classes that derive from sklearn ones sometimes include
     # inherited docstrings that have embedded doctests; we need the following imports
@@ -199,6 +198,7 @@ class WeightedLasso(WeightedModelMixin, Lasso):
     n_iter_ : int | array-like, shape (n_targets,)
         number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
+
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True,
@@ -294,6 +294,7 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
     n_iter_ : int | array-like, shape (n_targets,)
         number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
+
     """
 
     def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
@@ -325,6 +326,11 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
 
 class WeightedLassoCV(WeightedModelMixin, LassoCV):
     """Version of sklearn LassoCV that accepts weights.
+
+    .. testsetup::
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
 
     Parameters
     ----------
@@ -397,6 +403,7 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         rather than looping over features sequentially by default. This
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
+
     """
 
     def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
@@ -437,6 +444,11 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
 
 class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
     """Version of sklearn MultiTaskLassoCV that accepts weights.
+
+    .. testsetup::
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
 
     Parameters
     ----------
@@ -502,6 +514,7 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         rather than looping over features sequentially by default. This
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
+
     """
 
     def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
@@ -574,6 +587,11 @@ class DebiasedLasso(WeightedLasso):
     Implementation was derived from <https://arxiv.org/abs/1303.0518>.
 
     Only implemented for single-dimensional output.
+
+    .. testsetup::
+
+        import numpy as np
+        from sklearn.linear_model import lasso_path
 
     Parameters
     ----------

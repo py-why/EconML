@@ -1,10 +1,12 @@
-from .ortho_forest import DMLOrthoForest
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
 from .utilities import LassoCVWrapper, deprecated
 from sklearn.linear_model import LogisticRegressionCV
 from .dml import CausalForestDML
 
 
-@deprecated("The CausalForest class has been deprecated by the CausalForestDML; "
+@deprecated("The CausalForest class has been deprecated by the econml.dml.CausalForestDML; "
             "an upcoming release will remove support for the old class")
 def CausalForest(n_trees=500,
                  min_leaf_size=10,

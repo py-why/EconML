@@ -8,8 +8,8 @@ from sklearn.linear_model import LinearRegression, Lasso, LogisticRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
 from sklearn.model_selection import KFold
-from econml.ortho_iv import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV,
-                             IntentToTreatDRIV, LinearIntentToTreatDRIV)
+from econml.iv.dml import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV)
+from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference

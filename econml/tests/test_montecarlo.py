@@ -6,9 +6,9 @@
 import unittest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, ForestDML)
-from econml.drlearner import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
-from econml.ortho_iv import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV,
-                             IntentToTreatDRIV, LinearIntentToTreatDRIV)
+from econml.dr import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
+from econml.iv.dml import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV)
+from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 
 
