@@ -5,6 +5,7 @@ import abc
 import numbers
 import numpy as np
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
+from sklearn.utils import check_array
 from ..policy import PolicyTree
 from .._tree_exporter import (_SingleTreeExporterMixin,
                               _CateTreeDOTExporter, _CateTreeMPLExporter,
@@ -319,6 +320,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         treatment_names : list of string, optional
             The names of the treatments (excluding the control/baseline treatment)
         """
+        X = check_array(X)
         self.tree_model_ = PolicyTree(criterion='neg_welfare',
                                       splitter='best',
                                       max_depth=self.max_depth,
@@ -330,8 +332,6 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
                                       min_balancedness_tol=self.min_balancedness_tol,
                                       honest=False,
                                       random_state=self.random_state)
-        if (len(cate_estimator._d_y) > 0) and cate_estimator._d_y[0] > 1:
-            raise ValueError("Can only interpret estimators fit with a single outcome!")
 
         if self.risk_level is None:
             y_pred = cate_estimator.const_marginal_effect(X)
@@ -340,9 +340,12 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         else:
             _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
 
-        # remove the outcome dimension if it exists
+        # average the outcome dimension if it exists and ensure 2d y_pred
         if y_pred.ndim == 3:
-            y_pred = y_pred.reshape((-1, y_pred.shape[-1]))
+            y_pred = np.mean(y_pred, axis=1)
+        elif y_pred.ndim == 2:
+            if (len(cate_estimator._d_y) > 0) and cate_estimator._d_y[0] > 1:
+                y_pred = np.mean(y_pred, axis=1, keepdims=True)
         elif y_pred.ndim == 1:
             y_pred = y_pred.reshape((-1, 1))
 
@@ -350,8 +353,9 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
             if isinstance(sample_treatment_costs, numbers.Real):
                 y_pred -= sample_treatment_costs
             else:
+                sample_treatment_costs = check_array(sample_treatment_costs, ensure_2d=False)
                 if sample_treatment_costs.ndim == 1:
-                    sample_treatment_costs.reshape()
+                    sample_treatment_costs = sample_treatment_costs.reshape((-1, 1))
                 if sample_treatment_costs.shape == y_pred.shape:
                     y_pred -= sample_treatment_costs
                 else:
@@ -379,7 +383,8 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         Returns
         -------
         T : array-like
-            The treatments implied by the policy learned by the interpreter
+            The treatments implied by the policy learned by the interpreter, with treatment 0, meaning
+            no treatment, and treatment 1 meains the first treatment, etc.
         """
         assert self.tree_model_ is not None, "Interpret must be called prior to trying to assign treatment."
         return self.tree_model_.predict(X)
