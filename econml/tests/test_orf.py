@@ -10,7 +10,7 @@ from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.pipeline import Pipeline
-from econml.ortho_forest import DMLOrthoForest, DROrthoForest
+from econml.orf import DMLOrthoForest, DROrthoForest
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
 
 

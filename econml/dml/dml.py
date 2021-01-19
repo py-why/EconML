@@ -23,7 +23,6 @@ from .._cate_estimator import (DebiasedLassoCateEstimatorMixin,
                                StatsModelsCateEstimatorMixin,
                                LinearCateEstimator)
 from ..inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
-from ..sklearn_extensions.ensemble import SubsampledHonestForest
 from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
                                                StatsModelsLinearRegression,
                                                WeightedLassoCVWrapper)
@@ -1217,7 +1216,7 @@ def ForestDML(model_y, model_t,
               verbose=0,
               random_state=None):
     """ Instance of NonParamDML with a
-    :class:`~econml.sklearn_extensions.ensemble.SubsampledHonestForest`
+    :class:``~econml.grf.RegressionForest`
     as a final model, so as to enable non-parametric inference.
 
     Parameters

@@ -7,9 +7,9 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, Polynomial
 from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML
 from econml.dml import NonParamDML, CausalForestDML
-from econml.drlearner import DRLearner, SparseLinearDRLearner, LinearDRLearner, ForestDRLearner
-from econml.ortho_iv import DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV,\
-    IntentToTreatDRIV, LinearIntentToTreatDRIV
+from econml.dr import DRLearner, SparseLinearDRLearner, LinearDRLearner, ForestDRLearner
+from econml.iv.dml import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV)
+from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference

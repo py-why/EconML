@@ -135,7 +135,7 @@ See :ref:`Double Machine Learning User Guid <dmluserguide>`.
 Class Hierarchy Structure
 ==================================
 
-.. inheritance-diagram:: econml.metalearners.SLearner econml.metalearners.TLearner econml.metalearners.XLearner econml.metalearners.DomainAdaptationLearner econml.drlearner.DRLearner econml.dml.DML
+.. inheritance-diagram:: econml.metalearners.SLearner econml.metalearners.TLearner econml.metalearners.XLearner econml.metalearners.DomainAdaptationLearner econml.dr.DRLearner econml.dml.DML
         :parts: 1
         :private-bases:
         :top-classes: econml._ortho_learner._OrthoLearner, econml._cate_estimator.LinearCateEstimator, econml._cate_estimator.TreatmentExpansionMixin
