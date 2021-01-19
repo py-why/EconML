@@ -5,7 +5,8 @@ from warnings import warn
 import numpy as np
 from sklearn.base import clone
 from ..utilities import check_inputs, filter_none_kwargs
-from ..drlearner import _ModelFinal, DRLearner
+from ..dr import DRLearner
+from ..dr._drlearner import _ModelFinal
 from .._tree_exporter import _SingleTreeExporterMixin
 from . import PolicyTree, PolicyForest
 

@@ -438,7 +438,7 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.drlearner import DRLearner
+        from econml.dr import DRLearner
         from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
         from sklearn.model_selection import GridSearchCV
         model_reg = lambda: GridSearchCV(
