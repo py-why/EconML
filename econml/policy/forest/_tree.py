@@ -17,6 +17,7 @@ from ...tree._criterion import Criterion
 from ...tree._splitter import Splitter, BestSplitter
 from ...tree import DepthFirstTreeBuilder
 from ...tree import _tree
+from ..._tree_exporter import _SingleTreeExporterMixin, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
 from ._criterion import LinearPolicyCriterion
 from . import _criterion
 from sklearn.base import BaseEstimator
@@ -45,7 +46,7 @@ MAX_INT = np.iinfo(np.int32).max
 # =============================================================================
 
 
-class PolicyTree(BaseEstimator):
+class PolicyTree(_SingleTreeExporterMixin, BaseEstimator):
     """
 
     Parameters
@@ -396,6 +397,9 @@ class PolicyTree(BaseEstimator):
                       sample_weight=sample_weight,
                       store_jac=False)
 
+        self.tree_model_ = self
+        self.policy_value_ = np.mean(np.max(self.predict_value(X), axis=1))
+        self.always_treat_value_ = np.mean(y, axis=0)
         return self
 
     def _validate_X_predict(self, X, check_input):
@@ -535,3 +539,28 @@ class PolicyTree(BaseEstimator):
     @property
     def feature_importances_(self):
         return self.feature_importances()
+
+    def _make_dot_exporter(self, *, out_file, feature_names, treatment_names, max_depth, filled,
+                           leaves_parallel, rotate, rounded,
+                           special_characters, precision):
+        title = "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value_, precision))
+        title += "Average policy gains over constant treatment policies for each treatment: {}".format(
+            np.around(self.policy_value_ - self.always_treat_value_, precision))
+        return _PolicyTreeDOTExporter(out_file=out_file, title=title,
+                                      treatment_names=treatment_names, feature_names=feature_names,
+                                      max_depth=max_depth,
+                                      filled=filled, leaves_parallel=leaves_parallel, rotate=rotate,
+                                      rounded=rounded, special_characters=special_characters,
+                                      precision=precision)
+
+    def _make_mpl_exporter(self, *, title, feature_names, treatment_names, max_depth, filled,
+                           rounded, precision, fontsize):
+        title = "" if title is None else title
+        title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value_, precision))
+        title += "Average policy gains over constant treatment policies for each treatment: {}".format(
+            np.around(self.policy_value_ - self.always_treat_value_, precision))
+        return _PolicyTreeMPLExporter(treatment_names=treatment_names, title=title,
+                                      feature_names=feature_names, max_depth=max_depth,
+                                      filled=filled,
+                                      rounded=rounded,
+                                      precision=precision, fontsize=fontsize)

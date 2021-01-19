@@ -2,6 +2,9 @@
 # Licensed under the MIT License.
 
 from .forest import PolicyTree, PolicyForest
+from ._drlearner import DRPolicyTree, DRPolicyForest
 
 __all__ = ["PolicyTree",
-           "PolicyForest"]
+           "PolicyForest",
+           "DRPolicyTree",
+           "DRPolicyForest"]

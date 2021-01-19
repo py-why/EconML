@@ -1,10 +1,14 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import abc
 import numpy as np
 import re
+from io import StringIO
 import matplotlib
 import matplotlib.pyplot as plt
+import graphviz
+from sklearn.utils.validation import check_is_fitted
 
 # HACK: We're relying on some of sklearn's non-public classes which are not completely stable.
 #       However, the alternative is reimplementing a bunch of intricate stuff by hand
@@ -238,9 +242,9 @@ class _PolicyTreeMixin(_TreeExporter):
     def node_replacement_text(self, tree, node_id, criterion):
         value = tree.value[node_id][:, 0]
         node_string = 'value = %s' % np.round(value[1:], self.precision)
-        node_string += self.characters[4]
 
         if tree.children_left[node_id] == _tree.TREE_LEAF:
+            node_string += self.characters[4]
             # Write node mean CATE
             node_string += 'Treatment = '
             if self.treatment_names:
@@ -249,7 +253,7 @@ class _PolicyTreeMixin(_TreeExporter):
                 class_name = "T%s%s%s" % (self.characters[1],
                                           np.argmax(value),
                                           self.characters[2])
-            node_string += class_name + self.characters[4]
+            node_string += class_name
 
         return node_string
 
@@ -269,6 +273,9 @@ class _PolicyTreeMPLExporter(_PolicyTreeMixin, _MPLExporter):
     feature_names : list of strings, optional, default None
         Names of each of the features.
 
+    max_depth: int or None, optional, default None
+        The maximum tree depth to plot
+
     filled : bool, optional, default False
         When set to ``True``, paint nodes to indicate majority class for
         classification, extremity of values for regression, or purity of node
@@ -287,10 +294,13 @@ class _PolicyTreeMPLExporter(_PolicyTreeMixin, _MPLExporter):
     """
 
     def __init__(self, treatment_names=None, title=None, feature_names=None,
+                 max_depth=None,
                  filled=True,
                  rounded=False, precision=3, fontsize=None):
         super().__init__(treatment_names=treatment_names, title=title,
-                         feature_names=feature_names, filled=filled, rounded=rounded, precision=precision,
+                         feature_names=feature_names,
+                         max_depth=max_depth,
+                         filled=filled, rounded=rounded, precision=precision,
                          fontsize=fontsize,
                          impurity=False)
 
@@ -331,9 +341,13 @@ class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
     """
 
     def __init__(self, include_uncertainty, uncertainty_level, title=None,
-                 feature_names=None, filled=True, rounded=False, precision=3, fontsize=None):
+                 feature_names=None,
+                 max_depth=None,
+                 filled=True, rounded=False, precision=3, fontsize=None):
         super().__init__(include_uncertainty, uncertainty_level, title=None,
-                         feature_names=feature_names, filled=filled,
+                         feature_names=feature_names,
+                         max_depth=max_depth,
+                         filled=filled,
                          rounded=rounded, precision=precision, fontsize=fontsize,
                          impurity=False)
 
@@ -356,6 +370,9 @@ class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
 
     feature_names : list of strings, optional, default None
         Names of each of the features.
+
+    max_depth: int or None, optional, default None
+        The maximum tree depth to plot
 
     filled : bool, optional, default False
         When set to ``True``, paint nodes to indicate majority class for
@@ -382,10 +399,11 @@ class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
     """
 
     def __init__(self, out_file=None, title=None, treatment_names=None, feature_names=None,
+                 max_depth=None,
                  filled=True, leaves_parallel=False,
                  rotate=False, rounded=False, special_characters=False, precision=3):
         super().__init__(title=title, out_file=out_file, feature_names=feature_names,
-                         filled=filled, leaves_parallel=leaves_parallel,
+                         max_depth=max_depth, filled=filled, leaves_parallel=leaves_parallel,
                          rotate=rotate, rounded=rounded, special_characters=special_characters,
                          precision=precision, treatment_names=treatment_names,
                          impurity=False)
@@ -413,6 +431,9 @@ class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
     feature_names : list of strings, optional, default None
         Names of each of the features.
 
+    max_depth: int or None, optional, default None
+        The maximum tree depth to plot
+
     filled : bool, optional, default False
         When set to ``True``, paint nodes to indicate majority class for
         classification, extremity of values for regression, or purity of node
@@ -438,12 +459,274 @@ class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
     """
 
     def __init__(self, include_uncertainty, uncertainty_level, out_file=None, title=None, feature_names=None,
-                 filled=True, leaves_parallel=False,
+                 max_depth=None, filled=True, leaves_parallel=False,
                  rotate=False, rounded=False, special_characters=False, precision=3):
 
         super().__init__(include_uncertainty, uncertainty_level,
                          out_file=out_file, title=title, feature_names=feature_names,
-                         filled=filled, leaves_parallel=leaves_parallel,
+                         max_depth=max_depth, filled=filled, leaves_parallel=leaves_parallel,
                          rotate=rotate, rounded=rounded, special_characters=special_characters,
                          precision=precision,
                          impurity=False)
+
+
+class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
+
+    tree_model_ = None
+    node_dict_ = None
+
+    @abc.abstractmethod
+    def _make_dot_exporter(self, *, out_file, feature_names, treatment_names, max_depth, filled,
+                           leaves_parallel, rotate, rounded,
+                           special_characters, precision):
+        """
+        Make a dot file exporter
+
+        Parameters
+        ----------
+        out_file : file object
+            Handle to write to.
+
+        feature_names : list of strings
+            Names of each of the features.
+
+        treatment_names : list of strings
+            Names of each of the treatments.
+
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
+
+        filled : bool
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        leaves_parallel : bool
+            When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+        rotate : bool
+            When set to ``True``, orient tree left to right rather than top-down.
+
+        rounded : bool
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        special_characters : bool
+            When set to ``False``, ignore special characters for PostScript
+            compatibility.
+
+        precision : int
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+        """
+        pass
+
+    @abc.abstractmethod
+    def _make_mpl_exporter(self, *, title=None, feature_names=None, treatment_names=None, max_depth=None,
+                           filled=True, rounded=True, precision=3, fontsize=None):
+        """
+        Make a matplotlib exporter
+
+        Parameters
+        ----------
+        title : string
+            A title for the final figure to be printed at the top of the page.
+
+        feature_names : list of strings
+            Names of each of the features.
+
+        treatment_names : list of strings
+            Names of each of the treatments
+
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
+
+        filled : bool
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        rounded : bool
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        precision : int
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+
+        fontsize : int
+            Fontsize for text
+        """
+        pass
+
+    def export_graphviz(self, out_file=None, feature_names=None, treatment_names=None,
+                        max_depth=None,
+                        filled=True, leaves_parallel=True,
+                        rotate=False, rounded=True, special_characters=False, precision=3):
+        """
+        Export a graphviz dot file representing the learned tree model
+
+        Parameters
+        ----------
+        out_file : file object or string, optional, default None
+            Handle or name of the output file. If ``None``, the result is
+            returned as a string.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        treatment_names : list of strings, optional, default None
+            Names of each of the treatments
+
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        leaves_parallel : bool, optional, default True
+            When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+        rotate : bool, optional, default False
+            When set to ``True``, orient tree left to right rather than top-down.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        special_characters : bool, optional, default False
+            When set to ``False``, ignore special characters for PostScript
+            compatibility.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+        """
+
+        check_is_fitted(self.tree_model_, 'tree_')
+        own_file = False
+        try:
+            if isinstance(out_file, str):
+                out_file = open(out_file, "w", encoding="utf-8")
+                own_file = True
+
+            return_string = out_file is None
+            if return_string:
+                out_file = StringIO()
+
+            exporter = self._make_dot_exporter(out_file=out_file, feature_names=feature_names,
+                                               treatment_names=treatment_names,
+                                               max_depth=max_depth, filled=filled,
+                                               leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
+                                               special_characters=special_characters, precision=precision)
+            exporter.export(self.tree_model_, node_dict=self.node_dict_)
+
+            if return_string:
+                return out_file.getvalue()
+
+        finally:
+            if own_file:
+                out_file.close()
+
+    def render(self, out_file, format='pdf', view=True, feature_names=None,
+               treatment_names=None,
+               max_depth=None,
+               filled=True, leaves_parallel=True, rotate=False, rounded=True,
+               special_characters=False, precision=3):
+        """
+        Render the tree to a flie
+
+        Parameters
+        ----------
+        out_file : file name to save to
+
+        format : string, optional, default 'pdf'
+            The file format to render to; must be supported by graphviz
+
+        view : bool, optional, default True
+            Whether to open the rendered result with the default application.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        treatment_names : list of strings, optional, default None
+            Names of each of the treatments
+
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        leaves_parallel : bool, optional, default True
+            When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+        rotate : bool, optional, default False
+            When set to ``True``, orient tree left to right rather than top-down.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        special_characters : bool, optional, default False
+            When set to ``False``, ignore special characters for PostScript
+            compatibility.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+        """
+        dot_source = self.export_graphviz(out_file=None,  # want the output as a string, only write the final file
+                                          feature_names=feature_names, treatment_names=treatment_names,
+                                          max_depth=max_depth,
+                                          filled=filled,
+                                          leaves_parallel=leaves_parallel, rotate=rotate,
+                                          rounded=rounded, special_characters=special_characters,
+                                          precision=precision)
+        graphviz.Source(dot_source).render(out_file, format=format, view=view)
+
+    def plot(self, ax=None, title=None, feature_names=None, treatment_names=None,
+             max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
+        """
+        Exports policy trees to matplotlib
+
+        Parameters
+        ----------
+        ax : :class:`matplotlib.axes.Axes`, optional, default None
+            The axes on which to plot
+
+        title : string, optional, default None
+            A title for the final figure to be printed at the top of the page.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        treatment_names : list of strings, optional, default None
+            Names of each of the treatments
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+
+        fontsize : int, optional, default None
+            Font size for text
+        """
+        check_is_fitted(self.tree_model_, 'tree_')
+        exporter = self._make_mpl_exporter(title=title, feature_names=feature_names, treatment_names=treatment_names,
+                                           max_depth=max_depth,
+                                           filled=filled,
+                                           rounded=rounded, precision=precision, fontsize=fontsize)
+        exporter.export(self.tree_model_, node_dict=self.node_dict_, ax=ax)
