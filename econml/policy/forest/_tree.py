@@ -47,7 +47,7 @@ MAX_INT = np.iinfo(np.int32).max
 
 
 class PolicyTree(_SingleTreeExporterMixin, BaseEstimator):
-    """
+    """ TODO Enable inference on `predict_value` with leaf-wise normality
 
     Parameters
     ----------

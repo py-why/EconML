@@ -125,9 +125,11 @@ class _CateTreeMixin(_TreeExporter):
     Mixin that supports writing out the nodes of a CATE tree
     """
 
-    def __init__(self, include_uncertainty=False, uncertainty_level=0.1, *args, **kwargs):
+    def __init__(self, include_uncertainty=False, uncertainty_level=0.1,
+                 *args, treatment_names=None, **kwargs):
         self.include_uncertainty = include_uncertainty
         self.uncertainty_level = uncertainty_level
+        self.treatment_names = treatment_names
         super().__init__(*args, **kwargs)
 
     def get_fill_color(self, tree, node_id):
@@ -223,7 +225,7 @@ class _PolicyTreeMixin(_TreeExporter):
         The names of the two treatments
     """
 
-    def __init__(self, treatment_names=None, *args, **kwargs):
+    def __init__(self, *args, treatment_names=None, **kwargs):
         self.treatment_names = treatment_names
         super().__init__(*args, **kwargs)
 
@@ -263,9 +265,9 @@ class _PolicyTreeMPLExporter(_PolicyTreeMixin, _MPLExporter):
     Exports policy trees to matplotlib
 
     Parameters
-    ----------
+    ----------    
     treatment_names : list of strings, optional, default None
-        The names of the two treatments
+        The names of the treatments
 
     title : string, optional, default None
         A title for the final figure to be printed at the top of the page.
@@ -323,6 +325,9 @@ class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
     feature_names : list of strings, optional, default None
         Names of each of the features.
 
+    treatment_names : list of strings, optional, default None
+        The names of the treatments
+
     filled : bool, optional, default False
         When set to ``True``, paint nodes to indicate majority class for
         classification, extremity of values for regression, or purity of node
@@ -342,10 +347,12 @@ class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
 
     def __init__(self, include_uncertainty, uncertainty_level, title=None,
                  feature_names=None,
+                 treatment_names=None,
                  max_depth=None,
                  filled=True, rounded=False, precision=3, fontsize=None):
         super().__init__(include_uncertainty, uncertainty_level, title=None,
                          feature_names=feature_names,
+                         treatment_names=treatment_names,
                          max_depth=max_depth,
                          filled=filled,
                          rounded=rounded, precision=precision, fontsize=fontsize,
@@ -365,11 +372,11 @@ class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
     title : string, optional, default None
         A title for the final figure to be printed at the top of the page.
 
-    treatment_names : list of strings, optional, default None
-        The names of the two treatments
-
     feature_names : list of strings, optional, default None
         Names of each of the features.
+
+    treatment_names : list of strings, optional, default None
+        The names of the treatments
 
     max_depth: int or None, optional, default None
         The maximum tree depth to plot
@@ -431,6 +438,9 @@ class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
     feature_names : list of strings, optional, default None
         Names of each of the features.
 
+    treatment_names : list of strings, optional, default None
+        The names of the treatments
+
     max_depth: int or None, optional, default None
         The maximum tree depth to plot
 
@@ -459,11 +469,12 @@ class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
     """
 
     def __init__(self, include_uncertainty, uncertainty_level, out_file=None, title=None, feature_names=None,
+                 treatment_names=None,
                  max_depth=None, filled=True, leaves_parallel=False,
                  rotate=False, rounded=False, special_characters=False, precision=3):
-
         super().__init__(include_uncertainty, uncertainty_level,
                          out_file=out_file, title=title, feature_names=feature_names,
+                         treatment_names=treatment_names,
                          max_depth=max_depth, filled=filled, leaves_parallel=leaves_parallel,
                          rotate=rotate, rounded=rounded, special_characters=special_characters,
                          precision=precision,
@@ -490,8 +501,10 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         feature_names : list of strings
             Names of each of the features.
 
-        treatment_names : list of strings
-            Names of each of the treatments.
+        treatment_names : list of strings, optional, default None
+            Names of each of the treatments, starting with a name for the baseline/control treatment
+            (alphanumerically smallest in case of discrete treatment or the all-zero treatment
+            in the case of continuous)
 
         max_depth: int or None, optional, default None
             The maximum tree depth to plot
@@ -535,7 +548,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         feature_names : list of strings
             Names of each of the features.
 
-        treatment_names : list of strings
+        treatment_names : list of strings, optional, default None
             Names of each of the treatments
 
         max_depth: int or None, optional, default None

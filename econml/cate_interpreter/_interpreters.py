@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 import abc
+import numbers
 import numpy as np
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from ..policy import PolicyTree
@@ -174,20 +175,24 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         self.node_dict_ = node_dict
         return self
 
-    def _make_dot_exporter(self, *, out_file, feature_names, max_depth, filled,
+    def _make_dot_exporter(self, *, out_file, feature_names, treatment_names, max_depth, filled,
                            leaves_parallel, rotate, rounded,
                            special_characters, precision):
         return _CateTreeDOTExporter(self.include_uncertainty, self.uncertainty_level,
-                                    out_file=out_file, feature_names=feature_names, max_depth=max_depth,
+                                    out_file=out_file, feature_names=feature_names,
+                                    treatment_names=treatment_names,
+                                    max_depth=max_depth,
                                     filled=filled,
                                     leaves_parallel=leaves_parallel, rotate=rotate, rounded=rounded,
                                     special_characters=special_characters, precision=precision)
 
-    def _make_mpl_exporter(self, *, title, feature_names, max_depth,
+    def _make_mpl_exporter(self, *, title, feature_names, treatment_names, max_depth,
                            filled,
                            rounded, precision, fontsize):
         return _CateTreeMPLExporter(self.include_uncertainty, self.uncertainty_level,
-                                    title=title, feature_names=feature_names, max_depth=max_depth,
+                                    title=title, feature_names=feature_names,
+                                    treatment_names=treatment_names,
+                                    max_depth=max_depth,
                                     filled=filled,
                                     rounded=rounded,
                                     precision=precision, fontsize=fontsize)
@@ -263,8 +268,8 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
     Attributes
     ----------
-    tree_model_ : :class:`~sklearn.tree.DecisionTreeClassifier`
-        The classifier that determines whether units should be treated; available only after
+    tree_model_ : :class:`~econml.policy.PolicyTree`
+        The policy tree model that represents the learned policy; available only after
         :meth:`interpret` has been called.
     policy_value_ : float
         The value of applying the learned policy, applied to the sample used with :meth:`interpret`
@@ -336,12 +341,22 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
             _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
 
         # remove the outcome dimension if it exists
-        y_pred = y_pred.reshape((-1, y_pred.shape[-1]))
+        if y_pred.ndim == 3:
+            y_pred = y_pred.reshape((-1, y_pred.shape[-1]))
+        elif y_pred.ndim == 1:
+            y_pred = y_pred.reshape((-1, 1))
 
         if sample_treatment_costs is not None:
-            assert sample_treatment_costs.shape == y_pred.shape,\
-                "`sample_treatment_costs` should have dimension (n_samples, n_treatments)"
-            y_pred -= sample_treatment_costs
+            if isinstance(sample_treatment_costs, numbers.Real):
+                y_pred -= sample_treatment_costs
+            else:
+                if sample_treatment_costs.ndim == 1:
+                    sample_treatment_costs.reshape()
+                if sample_treatment_costs.shape == y_pred.shape:
+                    y_pred -= sample_treatment_costs
+                else:
+                    raise ValueError("`sample_treatment_costs` should be a double scalar "
+                                     "or have dimension (n_samples, n_treatments) or (n_samples,) if T is a vector")
 
         # get index of best treatment
         all_y = np.hstack([np.zeros((y_pred.shape[0], 1)), np.atleast_1d(y_pred)])
@@ -376,7 +391,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         title += "Average policy gains over constant treatment policies for each treatment: {}".format(
             np.around(self.policy_value_ - self.always_treat_value_, precision))
         return _PolicyTreeDOTExporter(out_file=out_file, title=title,
-                                      treatment_names=['None'] + treatment_names,
+                                      treatment_names=treatment_names,
                                       feature_names=feature_names,
                                       max_depth=max_depth,
                                       filled=filled, leaves_parallel=leaves_parallel, rotate=rotate,
@@ -389,7 +404,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         title += "Average policy gains over no treatment: {} \n".format(np.around(self.policy_value_, precision))
         title += "Average policy gains over constant treatment policies for each treatment: {}".format(
             np.around(self.policy_value_ - self.always_treat_value_, precision))
-        return _PolicyTreeMPLExporter(treatment_names=['None'] + treatment_names,
+        return _PolicyTreeMPLExporter(treatment_names=treatment_names,
                                       title=title,
                                       feature_names=feature_names,
                                       max_depth=max_depth,

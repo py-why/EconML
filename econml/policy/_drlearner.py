@@ -106,6 +106,8 @@ class _BaseDRPolicyLearner():
 
 
 class DRPolicyTree(_BaseDRPolicyLearner):
+    """ TODO Enable inference on `predict_value` with leaf-wise normality
+    """
 
     def __init__(self, *,
                  model_regression="auto",
@@ -165,21 +167,18 @@ class DRPolicyTree(_BaseDRPolicyLearner):
                                  random_state=self.random_state)
 
     def plot(self, *, feature_names=None, treatment_names=None, **kwargs):
-        treatment_names = ['None'] + treatment_names if treatment_names is not None else None
         return self.policy_model.plot(feature_names=self.policy_feature_names(feature_names=feature_names),
                                       treatment_names=treatment_names,
                                       **kwargs)
     plot.__doc__ = _SingleTreeExporterMixin.plot.__doc__
 
     def export_graphviz(self, *, feature_names=None, treatment_names=None, **kwargs):
-        treatment_names = ['None'] + treatment_names if treatment_names is not None else None
         return self.policy_model.export_graphviz(feature_names=self.policy_feature_names(feature_names=feature_names),
                                                  treatment_names=treatment_names,
                                                  **kwargs)
     export_graphviz.__doc__ = _SingleTreeExporterMixin.export_graphviz.__doc__
 
     def render(self, out_file, *, feature_names=None, treatment_names=None, **kwargs):
-        treatment_names = ['None'] + treatment_names if treatment_names is not None else None
         return self.policy_model.render(out_file,
                                         feature_names=self.policy_feature_names(feature_names=feature_names),
                                         treatment_names=treatment_names,
@@ -188,6 +187,8 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
 
 class DRPolicyForest(_BaseDRPolicyLearner):
+    """ TODO Enable inference on `predict_value` with BLB
+    """
 
     def __init__(self, *,
                  model_regression="auto",
@@ -276,7 +277,9 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             Names of each of the features.
 
         treatment_names : list of strings, optional, default None
-            Names of each of the treatments
+            Names of each of the treatments, starting with a name for the baseline/control treatment
+            (alphanumerically smallest in case of discrete treatment or the all-zero treatment
+            in the case of continuous)
 
         filled : bool, optional, default False
             When set to ``True``, paint nodes to indicate majority class for
@@ -294,7 +297,6 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         fontsize : int, optional, default None
             Font size for text
         """
-        treatment_names = ['None'] + treatment_names if treatment_names is not None else None
         return self.policy_model[tree_id].plot(feature_names=self.policy_feature_names(feature_names=feature_names),
                                                treatment_names=treatment_names,
                                                **kwargs)
@@ -316,7 +318,9 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             Names of each of the features.
 
         treatment_names : list of strings, optional, default None
-            Names of each of the treatments
+            Names of each of the treatments, starting with a name for the baseline/control treatment
+            (alphanumerically smallest in case of discrete treatment or the all-zero treatment
+            in the case of continuous)
 
         max_depth: int or None, optional, default None
             The maximum tree depth to plot
@@ -344,8 +348,6 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
-
-        treatment_names = ['None'] + treatment_names if treatment_names is not None else None
         feature_names = self.policy_feature_names(feature_names=feature_names)
         return self.policy_model[tree_id].export_graphviz(feature_names=feature_names,
                                                           treatment_names=treatment_names,
@@ -372,7 +374,9 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             Names of each of the features.
 
         treatment_names : list of strings, optional, default None
-            Names of each of the treatments
+            Names of each of the treatments, starting with a name for the baseline/control treatment
+            (alphanumerically smallest in case of discrete treatment or the all-zero treatment
+            in the case of continuous)
 
         max_depth: int or None, optional, default None
             The maximum tree depth to plot
@@ -400,7 +404,6 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
-        treatment_names = ['None'] + treatment_names if treatment_names is not None else None
         feature_names = self.policy_feature_names(feature_names=feature_names)
         return self.policy_model[tree_id].render(out_file,
                                                  feature_names=feature_names,

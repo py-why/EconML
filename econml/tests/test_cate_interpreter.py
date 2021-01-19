@@ -119,9 +119,6 @@ class TestCateInterpreter(unittest.TestCase):
             if self.coinflip():
                 policy_init_kwargs.update(risk_seeking=True)
 
-            if self.coinflip():
-                policy_intrp_kwargs.update(treatment_names=['control gp', 'treated gp'])
-
             if self.coinflip(1 / 3):
                 policy_intrp_kwargs.update(sample_treatment_costs=0.1)
             elif self.coinflip():
@@ -146,6 +143,8 @@ class TestCateInterpreter(unittest.TestCase):
             if self.coinflip():
                 render_kwargs.update(leaves_parallel=False)
                 export_kwargs.update(leaves_parallel=False)
+                render_kwargs.update(treatment_names=['control gp', 'treated gp'])
+                export_kwargs.update(treatment_names=['control gp', 'treated gp'])
 
             if self.coinflip():
                 render_kwargs.update(format='png')
