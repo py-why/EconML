@@ -265,7 +265,7 @@ class _PolicyTreeMPLExporter(_PolicyTreeMixin, _MPLExporter):
     Exports policy trees to matplotlib
 
     Parameters
-    ----------    
+    ----------
     treatment_names : list of strings, optional, default None
         The names of the treatments
 
