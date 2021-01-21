@@ -523,7 +523,7 @@ cdef class Tree:
                 not node_ndarray.flags.c_contiguous):
             raise ValueError('Did not recognise loaded array layout for `node_ndarray`')
 
-        value_shape = (node_ndarray.shape[0], self.n_outputs, 1)
+        value_shape = (node_ndarray.shape[0], self.n_outputs, self.max_n_classes)
         if (value_ndarray.shape != value_shape or
                 not value_ndarray.flags.c_contiguous or
                 value_ndarray.dtype != np.float64):
@@ -919,7 +919,7 @@ cdef class Tree:
         cdef np.npy_intp shape[3]
         shape[0] = <np.npy_intp> self.node_count
         shape[1] = <np.npy_intp> self.n_outputs
-        shape[2] = 1
+        shape[2] = <np.npy_intp> self.max_n_classes
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(3, shape, np.NPY_DOUBLE, self.value)
         Py_INCREF(self)
