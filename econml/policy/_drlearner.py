@@ -8,6 +8,7 @@ from ..utilities import check_inputs, filter_none_kwargs
 from ..dr import DRLearner
 from ..dr._drlearner import _ModelFinal
 from .._tree_exporter import _SingleTreeExporterMixin
+from ._base import PolicyLearner
 from . import PolicyTree, PolicyForest
 
 
@@ -47,7 +48,7 @@ class _DRLearnerWrapper(DRLearner):
         return _PolicyModelFinal(self._gen_model_final(), self._gen_featurizer(), self.multitask_model_final)
 
 
-class _BaseDRPolicyLearner():
+class _BaseDRPolicyLearner(PolicyLearner):
 
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         Y, T, X, W = check_inputs(Y, T, X, W=W, multi_output_T=True, multi_output_Y=False)
