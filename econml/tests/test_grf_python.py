@@ -8,6 +8,7 @@ import random
 import numpy as np
 import pandas as pd
 import pytest
+import joblib
 from econml.grf import RegressionForest, CausalForest, CausalIVForest, MultiOutputGRF
 from econml.utilities import cross_product
 from copy import deepcopy
@@ -688,3 +689,20 @@ class TestGRFPython(unittest.TestCase):
             np.testing.assert_allclose(imps[0, :], imps[1, :])
 
         return
+
+    def test_pickling(self,):
+
+        n_features = 2
+        n = 10
+        random_state = 123
+        X, y, _ = self._get_regression_data(n, n_features, random_state)
+
+        forest = RegressionForest(n_estimators=4, warm_start=True, random_state=123).fit(X, y)
+        forest.n_estimators = 8
+        forest.fit(X, y)
+        pred1 = forest.predict(X)
+
+        joblib.dump(forest, 'forest.jbl')
+        loaded_forest = joblib.load('forest.jbl')
+        np.testing.assert_equal(loaded_forest.n_estimators, forest.n_estimators)
+        np.testing.assert_allclose(loaded_forest.predict(X), pred1)
