@@ -107,7 +107,7 @@ class CausalForest(BaseGRF):
 
             sum_{child} E[(Y - <theta(child), T> - beta(child))^2 | X=child] weight(child)
 
-          Internally, for the case of more than two treatments or for the case of one treatment with
+          Internally, for the case of more than two treatments or for the case of two treatments with
           ``fit_intercept=True`` then this criterion is approximated by computationally simpler variants for
           computationaly purposes. In particular, it is replaced by::
 

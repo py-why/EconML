@@ -394,7 +394,7 @@ class CausalForestDML(_BaseDML):
                  min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
                  min_var_fraction_leaf=None,
-                 min_var_leaf_on_val=True,
+                 min_var_leaf_on_val=False,
                  max_features="auto",
                  min_impurity_decrease=0.,
                  max_samples=.45,
