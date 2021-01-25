@@ -28,6 +28,9 @@ import copy
 from collections import namedtuple
 from warnings import warn
 from abc import abstractmethod
+import inspect
+from collections import defaultdict
+import re
 
 import numpy as np
 from sklearn.base import clone
@@ -435,6 +438,33 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
         super().__init__()
+
+    @classmethod
+    def _get_param_names(cls):
+        """Get parameter names for the estimator"""
+        # fetch the constructor or the original constructor before
+        # deprecation wrapping if any
+        init = cls.__init__
+        if init is object.__init__:
+            # No explicit constructor to introspect
+            return []
+
+        # introspect the constructor arguments to find the model parameters
+        # to represent
+        init_signature = inspect.signature(init)
+        # Consider the constructor parameters excluding 'self'
+        parameters = [p for p in init_signature.parameters.values()
+                      if p.name != 'self' and p.kind != p.VAR_KEYWORD]
+        for p in parameters:
+            if p.kind == p.VAR_POSITIONAL:
+                raise RuntimeError("ortho learner cate estimators should always "
+                                   "specify their parameters in the signature"
+                                   " of their __init__ (no varargs)."
+                                   " %s with constructor %s doesn't "
+                                   " follow this convention."
+                                   % (cls, init_signature))
+        # Extract and sort argument names excluding 'self'
+        return sorted([p.name for p in parameters])
 
     @abstractmethod
     def _gen_ortho_learner_model_nuisance(self):

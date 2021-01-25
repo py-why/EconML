@@ -540,6 +540,19 @@ class CausalForestDML(_BaseDML):
             The tuned causal forest object. This is the same object (not a copy) as the original one, but where
             all parameters of the object have been set to the best performing parameters from the tuning grid.
         """
+        if params == 'auto':
+            params = {'max_samples': [.3, .5],
+                      'min_balancedness_tol': [.3, .5],
+                      'min_samples_leaf': [10, 50],
+                      'max_depth': [3, None],
+                      'min_var_fraction_leaf': [None, .01]}
+        else:
+            # If custom param grid, check that only estimator parameters are being altered
+            estimator_param_names = self._get_param_names()
+            for key in params.keys():
+                if key not in estimator_param_names:
+                    raise ValueError("Parameter `{}` is not an estimator parameter.".format(key))
+
         train, test = train_test_split(np.arange(Y.shape[0]), train_size=.7, random_state=self.random_state)
         ytrain, yval, Ttrain, Tval = Y[train], Y[test], T[train], T[test]
         Xtrain, Xval = (X[train], X[test]) if X is not None else (None, None)
@@ -563,13 +576,6 @@ class CausalForestDML(_BaseDML):
                          cv=est.cv, mc_iters=est.mc_iters, mc_agg=est.mc_agg,
                          random_state=est.random_state)
         scorer.fit(yval, Tval, X=Xval, W=Wval, sample_weight=sample_weight_val, groups=groups_val)
-
-        if params == 'auto':
-            params = {'max_samples': [.3, .5],
-                      'min_balancedness_tol': [.3, .5],
-                      'min_samples_leaf': [10, 50],
-                      'max_depth': [3, None],
-                      'min_var_fraction_leaf': [None, .01]}
 
         names = params.keys()
         scores = []
