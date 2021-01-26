@@ -543,7 +543,7 @@ class CausalForestDML(_BaseDML):
         if params == 'auto':
             params = {'max_samples': [.3, .5],
                       'min_balancedness_tol': [.3, .5],
-                      'min_samples_leaf': [10, 50],
+                      'min_samples_leaf': [5, 50],
                       'max_depth': [3, None],
                       'min_var_fraction_leaf': [None, .01]}
         else:
