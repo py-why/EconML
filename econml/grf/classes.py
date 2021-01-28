@@ -54,6 +54,10 @@ class MultiOutputGRF(BaseEstimator):
         pred, var = zip(*[estimator.predict_projection_and_var(X, projector) for estimator in self.estimators_])
         return np.moveaxis(np.array(pred), 0, 1), np.moveaxis(np.array(var), 0, 1)
 
+    def oob_predict(self, Xtrain):
+        pred = [estimator.oob_predict(Xtrain) for estimator in self.estimators_]
+        return np.moveaxis(np.array(pred), 0, 1)
+
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         res = [estimator.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
                for estimator in self.estimators_]

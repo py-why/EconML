@@ -11,20 +11,27 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from itertools import product
 from .dml import _BaseDML
-from .dml import _FirstStageWrapper, _FinalWrapper
+from .dml import _FirstStageWrapper
 from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import add_intercept, shape, check_inputs, _deprecate_positional
+from ..utilities import add_intercept, shape, check_inputs, _deprecate_positional, cross_product, Summary
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
 from .._ortho_learner import _OrthoLearner
 from ..score import RScorer
+from sklearn.model_selection import cross_val_predict
 
 
-class _CausalForestFinalWrapper(_FinalWrapper):
+class _CausalForestFinalWrapper:
+
+    def __init__(self, model_final, featurizer, discrete_treatment):
+        self._model = clone(model_final, safe=False)
+        self._original_featurizer = clone(featurizer, safe=False)
+        self._featurizer = self._original_featurizer
+        self._discrete_treatment = discrete_treatment
 
     def _combine(self, X, fitting=True):
         if X is not None:
@@ -37,7 +44,7 @@ class _CausalForestFinalWrapper(_FinalWrapper):
                                  "using the LinearDML estimator.")
         return F
 
-    def fit(self, X, T_res, Y_res, sample_weight=None, sample_var=None):
+    def fit(self, X, T, T_res, Y_res, sample_weight=None, sample_var=None):
         # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
         self._d_t = shape(T_res)[1:]
         self._d_y = shape(Y_res)[1:]
@@ -49,10 +56,43 @@ class _CausalForestFinalWrapper(_FinalWrapper):
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
         self._model.fit(fts, T_res, Y_res, sample_weight=sample_weight)
+        # Fit a doubly robust average effect
+        if self._discrete_treatment:
+            oob_preds = self._model.oob_predict(fts)
+            residuals = Y_res - np.einsum('ijk,ik->ij', oob_preds, T_res)
+            propensities = T - T_res
+            VarT = propensities * (1 - propensities)
+            drpreds = oob_preds
+            drpreds += cross_product(residuals, T_res / VarT).reshape((-1, Y_res.shape[1], T_res.shape[1]))
+            self.ate_ = np.mean(drpreds, axis=0).reshape(self._d_y + self._d_t)
+            self.ate_stderr_ = (np.std(drpreds, axis=0) / np.sqrt(drpreds.shape[0])).reshape(self._d_y + self._d_t)
+
         return self
 
     def predict(self, X):
         return self._model.predict(self._combine(X, fitting=False)).reshape((-1,) + self._d_y + self._d_t)
+
+    @property
+    def ate_(self):
+        if not self._discrete_treatment:
+            raise AttributeError("Doubly Robust ATE calculation on training data "
+                                 "is available only on discrete treatments!")
+        return self._ate
+
+    @ate_.setter
+    def ate_(self, value):
+        self._ate = value
+
+    @property
+    def ate_stderr_(self):
+        if not self._discrete_treatment:
+            raise AttributeError("Doubly Robust ATE calculation on training data "
+                                 "is available only on discrete treatments!")
+        return self._ate_stderr
+
+    @ate_stderr_.setter
+    def ate_stderr_(self, value):
+        self._ate_stderr = value
 
 
 class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
@@ -499,7 +539,7 @@ class CausalForestDML(_BaseDML):
                                            warm_start=self.warm_start))
 
     def _gen_rlearner_model_final(self):
-        return _CausalForestFinalWrapper(self._gen_model_final(), False, self._gen_featurizer(), False)
+        return _CausalForestFinalWrapper(self._gen_model_final(), self._gen_featurizer(), self.discrete_treatment)
 
     def tune(self, Y, T, *, X=None, W=None,
              sample_weight=None, sample_var=None, groups=None,
@@ -653,6 +693,65 @@ class CausalForestDML(_BaseDML):
         imps = self.model_final_.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
         return imps.reshape(self._d_y + (-1,))
 
+    def summary(self, alpha=0.1, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
+        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Parameters
+        ----------
+        alpha: optional float in [0, 1] (default=0.1)
+            The overall level of confidence of the reported interval.
+            The alpha/2, 1-alpha/2 confidence interval is reported.
+        value: optinal float (default=0)
+            The mean value of the metric you'd like to test under null hypothesis.
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        feature_names: optional list of strings or None (default is None)
+            The input of the feature names
+        treatment_names: optional list of strings or None (default is None)
+            The names of the treatments
+        output_names: optional list of strings or None (default is None)
+            The names of the outputs
+
+        Returns
+        -------
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
+        """
+        # Get input names
+        treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
+        output_names = self._input_names["output_names"] if output_names is None else output_names
+        # Summary
+        if self._cached_values is not None:
+            print("Population summary of CATE predictions")
+            smry = self.const_marginal_ate_inference(self._cached_values.X).summary(alpha=alpha, value=value,
+                                                                                    decimals=decimals,
+                                                                                    output_names=output_names,
+                                                                                    treatment_names=treatment_names)
+        else:
+            print("Population summary results are available only if `cache_values=True` at fit time!")
+            smry = Summary()
+        d_t = self._d_t[0] if self._d_t else 1
+        d_y = self._d_y[0] if self._d_y else 1
+        try:
+            intercept_table = self.ate__inference().summary_frame(alpha=alpha,
+                                                                  value=value, decimals=decimals,
+                                                                  feature_names=None,
+                                                                  treatment_names=treatment_names,
+                                                                  output_names=output_names)
+            intercept_array = intercept_table.values
+            intercept_headers = [i + '\n' + j for (i, j)
+                                 in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
+            intercept_stubs = [i + ' | ' + j for (i, j)
+                               in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
+            intercept_title = 'Doubly Robust ATE Results'
+            smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
+        except Exception as e:
+            print("Doubly Robust ATE Results: ", str(e))
+        if len(smry.tables) > 0:
+            return smry
+
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         if self.featurizer_ is not None:
             F = self.featurizer_.transform(X)
@@ -666,6 +765,20 @@ class CausalForestDML(_BaseDML):
                                                   input_names=self._input_names,
                                                   background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
+
+    def ate__inference(self):
+        return NormalInferenceResults(d_t=self._d_t[0] if self._d_t else 1,
+                                      d_y=self._d_y[0] if self._d_y else 1,
+                                      pred=self.ate_, pred_stderr=self.ate_stderr_,
+                                      inf_type='ate', **self._input_names)
+
+    @property
+    def ate_(self):
+        return self.rlearner_model_final_.ate_
+
+    @property
+    def ate_stderr_(self):
+        return self.rlearner_model_final_.ate_stderr_
 
     @property
     def feature_importances_(self):
