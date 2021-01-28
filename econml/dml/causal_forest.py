@@ -27,11 +27,12 @@ from sklearn.model_selection import cross_val_predict
 
 class _CausalForestFinalWrapper:
 
-    def __init__(self, model_final, featurizer, discrete_treatment):
+    def __init__(self, model_final, featurizer, discrete_treatment, oob):
         self._model = clone(model_final, safe=False)
         self._original_featurizer = clone(featurizer, safe=False)
         self._featurizer = self._original_featurizer
         self._discrete_treatment = discrete_treatment
+        self._oob = oob
 
     def _combine(self, X, fitting=True):
         if X is not None:
@@ -57,15 +58,23 @@ class _CausalForestFinalWrapper:
             Y_res = Y_res.reshape((-1, 1))
         self._model.fit(fts, T_res, Y_res, sample_weight=sample_weight)
         # Fit a doubly robust average effect
-        if self._discrete_treatment:
+        if self._discrete_treatment and self._oob:
             oob_preds = self._model.oob_predict(fts)
+            self._oob_preds = oob_preds
+            if np.any(np.isnan(oob_preds)):
+                warn("Could not generate out-of-bag predictions on some training data. "
+                     "Consider increasing the number of trees. `ate_` results will take the "
+                     "average of the subset of training data for which out-of-bag predictions "
+                     "where available.")
             residuals = Y_res - np.einsum('ijk,ik->ij', oob_preds, T_res)
             propensities = T - T_res
             VarT = propensities * (1 - propensities)
             drpreds = oob_preds
             drpreds += cross_product(residuals, T_res / VarT).reshape((-1, Y_res.shape[1], T_res.shape[1]))
-            self.ate_ = np.mean(drpreds, axis=0).reshape(self._d_y + self._d_t)
-            self.ate_stderr_ = (np.std(drpreds, axis=0) / np.sqrt(drpreds.shape[0])).reshape(self._d_y + self._d_t)
+            drpreds[np.isnan(oob_preds)] = np.nan
+            self.ate_ = np.nanmean(drpreds, axis=0).reshape(self._d_y + self._d_t)
+            nonnan = np.sum(~np.isnan(drpreds))
+            self.ate_stderr_ = (np.nanstd(drpreds, axis=0) / np.sqrt(nonnan)).reshape(self._d_y + self._d_t)
 
         return self
 
@@ -77,6 +86,9 @@ class _CausalForestFinalWrapper:
         if not self._discrete_treatment:
             raise AttributeError("Doubly Robust ATE calculation on training data "
                                  "is available only on discrete treatments!")
+        if not self._oob:
+            raise AttributeError("Doubly Robust ATE calculation on training data "
+                                 "is available only when `oob_preds=True`!")
         return self._ate
 
     @ate_.setter
@@ -88,6 +100,9 @@ class _CausalForestFinalWrapper:
         if not self._discrete_treatment:
             raise AttributeError("Doubly Robust ATE calculation on training data "
                                  "is available only on discrete treatments!")
+        if not self._oob:
+            raise AttributeError("Doubly Robust ATE calculation on training data "
+                                 "is available only when `oob_preds=True`!")
         return self._ate_stderr
 
     @ate_stderr_.setter
@@ -201,6 +216,10 @@ class CausalForestDML(_BaseDML):
     mc_agg: {'mean', 'median'}, optional (default='mean')
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
+
+    oob : bool, default=True
+        Whether out-of-bag effect predictions should be calculated at training time.
+        These predictions enable doubly robust average effect estimation on training data.
 
     n_estimators : int, default=100
         Number of trees
@@ -398,6 +417,12 @@ class CausalForestDML(_BaseDML):
 
     Attributes
     ----------
+    ate_ : ndarray of shape (n_outcomes, n_treatments)
+        The average constant marginal treatment effect of each treatment for each outcome,
+        averaged over the training data and with a doubly robust correction. Available only
+        when `discrete_treatment=True` and `oob=True`.
+    ate_stderr_ : ndarray of shape (n_outcomes, n_treatments)
+        The standard error of the `ate_` attribute.
     feature_importances_ : ndarray of shape (n_features,)
         The feature importances based on the amount of parameter heterogeneity they create.
         The higher, the more important the feature.
@@ -430,6 +455,7 @@ class CausalForestDML(_BaseDML):
                  n_crossfit_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
+                 oob=True,
                  n_estimators=100,
                  criterion="mse",
                  max_depth=None,
@@ -453,6 +479,7 @@ class CausalForestDML(_BaseDML):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
+        self.oob = oob
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.featurizer = clone(featurizer, safe=False)
@@ -539,7 +566,8 @@ class CausalForestDML(_BaseDML):
                                            warm_start=self.warm_start))
 
     def _gen_rlearner_model_final(self):
-        return _CausalForestFinalWrapper(self._gen_model_final(), self._gen_featurizer(), self.discrete_treatment)
+        return _CausalForestFinalWrapper(self._gen_model_final(), self._gen_featurizer(),
+                                         self.discrete_treatment, self.oob)
 
     def tune(self, Y, T, *, X=None, W=None,
              sample_weight=None, sample_var=None, groups=None,
@@ -610,6 +638,7 @@ class CausalForestDML(_BaseDML):
         est = clone(self, safe=False)
         est.n_estimators = 100
         est.inference = False
+        est.oob = False
 
         scorer = RScorer(model_y=est.model_y, model_t=est.model_t,
                          discrete_treatment=est.discrete_treatment, categories=est.categories,
@@ -724,7 +753,7 @@ class CausalForestDML(_BaseDML):
         output_names = self._input_names["output_names"] if output_names is None else output_names
         # Summary
         if self._cached_values is not None:
-            print("Population summary of CATE predictions")
+            print("Population summary of CATE predictions on Training Data")
             smry = self.const_marginal_ate_inference(self._cached_values.X).summary(alpha=alpha, value=value,
                                                                                     decimals=decimals,
                                                                                     output_names=output_names,
@@ -745,10 +774,10 @@ class CausalForestDML(_BaseDML):
                                  in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
             intercept_stubs = [i + ' | ' + j for (i, j)
                                in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
-            intercept_title = 'Doubly Robust ATE Results'
+            intercept_title = 'Doubly Robust ATE on Training Data Results'
             smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
         except Exception as e:
-            print("Doubly Robust ATE Results: ", str(e))
+            print("Doubly Robust ATE on Training Data Results: ", str(e))
         if len(smry.tables) > 0:
             return smry
 
@@ -767,6 +796,15 @@ class CausalForestDML(_BaseDML):
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
     def ate__inference(self):
+        """
+        Returns
+        -------
+        ate__inference : NormalInferenceResults
+            Inference results information for the `ate_` attribute, which is the average
+            constant marginal treatment effect of each treatment for each outcome, averaged
+            over the training data and with a doubly robust correction.
+            Available only when `discrete_treatment=True` and `oob=True`.
+        """
         return NormalInferenceResults(d_t=self._d_t[0] if self._d_t else 1,
                                       d_y=self._d_y[0] if self._d_y else 1,
                                       pred=self.ate_, pred_stderr=self.ate_stderr_,

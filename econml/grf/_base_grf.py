@@ -1141,8 +1141,11 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             delayed(_accumulate_oob_preds)(tree, Xtrain, sinds, alpha_hat, jac_hat, counts, lock)
             for tree, sinds in zip(self.estimators_, subsample_inds))
 
-        alpha_hat /= counts.reshape((-1, 1))
-        jac_hat /= counts.reshape((-1, 1))
+        pos_count = (counts > 0)
+        alpha_hat[pos_count] /= counts[pos_count].reshape((-1, 1))
+        jac_hat[pos_count] /= counts[pos_count].reshape((-1, 1))
 
         invjac = np.linalg.pinv(jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_)))
-        return np.einsum('ijk,ik->ij', invjac, alpha_hat)[:, :self.n_relevant_outputs_]
+        oob_preds = np.einsum('ijk,ik->ij', invjac, alpha_hat)[:, :self.n_relevant_outputs_]
+        oob_preds[~pos_count] = np.nan
+        return oob_preds
