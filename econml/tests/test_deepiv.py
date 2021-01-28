@@ -32,7 +32,27 @@ class TestDeepIV(unittest.TestCase):
         model = keras.Model([x_input, y_input, z_input], [loss])
         model.add_loss(K.mean(loss))
         model.compile('nadam')
-        model.fit([np.array([[1]]), np.array([[2]]), np.array([[0]])], [])
+        model.fit([np.array([[1]]), np.array([[2]]), np.array([[0]])])
+
+    def test_mog_loss(self):
+        inputs = [keras.layers.Input(shape=s) for s in [(3,), (3, 2), (3,), (2,)]]
+        ll_model = keras.engine.Model(inputs, mog_loss_model(3, 2)(inputs))
+
+        for n in range(10):
+            ps = -np.log(np.random.uniform(size=(3,)))
+            pi = ps / np.sum(ps)
+            mu = np.random.normal(size=(3, 2))
+            sig = np.exp(np.random.normal(size=3,))
+            t = np.random.normal(size=(2,))
+
+            pred = ll_model.predict([pi.reshape(1, 3), mu.reshape(1, 3, 2), sig.reshape(1, 3), t.reshape(1, 2)])
+
+            # LL = C - log(sum(pi_i/sig^d * exp(-d2/(2*sig^2))))
+            d = mu - t.reshape(-1, 2)
+            d2 = np.sum(d * d, axis=-1)
+            ll = -np.log(np.sum(pi / (sig * sig) * np.exp(-d2 / (2 * sig * sig)), axis=0))
+
+            assert np.allclose(ll, pred[0])
 
     @pytest.mark.slow
     def test_deepiv_shape(self):
@@ -500,7 +520,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         model = keras.engine.Model([x_input, t_input], [ll])
         model.add_loss(K.mean(ll))
         model.compile('nadam')
-        model.fit([x, t], [], epochs=5)
+        model.fit([x, t], epochs=5)
 
         # For some reason this doesn't work at all when run against the CNTK backend...
         # model.compile('nadam', loss=lambda _,l:l)
@@ -559,7 +579,7 @@ Response:{y}".format(**{'x': x.shape, 'z': z.shape,
         model = keras.engine.Model([x_input, t_input], [ll])
         model.add_loss(K.mean(ll))
         model.compile('nadam')
-        model.fit([x, t], [], epochs=100)
+        model.fit([x, t], epochs=100)
 
         model2 = keras.engine.Model([x_input], [pi, mu, sig])
         import matplotlib

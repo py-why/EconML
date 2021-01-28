@@ -93,9 +93,13 @@ def mog_loss_model(n_components, d_t):
     # LL = C - log(sum(pi_i/sig^d * exp(-d2/(2*sig^2))))
     # Use logsumexp for numeric stability:
     # LL = C - log(sum(exp(-d2/(2*sig^2) + log(pi_i/sig^d))))
-    # TODO: does the numeric stability actually make any difference?
     def make_logloss(d2, sig, pi):
-        return -K.logsumexp(-d2 / (2 * K.square(sig)) + K.log(pi / K.pow(sig, d_t)), axis=-1)
+        # logsumexp doesn't exist in keras 2.4; simulate it
+        values = - d2 / (2 * K.square(sig)) + K.log(pi / K.pow(sig, d_t))
+        # logsumexp(a,b,c) = log(exp(a)+exp(b)+exp(c)) = log((exp(a-k)+exp(b-k)+exp(c-k))*exp(k))
+        # = log((exp(a-k)+exp(b-k)+exp(c-k))) + k
+        mx = K.max(values, axis=-1)
+        return -K.log(K.sum(K.exp(values - L.Reshape((-1, 1))(mx)), axis=-1)) - mx
 
     ll = L.Lambda(lambda dsp: make_logloss(*dsp), output_shape=(1,))([d2, sig, pi])
 
@@ -350,7 +354,7 @@ class DeepIV(BaseCateEstimator):
         model.add_loss(L.Lambda(K.mean)(ll))
         model.compile(self._optimizer)
         # TODO: do we need to give the user more control over other arguments to fit?
-        model.fit([Z, X, T], [], **self._first_stage_options)
+        model.fit([Z, X, T], **self._first_stage_options)
 
         lm = response_loss_model(lambda t, x: self._h(t, x),
                                  lambda z, x: Model([z_in, x_in],
@@ -365,7 +369,7 @@ class DeepIV(BaseCateEstimator):
         response_model.add_loss(L.Lambda(K.mean)(rl))
         response_model.compile(self._optimizer)
         # TODO: do we need to give the user more control over other arguments to fit?
-        response_model.fit([Z, X, Y], [], **self._second_stage_options)
+        response_model.fit([Z, X, Y], **self._second_stage_options)
 
         self._effect_model = Model([t_in, x_in], [self._h(t_in, x_in)])
 
