@@ -732,6 +732,11 @@ class InferenceResults(metaclass=abc.ABCMeta):
                 res.index = res.index.set_levels(['ATE'], level=0)
             else:
                 res.index = ['ATE']
+        elif self.inf_type == 'att':
+            if self.d_y > 1:
+                res.index = res.index.set_levels(['ATT'], level=0)
+            else:
+                res.index = ['ATT']
         return res
 
     def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):

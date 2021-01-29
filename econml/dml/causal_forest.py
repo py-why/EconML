@@ -27,12 +27,12 @@ from sklearn.model_selection import cross_val_predict
 
 class _CausalForestFinalWrapper:
 
-    def __init__(self, model_final, featurizer, discrete_treatment, oob):
+    def __init__(self, model_final, featurizer, discrete_treatment, drate):
         self._model = clone(model_final, safe=False)
         self._original_featurizer = clone(featurizer, safe=False)
         self._featurizer = self._original_featurizer
         self._discrete_treatment = discrete_treatment
-        self._oob = oob
+        self._drate = drate
 
     def _combine(self, X, fitting=True):
         if X is not None:
@@ -44,6 +44,14 @@ class _CausalForestFinalWrapper:
             raise AttributeError("Cannot use this method with X=None. Consider "
                                  "using the LinearDML estimator.")
         return F
+
+    def _ate_and_stderr(self, drpreds, mask=None):
+        if mask is not None:
+            drpreds = drpreds[mask]
+        point = np.nanmean(drpreds, axis=0).reshape(self._d_y + self._d_t)
+        nonnan = np.sum(~np.isnan(drpreds))
+        stderr = (np.nanstd(drpreds, axis=0) / np.sqrt(nonnan)).reshape(self._d_y + self._d_t)
+        return point, stderr
 
     def fit(self, X, T, T_res, Y_res, sample_weight=None, sample_var=None):
         # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
@@ -58,7 +66,7 @@ class _CausalForestFinalWrapper:
             Y_res = Y_res.reshape((-1, 1))
         self._model.fit(fts, T_res, Y_res, sample_weight=sample_weight)
         # Fit a doubly robust average effect
-        if self._discrete_treatment and self._oob:
+        if self._discrete_treatment and self._drate:
             oob_preds = self._model.oob_predict(fts)
             self._oob_preds = oob_preds
             if np.any(np.isnan(oob_preds)):
@@ -72,9 +80,16 @@ class _CausalForestFinalWrapper:
             drpreds = oob_preds
             drpreds += cross_product(residuals, T_res / VarT).reshape((-1, Y_res.shape[1], T_res.shape[1]))
             drpreds[np.isnan(oob_preds)] = np.nan
-            self.ate_ = np.nanmean(drpreds, axis=0).reshape(self._d_y + self._d_t)
-            nonnan = np.sum(~np.isnan(drpreds))
-            self.ate_stderr_ = (np.nanstd(drpreds, axis=0) / np.sqrt(nonnan)).reshape(self._d_y + self._d_t)
+            self.ate_, self.ate_stderr_ = self._ate_and_stderr(drpreds)
+            self.att_ = []
+            self.att_stderr_ = []
+            att, stderr = self._ate_and_stderr(drpreds, np.all(T == 0, axis=1))
+            self.att_.append(att)
+            self.att_stderr_.append(stderr)
+            for t in range(self._d_t[0]):
+                att, stderr = self._ate_and_stderr(drpreds, (T[:, t] == 1))
+                self.att_.append(att)
+                self.att_stderr_.append(stderr)
 
         return self
 
@@ -86,9 +101,9 @@ class _CausalForestFinalWrapper:
         if not self._discrete_treatment:
             raise AttributeError("Doubly Robust ATE calculation on training data "
                                  "is available only on discrete treatments!")
-        if not self._oob:
+        if not self._drate:
             raise AttributeError("Doubly Robust ATE calculation on training data "
-                                 "is available only when `oob_preds=True`!")
+                                 "is available only when `drate=True`!")
         return self._ate
 
     @ate_.setter
@@ -100,14 +115,42 @@ class _CausalForestFinalWrapper:
         if not self._discrete_treatment:
             raise AttributeError("Doubly Robust ATE calculation on training data "
                                  "is available only on discrete treatments!")
-        if not self._oob:
+        if not self._drate:
             raise AttributeError("Doubly Robust ATE calculation on training data "
-                                 "is available only when `oob_preds=True`!")
+                                 "is available only when `drate=True`!")
         return self._ate_stderr
 
     @ate_stderr_.setter
     def ate_stderr_(self, value):
         self._ate_stderr = value
+
+    @property
+    def att_(self):
+        if not self._discrete_treatment:
+            raise AttributeError("Doubly Robust ATT calculation on training data "
+                                 "is available only on discrete treatments!")
+        if not self._drate:
+            raise AttributeError("Doubly Robust ATT calculation on training data "
+                                 "is available only when `drate=True`!")
+        return self._att
+
+    @att_.setter
+    def att_(self, value):
+        self._att = value
+
+    @property
+    def att_stderr_(self):
+        if not self._discrete_treatment:
+            raise AttributeError("Doubly Robust ATE calculation on training data "
+                                 "is available only on discrete treatments!")
+        if not self._drate:
+            raise AttributeError("Doubly Robust ATE calculation on training data "
+                                 "is available only when `drate=True`!")
+        return self._att_stderr
+
+    @att_stderr_.setter
+    def att_stderr_(self, value):
+        self._att_stderr = value
 
 
 class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
@@ -217,9 +260,10 @@ class CausalForestDML(_BaseDML):
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    oob : bool, default=True
-        Whether out-of-bag effect predictions should be calculated at training time.
-        These predictions enable doubly robust average effect estimation on training data.
+    drate : bool, default=True
+        Whether to calculate doubly robust average treatment effect estimate on training data at fit time.
+        This happens only if `discrete_treatment=True`. Doubly robust ATE estimation on the training data
+        is not available for continuous treatments.
 
     n_estimators : int, default=100
         Number of trees
@@ -455,7 +499,7 @@ class CausalForestDML(_BaseDML):
                  n_crossfit_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
-                 oob=True,
+                 drate=True,
                  n_estimators=100,
                  criterion="mse",
                  max_depth=None,
@@ -479,7 +523,7 @@ class CausalForestDML(_BaseDML):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
-        self.oob = oob
+        self.drate = drate
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.featurizer = clone(featurizer, safe=False)
@@ -567,7 +611,7 @@ class CausalForestDML(_BaseDML):
 
     def _gen_rlearner_model_final(self):
         return _CausalForestFinalWrapper(self._gen_model_final(), self._gen_featurizer(),
-                                         self.discrete_treatment, self.oob)
+                                         self.discrete_treatment, self.drate)
 
     def tune(self, Y, T, *, X=None, W=None,
              sample_weight=None, sample_var=None, groups=None,
@@ -638,7 +682,7 @@ class CausalForestDML(_BaseDML):
         est = clone(self, safe=False)
         est.n_estimators = 100
         est.inference = False
-        est.oob = False
+        est.drate = False
 
         scorer = RScorer(model_y=est.model_y, model_t=est.model_t,
                          discrete_treatment=est.discrete_treatment, categories=est.categories,
@@ -778,6 +822,23 @@ class CausalForestDML(_BaseDML):
             smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
         except Exception as e:
             print("Doubly Robust ATE on Training Data Results: ", str(e))
+        for t in range(0, d_t + 1):
+            try:
+                intercept_table = self.att__inference(T=t).summary_frame(alpha=alpha,
+                                                                         value=value, decimals=decimals,
+                                                                         feature_names=None,
+                                                                         treatment_names=treatment_names,
+                                                                         output_names=output_names)
+                intercept_array = intercept_table.values
+                intercept_headers = [i + '\n' + j for (i, j)
+                                     in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
+                intercept_stubs = [i + ' | ' + j for (i, j)
+                                   in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
+                intercept_title = "Doubly Robust ATT(T={}) on Training Data Results".format(t)
+                smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
+            except Exception as e:
+                print("Doubly Robust ATT on Training Data Results: ", str(e))
+                break
         if len(smry.tables) > 0:
             return smry
 
@@ -807,7 +868,8 @@ class CausalForestDML(_BaseDML):
         """
         return NormalInferenceResults(d_t=self._d_t[0] if self._d_t else 1,
                                       d_y=self._d_y[0] if self._d_y else 1,
-                                      pred=self.ate_, pred_stderr=self.ate_stderr_,
+                                      pred=self.ate_,
+                                      pred_stderr=self.ate_stderr_,
                                       inf_type='ate', **self._input_names)
 
     @property
@@ -817,6 +879,60 @@ class CausalForestDML(_BaseDML):
     @property
     def ate_stderr_(self):
         return self.rlearner_model_final_.ate_stderr_
+
+    def att__inference(self, *, T):
+        """
+        Parameters
+        ----------
+        T : int
+            The index of the treatment for which to get the ATT. It corresponds to the
+            lexicographic rank of the discrete input treatments.
+
+        Returns
+        -------
+        att__inference : NormalInferenceResults
+            Inference results information for the `att_` attribute, which is the average
+            constant marginal treatment effect of each treatment for each outcome, averaged
+            over the training data treated with treatment T and with a doubly robust correction.
+            Available only when `discrete_treatment=True` and `oob=True`.
+        """
+        return NormalInferenceResults(d_t=self._d_t[0] if self._d_t else 1,
+                                      d_y=self._d_y[0] if self._d_y else 1,
+                                      pred=self.att_(T=T),
+                                      pred_stderr=self.att_stderr_(T=T),
+                                      inf_type='att', **self._input_names)
+
+    def att_(self, *, T):
+        """
+        Parameters
+        ----------
+        T : int
+            The index of the treatment for which to get the ATT. It corresponds to the
+            lexicographic rank of the discrete input treatments.
+
+        Returns
+        -------
+        att_ : ndarray (n_y, n_t)
+            The average constant marginal treatment effect of each treatment for each outcome, averaged
+            over the training data treated with treatment T and with a doubly robust correction.
+            Singleton dimensions are dropped if input variable was a vector.
+        """
+        return self.rlearner_model_final_.att_[T]
+
+    def att_stderr_(self, *, T):
+        """
+        Parameters
+        ----------
+        T : int
+            The index of the treatment for which to get the ATT. It corresponds to the
+            lexicographic rank of the discrete input treatments.
+
+        Returns
+        -------
+        att_stderr_ : ndarray (n_y, n_t)
+            The standard error of the corresponding att_
+        """
+        return self.rlearner_model_final_.att_stderr_[T]
 
     @property
     def feature_importances_(self):
