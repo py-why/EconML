@@ -517,15 +517,17 @@ cdef class Tree:
 
         node_ndarray = d['nodes']
         value_ndarray = d['values']
-        
-        value_shape = (node_ndarray.shape[0], self.n_outputs)
+
         if (node_ndarray.ndim != 1 or
                 node_ndarray.dtype != NODE_DTYPE or
-                not node_ndarray.flags.c_contiguous or
-                value_ndarray.shape != value_shape or
+                not node_ndarray.flags.c_contiguous):
+            raise ValueError('Did not recognise loaded array layout for `node_ndarray`')
+
+        value_shape = (node_ndarray.shape[0], self.n_outputs, self.max_n_classes)
+        if (value_ndarray.shape != value_shape or
                 not value_ndarray.flags.c_contiguous or
                 value_ndarray.dtype != np.float64):
-            raise ValueError('Did not recognise loaded array layout')
+            raise ValueError('Did not recognise loaded array layout for `value_ndarray`')
 
         self.capacity = node_ndarray.shape[0]
         if self._resize_c(self.capacity) != 0:
@@ -541,7 +543,7 @@ cdef class Tree:
             if (jac_ndarray.shape != jac_shape or
                     not jac_ndarray.flags.c_contiguous or
                     jac_ndarray.dtype != np.float64):
-                raise ValueError('Did not recognise loaded array layout')
+                raise ValueError('Did not recognise loaded array layout for `jac_ndarray`')
             jac = memcpy(self.jac, (<np.ndarray> jac_ndarray).data,
                          self.capacity * self.jac_stride * sizeof(double))
             precond_ndarray = d['precond']
@@ -549,7 +551,7 @@ cdef class Tree:
             if (precond_ndarray.shape != precond_shape or
                     not precond_ndarray.flags.c_contiguous or
                     precond_ndarray.dtype != np.float64):
-                raise ValueError('Did not recognise loaded array layout')
+                raise ValueError('Did not recognise loaded array layout for `precond_ndarray`')
             precond = memcpy(self.precond, (<np.ndarray> precond_ndarray).data,
                              self.capacity * self.precond_stride * sizeof(double))
 
@@ -917,7 +919,7 @@ cdef class Tree:
         cdef np.npy_intp shape[3]
         shape[0] = <np.npy_intp> self.node_count
         shape[1] = <np.npy_intp> self.n_outputs
-        shape[2] = 1
+        shape[2] = <np.npy_intp> self.max_n_classes
         cdef np.ndarray arr
         arr = np.PyArray_SimpleNewFromData(3, shape, np.NPY_DOUBLE, self.value)
         Py_INCREF(self)
