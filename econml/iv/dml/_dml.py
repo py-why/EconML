@@ -42,7 +42,7 @@ class _BaseDMLATEIVModelFinal:
                                            sample_weight=sample_weight).predict(Z_res)
         # TODO: allow the final model to actually use X? Then we'd need to rename the class
         #       since we would actually be calculating a CATE rather than ATE.
-        self._model_final.fit(X=None, T_res=T_res_pred, Y_res=Y_res, sample_weight=sample_weight)
+        self._model_final.fit(X=None, T=T, T_res=T_res_pred, Y_res=Y_res, sample_weight=sample_weight)
         return self
 
     def predict(self, X=None):
@@ -387,7 +387,7 @@ class _BaseDMLIVModelFinal:
 
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
         Y_res, T_res = nuisances
-        self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
+        self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
         return self
 
     def predict(self, X=None):
