@@ -930,7 +930,7 @@ class CausalForestDML(_BaseDML):
         Returns
         -------
         att_stderr_ : ndarray (n_y, n_t)
-            The standard error of the corresponding att_
+            The standard error of the corresponding `att_`
         """
         return self.rlearner_model_final_.att_stderr_[T]
 
