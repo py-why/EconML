@@ -241,9 +241,7 @@ class _BaseDRIV(_OrthoLearner):
                                    self.cov_clip,
                                    self.opt_reweighted)
 
-    @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
-                           "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -722,9 +720,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         return StatsModelsLinearRegression(fit_intercept=False)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
-                           "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.

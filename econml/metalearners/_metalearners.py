@@ -47,10 +47,8 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
         super().__init__()
 
-    @_deprecate_positional("X should be passed by keyword only. In a future release "
-                           "we will disallow passing X by position.", ['X'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, *, inference=None):
+    def fit(self, Y, T, *, X, inference=None):
         """Build an instance of TLearner.
 
         Parameters
@@ -139,10 +137,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
         super().__init__()
 
-    @_deprecate_positional("X should be passed by keyword only. In a future release "
-                           "we will disallow passing X by position.", ['X'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X=None, *, inference=None):
+    def fit(self, Y, T, *, X=None, inference=None):
         """Build an instance of SLearner.
 
         Parameters
@@ -246,10 +242,8 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
         super().__init__()
 
-    @_deprecate_positional("X should be passed by keyword only. In a future release "
-                           "we will disallow passing X by position.", ['X'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, *, inference=None):
+    def fit(self, Y, T, *, X, inference=None):
         """Build an instance of XLearner.
 
         Parameters
@@ -374,10 +368,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
         super().__init__()
 
-    @_deprecate_positional("X should be passed by keyword only. In a future release "
-                           "we will disallow passing X by position.", ['X'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, *, inference=None):
+    def fit(self, Y, T, *, X, inference=None):
         """Build an instance of DomainAdaptationLearner.
 
         Parameters

@@ -541,10 +541,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         super()._prefit(Y, T, *args, **kwargs)
 
-    @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
-                           "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X=None, W=None, Z=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, Z=None, sample_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None, only_final=False, check_input=True):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.

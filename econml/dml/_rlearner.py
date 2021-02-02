@@ -324,9 +324,7 @@ class _RLearner(_OrthoLearner):
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_rlearner_model_final())
 
-    @_deprecate_positional("X, and should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.

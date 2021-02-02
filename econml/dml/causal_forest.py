@@ -499,9 +499,7 @@ class CausalForestDML(_BaseDML):
         return _CausalForestFinalWrapper(self._gen_model_final(), False, self._gen_featurizer(), False)
 
     # override only so that we can update the docstring to indicate support for `blb`
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).

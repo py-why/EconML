@@ -85,9 +85,7 @@ class _BaseDMLATEIV(_OrthoLearner):
     def _gen_ortho_learner_model_final(self):
         return _BaseDMLATEIVModelFinal()
 
-    @_deprecate_positional("W and Z should be passed by keyword only. In a future release "
-                           "we will disallow passing W and Z by position.", ['W', 'Z'])
-    def fit(self, Y, T, Z, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, W=None, sample_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -497,9 +495,7 @@ class _BaseDMLIV(_OrthoLearner):
                          mc_agg=mc_agg,
                          random_state=random_state)
 
-    @_deprecate_positional("Z and X should be passed by keyword only. In a future release "
-                           "we will disallow passing Z and X by position.", ['X', 'Z'])
-    def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, sample_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
