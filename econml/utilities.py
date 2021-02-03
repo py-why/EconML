@@ -553,7 +553,7 @@ def get_input_columns(X, prefix="X"):
 
     Parameters
     ----------
-    X : array_like
+    X : array_like or None
         Input array with column names to be extracted.
 
     prefix: string or None
@@ -566,6 +566,11 @@ def get_input_columns(X, prefix="X"):
         List of columns corresponding to the dataframe-like object.
         None if the input array is not in the supported types.
     """
+    if X is None:
+        return None
+    if np.ndim(X) == 0:
+        raise ValueError(
+            "Expected array-like object for imput with prefix {prefix} but got '{X}' object instead.".format(prefix, X))
     # Type to column extraction function
     type_to_func = {
         pd.DataFrame: lambda x: x.columns.tolist(),
