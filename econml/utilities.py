@@ -546,7 +546,7 @@ def check_input_arrays(*args, validate_len=True):
     return args
 
 
-def get_input_columns(X):
+def get_input_columns(X, prefix="X"):
     """Extracts column names from dataframe-like input object.
 
     Currently supports column name extraction from pandas DataFrame and Series objects.
@@ -556,12 +556,15 @@ def get_input_columns(X):
     X : array_like
         Input array with column names to be extracted.
 
+    prefix: string or None
+        If input array doesn't have column names, a default using the naming scheme
+        "{prefix}{column number}" will be returned.
+
     Returns
     -------
     cols: array-like or None
         List of columns corresponding to the dataframe-like object.
         None if the input array is not in the supported types.
-
     """
     # Type to column extraction function
     type_to_func = {
@@ -570,7 +573,8 @@ def get_input_columns(X):
     }
     if type(X) in type_to_func:
         return type_to_func[type(X)](X)
-    return None
+    len_X = 1 if np.ndim(X) == 1 else np.asarray(X).shape[1]
+    return ["{}{}".format(prefix, i) for i in range(len_X)]
 
 
 def check_models(models, n):

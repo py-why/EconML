@@ -605,6 +605,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.transformer = FunctionTransformer(
                     func=_EncoderWrapper(self._one_hot_encoder).encode,
                     validate=False)
+                self._set_encoded_treatment_names(self._one_hot_encoder)
             else:
                 self.transformer = None
 

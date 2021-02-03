@@ -45,17 +45,23 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         # because inf now stores state from fitting est2
         return deepcopy(inference)
 
-    def _set_input_names(self, Y, T, X, set_flag=True):
+    def _set_input_names(self, Y, T, X, set_flag=False):
         """Set input column names if inputs have column metadata."""
         self._input_names = {
-            "feature_names": get_input_columns(X),
-            "output_names": get_input_columns(Y),
-            "treatment_names": get_input_columns(T)
+            "feature_names": get_input_columns(X, prefix="X"),
+            "output_names": get_input_columns(Y, prefix="Y"),
+            "treatment_names": get_input_columns(T, prefix="T")
         }
         if set_flag:
             # This flag is true when names are set in a child class instead
             # If names are set in a child class, add an attribute reflecting that
             self._input_names_set = True
+
+    def _set_encoded_treatment_names(self, one_hot_encoder):
+        """Works with sklearn OHEs"""
+        if hasattr(self, "_input_names"):
+            self._input_names["treatment_names"] = one_hot_encoder.get_feature_names(
+                self._input_names["treatment_names"])
 
     def _strata(self, Y, T, *args, **kwargs):
         """

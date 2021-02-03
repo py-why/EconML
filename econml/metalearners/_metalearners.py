@@ -81,6 +81,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
 
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self._set_encoded_treatment_names(self._one_hot_encoder)
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
@@ -177,6 +178,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
 
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self._set_encoded_treatment_names(self._one_hot_encoder)
         self._d_t = (T.shape[1] - 1,)
         feat_arr = np.concatenate((X, T), axis=1)
         self.overall_model.fit(feat_arr, Y)
@@ -287,6 +289,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if Y.ndim == 2 and Y.shape[1] == 1:
             Y = Y.flatten()
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self._set_encoded_treatment_names(self._one_hot_encoder)
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
@@ -416,6 +419,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
 
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self._set_encoded_treatment_names(self._one_hot_encoder)
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
