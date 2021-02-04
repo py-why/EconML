@@ -1266,6 +1266,18 @@ def transpose_dictionary(d):
     return output
 
 
+def reshape_arrays_2dim(length, *args):
+    new_args = []
+    for arg in args:
+        if arg is None:
+            new_args.append(np.array([]).reshape(length, 0))
+        elif arg.ndim == 1:
+            new_args.append(arg.reshape((-1, 1)))
+        else:
+            new_args.append(arg)
+    return new_args
+
+
 class _RegressionWrapper:
     """
     A simple wrapper that makes a binary classifier behave like a regressor.

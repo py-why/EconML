@@ -39,6 +39,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  models,
                  categories='auto'):
         self.models = clone(models, safe=False)
+        self.categories = categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
@@ -128,6 +129,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  overall_model,
                  categories='auto'):
         self.overall_model = clone(overall_model, safe=False)
+        self.categories = categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         # Note: unlike other Metalearners, we don't drop the first column because
@@ -238,6 +240,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.models = clone(models, safe=False)
         self.cate_models = clone(cate_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
+        self.categories = categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
@@ -366,6 +369,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.models = clone(models, safe=False)
         self.final_models = clone(final_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
+        self.categories = categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')

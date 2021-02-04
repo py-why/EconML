@@ -247,6 +247,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.backend = backend
         self.verbose = verbose
         self.batch_size = batch_size
+        self.categories = categories
         super().__init__()
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
@@ -910,6 +911,7 @@ class DROrthoForest(BaseOrthoForest):
                  verbose=3,
                  batch_size='auto',
                  random_state=None):
+        self.lambda_reg = lambda_reg
         # Copy and/or define models
         self.propensity_model = clone(propensity_model, safe=False)
         self.model_Y = clone(model_Y, safe=False)
@@ -928,7 +930,7 @@ class DROrthoForest(BaseOrthoForest):
         # Define parameter estimators
         parameter_estimator = DROrthoForest.parameter_estimator_func
         second_stage_parameter_estimator = DROrthoForest.second_stage_parameter_estimator_gen(
-            lambda_reg)
+            self.lambda_reg)
         # Define moment and mean gradient estimator
         moment_and_mean_gradient_estimator = DROrthoForest.moment_and_mean_gradient_estimator_func
         if categories != 'auto':
