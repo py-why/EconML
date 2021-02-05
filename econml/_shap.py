@@ -150,7 +150,7 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
         except Exception as e:
             print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
             return _shap_explain_cme(cme_model, X, d_t_, d_y_,
-                                     feature_names=feature_names_,
+                                     feature_names=None,
                                      treatment_names=treatment_names_,
                                      output_names=output_names_,
                                      input_names=input_names_,
@@ -315,7 +315,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
         except Exception as e:
             print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
             return _shap_explain_cme(cme_model, X, d_t_, d_y_,
-                                     feature_names=feature_names_,
+                                     feature_names=None,
                                      treatment_names=treatment_names_,
                                      output_names=output_names_,
                                      input_names=input_names_,
