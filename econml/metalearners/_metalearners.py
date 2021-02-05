@@ -178,7 +178,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
             validate=False)
 
         T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
-        self._set_encoded_treatment_names(self._one_hot_encoder)
+        self._set_encoded_treatment_names(self._one_hot_encoder, drop_first=True)
         self._d_t = (T.shape[1] - 1,)
         feat_arr = np.concatenate((X, T), axis=1)
         self.overall_model.fit(feat_arr, Y)

@@ -570,7 +570,8 @@ def get_input_columns(X, prefix="X"):
         return None
     if np.ndim(X) == 0:
         raise ValueError(
-            "Expected array-like object for imput with prefix {prefix} but got '{X}' object instead.".format(prefix, X))
+            "Expected array-like object for input \
+            with prefix {prefix} but got '{X}' object instead.".format(prefix, X))
     # Type to column extraction function
     type_to_func = {
         pd.DataFrame: lambda x: x.columns.tolist(),
@@ -579,7 +580,7 @@ def get_input_columns(X, prefix="X"):
     if type(X) in type_to_func:
         return type_to_func[type(X)](X)
     len_X = 1 if np.ndim(X) == 1 else np.asarray(X).shape[1]
-    return ["{}{}".format(prefix, i) for i in range(len_X)]
+    return [f"{prefix}{i}" for i in range(len_X)]
 
 
 def check_models(models, n):

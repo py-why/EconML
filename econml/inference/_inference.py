@@ -192,8 +192,11 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(dT)) if cme_stderr is not None else None
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
+        # A dummy treatment names is passed in
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect', **self._input_names)
+                                      pred_stderr=e_stderr, inf_type='effect',
+                                      feature_names=self._input_names["feature_names"],
+                                      output_names=self._input_names["output_names"])
 
 
 class LinearModelFinalInference(GenericModelFinalInference):
@@ -240,8 +243,11 @@ class LinearModelFinalInference(GenericModelFinalInference):
         e_stderr = self._prediction_stderr(cross_product(X, T1 - T0))
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
+        # A dummy treatment names is passed in
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect', **self._input_names)
+                                      pred_stderr=e_stderr, inf_type='effect',
+                                      feature_names=self._input_names["feature_names"],
+                                      output_names=self._input_names["output_names"])
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -425,9 +431,12 @@ class GenericModelFinalInferenceDiscrete(Inference):
         pred = pred[np.arange(T0.shape[0]), ..., ind]
         pred_stderr = pred_stderr[np.arange(T0.shape[0]), ..., ind] if pred_stderr is not None else None
         # d_t=1 here since we measure the effect across all Ts
+        # A dummy treatment names is passed in
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr,
-                                      inf_type='effect', **self._input_names)
+                                      inf_type='effect',
+                                      feature_names=self._input_names["feature_names"],
+                                      output_names=self._input_names["output_names"])
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
@@ -462,9 +471,12 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         else:
             def fname_transformer(x):
                 return x
+        # d_t=1 here since we measure the effect across all Ts
+        # A dummy treatment names is passed in
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer,
-                                      **self._input_names)
+                                      feature_names=self._input_names["feature_names"],
+                                      output_names=self._input_names["output_names"])
 
     def intercept__interval(self, T, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -486,9 +498,13 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             warn("Final model doesn't have a `intercept_stderr_` attribute. "
                  "Only point estimates will be available.")
             intercept_stderr = None
+        # d_t=1 here since we measure the effect across all Ts
+        # A dummy treatment names is passed in
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
                                       pred_stderr=intercept_stderr,
-                                      inf_type='intercept', **self._input_names)
+                                      inf_type='intercept',
+                                      feature_names=self._input_names["feature_names"],
+                                      output_names=self._input_names["output_names"])
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):

@@ -57,11 +57,15 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             # If names are set in a child class, add an attribute reflecting that
             self._input_names_set = True
 
-    def _set_encoded_treatment_names(self, one_hot_encoder):
+    def _set_encoded_treatment_names(self, one_hot_encoder, drop_first=False):
         """Works with sklearn OHEs"""
+        # Drop first
         if hasattr(self, "_input_names"):
-            self._input_names["treatment_names"] = one_hot_encoder.get_feature_names(
-                self._input_names["treatment_names"])
+            encoded_treatment_names = one_hot_encoder.get_feature_names(
+                self._input_names["treatment_names"]).tolist()
+            # TODO: address how treatments are expanded in SLearner and remove drop_first
+            self._input_names["treatment_names"] = (encoded_treatment_names[1:] if drop_first
+                                                    else encoded_treatment_names)
 
     def _strata(self, Y, T, *args, **kwargs):
         """
@@ -211,6 +215,54 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Note that when Y is a vector rather than a 2-dimensional array, the result will be a scalar
         """
         return np.mean(self.effect(X=X, T0=T0, T1=T1), axis=0)
+
+    def cate_feature_names(self, feature_names=None):
+        """Public interface for getting feature names.
+
+        To be overriden by estimators that apply transformations the input features.
+
+        Parameters
+        ----------
+        feature_names: list of strings of length X.shape[1] or None
+            The names of the input features. If None and X is a dataframe, it defaults to the column names
+            from the dataframe.
+
+        Returns
+        -------
+        out_feature_names: list of strings or None
+            Returns feature names.
+        """
+        if feature_names is not None:
+            return feature_names
+        if hasattr(self, "_input_names"):
+            return self._input_names["output_names"]
+        return None
+
+    def cate_output_names(self):
+        """
+        Public interface for getting output names.
+
+        Returns
+        -------
+        output_names: list of strings
+            Returns output names.
+        """
+        if hasattr(self, "_input_names"):
+            return self._input_names["output_names"]
+        return None
+
+    def cate_treatment_names(self):
+        """
+        Public interface for getting treatment names.
+
+        Returns
+        -------
+        treatment_names: list of strings
+            Returns treatment names.
+        """
+        if hasattr(self, "_input_names"):
+            return self._input_names["treatment_names"]
+        return None
 
     def marginal_ate(self, T, X=None):
         """
@@ -923,8 +975,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
-        output_names = self._input_names["output_names"] if output_names is None else output_names
+        treatment_names = self.cate_treatment_names() if treatment_names is None else treatment_names
+        output_names = self.cate_output_names() if output_names is None else output_names
         # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
@@ -1187,8 +1239,8 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         # Get input names
         feature_names = self.cate_feature_names() if feature_names is None else feature_names
-        treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
-        output_names = self._input_names["output_names"] if output_names is None else output_names
+        treatment_names = self.cate_treatment_names() if treatment_names is None else treatment_names
+        output_names = self.cate_output_names() if output_names is None else output_names
         # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
@@ -1203,7 +1255,6 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         try:
             coef_table = self.coef__inference(T).summary_frame(
                 alpha=alpha, value=value, decimals=decimals, feature_names=feature_names,
-                treatment_names=treatment_names,
                 output_names=output_names)
             coef_array = coef_table.values
             coef_headers = coef_table.columns.tolist()
@@ -1215,7 +1266,6 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         try:
             intercept_table = self.intercept__inference(T).summary_frame(
                 alpha=alpha, value=value, decimals=decimals, feature_names=None,
-                treatment_names=treatment_names,
                 output_names=output_names)
             intercept_array = intercept_table.values
             intercept_headers = intercept_table.columns.tolist()

@@ -12,6 +12,7 @@ from econml.dr import LinearDRLearner, DRLearner
 from econml.inference import (BootstrapInference, NormalInferenceResults,
                               EmpiricalInferenceResults, PopulationSummaryResults)
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
+from econml.utilities import get_input_columns
 
 
 class TestInference(unittest.TestCase):
@@ -47,7 +48,9 @@ class TestInference(unittest.TestCase):
             )
             summary_results = cate_est.summary()
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
+            default_names = get_input_columns(TestInference.X)
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
+                TestInference.X).get_feature_names(default_names)
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
@@ -139,7 +142,9 @@ class TestInference(unittest.TestCase):
             )
             summary_results = cate_est.summary(T=1)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
+            default_names = get_input_columns(TestInference.X)
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
+                TestInference.X).get_feature_names(default_names)
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])

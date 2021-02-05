@@ -204,6 +204,8 @@ class BootstrapEstimator:
             def fname_transformer(x):
                 return x
 
+            input_names = self._wrapped._input_names.copy() if hasattr(self._wrapped, "_input_names") else {}
+
             if prefix in ['const_marginal_effect', 'marginal_effect', 'effect']:
                 inf_type = 'effect'
             elif prefix == 'coef_':
@@ -221,6 +223,8 @@ class BootstrapEstimator:
             if prefix == 'effect' or (isinstance(self._wrapped, LinearModelFinalCateEstimatorDiscreteMixin) and
                                       (inf_type == 'coefficient' or inf_type == 'intercept')):
                 d_t = 1
+                # Dummy treatment name
+                input_names["treatment_names"] = None
             d_y = self._wrapped._d_y[0] if self._wrapped._d_y else 1
 
             can_call = callable(getattr(self._instances[0], prefix))
@@ -242,7 +246,7 @@ class BootstrapEstimator:
                                      pred=est, pred_dist=get_dist(est, arr),
                                      inf_type=inf_type,
                                      fname_transformer=fname_transformer,
-                                     **self._wrapped._input_names if hasattr(self._wrapped, "_input_names") else None))
+                                     **input_names))
 
                 # Note that inference results are always methods even if the inference is for a property
                 # (e.g. coef__inference() is a method but coef_ is a property)

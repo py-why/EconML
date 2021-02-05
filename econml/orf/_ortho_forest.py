@@ -1304,8 +1304,12 @@ class BLBInference(Inference):
             a dataframe summary of these inference results.
         """
         eff, scales = self._effect_inference_helper(X, T0, T1)
+        # d_t=1 here since we measure the effect across all Ts
+        # A dummy treatment names is passed in
         return NormalInferenceResults(d_t=1, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=eff, pred_stderr=scales, inf_type='effect', **self._input_names)
+                                      pred=eff, pred_stderr=scales, inf_type='effect',
+                                      feature_names=self._input_names["feature_names"],
+                                      output_names=self._input_names["output_names"])
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)
