@@ -235,7 +235,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         if feature_names is not None:
             return feature_names
         if hasattr(self, "_input_names"):
-            return self._input_names["output_names"]
+            return self._input_names["feature_names"]
         return None
 
     def cate_output_names(self):
