@@ -472,7 +472,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             def fname_transformer(x):
                 return x
         # d_t=1 here since we measure the effect across all Ts
-        # A dummy treatment names is passed in
+        # Omit treatment name argument to fall back to the default
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer,
                                       feature_names=self._input_names["feature_names"],
