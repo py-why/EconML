@@ -499,7 +499,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
                  "Only point estimates will be available.")
             intercept_stderr = None
         # d_t=1 here since we measure the effect across all Ts
-        # A dummy treatment names is passed in
+        # Omit treatment name argument to fall back to the default
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
                                       pred_stderr=intercept_stderr,
                                       inf_type='intercept',
