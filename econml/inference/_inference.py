@@ -431,7 +431,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
         pred = pred[np.arange(T0.shape[0]), ..., ind]
         pred_stderr = pred_stderr[np.arange(T0.shape[0]), ..., ind] if pred_stderr is not None else None
         # d_t=1 here since we measure the effect across all Ts
-        # A dummy treatment names is passed in
+        # Omit treatment name argument to fall back to the default
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr,
                                       inf_type='effect',
