@@ -570,8 +570,7 @@ def get_input_columns(X, prefix="X"):
         return None
     if np.ndim(X) == 0:
         raise ValueError(
-            "Expected array-like object for input \
-            with prefix {prefix} but got '{X}' object instead.".format(prefix, X))
+            f"Expected array-like object for imput with prefix {prefix} but got '{X}' object instead.")
     # Type to column extraction function
     type_to_func = {
         pd.DataFrame: lambda x: x.columns.tolist(),
