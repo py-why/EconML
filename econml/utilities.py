@@ -1267,6 +1267,22 @@ def transpose_dictionary(d):
 
 
 def reshape_arrays_2dim(length, *args):
+    """
+    Reshape the input arrays as two dimensional.
+    If None, will be reshaped as (n, 0).
+
+    Parameters
+    ----------
+    length: scalar
+        Number of samples
+    args: arrays
+        Inputs to be reshaped
+
+    Returns
+    -------
+    new_args: arrays
+        Output of reshaped arrays
+    """
     new_args = []
     for arg in args:
         if arg is None:

@@ -13,6 +13,7 @@ DoWhy, https://microsoft.github.io/dowhy/
 import inspect
 import pandas as pd
 import numpy as np
+import warnings
 from dowhy import CausalModel
 from econml.utilities import check_input_arrays, reshape_arrays_2dim
 
@@ -36,17 +37,13 @@ class DoWhyWrapper:
         # introspect the constructor arguments to find the model parameters
         # to represent
         init_signature = inspect.signature(init)
-        # Consider the constructor parameters excluding 'self'
-        parameters = [p for p in init_signature.parameters.values()
-                      if p.name != 'self' and p.kind != p.VAR_KEYWORD]
+        parameters = init_signature.parameters.values()
         for p in parameters:
-            if p.kind == p.VAR_POSITIONAL:
-                raise RuntimeError("cate estimators should always "
-                                   "specify their parameters in the signature"
-                                   " of their __init__ (no varargs)."
-                                   " %s with constructor %s doesn't "
-                                   " follow this convention."
-                                   % (self._cate_estimator, init_signature))
+            if p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD:
+                raise RuntimeError("cate estimators should always specify their parameters in the signature "
+                                   "of their __init__ (no varargs, no varkwargs). "
+                                   f"{self._cate_estimator} with constructor {init_signature} doesn't "
+                                   "follow this convention.")
         # Extract and sort argument names excluding 'self'
         return sorted([p.name for p in parameters])
 
@@ -193,7 +190,7 @@ class DoWhyWrapper:
     # cate estimator but not the effect.
     def refit_final(self, inference=None):
         raise AttributeError(
-            "Method refit_final is not allowed here! Please call it from Cate Estimator directly! ")
+            "Method refit_final is not allowed through a dowhy object; please perform a full fit instead.")
 
     def __getattr__(self, attr):
         # don't proxy special methods
@@ -201,11 +198,14 @@ class DoWhyWrapper:
             raise AttributeError(attr)
         elif attr in ['_cate_estimator', 'dowhy_',
                       'identified_estimand_', 'estimate_']:
-            self.__dict__[attr] = value
+            return super().__getattr__(attr)
         elif attr.startswith('dowhy__'):
-            return getattr(self.dowhy_, attr[7:])
+            return getattr(self.dowhy_, attr[len('dowhy__'):])
         elif hasattr(self.estimate_._estimator_object, attr):
-
+            if hasattr(self.dowhy_, attr):
+                warnings.warn("This call is ambiguous, "
+                              "we're defaulting to CATE estimator's attribute. "
+                              "Please add 'dowhy__' as prefix if you want to get dowhy attribute.", UserWarning)
             return getattr(self.estimate_._estimator_object, attr)
         else:
             return getattr(self.dowhy_, attr)
@@ -213,10 +213,14 @@ class DoWhyWrapper:
     def __setattr__(self, attr, value):
         if attr in ['_cate_estimator', 'dowhy_',
                     'identified_estimand_', 'estimate_']:
-            self.__dict__[attr] = value
+            super().__setattr__(attr, value)
         elif attr.startswith('dowhy__'):
-            setattr(self.dowhy_, attr[7:], value)
+            setattr(self.dowhy_, attr[len('dowhy__'):], value)
         elif hasattr(self.estimate_._estimator_object, attr):
+            if hasattr(self.dowhy_, attr):
+                warnings.warn("This call is ambiguous, "
+                              "we're defaulting to CATE estimator's attribute. "
+                              "Please add 'dowhy__' as prefix if you want to set dowhy attribute.", UserWarning)
             setattr(self.estimate_._estimator_object, attr, value)
         else:
             setattr(self.dowhy_, attr, value)

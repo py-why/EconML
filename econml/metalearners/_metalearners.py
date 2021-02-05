@@ -40,6 +40,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  categories='auto'):
         self.models = clone(models, safe=False)
         self.categories = categories
+        # TODO: We should move this logic to fit, currenly update category will not update one hot encoder.
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
