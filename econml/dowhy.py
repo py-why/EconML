@@ -167,6 +167,8 @@ class DoWhyWrapper:
             * Adding a confounder that is associated with both treatment and outcome: "add_unobserved_common_cause"
             * Replacing the treatment with a placebo (random) variable): "placebo_treatment_refuter"
             * Removing a random subset of the data: "data_subset_refuter"
+        For more details, see docs
+        `dowhy.causal_refuters <https://microsoft.github.io/dowhy/dowhy.causal_refuters.html>`
 
         Parameters
         ----------
