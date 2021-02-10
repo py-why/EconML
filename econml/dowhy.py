@@ -19,14 +19,14 @@ from econml.utilities import check_input_arrays, reshape_arrays_2dim
 
 
 class DoWhyWrapper:
-    """A wrapper class to allow user call other methods from dowhy package through EconML.
+    """
+    A wrapper class to allow user call other methods from dowhy package through EconML.
     (e.g. causal graph, refutation test, etc.)
 
     Parameters
     ----------
     cate_estimator: instance
         An instance of any CATE estimator we currently support
-
     """
 
     def __init__(self, cate_estimator):
@@ -51,7 +51,8 @@ class DoWhyWrapper:
             confounder_names=None, instrument_names=None, graph=None, estimand_type="nonparametric-ate",
             proceed_when_unidentifiable=True, missing_nodes_as_confounders=False,
             control_value=0, treatment_value=1, target_units="ate", **kwargs):
-        """Estimate the counterfactual model from data through dowhy package.
+        """
+        Estimate the counterfactual model from data through dowhy package.
 
         Parameters
         ----------
@@ -92,17 +93,18 @@ class DoWhyWrapper:
         target_units: optional (Default="ate")
             The units for which the treatment effect should be estimated.
             This can be of three types:
-                (1) a string for common specifications of target units (namely, "ate", "att" and "atc"),
-                (2) a lambda function that can be used as an index for the data (pandas DataFrame),
-                (3) a new DataFrame that contains values of the effect_modifiers and effect will be estimated
-                 only for this new data
+
+            1. A string for common specifications of target units (namely, "ate", "att" and "atc"),
+            2. A lambda function that can be used as an index for the data (pandas DataFrame),
+            3. A new DataFrame that contains values of the effect_modifiers and effect will be estimated
+               only for this new data
+
         kwargs: optional
             Other keyword arguments from fit method for CATE estimator
 
         Returns
         -------
         self
-
         """
 
         Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
@@ -158,17 +160,19 @@ class DoWhyWrapper:
         return self
 
     def refute_estimate(self, *, method_name, **kwargs):
-        """Refute an estimated causal effect.
+        """
+        Refute an estimated causal effect.
 
         If method_name is provided, uses the provided method. In the future, we may support automatic
         selection of suitable refutation tests.
         Following refutation methods are supported:
-            * Adding a randomly-generated confounder: "random_common_cause"
-            * Adding a confounder that is associated with both treatment and outcome: "add_unobserved_common_cause"
-            * Replacing the treatment with a placebo (random) variable): "placebo_treatment_refuter"
-            * Removing a random subset of the data: "data_subset_refuter"
-        For more details, see docs
-        `dowhy.causal_refuters <https://microsoft.github.io/dowhy/dowhy.causal_refuters.html>`
+
+        - Adding a randomly-generated confounder: "random_common_cause"
+        - Adding a confounder that is associated with both treatment and outcome: "add_unobserved_common_cause"
+        - Replacing the treatment with a placebo (random) variable): "placebo_treatment_refuter"
+        - Removing a random subset of the data: "data_subset_refuter"
+
+        For more details, see docs :mod:`dowhy.causal_refuters`
 
         Parameters
         ----------
