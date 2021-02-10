@@ -243,7 +243,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
         e_stderr = self._prediction_stderr(cross_product(X, T1 - T0))
         d_y = self._d_y[0] if self._d_y else 1
         # d_t=1 here since we measure the effect across all Ts
-        # A dummy treatment names is passed in
+        # Omit treatment name argument to fall back to the default
         return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
                                       pred_stderr=e_stderr, inf_type='effect',
                                       feature_names=self._input_names["feature_names"],

@@ -757,6 +757,31 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                                                            sample_weight=sample_weight,
                                                                                            sample_var=sample_var))
 
+    def cate_treatment_names(self, treatment_names=None):
+        """
+        Get treatment names.
+
+        If the treatment is discrete, it will return expanded treatment names.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length T.shape[1] or None
+            The names of the treatments. If None and T is a dataframe, it defaults to the column names
+            from the dataframe.
+
+        Returns
+        -------
+        out_treatment_names: list of strings
+            Returns (possibly expanded) treatment names.
+        """
+        if treatment_names is not None:
+            if self.discrete_treatment:
+                return self._one_hot_encoder.get_feature_names(treatment_names).tolist()
+            return treatment_names
+        if hasattr(self, "_input_names"):
+            return self._input_names["treatment_names"]
+        return None
+
     def const_marginal_effect(self, X=None):
         X, = check_input_arrays(X)
         self._check_fitted_dims(X)

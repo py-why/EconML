@@ -89,6 +89,27 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for ind in range(self._d_t[0] + 1):
             self.models[ind].fit(X[T == ind], Y[T == ind])
 
+    def cate_treatment_names(self, treatment_names=None):
+        """
+        Get expanded treatment names.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length T.shape[1] or None
+            The names of the treatments. If None and T is a dataframe, it defaults to the column names
+            from the dataframe.
+
+        Returns
+        -------
+        out_treatment_names: list of strings
+            Returns expanded treatment names.
+        """
+        if treatment_names is not None:
+            return self._one_hot_encoder.get_feature_names(treatment_names).tolist()
+        if hasattr(self, "_input_names"):
+            return self._input_names["treatment_names"]
+        return None
+
     def const_marginal_effect(self, X):
         """Calculate the constant marignal treatment effect on a vector of features for each sample.
 
@@ -182,6 +203,27 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._d_t = (T.shape[1] - 1,)
         feat_arr = np.concatenate((X, T), axis=1)
         self.overall_model.fit(feat_arr, Y)
+
+    def cate_treatment_names(self, treatment_names=None):
+        """
+        Get expanded treatment names.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length T.shape[1] or None
+            The names of the treatments. If None and T is a dataframe, it defaults to the column names
+            from the dataframe.
+
+        Returns
+        -------
+        out_treatment_names: list of strings
+            Returns expanded treatment names.
+        """
+        if treatment_names is not None:
+            return self._one_hot_encoder.get_feature_names(treatment_names).tolist()[1:]
+        if hasattr(self, "_input_names"):
+            return self._input_names["treatment_names"]
+        return None
 
     def const_marginal_effect(self, X=None):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
@@ -315,6 +357,27 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
             X_concat = np.concatenate((X[T == 0], X[T == ind + 1]), axis=0)
             T_concat = np.concatenate((T[T == 0], T[T == ind + 1]), axis=0)
             self.propensity_models[ind].fit(X_concat, T_concat)
+
+    def cate_treatment_names(self, treatment_names=None):
+        """
+        Get expanded treatment names.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length T.shape[1] or None
+            The names of the treatments. If None and T is a dataframe, it defaults to the column names
+            from the dataframe.
+
+        Returns
+        -------
+        out_treatment_names: list of strings
+            Returns expanded treatment names.
+        """
+        if treatment_names is not None:
+            return self._one_hot_encoder.get_feature_names(treatment_names).tolist()
+        if hasattr(self, "_input_names"):
+            return self._input_names["treatment_names"]
+        return None
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
@@ -451,6 +514,27 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             imputed_effects_concat = np.concatenate((imputed_effect_on_controls, imputed_effect_on_treated), axis=0)
             self.final_models[ind].fit(X_concat, imputed_effects_concat)
+
+    def cate_treatment_names(self, treatment_names=None):
+        """
+        Get expanded treatment names.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length T.shape[1] or None
+            The names of the treatments. If None and T is a dataframe, it defaults to the column names
+            from the dataframe.
+
+        Returns
+        -------
+        out_treatment_names: list of strings
+            Returns expanded treatment names.
+        """
+        if treatment_names is not None:
+            return self._one_hot_encoder.get_feature_names(treatment_names).tolist()
+        if hasattr(self, "_input_names"):
+            return self._input_names["treatment_names"]
+        return None
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
