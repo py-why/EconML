@@ -7,4 +7,4 @@ __all__ = ['automated_ml', 'bootstrap',
            'inference', 'iv',
            'metalearners', 'ortho_forest', 'orf', 'ortho_iv',
            'score', 'sklearn_extensions', 'tree',
-           'two_stage_least_squares', 'utilities']
+           'two_stage_least_squares', 'utilities', 'dowhy']

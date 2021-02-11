@@ -219,6 +219,17 @@ Inference Methods
     econml.inference.StatsModelsInferenceDiscrete
 
 
+.. _dowhy_api:
+
+Integration with DoWhy
+----------------------
+
+.. autosummary::
+    :toctree: _autosummary
+    
+    econml.dowhy.DoWhyWrapper
+
+
 .. _utilities_api:
 
 Utilities

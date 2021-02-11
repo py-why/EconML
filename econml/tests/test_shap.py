@@ -39,7 +39,6 @@ class TestShap(unittest.TestCase):
                         ]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
-                            fd_x = featurizer.fit_transform(X).shape[1] if featurizer is not None else d_x
                             est.fit(Y, T, X, W)
                             shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
                                                           background_samples=None)
@@ -50,19 +49,13 @@ class TestShap(unittest.TestCase):
                                 mean_cate = mean_cate.flatten()[0] if not np.isscalar(mean_cate) else mean_cate
                                 self.assertAlmostEqual(shap_values["Y0"]["T0"].base_values[0], mean_cate, delta=1e-2)
 
-                            if isinstance(est, (CausalForestDML, DMLOrthoForest)):
-                                fd_x = d_x
-
                             # test shape of shap values output is as expected
                             self.assertEqual(len(shap_values["Y0"]), d_t)
                             self.assertEqual(len(shap_values), d_y)
                             # test shape of attribute of explanation object is as expected
-                            self.assertEqual(shap_values["Y0"]["T0"].values.shape, (10, fd_x))
-                            self.assertEqual(shap_values["Y0"]["T0"].data.shape, (10, fd_x))
+                            self.assertEqual(shap_values["Y0"]["T0"].values.shape[0], 10)
+                            self.assertEqual(shap_values["Y0"]["T0"].data.shape[0], 10)
                             self.assertEqual(shap_values["Y0"]["T0"].base_values.shape, (10,))
-                            ind = 6
-                            self.assertEqual(len(shap_values["Y0"]["T0"].feature_names), fd_x)
-                            self.assertEqual(len(shap_values["Y0"]["T0"][ind].feature_names), fd_x)
 
     def test_discrete_t(self):
         n = 100
@@ -97,7 +90,6 @@ class TestShap(unittest.TestCase):
                                      ForestDRLearner()]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
-                            fd_x = featurizer.fit_transform(X).shape[1] if featurizer is not None else d_x
                             if isinstance(est, (TLearner, SLearner, XLearner, DomainAdaptationLearner)):
                                 est.fit(Y, T, X)
                             else:
@@ -111,19 +103,13 @@ class TestShap(unittest.TestCase):
                                 mean_cate = mean_cate.flatten()[0] if not np.isscalar(mean_cate) else mean_cate
                                 self.assertAlmostEqual(shap_values["Y0"]["T0"].base_values[0], mean_cate, delta=1e-2)
 
-                            if isinstance(est, (TLearner, SLearner, XLearner, DomainAdaptationLearner, CausalForestDML,
-                                                ForestDRLearner, DROrthoForest)):
-                                fd_x = d_x
                             # test shape of shap values output is as expected
                             self.assertEqual(len(shap_values["Y0"]), d_t - 1)
                             self.assertEqual(len(shap_values), d_y)
                             # test shape of attribute of explanation object is as expected
-                            self.assertEqual(shap_values["Y0"]["T0"].values.shape, (10, fd_x))
-                            self.assertEqual(shap_values["Y0"]["T0"].data.shape, (10, fd_x))
+                            self.assertEqual(shap_values["Y0"]["T0"].values.shape[0], 10)
+                            self.assertEqual(shap_values["Y0"]["T0"].data.shape[0], 10)
                             self.assertEqual(shap_values["Y0"]["T0"].base_values.shape, (10,))
-                            ind = 6
-                            self.assertEqual(len(shap_values["Y0"]["T0"].feature_names), fd_x)
-                            self.assertEqual(len(shap_values["Y0"]["T0"][ind].feature_names), fd_x)
 
     def test_identical_output(self):
         # Treatment effect function

@@ -15,6 +15,7 @@ from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, Linea
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
 from ._shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
+from .dowhy import DoWhyWrapper
 
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
@@ -445,6 +446,18 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             a dataframe summary of these inference results.
         """
         pass
+
+    @property
+    def dowhy(self):
+        """ Get an instance of :class:`.DoWhyWrapper` to allow other functionalities from dowhy package.
+        (e.g. causal graph, refutation test, etc.)
+
+        Returns
+        -------
+        DoWhyWrapper: instance
+            An instance of :class:`.DoWhyWrapper`
+        """
+        return DoWhyWrapper(self)
 
 
 class LinearCateEstimator(BaseCateEstimator):
