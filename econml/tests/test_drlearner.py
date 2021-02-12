@@ -92,16 +92,15 @@ class TestDRLearner(unittest.TestCase):
                         marginal_effect_shape = ((n,) +
                                                  ((d_y,) if d_y > 0 else ()) +
                                                  ((d_t_final,) if d_t_final > 0 else ()))
-                        marginal_effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),
-                                                              6 * (d_t_final if d_t_final > 0 else 1))
+                        marginal_effect_summaryframe_shape = (
+                            n * (d_y if d_y > 0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
 
                         # since T isn't passed to const_marginal_effect, defaults to one row if X is None
                         const_marginal_effect_shape = ((n if d_x else 1,) +
                                                        ((d_y,) if d_y > 0 else ()) +
                                                        ((d_t_final,) if d_t_final > 0 else()))
                         const_marginal_effect_summaryframe_shape = (
-                            (n if d_x else 1) * (d_y if d_y > 0 else 1),
-                            6 * (d_t_final if d_t_final > 0 else 1))
+                            (n if d_x else 1) * (d_y if d_y > 0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
 
                         coef_shape = ((d_y,) if d_y > 0 else ()) + (d_x or 1,)
                         coef_summaryframe_shape = ((d_y or 1) * (d_x or 1), 6)
