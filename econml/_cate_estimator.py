@@ -938,9 +938,12 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
                                                               treatment_names=treatment_names,
                                                               output_names=output_names)
             coef_array = coef_table.values
-            coef_headers = [i + '\n' +
-                            j for (i, j) in coef_table.columns] if d_t > 1 else coef_table.columns.tolist()
-            coef_stubs = [i + ' | ' + j for (i, j) in coef_table.index] if d_y > 1 else coef_table.index.tolist()
+            coef_headers = coef_table.columns.tolist()
+            n_level = coef_table.index.nlevels
+            if n_level > 1:
+                coef_stubs = ["|".join(i) for i in coef_table.index.values]
+            else:
+                coef_stubs = coef_table.index.tolist()
             coef_title = 'Coefficient Results'
             smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
         except Exception as e:
@@ -952,10 +955,12 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
                                                                         treatment_names=treatment_names,
                                                                         output_names=output_names)
             intercept_array = intercept_table.values
-            intercept_headers = [i + '\n' + j for (i, j)
-                                 in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
-            intercept_stubs = [i + ' | ' + j for (i, j)
-                               in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
+            intercept_headers = intercept_table.columns.tolist()
+            n_level = intercept_table.index.nlevels
+            if n_level > 1:
+                intercept_stubs = ["|".join(i) for i in intercept_table.index.values]
+            else:
+                intercept_stubs = intercept_table.index.tolist()
             intercept_title = 'CATE Intercept Results'
             smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
         except Exception as e:
