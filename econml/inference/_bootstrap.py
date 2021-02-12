@@ -222,9 +222,7 @@ class BootstrapEstimator:
             d_t = self._wrapped._d_t[0] if self._wrapped._d_t else 1
             if prefix == 'effect' or (isinstance(self._wrapped, LinearModelFinalCateEstimatorDiscreteMixin) and
                                       (inf_type == 'coefficient' or inf_type == 'intercept')):
-                d_t = 1
-                # Dummy treatment name
-                input_names["treatment_names"] = None
+                d_t = None
             d_y = self._wrapped._d_y[0] if self._wrapped._d_y else 1
 
             can_call = callable(getattr(self._instances[0], prefix))
@@ -267,7 +265,7 @@ class BootstrapEstimator:
                         d_t=d_t, d_y=d_y, pred=pred,
                         pred_stderr=stderr, inf_type=inf_type,
                         fname_transformer=fname_transformer,
-                        **self._wrapped._input_names if hasattr(self._wrapped, "_input_names") else None)
+                        **input_names)
 
                 # If inference is for a property, create a fresh lambda to avoid passing args through
                 return normal_inference if can_call else lambda: normal_inference()

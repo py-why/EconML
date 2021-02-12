@@ -1328,9 +1328,8 @@ class BLBInference(Inference):
             a dataframe summary of these inference results.
         """
         eff, scales = self._effect_inference_helper(X, T0, T1)
-        # d_t=1 here since we measure the effect across all Ts
-        # Omit treatment name argument to fall back to the default
-        return NormalInferenceResults(d_t=1, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
                                       pred=eff, pred_stderr=scales, inf_type='effect',
                                       feature_names=self._input_names["feature_names"],
                                       output_names=self._input_names["output_names"])

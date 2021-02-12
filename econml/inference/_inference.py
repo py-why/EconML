@@ -191,9 +191,8 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         e_pred = np.einsum(einsum_str, cme_pred, dT)
         e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(dT)) if cme_stderr is not None else None
         d_y = self._d_y[0] if self._d_y else 1
-        # d_t=1 here since we measure the effect across all Ts
-        # Omit treatment name argument to fall back to the default
-        return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=d_y, pred=e_pred,
                                       pred_stderr=e_stderr, inf_type='effect',
                                       feature_names=self._input_names["feature_names"],
                                       output_names=self._input_names["output_names"])
@@ -242,9 +241,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
         e_pred = self._predict(cross_product(X, T1 - T0))
         e_stderr = self._prediction_stderr(cross_product(X, T1 - T0))
         d_y = self._d_y[0] if self._d_y else 1
-        # d_t=1 here since we measure the effect across all Ts
-        # Omit treatment name argument to fall back to the default
-        return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=d_y, pred=e_pred,
                                       pred_stderr=e_stderr, inf_type='effect',
                                       feature_names=self._input_names["feature_names"],
                                       output_names=self._input_names["output_names"])
@@ -430,9 +428,8 @@ class GenericModelFinalInferenceDiscrete(Inference):
             pred_stderr = np.repeat(pred_stderr, T0.shape[0], axis=0) if pred_stderr is not None else None
         pred = pred[np.arange(T0.shape[0]), ..., ind]
         pred_stderr = pred_stderr[np.arange(T0.shape[0]), ..., ind] if pred_stderr is not None else None
-        # d_t=1 here since we measure the effect across all Ts
-        # Omit treatment name argument to fall back to the default
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr,
                                       inf_type='effect',
                                       feature_names=self._input_names["feature_names"],
@@ -471,9 +468,8 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         else:
             def fname_transformer(x):
                 return x
-        # d_t=1 here since we measure the effect across all Ts
-        # Omit treatment name argument to fall back to the default
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer,
                                       feature_names=self._input_names["feature_names"],
                                       output_names=self._input_names["output_names"])
@@ -498,9 +494,8 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             warn("Final model doesn't have a `intercept_stderr_` attribute. "
                  "Only point estimates will be available.")
             intercept_stderr = None
-        # d_t=1 here since we measure the effect across all Ts
-        # Omit treatment name argument to fall back to the default
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
                                       pred_stderr=intercept_stderr,
                                       inf_type='intercept',
                                       feature_names=self._input_names["feature_names"],
@@ -721,7 +716,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
             to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1],
                                                           output_names=output_names, treatment_names=treatment_names)
         res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
-        if self.d_t == 1:
+        if not self.d_t or self.d_t == 1:
             res.columns = res.columns.droplevel(1)
         if self.d_y == 1:
             res.index = res.index.droplevel(1)
@@ -786,16 +781,21 @@ class InferenceResults(metaclass=abc.ABCMeta):
             arr = np.array([arr])
         if self.inf_type == 'coefficient':
             arr = np.moveaxis(arr, -1, 0)
-        arr = arr.reshape((-1, d_y, d_t))
+        if d_t:
+            if treatment_names is None:
+                treatment_names = ['T' + str(i) for i in range(d_t)]
+            # Only check if d_t is not None
+            assert len(treatment_names) == d_t, "Incompatible length of treatment names"
+            arr = arr.reshape((-1, d_y, d_t))
+        else:
+            arr = arr.reshape((-1, d_y, 1))
         df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(d_y)]
         assert len(output_names) == d_y, "Incompatible length of output names"
-        if treatment_names is None:
-            treatment_names = ['T' + str(i) for i in range(d_t)]
-        assert len(treatment_names) == d_t, "Incompatible length of treatment names"
         df.index = df.index.set_levels(output_names, level=1)
-        df.columns = treatment_names
+        if d_t:
+            df.columns = treatment_names
         return df
 
     @abc.abstractmethod
