@@ -204,8 +204,6 @@ class BootstrapEstimator:
             def fname_transformer(x):
                 return x
 
-            input_names = self._wrapped._input_names.copy() if hasattr(self._wrapped, "_input_names") else {}
-
             if prefix in ['const_marginal_effect', 'marginal_effect', 'effect']:
                 inf_type = 'effect'
             elif prefix == 'coef_':
@@ -244,7 +242,10 @@ class BootstrapEstimator:
                                      pred=est, pred_dist=get_dist(est, arr),
                                      inf_type=inf_type,
                                      fname_transformer=fname_transformer,
-                                     **input_names))
+                                     feature_names=self._wrapped.cate_feature_names(),
+                                     output_names=self._wrapped.cate_output_names(),
+                                     treatment_names=self._wrapped.cate_treatment_names()
+                                 ))
 
                 # Note that inference results are always methods even if the inference is for a property
                 # (e.g. coef__inference() is a method but coef_ is a property)
@@ -265,7 +266,9 @@ class BootstrapEstimator:
                         d_t=d_t, d_y=d_y, pred=pred,
                         pred_stderr=stderr, inf_type=inf_type,
                         fname_transformer=fname_transformer,
-                        **input_names)
+                        feature_names=self._wrapped.cate_feature_names(),
+                        output_names=self._wrapped.cate_output_names(),
+                        treatment_names=self._wrapped.cate_treatment_names())
 
                 # If inference is for a property, create a fresh lambda to avoid passing args through
                 return normal_inference if can_call else lambda: normal_inference()
