@@ -11,7 +11,7 @@ jobs:
   parameters:
     name: test1
     displayName: 'Test econml'
-    package: '"econml==0.9.0b1" dowhy IPython'
+    package: '--find-links . "econml==0.9.0b2" dowhy IPython'
     body:
       - script: 'pip install pytest pytest-cov pytest-xdist && python -m pytest'
         displayName: 'Unit tests'

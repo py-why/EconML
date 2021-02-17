@@ -20,7 +20,9 @@ class TestPackages(unittest.TestCase):
 
     @pytest.mark.econml
     def test_econml(self):
-        import econml
+        from econml.dml import ForestDML
+        from sklearn.linear_model import LinearRegression
+        dml = ForestDML(LinearRegression(), LinearRegression())
         pass
 
     @pytest.mark.dowhy
