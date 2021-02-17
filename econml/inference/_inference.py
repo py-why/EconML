@@ -274,12 +274,10 @@ class LinearModelFinalInference(GenericModelFinalInference):
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
 
+        fname_transformer = None
         if hasattr(self._est, 'cate_feature_names') and callable(self._est.cate_feature_names):
-            def fname_transformer(x):
-                return self._est.cate_feature_names(x)
-        else:
-            def fname_transformer(x):
-                return x
+            fname_transformer = self._est.cate_feature_names
+
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer,
                                       **self._input_names)
@@ -456,12 +454,11 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             coef_stderr = None
         if coef.size == 0:  # X is None
             raise AttributeError("X is None, please call intercept_inference to learn the constant!")
+
+        fname_transformer = None
         if hasattr(self._est, 'cate_feature_names') and callable(self._est.cate_feature_names):
-            def fname_transformer(x):
-                return self._est.cate_feature_names(x)
-        else:
-            def fname_transformer(x):
-                return x
+            fname_transformer = self._est.cate_feature_names
+
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer,
                                       **self._input_names)
@@ -538,7 +535,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=lambda nm: nm,
+    def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
         self.d_t = d_t
         self.d_y = d_y
@@ -820,7 +817,7 @@ class NormalInferenceResults(InferenceResults):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=lambda nm: nm,
+    def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
         self.pred_stderr = pred_stderr
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
@@ -920,7 +917,7 @@ class EmpiricalInferenceResults(InferenceResults):
         The transform function to get the corresponding feature names from featurizer
     """
 
-    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=lambda nm: nm,
+    def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
         self.pred_dist = pred_dist
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
