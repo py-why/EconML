@@ -41,7 +41,8 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.models = clone(models, safe=False)
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self.categories = categories
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -148,10 +149,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.overall_model = clone(overall_model, safe=False)
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        # Note: unlike other Metalearners, we don't drop the first column because
-        # we concatenate all treatments to the other features;
-        # We might want to revisit, though, since it's linearly determined by the others
-        self.transformer = OneHotEncoder(categories=categories, sparse=False)
+        self.categories = categories
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -185,8 +184,11 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
             X = np.zeros((Y.shape[0], 1))
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         T = self.transformer.fit_transform(T.reshape(-1, 1))
-        self._d_t = (T.shape[1] - 1,)
-        feat_arr = np.concatenate((X, T), axis=1)
+        self._d_t = (T.shape[1], )
+        # Note: unlike other Metalearners, we don't drop the first column because
+        # we concatenate all treatments to the other features;
+        # We might want to revisit, though, since it's linearly determined by the others
+        feat_arr = np.concatenate((X, 1 - np.sum(T, axis=1).reshape(-1, 1), T), axis=1)
         self.overall_model.fit(feat_arr, Y)
 
     def cate_treatment_names(self, treatment_names=None):
@@ -205,7 +207,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Returns expanded treatment names.
         """
         if treatment_names is not None:
-            return self.transformer.get_feature_names(treatment_names).tolist()[1:]
+            return self.transformer.get_feature_names(treatment_names).tolist()
         # Treatment names is None, default to BaseCateEstimator
         return super().cate_treatment_names()
 
@@ -275,7 +277,8 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.propensity_model = clone(propensity_model, safe=False)
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self.categories = categories
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -420,7 +423,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.propensity_model = clone(propensity_model, safe=False)
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        self.categories = categories
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "

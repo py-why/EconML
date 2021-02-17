@@ -838,14 +838,9 @@ class TreatmentExpansionMixin(BaseCateEstimator):
 
     def _set_transformed_treatment_names(self):
         """Works with sklearn OHEs"""
-        # If OHE does not drop first treatment, do it here
-        # This is a workaround for how treatments are expanded in SLearner
-        drop_first = not self.transformer.drop == 'first'
         if hasattr(self, "_input_names"):
-            encoded_treatment_names = self.transformer.get_feature_names(
+            self._input_names["treatment_names"] = self.transformer.get_feature_names(
                 self._input_names["treatment_names"]).tolist()
-            self._input_names["treatment_names"] = (encoded_treatment_names[1:] if drop_first
-                                                    else encoded_treatment_names)
 
     # override effect to set defaults, which works with the new definition of _expand_treatments
     def effect(self, X=None, *, T0=0, T1=1):
