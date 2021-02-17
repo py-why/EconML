@@ -59,11 +59,12 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
     def _set_encoded_treatment_names(self, one_hot_encoder, drop_first=False):
         """Works with sklearn OHEs"""
-        # Drop first
+        # If OHE does not drop first treatment, do it here
+        # This is a workaround for how treatments are expanded in SLearner
+        drop_first = not one_hot_encoder.drop == 'first'
         if hasattr(self, "_input_names"):
             encoded_treatment_names = one_hot_encoder.get_feature_names(
                 self._input_names["treatment_names"]).tolist()
-            # TODO: address how treatments are expanded in SLearner and remove drop_first
             self._input_names["treatment_names"] = (encoded_treatment_names[1:] if drop_first
                                                     else encoded_treatment_names)
 
@@ -92,6 +93,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             # If names were set in a child class, don't do it again
             X = kwargs.get('X')
             self._set_input_names(Y, T, X)
+
+    def _postfit(self, Y, T, *args, **kwargs):
+        # Wraps-up fit by setting attributes, cleaning up, etc.
+        pass
 
     @abc.abstractmethod
     def fit(self, *args, inference=None, **kwargs):
@@ -134,6 +139,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
                 inference.prefit(self, Y, T, *args, **kwargs)
             # call the wrapped fit method
             m(self, Y, T, *args, **kwargs)
+            self._postfit(Y, T, *args, **kwargs)
             if inference is not None:
                 # NOTE: we call inference fit *after* calling the main fit method
                 inference.fit(self, Y, T, *args, **kwargs)
@@ -808,6 +814,11 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         # subclasses should overwrite self._d_t with post-transformed dimensions of T for generating treatments
         self._d_t_in = self._d_t
 
+    def _postfit(self, Y, T, *args, **kwargs):
+        super()._postfit(Y, T, *args, **kwargs)
+        if self.transformer:
+            self._set_transformed_treatment_names()
+
     def _expand_treatments(self, X=None, *Ts):
         n_rows = 1 if X is None else shape(X)[0]
         outTs = []
@@ -820,10 +831,21 @@ class TreatmentExpansionMixin(BaseCateEstimator):
                 T = np.full((n_rows,) + self._d_t_in, T)
 
             if self.transformer:
-                T = self.transformer.transform(T)
+                T = self.transformer.transform(reshape(T, (-1, 1)))
             outTs.append(T)
 
         return (X,) + tuple(outTs)
+
+    def _set_transformed_treatment_names(self):
+        """Works with sklearn OHEs"""
+        # If OHE does not drop first treatment, do it here
+        # This is a workaround for how treatments are expanded in SLearner
+        drop_first = not self.transformer.drop == 'first'
+        if hasattr(self, "_input_names"):
+            encoded_treatment_names = self.transformer.get_feature_names(
+                self._input_names["treatment_names"]).tolist()
+            self._input_names["treatment_names"] = (encoded_treatment_names[1:] if drop_first
+                                                    else encoded_treatment_names)
 
     # override effect to set defaults, which works with the new definition of _expand_treatments
     def effect(self, X=None, *, T0=0, T1=1):

@@ -40,7 +40,7 @@ from ._causal_tree import CausalTree
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
 from ..utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
-                         cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
+                         cross_product, inverse_onehot, check_input_arrays,
                          _RegressionWrapper, deprecated)
 from sklearn.model_selection import check_cv
 # TODO: consider working around relying on sklearn implementation details
@@ -248,8 +248,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.verbose = verbose
         self.batch_size = batch_size
         self.categories = categories
-        if categories != 'auto':
-            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        if self.categories != 'auto':
+            self.categories = [self.categories]  # OneHotEncoder expects a 2D array with features per column
         super().__init__()
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
@@ -323,11 +323,10 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         """
         if treatment_names is not None:
             if self.discrete_treatment:
-                return self._one_hot_encoder.get_feature_names(treatment_names).tolist()
+                return self.transformer.get_feature_names(treatment_names).tolist()
             return treatment_names
-        if hasattr(self, "_input_names"):
-            return self._input_names["treatment_names"]
-        return None
+        # Treatment names is None, default to BaseCateEstimator
+        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
@@ -670,13 +669,10 @@ class DMLOrthoForest(BaseOrthoForest):
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
         if self.discrete_treatment:
+            self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
             d_t_in = T.shape[1:]
-            T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+            T = self.transformer.fit_transform(T.reshape(-1, 1))
             self._d_t = T.shape[1:]
-            self.transformer = FunctionTransformer(
-                func=_EncoderWrapper(self._one_hot_encoder).encode,
-                validate=False)
-            self._set_encoded_treatment_names(self._one_hot_encoder)
 
         if self.global_residualization:
             cv = check_cv(self.global_res_cv, y=T, classifier=self.discrete_treatment)
@@ -1019,12 +1015,11 @@ class DROrthoForest(BaseOrthoForest):
         T = self._check_treatment(T)
         d_t_in = T.shape[1:]
         # Train label encoder
-        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
+        d_t_in = T.shape[1:]
+        T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
-        self.transformer = FunctionTransformer(
-            func=_EncoderWrapper(self._one_hot_encoder).encode,
-            validate=False)
-        self._set_encoded_treatment_names(self._one_hot_encoder)
+
         # Call `fit` from parent class
         super().fit(Y, T, X=X, W=W, inference=inference)
 

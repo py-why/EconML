@@ -560,6 +560,8 @@ class InferenceResults(metaclass=abc.ABCMeta):
     def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=lambda nm: nm,
                  feature_names=None, output_names=None, treatment_names=None):
         self.d_t = d_t
+        # For effect summaries, d_t is None, but the result arrays behave as if d_t=1
+        self._d_t = d_t or 1
         self.d_y = d_y
         self.pred = pred
         self.inf_type = inf_type
@@ -708,22 +710,22 @@ class InferenceResults(metaclass=abc.ABCMeta):
         treatment_names = self.treatment_names if treatment_names is None else treatment_names
         output_names = self.output_names if output_names is None else output_names
         to_include = OrderedDict()
-        to_include['point_estimate'] = self._array_to_frame(self.d_t, self.d_y, self.point_estimate,
+        to_include['point_estimate'] = self._array_to_frame(self._d_t, self.d_y, self.point_estimate,
                                                             output_names=output_names, treatment_names=treatment_names)
         if self.stderr is not None:
             ci_mean = self.conf_int(alpha=alpha)
-            to_include['stderr'] = self._array_to_frame(self.d_t, self.d_y, self.stderr,
+            to_include['stderr'] = self._array_to_frame(self._d_t, self.d_y, self.stderr,
                                                         output_names=output_names, treatment_names=treatment_names)
-            to_include['zstat'] = self._array_to_frame(self.d_t, self.d_y, self.zstat(value),
+            to_include['zstat'] = self._array_to_frame(self._d_t, self.d_y, self.zstat(value),
                                                        output_names=output_names, treatment_names=treatment_names)
-            to_include['pvalue'] = self._array_to_frame(self.d_t, self.d_y, self.pvalue(value),
+            to_include['pvalue'] = self._array_to_frame(self._d_t, self.d_y, self.pvalue(value),
                                                         output_names=output_names, treatment_names=treatment_names)
-            to_include['ci_lower'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[0],
+            to_include['ci_lower'] = self._array_to_frame(self._d_t, self.d_y, ci_mean[0],
                                                           output_names=output_names, treatment_names=treatment_names)
-            to_include['ci_upper'] = self._array_to_frame(self.d_t, self.d_y, ci_mean[1],
+            to_include['ci_upper'] = self._array_to_frame(self._d_t, self.d_y, ci_mean[1],
                                                           output_names=output_names, treatment_names=treatment_names)
         res = pd.concat(to_include, axis=1, keys=to_include.keys()).round(decimals)
-        if not self.d_t or self.d_t == 1:
+        if self._d_t == 1:
             res.columns = res.columns.droplevel(1)
         if self.d_y == 1:
             res.index = res.index.droplevel(1)
@@ -791,21 +793,17 @@ class InferenceResults(metaclass=abc.ABCMeta):
             arr = np.array([arr])
         if self.inf_type == 'coefficient':
             arr = np.moveaxis(arr, -1, 0)
-        if d_t:
-            if treatment_names is None:
-                treatment_names = ['T' + str(i) for i in range(d_t)]
-            # Only check if d_t is not None
-            assert len(treatment_names) == d_t, "Incompatible length of treatment names"
-            arr = arr.reshape((-1, d_y, d_t))
-        else:
-            arr = arr.reshape((-1, d_y, 1))
+        arr = arr.reshape((-1, d_y, d_t))
         df = pd.concat([pd.DataFrame(x) for x in arr], keys=np.arange(arr.shape[0]))
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(d_y)]
         assert len(output_names) == d_y, "Incompatible length of output names"
-        df.index = df.index.set_levels(output_names, level=1)
-        if d_t:
+        if treatment_names is None:
+            treatment_names = ['T' + str(i) for i in range(d_t)]
+        if self.d_t:
+            assert len(treatment_names) == d_t, "Incompatible length of treatment names"
             df.columns = treatment_names
+        df.index = df.index.set_levels(output_names, level=1)
         return df
 
     @abc.abstractmethod
@@ -1067,6 +1065,8 @@ class PopulationSummaryResults:
         self.pred = pred
         self.pred_stderr = pred_stderr
         self.d_t = d_t
+        # For effect summaries, d_t is None, but the result arrays behave as if d_t=1
+        self._d_t = d_t or 1
         self.d_y = d_y
         self.alpha = alpha
         self.value = value
@@ -1309,36 +1309,36 @@ class PopulationSummaryResults:
         output_names = self.output_names if output_names is None else output_names
 
         # 1. Uncertainty of Mean Point Estimate
-        res1 = self._res_to_2darray(self.d_t, self.d_y, self.mean_point, decimals)
+        res1 = self._res_to_2darray(self._d_t, self.d_y, self.mean_point, decimals)
         if self.pred_stderr is not None:
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.stderr_mean, decimals)))
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.zstat(value=value), decimals)))
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y, self.pvalue(value=value), decimals)))
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y,
+            res1 = np.hstack((res1, self._res_to_2darray(self._d_t, self.d_y, self.stderr_mean, decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self._d_t, self.d_y, self.zstat(value=value), decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self._d_t, self.d_y, self.pvalue(value=value), decimals)))
+            res1 = np.hstack((res1, self._res_to_2darray(self._d_t, self.d_y,
                                                          self.conf_int_mean(alpha=alpha)[0], decimals)))
-            res1 = np.hstack((res1, self._res_to_2darray(self.d_t, self.d_y,
+            res1 = np.hstack((res1, self._res_to_2darray(self._d_t, self.d_y,
                                                          self.conf_int_mean(alpha=alpha)[1], decimals)))
 
         if treatment_names is None:
-            treatment_names = ['T' + str(i) for i in range(self.d_t)]
+            treatment_names = ['T' + str(i) for i in range(self._d_t)]
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(self.d_y)]
 
         metric_name1 = ['mean_point', 'stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
         myheaders1 = [name + '\n' + tname for name in metric_name1 for tname in treatment_names
-                      ] if self.d_t > 1 else [name for name in metric_name1]
+                      ] if self._d_t > 1 else [name for name in metric_name1]
         mystubs1 = output_names if self.d_y > 1 else []
         title1 = "Uncertainty of Mean Point Estimate"
 
         # 2. Distribution of Point Estimate
-        res2 = self._res_to_2darray(self.d_t, self.d_y, self.std_point, decimals)
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
+        res2 = self._res_to_2darray(self._d_t, self.d_y, self.std_point, decimals)
+        res2 = np.hstack((res2, self._res_to_2darray(self._d_t, self.d_y,
                                                      self.percentile_point(alpha=alpha)[0], decimals)))
-        res2 = np.hstack((res2, self._res_to_2darray(self.d_t, self.d_y,
+        res2 = np.hstack((res2, self._res_to_2darray(self._d_t, self.d_y,
                                                      self.percentile_point(alpha=alpha)[1], decimals)))
         metric_name2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
         myheaders2 = [name + '\n' + tname for name in metric_name2 for tname in treatment_names
-                      ] if self.d_t > 1 else [name for name in metric_name2]
+                      ] if self._d_t > 1 else [name for name in metric_name2]
         mystubs2 = output_names if self.d_y > 1 else []
         title2 = "Distribution of Point Estimate"
 
@@ -1351,16 +1351,16 @@ class PopulationSummaryResults:
 
         if self.pred_stderr is not None:
             # 3. Total Variance of Point Estimate
-            res3 = self._res_to_2darray(self.d_t, self.d_y, self.stderr_point, self.decimals)
-            res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
+            res3 = self._res_to_2darray(self._d_t, self.d_y, self.stderr_point, self.decimals)
+            res3 = np.hstack((res3, self._res_to_2darray(self._d_t, self.d_y,
                                                          self.conf_int_point(alpha=alpha, tol=tol)[0],
                                                          self.decimals)))
-            res3 = np.hstack((res3, self._res_to_2darray(self.d_t, self.d_y,
+            res3 = np.hstack((res3, self._res_to_2darray(self._d_t, self.d_y,
                                                          self.conf_int_point(alpha=alpha, tol=tol)[1],
                                                          self.decimals)))
             metric_name3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
             myheaders3 = [name + '\n' + tname for name in metric_name3 for tname in treatment_names
-                          ] if self.d_t > 1 else [name for name in metric_name3]
+                          ] if self._d_t > 1 else [name for name in metric_name3]
             mystubs3 = output_names if self.d_y > 1 else []
             title3 = "Total Variance of Point Estimate"
 

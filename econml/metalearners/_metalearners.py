@@ -16,7 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.utils import check_array, check_X_y
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from ..utilities import (check_inputs, check_models, broadcast_unit_treatments, reshape_treatmentwise_effects,
-                         inverse_onehot, transpose, _EncoderWrapper, _deprecate_positional)
+                         inverse_onehot, transpose, _deprecate_positional)
 from .._shap import _shap_explain_model_cate
 
 
@@ -39,7 +39,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  models,
                  categories='auto'):
         self.models = clone(models, safe=False)
-        self.categories = categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -72,16 +74,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-
-        if self.categories != 'auto':
-            self.categories = [self.categories]  # OneHotEncoder expects a 2D array with features per column
-        self._one_hot_encoder = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
-        self.transformer = FunctionTransformer(
-            func=_EncoderWrapper(self._one_hot_encoder).encode,
-            validate=False)
-
-        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
-        self._set_encoded_treatment_names(self._one_hot_encoder)
+        T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
@@ -105,10 +98,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Returns expanded treatment names.
         """
         if treatment_names is not None:
-            return self._one_hot_encoder.get_feature_names(treatment_names).tolist()
-        if hasattr(self, "_input_names"):
-            return self._input_names["treatment_names"]
-        return None
+            return self.transformer.get_feature_names(treatment_names).tolist()
+        # Treatment names is None, default to BaseCateEstimator
+        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X):
         """Calculate the constant marignal treatment effect on a vector of features for each sample.
@@ -154,7 +146,12 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  overall_model,
                  categories='auto'):
         self.overall_model = clone(overall_model, safe=False)
-        self.categories = categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        # Note: unlike other Metalearners, we don't drop the first column because
+        # we concatenate all treatments to the other features;
+        # We might want to revisit, though, since it's linearly determined by the others
+        self.transformer = OneHotEncoder(categories=categories, sparse=False)
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -187,19 +184,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if X is None:
             X = np.zeros((Y.shape[0], 1))
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-
-        if self.categories != 'auto':
-            self.categories = [self.categories]  # OneHotEncoder expects a 2D array with features per column
-        # Note: unlike other Metalearners, we don't drop the first column because
-        # we concatenate all treatments to the other features;
-        # We might want to revisit, though, since it's linearly determined by the others
-        self._one_hot_encoder = OneHotEncoder(categories=self.categories, sparse=False)
-        self.transformer = FunctionTransformer(
-            func=_EncoderWrapper(self._one_hot_encoder, drop_first=True).encode,
-            validate=False)
-
-        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
-        self._set_encoded_treatment_names(self._one_hot_encoder, drop_first=True)
+        T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = (T.shape[1] - 1,)
         feat_arr = np.concatenate((X, T), axis=1)
         self.overall_model.fit(feat_arr, Y)
@@ -220,10 +205,9 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Returns expanded treatment names.
         """
         if treatment_names is not None:
-            return self._one_hot_encoder.get_feature_names(treatment_names).tolist()[1:]
-        if hasattr(self, "_input_names"):
-            return self._input_names["treatment_names"]
-        return None
+            return self.transformer.get_feature_names(treatment_names).tolist()[1:]
+        # Treatment names is None, default to BaseCateEstimator
+        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X=None):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
@@ -289,7 +273,9 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.models = clone(models, safe=False)
         self.cate_models = clone(cate_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
-        self.categories = categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -320,18 +306,9 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-
-        if self.categories != 'auto':
-            self.categories = [self.categories]  # OneHotEncoder expects a 2D array with features per column
-        self._one_hot_encoder = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
-        self.transformer = FunctionTransformer(
-            func=_EncoderWrapper(self._one_hot_encoder).encode,
-            validate=False)
-
         if Y.ndim == 2 and Y.shape[1] == 1:
             Y = Y.flatten()
-        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
-        self._set_encoded_treatment_names(self._one_hot_encoder)
+        T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
@@ -374,10 +351,9 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Returns expanded treatment names.
         """
         if treatment_names is not None:
-            return self._one_hot_encoder.get_feature_names(treatment_names).tolist()
-        if hasattr(self, "_input_names"):
-            return self._input_names["treatment_names"]
-        return None
+            return self.transformer.get_feature_names(treatment_names).tolist()
+        # Treatment names is None, default to BaseCateEstimator
+        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
@@ -442,7 +418,9 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.models = clone(models, safe=False)
         self.final_models = clone(final_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
-        self.categories = categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -473,16 +451,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-
-        if self.categories != 'auto':
-            self.categories = [self.categories]  # OneHotEncoder expects a 2D array with features per column
-        self._one_hot_encoder = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
-        self.transformer = FunctionTransformer(
-            func=_EncoderWrapper(self._one_hot_encoder).encode,
-            validate=False)
-
-        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
-        self._set_encoded_treatment_names(self._one_hot_encoder)
+        T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
         self.models = check_models(self.models, self._d_t[0] + 1)
@@ -531,10 +500,9 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Returns expanded treatment names.
         """
         if treatment_names is not None:
-            return self._one_hot_encoder.get_feature_names(treatment_names).tolist()
-        if hasattr(self, "_input_names"):
-            return self._input_names["treatment_names"]
-        return None
+            return self.transformer.get_feature_names(treatment_names).tolist()
+        # Treatment names is None, default to BaseCateEstimator
+        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
