@@ -6,10 +6,10 @@
 parameters:
   name: ''
   displayName: ''
-  package: '-e .'
   body: []
   images: ['ubuntu-18.04', 'macOS-10.15', 'windows-2019']
   versions: ['3.6', '3.7', '3.8']
+  packages: ['-e .']
 
 jobs:
 - job: ${{ parameters.name }}
@@ -17,9 +17,11 @@ jobs:
     matrix:
       ${{ each image in parameters.images }}:
         ${{ each version in parameters.versions }}:
-          ${{ format('{0}, Python {1}', image, version)}}:
-            imageName: ${{ image }}
-            python.version: ${{ version }}
+          ${{ each package in parameters.packages }}:
+            ${{ format('{0}, Python {1}, Package {2}', image, version, package)}}:
+              imageName: ${{ image }}
+              python.version: ${{ version }}
+              package: ${{ package }}
 
   pool:
     vmImage: $(imageName)
@@ -43,7 +45,7 @@ jobs:
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
   # Install the package
-  - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython && pip install ${{ parameters.package }}'
+  - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython && pip install $(package)'
     displayName: 'Install dependencies'
 
   - ${{ parameters.body }}

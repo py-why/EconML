@@ -11,7 +11,7 @@ jobs:
   parameters:
     name: test1
     displayName: 'Test econml'
-    package: '--find-links . "econml==0.9.0b2" dowhy IPython'
+    packages: ['--find-links . "econml==0.9.0b2" dowhy IPython', '--find-links . "econml==0.9.0b2" dowhy IPython && pip install -U numpy']
     body:
       - script: 'pip install pytest pytest-cov pytest-xdist && python -m pytest'
         displayName: 'Unit tests'

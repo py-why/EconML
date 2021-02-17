@@ -9,9 +9,12 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
-addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=setup.cfg --cov=econml --cov-report=xml"
+addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-config=setup.cfg --cov=tests --cov-report=xml"
 markers = [    
     "econml",
     "shap",
-    "dowhy"
+    "dowhy",
+    "slow",
+    "notebook",
+    "automl"
 ]
