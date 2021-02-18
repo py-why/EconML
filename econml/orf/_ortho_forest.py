@@ -640,7 +640,10 @@ class DMLOrthoForest(BaseOrthoForest):
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
         if self.discrete_treatment:
-            self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
+            categories = self.categories
+            if categories != 'auto':
+                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+            self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
             d_t_in = T.shape[1:]
             T = self.transformer.fit_transform(T.reshape(-1, 1))
             self._d_t = T.shape[1:]
@@ -982,7 +985,10 @@ class DROrthoForest(BaseOrthoForest):
         T = self._check_treatment(T)
         d_t_in = T.shape[1:]
         # Train label encoder
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
+        categories = self.categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
         d_t_in = T.shape[1:]
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]

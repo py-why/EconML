@@ -596,7 +596,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if not only_final:
 
             if self.discrete_treatment:
-                self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
+                categories = self.categories
+                if categories != 'auto':
+                    categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+                self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
             else:

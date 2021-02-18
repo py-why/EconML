@@ -831,12 +831,6 @@ class TreatmentExpansionMixin(BaseCateEstimator):
             self._input_names["treatment_names"] = self.transformer.get_feature_names(
                 self._input_names["treatment_names"]).tolist()
 
-    def __setattr__(self, name, value):
-        if name == 'categories':
-            if value != 'auto':
-                value = [value]
-        super().__setattr__(name, value)
-
     def cate_treatment_names(self, treatment_names=None):
         """
         Get treatment names.

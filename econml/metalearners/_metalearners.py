@@ -72,7 +72,10 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
+        categories = self.categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
@@ -158,7 +161,10 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if X is None:
             X = np.zeros((Y.shape[0], 1))
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
+        categories = self.categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = (T.shape[1], )
         # Note: unlike other Metalearners, we need the controls' encoded column for training
@@ -264,7 +270,10 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         if Y.ndim == 2 and Y.shape[1] == 1:
             Y = Y.flatten()
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
+        categories = self.categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
@@ -386,7 +395,10 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
+        categories = self.categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
