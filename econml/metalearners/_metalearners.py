@@ -39,10 +39,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  models,
                  categories='auto'):
         self.models = clone(models, safe=False)
-        if categories != 'auto':
-            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self.categories = categories
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -75,6 +72,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
@@ -82,26 +80,6 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         for ind in range(self._d_t[0] + 1):
             self.models[ind].fit(X[T == ind], Y[T == ind])
-
-    def cate_treatment_names(self, treatment_names=None):
-        """
-        Get expanded treatment names.
-
-        Parameters
-        ----------
-        treatment_names: list of strings of length T.shape[1] or None
-            The names of the treatments. If None and the T passed to fit was a dataframe,
-            it defaults to the column names from the dataframe.
-
-        Returns
-        -------
-        out_treatment_names: list of strings
-            Returns expanded treatment names.
-        """
-        if treatment_names is not None:
-            return self.transformer.get_feature_names(treatment_names).tolist()
-        # Treatment names is None, default to BaseCateEstimator
-        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X):
         """Calculate the constant marignal treatment effect on a vector of features for each sample.
@@ -147,10 +125,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  overall_model,
                  categories='auto'):
         self.overall_model = clone(overall_model, safe=False)
-        if categories != 'auto':
-            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self.categories = categories
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -183,6 +158,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if X is None:
             X = np.zeros((Y.shape[0], 1))
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = (T.shape[1], )
         # Note: unlike other Metalearners, we need the controls' encoded column for training
@@ -190,26 +166,6 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         # We might want to revisit, though, since it's linearly determined by the others
         feat_arr = np.concatenate((X, 1 - np.sum(T, axis=1).reshape(-1, 1), T), axis=1)
         self.overall_model.fit(feat_arr, Y)
-
-    def cate_treatment_names(self, treatment_names=None):
-        """
-        Get expanded treatment names.
-
-        Parameters
-        ----------
-        treatment_names: list of strings of length T.shape[1] or None
-            The names of the treatments. If None and T is a dataframe, it defaults to the column names
-            from the dataframe.
-
-        Returns
-        -------
-        out_treatment_names: list of strings
-            Returns expanded treatment names.
-        """
-        if treatment_names is not None:
-            return self.transformer.get_feature_names(treatment_names).tolist()
-        # Treatment names is None, default to BaseCateEstimator
-        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X=None):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
@@ -275,10 +231,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.models = clone(models, safe=False)
         self.cate_models = clone(cate_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
-        if categories != 'auto':
-            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self.categories = categories
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -311,6 +264,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         if Y.ndim == 2 and Y.shape[1] == 1:
             Y = Y.flatten()
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
@@ -337,26 +291,6 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
             X_concat = np.concatenate((X[T == 0], X[T == ind + 1]), axis=0)
             T_concat = np.concatenate((T[T == 0], T[T == ind + 1]), axis=0)
             self.propensity_models[ind].fit(X_concat, T_concat)
-
-    def cate_treatment_names(self, treatment_names=None):
-        """
-        Get expanded treatment names.
-
-        Parameters
-        ----------
-        treatment_names: list of strings of length T.shape[1] or None
-            The names of the treatments. If None and T is a dataframe, it defaults to the column names
-            from the dataframe.
-
-        Returns
-        -------
-        out_treatment_names: list of strings
-            Returns expanded treatment names.
-        """
-        if treatment_names is not None:
-            return self.transformer.get_feature_names(treatment_names).tolist()
-        # Treatment names is None, default to BaseCateEstimator
-        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.
@@ -421,10 +355,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.models = clone(models, safe=False)
         self.final_models = clone(final_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
-        if categories != 'auto':
-            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
         self.categories = categories
-        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         super().__init__()
 
     @_deprecate_positional("X should be passed by keyword only. In a future release "
@@ -455,6 +386,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         # Check inputs
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
         T = inverse_onehot(T)
@@ -487,26 +419,6 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             imputed_effects_concat = np.concatenate((imputed_effect_on_controls, imputed_effect_on_treated), axis=0)
             self.final_models[ind].fit(X_concat, imputed_effects_concat)
-
-    def cate_treatment_names(self, treatment_names=None):
-        """
-        Get expanded treatment names.
-
-        Parameters
-        ----------
-        treatment_names: list of strings of length T.shape[1] or None
-            The names of the treatments. If None and T is a dataframe, it defaults to the column names
-            from the dataframe.
-
-        Returns
-        -------
-        out_treatment_names: list of strings
-            Returns expanded treatment names.
-        """
-        if treatment_names is not None:
-            return self.transformer.get_feature_names(treatment_names).tolist()
-        # Treatment names is None, default to BaseCateEstimator
-        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal treatment effect on a vector of features for each sample.

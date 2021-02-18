@@ -831,6 +831,36 @@ class TreatmentExpansionMixin(BaseCateEstimator):
             self._input_names["treatment_names"] = self.transformer.get_feature_names(
                 self._input_names["treatment_names"]).tolist()
 
+    def __setattr__(self, name, value):
+        if name == 'categories':
+            if value != 'auto':
+                value = [value]
+        super().__setattr__(name, value)
+
+    def cate_treatment_names(self, treatment_names=None):
+        """
+        Get treatment names.
+
+        If the treatment is discrete, it will return expanded treatment names.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length T.shape[1] or None
+            The names of the treatments. If None and the T passed to fit was a dataframe,
+            it defaults to the column names from the dataframe.
+
+        Returns
+        -------
+        out_treatment_names: list of strings
+            Returns (possibly expanded) treatment names.
+        """
+        if treatment_names is not None:
+            if self.transformer:
+                return self.transformer.get_feature_names(treatment_names).tolist()
+            return treatment_names
+        # Treatment names is None, default to BaseCateEstimator
+        return super().cate_treatment_names()
+
     # override effect to set defaults, which works with the new definition of _expand_treatments
     def effect(self, X=None, *, T0=0, T1=1):
         # NOTE: don't explicitly expand treatments here, because it's done in the super call

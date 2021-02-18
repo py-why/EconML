@@ -248,8 +248,6 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.verbose = verbose
         self.batch_size = batch_size
         self.categories = categories
-        if self.categories != 'auto':
-            self.categories = [self.categories]  # OneHotEncoder expects a 2D array with features per column
         super().__init__()
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
@@ -305,28 +303,6 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                                                                                 W=self.W_two)
         self.model_is_fitted = True
         return self
-
-    def cate_treatment_names(self, treatment_names=None):
-        """
-        Get expanded treatment names.
-
-        Parameters
-        ----------
-        treatment_names: list of strings of length T.shape[1] or None
-            The names of the treatments. If None and T is a dataframe, it defaults to the column names
-            from the dataframe.
-
-        Returns
-        -------
-        out_treatment_names: list of strings
-            Returns expanded treatment names.
-        """
-        if treatment_names is not None:
-            if self.discrete_treatment:
-                return self.transformer.get_feature_names(treatment_names).tolist()
-            return treatment_names
-        # Treatment names is None, default to BaseCateEstimator
-        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X):
         """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
@@ -661,11 +637,6 @@ class DMLOrthoForest(BaseOrthoForest):
         -------
         self: an instance of self.
         """
-        if self.discrete_treatment:
-            if self.categories != 'auto':
-                self.categories = [self.categories]  # OneHotEncoder expects a 2D array with features per column
-            self._one_hot_encoder = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
-
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
         if self.discrete_treatment:
@@ -1004,10 +975,6 @@ class DROrthoForest(BaseOrthoForest):
         -------
         self: an instance of self.
         """
-        if self.categories != 'auto':
-            self.categories = [self.categories]  # OneHotEncoder expects a 2D array with features per column
-        self._one_hot_encoder = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
-
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
         # Check that T is shape (n, )

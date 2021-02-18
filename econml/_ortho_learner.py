@@ -596,10 +596,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if not only_final:
 
             if self.discrete_treatment:
-                categories = self.categories
-                if categories != 'auto':
-                    categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-                self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+                self.transformer = OneHotEncoder(categories=self.categories, sparse=False, drop='first')
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
             else:
@@ -748,30 +745,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                                                            nuisances=nuisances,
                                                                                            sample_weight=sample_weight,
                                                                                            sample_var=sample_var))
-
-    def cate_treatment_names(self, treatment_names=None):
-        """
-        Get treatment names.
-
-        If the treatment is discrete, it will return expanded treatment names.
-
-        Parameters
-        ----------
-        treatment_names: list of strings of length T.shape[1] or None
-            The names of the treatments. If None and the T passed to fit was a dataframe,
-            it defaults to the column names from the dataframe.
-
-        Returns
-        -------
-        out_treatment_names: list of strings
-            Returns (possibly expanded) treatment names.
-        """
-        if treatment_names is not None:
-            if self.discrete_treatment:
-                return self.transformer.get_feature_names(treatment_names).tolist()
-            return treatment_names
-        # Treatment names is None, default to BaseCateEstimator
-        return super().cate_treatment_names()
 
     def const_marginal_effect(self, X=None):
         X, = check_input_arrays(X)
