@@ -242,8 +242,8 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         Parameters
         ----------
         output_names: list of strings of length Y.shape[1] or None
-            The names of the outcomes. If None and Y is a dataframe, it defaults to the column names
-            from the dataframe.
+            The names of the outcomes. If None and the Y passed to fit was a dataframe,
+            it defaults to the column names from the dataframe.
 
         Returns
         -------
@@ -265,8 +265,8 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         Parameters
         ----------
         treatment_names: list of strings of length T.shape[1] or None
-            The names of the treatments. If None and T is a dataframe, it defaults to the column names
-            from the dataframe.
+            The names of the treatments. If None and the T passed to fit was a dataframe,
+            it defaults to the column names from the dataframe.
 
         Returns
         -------
