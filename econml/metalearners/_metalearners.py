@@ -185,8 +185,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
         T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = (T.shape[1], )
-        # Note: unlike other Metalearners, we don't drop the first column because
-        # we concatenate all treatments to the other features;
+        # Note: unlike other Metalearners, we need the controls' encoded column for training
+        # Thus, we append the controls column before the one-hot-encoded T
         # We might want to revisit, though, since it's linearly determined by the others
         feat_arr = np.concatenate((X, 1 - np.sum(T, axis=1).reshape(-1, 1), T), axis=1)
         self.overall_model.fit(feat_arr, Y)

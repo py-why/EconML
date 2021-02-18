@@ -57,17 +57,6 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             # If names are set in a child class, add an attribute reflecting that
             self._input_names_set = True
 
-    def _set_encoded_treatment_names(self, one_hot_encoder, drop_first=False):
-        """Works with sklearn OHEs"""
-        # If OHE does not drop first treatment, do it here
-        # This is a workaround for how treatments are expanded in SLearner
-        drop_first = not one_hot_encoder.drop == 'first'
-        if hasattr(self, "_input_names"):
-            encoded_treatment_names = one_hot_encoder.get_feature_names(
-                self._input_names["treatment_names"]).tolist()
-            self._input_names["treatment_names"] = (encoded_treatment_names[1:] if drop_first
-                                                    else encoded_treatment_names)
-
     def _strata(self, Y, T, *args, **kwargs):
         """
         Get an array of values representing strata that should be preserved by bootstrapping.  For example,
