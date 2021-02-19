@@ -1337,11 +1337,11 @@ class PopulationSummaryResults:
         if self.pred_stderr is not None:
 
             # 3. Total Variance of Point Estimate
-            res3 = self._format_res(self.stderr_point, self.decimals)
-            res3 = np.hstack((res3, self._format_res(self.conf_int_point(alpha=alpha, tol=tol)[0],
-                                                     self.decimals)))
-            res3 = np.hstack((res3, self._format_res(self.conf_int_point(alpha=alpha, tol=tol)[1],
-                                                     self.decimals)))
+            res3 = np.hstack((self._format_res(self.stderr_point, self.decimals),
+                              self._format_res(self.conf_int_point(alpha=alpha, tol=tol)[0],
+                                               self.decimals),
+                              self._format_res(self.conf_int_point(alpha=alpha, tol=tol)[1],
+                                               self.decimals)))
             myheaders3 = ['stderr_point', 'ci_point_lower', 'ci_point_upper']
             title3 = "Total Variance of Point Estimate"
 
