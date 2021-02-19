@@ -5,6 +5,7 @@
 
 import numbers
 import warnings
+import sklearn
 from sklearn.base import BaseEstimator
 from sklearn.utils.multiclass import type_of_target
 import numpy as np
@@ -376,12 +377,12 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     # independent, and that it is pickle-able.
     parallel = Parallel(n_jobs=n_jobs, verbose=verbose,
                         pre_dispatch=pre_dispatch)
-    # TODO. The API of the private scikit-learn `_fit_and_predict` has changed
-    # between 0.23.2 and 0.24. For this to work with <0.24, we need to add a
-    # case analysis based on sklearn version.
     predictions = parallel(delayed(_fit_and_predict)(
         clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
         for train, test in splits)
+    if sklearn.__version__ < "0.24.0":
+        # Prior to 0.24.0, this private scikit-learn method returned a tuple of two values
+        predictions = [p[0] for p in predictions]
 
     inv_test_indices = np.empty(len(test_indices), dtype=int)
     inv_test_indices[test_indices] = np.arange(len(test_indices))
