@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 import warnings
 from dowhy import CausalModel
-from econml.utilities import check_input_arrays, reshape_arrays_2dim
+from econml.utilities import check_input_arrays, reshape_arrays_2dim, get_input_columns
 
 
 class DoWhyWrapper:
@@ -119,15 +119,15 @@ class DoWhyWrapper:
 
         # column names
         if outcome_names is None:
-            outcome_names = [f"Y{i}" for i in range(Y.shape[1])]
+            outcome_names = get_input_columns(Y, prefix="Y")
         if treatment_names is None:
-            treatment_names = [f"T{i}" for i in range(T.shape[1])]
+            treatment_names = get_input_columns(T, prefix="T")
         if feature_names is None:
-            feature_names = [f"X{i}" for i in range(X.shape[1])]
+            feature_names = get_input_columns(X, prefix="X")
         if confounder_names is None:
-            confounder_names = [f"W{i}" for i in range(W.shape[1])]
+            confounder_names = get_input_columns(W, prefix="W")
         if instrument_names is None:
-            instrument_names = [f"Z{i}" for i in range(Z.shape[1])]
+            instrument_names = get_input_columns(Z, prefix="Z")
         column_names = outcome_names + treatment_names + feature_names + confounder_names + instrument_names
         df = pd.DataFrame(np.hstack((Y, T, X, W, Z)), columns=column_names)
         self.dowhy_ = CausalModel(

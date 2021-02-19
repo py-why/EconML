@@ -724,10 +724,14 @@ class InferenceResults(metaclass=abc.ABCMeta):
         assert len(output_names) == self.d_y, "Incompatible length of output names"
         if treatment_names is None:
             treatment_names = ['T' + str(i) for i in range(self._d_t)]
-        assert len(treatment_names) == self._d_t, "Incompatible length of treatment names"
         names = ['X', 'Y', 'T']
-        index = pd.MultiIndex.from_product([range(nx),
-                                            output_names, treatment_names], names=names)
+        if self.d_t:
+            assert len(treatment_names) == self._d_t, "Incompatible length of treatment names"
+            index = pd.MultiIndex.from_product([range(nx),
+                                                output_names, treatment_names], names=names)
+        else:
+            index = pd.MultiIndex.from_product([range(nx),
+                                                output_names, [treatment_names[0]]], names=names)
         res = pd.DataFrame(to_include, index=index).round(decimals)
 
         if self.inf_type == 'coefficient':
