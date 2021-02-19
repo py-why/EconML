@@ -10,7 +10,6 @@ import pandas as pd
 import scipy
 from scipy.stats import norm
 from statsmodels.iolib.table import SimpleTable
-import copy
 
 from ._bootstrap import BootstrapEstimator
 from ..sklearn_extensions.linear_model import StatsModelsLinearRegression
@@ -571,7 +570,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
                  feature_names=None, output_names=None, treatment_names=None):
         self.d_t = d_t
         self.d_y = d_y
-        self.pred = copy.deepcopy(pred)
+        self.pred = pred
         self.inf_type = inf_type
         self.fname_transformer = fname_transformer
         self.feature_names = feature_names
@@ -720,6 +719,8 @@ class InferenceResults(metaclass=abc.ABCMeta):
         output_names = self.output_names if output_names is None else output_names
         to_include = OrderedDict()
         to_include['point_estimate'] = self._reshape_array(self.point_estimate)
+        # get the length of X when it's effect, or length of coefficient/intercept when it's coefficient/intercpet
+        # to_include['point_estimate'] is a flatten vector with length d_t*d_y*nx
         nx = to_include['point_estimate'].shape[0] // self.d_t // self.d_y
 
         if self.stderr is not None:
@@ -856,7 +857,7 @@ class NormalInferenceResults(InferenceResults):
 
     def __init__(self, d_t, d_y, pred, pred_stderr, mean_pred_stderr, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
-        self.pred_stderr = copy.deepcopy(pred_stderr)
+        self.pred_stderr = pred_stderr
         self.mean_pred_stderr = mean_pred_stderr
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
@@ -966,7 +967,7 @@ class EmpiricalInferenceResults(InferenceResults):
 
     def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
-        self.pred_dist = copy.deepcopy(pred_dist)
+        self.pred_dist = pred_dist
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
     @property

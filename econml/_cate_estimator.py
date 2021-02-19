@@ -941,7 +941,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             coef_headers = coef_table.columns.tolist()
             n_level = coef_table.index.nlevels
             if n_level > 1:
-                coef_stubs = ["|".join(i) for i in coef_table.index.values]
+                coef_stubs = ["|".join(ind_value) for ind_value in coef_table.index.values]
             else:
                 coef_stubs = coef_table.index.tolist()
             coef_title = 'Coefficient Results'
@@ -958,7 +958,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             intercept_headers = intercept_table.columns.tolist()
             n_level = intercept_table.index.nlevels
             if n_level > 1:
-                intercept_stubs = ["|".join(i) for i in intercept_table.index.values]
+                intercept_stubs = ["|".join(ind_value) for ind_value in intercept_table.index.values]
             else:
                 intercept_stubs = intercept_table.index.tolist()
             intercept_title = 'CATE Intercept Results'
