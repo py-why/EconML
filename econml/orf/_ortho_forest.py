@@ -1238,7 +1238,8 @@ class BLBInference(Inference):
         stderr = stderr.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
         return NormalInferenceResults(d_t=self._estimator._d_t[0] if self._estimator._d_t else 1,
                                       d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=params, pred_stderr=stderr, inf_type='effect', **self._input_names)
+                                      pred=params, pred_stderr=stderr, mean_pred_stderr=None,
+                                      inf_type='effect', **self._input_names)
 
     def _effect_inference_helper(self, X, T0, T1):
         X, T0, T1 = self._estimator._expand_treatments(*check_input_arrays(X, T0, T1))
@@ -1303,7 +1304,8 @@ class BLBInference(Inference):
         """
         eff, scales = self._effect_inference_helper(X, T0, T1)
         return NormalInferenceResults(d_t=1, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=eff, pred_stderr=scales, inf_type='effect', **self._input_names)
+                                      pred=eff, pred_stderr=scales, mean_pred_stderr=None,
+                                      inf_type='effect', **self._input_names)
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)

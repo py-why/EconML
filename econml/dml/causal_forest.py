@@ -79,7 +79,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         pred = pred.reshape((-1,) + self._d_y + self._d_t)
         pred_stderr = np.sqrt(np.diagonal(pred_var, axis1=2, axis2=3).reshape((-1,) + self._d_y + self._d_t))
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, inf_type='effect')
+                                      pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         return self.effect_inference(X, T0=T0, T1=T1).conf_int(alpha=alpha)
@@ -97,7 +97,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         pred = pred.reshape((-1,) + self._d_y)
         pred_stderr = np.sqrt(pred_var.reshape((-1,) + self._d_y))
         return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, inf_type='effect')
+                                      pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
 
 
 class CausalForestDML(_BaseDML):
