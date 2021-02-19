@@ -43,19 +43,22 @@ class TestShap(unittest.TestCase):
                             shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
                                                           background_samples=None)
 
-                            # test base values equals to mean of constant marginal effect
-                            if not isinstance(est, (CausalForestDML, DMLOrthoForest)):
-                                mean_cate = est.const_marginal_effect(X[:10]).mean(axis=0)
-                                mean_cate = mean_cate.flatten()[0] if not np.isscalar(mean_cate) else mean_cate
-                                self.assertAlmostEqual(shap_values["Y0"]["T0"].base_values[0], mean_cate, delta=1e-2)
+                            for i, output in enumerate(est.cate_output_names()):
+                                for j, treat in enumerate(est.cate_treatment_names()):
+                                    # test base values equals to mean of constant marginal effect
+                                    if not isinstance(est, (CausalForestDML, DMLOrthoForest)):
+                                        mean_cate = est.const_marginal_effect(X[:10]).mean(axis=0)
+                                        mean_cate = np.array(mean_cate).reshape((d_y, d_t))[i, j]
+                                        self.assertAlmostEqual(
+                                            shap_values[output][treat].base_values[0], mean_cate, delta=1e-2)
 
-                            # test shape of shap values output is as expected
-                            self.assertEqual(len(shap_values["Y0"]), d_t)
-                            self.assertEqual(len(shap_values), d_y)
-                            # test shape of attribute of explanation object is as expected
-                            self.assertEqual(shap_values["Y0"]["T0"].values.shape[0], 10)
-                            self.assertEqual(shap_values["Y0"]["T0"].data.shape[0], 10)
-                            self.assertEqual(shap_values["Y0"]["T0"].base_values.shape, (10,))
+                                    # test shape of shap values output is as expected
+                                    self.assertEqual(len(shap_values[output]), d_t)
+                                    self.assertEqual(len(shap_values), d_y)
+                                    # test shape of attribute of explanation object is as expected
+                                    self.assertEqual(shap_values[output][treat].values.shape[0], 10)
+                                    self.assertEqual(shap_values[output][treat].data.shape[0], 10)
+                                    self.assertEqual(shap_values[output][treat].base_values.shape, (10,))
 
     def test_discrete_t(self):
         n = 100
@@ -96,20 +99,22 @@ class TestShap(unittest.TestCase):
                                 est.fit(Y, T, X, W)
                             shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
                                                           background_samples=None)
+                            for i, output in enumerate(est.cate_output_names()):
+                                for j, treat in enumerate(est.cate_treatment_names()):
+                                    # test base values equals to mean of constant marginal effect
+                                    if not isinstance(est, (CausalForestDML, ForestDRLearner, DROrthoForest)):
+                                        mean_cate = est.const_marginal_effect(X[:10]).mean(axis=0)
+                                        mean_cate = np.array(mean_cate).reshape((d_y, d_t - 1))[i, j]
+                                        self.assertAlmostEqual(
+                                            shap_values[output][treat].base_values[0], mean_cate, delta=1e-2)
 
-                            # test base values equals to mean of constant marginal effect
-                            if not isinstance(est, (CausalForestDML, ForestDRLearner, DROrthoForest)):
-                                mean_cate = est.const_marginal_effect(X[:10]).mean(axis=0)
-                                mean_cate = mean_cate.flatten()[0] if not np.isscalar(mean_cate) else mean_cate
-                                self.assertAlmostEqual(shap_values["Y0"]["T0"].base_values[0], mean_cate, delta=1e-2)
-
-                            # test shape of shap values output is as expected
-                            self.assertEqual(len(shap_values["Y0"]), d_t - 1)
-                            self.assertEqual(len(shap_values), d_y)
-                            # test shape of attribute of explanation object is as expected
-                            self.assertEqual(shap_values["Y0"]["T0"].values.shape[0], 10)
-                            self.assertEqual(shap_values["Y0"]["T0"].data.shape[0], 10)
-                            self.assertEqual(shap_values["Y0"]["T0"].base_values.shape, (10,))
+                                    # test shape of shap values output is as expected
+                                    self.assertEqual(len(shap_values[output]), d_t - 1)
+                                    self.assertEqual(len(shap_values), d_y)
+                                    # test shape of attribute of explanation object is as expected
+                                    self.assertEqual(shap_values[output][treat].values.shape[0], 10)
+                                    self.assertEqual(shap_values[output][treat].data.shape[0], 10)
+                                    self.assertEqual(shap_values[output][treat].base_values.shape, (10,))
 
     def test_identical_output(self):
         # Treatment effect function

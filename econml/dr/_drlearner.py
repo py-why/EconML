@@ -318,7 +318,7 @@ class DRLearner(_OrthoLearner):
     >>> est.model_cate(T=2).coef_
     array([ 0.863723...,  0.086946..., -0.022288...])
     >>> est.cate_feature_names()
-    <BLANKLINE>
+    ['X0', 'X1', 'X2']
     >>> [mdl.coef_ for mdl in est.models_regression]
     [array([ 1.472...,  0.001..., -0.011...,  0.698..., 2.049...]),
      array([ 1.455..., -0.002...,  0.005...,  0.677...,  1.998...])]

@@ -546,23 +546,31 @@ def check_input_arrays(*args, validate_len=True):
     return args
 
 
-def get_input_columns(X):
+def get_input_columns(X, prefix="X"):
     """Extracts column names from dataframe-like input object.
 
     Currently supports column name extraction from pandas DataFrame and Series objects.
 
     Parameters
     ----------
-    X : array_like
+    X : array_like or None
         Input array with column names to be extracted.
+
+    prefix: string or None
+        If input array doesn't have column names, a default using the naming scheme
+        "{prefix}{column number}" will be returned.
 
     Returns
     -------
     cols: array-like or None
         List of columns corresponding to the dataframe-like object.
         None if the input array is not in the supported types.
-
     """
+    if X is None:
+        return None
+    if np.ndim(X) == 0:
+        raise ValueError(
+            f"Expected array-like object for imput with prefix {prefix} but got '{X}' object instead.")
     # Type to column extraction function
     type_to_func = {
         pd.DataFrame: lambda x: x.columns.tolist(),
@@ -570,7 +578,8 @@ def get_input_columns(X):
     }
     if type(X) in type_to_func:
         return type_to_func[type(X)](X)
-    return None
+    len_X = 1 if np.ndim(X) == 1 else np.asarray(X).shape[1]
+    return [f"{prefix}{i}" for i in range(len_X)]
 
 
 def check_models(models, n):
@@ -1154,27 +1163,6 @@ class SeparateModel:
     @property
     def coef_(self):
         return np.concatenate((model.coef_ for model in self.models))
-
-
-class _EncoderWrapper:
-    """
-    Wraps a OneHotEncoder (and optionally also a LabelEncoder).
-
-    Useful mainly so that the `encode` method can be used in a FunctionTransformer,
-    which would otherwise need a lambda (which can't be pickled).
-    """
-
-    def __init__(self, one_hot_encoder, label_encoder=None, drop_first=False):
-        self._label_encoder = label_encoder
-        self._one_hot_encoder = one_hot_encoder
-        self._drop_first = drop_first
-
-    def encode(self, arr):
-        if self._label_encoder:
-            arr = self._label_encoder.transform(arr.ravel())
-
-        result = self._one_hot_encoder.transform(reshape(arr, (-1, 1)))
-        return result[:, 1:] if self._drop_first else result
 
 
 def deprecated(message, category=FutureWarning):

@@ -123,7 +123,6 @@ class GenericModelFinalInference(Inference):
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
         # (which needs to have been expanded if there's a discrete treatment)
-        self._input_names = estimator._input_names if hasattr(estimator, "_input_names") else {}
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -148,7 +147,10 @@ class GenericModelFinalInference(Inference):
             warn("Final model doesn't have a `prediction_stderr` method, "
                  "only point estimates will be returned.")
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, inf_type='effect', **self._input_names)
+                                      pred_stderr=pred_stderr, inf_type='effect',
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names(),
+                                      treatment_names=self._est.cate_treatment_names())
 
     def _predict(self, X):
         return self.model_final.predict(X)
@@ -191,9 +193,11 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         e_pred = np.einsum(einsum_str, cme_pred, dT)
         e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(dT)) if cme_stderr is not None else None
         d_y = self._d_y[0] if self._d_y else 1
-        # d_t=1 here since we measure the effect across all Ts
-        return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect', **self._input_names)
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=d_y, pred=e_pred,
+                                      pred_stderr=e_stderr, inf_type='effect',
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names())
 
 
 class LinearModelFinalInference(GenericModelFinalInference):
@@ -239,9 +243,11 @@ class LinearModelFinalInference(GenericModelFinalInference):
         e_pred = self._predict(cross_product(X, T1 - T0))
         e_stderr = self._prediction_stderr(cross_product(X, T1 - T0))
         d_y = self._d_y[0] if self._d_y else 1
-        # d_t=1 here since we measure the effect across all Ts
-        return NormalInferenceResults(d_t=1, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, inf_type='effect', **self._input_names)
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=d_y, pred=e_pred,
+                                      pred_stderr=e_stderr, inf_type='effect',
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names())
 
     def coef__interval(self, *, alpha=0.1):
         lo, hi = self.model_final.coef__interval(alpha)
@@ -280,7 +286,9 @@ class LinearModelFinalInference(GenericModelFinalInference):
 
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer,
-                                      **self._input_names)
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names(),
+                                      treatment_names=self._est.cate_treatment_names())
 
     def intercept__interval(self, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -315,7 +323,10 @@ class LinearModelFinalInference(GenericModelFinalInference):
             intercept_stderr = None
 
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=intercept, pred_stderr=intercept_stderr,
-                                      inf_type='intercept', **self._input_names)
+                                      inf_type='intercept',
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names(),
+                                      treatment_names=self._est.cate_treatment_names())
 
 
 class StatsModelsInference(LinearModelFinalInference):
@@ -359,7 +370,6 @@ class GenericModelFinalInferenceDiscrete(Inference):
     def fit(self, estimator, *args, **kwargs):
         # once the estimator has been fit, it's kosher to store d_t here
         # (which needs to have been expanded if there's a discrete treatment)
-        self._input_names = estimator._input_names if hasattr(estimator, "_input_names") else {}
         self._est = estimator
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -392,7 +402,9 @@ class GenericModelFinalInferenceDiscrete(Inference):
             pred_stderr = None
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, inf_type='effect',
-                                      **self._input_names)
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names(),
+                                      treatment_names=self._est.cate_treatment_names())
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         X, T0, T1 = self._est._expand_treatments(X, T0, T1)
@@ -422,10 +434,12 @@ class GenericModelFinalInferenceDiscrete(Inference):
             pred_stderr = np.repeat(pred_stderr, T0.shape[0], axis=0) if pred_stderr is not None else None
         pred = pred[np.arange(T0.shape[0]), ..., ind]
         pred_stderr = pred_stderr[np.arange(T0.shape[0]), ..., ind] if pred_stderr is not None else None
-        # d_t=1 here since we measure the effect across all Ts
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr,
-                                      inf_type='effect', **self._input_names)
+                                      inf_type='effect',
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names())
 
 
 class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
@@ -458,10 +472,11 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
         fname_transformer = None
         if hasattr(self._est, 'cate_feature_names') and callable(self._est.cate_feature_names):
             fname_transformer = self._est.cate_feature_names
-
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=coef, pred_stderr=coef_stderr,
                                       inf_type='coefficient', fname_transformer=fname_transformer,
-                                      **self._input_names)
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names())
 
     def intercept__interval(self, T, *, alpha=0.1):
         if not self.fit_cate_intercept:
@@ -483,9 +498,12 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             warn("Final model doesn't have a `intercept_stderr_` attribute. "
                  "Only point estimates will be available.")
             intercept_stderr = None
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=self.fitted_models_final[ind].intercept_,
                                       pred_stderr=intercept_stderr,
-                                      inf_type='intercept', **self._input_names)
+                                      inf_type='intercept',
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names())
 
 
 class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
@@ -519,7 +537,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
     Parameters
     ----------
-    d_t: int
+    d_t: int or None
         Number of treatments
     d_y: int
         Number of outputs
@@ -538,6 +556,8 @@ class InferenceResults(metaclass=abc.ABCMeta):
     def __init__(self, d_t, d_y, pred, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
         self.d_t = d_t
+        # For effect summaries, d_t is None, but the result arrays behave as if d_t=1
+        self._d_t = d_t or 1
         self.d_y = d_y
         self.pred = pred
         self.inf_type = inf_type
@@ -683,14 +703,14 @@ class InferenceResults(metaclass=abc.ABCMeta):
             The output dataframe includes point estimate, standard error, z score, p value and confidence intervals
             of the estimated metric of each treatment on each outcome for each sample X[i]
         """
-        feature_names = self.feature_names if feature_names is None else feature_names
         treatment_names = self.treatment_names if treatment_names is None else treatment_names
         output_names = self.output_names if output_names is None else output_names
         to_include = OrderedDict()
+
         to_include['point_estimate'] = self._reshape_array(self.point_estimate)
         # get the length of X when it's effect, or length of coefficient/intercept when it's coefficient/intercpet
         # to_include['point_estimate'] is a flatten vector with length d_t*d_y*nx
-        nx = to_include['point_estimate'].shape[0] // self.d_t // self.d_y
+        nx = to_include['point_estimate'].shape[0] // self._d_t // self.d_y
 
         if self.stderr is not None:
             ci_mean = self.conf_int(alpha=alpha)
@@ -703,16 +723,19 @@ class InferenceResults(metaclass=abc.ABCMeta):
             output_names = ['Y' + str(i) for i in range(self.d_y)]
         assert len(output_names) == self.d_y, "Incompatible length of output names"
         if treatment_names is None:
-            treatment_names = ['T' + str(i) for i in range(self.d_t)]
-        assert len(treatment_names) == self.d_t, "Incompatible length of treatment names"
+            treatment_names = ['T' + str(i) for i in range(self._d_t)]
+        assert len(treatment_names) == self._d_t, "Incompatible length of treatment names"
         names = ['X', 'Y', 'T']
         index = pd.MultiIndex.from_product([range(nx),
                                             output_names, treatment_names], names=names)
         res = pd.DataFrame(to_include, index=index).round(decimals)
 
         if self.inf_type == 'coefficient':
-            if self.fname_transformer is not None:
-                feature_names = self.fname_transformer(feature_names)
+            if feature_names is not None:
+                if self.fname_transformer is not None:
+                    feature_names = self.fname_transformer(feature_names)
+            else:
+                feature_names = self.feature_names
             if feature_names is not None:
                 ind = feature_names
             else:
@@ -722,7 +745,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         elif self.inf_type == 'intercept':
             res.index = res.index.set_levels(['cate_intercept'], level="X")
 
-        if self.d_t == 1:
+        if self._d_t == 1:
             res.index = res.index.droplevel("T")
         if self.d_y == 1:
             res.index = res.index.droplevel("Y")
@@ -798,7 +821,7 @@ class NormalInferenceResults(InferenceResults):
 
     Parameters
     ----------
-    d_t: int
+    d_t: int or None
         Number of treatments
     d_y: int
         Number of outputs
@@ -908,7 +931,7 @@ class EmpiricalInferenceResults(InferenceResults):
         the raw predictions of the metric sampled b times.
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
-    d_t: int
+    d_t: int or None
         Number of treatments
     d_y: int
         Number of outputs
@@ -997,7 +1020,7 @@ class PopulationSummaryResults:
 
     Parameters
     ----------
-    d_t: int
+    d_t: int or None
         Number of treatments
     d_y: int
         Number of outputs
@@ -1032,6 +1055,8 @@ class PopulationSummaryResults:
         self.pred = pred
         self.pred_stderr = pred_stderr
         self.d_t = d_t
+        # For effect summaries, d_t is None, but the result arrays behave as if d_t=1
+        self._d_t = d_t or 1
         self.d_y = d_y
         self.alpha = alpha
         self.value = value
@@ -1283,12 +1308,12 @@ class PopulationSummaryResults:
             res1 = np.hstack((res1, self._format_res(self.conf_int_mean(alpha=alpha)[1], decimals)))
 
         if treatment_names is None:
-            treatment_names = ['T' + str(i) for i in range(self.d_t)]
+            treatment_names = ['T' + str(i) for i in range(self._d_t)]
         if output_names is None:
             output_names = ['Y' + str(i) for i in range(self.d_y)]
 
         myheaders1 = ['mean_point', 'stderr_mean', 'zstat', 'pvalue', 'ci_mean_lower', 'ci_mean_upper']
-        mystubs = self._get_stub_names(self.d_y, self.d_t, treatment_names, output_names)
+        mystubs = self._get_stub_names(self.d_y, self._d_t, treatment_names, output_names)
         title1 = "Uncertainty of Mean Point Estimate"
 
         # 2. Distribution of Point Estimate
@@ -1306,6 +1331,7 @@ class PopulationSummaryResults:
         smry.add_table(res2, myheaders2, mystubs, title2)
 
         if self.pred_stderr is not None:
+
             # 3. Total Variance of Point Estimate
             res3 = self._format_res(self.stderr_point, self.decimals)
             res3 = np.hstack((res3, self._format_res(self.conf_int_point(alpha=alpha, tol=tol)[0],
