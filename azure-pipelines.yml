@@ -78,7 +78,7 @@ jobs:
 
         - script: 'python setup.py build_sphinx -b doctest'
           displayName: 'Run doctests'
-      package: '-e .[automl]'
+      package: '-e .[all]'
 
 - job: 'Notebooks'
   dependsOn: 'EvalChanges'
@@ -106,6 +106,7 @@ jobs:
             testResultsFiles: '**/test-results.xml'
             testRunTitle: 'Notebooks'
           condition: succeededOrFailed()
+      package: '-e .[tf]'
 
 # - job: 'AutoML'
 #   dependsOn: 'EvalChanges'
@@ -216,3 +217,4 @@ jobs:
           inputs:
             codeCoverageTool: Cobertura
             summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+      package: '-e .[tf,plt]'

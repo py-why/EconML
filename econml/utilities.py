@@ -1231,6 +1231,31 @@ def _deprecate_positional(message, bad_args, category=FutureWarning):
     return decorator
 
 
+class MissingModule:
+    """
+    Placeholder to stand in for a module that couldn't be imported, delaying ImportErrors until use.
+
+    Parameters
+    ----------
+    msg:string
+        The message to display when an attempt to access a module memeber is made
+    exn:ImportError
+        The original ImportError to pass as the source of the exception
+    """
+
+    def __init__(self, msg, exn):
+        self.msg = msg
+        self.exn = exn
+
+    # Any access should throw
+    def __getattr__(self, _):
+        raise ImportError(self.msg) from self.exn
+
+    # As a convenience, also throw on calls to allow MissingModule to be used in lieu of specific imports
+    def __call__(self, *args, **kwargs):
+        raise ImportError(self.msg) from self.exn
+
+
 def transpose_dictionary(d):
     """
     Transpose a dictionary of dictionaries, bringing the keys from the second level
