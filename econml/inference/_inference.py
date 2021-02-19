@@ -1305,11 +1305,12 @@ class PopulationSummaryResults:
         # 1. Uncertainty of Mean Point Estimate
         res1 = self._format_res(self.mean_point, decimals)
         if self.pred_stderr is not None:
-            res1 = np.hstack((res1, self._format_res(self.stderr_mean, decimals)))
-            res1 = np.hstack((res1, self._format_res(self.zstat(value=value), decimals)))
-            res1 = np.hstack((res1, self._format_res(self.pvalue(value=value), decimals)))
-            res1 = np.hstack((res1, self._format_res(self.conf_int_mean(alpha=alpha)[0], decimals)))
-            res1 = np.hstack((res1, self._format_res(self.conf_int_mean(alpha=alpha)[1], decimals)))
+            res1 = np.hstack((res1, 
+                              self._format_res(self.stderr_mean, decimals),
+                              self._format_res(self.zstat(value=value), decimals),
+                              self._format_res(self.pvalue(value=value), decimals),
+                              self._format_res(self.conf_int_mean(alpha=alpha)[0], decimals),
+                              self._format_res(self.conf_int_mean(alpha=alpha)[1], decimals)))
 
         if treatment_names is None:
             treatment_names = ['T' + str(i) for i in range(self._d_t)]
