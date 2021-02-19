@@ -438,7 +438,7 @@ Usage FAQs
                         param_grid={
                                 'max_depth': [3, None],
                                 'n_estimators': (10, 30, 50, 100, 200),
-                                'max_features': (2,4,6)
+                                'max_features': (1,2,3)
                             }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         est = SparseLinearDML(model_y=first_stage(), model_t=first_stage())
@@ -458,7 +458,7 @@ Usage FAQs
                         param_grid={
                                 'max_depth': [3, None],
                                 'n_estimators': (10, 30, 50, 100, 200),
-                                'max_features': (2,4,6)
+                                'max_features': (1,2,3)
                             }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
                         )
         model_y = first_stage().fit(X, Y).best_estimator_
@@ -495,7 +495,7 @@ Usage FAQs
                     param_grid={
                             'max_depth': [3, None],
                             'n_estimators': (10, 30, 50, 100, 200, 400, 600, 800, 1000),
-                            'max_features': (2,4,6)
+                            'max_features': (1,2,3)
                         }, cv=10, n_jobs=-1, scoring='neg_mean_squared_error'
                     )
         est = NonParamDML(model_y=cv_reg(), model_t=cv_reg(), model_final=cv_reg())
