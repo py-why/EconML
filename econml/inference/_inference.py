@@ -822,7 +822,6 @@ class NormalInferenceResults(InferenceResults):
     def __init__(self, d_t, d_y, pred, pred_stderr, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
         self.pred_stderr = pred_stderr
-        self.mean_pred_stderr = mean_pred_stderr
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
     @property
