@@ -227,7 +227,6 @@ class TestInference(unittest.TestCase):
                                               inf_type='coefficient'),
                     NormalInferenceResults(d_t=1, d_y=2,
                                            pred=np.mean(predictions, axis=0), pred_stderr=np.std(predictions, axis=0),
-                                           mean_pred_stderr=None,
                                            inf_type='coefficient')]:
             zs = inf.zstat()
             pv = inf.pvalue()
@@ -261,7 +260,7 @@ class TestInference(unittest.TestCase):
             assert pv[0] == 0  # pvalue should be zero when test value is greater or less than all samples
 
             pop = PopulationSummaryResults(np.mean(predictions, axis=0).reshape(1, 2), np.std(
-                predictions, axis=0).reshape(1, 2), None, d_t=1, d_y=2, alpha=0.05, value=0, decimals=3, tol=0.001)
+                predictions, axis=0).reshape(1, 2), d_t=1, d_y=2, alpha=0.05, value=0, decimals=3, tol=0.001)
             pop._print()  # verify that we can access all attributes even in degenerate case
             pop.summary()
 
