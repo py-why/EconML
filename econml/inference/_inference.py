@@ -1321,9 +1321,9 @@ class PopulationSummaryResults:
         title1 = "Uncertainty of Mean Point Estimate"
 
         # 2. Distribution of Point Estimate
-        res2 = self._format_res(self.std_point, decimals)
-        res2 = np.hstack((res2, self._format_res(self.percentile_point(alpha=alpha)[0], decimals)))
-        res2 = np.hstack((res2, self._format_res(self.percentile_point(alpha=alpha)[1], decimals)))
+        res2 = np.hstack((self._format_res(self.std_point, decimals),
+                          self._format_res(self.percentile_point(alpha=alpha)[0], decimals),
+                          self._format_res(self.percentile_point(alpha=alpha)[1], decimals)))
         myheaders2 = ['std_point', 'pct_point_lower', 'pct_point_upper']
         title2 = "Distribution of Point Estimate"
 
