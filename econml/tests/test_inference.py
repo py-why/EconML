@@ -380,8 +380,7 @@ class TestInference(unittest.TestCase):
                   random_state=123)
         est.fit(Y, T, X=X, W=W)
         effect_inf = est.effect_inference(X)
-        with open("test.pkl", "wb") as file:
-            pickle.dump(effect_inf, file)
+        s = pickle.dumps(effect_inf)
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):
