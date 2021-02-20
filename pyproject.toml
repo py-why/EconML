@@ -13,5 +13,6 @@ addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-conf
 markers = [    
     "slow",
     "notebook",
-    "automl"
+    "automl",
+    "dml"
 ]

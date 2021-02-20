@@ -26,7 +26,7 @@ jobs:
     matrix:
       ${{ each image in parameters.images }}:
         ${{ each version in parameters.versions }}:
-          ${{ format(format(' {0}{1}', variables.imgPart, variables.verPart), image, version) }}:
+          ${{ format(format('{0}{1} ', variables.imgPart, variables.verPart), image, version) }}:
             imageName: ${{ image }}
             python.version: ${{ version }}
 
