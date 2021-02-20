@@ -1305,7 +1305,7 @@ class PopulationSummaryResults:
         # 1. Uncertainty of Mean Point Estimate
         res1 = self._format_res(self.mean_point, decimals)
         if self.pred_stderr is not None:
-            res1 = np.hstack((res1, 
+            res1 = np.hstack((res1,
                               self._format_res(self.stderr_mean, decimals),
                               self._format_res(self.zstat(value=value), decimals),
                               self._format_res(self.pvalue(value=value), decimals),
