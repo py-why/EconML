@@ -9,4 +9,4 @@ __all__ = ['automated_ml', 'bootstrap',
            'score', 'sklearn_extensions', 'tree',
            'two_stage_least_squares', 'utilities', "dowhy", "__version__"]
 
-__version__ = '0.9.0b1'
+__version__ = '0.9.0'
