@@ -33,6 +33,7 @@ def rand_sol(A, b):
     return x + (np.eye(x.shape[0]) - A_plus @ A) @ np.random.normal(size=x.shape)
 
 
+@pytest.mark.dml
 class TestDML(unittest.TestCase):
 
     def test_cate_api(self):
