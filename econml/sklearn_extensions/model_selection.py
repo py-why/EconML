@@ -380,7 +380,8 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     predictions = parallel(delayed(_fit_and_predict)(
         clone(estimator, safe=safe), X, y, train, test, verbose, fit_params, method)
         for train, test in splits)
-    if sklearn.__version__ < "0.24.0":
+    from pkg_resources import parse_version
+    if parse_version(sklearn.__version__) < parse_version("0.24.0"):
         # Prior to 0.24.0, this private scikit-learn method returned a tuple of two values
         predictions = [p[0] for p in predictions]
 
