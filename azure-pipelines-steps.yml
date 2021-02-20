@@ -4,27 +4,57 @@
 # https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
 parameters:
-  body: []
   package: '-e .'
+  images: ['ubuntu-18.04', 'macOS-10.15', 'windows-2019']
+  versions: ['3.6', '3.7', '3.8']
+  job: 
+    job: Job
+  
+jobs:
+- job: ${{ parameters.job.job }}
+  variables:
+    ${{ if ge(length(parameters.images), 2) }}:
+      imgPart: ", {0}"
+    ${{ if lt(length(parameters.images), 2) }}:
+      imgPart: ""
+    ${{ if ge(length(parameters.versions), 2) }}:
+      verPart: ", Python {1}"
+    ${{ if lt(length(parameters.versions), 2) }}:
+      verPart: ""
 
-steps:
-- task: UsePythonVersion@0
-  displayName: 'Use Python $(python.version)'
-  inputs:
-    versionSpec: '$(python.version)'
+  strategy:
+    matrix:
+      ${{ each image in parameters.images }}:
+        ${{ each version in parameters.versions }}:
+          ${{ format(format(' {0}{1}', variables.imgPart, variables.verPart), image, version) }}:
+            imageName: ${{ image }}
+            python.version: ${{ version }}
 
-# Enable long path support on Windows so that all packages can be installed correctly
-- script: 'reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f'
-  displayName: 'Enable long paths on Windows'
-  condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+  pool:
+    vmImage: $(imageName)
 
-# Install graphviz programmatically on Linux
-- script: 'sudo apt-get -yq install graphviz'
-  displayName: 'Install graphviz on Linux'
-  condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+  ${{ each pair in parameters.job }}: # Insert all properties other than "strategy", "pool", "steps", "variables", "job"
+    ${{ if notIn(pair.key, 'strategy', 'pool', 'steps', 'variables', 'job') }}:
+      ${{ pair.key }}: ${{ pair.value }}
 
-# Install the package
-- script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython && pip install ${{ parameters.package }}'
-  displayName: 'Install dependencies'
+  steps:
+  - task: UsePythonVersion@0
+    displayName: 'Use Python $(python.version)'
+    inputs:
+      versionSpec: '$(python.version)'
 
-- ${{ parameters.body }}
+  # Enable long path support on Windows so that all packages can be installed correctly
+  - script: 'reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f'
+    displayName: 'Enable long paths on Windows'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Windows_NT'))
+
+  # Install graphviz programmatically on Linux
+  - script: 'sudo apt-get -yq install graphviz'
+    displayName: 'Install graphviz on Linux'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+
+  # Install the package
+  - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython && pip install ${{ parameters.package }}'
+    displayName: 'Install dependencies'
+
+  - ${{ parameters.job.steps }}
