@@ -4,6 +4,7 @@
 import numpy as np
 import unittest
 import pytest
+import pickle
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
@@ -369,6 +370,17 @@ class TestInference(unittest.TestCase):
         assert est.const_marginal_effect_inference(X).stderr is not None
         est.marginal_effect_inference(T, X).summary_frame()
         assert est.marginal_effect_inference(T, X).stderr is not None
+
+    def test_pickle_inferenceresult(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        est = DML(model_y=LinearRegression(),
+                  model_t=LinearRegression(),
+                  model_final=Lasso(alpha=0.1, fit_intercept=False),
+                  featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                  random_state=123)
+        est.fit(Y, T, X=X, W=W)
+        effect_inf = est.effect_inference(X)
+        s = pickle.dumps(effect_inf)
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):
