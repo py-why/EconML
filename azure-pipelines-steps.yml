@@ -11,14 +11,29 @@ parameters:
   versions: ['3.6', '3.7', '3.8']
   packages: ['-e .']
 
+  
 jobs:
 - job: ${{ parameters.name }}
+  variables:
+    ${{ if ge(length(parameters.images), 2) }}:
+      imgPart: ", {0}"
+    ${{ if lt(length(parameters.images), 2) }}:
+      imgPart: ""
+    ${{ if ge(length(parameters.versions), 2) }}:
+      verPart: ", Python {1}"
+    ${{ if lt(length(parameters.versions), 2) }}:
+      verPart: ""
+    ${{ if ge(length(parameters.packages), 2) }}:
+      packPart: ", Package {2}"
+    ${{ if lt(length(parameters.packages), 2) }}:
+      packPart: ""
+
   strategy:
     matrix:
       ${{ each image in parameters.images }}:
         ${{ each version in parameters.versions }}:
           ${{ each package in parameters.packages }}:
-            ${{ format('{0}, Python {1}, Package {2}', image, version, package)}}:
+            ${{ format(format('{0}{1}{2}', variables.imgPart, variables.verPart, variables.packPart), image, version, package) }}:
               imageName: ${{ image }}
               python.version: ${{ version }}
               package: ${{ package }}

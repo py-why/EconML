@@ -34,7 +34,7 @@ jobs:
   parameters:
     name: test2
     displayName: 'Test shap'
-    package: '"numpy==1.19.3" shap'
+    packages: ['"numpy==1.19.3" shap']
     body:
       - script: 'pip install pytest pytest-cov pytest-xdist && python -m pytest'
         displayName: 'Unit tests'
