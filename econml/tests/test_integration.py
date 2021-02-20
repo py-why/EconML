@@ -233,33 +233,37 @@ class TestPandasIntegration(unittest.TestCase):
         T = T.apply(lambda t: t + "_1")
         est.fit(Y, T, X=X)
         self._check_input_names(est.summary(), T_cat=True, treat_comp=[
-                                f"{TestPandasIntegration.cat_treat[0]}_{t}" for t in
+                                f"{TestPandasIntegration.cat_treat[0]}_{t}_1" for t in
                                 TestPandasIntegration.cat_treat_labels[1:]])
 
     def _check_input_names(self, summary_table,
                            Y_multi=False, T_multi=False, T_cat=False, feat_comp=None, treat_comp=None):
-        arr = np.array(summary_table.tables[0].data[1:])
-        feature_name = None
+        index_name = np.array(summary_table.tables[0].data)[1:, 0]
         if feat_comp is None:
             feat_comp = TestPandasIntegration.features
-        treatment_names = None
         if treat_comp is None:
             if T_multi:
-                treatment_names = arr[0, 1:][:len(TestPandasIntegration.cont_treat_multi)]
                 treat_comp = TestPandasIntegration.cont_treat_multi
             if T_cat:
-                treatment_names = arr[0, 1:][:len(TestPandasIntegration.cat_treat_labels) - 1]
                 treat_comp = ["{}_{}".format(TestPandasIntegration.cat_treat[0], label)
                               for label in TestPandasIntegration.cat_treat_labels[1:]]
-        feature_name = arr[int(T_multi or T_cat):, 0]
+
         if Y_multi:
-            feat_comp = ["{} | {}".format(
-                feat, outcome) for feat in
-                TestPandasIntegration.features for outcome in TestPandasIntegration.outcome_multi]
-        if feature_name is not None:
-            np.testing.assert_array_equal(feature_name, feat_comp)
-        if treatment_names is not None:
-            np.testing.assert_array_equal(treatment_names, treat_comp)
+            out_comp = TestPandasIntegration.outcome_multi
+            if T_cat or T_multi:
+                index_name_comp = [
+                    f"{feat}|{outcome}|{treat}" for feat in feat_comp for outcome in out_comp for treat in treat_comp]
+
+            else:
+                index_name_comp = [
+                    f"{feat}|{outcome}" for feat in feat_comp for outcome in out_comp]
+        else:
+            if T_cat or T_multi:
+                index_name_comp = [
+                    f"{feat}|{treat}" for feat in feat_comp for treat in treat_comp]
+            else:
+                index_name_comp = feat_comp
+        np.testing.assert_array_equal(index_name, index_name_comp)
 
     def _check_popsum_names(self, popsum, Y_multi=False):
         np.testing.assert_array_equal(popsum.output_names,
