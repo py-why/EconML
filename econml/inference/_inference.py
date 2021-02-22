@@ -1384,7 +1384,7 @@ class PopulationSummaryResults:
 
         smry = Summary()
         smry.add_table(res1, myheaders1, mystubs, title1)
-        if self.pred_stderr is not None:
+        if self.pred_stderr is not None and self.mean_pred_stderr is None:
             text1 = "Note: The stderr_mean is a conservative upper bound."
             smry.add_extra_txt([text1])
         smry.add_table(res2, myheaders2, mystubs, title2)
