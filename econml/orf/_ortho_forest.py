@@ -1306,9 +1306,8 @@ class BLBInference(Inference):
                                       output_names=self._estimator.cate_output_names(),
                                       treatment_names=self._estimator.cate_treatment_names())
 
-
-def _predict_wrapper(self, X=None):
-    return self._estimator._predict(X, stderr=True)
+    def _predict_wrapper(self, X=None):
+        return self._estimator._predict(X, stderr=True)
 
 
 @deprecated("The ContinuousTreatmentOrthoForest class has been renamed to DMLOrthoForest; "
