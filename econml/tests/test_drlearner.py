@@ -160,7 +160,7 @@ class TestDRLearner(unittest.TestCase):
                                                          (2,) + marginal_effect_shape)
                                         self.assertEqual(shape(const_marg_eff_int),
                                                          (2,) + const_marginal_effect_shape)
-                                        self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
+                                        self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T1)),
                                                          (2,) + effect_shape)
 
                                         const_marg_effect_inf = est.const_marginal_effect_inference(
@@ -742,7 +742,7 @@ class TestDRLearner(unittest.TestCase):
         Y = T * (x @ a) + xw @ g + err_Y
         # Test sparse estimator
         # --> test coef_, intercept_
-        sparse_dml = SparseLinearDRLearner(featurizer=FunctionTransformer())
+        sparse_dml = SparseLinearDRLearner()
         sparse_dml.fit(Y, T, X=x, W=w)
         np.testing.assert_allclose(a, sparse_dml.coef_(T=1), atol=2e-1)
         np.testing.assert_allclose(sparse_dml.intercept_(T=1), 0, atol=2e-1)

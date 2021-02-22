@@ -476,7 +476,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             mean_X = X.mean(axis=0).reshape(1, -1) if X is not None else None
             mean_pred_stderr = np.moveaxis(np.array([mdl.prediction_stderr(mean_X).reshape((-1,) + self._d_y)
                                                      for mdl in self.fitted_models_final]),
-                                           0, -1)  # shape[0] will always be 1 here
+                                           0, -1)[0]  # shape[0] will always be 1 here
             res_inf.mean_pred_stderr = mean_pred_stderr
         return res_inf
 
