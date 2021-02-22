@@ -48,64 +48,64 @@ jobs:
     name: output
     displayName: 'Determine type of code change'
 
-- job: 'Docs'
-  displayName: 'Build documentation'  
-  dependsOn: 'EvalChanges'
-  condition: eq(dependencies.EvalChanges.outputs['output.buildDocs'], 'True')
-  pool: 
-    vmImage: 'ubuntu-18.04'
-  variables:
-    python.version: '3.6'
-  steps:
-  - template: azure-pipelines-steps.yml
-    parameters:
-      body:
-        - script: 'sudo apt-get -yq install graphviz'
-          displayName: 'Install graphviz'
+- template: azure-pipelines-steps.yml
+  parameters:
+    versions: ['3.6']
+    images: ['ubuntu-18.04']
+    package: '-e .[all]'
+    job:
+      job: 'Docs'
+      displayName: 'Build documentation'  
+      dependsOn: 'EvalChanges'
+      condition: eq(dependencies.EvalChanges.outputs['output.buildDocs'], 'True')
+      steps:
+      - script: 'sudo apt-get -yq install graphviz'
+        displayName: 'Install graphviz'
 
-        - script: 'pip install sklearn-contrib-lightning'
-          displayName: 'Install lightning'        
+      - script: 'pip install sklearn-contrib-lightning'
+        displayName: 'Install lightning'        
 
-        - script: 'pip install git+https://github.com/slundberg/shap.git@d1d2700acc0259f211934373826d5ff71ad514de'
-          displayName: 'Install specific version of shap'  
+      - script: 'pip install git+https://github.com/slundberg/shap.git@d1d2700acc0259f211934373826d5ff71ad514de'
+        displayName: 'Install specific version of shap'  
 
-        - script: 'python setup.py build_sphinx -W'
-          displayName: 'Build documentation'
+      - script: 'pip install "sphinx < 3.2" sphinx_rtd_theme'
+        displayName: 'Install sphinx'
 
-        - publish: 'build/sphinx/html'
-          artifact: 'Documentation'
-          displayName: 'Publish documentation as artifact'
+      - script: 'python setup.py build_sphinx -W'
+        displayName: 'Build documentation'
 
-        - script: 'python setup.py build_sphinx -b doctest'
-          displayName: 'Run doctests'
-      package: '-e .[automl]'
+      - publish: 'build/sphinx/html'
+        artifact: 'Documentation'
+        displayName: 'Publish documentation as artifact'
 
-- job: 'Notebooks'
-  dependsOn: 'EvalChanges'
-  condition: eq(dependencies.EvalChanges.outputs['output.buildNbs'], 'True')
-  variables:
-    python.version: '3.8'
-  pool:
-    vmImage: 'ubuntu-18.04'
-  steps:
-  - template: azure-pipelines-steps.yml
-    parameters:
-      body:
-        # Work around https://github.com/pypa/pip/issues/9542
-        - script: 'pip install -U numpy'
-          displayName: 'Upgrade numpy'
+      - script: 'python setup.py build_sphinx -b doctest'
+        displayName: 'Run doctests'
 
-        - script: 'python setup.py pytest'
-          displayName: 'Unit tests'
-          env:
-            PYTEST_ADDOPTS: '-m "notebook"'
+- template: azure-pipelines-steps.yml
+  parameters:
+    versions: ['3.8']
+    images: ['ubuntu-18.04']
+    package: '-e .[tf]'
+    job:
+      job: 'Notebooks'
+      dependsOn: 'EvalChanges'
+      condition: eq(dependencies.EvalChanges.outputs['output.buildNbs'], 'True')
+      steps:
+      # Work around https://github.com/pypa/pip/issues/9542
+      - script: 'pip install -U numpy'
+        displayName: 'Upgrade numpy'
 
-        - task: PublishTestResults@2
-          displayName: 'Publish Test Results **/test-results.xml'
-          inputs:
-            testResultsFiles: '**/test-results.xml'
-            testRunTitle: 'Notebooks'
-          condition: succeededOrFailed()
+      - script: 'pip install pytest-runner && python setup.py pytest'
+        displayName: 'Unit tests'
+        env:
+          PYTEST_ADDOPTS: '-m "notebook"'
+
+      - task: PublishTestResults@2
+        displayName: 'Publish Test Results **/test-results.xml'
+        inputs:
+          testResultsFiles: '**/test-results.xml'
+          testRunTitle: 'Notebooks'
+        condition: succeededOrFailed()
 
 # - job: 'AutoML'
 #   dependsOn: 'EvalChanges'
@@ -142,77 +142,69 @@ jobs:
 #           condition: succeededOrFailed()
 #       package: '.[automl]'
 
-- job: 'Linting'
-  dependsOn: 'EvalChanges'
-  condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
-  variables:
-    python.version: '3.8'
-  pool:
-    vmImage: 'macOS-10.15'
-  steps:
-  - template: azure-pipelines-steps.yml
-    parameters:
-      body:
-        - script: 'pip install pycodestyle && pycodestyle econml'
-          failOnStderr: true
-          displayName: Linting
+- template: azure-pipelines-steps.yml
+  parameters:
+    versions: ['3.8']
+    images: ['macOS-10.15']
+    job:
+      job: 'Linting'
+      dependsOn: 'EvalChanges'
+      condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
+      steps:
+      - script: 'pip install pycodestyle && pycodestyle econml'
+        failOnStderr: true
+        displayName: Linting
 
-- job: 'Tests'
-  dependsOn: 'EvalChanges'
-  condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
-  strategy:
-    matrix:
-      Linux, Python 3.6:
-        imageName: 'ubuntu-18.04'
-        python.version: '3.6'
-      macOS, Python 3.6:
-        imageName: 'macOS-10.15'
-        python.version: '3.6'
-      Windows, Python 3.6:
-        imageName: 'windows-2019'
-        python.version: '3.6'
-      Linux, Python 3.7:
-        imageName: 'ubuntu-18.04'
-        python.version: '3.7'
-      macOS, Python 3.7:
-        imageName: 'macOS-10.15'
-        python.version: '3.7'
-      Windows, Python 3.7:
-        imageName: 'windows-2019'
-        python.version: '3.7'
-      Linux, Python 3.8:
-        imageName: 'ubuntu-18.04'
-        python.version: '3.8'
-      macOS, Python 3.8:
-        imageName: 'macOS-10.15'
-        python.version: '3.8'
-      Windows, Python 3.8:
-        imageName: 'windows-2019'
-        python.version: '3.8'
+- template: azure-pipelines-steps.yml
+  parameters:
+    package: '-e .[tf,plt]'
+    job:
+      job: Tests_no_dml
+      dependsOn: 'EvalChanges'
+      condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
+      displayName: 'Run tests (non-DML)'
+      steps:
+      - script: 'pip install pytest-runner && python setup.py pytest'
+        displayName: 'Unit tests'
+        env:
+          PYTEST_ADDOPTS: '-m "not (notebook or automl or dml)"'
+          COVERAGE_PROCESS_START: 'setup.cfg'
+      - task: PublishTestResults@2
+        displayName: 'Publish Test Results **/test-results.xml'
+        inputs:
+          testResultsFiles: '**/test-results.xml'
+          testRunTitle: 'Python $(python.version), image $(imageName)'
+        condition: succeededOrFailed()
 
-  pool:
-    vmImage: $(imageName)
+      - task: PublishCodeCoverageResults@1
+        displayName: 'Publish Code Coverage Results'
+        inputs:
+          codeCoverageTool: Cobertura
+          summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
 
-  displayName: 'Run tests '
+- template: azure-pipelines-steps.yml
+  parameters:
+    package: '-e .[tf,plt]'
+    job:
+      job: Tests_dml
+      dependsOn: 'EvalChanges'
+      condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
+      displayName: 'Run tests (DML)'
+      steps:
+      - script: 'pip install pytest-runner && python setup.py pytest'
+        displayName: 'Unit tests'
+        env:
+          PYTEST_ADDOPTS: '-m "dml and (not (notebook or automl))"'
+          COVERAGE_PROCESS_START: 'setup.cfg'
+      - task: PublishTestResults@2
+        displayName: 'Publish Test Results **/test-results.xml'
+        inputs:
+          testResultsFiles: '**/test-results.xml'
+          testRunTitle: 'Python $(python.version), image $(imageName)'
+        condition: succeededOrFailed()
 
-  steps:
-  - template: azure-pipelines-steps.yml
-    parameters:
-      body:
-        - script: 'python setup.py pytest'
-          displayName: 'Unit tests'
-          env:
-            PYTEST_ADDOPTS: '-m "not (notebook or automl)"'
-            COVERAGE_PROCESS_START: 'setup.cfg'
-        - task: PublishTestResults@2
-          displayName: 'Publish Test Results **/test-results.xml'
-          inputs:
-            testResultsFiles: '**/test-results.xml'
-            testRunTitle: 'Python $(python.version), image $(imageName)'
-          condition: succeededOrFailed()
-
-        - task: PublishCodeCoverageResults@1
-          displayName: 'Publish Code Coverage Results'
-          inputs:
-            codeCoverageTool: Cobertura
-            summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+      - task: PublishCodeCoverageResults@1
+        displayName: 'Publish Code Coverage Results'
+        inputs:
+          codeCoverageTool: Cobertura
+          summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'

@@ -220,7 +220,7 @@ class BootstrapEstimator:
             d_t = self._wrapped._d_t[0] if self._wrapped._d_t else 1
             if prefix == 'effect' or (isinstance(self._wrapped, LinearModelFinalCateEstimatorDiscreteMixin) and
                                       (inf_type == 'coefficient' or inf_type == 'intercept')):
-                d_t = 1
+                d_t = None
             d_y = self._wrapped._d_y[0] if self._wrapped._d_y else 1
 
             can_call = callable(getattr(self._instances[0], prefix))
@@ -242,7 +242,10 @@ class BootstrapEstimator:
                                      pred=est, pred_dist=get_dist(est, arr),
                                      inf_type=inf_type,
                                      fname_transformer=fname_transformer,
-                                     **self._wrapped._input_names if hasattr(self._wrapped, "_input_names") else None))
+                                     feature_names=self._wrapped.cate_feature_names(),
+                                     output_names=self._wrapped.cate_output_names(),
+                                     treatment_names=self._wrapped.cate_treatment_names()
+                                 ))
 
                 # Note that inference results are always methods even if the inference is for a property
                 # (e.g. coef__inference() is a method but coef_ is a property)
@@ -263,7 +266,9 @@ class BootstrapEstimator:
                         d_t=d_t, d_y=d_y, pred=pred,
                         pred_stderr=stderr, mean_pred_stderr=None, inf_type=inf_type,
                         fname_transformer=fname_transformer,
-                        **self._wrapped._input_names if hasattr(self._wrapped, "_input_names") else None)
+                        feature_names=self._wrapped.cate_feature_names(),
+                        output_names=self._wrapped.cate_output_names(),
+                        treatment_names=self._wrapped.cate_treatment_names())
 
                 # If inference is for a property, create a fresh lambda to avoid passing args through
                 return normal_inference if can_call else lambda: normal_inference()

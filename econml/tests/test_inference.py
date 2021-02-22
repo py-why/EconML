@@ -4,6 +4,7 @@
 import numpy as np
 import unittest
 import pytest
+import pickle
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
@@ -12,6 +13,7 @@ from econml.dr import LinearDRLearner, DRLearner
 from econml.inference import (BootstrapInference, NormalInferenceResults,
                               EmpiricalInferenceResults, PopulationSummaryResults)
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
+from econml.utilities import get_input_columns
 
 
 class TestInference(unittest.TestCase):
@@ -47,7 +49,9 @@ class TestInference(unittest.TestCase):
             )
             summary_results = cate_est.summary()
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
+            default_names = get_input_columns(TestInference.X)
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
+                TestInference.X).get_feature_names(default_names)
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
@@ -139,7 +143,9 @@ class TestInference(unittest.TestCase):
             )
             summary_results = cate_est.summary(T=1)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
+            default_names = get_input_columns(TestInference.X)
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
+                TestInference.X).get_feature_names(default_names)
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
@@ -365,6 +371,17 @@ class TestInference(unittest.TestCase):
         assert est.const_marginal_effect_inference(X).stderr is not None
         est.marginal_effect_inference(T, X).summary_frame()
         assert est.marginal_effect_inference(T, X).stderr is not None
+
+    def test_pickle_inferenceresult(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        est = DML(model_y=LinearRegression(),
+                  model_t=LinearRegression(),
+                  model_final=Lasso(alpha=0.1, fit_intercept=False),
+                  featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                  random_state=123)
+        est.fit(Y, T, X=X, W=W)
+        effect_inf = est.effect_inference(X)
+        s = pickle.dumps(effect_inf)
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):

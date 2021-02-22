@@ -7,4 +7,6 @@ __all__ = ['automated_ml', 'bootstrap',
            'inference', 'iv',
            'metalearners', 'ortho_forest', 'orf', 'ortho_iv',
            'score', 'sklearn_extensions', 'tree',
-           'two_stage_least_squares', 'utilities', 'dowhy']
+           'two_stage_least_squares', 'utilities', "dowhy", "__version__"]
+
+__version__ = '0.9.0'

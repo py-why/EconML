@@ -45,12 +45,12 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         # because inf now stores state from fitting est2
         return deepcopy(inference)
 
-    def _set_input_names(self, Y, T, X, set_flag=True):
+    def _set_input_names(self, Y, T, X, set_flag=False):
         """Set input column names if inputs have column metadata."""
         self._input_names = {
-            "feature_names": get_input_columns(X),
-            "output_names": get_input_columns(Y),
-            "treatment_names": get_input_columns(T)
+            "feature_names": get_input_columns(X, prefix="X"),
+            "output_names": get_input_columns(Y, prefix="Y"),
+            "treatment_names": get_input_columns(T, prefix="T")
         }
         if set_flag:
             # This flag is true when names are set in a child class instead
@@ -76,12 +76,16 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         self._d_y = np.shape(Y)[1:]
         self._d_t = np.shape(T)[1:]
         # This works only if X is passed as a kwarg
-        # We plan to enforce X as kwarg only in new releases
+        # We plan to enforce X as kwarg only in future releases
         if not hasattr(self, "_input_names_set"):
             # This checks if names have been set in a child class
             # If names were set in a child class, don't do it again
             X = kwargs.get('X')
             self._set_input_names(Y, T, X)
+
+    def _postfit(self, Y, T, *args, **kwargs):
+        # Wraps-up fit by setting attributes, cleaning up, etc.
+        pass
 
     @abc.abstractmethod
     def fit(self, *args, inference=None, **kwargs):
@@ -124,6 +128,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
                 inference.prefit(self, Y, T, *args, **kwargs)
             # call the wrapped fit method
             m(self, Y, T, *args, **kwargs)
+            self._postfit(Y, T, *args, **kwargs)
             if inference is not None:
                 # NOTE: we call inference fit *after* calling the main fit method
                 inference.fit(self, Y, T, *args, **kwargs)
@@ -205,6 +210,74 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Note that when Y is a vector rather than a 2-dimensional array, the result will be a scalar
         """
         return np.mean(self.effect(X=X, T0=T0, T1=T1), axis=0)
+
+    def cate_feature_names(self, feature_names=None):
+        """Public interface for getting feature names.
+
+        To be overriden by estimators that apply transformations the input features.
+
+        Parameters
+        ----------
+        feature_names: list of strings of length X.shape[1] or None
+            The names of the input features. If None and X is a dataframe, it defaults to the column names
+            from the dataframe.
+
+        Returns
+        -------
+        out_feature_names: list of strings or None
+            Returns feature names.
+        """
+        if feature_names is not None:
+            return feature_names
+        if hasattr(self, "_input_names"):
+            return self._input_names["feature_names"]
+        return None
+
+    def cate_output_names(self, output_names=None):
+        """
+        Public interface for getting output names.
+
+        To be overriden by estimators that apply transformations the outputs.
+
+        Parameters
+        ----------
+        output_names: list of strings of length Y.shape[1] or None
+            The names of the outcomes. If None and the Y passed to fit was a dataframe,
+            it defaults to the column names from the dataframe.
+
+        Returns
+        -------
+        output_names: list of strings
+            Returns output names.
+        """
+        if output_names is not None:
+            return output_names
+        if hasattr(self, "_input_names"):
+            return self._input_names["output_names"]
+        return None
+
+    def cate_treatment_names(self, treatment_names=None):
+        """
+        Public interface for getting treatment names.
+
+        To be overriden by estimators that apply transformations the treatments.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length T.shape[1] or None
+            The names of the treatments. If None and the T passed to fit was a dataframe,
+            it defaults to the column names from the dataframe.
+
+        Returns
+        -------
+        treatment_names: list of strings
+            Returns treatment names.
+        """
+        if treatment_names is not None:
+            return treatment_names
+        if hasattr(self, "_input_names"):
+            return self._input_names["treatment_names"]
+        return None
 
     def marginal_ate(self, T, X=None):
         """
@@ -730,6 +803,11 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         # subclasses should overwrite self._d_t with post-transformed dimensions of T for generating treatments
         self._d_t_in = self._d_t
 
+    def _postfit(self, Y, T, *args, **kwargs):
+        super()._postfit(Y, T, *args, **kwargs)
+        if self.transformer:
+            self._set_transformed_treatment_names()
+
     def _expand_treatments(self, X=None, *Ts):
         n_rows = 1 if X is None else shape(X)[0]
         outTs = []
@@ -742,10 +820,40 @@ class TreatmentExpansionMixin(BaseCateEstimator):
                 T = np.full((n_rows,) + self._d_t_in, T)
 
             if self.transformer:
-                T = self.transformer.transform(T)
+                T = self.transformer.transform(reshape(T, (-1, 1)))
             outTs.append(T)
 
         return (X,) + tuple(outTs)
+
+    def _set_transformed_treatment_names(self):
+        """Works with sklearn OHEs"""
+        if hasattr(self, "_input_names"):
+            self._input_names["treatment_names"] = self.transformer.get_feature_names(
+                self._input_names["treatment_names"]).tolist()
+
+    def cate_treatment_names(self, treatment_names=None):
+        """
+        Get treatment names.
+
+        If the treatment is discrete, it will return expanded treatment names.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length T.shape[1] or None
+            The names of the treatments. If None and the T passed to fit was a dataframe,
+            it defaults to the column names from the dataframe.
+
+        Returns
+        -------
+        out_treatment_names: list of strings
+            Returns (possibly expanded) treatment names.
+        """
+        if treatment_names is not None:
+            if self.transformer:
+                return self.transformer.get_feature_names(treatment_names).tolist()
+            return treatment_names
+        # Treatment names is None, default to BaseCateEstimator
+        return super().cate_treatment_names()
 
     # override effect to set defaults, which works with the new definition of _expand_treatments
     def effect(self, X=None, *, T0=0, T1=1):
@@ -917,8 +1025,8 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
-        output_names = self._input_names["output_names"] if output_names is None else output_names
+        treatment_names = self.cate_treatment_names(treatment_names)
+        output_names = self.cate_output_names(output_names)
         # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
@@ -941,7 +1049,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             coef_headers = coef_table.columns.tolist()
             n_level = coef_table.index.nlevels
             if n_level > 1:
-                coef_stubs = ["|".join(i) for i in coef_table.index.values]
+                coef_stubs = ["|".join(ind_value) for ind_value in coef_table.index.values]
             else:
                 coef_stubs = coef_table.index.tolist()
             coef_title = 'Coefficient Results'
@@ -958,7 +1066,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
             intercept_headers = intercept_table.columns.tolist()
             n_level = intercept_table.index.nlevels
             if n_level > 1:
-                intercept_stubs = ["|".join(i) for i in intercept_table.index.values]
+                intercept_stubs = ["|".join(ind_value) for ind_value in intercept_table.index.values]
             else:
                 intercept_stubs = intercept_table.index.tolist()
             intercept_title = 'CATE Intercept Results'
@@ -1185,9 +1293,9 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        feature_names = self.cate_feature_names() if feature_names is None else feature_names
-        treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
-        output_names = self._input_names["output_names"] if output_names is None else output_names
+        feature_names = self.cate_feature_names(feature_names)
+        treatment_names = self.cate_treatment_names(treatment_names)
+        output_names = self.cate_output_names(output_names)
         # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
@@ -1202,7 +1310,6 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         try:
             coef_table = self.coef__inference(T).summary_frame(
                 alpha=alpha, value=value, decimals=decimals, feature_names=feature_names,
-                treatment_names=treatment_names,
                 output_names=output_names)
             coef_array = coef_table.values
             coef_headers = coef_table.columns.tolist()
@@ -1214,7 +1321,6 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         try:
             intercept_table = self.intercept__inference(T).summary_frame(
                 alpha=alpha, value=value, decimals=decimals, feature_names=None,
-                treatment_names=treatment_names,
                 output_names=output_names)
             intercept_array = intercept_table.values
             intercept_headers = intercept_table.columns.tolist()

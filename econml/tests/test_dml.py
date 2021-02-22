@@ -33,6 +33,7 @@ def rand_sol(A, b):
     return x + (np.eye(x.shape[0]) - A_plus @ A) @ np.random.normal(size=x.shape)
 
 
+@pytest.mark.dml
 class TestDML(unittest.TestCase):
 
     def test_cate_api(self):
@@ -571,7 +572,7 @@ class TestDML(unittest.TestCase):
         for mdl in est.models_t:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
-        np.testing.assert_array_equal(est.cate_feature_names(), ['x0', 'x0^2'])
+        np.testing.assert_array_equal(est.cate_feature_names(), ['X0', 'X0^2'])
         est = DML(model_y=WeightedLasso(),
                   model_t=LogisticRegression(),
                   model_final=WeightedLasso(),

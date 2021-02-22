@@ -96,7 +96,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         pred, pred_var = self.model_final.predict_projection_and_var(X, dT)
         pred = pred.reshape((-1,) + self._d_y)
         pred_stderr = np.sqrt(pred_var.reshape((-1,) + self._d_y))
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
 
 

@@ -14,6 +14,7 @@
 #
 import os
 import sys
+import econml
 sys.path.insert(0, os.path.abspath('econml'))
 
 
@@ -22,6 +23,8 @@ sys.path.insert(0, os.path.abspath('econml'))
 project = 'econml'
 copyright = '2019, Microsoft Research'
 author = 'Microsoft Research'
+version = econml.__version__
+release = econml.__version__
 
 # -- General configuration ---------------------------------------------------
 
