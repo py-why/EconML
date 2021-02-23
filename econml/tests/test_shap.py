@@ -59,6 +59,10 @@ class TestShap(unittest.TestCase):
                                     self.assertEqual(shap_values[output][treat].values.shape[0], 10)
                                     self.assertEqual(shap_values[output][treat].data.shape[0], 10)
                                     self.assertEqual(shap_values[output][treat].base_values.shape, (10,))
+                                    # test length of feature names equals to shap values shape
+                                    self.assertEqual(
+                                        len(shap_values[output][treat].feature_names),
+                                        shap_values[output][treat].values.shape[1])
 
     def test_discrete_t(self):
         n = 100
@@ -115,6 +119,10 @@ class TestShap(unittest.TestCase):
                                     self.assertEqual(shap_values[output][treat].values.shape[0], 10)
                                     self.assertEqual(shap_values[output][treat].data.shape[0], 10)
                                     self.assertEqual(shap_values[output][treat].base_values.shape, (10,))
+                                    # test length of feature names equals to shap values shape
+                                    self.assertEqual(
+                                        len(shap_values[output][treat].feature_names),
+                                        shap_values[output][treat].values.shape[1])
 
     def test_identical_output(self):
         # Treatment effect function

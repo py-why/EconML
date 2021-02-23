@@ -637,8 +637,6 @@ class DRLearner(_OrthoLearner):
         return self.ortho_learner_model_final_.models_cate
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        feature_names = self.cate_feature_names(feature_names)
-
         if self.ortho_learner_model_final_._multitask_model_final:
             return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.multitask_model_cate, X,
                                                       self._d_t, self._d_y,
