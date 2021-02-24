@@ -12,8 +12,10 @@ from econml.dml import LinearDML, SparseLinearDML, ForestDML
 from econml.ortho_forest import DMLOrthoForest, DROrthoForest
 from econml.sklearn_extensions.linear_model import WeightedLasso
 from econml.metalearners import XLearner, SLearner, TLearner
+from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.linear_model import LinearRegression, MultiTaskLasso, LassoCV
+from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
 from econml.ortho_iv import LinearIntentToTreatDRIV
 from econml.deepiv import DeepIVEstimator
 
@@ -64,7 +66,23 @@ class TestPandasIntegration(unittest.TestCase):
         treatment_effects = est.effect(X)
         lb, ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary())  # Check that names propagate as expected
-        # Test re-fit
+        # |--> Test featurizers
+        est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
+        est.fit(Y, T, X=X, W=W, inference='statsmodels')
+        self._check_input_names(
+            est.summary(),
+            feat_comp=est.original_featurizer.get_feature_names(X.columns))
+        est.featurizer = FunctionTransformer()
+        est.fit(Y, T, X=X, W=W, inference='statsmodels')
+        self._check_input_names(
+            est.summary(),
+            feat_comp=[f"X{i}" for i in range(TestPandasIntegration.n_features)])
+        est.featurizer = ColumnTransformer([('passthrough', 'passthrough', [0])])
+        est.fit(Y, T, X=X, W=W, inference='statsmodels')
+        # ColumnTransformer doesn't propagate column names
+        self._check_input_names(est.summary(), feat_comp=["x0"])
+        # |--> Test re-fit
+        est.featurizer = None
         X1 = X.rename(columns={c: "{}_1".format(c) for c in X.columns})
         est.fit(Y, T, X=X1, W=W, inference='statsmodels')
         self._check_input_names(est.summary(), feat_comp=X1.columns)
@@ -74,7 +92,7 @@ class TestPandasIntegration(unittest.TestCase):
         treatment_effects = est.effect(X)
         lb, ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary())  # Check that names propagate as expected
-        # ForestDML
+        # Test ForestDML
         est = ForestDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
         est.fit(Y, T, X=X, W=W, inference='blb')
         treatment_effects = est.effect(X)

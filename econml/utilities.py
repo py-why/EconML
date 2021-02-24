@@ -8,6 +8,7 @@ import pandas as pd
 import scipy.sparse
 import sparse as sp
 import itertools
+import inspect
 from operator import getitem
 from collections import defaultdict, Counter
 from sklearn import clone
@@ -580,6 +581,25 @@ def get_input_columns(X, prefix="X"):
         return type_to_func[type(X)](X)
     len_X = 1 if np.ndim(X) == 1 else np.asarray(X).shape[1]
     return [f"{prefix}{i}" for i in range(len_X)]
+
+
+def get_feature_names_or_default(featurizer, feature_names):
+    if hasattr(featurizer, 'get_feature_names'):
+        # Get number of arguments, some sklearn featurizer don't accept feature_names
+        arg_no = len(inspect.getfullargspec(featurizer.get_feature_names).args)
+        if arg_no == 1:
+            return featurizer.get_feature_names()
+        elif arg_no == 2:
+            return featurizer.get_feature_names(feature_names)
+    # Featurizer doesn't have 'get_feature_names' or has atypical 'get_feature_names'
+    try:
+        # Get feature names using featurizer
+        dummy_X = np.empty((1, len(feature_names)))
+        return get_input_columns(featurizer.transform(dummy_X))
+    except Exception:
+        # All attempts at retrieving transformed feature names have failed
+        # Delegate handling in downstream logic
+        return None
 
 
 def check_models(models, n):
