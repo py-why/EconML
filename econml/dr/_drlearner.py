@@ -158,8 +158,12 @@ class _ModelFinal:
             X = self._featurizer.transform(X)
         Y_pred, = nuisances
         if self._multitask_model_final:
-            return np.mean(np.average((Y_pred[..., 1:] - Y_pred[..., [0]] - self.model_cate.predict(X))**2,
-                                      weights=sample_weight, axis=0))
+            Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
+            cate_pred = self.model_cate.predict(X)
+            if self.d_y:
+                cate_pred = cate_pred[:, np.newaxis, :]
+            return np.mean(np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0))
+
         else:
             return np.mean([np.average((Y_pred[..., t] - Y_pred[..., 0] -
                                         self.models_cate[t - 1].predict(X))**2,
