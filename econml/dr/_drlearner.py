@@ -165,10 +165,14 @@ class _ModelFinal:
             return np.mean(np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0))
 
         else:
-            return np.mean([np.average((Y_pred[..., t] - Y_pred[..., 0] -
-                                        self.models_cate[t - 1].predict(X))**2,
-                                       weights=sample_weight, axis=0)
-                            for t in np.arange(1, Y_pred.shape[-1])])
+            scores = []
+            for t in np.arange(1, Y_pred.shape[-1]):
+                # since we only allow single dimensional y, we could flatten the prediction
+                Y_pred_diff = (Y_pred[..., t] - Y_pred[..., 0]).flatten()
+                cate_pred = self.models_cate[t - 1].predict(X).flatten()
+                score = np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0)
+                scores.append(score)
+            return np.mean(scores)
 
 
 class DRLearner(_OrthoLearner):
