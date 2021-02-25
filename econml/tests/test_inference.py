@@ -383,6 +383,28 @@ class TestInference(unittest.TestCase):
         effect_inf = est.effect_inference(X)
         s = pickle.dumps(effect_inf)
 
+    def test_mean_pred_stderr(self):
+        """Test that mean_pred_stderr is not None when estimator's final stage is linear"""
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        ests = [LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
+                          featurizer=PolynomialFeatures(degree=2,
+                                                        include_bias=False)
+                          ),
+                LinearDRLearner(model_regression=LinearRegression(), model_propensity=LogisticRegression(),
+                                featurizer=PolynomialFeatures(degree=2,
+                                                              include_bias=False)
+                                )]
+        for est in ests:
+            est.fit(Y, T, X=X, W=W)
+            assert est.const_marginal_effect_inference(X).population_summary().mean_pred_stderr is not None
+            if est.__class__.__name__ == "LinearDRLearner":
+                assert est.coef__inference(T=1).mean_pred_stderr is None
+                # can't get the exact stderr of the mean effect for discrete treatment
+                assert est.effect_inference(X).population_summary().mean_pred_stderr is None
+            else:
+                assert est.coef__inference().mean_pred_stderr is None
+                assert est.effect_inference(X).population_summary().mean_pred_stderr is not None
+
     class _NoFeatNamesEst:
         def __init__(self, cate_est):
             self.cate_est = clone(cate_est, safe=False)

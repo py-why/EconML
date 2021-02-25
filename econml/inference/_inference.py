@@ -10,7 +10,6 @@ import pandas as pd
 import scipy
 from scipy.stats import norm
 from statsmodels.iolib.table import SimpleTable
-import copy
 
 from ._bootstrap import BootstrapEstimator
 from ..sklearn_extensions.linear_model import StatsModelsLinearRegression
@@ -247,10 +246,10 @@ class LinearModelFinalInference(GenericModelFinalInference):
         e_stderr = self._prediction_stderr(XT)
         d_y = self._d_y[0] if self._d_y else 1
 
-        mean_XT = XT.mean(axis=0).reshape(1, -1)
+        mean_XT = XT.mean(axis=0, keepdims=True)
         mean_pred_stderr = self._prediction_stderr(mean_XT)  # shape[0] will always be 1 here
-        # flatten the first axis
-        mean_pred_stderr = mean_pred_stderr[0] if mean_pred_stderr is not None else None
+        # squeeze the first axis
+        mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0) if mean_pred_stderr is not None else None
         # d_t=None here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=None, d_y=d_y, pred=e_pred,
                                       pred_stderr=e_stderr, mean_pred_stderr=mean_pred_stderr, inf_type='effect',
@@ -270,8 +269,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
         mean_pred_stderr = self._prediction_stderr(mean_XT)
         if mean_pred_stderr is not None:
             mean_pred_stderr = reshape_treatmentwise_effects(mean_pred_stderr,
-                                                             self._d_t, self._d_y)[0]  # shape[0] will always be 1 here
-            inf_res.mean_pred_stderr = mean_pred_stderr
+                                                             self._d_t, self._d_y)  # shape[0] will always be 1 here
+            inf_res.mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0)
         return inf_res
 
     def coef__interval(self, *, alpha=0.1):
@@ -476,8 +475,8 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             mean_X = X.mean(axis=0).reshape(1, -1) if X is not None else None
             mean_pred_stderr = np.moveaxis(np.array([mdl.prediction_stderr(mean_X).reshape((-1,) + self._d_y)
                                                      for mdl in self.fitted_models_final]),
-                                           0, -1)[0]  # shape[0] will always be 1 here
-            res_inf.mean_pred_stderr = mean_pred_stderr
+                                           0, -1)  # shape[0] will always be 1 here
+            res_inf.mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0)
         return res_inf
 
     def coef__interval(self, T, *, alpha=0.1):
@@ -592,14 +591,14 @@ class InferenceResults(metaclass=abc.ABCMeta):
         # For effect summaries, d_t is None, but the result arrays behave as if d_t=1
         self._d_t = d_t or 1
         self.d_y = d_y
-        self.pred = copy.deepcopy(pred)
+        self.pred = pred
         self.inf_type = inf_type
         self.fname_transformer = fname_transformer
         self.feature_names = feature_names
         self.output_names = output_names
         self.treatment_names = treatment_names
 
-    @ property
+    @property
     def point_estimate(self):
         """
         Get the point estimate of each treatment on each outcome for each sample X[i].
@@ -614,8 +613,8 @@ class InferenceResults(metaclass=abc.ABCMeta):
         """
         return self.pred
 
-    @ property
-    @ abc.abstractmethod
+    @property
+    @abc.abstractmethod
     def stderr(self):
         """
         Get the standard error of the metric of each treatment on each outcome for each sample X[i].
@@ -630,7 +629,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         """
         pass
 
-    @ property
+    @property
     def var(self):
         """
         Get the variance of the metric of each treatment on each outcome for each sample X[i].
@@ -647,7 +646,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
             return self.stderr**2
         return None
 
-    @ abc.abstractmethod
+    @abc.abstractmethod
     def conf_int(self, alpha=0.1):
         """
         Get the confidence interval of the metric of each treatment on each outcome for each sample X[i].
@@ -668,7 +667,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         """
         pass
 
-    @ abc.abstractmethod
+    @abc.abstractmethod
     def pvalue(self, value=0):
         """
         Get the p value of the z test of each treatment on each outcome for each sample X[i].
@@ -833,7 +832,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         arr = arr.flatten()
         return arr
 
-    @ abc.abstractmethod
+    @abc.abstractmethod
     def _expand_outputs(self, n_rows):
         """
         Expand the inference results from 1 row to n_rows identical rows.  This is used internally when
@@ -885,11 +884,11 @@ class NormalInferenceResults(InferenceResults):
 
     def __init__(self, d_t, d_y, pred, pred_stderr, mean_pred_stderr, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
-        self.pred_stderr = copy.deepcopy(pred_stderr)
+        self.pred_stderr = pred_stderr
         self.mean_pred_stderr = mean_pred_stderr
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
-    @ property
+    @property
     def stderr(self):
         """
         Get the standard error of the metric of each treatment on each outcome for each sample X[i].
@@ -995,10 +994,10 @@ class EmpiricalInferenceResults(InferenceResults):
 
     def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
-        self.pred_dist = copy.deepcopy(pred_dist)
+        self.pred_dist = pred_dist
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
-    @ property
+    @property
     def stderr(self):
         """
         Get the standard error of the metric of each treatment on each outcome for each sample X[i].
@@ -1128,7 +1127,7 @@ class PopulationSummaryResults:
         '''Display as HTML in IPython notebook.'''
         return self._print().as_html()
 
-    @ property
+    @property
     def mean_point(self):
         """
         Get the mean of the point estimate of each treatment on each outcome for sample X.
@@ -1143,7 +1142,7 @@ class PopulationSummaryResults:
         """
         return np.mean(self.pred, axis=0)
 
-    @ property
+    @property
     def stderr_mean(self):
         """
         Get the standard error of the mean point estimate of each treatment on each outcome for sample X.
@@ -1234,7 +1233,7 @@ class PopulationSummaryResults:
                 np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                           for p, err in zip(mean_point, stderr_mean)])
 
-    @ property
+    @property
     def std_point(self):
         """
         Get the standard deviation of the point estimate of each treatment on each outcome for sample X.
@@ -1300,7 +1299,7 @@ class PopulationSummaryResults:
         upper_ci_point = np.array([self._mixture_ppf(1 - alpha / 2, self.pred, self.pred_stderr, tol)])
         return lower_ci_point, upper_ci_point
 
-    @ property
+    @property
     def stderr_point(self):
         """
         Get the standard error of the point estimate of each treatment on each outcome for sample X.
