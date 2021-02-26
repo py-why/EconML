@@ -397,13 +397,12 @@ class TestInference(unittest.TestCase):
         for est in ests:
             est.fit(Y, T, X=X, W=W)
             assert est.const_marginal_effect_inference(X).population_summary().mean_pred_stderr is not None
+            # only is not None when T1 is a constant or a list of constant
+            assert est.effect_inference(X).population_summary().mean_pred_stderr is not None
             if est.__class__.__name__ == "LinearDRLearner":
                 assert est.coef__inference(T=1).mean_pred_stderr is None
-                # can't get the exact stderr of the mean effect for discrete treatment
-                assert est.effect_inference(X).population_summary().mean_pred_stderr is None
             else:
                 assert est.coef__inference().mean_pred_stderr is None
-                assert est.effect_inference(X).population_summary().mean_pred_stderr is not None
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):

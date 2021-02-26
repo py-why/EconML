@@ -479,6 +479,18 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             res_inf.mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0)
         return res_inf
 
+    def effect_inference(self, X, *, T0, T1):
+        res_inf = super().effect_inference(X, T0=T0, T1=T1)
+
+        # replace the mean_pred_stderr if T1 and T0 is a constant or a constant of vector
+        _, _, T1 = self._est._expand_treatments(X, T0, T1)
+        ind = inverse_onehot(T1)
+        if len(set(ind)) == 1:
+            unique_ind = ind[0] - 1
+            mean_pred_stderr = self.const_marginal_effect_inference(X).mean_pred_stderr[..., unique_ind]
+            res_inf.mean_pred_stderr = mean_pred_stderr
+        return res_inf
+
     def coef__interval(self, T, *, alpha=0.1):
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
