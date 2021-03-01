@@ -808,6 +808,35 @@ class TestDRLearner(unittest.TestCase):
         with pytest.raises(Exception):
             est.fit(y, t, W=w, groups=groups)
 
+    def test_score(self):
+        """Test that scores are the same no matter whether the prediction of cate model has the same shape of
+        input or the shape of input.reshape(-1,1)."""
+        X = np.random.normal(0, 1, size=(100, 2))
+        W = np.random.normal(0, 1, size=(100, 10))
+        Y = np.random.normal(0, 1, size=(100,))
+
+        # helper class
+        class L(StatsModelsLinearRegression):
+            def __init__(self, shape):
+                self.shape = shape
+                super().__init__()
+
+            def predict(self, X):
+                return super().predict(X).reshape(self.shape)
+
+        for d_t in [2, 3]:
+            T = np.random.choice(d_t, 100)
+            score = DRLearner(model_propensity=LogisticRegression(),
+                              model_regression=Lasso(),
+                              model_final=StatsModelsLinearRegression(), cv=1).fit(Y, T, X=X, W=W).score_
+            for shape_y in [(-1, 1), (-1,)]:
+                for shape in [(-1, 1), (-1,)]:
+                    Y = Y.reshape(shape_y)
+                    score1 = DRLearner(model_propensity=LogisticRegression(),
+                                       model_regression=Lasso(),
+                                       model_final=L(shape), cv=1).fit(Y, T, X=X, W=W).score_
+                    np.testing.assert_equal(score1, score)
+
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:
             raise ValueError(

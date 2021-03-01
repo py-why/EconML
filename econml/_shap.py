@@ -197,7 +197,8 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
         Whether the first entry of the coefficient of the joint linear model associated with
         each treatment, is an intercept.
     feature_names: optional None or list of strings of length X.shape[1] or X.shape[1]-1 (Default=None)
-        The name of featurized X (exclude intercept).
+        The name of featurized X (exclude intercept). Length is X.shape[1] if fit_cate_intercpet=False, otherwise
+        length is X.shape[1]-1.
     treatment_names: optional None or list (Default=None)
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
