@@ -45,9 +45,11 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-**February 20, 2021:** Release v0.9.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.0)
+**March 3, 2021:** Release v0.9.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.1)
 
 <details><summary>Previous releases</summary>
+
+**February 20, 2021:** Release v0.9.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.0)
 
 **January 20, 2021:** Release v0.9.0b1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.0b1)
 
