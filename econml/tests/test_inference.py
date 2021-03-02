@@ -382,6 +382,15 @@ class TestInference(unittest.TestCase):
         effect_inf = est.effect_inference(X)
         s = pickle.dumps(effect_inf)
 
+    def test_isolate_inferenceresult_from_estimator(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        est = LinearDML().fit(Y, T, X=X, W=W)
+        coef = est.coef_
+        inf = est.coef__inference()
+        inf.pred[0] = .5
+        new_coef = est.coef_
+        np.testing.assert_array_equal(coef, new_coef)
+
     class _NoFeatNamesEst:
         def __init__(self, cate_est):
             self.cate_est = clone(cate_est, safe=False)
