@@ -611,7 +611,7 @@ def get_feature_names_or_default(featurizer, feature_names):
         return get_input_columns(featurizer.transform(dummy_X), prefix="feat(X)")
     except Exception:
         # All attempts at retrieving transformed feature names have failed
-        # Delegate handling in downstream logic
+        # Delegate handling to downstream logic
         return None
 
 
