@@ -76,7 +76,7 @@ class TestPandasIntegration(unittest.TestCase):
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
         self._check_input_names(
             est.summary(),
-            feat_comp=[f"X{i}" for i in range(TestPandasIntegration.n_features)])
+            feat_comp=[f"feat(X){i}" for i in range(TestPandasIntegration.n_features)])
         est.featurizer = ColumnTransformer([('passthrough', 'passthrough', [0])])
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
         # ColumnTransformer doesn't propagate column names
