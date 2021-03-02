@@ -826,16 +826,37 @@ class TestDRLearner(unittest.TestCase):
 
         for d_t in [2, 3]:
             T = np.random.choice(d_t, 100)
-            score = DRLearner(model_propensity=LogisticRegression(),
-                              model_regression=Lasso(),
-                              model_final=StatsModelsLinearRegression(), cv=1).fit(Y, T, X=X, W=W).score_
-            for shape_y in [(-1, 1), (-1,)]:
-                for shape in [(-1, 1), (-1,)]:
-                    Y = Y.reshape(shape_y)
-                    score1 = DRLearner(model_propensity=LogisticRegression(),
-                                       model_regression=Lasso(),
-                                       model_final=L(shape), cv=1).fit(Y, T, X=X, W=W).score_
-                    np.testing.assert_equal(score1, score)
+            for multitask_model_final in [True, False]:
+                score = DRLearner(model_propensity=LogisticRegression(),
+                                  model_regression=Lasso(),
+                                  model_final=StatsModelsLinearRegression(), cv=1,
+                                  multitask_model_final=multitask_model_final).fit(Y, T, X=X, W=W).score_
+                for shape_y in [(-1, 1), (-1,)]:
+                    for shape in [(-1, 1), (-1,)]:
+                        Y = Y.reshape(shape_y)
+                        score1 = DRLearner(model_propensity=LogisticRegression(),
+                                           model_regression=Lasso(),
+                                           model_final=L(shape), cv=1,
+                                           multitask_model_final=multitask_model_final).fit(Y, T, X=X, W=W).score_
+                        np.testing.assert_equal(score1, score)
+
+    def test_multitask_model_final(self):
+        """Test that multitask model final works for different return of model cate even treatment is binary"""
+        n = 100
+        X = np.random.normal(0, 1, size=(n, 2))
+        W = np.random.normal(0, 1, size=(n, 10))
+        Y = np.random.normal(0, 1, size=(n,))
+        for d_t in [2, 3]:
+            T = np.random.choice(d_t, n)
+            cme_shape = (n, d_t - 1)
+            effect_shape = (n,)
+            for model_final in [Lasso(), StatsModelsLinearRegression()]:
+                est = DRLearner(model_propensity=LogisticRegression(),
+                                model_regression=Lasso(),
+                                model_final=model_final,
+                                multitask_model_final=True).fit(Y, T, X=X, W=W)
+                np.testing.assert_array_equal(est.const_marginal_effect(X).shape, cme_shape)
+                np.testing.assert_array_equal(est.effect(X).shape, effect_shape)
 
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:

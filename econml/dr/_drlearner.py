@@ -127,6 +127,7 @@ class _ModelFinal:
     def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
         Y_pred, = nuisances
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
+        self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var)
@@ -145,7 +146,7 @@ class _ModelFinal:
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
         if self._multitask_model_final:
-            pred = self.model_cate.predict(X)
+            pred = self.model_cate.predict(X).reshape((-1, self.d_t))
             if self.d_y:  # need to reintroduce singleton Y dimension
                 return pred[:, np.newaxis, :]
             return pred
@@ -159,7 +160,7 @@ class _ModelFinal:
         Y_pred, = nuisances
         if self._multitask_model_final:
             Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
-            cate_pred = self.model_cate.predict(X)
+            cate_pred = self.model_cate.predict(X).reshape((-1, self.d_t))
             if self.d_y:
                 cate_pred = cate_pred[:, np.newaxis, :]
             return np.mean(np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0))
