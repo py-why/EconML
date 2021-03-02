@@ -603,7 +603,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         # For effect summaries, d_t is None, but the result arrays behave as if d_t=1
         self._d_t = d_t or 1
         self.d_y = d_y
-        self.pred = pred
+        self.pred = np.copy(pred) if pred is not None and not np.isscalar(pred) else pred
         self.inf_type = inf_type
         self.fname_transformer = fname_transformer
         self.feature_names = feature_names
@@ -896,7 +896,8 @@ class NormalInferenceResults(InferenceResults):
 
     def __init__(self, d_t, d_y, pred, pred_stderr, mean_pred_stderr, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
-        self.pred_stderr = pred_stderr
+        self.pred_stderr = np.copy(pred_stderr) if pred_stderr is not None and not np.isscalar(
+            pred_stderr) else pred_stderr
         self.mean_pred_stderr = mean_pred_stderr
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
@@ -1006,7 +1007,7 @@ class EmpiricalInferenceResults(InferenceResults):
 
     def __init__(self, d_t, d_y, pred, pred_dist, inf_type, fname_transformer=None,
                  feature_names=None, output_names=None, treatment_names=None):
-        self.pred_dist = pred_dist
+        self.pred_dist = np.copy(pred_dist) if pred_dist is not None and not np.isscalar(pred_dist) else pred_dist
         super().__init__(d_t, d_y, pred, inf_type, fname_transformer, feature_names, output_names, treatment_names)
 
     @property

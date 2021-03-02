@@ -127,6 +127,7 @@ class _ModelFinal:
     def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
         Y_pred, = nuisances
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
+        self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var)
@@ -145,7 +146,7 @@ class _ModelFinal:
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
         if self._multitask_model_final:
-            pred = self.model_cate.predict(X)
+            pred = self.model_cate.predict(X).reshape((-1, self.d_t))
             if self.d_y:  # need to reintroduce singleton Y dimension
                 return pred[:, np.newaxis, :]
             return pred
@@ -158,13 +159,21 @@ class _ModelFinal:
             X = self._featurizer.transform(X)
         Y_pred, = nuisances
         if self._multitask_model_final:
-            return np.mean(np.average((Y_pred[..., 1:] - Y_pred[..., [0]] - self.model_cate.predict(X))**2,
-                                      weights=sample_weight, axis=0))
+            Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
+            cate_pred = self.model_cate.predict(X).reshape((-1, self.d_t))
+            if self.d_y:
+                cate_pred = cate_pred[:, np.newaxis, :]
+            return np.mean(np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0))
+
         else:
-            return np.mean([np.average((Y_pred[..., t] - Y_pred[..., 0] -
-                                        self.models_cate[t - 1].predict(X))**2,
-                                       weights=sample_weight, axis=0)
-                            for t in np.arange(1, Y_pred.shape[-1])])
+            scores = []
+            for t in np.arange(1, Y_pred.shape[-1]):
+                # since we only allow single dimensional y, we could flatten the prediction
+                Y_pred_diff = (Y_pred[..., t] - Y_pred[..., 0]).flatten()
+                cate_pred = self.models_cate[t - 1].predict(X).flatten()
+                score = np.average((Y_pred_diff - cate_pred)**2, weights=sample_weight, axis=0)
+                scores.append(score)
+            return np.mean(scores)
 
 
 class DRLearner(_OrthoLearner):
@@ -637,8 +646,6 @@ class DRLearner(_OrthoLearner):
         return self.ortho_learner_model_final_.models_cate
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        feature_names = self.cate_feature_names(feature_names)
-
         if self.ortho_learner_model_final_._multitask_model_final:
             return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.multitask_model_cate, X,
                                                       self._d_t, self._d_y,

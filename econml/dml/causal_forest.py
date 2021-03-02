@@ -555,8 +555,6 @@ class CausalForestDML(_BaseDML):
         return imps.reshape(self._d_y + (-1,))
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        feature_names = self.cate_feature_names(feature_names)
-
         return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.model_cate.estimators_, X,
                                                   self._d_t, self._d_y, featurizer=self.featurizer_,
                                                   feature_names=feature_names,
