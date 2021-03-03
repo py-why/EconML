@@ -264,7 +264,7 @@ class BootstrapEstimator:
                         stderr = stderr(*args, **kwargs)
                     return NormalInferenceResults(
                         d_t=d_t, d_y=d_y, pred=pred,
-                        pred_stderr=stderr, inf_type=inf_type,
+                        pred_stderr=stderr, mean_pred_stderr=None, inf_type=inf_type,
                         fname_transformer=fname_transformer,
                         feature_names=self._wrapped.cate_feature_names(),
                         output_names=self._wrapped.cate_output_names(),

@@ -1231,7 +1231,7 @@ class BLBInference(Inference):
         stderr = stderr.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
         return NormalInferenceResults(d_t=self._estimator._d_t[0] if self._estimator._d_t else 1,
                                       d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=params, pred_stderr=stderr, inf_type='effect',
+                                      pred=params, pred_stderr=stderr, mean_pred_stderr=None, inf_type='effect',
                                       feature_names=self._estimator.cate_feature_names(),
                                       output_names=self._estimator.cate_output_names(),
                                       treatment_names=self._estimator.cate_treatment_names())
@@ -1298,9 +1298,10 @@ class BLBInference(Inference):
             a dataframe summary of these inference results.
         """
         eff, scales = self._effect_inference_helper(X, T0, T1)
+
         # d_t=None here since we measure the effect across all Ts
         return NormalInferenceResults(d_t=None, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=eff, pred_stderr=scales, inf_type='effect',
+                                      pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',
                                       feature_names=self._estimator.cate_feature_names(),
                                       output_names=self._estimator.cate_output_names(),
                                       treatment_names=self._estimator.cate_treatment_names())
