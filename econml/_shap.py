@@ -15,7 +15,7 @@ Scott Lundberg, Su-In Lee (2017)
 import shap
 from collections import defaultdict
 import numpy as np
-from .utilities import broadcast_unit_treatments, cross_product
+from .utilities import broadcast_unit_treatments, cross_product, get_feature_names_or_default
 
 
 def _shap_explain_cme(cme_model, X, d_t, d_y,
@@ -392,9 +392,6 @@ def _define_names(d_t, d_y, treatment_names, output_names, feature_names, input_
         feature_names = input_names['feature_names']
     if featurizer is None:
         transformed_feature_names = feature_names
-    elif featurizer is not None and hasattr(featurizer, 'get_feature_names'):
-        transformed_feature_names = featurizer.get_feature_names(feature_names)
     else:
-        transformed_feature_names = None
-
+        transformed_feature_names = get_feature_names_or_default(featurizer, feature_names)
     return (d_t, d_y, treatment_names, output_names, feature_names, transformed_feature_names)

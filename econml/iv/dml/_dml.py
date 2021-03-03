@@ -23,7 +23,7 @@ from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin
 from ...inference import StatsModelsInference
 from ...sklearn_extensions.linear_model import StatsModelsLinearRegression
-from ...utilities import _deprecate_positional
+from ...utilities import _deprecate_positional, get_feature_names_or_default
 from .._nuisance_wrappers import _FirstStageWrapper, _FinalWrapper
 
 
@@ -676,10 +676,7 @@ class _BaseDMLIV(_OrthoLearner):
             feature_names = self._input_names["feature_names"]
         if self.original_featurizer is None:
             return feature_names
-        elif hasattr(self.original_featurizer, 'get_feature_names'):
-            return self.original_featurizer.get_feature_names(feature_names)
-        else:
-            raise AttributeError("Featurizer does not have a method: get_feature_names!")
+        return get_feature_names_or_default(self.original_featurizer, feature_names)
 
 
 class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):

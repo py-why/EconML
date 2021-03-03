@@ -31,7 +31,8 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          broadcast_unit_treatments, check_high_dimensional,
                          cross_product, deprecated, fit_with_groups,
                          hstack, inverse_onehot, ndim, reshape,
-                         reshape_treatmentwise_effects, shape, transpose)
+                         reshape_treatmentwise_effects, shape, transpose,
+                         get_feature_names_or_default)
 from .._shap import _shap_explain_model_cate
 
 
@@ -281,11 +282,7 @@ class _BaseDML(_RLearner):
             feature_names = self._input_names["feature_names"]
         if self.original_featurizer is None:
             return feature_names
-        elif hasattr(self.original_featurizer, 'get_feature_names'):
-            # This fails if X=None and featurizer is not None, but that case is handled above
-            return self.original_featurizer.get_feature_names(feature_names)
-        else:
-            raise AttributeError("Featurizer does not have a method: get_feature_names!")
+        return get_feature_names_or_default(self.original_featurizer, feature_names)
 
 
 class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):

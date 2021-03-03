@@ -52,7 +52,7 @@ from ..grf import RegressionForest
 from ..sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
 from ..utilities import (_deprecate_positional, check_high_dimensional,
-                         filter_none_kwargs, fit_with_groups, inverse_onehot)
+                         filter_none_kwargs, fit_with_groups, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
 
@@ -631,11 +631,7 @@ class DRLearner(_OrthoLearner):
             feature_names = self._input_names["feature_names"]
         if self.featurizer_ is None:
             return feature_names
-        elif hasattr(self.featurizer_, 'get_feature_names'):
-            # This fails if X=None and featurizer is not None, but that case is handled above
-            return self.featurizer_.get_feature_names(feature_names)
-        else:
-            raise AttributeError("Featurizer does not have a method: get_feature_names!")
+        return get_feature_names_or_default(self.featurizer_, feature_names)
 
     @property
     def model_final_(self):

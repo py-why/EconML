@@ -77,7 +77,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         self._d_t = np.shape(T)[1:]
         # This works only if X is passed as a kwarg
         # We plan to enforce X as kwarg only in future releases
-        if not hasattr(self, "_input_names_set"):
+        if not hasattr(self, "_input_names_set") or not self._input_names_set:
             # This checks if names have been set in a child class
             # If names were set in a child class, don't do it again
             X = kwargs.get('X')
