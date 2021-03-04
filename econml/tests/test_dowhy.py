@@ -11,6 +11,7 @@ from econml.iv.dml import DMLATEIV
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 
 
+@pytest.mark.half
 class TestDowhy(unittest.TestCase):
 
     def _get_data(self):

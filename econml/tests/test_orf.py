@@ -14,6 +14,7 @@ from econml.orf import DMLOrthoForest, DROrthoForest
 from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
 
 
+@pytest.mark.half
 class TestOrthoForest(unittest.TestCase):
 
     @classmethod

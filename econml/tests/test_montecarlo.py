@@ -12,6 +12,7 @@ from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 
 
+@pytest.mark.half
 class TestMonteCarlo(unittest.TestCase):
 
     def test_montecarlo(self):

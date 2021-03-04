@@ -16,6 +16,7 @@ from sklearn.model_selection import KFold
 from sklearn.base import clone
 
 
+@pytest.mark.half
 class TestLassoExtensions(unittest.TestCase):
     """Test WeightedLasso."""
 

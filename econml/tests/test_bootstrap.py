@@ -13,6 +13,7 @@ import unittest
 import joblib
 
 
+@pytest.mark.half
 class TestBootstrap(unittest.TestCase):
 
     def test_with_sklearn(self):

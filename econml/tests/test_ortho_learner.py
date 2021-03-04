@@ -12,6 +12,7 @@ import joblib
 import pytest
 
 
+@pytest.mark.half
 class TestOrthoLearner(unittest.TestCase):
 
     def test_crossfit(self):

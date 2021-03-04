@@ -21,6 +21,7 @@ import joblib
 from sklearn.preprocessing import PolynomialFeatures
 
 
+@pytest.mark.half
 class StatsModelsOLS:
     """
     Helper class to wrap a StatsModels OLS model to conform to the sklearn API.

@@ -9,6 +9,7 @@ from econml.dml import LinearDML
 from econml.inference import BootstrapInference
 
 
+@pytest.mark.half
 class TestATEInference(unittest.TestCase):
 
     @classmethod
