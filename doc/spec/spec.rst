@@ -21,8 +21,6 @@ The EconML Python SDK, developed by the ALICE team at MSR New England, incorpora
     estimation_iv
     inference
     interpretability
-    scoring
-    grf
     references
 
 .. todo::
