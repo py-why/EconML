@@ -42,7 +42,7 @@ from sklearn.utils import check_random_state
 from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                               TreatmentExpansionMixin)
 from .inference import BootstrapInference
-from .utilities import (_deprecate_positional, _EncoderWrapper, check_input_arrays,
+from .utilities import (_deprecate_positional, check_input_arrays,
                         cross_product, filter_none_kwargs,
                         inverse_onehot, ndim, reshape, shape, transpose)
 
@@ -629,22 +629,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 categories = self.categories
                 if categories != 'auto':
                     categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-                self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
-                self._one_hot_encoder.fit(reshape(T, (-1, 1)))
-                self._d_t = (len(self._one_hot_encoder.categories_[0]) - 1,)
-                self.transformer = FunctionTransformer(
-                    func=_EncoderWrapper(self._one_hot_encoder).encode,
-                    validate=False)
+                self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+                self.transformer.fit(reshape(T, (-1, 1)))
+                self._d_t = (len(self.transformer.categories_[0]) - 1,)
             else:
                 self.transformer = None
 
             if self.discrete_instrument:
-                z_enc = LabelEncoder()
-                z_ohe = OneHotEncoder(categories='auto', sparse=False, drop='first')
-                z_ohe.fit(reshape(z_enc.fit_transform(Z.ravel()), (-1, 1)))
-                self.z_transformer = FunctionTransformer(
-                    func=_EncoderWrapper(z_ohe, z_enc).encode,
-                    validate=False)
+                self.z_transformer = OneHotEncoder(categories='auto', sparse=False, drop='first')
+                self.z_transformer.fit(reshape(Z, (-1, 1)))
             else:
                 self.z_transformer = None
 
@@ -683,7 +676,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             # _d_t is altered by fit nuisances to what prefit does. So we need to perform the same
             # alteration even when we only want to fit_final.
             if self.transformer is not None:
-                self._d_t = (len(self._one_hot_encoder.categories_[0]) - 1,)
+                self._d_t = (len(self.transformer.categories_[0]) - 1,)
 
         self._fit_final(Y=Y, T=T, X=X, W=W, Z=Z,
                         nuisances=nuisances,
@@ -857,7 +850,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._check_fitted_dims_w_z(W, Z)
         X, T = self._expand_treatments(X, T)
         if self.z_transformer is not None:
-            Z = self.z_transformer.transform(Z)
+            Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
         n_splits = len(self._models_nuisance)
         for idx, mdl in enumerate(self._models_nuisance):
             nuisance_temp = mdl.predict(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z))

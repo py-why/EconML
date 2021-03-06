@@ -59,23 +59,19 @@ class TestATEInference(unittest.TestCase):
                 np.testing.assert_almost_equal(summary.tables[0].data[1 + i][4], 1.0)
 
             summary = cate_est.marginal_ate_inference(T, X).summary(value=10)
-            for i in range(Y.shape[1]):
-                for j in range(T.shape[1]):
-                    assert summary.tables[0].data[2 + i][1 + 3 * T.shape[1] + j] < 1e-5
+            for i in range(Y.shape[1] * T.shape[1]):
+                assert summary.tables[0].data[1 + i][4] < 1e-5
 
             summary = cate_est.marginal_ate_inference(T, X).summary(
                 value=np.mean(cate_est.marginal_effect(T, X), axis=0))
-            for i in range(Y.shape[1]):
-                for j in range(T.shape[1]):
-                    np.testing.assert_almost_equal(summary.tables[0].data[2 + i][1 + 3 * T.shape[1] + j], 1.0)
+            for i in range(Y.shape[1] * T.shape[1]):
+                np.testing.assert_almost_equal(summary.tables[0].data[1 + i][4], 1.0)
 
             summary = cate_est.const_marginal_ate_inference(X).summary(value=10)
-            for i in range(Y.shape[1]):
-                for j in range(T.shape[1]):
-                    assert summary.tables[0].data[2 + i][1 + 3 * T.shape[1] + j] < 1e-5
+            for i in range(Y.shape[1] * T.shape[1]):
+                assert summary.tables[0].data[1 + i][4] < 1e-5
 
             summary = cate_est.const_marginal_ate_inference(X).summary(
                 value=np.mean(cate_est.const_marginal_effect(X), axis=0))
-            for i in range(Y.shape[1]):
-                for j in range(T.shape[1]):
-                    np.testing.assert_almost_equal(summary.tables[0].data[2 + i][1 + 3 * T.shape[1] + j], 1.0)
+            for i in range(Y.shape[1] * T.shape[1]):
+                np.testing.assert_almost_equal(summary.tables[0].data[1 + i][4], 1.0)

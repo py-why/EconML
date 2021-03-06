@@ -31,7 +31,8 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          broadcast_unit_treatments, check_high_dimensional,
                          cross_product, deprecated, fit_with_groups,
                          hstack, inverse_onehot, ndim, reshape,
-                         reshape_treatmentwise_effects, shape, transpose)
+                         reshape_treatmentwise_effects, shape, transpose,
+                         get_feature_names_or_default)
 from .._shap import _shap_explain_model_cate
 
 
@@ -281,11 +282,7 @@ class _BaseDML(_RLearner):
             feature_names = self._input_names["feature_names"]
         if self.original_featurizer is None:
             return feature_names
-        elif hasattr(self.original_featurizer, 'get_feature_names'):
-            # This fails if X=None and featurizer is not None, but that case is handled above
-            return self.original_featurizer.get_feature_names(feature_names)
-        else:
-            raise AttributeError("Featurizer does not have a method: get_feature_names!")
+        return get_feature_names_or_default(self.original_featurizer, feature_names)
 
 
 class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
@@ -1177,13 +1174,8 @@ class NonParamDML(_BaseDML):
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        if self.featurizer_ is not None:
-            F = self.featurizer_.transform(X)
-        else:
-            F = X
-        feature_names = self.cate_feature_names(feature_names)
-
-        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, F, self._d_t, self._d_y,
+        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, X, self._d_t, self._d_y,
+                                        featurizer=self.featurizer_,
                                         feature_names=feature_names,
                                         treatment_names=treatment_names,
                                         output_names=output_names,
