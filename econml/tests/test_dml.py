@@ -610,7 +610,7 @@ class TestDML(unittest.TestCase):
             y_sum = np.concatenate((y1_sum, y2_sum))  # outcome
             n_sum = np.concatenate((n1_sum, n2_sum))  # number of summarized points
             var_sum = np.concatenate((var1_sum, var2_sum))  # variance of the summarized points
-            for summarized, min_samples_leaf in [(False, 20), (True, 1)]:
+            for summarized, min_samples_leaf, tune in [(False, 20, False), (True, 1, False), (False, 20, True)]:
                 est = CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
                                       model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
                                       discrete_treatment=True,
@@ -626,6 +626,8 @@ class TestDML(unittest.TestCase):
                     est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                             sample_weight=n_sum)
                 else:
+                    if tune:
+                        est.tune(y, T, X=X[:, :4], W=X[:, 4:])
                     est.fit(y, T, X=X[:, :4], W=X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
@@ -650,6 +652,8 @@ class TestDML(unittest.TestCase):
                     est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                             sample_weight=n_sum)
                 else:
+                    if tune:
+                        est.tune(y, T, X=X[:, :4], W=X[:, 4:], params={'max_samples': [.1, .3]})
                     est.fit(y, T, X=X[:, :4], W=X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
