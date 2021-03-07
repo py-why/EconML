@@ -793,8 +793,8 @@ class CausalForestDML(_BaseDML):
             converted to various output formats.
         """
         # Get input names
-        treatment_names = self._input_names["treatment_names"] if treatment_names is None else treatment_names
-        output_names = self._input_names["output_names"] if output_names is None else output_names
+        treatment_names = self.cate_treatment_names(treatment_names)
+        output_names = self.cate_output_names(output_names)
         # Summary
         if self._cached_values is not None:
             print("Population summary of CATE predictions on Training Data")
