@@ -200,7 +200,7 @@ class _RLearner(_OrthoLearner):
             def predict(self, X, W):
                 return self._model.predict(np.hstack([X, W]))
         class ModelFinal:
-            def fit(self, X, T_res, Y_res, sample_weight=None, sample_var=None):
+            def fit(self, X, T, T_res, Y_res, sample_weight=None, sample_var=None):
                 self.model = LinearRegression(fit_intercept=False).fit(X * T_res.reshape(-1, 1),
                                                                        Y_res)
                 return self
