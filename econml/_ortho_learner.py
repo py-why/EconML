@@ -679,7 +679,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
 
         self._fit_final(Y=Y,
-                        T=self.transformer.transform(T) if self.transformer is not None else T,
+                        T=self.transformer.transform(T.reshape((-1, 1))) if self.transformer is not None else T,
                         X=X, W=W, Z=Z,
                         nuisances=nuisances,
                         sample_weight=sample_weight,
