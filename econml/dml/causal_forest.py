@@ -180,7 +180,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         pred = pred.reshape((-1,) + self._d_y + self._d_t)
         pred_stderr = np.sqrt(np.diagonal(pred_var, axis1=2, axis2=3).reshape((-1,) + self._d_y + self._d_t))
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, inf_type='effect')
+                                      pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
 
     def effect_interval(self, X, *, T0, T1, alpha=0.1):
         return self.effect_inference(X, T0=T0, T1=T1).conf_int(alpha=alpha)
@@ -197,8 +197,8 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         pred, pred_var = self.model_final.predict_projection_and_var(X, dT)
         pred = pred.reshape((-1,) + self._d_y)
         pred_stderr = np.sqrt(pred_var.reshape((-1,) + self._d_y))
-        return NormalInferenceResults(d_t=1, d_y=self.d_y, pred=pred,
-                                      pred_stderr=pred_stderr, inf_type='effect')
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=pred,
+                                      pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
 
 
 class CausalForestDML(_BaseDML):
@@ -843,13 +843,9 @@ class CausalForestDML(_BaseDML):
             return smry
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
-        if self.featurizer_ is not None:
-            F = self.featurizer_.transform(X)
-        else:
-            F = X
-        feature_names = self.cate_feature_names(feature_names)
-        return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.model_cate.estimators_, F,
-                                                  self._d_t, self._d_y, feature_names=feature_names,
+        return _shap_explain_multitask_model_cate(self.const_marginal_effect, self.model_cate.estimators_, X,
+                                                  self._d_t, self._d_y, featurizer=self.featurizer_,
+                                                  feature_names=feature_names,
                                                   treatment_names=treatment_names,
                                                   output_names=output_names,
                                                   input_names=self._input_names,
