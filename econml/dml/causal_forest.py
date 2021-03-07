@@ -873,7 +873,7 @@ class CausalForestDML(_BaseDML):
                                       pred_stderr=self.ate_stderr_,
                                       mean_pred_stderr=None,
                                       inf_type='ate',
-                                      feature_names=None,
+                                      feature_names=self.cate_feature_names(),
                                       output_names=self.cate_output_names(),
                                       treatment_names=self.cate_treatment_names())
 
