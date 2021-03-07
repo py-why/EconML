@@ -807,6 +807,7 @@ class CausalForestDML(_BaseDML):
             smry = Summary()
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
+
         try:
             intercept_table = self.ate__inference().summary_frame(alpha=alpha,
                                                                   value=value, decimals=decimals,
@@ -814,26 +815,30 @@ class CausalForestDML(_BaseDML):
                                                                   treatment_names=treatment_names,
                                                                   output_names=output_names)
             intercept_array = intercept_table.values
-            intercept_headers = [i + '\n' + j for (i, j)
-                                 in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
-            intercept_stubs = [i + ' | ' + j for (i, j)
-                               in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
+            intercept_headers = intercept_table.columns.tolist()
+            n_level = intercept_table.index.nlevels
+            if n_level > 1:
+                intercept_stubs = ["|".join(ind_value) for ind_value in intercept_table.index.values]
+            else:
+                intercept_stubs = intercept_table.index.tolist()
             intercept_title = 'Doubly Robust ATE on Training Data Results'
             smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
         except Exception as e:
             print("Doubly Robust ATE on Training Data Results: ", str(e))
+
         for t in range(0, d_t + 1):
             try:
                 intercept_table = self.att__inference(T=t).summary_frame(alpha=alpha,
                                                                          value=value, decimals=decimals,
                                                                          feature_names=None,
-                                                                         treatment_names=treatment_names,
                                                                          output_names=output_names)
                 intercept_array = intercept_table.values
-                intercept_headers = [i + '\n' + j for (i, j)
-                                     in intercept_table.columns] if d_t > 1 else intercept_table.columns.tolist()
-                intercept_stubs = [i + ' | ' + j for (i, j)
-                                   in intercept_table.index] if d_y > 1 else intercept_table.index.tolist()
+                intercept_headers = intercept_table.columns.tolist()
+                n_level = intercept_table.index.nlevels
+                if n_level > 1:
+                    intercept_stubs = ["|".join(ind_value) for ind_value in intercept_table.index.values]
+                else:
+                    intercept_stubs = intercept_table.index.tolist()
                 intercept_title = "Doubly Robust ATT(T={}) on Training Data Results".format(t)
                 smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
             except Exception as e:
@@ -866,7 +871,11 @@ class CausalForestDML(_BaseDML):
                                       d_y=self._d_y[0] if self._d_y else 1,
                                       pred=self.ate_,
                                       pred_stderr=self.ate_stderr_,
-                                      inf_type='ate', **self._input_names)
+                                      mean_pred_stderr=None,
+                                      inf_type='ate',
+                                      feature_names=None,
+                                      output_names=self.cate_output_names(),
+                                      treatment_names=self.cate_treatment_names())
 
     @property
     def ate_(self):
@@ -896,7 +905,11 @@ class CausalForestDML(_BaseDML):
                                       d_y=self._d_y[0] if self._d_y else 1,
                                       pred=self.att_(T=T),
                                       pred_stderr=self.att_stderr_(T=T),
-                                      inf_type='att', **self._input_names)
+                                      mean_pred_stderr=None,
+                                      inf_type='att',
+                                      feature_names=self.cate_feature_names(),
+                                      output_names=self.cate_output_names(),
+                                      treatment_names=self.cate_treatment_names())
 
     def att_(self, *, T):
         """
