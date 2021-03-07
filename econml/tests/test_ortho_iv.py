@@ -305,7 +305,7 @@ class TestOrthoIV(unittest.TestCase):
         for mdl in est.models_T_XZ:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
-        np.testing.assert_array_equal(est.cate_feature_names(), ['x0', 'x0^2'])
+        np.testing.assert_array_equal(est.cate_feature_names(), ['X0', 'X0^2'])
 
         est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(),
                                       model_T_XZ=LogisticRegression(C=1000),

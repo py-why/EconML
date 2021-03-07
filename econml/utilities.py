@@ -8,6 +8,7 @@ import pandas as pd
 import scipy.sparse
 import sparse as sp
 import itertools
+import inspect
 from operator import getitem
 from collections import defaultdict, Counter
 from sklearn import clone
@@ -15,6 +16,7 @@ from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from functools import reduce, wraps
 from sklearn.utils import check_array, check_X_y
+from sklearn.utils.validation import assert_all_finite
 import warnings
 from warnings import warn
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
@@ -512,7 +514,7 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     return Y, T, X, W
 
 
-def check_input_arrays(*args, validate_len=True):
+def check_input_arrays(*args, validate_len=True, force_all_finite=True):
     """Cast input sequences into numpy arrays.
 
     Only inputs that are sequence-like will be converted, all other inputs will be left as is.
@@ -526,43 +528,63 @@ def check_input_arrays(*args, validate_len=True):
     validate_len : bool (default=True)
         Whether to check if the input arrays have the same length.
 
+    force_all_finite : bool (default=True)
+        Whether to allow inf and nan in input arrays.
+
     Returns
     -------
     args: array-like
         List of inputs where sequence-like objects have been cast to numpy arrays.
 
     """
-    args = [check_array(arg, dtype=None, ensure_2d=False, accept_sparse=True)
-            if np.ndim(arg) > 0 else arg for arg in args]
-    if validate_len:
-        n = None
-        for arg in args:
-            if np.ndim(arg) > 0:
-                m = arg.shape[0]
+    n = None
+    args = list(args)
+    for i, arg in enumerate(args):
+        if np.ndim(arg) > 0:
+            new_arg = check_array(arg, dtype=None, ensure_2d=False, accept_sparse=True,
+                                  force_all_finite=force_all_finite)
+            if not force_all_finite:
+                # For when checking input values is disabled
+                try:
+                    assert_all_finite(new_arg)
+                except ValueError:
+                    warnings.warn("Input contains NaN, infinity or a value too large for dtype('float64') "
+                                  "but input check is disabled. Check the inputs before proceeding.")
+            if validate_len:
+                m = new_arg.shape[0]
                 if n is None:
                     n = m
                 else:
                     assert (m == n), "Input arrays have incompatible lengths: {} and {}".format(n, m)
+            args[i] = new_arg
     return args
 
 
-def get_input_columns(X):
+def get_input_columns(X, prefix="X"):
     """Extracts column names from dataframe-like input object.
 
     Currently supports column name extraction from pandas DataFrame and Series objects.
 
     Parameters
     ----------
-    X : array_like
+    X : array_like or None
         Input array with column names to be extracted.
+
+    prefix: string or None
+        If input array doesn't have column names, a default using the naming scheme
+        "{prefix}{column number}" will be returned.
 
     Returns
     -------
     cols: array-like or None
         List of columns corresponding to the dataframe-like object.
         None if the input array is not in the supported types.
-
     """
+    if X is None:
+        return None
+    if np.ndim(X) == 0:
+        raise ValueError(
+            f"Expected array-like object for imput with prefix {prefix} but got '{X}' object instead.")
     # Type to column extraction function
     type_to_func = {
         pd.DataFrame: lambda x: x.columns.tolist(),
@@ -570,7 +592,27 @@ def get_input_columns(X):
     }
     if type(X) in type_to_func:
         return type_to_func[type(X)](X)
-    return None
+    len_X = 1 if np.ndim(X) == 1 else np.asarray(X).shape[1]
+    return [f"{prefix}{i}" for i in range(len_X)]
+
+
+def get_feature_names_or_default(featurizer, feature_names):
+    if hasattr(featurizer, 'get_feature_names'):
+        # Get number of arguments, some sklearn featurizer don't accept feature_names
+        arg_no = len(inspect.getfullargspec(featurizer.get_feature_names).args)
+        if arg_no == 1:
+            return featurizer.get_feature_names()
+        elif arg_no == 2:
+            return featurizer.get_feature_names(feature_names)
+    # Featurizer doesn't have 'get_feature_names' or has atypical 'get_feature_names'
+    try:
+        # Get feature names using featurizer
+        dummy_X = np.ones((1, len(feature_names)))
+        return get_input_columns(featurizer.transform(dummy_X), prefix="feat(X)")
+    except Exception:
+        # All attempts at retrieving transformed feature names have failed
+        # Delegate handling to downstream logic
+        return None
 
 
 def check_models(models, n):
@@ -1156,27 +1198,6 @@ class SeparateModel:
         return np.concatenate((model.coef_ for model in self.models))
 
 
-class _EncoderWrapper:
-    """
-    Wraps a OneHotEncoder (and optionally also a LabelEncoder).
-
-    Useful mainly so that the `encode` method can be used in a FunctionTransformer,
-    which would otherwise need a lambda (which can't be pickled).
-    """
-
-    def __init__(self, one_hot_encoder, label_encoder=None, drop_first=False):
-        self._label_encoder = label_encoder
-        self._one_hot_encoder = one_hot_encoder
-        self._drop_first = drop_first
-
-    def encode(self, arr):
-        if self._label_encoder:
-            arr = self._label_encoder.transform(arr.ravel())
-
-        result = self._one_hot_encoder.transform(reshape(arr, (-1, 1)))
-        return result[:, 1:] if self._drop_first else result
-
-
 def deprecated(message, category=FutureWarning):
     """
     Enables decorating a method or class to providing a warning when it is used.
@@ -1243,6 +1264,31 @@ def _deprecate_positional(message, bad_args, category=FutureWarning):
     return decorator
 
 
+class MissingModule:
+    """
+    Placeholder to stand in for a module that couldn't be imported, delaying ImportErrors until use.
+
+    Parameters
+    ----------
+    msg:string
+        The message to display when an attempt to access a module memeber is made
+    exn:ImportError
+        The original ImportError to pass as the source of the exception
+    """
+
+    def __init__(self, msg, exn):
+        self.msg = msg
+        self.exn = exn
+
+    # Any access should throw
+    def __getattr__(self, _):
+        raise ImportError(self.msg) from self.exn
+
+    # As a convenience, also throw on calls to allow MissingModule to be used in lieu of specific imports
+    def __call__(self, *args, **kwargs):
+        raise ImportError(self.msg) from self.exn
+
+
 def transpose_dictionary(d):
     """
     Transpose a dictionary of dictionaries, bringing the keys from the second level
@@ -1264,6 +1310,34 @@ def transpose_dictionary(d):
         for key2, val in value.items():
             output[key2][key1] = val
     return output
+
+
+def reshape_arrays_2dim(length, *args):
+    """
+    Reshape the input arrays as two dimensional.
+    If None, will be reshaped as (n, 0).
+
+    Parameters
+    ----------
+    length: scalar
+        Number of samples
+    args: arrays
+        Inputs to be reshaped
+
+    Returns
+    -------
+    new_args: arrays
+        Output of reshaped arrays
+    """
+    new_args = []
+    for arg in args:
+        if arg is None:
+            new_args.append(np.array([]).reshape(length, 0))
+        elif arg.ndim == 1:
+            new_args.append(arg.reshape((-1, 1)))
+        else:
+            new_args.append(arg)
+    return new_args
 
 
 class _RegressionWrapper:

@@ -40,7 +40,7 @@ from ._causal_tree import CausalTree
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
 from ..utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
-                         cross_product, inverse_onehot, _EncoderWrapper, check_input_arrays,
+                         cross_product, inverse_onehot, check_input_arrays,
                          _RegressionWrapper, deprecated)
 from sklearn.model_selection import check_cv
 # TODO: consider working around relying on sklearn implementation details
@@ -247,6 +247,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.backend = backend
         self.verbose = verbose
         self.batch_size = batch_size
+        self.categories = categories
         super().__init__()
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
@@ -581,10 +582,6 @@ class DMLOrthoForest(BaseOrthoForest):
             self.lambda_reg)
         # Define
         moment_and_mean_gradient_estimator = _DMLOrthoForest_moment_and_mean_gradient_estimator_func
-        if discrete_treatment:
-            if categories != 'auto':
-                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-            self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
         super().__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -643,12 +640,13 @@ class DMLOrthoForest(BaseOrthoForest):
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
         if self.discrete_treatment:
+            categories = self.categories
+            if categories != 'auto':
+                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+            self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
             d_t_in = T.shape[1:]
-            T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+            T = self.transformer.fit_transform(T.reshape(-1, 1))
             self._d_t = T.shape[1:]
-            self.transformer = FunctionTransformer(
-                func=_EncoderWrapper(self._one_hot_encoder).encode,
-                validate=False)
 
         if self.global_residualization:
             cv = check_cv(self.global_res_cv, y=T, classifier=self.discrete_treatment)
@@ -910,6 +908,7 @@ class DROrthoForest(BaseOrthoForest):
                  verbose=3,
                  batch_size='auto',
                  random_state=None):
+        self.lambda_reg = lambda_reg
         # Copy and/or define models
         self.propensity_model = clone(propensity_model, safe=False)
         self.model_Y = clone(model_Y, safe=False)
@@ -928,13 +927,9 @@ class DROrthoForest(BaseOrthoForest):
         # Define parameter estimators
         parameter_estimator = DROrthoForest.parameter_estimator_func
         second_stage_parameter_estimator = DROrthoForest.second_stage_parameter_estimator_gen(
-            lambda_reg)
+            self.lambda_reg)
         # Define moment and mean gradient estimator
         moment_and_mean_gradient_estimator = DROrthoForest.moment_and_mean_gradient_estimator_func
-        if categories != 'auto':
-            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-        self._one_hot_encoder = OneHotEncoder(categories=categories, sparse=False, drop='first')
-
         super().__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -990,11 +985,14 @@ class DROrthoForest(BaseOrthoForest):
         T = self._check_treatment(T)
         d_t_in = T.shape[1:]
         # Train label encoder
-        T = self._one_hot_encoder.fit_transform(T.reshape(-1, 1))
+        categories = self.categories
+        if categories != 'auto':
+            categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+        self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+        d_t_in = T.shape[1:]
+        T = self.transformer.fit_transform(T.reshape(-1, 1))
         self._d_t = T.shape[1:]
-        self.transformer = FunctionTransformer(
-            func=_EncoderWrapper(self._one_hot_encoder).encode,
-            validate=False)
+
         # Call `fit` from parent class
         super().fit(Y, T, X=X, W=W, inference=inference)
 
@@ -1170,7 +1168,6 @@ class BLBInference(Inference):
         This is called after the estimator's fit.
         """
         self._estimator = estimator
-        self._input_names = estimator._input_names
         # Test whether the input estimator is supported
         if not hasattr(self._estimator, "_predict"):
             raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
@@ -1234,7 +1231,10 @@ class BLBInference(Inference):
         stderr = stderr.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
         return NormalInferenceResults(d_t=self._estimator._d_t[0] if self._estimator._d_t else 1,
                                       d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=params, pred_stderr=stderr, inf_type='effect', **self._input_names)
+                                      pred=params, pred_stderr=stderr, mean_pred_stderr=None, inf_type='effect',
+                                      feature_names=self._estimator.cate_feature_names(),
+                                      output_names=self._estimator.cate_output_names(),
+                                      treatment_names=self._estimator.cate_treatment_names())
 
     def _effect_inference_helper(self, X, T0, T1):
         X, T0, T1 = self._estimator._expand_treatments(*check_input_arrays(X, T0, T1))
@@ -1298,8 +1298,13 @@ class BLBInference(Inference):
             a dataframe summary of these inference results.
         """
         eff, scales = self._effect_inference_helper(X, T0, T1)
-        return NormalInferenceResults(d_t=1, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
-                                      pred=eff, pred_stderr=scales, inf_type='effect', **self._input_names)
+
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=None, d_y=self._estimator._d_y[0] if self._estimator._d_y else 1,
+                                      pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',
+                                      feature_names=self._estimator.cate_feature_names(),
+                                      output_names=self._estimator.cate_output_names(),
+                                      treatment_names=self._estimator.cate_treatment_names())
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)

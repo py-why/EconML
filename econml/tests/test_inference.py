@@ -4,6 +4,7 @@
 import numpy as np
 import unittest
 import pytest
+import pickle
 from sklearn.base import clone
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
@@ -12,6 +13,7 @@ from econml.dr import LinearDRLearner, DRLearner
 from econml.inference import (BootstrapInference, NormalInferenceResults,
                               EmpiricalInferenceResults, PopulationSummaryResults)
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso
+from econml.utilities import get_input_columns
 
 
 class TestInference(unittest.TestCase):
@@ -47,7 +49,9 @@ class TestInference(unittest.TestCase):
             )
             summary_results = cate_est.summary()
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
+            default_names = get_input_columns(TestInference.X)
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
+                TestInference.X).get_feature_names(default_names)
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
@@ -139,7 +143,9 @@ class TestInference(unittest.TestCase):
             )
             summary_results = cate_est.summary(T=1)
             coef_rows = np.asarray(summary_results.tables[0].data)[1:, 0]
-            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(TestInference.X).get_feature_names()
+            default_names = get_input_columns(TestInference.X)
+            fnames = PolynomialFeatures(degree=2, include_bias=False).fit(
+                TestInference.X).get_feature_names(default_names)
             np.testing.assert_array_equal(coef_rows, fnames)
             intercept_rows = np.asarray(summary_results.tables[1].data)[1:, 0]
             np.testing.assert_array_equal(intercept_rows, ['cate_intercept'])
@@ -226,6 +232,7 @@ class TestInference(unittest.TestCase):
                                               inf_type='coefficient'),
                     NormalInferenceResults(d_t=1, d_y=2,
                                            pred=np.mean(predictions, axis=0), pred_stderr=np.std(predictions, axis=0),
+                                           mean_pred_stderr=None,
                                            inf_type='coefficient')]:
             zs = inf.zstat()
             pv = inf.pvalue()
@@ -259,7 +266,7 @@ class TestInference(unittest.TestCase):
             assert pv[0] == 0  # pvalue should be zero when test value is greater or less than all samples
 
             pop = PopulationSummaryResults(np.mean(predictions, axis=0).reshape(1, 2), np.std(
-                predictions, axis=0).reshape(1, 2), d_t=1, d_y=2, alpha=0.05, value=0, decimals=3, tol=0.001)
+                predictions, axis=0).reshape(1, 2), None, d_t=1, d_y=2, alpha=0.05, value=0, decimals=3, tol=0.001)
             pop._print()  # verify that we can access all attributes even in degenerate case
             pop.summary()
 
@@ -364,6 +371,47 @@ class TestInference(unittest.TestCase):
         assert est.const_marginal_effect_inference(X).stderr is not None
         est.marginal_effect_inference(T, X).summary_frame()
         assert est.marginal_effect_inference(T, X).stderr is not None
+
+    def test_pickle_inferenceresult(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        est = DML(model_y=LinearRegression(),
+                  model_t=LinearRegression(),
+                  model_final=Lasso(alpha=0.1, fit_intercept=False),
+                  featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                  random_state=123)
+        est.fit(Y, T, X=X, W=W)
+        effect_inf = est.effect_inference(X)
+        s = pickle.dumps(effect_inf)
+
+    def test_mean_pred_stderr(self):
+        """Test that mean_pred_stderr is not None when estimator's final stage is linear"""
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        ests = [LinearDML(model_t=LinearRegression(), model_y=LinearRegression(),
+                          featurizer=PolynomialFeatures(degree=2,
+                                                        include_bias=False)
+                          ),
+                LinearDRLearner(model_regression=LinearRegression(), model_propensity=LogisticRegression(),
+                                featurizer=PolynomialFeatures(degree=2,
+                                                              include_bias=False)
+                                )]
+        for est in ests:
+            est.fit(Y, T, X=X, W=W)
+            assert est.const_marginal_effect_inference(X).population_summary().mean_pred_stderr is not None
+            # only is not None when T1 is a constant or a list of constant
+            assert est.effect_inference(X).population_summary().mean_pred_stderr is not None
+            if est.__class__.__name__ == "LinearDRLearner":
+                assert est.coef__inference(T=1).mean_pred_stderr is None
+            else:
+                assert est.coef__inference().mean_pred_stderr is None
+
+    def test_isolate_inferenceresult_from_estimator(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        est = LinearDML().fit(Y, T, X=X, W=W)
+        coef = est.coef_
+        inf = est.coef__inference()
+        inf.pred[0] = .5
+        new_coef = est.coef_
+        np.testing.assert_array_equal(coef, new_coef)
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):
