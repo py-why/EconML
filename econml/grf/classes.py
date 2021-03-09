@@ -307,7 +307,7 @@ class CausalForest(BaseGRF):
     warm_start : bool, default=``False``
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
-        new forest.
+        new forest. If ``True``, then `oob_predict` method for out-of-bag predictions is not available.
 
     Attributes
     ----------
@@ -639,7 +639,7 @@ class CausalIVForest(BaseGRF):
     warm_start : bool, default=False
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
-        new forest.
+        new forest. If ``True``, then `oob_predict` method for out-of-bag predictions is not available.
 
     Attributes
     ----------
@@ -912,7 +912,7 @@ class RegressionForest(BaseGRF):
     warm_start : bool, default=False
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
-        new forest.
+        new forest. If ``True``, then `oob_predict` method for out-of-bag predictions is not available.
 
     Attributes
     ----------

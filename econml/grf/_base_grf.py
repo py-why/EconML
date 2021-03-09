@@ -1112,7 +1112,8 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
     def oob_predict(self, Xtrain):
         """ Returns the relevant output predictions for each of the training data points, when
-        only trees where that data point was not used are incorporated.
+        only trees where that data point was not used are incorporated. This method is not
+        available is the estimator was trained with `warm_start=True`.
 
         Parameters
         ----------

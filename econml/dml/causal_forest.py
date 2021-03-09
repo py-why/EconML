@@ -453,11 +453,6 @@ class CausalForestDML(_BaseDML):
     verbose : int, default=0
         Controls the verbosity when fitting and predicting.
 
-    warm_start : bool, default=False
-        When set to ``True``, reuse the solution of the previous call to fit
-        and add more estimators to the ensemble, otherwise, just fit a whole
-        new forest.
-
     Attributes
     ----------
     ate_ : ndarray of shape (n_outcomes, n_treatments)
@@ -517,8 +512,7 @@ class CausalForestDML(_BaseDML):
                  subforest_size=4,
                  n_jobs=-1,
                  random_state=None,
-                 verbose=0,
-                 warm_start=False):
+                 verbose=0):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -547,7 +541,6 @@ class CausalForestDML(_BaseDML):
         self.subforest_size = subforest_size
         self.n_jobs = n_jobs
         self.verbose = verbose
-        self.warm_start = warm_start
         self.n_crossfit_splits = n_crossfit_splits
         if self.n_crossfit_splits != 'raise':
             cv = self.n_crossfit_splits
@@ -606,7 +599,7 @@ class CausalForestDML(_BaseDML):
                                            n_jobs=self.n_jobs,
                                            random_state=self.random_state,
                                            verbose=self.verbose,
-                                           warm_start=self.warm_start))
+                                           warm_start=False))
 
     def _gen_rlearner_model_final(self):
         return _CausalForestFinalWrapper(self._gen_model_final(), self._gen_featurizer(),
