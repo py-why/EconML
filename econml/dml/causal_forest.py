@@ -140,10 +140,10 @@ class _CausalForestFinalWrapper:
     @property
     def att_stderr_(self):
         if not self._discrete_treatment:
-            raise AttributeError("Doubly Robust ATE calculation on training data "
+            raise AttributeError("Doubly Robust ATT calculation on training data "
                                  "is available only on discrete treatments!")
         if not self._drate:
-            raise AttributeError("Doubly Robust ATE calculation on training data "
+            raise AttributeError("Doubly Robust ATT calculation on training data "
                                  "is available only when `drate=True`!")
         return self._att_stderr
 
