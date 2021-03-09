@@ -715,20 +715,25 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_allclose(np.array(tables[t].data[1:])[:, 1].astype(np.float),
                                            mean_truth, rtol=0, atol=.06)
 
-            if it == 1:
-                est = CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
-                                      model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
-                                      discrete_treatment=False,
-                                      n_estimators=16)
-                est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:])
-                with np.testing.assert_raises(AttributeError):
-                    est.ate_
-                with np.testing.assert_raises(AttributeError):
-                    est.ate__inference()
-                with np.testing.assert_raises(AttributeError):
-                    est.att_(T=1)
-                with np.testing.assert_raises(AttributeError):
-                    est.att__inference(T=1)
+            if it == 0:
+                for est in [CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
+                                            model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
+                                            discrete_treatment=False,
+                                            n_estimators=16),
+                            CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
+                                            model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
+                                            discrete_treatment=True,
+                                            drate=False,
+                                            n_estimators=16)]:
+                    est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:])
+                    with np.testing.assert_raises(AttributeError):
+                        est.ate_
+                    with np.testing.assert_raises(AttributeError):
+                        est.ate__inference()
+                    with np.testing.assert_raises(AttributeError):
+                        est.att_(T=1)
+                    with np.testing.assert_raises(AttributeError):
+                        est.att__inference(T=1)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
