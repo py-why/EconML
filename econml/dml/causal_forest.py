@@ -178,7 +178,7 @@ class CausalForestDML(_BaseDML):
 
           Internally, for the case of more than two treatments or for the case of two treatments with
           ``fit_intercept=True`` then this criterion is approximated by computationally simpler variants for
-          computationaly purposes. In particular, it is replaced by:
+          computational purposes. In particular, it is replaced by:
 
           .. code-block::
 
@@ -501,6 +501,13 @@ class CausalForestDML(_BaseDML):
     def _gen_rlearner_model_final(self):
         return _CausalForestFinalWrapper(self._gen_model_final(), False, self._gen_featurizer(), False)
 
+    @property
+    def tunable_params(self):
+        return ['n_estimators', 'criterion', 'max_depth', 'min_samples_split', 'min_samples_leaf',
+                'min_weight_fraction_leaf', 'min_var_fraction_leaf', 'min_var_leaf_on_val',
+                'max_features', 'min_impurity_decrease', 'max_samples', 'min_balancedness_tol',
+                'honest', 'inference', 'fit_intercept', 'subforest_size']
+
     def tune(self, Y, T, *, X=None, W=None,
              sample_weight=None, sample_var=None, groups=None,
              params='auto'):
@@ -508,7 +515,8 @@ class CausalForestDML(_BaseDML):
         Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score
         performance. It trains small forests of size 100 trees on a grid of parameters and tests the
         out of sample R-score. After the function is called, then all parameters of `self` have been
-        set to the optimal hyperparameters found.
+        set to the optimal hyperparameters found. The list of tunable parameters can be accessed via
+        the property `tunable_params`.
 
         Parameters
         ----------
@@ -548,12 +556,16 @@ class CausalForestDML(_BaseDML):
                       'min_var_fraction_leaf': [None, .01]}
         else:
             # If custom param grid, check that only estimator parameters are being altered
-            estimator_param_names = self._get_param_names()
+            estimator_param_names = self.tunable_params
             for key in params.keys():
                 if key not in estimator_param_names:
-                    raise ValueError("Parameter `{}` is not an estimator parameter.".format(key))
+                    raise ValueError(f"Parameter `{key}` is not an tunable causal forest parameter.")
 
-        train, test = train_test_split(np.arange(Y.shape[0]), train_size=.7, random_state=self.random_state)
+        strata = None
+        if self.discrete_treatment:
+            strata = self._strata(Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups)
+        train, test = train_test_split(np.arange(Y.shape[0]), train_size=.7,
+                                       random_state=self.random_state, stratify=strata)
         ytrain, yval, Ttrain, Tval = Y[train], Y[test], T[train], T[test]
         Xtrain, Xval = (X[train], X[test]) if X is not None else (None, None)
         Wtrain, Wval = (W[train], W[test]) if W is not None else (None, None)
