@@ -113,7 +113,7 @@ class CausalForest(BaseGRF):
 
           Internally, for the case of more than two treatments or for the case of two treatments with
           ``fit_intercept=True`` then this criterion is approximated by computationally simpler variants for
-          computationaly purposes. In particular, it is replaced by::
+          computational purposes. In particular, it is replaced by::
 
               sum_{child} weight(child) * rho(child).T @ E[(T;1) @ (T;1).T | X in child] @ rho(child)
 
