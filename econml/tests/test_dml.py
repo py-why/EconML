@@ -616,6 +616,7 @@ class TestDML(unittest.TestCase):
                                       model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
                                       discrete_treatment=True,
                                       cv=2,
+                                      n_jobs=None,
                                       n_estimators=1000,
                                       max_samples=.4,
                                       min_samples_leaf=min_samples_leaf,
@@ -642,6 +643,7 @@ class TestDML(unittest.TestCase):
                                       model_t=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
                                       discrete_treatment=False,
                                       cv=2,
+                                      n_jobs=None,
                                       n_estimators=1000,
                                       max_samples=.4,
                                       min_samples_leaf=min_samples_leaf,
@@ -675,10 +677,8 @@ class TestDML(unittest.TestCase):
             def true_fn(x):
                 return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
             y = true_fn(X) * (T == 1) + true_fn(X) * (T == 2) + X[:, 0] + np.random.normal(0, 1, size=(n,))
-            est = CausalForestDML(model_y=MultiOutputRegressor(GradientBoostingRegressor(n_estimators=30,
-                                                                                         min_samples_leaf=30)),
-                                  model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
-                                  discrete_treatment=True,
+            est = CausalForestDML(discrete_treatment=True,
+                                  featurizer=PolynomialFeatures(degree=2, interaction_only=True, include_bias=False),
                                   cv=2,
                                   n_estimators=400,
                                   max_samples=.45,
