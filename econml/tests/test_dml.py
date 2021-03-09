@@ -21,6 +21,7 @@ from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.multioutput import MultiOutputRegressor
+from econml.grf import MultiOutputGRF
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
@@ -624,12 +625,12 @@ class TestDML(unittest.TestCase):
                                       verbose=0, min_var_fraction_leaf=.1,
                                       fit_intercept=False,
                                       random_state=12345)
+                if tune:
+                    est.tune(y, T, X=X[:, :4], W=X[:, 4:])
                 if summarized:
                     est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                             sample_weight=n_sum)
                 else:
-                    if tune:
-                        est.tune(y, T, X=X[:, :4], W=X[:, 4:])
                     est.fit(y, T, X=X[:, :4], W=X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
@@ -651,12 +652,14 @@ class TestDML(unittest.TestCase):
                                       verbose=0, min_var_fraction_leaf=.1,
                                       fit_intercept=False,
                                       random_state=12345)
+                if tune:
+                    with np.testing.assert_raises(ValueError):
+                        est.tune(y, T, X=X[:, :4], W=X[:, 4:], params={'discrete_treatment': [True, False]})
+                    est.tune(y, T, X=X[:, :4], W=X[:, 4:], params={'max_samples': [.1, .3]})
                 if summarized:
                     est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                             sample_weight=n_sum)
                 else:
-                    if tune:
-                        est.tune(y, T, X=X[:, :4], W=X[:, 4:], params={'max_samples': [.1, .3]})
                     est.fit(y, T, X=X[:, :4], W=X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
@@ -714,26 +717,42 @@ class TestDML(unittest.TestCase):
             for t in range(4):
                 np.testing.assert_allclose(np.array(tables[t].data[1:])[:, 1].astype(np.float),
                                            mean_truth, rtol=0, atol=.06)
+            est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
+            np.testing.assert_equal(len(est.summary().tables), 7)
+            np.testing.assert_equal(len(est[0][0].feature_importances_), 10)
+            np.testing.assert_equal(len(est), est.n_estimators)
+            np.testing.assert_equal(len([tree[0].feature_importances_ for tree in est]), est.n_estimators)
+            with np.testing.assert_raises(ValueError):
+                est.model_final = LinearRegression()
+            assert isinstance(est.model_final, MultiOutputGRF)
+            np.testing.assert_equal(est.shap_values(X[:10, :4])['Y0']['T0_1'].values.shape, (10, 10))
+            with np.testing.assert_raises(ValueError):
+                est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], sample_var=np.ones(100))
+            with np.testing.assert_raises(ValueError):
+                est.fit(y[:100], T[:100], X=None, W=X[:100, 4:])
 
             if it == 0:
-                for est in [CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
-                                            model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
-                                            discrete_treatment=False,
+                for est in [CausalForestDML(discrete_treatment=False,
                                             n_estimators=16),
                             CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
                                             model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
                                             discrete_treatment=True,
                                             drate=False,
                                             n_estimators=16)]:
-                    est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:])
+                    est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
                     with np.testing.assert_raises(AttributeError):
                         est.ate_
                     with np.testing.assert_raises(AttributeError):
                         est.ate__inference()
                     with np.testing.assert_raises(AttributeError):
+                        est.ate_stderr_
+                    with np.testing.assert_raises(AttributeError):
                         est.att_(T=1)
                     with np.testing.assert_raises(AttributeError):
                         est.att__inference(T=1)
+                    with np.testing.assert_raises(AttributeError):
+                        est.att_stderr_(T=1)
+                    np.testing.assert_equal(len(est.summary().tables), 3)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
