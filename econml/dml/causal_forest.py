@@ -515,8 +515,9 @@ class CausalForestDML(_BaseDML):
         Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score
         performance. It trains small forests of size 100 trees on a grid of parameters and tests the
         out of sample R-score. After the function is called, then all parameters of `self` have been
-        set to the optimal hyperparameters found. The list of tunable parameters can be accessed via
-        the property `tunable_params`.
+        set to the optimal hyperparameters found. The estimator however remains un-fitted, so you need to
+        call fit afterwards to fit the estimator with the chosen hyperparameters. The list of tunable parameters
+        can be accessed via the property `tunable_params`.
 
         Parameters
         ----------
