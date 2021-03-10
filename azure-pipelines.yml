@@ -7,34 +7,12 @@ trigger:
 - master
 
 jobs:
-- template: azure-pipelines-steps.yml
-  parameters:
-    name: test1
-    displayName: 'Test econml'
-    packages: ['--find-links . "econml==0.9.0" dowhy IPython', '--find-links . "econml==0.9.0" dowhy IPython && pip install -U numpy']
-    body:
-      - script: 'pip install pytest pytest-cov pytest-xdist && python -m pytest'
-        displayName: 'Unit tests'
-        env:
-          PYTEST_ADDOPTS: '-m "not (notebook or automl)"'
-          COVERAGE_PROCESS_START: 'setup.cfg'
-      - task: PublishTestResults@2
-        displayName: 'Publish Test Results **/test-results.xml'
-        inputs:
-          testResultsFiles: '**/test-results.xml'
-          testRunTitle: 'Python $(python.version), image $(imageName)'
-        condition: succeededOrFailed()
-      - task: PublishCodeCoverageResults@1
-        displayName: 'Publish Code Coverage Results'
-        inputs:
-          codeCoverageTool: Cobertura
-          summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
 
 - template: azure-pipelines-steps.yml
   parameters:
     name: test2
     displayName: 'Test shap'
-    packages: ['"numpy==1.19.3" shap']
+    packages: ['"numpy<1.20" azureml-interpret', '"numpy<1.20" shap', '"numpy<1.20" "shap==0.34.0"']
     body:
       - script: 'pip install pytest pytest-cov pytest-xdist && python -m pytest'
         displayName: 'Unit tests'
