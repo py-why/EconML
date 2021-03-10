@@ -717,21 +717,23 @@ class TestDML(unittest.TestCase):
             for t in range(4):
                 np.testing.assert_allclose(np.array(tables[t].data[1:])[:, 1].astype(np.float),
                                            mean_truth, rtol=0, atol=.06)
-            est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
-            np.testing.assert_equal(len(est.summary().tables), 7)
-            np.testing.assert_equal(len(est[0][0].feature_importances_), 10)
-            np.testing.assert_equal(len(est), est.n_estimators)
-            np.testing.assert_equal(len([tree[0].feature_importances_ for tree in est]), est.n_estimators)
-            with np.testing.assert_raises(ValueError):
-                est.model_final = LinearRegression()
-            assert isinstance(est.model_final, MultiOutputGRF)
-            np.testing.assert_equal(est.shap_values(X[:10, :4])['Y0']['T0_1'].values.shape, (10, 10))
-            with np.testing.assert_raises(ValueError):
-                est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], sample_var=np.ones(100))
-            with np.testing.assert_raises(ValueError):
-                est.fit(y[:100], T[:100], X=None, W=X[:100, 4:])
 
             if it == 0:
+                est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
+                np.testing.assert_equal(len(est.summary().tables), 7)
+                np.testing.assert_equal(len(est[0][0].feature_importances_), 10)
+                np.testing.assert_equal(len(est), est.n_estimators)
+                np.testing.assert_equal(len([tree[0].feature_importances_ for tree in est]), est.n_estimators)
+                with np.testing.assert_raises(ValueError):
+                    est.model_final = LinearRegression()
+                assert isinstance(est.model_final, MultiOutputGRF)
+                est.featurizer = None
+                est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
+                np.testing.assert_equal(est.shap_values(X[:2, :4])['Y0']['T0_1'].values.shape, (2, 4))
+                with np.testing.assert_raises(ValueError):
+                    est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], sample_var=np.ones(100))
+                with np.testing.assert_raises(ValueError):
+                    est.fit(y[:100], T[:100], X=None, W=X[:100, 4:])
                 for est in [CausalForestDML(discrete_treatment=False,
                                             n_estimators=16),
                             CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
