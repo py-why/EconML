@@ -28,6 +28,9 @@ import copy
 from collections import namedtuple
 from warnings import warn
 from abc import abstractmethod
+import inspect
+from collections import defaultdict
+import re
 
 import numpy as np
 from sklearn.base import clone
@@ -648,7 +651,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             if self.transformer is not None:
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
 
-        self._fit_final(Y=Y, T=T, X=X, W=W, Z=Z,
+        self._fit_final(Y=Y,
+                        T=self.transformer.transform(T.reshape((-1, 1))) if self.transformer is not None else T,
+                        X=X, W=W, Z=Z,
                         nuisances=nuisances,
                         sample_weight=sample_weight,
                         sample_var=sample_var)

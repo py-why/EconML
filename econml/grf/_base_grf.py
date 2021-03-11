@@ -133,6 +133,15 @@ def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwar
                                         pred_i.reshape((-1, 1) + pred_i.shape[1:]))
 
 
+def _accumulate_oob_preds(tree, X, subsample_inds, alpha_hat, jac_hat, counts, lock):
+    mask = np.ones(X.shape[0], dtype=bool)
+    mask[subsample_inds] = False
+    alpha, jac = tree.predict_alpha_and_jac(X[mask])
+    with lock:
+        alpha_hat[mask] += alpha
+        jac_hat[mask] += jac
+        counts[mask] += 1
+
 # =============================================================================
 # Base Generalized Random Forest
 # =============================================================================
@@ -395,6 +404,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             raise ValueError("Parameter inference cannot be altered in between `fit` "
                              "calls when `warm_start=True`.")
         self.inference_ = self.inference
+        self.warm_start_ = self.warm_start
 
         if not self.warm_start or not hasattr(self, "estimators_"):
             # Free allocated memory, if any
@@ -1099,3 +1109,44 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         X, projector = self._check_projector(X, projector)
         return self._predict_point_and_var(X, full=False, point=False, var=True,
                                            project=True, projector=projector)
+
+    def oob_predict(self, Xtrain):
+        """ Returns the relevant output predictions for each of the training data points, when
+        only trees where that data point was not used are incorporated. This method is not
+        available is the estimator was trained with `warm_start=True`.
+
+        Parameters
+        ----------
+        Xtrain : (n_training_samples, n_features) matrix
+            Must be the same exact X matrix that was passed to the forest at fit time.
+
+        Returns
+        -------
+        oob_preds : (n_training_samples, n_relevant_outputs) matrix
+            The out-of-bag predictions of the relevant output parameters for each of the training points
+        """
+
+        if self.warm_start_:
+            raise AttributeError("`oob_predict` is not available when "
+                                 "the estimator was fitted with `warm_start=True`")
+
+        # avoid storing the output of every estimator by summing them here
+        alpha_hat = np.zeros((Xtrain.shape[0], self.n_outputs_), dtype=np.float64)
+        jac_hat = np.zeros((Xtrain.shape[0], self.n_outputs_**2), dtype=np.float64)
+        counts = np.zeros((Xtrain.shape[0],), dtype=np.intp)
+        subsample_inds = self.get_subsample_inds()
+
+        # Parallel loop
+        lock = threading.Lock()
+        Parallel(n_jobs=self.n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
+            delayed(_accumulate_oob_preds)(tree, Xtrain, sinds, alpha_hat, jac_hat, counts, lock)
+            for tree, sinds in zip(self.estimators_, subsample_inds))
+
+        pos_count = (counts > 0)
+        alpha_hat[pos_count] /= counts[pos_count].reshape((-1, 1))
+        jac_hat[pos_count] /= counts[pos_count].reshape((-1, 1))
+
+        invjac = np.linalg.pinv(jac_hat.reshape((-1, self.n_outputs_, self.n_outputs_)))
+        oob_preds = np.einsum('ijk,ik->ij', invjac, alpha_hat)[:, :self.n_relevant_outputs_]
+        oob_preds[~pos_count] = np.nan
+        return oob_preds

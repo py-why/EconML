@@ -792,6 +792,10 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         elif self.inf_type == 'intercept':
             res.index = res.index.set_levels(['cate_intercept'], level="X")
+        elif self.inf_type == 'ate':
+            res.index = res.index.set_levels(['ATE'], level="X")
+        elif self.inf_type == 'att':
+            res.index = res.index.set_levels(['ATT'], level="X")
         if self._d_t == 1:
             res.index = res.index.droplevel("T")
         if self.d_y == 1:

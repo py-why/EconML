@@ -20,6 +20,8 @@ from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
 from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.multioutput import MultiOutputRegressor
+from econml.grf import MultiOutputGRF
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
@@ -615,6 +617,7 @@ class TestDML(unittest.TestCase):
                                       model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
                                       discrete_treatment=True,
                                       cv=2,
+                                      n_jobs=None,
                                       n_estimators=1000,
                                       max_samples=.4,
                                       min_samples_leaf=min_samples_leaf,
@@ -622,12 +625,12 @@ class TestDML(unittest.TestCase):
                                       verbose=0, min_var_fraction_leaf=.1,
                                       fit_intercept=False,
                                       random_state=12345)
+                if tune:
+                    est.tune(y, T, X=X[:, :4], W=X[:, 4:])
                 if summarized:
                     est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                             sample_weight=n_sum)
                 else:
-                    if tune:
-                        est.tune(y, T, X=X[:, :4], W=X[:, 4:])
                     est.fit(y, T, X=X[:, :4], W=X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
@@ -641,6 +644,7 @@ class TestDML(unittest.TestCase):
                                       model_t=GradientBoostingRegressor(n_estimators=50, min_samples_leaf=100),
                                       discrete_treatment=False,
                                       cv=2,
+                                      n_jobs=None,
                                       n_estimators=1000,
                                       max_samples=.4,
                                       min_samples_leaf=min_samples_leaf,
@@ -648,12 +652,14 @@ class TestDML(unittest.TestCase):
                                       verbose=0, min_var_fraction_leaf=.1,
                                       fit_intercept=False,
                                       random_state=12345)
+                if tune:
+                    with np.testing.assert_raises(ValueError):
+                        est.tune(y, T, X=X[:, :4], W=X[:, 4:], params={'discrete_treatment': [True, False]})
+                    est.tune(y, T, X=X[:, :4], W=X[:, 4:], params={'max_samples': [.1, .3]})
                 if summarized:
                     est.fit(y_sum, T_sum, X=X_sum[:, :4], W=X_sum[:, 4:],
                             sample_weight=n_sum)
                 else:
-                    if tune:
-                        est.tune(y, T, X=X[:, :4], W=X[:, 4:], params={'max_samples': [.1, .3]})
                     est.fit(y, T, X=X[:, :4], W=X[:, 4:])
                 X_test = np.array(list(itertools.product([0, 1], repeat=4)))
                 point = est.effect(X_test)
@@ -662,6 +668,93 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_allclose(point, truth, rtol=0, atol=.3)
                 np.testing.assert_array_less(lb - .01, truth)
                 np.testing.assert_array_less(truth, ub + .01)
+
+    def test_cfdml_ate_inference(self):
+        np.random.seed(1234)
+        n = 20000  # number of raw samples
+        d = 10
+        for it in range(2):
+            X = np.random.binomial(1, .5, size=(n, d))
+            T = np.random.binomial(2, .5, size=(n,))
+
+            def true_fn(x):
+                return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
+            y = true_fn(X) * (T == 1) + true_fn(X) * (T == 2) + X[:, 0] + np.random.normal(0, 1, size=(n,))
+            est = CausalForestDML(discrete_treatment=True,
+                                  featurizer=PolynomialFeatures(degree=2, interaction_only=True, include_bias=False),
+                                  cv=2,
+                                  n_estimators=400,
+                                  max_samples=.45,
+                                  max_depth=3,
+                                  min_balancedness_tol=.2,
+                                  n_jobs=None,
+                                  min_samples_leaf=40,
+                                  min_impurity_decrease=0.001,
+                                  verbose=0, min_var_fraction_leaf=.1,
+                                  fit_intercept=True,
+                                  random_state=125)
+            est.fit(np.hstack([y.reshape(-1, 1), y.reshape(-1, 1)]), T, X=X[:, :4], W=X[:, 4:])
+            X_test = np.array(list(itertools.product([0, 1], repeat=4)))
+            point = est.effect(X_test)
+            truth = np.hstack([true_fn(X_test).reshape(-1, 1), true_fn(X_test).reshape(-1, 1)])
+            lb, ub = est.effect_interval(X_test, alpha=.01)
+            np.testing.assert_allclose(point, truth, rtol=0, atol=.4)
+            np.testing.assert_array_less(lb - .04, truth)
+            np.testing.assert_array_less(truth, ub + .04)
+            mean_truth = np.mean(true_fn(X))
+            np.testing.assert_allclose(est.ate_, mean_truth, rtol=0, atol=.06)
+            np.testing.assert_allclose(est.att_(T=1), mean_truth, rtol=0, atol=.06)
+            np.testing.assert_allclose(est.att_(T=2), mean_truth, rtol=0, atol=.06)
+            inf_sum = est.ate__inference().summary_frame(treatment_names=['drugA', 'drugB'])
+            np.testing.assert_allclose(inf_sum.point_estimate, mean_truth, rtol=0, atol=.06)
+            np.testing.assert_array_less(inf_sum.ci_lower - .03, mean_truth)
+            np.testing.assert_array_less(mean_truth - .03, inf_sum.ci_upper)
+            inf_sum = est.att__inference(T=1).summary_frame(alpha=0.01, treatment_names=['drugA', 'drugB'])
+            np.testing.assert_allclose(inf_sum.point_estimate, mean_truth, rtol=0, atol=.06)
+            np.testing.assert_array_less(inf_sum.ci_lower - .03, mean_truth)
+            np.testing.assert_array_less(mean_truth - .03, inf_sum.ci_upper)
+            tables = est.summary().tables
+            for t in range(4):
+                np.testing.assert_allclose(np.array(tables[t].data[1:])[:, 1].astype(np.float),
+                                           mean_truth, rtol=0, atol=.06)
+
+            if it == 0:
+                est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
+                np.testing.assert_equal(len(est.summary().tables), 7)
+                np.testing.assert_equal(len(est[0][0].feature_importances_), 10)
+                np.testing.assert_equal(len(est), est.n_estimators)
+                np.testing.assert_equal(len([tree[0].feature_importances_ for tree in est]), est.n_estimators)
+                with np.testing.assert_raises(ValueError):
+                    est.model_final = LinearRegression()
+                assert isinstance(est.model_final, MultiOutputGRF)
+                est.featurizer = None
+                est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
+                np.testing.assert_equal(est.shap_values(X[:2, :4])['Y0']['T0_1'].values.shape, (2, 4))
+                with np.testing.assert_raises(ValueError):
+                    est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], sample_var=np.ones(100))
+                with np.testing.assert_raises(ValueError):
+                    est.fit(y[:100], T[:100], X=None, W=X[:100, 4:])
+                for est in [CausalForestDML(discrete_treatment=False,
+                                            n_estimators=16),
+                            CausalForestDML(model_y=GradientBoostingRegressor(n_estimators=30, min_samples_leaf=30),
+                                            model_t=GradientBoostingClassifier(n_estimators=30, min_samples_leaf=30),
+                                            discrete_treatment=True,
+                                            drate=False,
+                                            n_estimators=16)]:
+                    est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
+                    with np.testing.assert_raises(AttributeError):
+                        est.ate_
+                    with np.testing.assert_raises(AttributeError):
+                        est.ate__inference()
+                    with np.testing.assert_raises(AttributeError):
+                        est.ate_stderr_
+                    with np.testing.assert_raises(AttributeError):
+                        est.att_(T=1)
+                    with np.testing.assert_raises(AttributeError):
+                        est.att__inference(T=1)
+                    with np.testing.assert_raises(AttributeError):
+                        est.att_stderr_(T=1)
+                    np.testing.assert_equal(len(est.summary().tables), 3)
 
     def test_can_use_vectors(self):
         """Test that we can pass vectors for T and Y (not only 2-dimensional arrays)."""
