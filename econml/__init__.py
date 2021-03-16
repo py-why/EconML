@@ -21,4 +21,8 @@ __all__ = ['automated_ml',
            'sklearn_extensions',
            'tree',
            'two_stage_least_squares',
-           'utilities']
+           'utilities',
+           'dowhy',
+           '__version__']
+
+__version__ = '0.9.2'

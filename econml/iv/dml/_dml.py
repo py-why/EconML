@@ -23,7 +23,7 @@ from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin
 from ...inference import StatsModelsInference
 from ...sklearn_extensions.linear_model import StatsModelsLinearRegression
-from ...utilities import _deprecate_positional
+from ...utilities import _deprecate_positional, get_feature_names_or_default
 from .._nuisance_wrappers import _FirstStageWrapper, _FinalWrapper
 
 
@@ -42,7 +42,7 @@ class _BaseDMLATEIVModelFinal:
                                            sample_weight=sample_weight).predict(Z_res)
         # TODO: allow the final model to actually use X? Then we'd need to rename the class
         #       since we would actually be calculating a CATE rather than ATE.
-        self._model_final.fit(X=None, T_res=T_res_pred, Y_res=Y_res, sample_weight=sample_weight)
+        self._model_final.fit(X=None, T=T, T_res=T_res_pred, Y_res=Y_res, sample_weight=sample_weight)
         return self
 
     def predict(self, X=None):
@@ -387,7 +387,7 @@ class _BaseDMLIVModelFinal:
 
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
         Y_res, T_res = nuisances
-        self._model_final.fit(X, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
+        self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
         return self
 
     def predict(self, X=None):
@@ -676,10 +676,7 @@ class _BaseDMLIV(_OrthoLearner):
             feature_names = self._input_names["feature_names"]
         if self.original_featurizer is None:
             return feature_names
-        elif hasattr(self.original_featurizer, 'get_feature_names'):
-            return self.original_featurizer.get_feature_names(feature_names)
-        else:
-            raise AttributeError("Featurizer does not have a method: get_feature_names!")
+        return get_feature_names_or_default(self.original_featurizer, feature_names)
 
 
 class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):

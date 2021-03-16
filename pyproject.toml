@@ -2,9 +2,9 @@
 requires = [
     "setuptools",
     "wheel",
-    "Cython",
-    "numpy == 1.19.3",
-    "scipy"
+    "oldest-supported-numpy",
+    "scipy",
+    "cython"
 ]
 build-backend = "setuptools.build_meta"
 
@@ -13,5 +13,6 @@ addopts = "--junitxml=junit/test-results.xml -n auto --strict-markers --cov-conf
 markers = [    
     "slow",
     "notebook",
-    "automl"
+    "automl",
+    "dml"
 ]

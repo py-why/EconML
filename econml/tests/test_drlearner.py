@@ -92,16 +92,15 @@ class TestDRLearner(unittest.TestCase):
                         marginal_effect_shape = ((n,) +
                                                  ((d_y,) if d_y > 0 else ()) +
                                                  ((d_t_final,) if d_t_final > 0 else ()))
-                        marginal_effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1),
-                                                              6 * (d_t_final if d_t_final > 0 else 1))
+                        marginal_effect_summaryframe_shape = (
+                            n * (d_y if d_y > 0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
 
                         # since T isn't passed to const_marginal_effect, defaults to one row if X is None
                         const_marginal_effect_shape = ((n if d_x else 1,) +
                                                        ((d_y,) if d_y > 0 else ()) +
                                                        ((d_t_final,) if d_t_final > 0 else()))
                         const_marginal_effect_summaryframe_shape = (
-                            (n if d_x else 1) * (d_y if d_y > 0 else 1),
-                            6 * (d_t_final if d_t_final > 0 else 1))
+                            (n if d_x else 1) * (d_y if d_y > 0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
 
                         coef_shape = ((d_y,) if d_y > 0 else ()) + (d_x or 1,)
                         coef_summaryframe_shape = ((d_y or 1) * (d_x or 1), 6)
@@ -161,7 +160,7 @@ class TestDRLearner(unittest.TestCase):
                                                          (2,) + marginal_effect_shape)
                                         self.assertEqual(shape(const_marg_eff_int),
                                                          (2,) + const_marginal_effect_shape)
-                                        self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
+                                        self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T1)),
                                                          (2,) + effect_shape)
 
                                         const_marg_effect_inf = est.const_marginal_effect_inference(
@@ -743,7 +742,7 @@ class TestDRLearner(unittest.TestCase):
         Y = T * (x @ a) + xw @ g + err_Y
         # Test sparse estimator
         # --> test coef_, intercept_
-        sparse_dml = SparseLinearDRLearner(featurizer=FunctionTransformer())
+        sparse_dml = SparseLinearDRLearner()
         sparse_dml.fit(Y, T, X=x, W=w)
         np.testing.assert_allclose(a, sparse_dml.coef_(T=1), atol=2e-1)
         np.testing.assert_allclose(sparse_dml.intercept_(T=1), 0, atol=2e-1)
@@ -808,6 +807,56 @@ class TestDRLearner(unittest.TestCase):
         est = LinearDRLearner(cv=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, W=w, groups=groups)
+
+    def test_score(self):
+        """Test that scores are the same no matter whether the prediction of cate model has the same shape of
+        input or the shape of input.reshape(-1,1)."""
+        X = np.random.normal(0, 1, size=(100, 2))
+        W = np.random.normal(0, 1, size=(100, 10))
+        Y = np.random.normal(0, 1, size=(100,))
+
+        # helper class
+        class L(StatsModelsLinearRegression):
+            def __init__(self, shape):
+                self.shape = shape
+                super().__init__()
+
+            def predict(self, X):
+                return super().predict(X).reshape(self.shape)
+
+        for d_t in [2, 3]:
+            T = np.random.choice(d_t, 100)
+            for multitask_model_final in [True, False]:
+                score = DRLearner(model_propensity=LogisticRegression(),
+                                  model_regression=Lasso(),
+                                  model_final=StatsModelsLinearRegression(), cv=1,
+                                  multitask_model_final=multitask_model_final).fit(Y, T, X=X, W=W).score_
+                for shape_y in [(-1, 1), (-1,)]:
+                    for shape in [(-1, 1), (-1,)]:
+                        Y = Y.reshape(shape_y)
+                        score1 = DRLearner(model_propensity=LogisticRegression(),
+                                           model_regression=Lasso(),
+                                           model_final=L(shape), cv=1,
+                                           multitask_model_final=multitask_model_final).fit(Y, T, X=X, W=W).score_
+                        np.testing.assert_equal(score1, score)
+
+    def test_multitask_model_final(self):
+        """Test that multitask model final works for different return of model cate even treatment is binary"""
+        n = 100
+        X = np.random.normal(0, 1, size=(n, 2))
+        W = np.random.normal(0, 1, size=(n, 10))
+        Y = np.random.normal(0, 1, size=(n,))
+        for d_t in [2, 3]:
+            T = np.random.choice(d_t, n)
+            cme_shape = (n, d_t - 1)
+            effect_shape = (n,)
+            for model_final in [Lasso(), StatsModelsLinearRegression()]:
+                est = DRLearner(model_propensity=LogisticRegression(),
+                                model_regression=Lasso(),
+                                model_final=model_final,
+                                multitask_model_final=True).fit(Y, T, X=X, W=W)
+                np.testing.assert_array_equal(est.const_marginal_effect(X).shape, cme_shape)
+                np.testing.assert_array_equal(est.effect(X).shape, effect_shape)
 
     def _test_te(self, learner_instance, tol, te_type="const"):
         if te_type not in ["const", "heterogeneous"]:

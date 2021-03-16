@@ -15,7 +15,7 @@ Scott Lundberg, Su-In Lee (2017)
 import shap
 from collections import defaultdict
 import numpy as np
-from .utilities import broadcast_unit_treatments, cross_product
+from .utilities import broadcast_unit_treatments, cross_product, get_feature_names_or_default
 
 
 def _shap_explain_cme(cme_model, X, d_t, d_y,
@@ -29,13 +29,13 @@ def _shap_explain_cme(cme_model, X, d_t, d_y,
     cme_models: function
         const_marginal_effect function.
     X: (m, d_x) matrix
-        Features for each sample. Should be in the same shape of fitted X in final stage.
+        Features for each sample. Should be in the same shape of X during fit.
     d_t: tuple of int
         Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
-        The names of input features.
+        The names of raw input features.
     treatment_names: optional None or list (Default=None)
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
@@ -54,8 +54,9 @@ def _shap_explain_cme(cme_model, X, d_t, d_y,
         and the shap_values explanation object as value.
 
     """
-    (dt, dy, treatment_names, output_names, feature_names) = _define_names(d_t, d_y, treatment_names, output_names,
-                                                                           feature_names, input_names)
+    (dt, dy, treatment_names, output_names, feature_names, _) = _define_names(d_t, d_y, treatment_names,
+                                                                              output_names, feature_names,
+                                                                              input_names, None)
     # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
     bg_samples = X.shape[0] if background_samples is None else min(background_samples, X.shape[0])
     background = shap.maskers.Independent(X, max_samples=bg_samples)
@@ -84,7 +85,7 @@ def _shap_explain_cme(cme_model, X, d_t, d_y,
     return shap_outs
 
 
-def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
+def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, feature_names=None,
                              treatment_names=None, output_names=None,
                              input_names=None, background_samples=100):
     """
@@ -100,13 +101,15 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
     models: a single estimator or a list of estimators with one estimator per treatment
         models for the model's final stage model.
     X: (m, d_x) matrix
-        Features for each sample. Should be in the same shape of fitted X in final stage.
+        Features for each sample.
     d_t: tuple of int
         Tuple of number of treatment (exclude control in discrete treatment scenario.
     d_y: tuple of int
         Tuple of number of outcome.
+    featurizer: optional None or instance of featurizer
+        Fitted Featurizer of feature X.
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
-        The names of input features.
+        The names of raw input features.
     treatment_names: optional None or list (Default=None)
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
@@ -127,20 +130,28 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
     d_t_, d_y_ = d_t, d_y
     feature_names_, treatment_names_ = feature_names, treatment_names,
     output_names_, input_names_ = output_names, input_names
-    (dt, dy, treatment_names, output_names, feature_names) = _define_names(d_t, d_y, treatment_names, output_names,
-                                                                           feature_names, input_names)
+    (dt, dy, treatment_names, output_names, feature_names, transformed_feature_names) = _define_names(d_t, d_y,
+                                                                                                      treatment_names,
+                                                                                                      output_names,
+                                                                                                      feature_names,
+                                                                                                      input_names,
+                                                                                                      featurizer)
+    if featurizer is not None:
+        F = featurizer.transform(X)
+    else:
+        F = X
     if not isinstance(models, list):
         models = [models]
     assert len(models) == dt, "Number of final stage models don't equals to number of treatments!"
     # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
-    bg_samples = X.shape[0] if background_samples is None else min(background_samples, X.shape[0])
-    background = shap.maskers.Independent(X, max_samples=bg_samples)
+    bg_samples = F.shape[0] if background_samples is None else min(background_samples, F.shape[0])
+    background = shap.maskers.Independent(F, max_samples=bg_samples)
 
     shap_outs = defaultdict(dict)
     for i in range(dt):
         try:
             explainer = shap.Explainer(models[i], background,
-                                       feature_names=feature_names)
+                                       feature_names=transformed_feature_names)
         except Exception as e:
             print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
             return _shap_explain_cme(cme_model, X, d_t_, d_y_,
@@ -149,7 +160,7 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, feature_names=None,
                                      output_names=output_names_,
                                      input_names=input_names_,
                                      background_samples=background_samples)
-        shap_out = explainer(X)
+        shap_out = explainer(F)
         if dy > 1:
             for j in range(dy):
                 base_values = shap_out.base_values[..., j]
@@ -177,7 +188,7 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
     model_final: a single estimator
         the model's final stage model.
     X: matrix
-        Featurized X
+        Featurized X.
     d_t: tuple of int
         Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
@@ -185,8 +196,9 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
     fit_cate_intercept: bool
         Whether the first entry of the coefficient of the joint linear model associated with
         each treatment, is an intercept.
-    feature_names: optional None or list of strings of length X.shape[1] (Default=None)
-        The names of input features.
+    feature_names: optional None or list of strings of length X.shape[1] or X.shape[1]-1 (Default=None)
+        The name of featurized X (exclude intercept). Length is X.shape[1] if fit_cate_intercpet=False, otherwise
+        length is X.shape[1]-1.
     treatment_names: optional None or list (Default=None)
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
@@ -204,8 +216,11 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
         each treatment name (e.g. "T0" when `treatment_names=None`) as key
         and the shap_values explanation object as value.
     """
-    (d_t, d_y, treatment_names, output_names, feature_names) = _define_names(d_t, d_y, treatment_names, output_names,
-                                                                             feature_names, input_names)
+    # input feature name is already updated by cate_feature_names.
+    (d_t, d_y, treatment_names, output_names, _, _) = _define_names(d_t, d_y, treatment_names,
+                                                                    output_names,
+                                                                    feature_names,
+                                                                    input_names, None)
     X, T = broadcast_unit_treatments(X, d_t)
     X = cross_product(X, T)
     d_x = X.shape[1]
@@ -220,7 +235,7 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
         # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
         bg_samples = X_sub.shape[0] if background_samples is None else min(background_samples, X_sub.shape[0])
         background = shap.maskers.Independent(X_sub, max_samples=bg_samples)
-        explainer = shap.Explainer(model_final, background)
+        explainer = shap.Explainer(model_final, background, feature_names=feature_names)
         shap_out = explainer(X_sub)
 
         data = shap_out.data[:, ind_x[i]]
@@ -230,20 +245,21 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
                 main_effects = None if shap_out.main_effects is None else shap_out.main_effects[..., ind_x[i], j]
                 values = shap_out.values[..., ind_x[i], j]
                 shap_out_new = shap.Explanation(values, base_values=base_values, data=data, main_effects=main_effects,
-                                                feature_names=feature_names)
+                                                feature_names=shap_out.feature_names)
                 shap_outs[output_names[j]][treatment_names[i]] = shap_out_new
         else:
             values = shap_out.values[..., ind_x[i]]
             main_effects = shap_out.main_effects[..., ind_x[i], 0]
             shap_out_new = shap.Explanation(values, base_values=shap_out.base_values, data=data,
                                             main_effects=main_effects,
-                                            feature_names=feature_names)
+                                            feature_names=shap_out.feature_names)
             shap_outs[output_names[0]][treatment_names[i]] = shap_out_new
 
     return shap_outs
 
 
-def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, d_y, feature_names=None,
+def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, d_y, featurizer=None,
+                                       feature_names=None,
                                        treatment_names=None, output_names=None,
                                        input_names=None, background_samples=100):
     """
@@ -259,13 +275,15 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
         the model's final stage model whose predict represents the const_marginal_effect for
         all treatments (or list of models, one for each outcome)
     X: (m, d_x) matrix
-        Features for each sample. Should be in the same shape of fitted X in final stage.
+        Features for each sample.
     d_t: tuple of int
         Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
+    featurizer: optional None or instance of featurizer
+        Fitted Featurizer of feature X.
     feature_names: optional None or list of strings of length X.shape[1] (Default=None)
-        The names of input features.
+        The names of raw input features.
     treatment_names: optional None or list (Default=None)
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
@@ -286,19 +304,27 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
     d_t_, d_y_ = d_t, d_y
     feature_names_, treatment_names_ = feature_names, treatment_names,
     output_names_, input_names_ = output_names, input_names
-    (dt, dy, treatment_names, output_names, feature_names) = _define_names(d_t, d_y, treatment_names, output_names,
-                                                                           feature_names, input_names)
+    (dt, dy, treatment_names, output_names, feature_names, transformed_feature_names) = _define_names(d_t, d_y,
+                                                                                                      treatment_names,
+                                                                                                      output_names,
+                                                                                                      feature_names,
+                                                                                                      input_names,
+                                                                                                      featurizer)
+    if featurizer is not None:
+        F = featurizer.transform(X)
+    else:
+        F = X
     if dy == 1 and (not isinstance(multitask_model_cate, list)):
         multitask_model_cate = [multitask_model_cate]
 
     # define masker by using entire dataset, otherwise Explainer will only sample 100 obs by default.
-    bg_samples = X.shape[0] if background_samples is None else min(background_samples, X.shape[0])
-    background = shap.maskers.Independent(X, max_samples=bg_samples)
+    bg_samples = F.shape[0] if background_samples is None else min(background_samples, F.shape[0])
+    background = shap.maskers.Independent(F, max_samples=bg_samples)
     shap_outs = defaultdict(dict)
     for j in range(dy):
         try:
             explainer = shap.Explainer(multitask_model_cate[j], background,
-                                       feature_names=feature_names)
+                                       feature_names=transformed_feature_names)
         except Exception as e:
             print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
             return _shap_explain_cme(cme_model, X, d_t_, d_y_,
@@ -308,7 +334,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
                                      input_names=input_names_,
                                      background_samples=background_samples)
 
-        shap_out = explainer(X)
+        shap_out = explainer(F)
         if dt > 1:
             for i in range(dt):
                 base_values = shap_out.base_values[..., i]
@@ -323,7 +349,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
     return shap_outs
 
 
-def _define_names(d_t, d_y, treatment_names, output_names, feature_names, input_names):
+def _define_names(d_t, d_y, treatment_names, output_names, feature_names, input_names, featurizer):
     """
     Helper function to get treatment and output names
 
@@ -342,6 +368,8 @@ def _define_names(d_t, d_y, treatment_names, output_names, feature_names, input_
         The user provided names of the features
     input_names: dicitionary
         The names of the features, outputs and treatments parsed from the fit input at fit time.
+    featurizer: optional None or instance of featurizer
+        Fitted Featurizer of feature X.
 
     Returns
     -------
@@ -349,21 +377,21 @@ def _define_names(d_t, d_y, treatment_names, output_names, feature_names, input_
     d_y: int
     treament_names: List
     output_names: List
-    feature_names: List or None
+    feature_names: List
+    transformed_feature_names: List or None
     """
 
     d_t = d_t[0] if d_t else 1
     d_y = d_y[0] if d_y else 1
+
     if treatment_names is None:
-        if (input_names is None) or (input_names['treatment_names'] is None):
-            treatment_names = [f"T{i}" for i in range(d_t)]
-        else:
-            treatment_names = input_names['treatment_names']
+        treatment_names = input_names['treatment_names']
     if output_names is None:
-        if (input_names is None) or (input_names['output_names'] is None):
-            output_names = [f"Y{i}" for i in range(d_y)]
-        else:
-            output_names = input_names['output_names']
-    if (feature_names is None) and (input_names is not None):
+        output_names = input_names['output_names']
+    if feature_names is None:
         feature_names = input_names['feature_names']
-    return (d_t, d_y, treatment_names, output_names, feature_names)
+    if featurizer is None:
+        transformed_feature_names = feature_names
+    else:
+        transformed_feature_names = get_feature_names_or_default(featurizer, feature_names)
+    return (d_t, d_y, treatment_names, output_names, feature_names, transformed_feature_names)

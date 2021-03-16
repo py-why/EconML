@@ -4,13 +4,17 @@
 """Deep IV estimator and related components."""
 
 import numpy as np
-import keras
 from ..._cate_estimator import BaseCateEstimator
-from ...utilities import deprecated
-from keras import backend as K
-import keras.layers as L
-from keras.models import Model
-from econml.utilities import check_input_arrays, _deprecate_positional
+from ...utilities import check_input_arrays, _deprecate_positional, deprecated, MissingModule
+try:
+    import keras
+    from keras import backend as K
+    import keras.layers as L
+    from keras.models import Model
+except ImportError as exn:
+    keras = K = L = Model = MissingModule("keras and tensorflow are no longer dependencies of the main econml "
+                                          "package; install econml[tf] or econml[all] to require them, or install "
+                                          "them separately, to use DeepIV", exn)
 
 # TODO: make sure to use random seeds wherever necessary
 # TODO: make sure that the public API consistently uses "T" instead of "P" for the treatment
