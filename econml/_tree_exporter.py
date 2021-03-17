@@ -150,7 +150,7 @@ class _CateTreeMixin(_TreeExporter):
             # red for negative, green for positive
             self.colors['rgb'] = [(179, 108, 96), (81, 157, 96)]
 
-        # in multi-target use first target
+        # in multi-target use mean of targets
         tree_min = np.min(np.mean(tree.value, axis=1))
         tree_max = np.max(np.mean(tree.value, axis=1))
 
@@ -158,8 +158,10 @@ class _CateTreeMixin(_TreeExporter):
 
         if node_val > 0:
             value = [max(0, tree_min) / tree_max, node_val / tree_max]
-        else:
+        elif node_val < 0:
             value = [node_val / tree_min, min(0, tree_max) / tree_min]
+        else:
+            value = [0, 0]
 
         return self.get_color(value)
 
