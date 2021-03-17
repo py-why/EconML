@@ -105,3 +105,13 @@ def _accumulate_prediction_and_var(predict, X, out, out_var, lock, *args, **kwar
                 out_var[i] += np.einsum('ijk,ikm->ijm',
                                         pred_i.reshape(pred_i.shape + (1,)),
                                         pred_i.reshape((-1, 1) + pred_i.shape[1:]))
+
+
+def _accumulate_oob_preds(tree, X, subsample_inds, alpha_hat, jac_hat, counts, lock):
+    mask = np.ones(X.shape[0], dtype=bool)
+    mask[subsample_inds] = False
+    alpha, jac = tree.predict_alpha_and_jac(X[mask])
+    with lock:
+        alpha_hat[mask] += alpha
+        jac_hat[mask] += jac
+        counts[mask] += 1
