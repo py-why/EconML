@@ -611,7 +611,7 @@ class TestGRFPython(unittest.TestCase):
             forest.inference = False
             forest.n_estimators = 8
             forest.fit(X, y)
-        with np.testing.assert_raises(KeyError):
+        with np.testing.assert_raises(ValueError):
             forest = CausalForest(n_estimators=4, criterion='peculiar').fit(X, y, y)
         with np.testing.assert_raises(ValueError):
             forest = CausalForest(n_estimators=4, max_depth=-1).fit(X, y, y)

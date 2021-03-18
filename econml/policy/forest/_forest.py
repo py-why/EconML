@@ -133,7 +133,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
     def fit(self, X, y, *, sample_weight=None, **kwargs):
         """
-        Build a forest of trees from the training set (X, T, y) and any other auxiliary variables.
+        Build a forest of trees from the training set (X, y) and any other auxiliary variables.
 
         Parameters
         ----------

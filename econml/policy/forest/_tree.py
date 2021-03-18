@@ -20,7 +20,7 @@ from ...tree import _tree
 from ..._tree_exporter import _SingleTreeExporterMixin, _PolicyTreeDOTExporter, _PolicyTreeMPLExporter
 from ._criterion import LinearPolicyCriterion
 from . import _criterion
-from sklearn.base import BaseEstimator
+from ...tree import BaseTree
 from sklearn.model_selection import train_test_split
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils import check_random_state
@@ -32,21 +32,14 @@ import copy
 # Types and constants
 # =============================================================================
 
-DTYPE = _tree.DTYPE
-DOUBLE = _tree.DOUBLE
-
 CRITERIA_POLICY = {"neg_welfare": LinearPolicyCriterion}
-
-SPLITTERS = {"best": BestSplitter, }
-
-MAX_INT = np.iinfo(np.int32).max
 
 # =============================================================================
 # Base Policy tree
 # =============================================================================
 
 
-class PolicyTree(_SingleTreeExporterMixin, BaseEstimator):
+class PolicyTree(_SingleTreeExporterMixin, BaseTree):
     """ TODO Enable inference on `predict_value` with leaf-wise normality
 
     Parameters
@@ -181,41 +174,23 @@ class PolicyTree(_SingleTreeExporterMixin, BaseEstimator):
                  min_impurity_decrease=0.,
                  min_balancedness_tol=0.45,
                  honest=True):
-        self.criterion = criterion
-        self.splitter = splitter
-        self.max_depth = max_depth
-        self.min_samples_split = min_samples_split
-        self.min_samples_leaf = min_samples_leaf
-        self.min_weight_fraction_leaf = min_weight_fraction_leaf
-        self.max_features = max_features
-        self.random_state = random_state
-        self.min_impurity_decrease = min_impurity_decrease
-        self.min_balancedness_tol = min_balancedness_tol
-        self.honest = honest
+        super().__init__(criterion=criterion,
+                         splitter=splitter,
+                         max_depth=max_depth,
+                         min_samples_split=min_samples_split,
+                         min_samples_leaf=min_samples_leaf,
+                         min_weight_fraction_leaf=min_weight_fraction_leaf,
+                         max_features=max_features,
+                         random_state=random_state,
+                         min_impurity_decrease=min_impurity_decrease,
+                         min_balancedness_tol=min_balancedness_tol,
+                         honest=honest)
 
-    def get_depth(self):
-        """Return the depth of the decision tree.
-        The depth of a tree is the maximum distance between the root
-        and any leaf.
+    def _get_valid_criteria(self):
+        return CRITERIA_POLICY
 
-        Returns
-        -------
-        self.tree_.max_depth : int
-            The maximum depth of the tree.
-        """
-        check_is_fitted(self)
-        return self.tree_.max_depth
-
-    def get_n_leaves(self):
-        """Return the number of leaves of the decision tree.
-
-        Returns
-        -------
-        self.tree_.n_leaves : int
-            Number of leaves.
-        """
-        check_is_fitted(self)
-        return self.tree_.n_leaves
+    def _get_store_jac(self):
+        return False
 
     def init(self,):
         return self
@@ -242,194 +217,18 @@ class PolicyTree(_SingleTreeExporterMixin, BaseEstimator):
         """
 
         self.random_seed_ = self.random_state
-        random_state = check_random_state(self.random_seed_)
-
-        # Determine output settings
+        self.random_state_ = check_random_state(self.random_seed_)
         if check_input:
             X, y = check_X_y(X, y, multi_output=True, y_numeric=True)
-        n_samples, self.n_features_ = X.shape
-        self.n_outputs_ = 1 if y.ndim == 1 else y.shape[1]
-        self.n_samples_ = n_samples
-        self.honest_ = self.honest
+        n_y = 1 if y.ndim == 1 else y.shape[1]
+        super().fit(X, y, n_y, n_y, n_y,
+                    sample_weight=sample_weight, check_input=check_input)
 
-        # Important: This must be the first invocation of the random state at fit time, so that
-        # train/test splits are re-generatable from an external object simply by knowing the
-        # random_state parameter of the tree.
-        inds = np.arange(n_samples, dtype=np.intp)
-        if self.honest:
-            random_state.shuffle(inds)
-            samples_train, samples_val = inds[:n_samples // 2], inds[n_samples // 2:]
-        else:
-            samples_train, samples_val = inds, inds
-
-        if check_input:
-            if getattr(y, "dtype", None) != DOUBLE or not y.flags.contiguous:
-                y = np.ascontiguousarray(y, dtype=DOUBLE)
-            y = np.atleast_1d(y)
-            if y.ndim == 1:
-                # reshape is necessary to preserve the data contiguity against vs
-                # [:, np.newaxis] that does not.
-                y = np.reshape(y, (-1, 1))
-            if len(y) != n_samples:
-                raise ValueError("Number of labels=%d does not match "
-                                 "number of samples=%d" % (len(y), n_samples))
-
-            if (sample_weight is not None):
-                sample_weight = _check_sample_weight(sample_weight, X, DOUBLE)
-
-        # Check parameters
-        max_depth = (np.iinfo(np.int32).max if self.max_depth is None
-                     else self.max_depth)
-
-        if isinstance(self.min_samples_leaf, numbers.Integral):
-            if not 1 <= self.min_samples_leaf:
-                raise ValueError("min_samples_leaf must be at least 1 "
-                                 "or in (0, 0.5], got %s"
-                                 % self.min_samples_leaf)
-            min_samples_leaf = self.min_samples_leaf
-        else:  # float
-            if not 0. < self.min_samples_leaf <= 0.5:
-                raise ValueError("min_samples_leaf must be at least 1 "
-                                 "or in (0, 0.5], got %s"
-                                 % self.min_samples_leaf)
-            min_samples_leaf = int(ceil(self.min_samples_leaf * n_samples))
-
-        if isinstance(self.min_samples_split, numbers.Integral):
-            if not 2 <= self.min_samples_split:
-                raise ValueError("min_samples_split must be an integer "
-                                 "greater than 1 or a float in (0.0, 1.0]; "
-                                 "got the integer %s"
-                                 % self.min_samples_split)
-            min_samples_split = self.min_samples_split
-        else:  # float
-            if not 0. < self.min_samples_split <= 1.:
-                raise ValueError("min_samples_split must be an integer "
-                                 "greater than 1 or a float in (0.0, 1.0]; "
-                                 "got the float %s"
-                                 % self.min_samples_split)
-            min_samples_split = int(ceil(self.min_samples_split * n_samples))
-            min_samples_split = max(2, min_samples_split)
-
-        min_samples_split = max(min_samples_split, 2 * min_samples_leaf)
-
-        if isinstance(self.max_features, str):
-            if self.max_features == "auto":
-                max_features = self.n_features_
-            elif self.max_features == "sqrt":
-                max_features = max(1, int(np.sqrt(self.n_features_)))
-            elif self.max_features == "log2":
-                max_features = max(1, int(np.log2(self.n_features_)))
-            else:
-                raise ValueError("Invalid value for max_features. "
-                                 "Allowed string values are 'auto', "
-                                 "'sqrt' or 'log2'.")
-        elif self.max_features is None:
-            max_features = self.n_features_
-        elif isinstance(self.max_features, numbers.Integral):
-            max_features = self.max_features
-        else:  # float
-            if self.max_features > 0.0:
-                max_features = max(1,
-                                   int(self.max_features * self.n_features_))
-            else:
-                max_features = 0
-
-        self.max_features_ = max_features
-
-        if not 0 <= self.min_weight_fraction_leaf <= 0.5:
-            raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
-        if max_depth < 0:
-            raise ValueError("max_depth must be greater than or equal to zero. ")
-        if not (0 < max_features <= self.n_features_):
-            raise ValueError("max_features must be in (0, n_features]")
-        if not 0 <= self.min_balancedness_tol <= 0.5:
-            raise ValueError("min_balancedness_tol must be in [0, 0.5]")
-
-        # Set min_weight_leaf from min_weight_fraction_leaf
-        if sample_weight is None:
-            min_weight_leaf = (self.min_weight_fraction_leaf *
-                               n_samples)
-        else:
-            min_weight_leaf = (self.min_weight_fraction_leaf *
-                               np.sum(sample_weight))
-
-        # Build tree
-
-        # We calculate the maximum number of samples from each half-split that any node in the tree can
-        # hold. Used by criterion for memory space savings.
-        max_train = len(samples_train) if sample_weight is None else np.count_nonzero(sample_weight[samples_train])
-        if self.honest:
-            max_val = len(samples_val) if sample_weight is None else np.count_nonzero(sample_weight[samples_val])
-        # Initialize the criterion object and the criterion_val object if honest.
-        if self.criterion == 'neg_welfare':
-            criterion = CRITERIA_POLICY['neg_welfare'](
-                self.n_outputs_, self.n_outputs_, self.n_features_, self.n_outputs_, n_samples, max_train,
-                random_state.randint(np.iinfo(np.int32).max))
-            if self.honest:
-                criterion_val = CRITERIA_POLICY['neg_welfare'](
-                    self.n_outputs_, self.n_outputs_, self.n_features_, self.n_outputs_, n_samples, max_val,
-                    random_state.randint(np.iinfo(np.int32).max))
-            else:
-                criterion_val = criterion
-        else:
-            raise ValueError("Only `criterion='neg_welfare'` is currently supported.")
-
-        splitter = self.splitter
-        if not isinstance(self.splitter, Splitter):
-            splitter = SPLITTERS[self.splitter](criterion, criterion_val,
-                                                self.max_features_,
-                                                min_samples_leaf,
-                                                min_weight_leaf,
-                                                self.min_balancedness_tol,
-                                                self.honest,
-                                                -1.0,
-                                                False,
-                                                random_state.randint(np.iinfo(np.int32).max))
-
-        self.tree_ = Tree(self.n_features_, self.n_outputs_, self.n_outputs_, store_jac=False)
-
-        builder = DepthFirstTreeBuilder(splitter, min_samples_split,
-                                        min_samples_leaf,
-                                        min_weight_leaf,
-                                        max_depth,
-                                        self.min_impurity_decrease)
-        builder.build(self.tree_, X, y, samples_train, samples_val,
-                      sample_weight=sample_weight,
-                      store_jac=False)
-
+        # The values below are required and utilitized by methods in the _SingleTreeExporterMixin
         self.tree_model_ = self
         self.policy_value_ = np.mean(np.max(self.predict_value(X), axis=1))
         self.always_treat_value_ = np.mean(y, axis=0)
         return self
-
-    def _validate_X_predict(self, X, check_input):
-        """Validate X whenever one tries to predict, apply, or any other of the prediction
-        related methods. """
-        if check_input:
-            X = check_array(X, dtype=DTYPE, accept_sparse=False)
-
-        n_features = X.shape[1]
-        if self.n_features_ != n_features:
-            raise ValueError("Number of features of the model must "
-                             "match the input. Model n_features is %s and "
-                             "input n_features is %s "
-                             % (self.n_features_, n_features))
-
-        return X
-
-    def get_train_test_split_inds(self,):
-        """ Regenerate the train_test_split of input sample indices that was used for the training
-        and the evaluation split of the honest tree construction structure. Uses the same random seed
-        that was used at ``fit`` time and re-generates the indices.
-        """
-        check_is_fitted(self)
-        random_state = check_random_state(self.random_seed_)
-        inds = np.arange(self.n_samples_, dtype=np.intp)
-        if self.honest_:
-            random_state.shuffle(inds)
-            return inds[:self.n_samples_ // 2], inds[self.n_samples_ // 2:]
-        else:
-            return inds, inds
 
     def predict(self, X, check_input=True):
         """
@@ -470,51 +269,6 @@ class PolicyTree(_SingleTreeExporterMixin, BaseEstimator):
         X = self._validate_X_predict(X, check_input)
         pred = self.tree_.predict(X)
         return pred
-
-    def apply(self, X, check_input=True):
-        """Return the index of the leaf that each sample is predicted as.
-
-        Parameters
-        ----------
-        X : {array-like} of shape (n_samples, n_features)
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float64``
-        check_input : bool, default=True
-            Allow to bypass several input checking.
-            Don't use this parameter unless you know what you do.
-
-        Returns
-        -------
-        X_leaves : array-like of shape (n_samples,)
-            For each datapoint x in X, return the index of the leaf x
-            ends up in. Leaves are numbered within
-            ``[0; self.tree_.node_count)``, possibly with gaps in the
-            numbering.
-        """
-        check_is_fitted(self)
-        X = self._validate_X_predict(X, check_input)
-        return self.tree_.apply(X)
-
-    def decision_path(self, X, check_input=True):
-        """Return the decision path in the tree.
-
-        Parameters
-        ----------
-        X : {array-like} of shape (n_samples, n_features)
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float64``
-        check_input : bool, default=True
-            Allow to bypass several input checking.
-            Don't use this parameter unless you know what you do.
-
-        Returns
-        -------
-        indicator : sparse matrix of shape (n_samples, n_nodes)
-            Return a node indicator CSR matrix where non zero elements
-            indicates that the samples goes through the nodes.
-        """
-        X = self._validate_X_predict(X, check_input)
-        return self.tree_.decision_path(X)
 
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
