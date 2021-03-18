@@ -1523,7 +1523,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
     @property
     def criterion(self):
-        return self.criterion
+        return "mse"
 
     @criterion.setter
     def criterion(self, value):
@@ -1533,7 +1533,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
     @property
     def max_leaf_nodes(self):
-        return self.max_leaf_nodes
+        return None
 
     @max_leaf_nodes.setter
     def max_leaf_nodes(self, value):

@@ -5,7 +5,7 @@ import numpy as np
 import unittest
 from econml.dml import LinearDML, CausalForestDML
 from econml.orf import DROrthoForest
-from econml.dr import DRLearner
+from econml.dr import DRLearner, ForestDRLearner
 from econml.metalearners import XLearner
 from econml.iv.dml import DMLATEIV
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
@@ -33,6 +33,7 @@ class TestDowhy(unittest.TestCase):
                                    linear_first_stages=False),
                   "dr": DRLearner(model_propensity=clf(), model_regression=reg(),
                                   model_final=reg()),
+                  "forestdr": ForestDRLearner(model_propensity=clf(), model_regression=reg()),
                   "xlearner": XLearner(models=reg(), cate_models=reg(), propensity_model=clf()),
                   "cfdml": CausalForestDML(model_y=reg(), model_t=clf(), discrete_treatment=True),
                   "orf": DROrthoForest(n_trees=10, propensity_model=clf(), model_Y=reg()),
