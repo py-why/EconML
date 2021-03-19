@@ -176,7 +176,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
     .. math ::
         V(\\pi) = \\sum_i \\sum_t \\pi_t(X_i) * (Y_{i, t} - Y_{i, 0})
 
-    with the constraint that only one of :math:`\pi_t(X_i)` is 1 and the rest are 0, for each :math:`X_i`.
+    with the constraint that only one of :math:`\\pi_t(X_i)` is 1 and the rest are 0, for each :math:`X_i`.
 
     Thus if we estimate the nuisance functions :math:`h(X, W, T) = E[Y | X, W, T]` and
     :math:`p_t(X, W)=Pr[T=t | X, W]` in the first stage, we can estimate the final stage cate for each
@@ -447,11 +447,11 @@ class DRPolicyForest(_BaseDRPolicyLearner):
     .. math ::
         V(\\pi) = \\sum_i \\sum_t \\pi_t(X_i) * (Y_{i, t} - Y_{i, 0})
 
-    with the constraint that only one of :math:`\pi_t(X_i)` is 1 and the rest are 0, for each :math:`X_i`.
+    with the constraint that only one of :math:`\\pi_t(X_i)` is 1 and the rest are 0, for each :math:`X_i`.
 
     Thus if we estimate the nuisance functions :math:`h(X, W, T) = E[Y | X, W, T]` and
     :math:`p_t(X, W)=Pr[T=t | X, W]` in the first stage, we can estimate the final stage cate for each
-    treatment t, by running a constructing a decision tree that maximizes the objective :math:`V(\pi)`
+    treatment t, by running a constructing a decision tree that maximizes the objective :math:`V(\\pi)`
 
     The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
     problem of predicting the label :math:`T` from :math:`X, W`. The :class:`.DRLearner`
