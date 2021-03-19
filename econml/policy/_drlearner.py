@@ -88,7 +88,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
-            The training input samples. 
+            The training input samples.
 
         Returns
         -------
@@ -104,7 +104,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
-            The training input samples. 
+            The training input samples.
 
         Returns
         -------
@@ -162,7 +162,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
 class DRPolicyTree(_BaseDRPolicyLearner):
     """
     Policy learner that uses doubly-robust correction techniques to account for
-    covariate shift (selection bias) between the treatment arms. 
+    covariate shift (selection bias) between the treatment arms.
 
     In this estimator, the policy is estimated by first constructing doubly robust estimates of the counterfactual
     outcomes
@@ -174,13 +174,13 @@ class DRPolicyTree(_BaseDRPolicyLearner):
     Then optimizing the objective
 
     .. math ::
-        V(\pi) = sum_i \sum_t \pi_t(X_i) * (Y_{i, t} - Y_{i, 0})
+        V(\\pi) = \\sum_i \\sum_t \\pi_t(X_i) * (Y_{i, t} - Y_{i, 0})
 
     with the constraint that only one of :math:`\pi_t(X_i)` is 1 and the rest are 0, for each :math:`X_i`.
 
     Thus if we estimate the nuisance functions :math:`h(X, W, T) = E[Y | X, W, T]` and
     :math:`p_t(X, W)=Pr[T=t | X, W]` in the first stage, we can estimate the final stage cate for each
-    treatment t, by running a constructing a decision tree that maximizes the objective :math:`V(\pi)`
+    treatment t, by running a constructing a decision tree that maximizes the objective :math:`V(\\pi)`
 
     The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
     problem of predicting the label :math:`T` from :math:`X, W`. The :class:`.DRLearner`
@@ -433,7 +433,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 class DRPolicyForest(_BaseDRPolicyLearner):
     """
     Policy learner that uses doubly-robust correction techniques to account for
-    covariate shift (selection bias) between the treatment arms. 
+    covariate shift (selection bias) between the treatment arms.
 
     In this estimator, the policy is estimated by first constructing doubly robust estimates of the counterfactual
     outcomes
@@ -445,7 +445,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
     Then optimizing the objective
 
     .. math ::
-        V(\pi) = sum_i \sum_t \pi_t(X_i) * (Y_{i, t} - Y_{i, 0})
+        V(\\pi) = \\sum_i \\sum_t \\pi_t(X_i) * (Y_{i, t} - Y_{i, 0})
 
     with the constraint that only one of :math:`\pi_t(X_i)` is 1 and the rest are 0, for each :math:`X_i`.
 
