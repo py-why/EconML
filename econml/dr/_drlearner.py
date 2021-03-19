@@ -569,13 +569,7 @@ class DRLearner(_OrthoLearner):
             monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        models_propensity = []
-        for mdls in super().models_nuisance_:
-            models_propensity_eachmc = []
-            for mdl in mdls:
-                models_propensity_eachmc.append(mdl._model_propensity)
-            models_propensity.append(models_propensity_eachmc)
-        return models_propensity
+        return [[mdl._model_propensity for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_regression(self):
@@ -589,13 +583,7 @@ class DRLearner(_OrthoLearner):
             monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        models_regression = []
-        for mdls in super().models_nuisance_:
-            models_regression_eachmc = []
-            for mdl in mdls:
-                models_regression_eachmc.append(mdl._model_regression)
-            models_regression.append(models_regression_eachmc)
-        return models_regression
+        return [[mdl._model_regression for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_propensity(self):

@@ -403,23 +403,11 @@ class _RLearner(_OrthoLearner):
 
     @property
     def models_y(self):
-        models_y = []
-        for mdls in super().models_nuisance_:
-            models_y_eachmc = []
-            for mdl in mdls:
-                models_y_eachmc.append(mdl._model_y)
-            models_y.append(models_y_eachmc)
-        return models_y
+        return [[mdl._model_y for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t(self):
-        models_t = []
-        for mdls in super().models_nuisance_:
-            models_t_eachmc = []
-            for mdl in mdls:
-                models_t_eachmc.append(mdl._model_t)
-            models_t.append(models_t_eachmc)
-        return models_t
+        return [[mdl._model_t for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_y(self):

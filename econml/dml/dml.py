@@ -243,13 +243,7 @@ class _BaseDML(_RLearner):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        models_y = []
-        for mdls in super().models_y:
-            models_y_eachmc = []
-            for mdl in mdls:
-                models_y_eachmc.append(mdl._model)
-            models_y.append(models_y_eachmc)
-        return models_y
+        return [[mdl._model for mdl in mdls] for mdls in super().models_y]
 
     @property
     def models_t(self):
@@ -263,13 +257,7 @@ class _BaseDML(_RLearner):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        models_t = []
-        for mdls in super().models_t:
-            models_t_eachmc = []
-            for mdl in mdls:
-                models_t_eachmc.append(mdl._model)
-            models_t.append(models_t_eachmc)
-        return models_t
+        return [[mdl._model for mdl in mdls] for mdls in super().models_t]
 
     def cate_feature_names(self, feature_names=None):
         """
