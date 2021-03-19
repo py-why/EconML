@@ -300,9 +300,9 @@ class TestOrthoIV(unittest.TestCase):
         assert isinstance(est.original_featurizer, PolynomialFeatures)
         assert isinstance(est.featurizer_, Pipeline)
         assert isinstance(est.model_final_, StatsModelsLinearRegression)
-        for mdl in est.models_Y_X:
+        for mdl in est.models_Y_X[0]:
             assert isinstance(mdl, LinearRegression)
-        for mdl in est.models_T_XZ:
+        for mdl in est.models_T_XZ[0]:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
         np.testing.assert_array_equal(est.cate_feature_names(), ['X0', 'X0^2'])
@@ -315,9 +315,9 @@ class TestOrthoIV(unittest.TestCase):
         assert est.original_featurizer is None
         assert isinstance(est.featurizer_, FunctionTransformer)
         assert isinstance(est.model_final_, StatsModelsLinearRegression)
-        for mdl in est.models_Y_X:
+        for mdl in est.models_Y_X[0]:
             assert isinstance(mdl, LinearRegression)
-        for mdl in est.models_T_XZ:
+        for mdl in est.models_T_XZ[0]:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 

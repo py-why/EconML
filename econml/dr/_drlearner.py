@@ -328,10 +328,10 @@ class DRLearner(_OrthoLearner):
     array([ 0.863723...,  0.086946..., -0.022288...])
     >>> est.cate_feature_names()
     ['X0', 'X1', 'X2']
-    >>> [mdl.coef_ for mdl in est.models_regression]
+    >>> [mdl.coef_ for mdls in est.models_regression for mdl in mdls]
     [array([ 1.472...,  0.001..., -0.011...,  0.698..., 2.049...]),
      array([ 1.455..., -0.002...,  0.005...,  0.677...,  1.998...])]
-    >>> [mdl.coef_ for mdl in est.models_propensity]
+    >>> [mdl.coef_ for mdls in est.models_propensity for mdl in mdls]
     [array([[-0.747...,  0.153..., -0.018...],
            [ 0.083..., -0.110..., -0.076...],
            [ 0.663..., -0.043... ,  0.094...]]),
@@ -564,11 +564,12 @@ class DRLearner(_OrthoLearner):
 
         Returns
         -------
-        models_propensity: list of objects of type(`model_propensity`)
-            A list of instances of the `model_propensity` object. Each element corresponds to a crossfitting
+        models_propensity: nested list of objects of type(`model_propensity`)
+            A nested list of instances of the `model_propensity` object. Number of sublist equals to number of
+            monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_propensity for mdl in super().models_nuisance_]
+        return [[mdl._model_propensity for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_regression(self):
@@ -577,11 +578,12 @@ class DRLearner(_OrthoLearner):
 
         Returns
         -------
-        model_regression: list of objects of type(`model_regression`)
-            A list of instances of the model_regression object. Each element corresponds to a crossfitting
+        model_regression: nested list of objects of type(`model_regression`)
+            A nested list of instances of the model_regression object. Number of sublist equals to number of
+            monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_regression for mdl in super().models_nuisance_]
+        return [[mdl._model_regression for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_propensity(self):
