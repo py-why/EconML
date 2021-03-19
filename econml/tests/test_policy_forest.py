@@ -62,7 +62,7 @@ class TestPolicyForest(unittest.TestCase):
         T = T.flatten()
         y = y.flatten()
         return DRPolicyForest(model_regression=DummyRegressor(strategy='constant', constant=0),
-                              model_propensity=DummyClassifier(strategy='uniform', constant=.5),
+                              model_propensity=DummyClassifier(strategy='uniform'),
                               featurizer=PolynomialFeatures(degree=1, include_bias=False),
                               cv=GroupKFold(n_splits=2),
                               **config).fit(y, T, X=X,
@@ -83,7 +83,7 @@ class TestPolicyForest(unittest.TestCase):
         T = T.flatten()
         y = y.flatten()
         return [DRPolicyTree(model_regression=DummyRegressor(strategy='constant', constant=0),
-                             model_propensity=DummyClassifier(strategy='uniform', constant=.5),
+                             model_propensity=DummyClassifier(strategy='uniform'),
                              featurizer=PolynomialFeatures(degree=1, include_bias=False),
                              cv=GroupKFold(n_splits=2),
                              **config).fit(y, T, X=X, sample_weight=sample_weight,
@@ -275,20 +275,46 @@ class TestPolicyForest(unittest.TestCase):
     def test_non_standard_input(self,):
         # test that the estimator accepts lists, tuples and pandas data frames
         n_features = 2
-        n = 100
+        n = 2000
         random_state = 123
         X, y, _ = self._get_policy_data(n, n_features, random_state)
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(X, y)
         pred = forest.predict(X)
+        pred_val = forest.predict_value(X)
+        feat_imp = forest.feature_importances()
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(X.astype(np.float32),
                                                                                np.asfortranarray(y))
         np.testing.assert_allclose(pred, forest.predict(tuple(X)))
+        np.testing.assert_allclose(pred_val, forest.predict_value(tuple(X)))
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(tuple(X), tuple(y))
         np.testing.assert_allclose(pred, forest.predict(tuple(X)))
+        np.testing.assert_allclose(pred_val, forest.predict_value(tuple(X)))
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(list(X), list(y))
         np.testing.assert_allclose(pred, forest.predict(list(X)))
+        np.testing.assert_allclose(pred_val, forest.predict_value(list(X)))
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(pd.DataFrame(X), pd.DataFrame(y))
         np.testing.assert_allclose(pred, forest.predict(pd.DataFrame(X)))
+        np.testing.assert_allclose(pred_val, forest.predict_value(pd.DataFrame(X)))
+
+        groups = np.repeat(np.arange(X.shape[0]), 2)
+        Xraw = X.copy()
+        X = np.repeat(X, 2, axis=0)
+        T = np.zeros(y.shape)
+        T[:, 1] = 1
+        T = T.flatten()
+        y = y.flatten()
+        forest = DRPolicyForest(model_regression=DummyRegressor(strategy='constant', constant=0),
+                                model_propensity=DummyClassifier(strategy='uniform'),
+                                featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                                cv=GroupKFold(n_splits=2),
+                                n_estimators=20, n_jobs=1, random_state=123).fit(y, T, X=X,
+                                                                                 groups=groups)
+        mask = np.abs(Xraw[:, 0]) > .1
+        np.testing.assert_allclose(pred[mask], forest.predict(Xraw[mask]))
+        np.testing.assert_allclose(pred_val[mask, 1] - pred_val[mask, 0],
+                                   forest.predict_value(Xraw[mask]).flatten(), atol=.08)
+        np.testing.assert_allclose(feat_imp, forest.feature_importances(), atol=1e-4)
+        np.testing.assert_allclose(feat_imp, forest.feature_importances_, atol=1e-4)
         return
 
     def test_raise_exceptions(self,):
@@ -355,6 +381,32 @@ class TestPolicyForest(unittest.TestCase):
         tree = PolicyTree(max_depth=4, random_state=123).fit(X, y)
         tree.plot(max_depth=2)
         tree.render('test', max_depth=2)
+
+        groups = np.repeat(np.arange(X.shape[0]), 2)
+        Xraw = X.copy()
+        X = np.repeat(X, 2, axis=0)
+        T = np.zeros(y.shape)
+        T[:, 1] = 1
+        T = T.flatten()
+        y = y.flatten()
+        forest = DRPolicyForest(model_regression=DummyRegressor(strategy='constant', constant=0),
+                                model_propensity=DummyClassifier(strategy='uniform'),
+                                featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                                cv=GroupKFold(n_splits=2),
+                                n_estimators=20, n_jobs=1, random_state=123).fit(y, T, X=X,
+                                                                                 groups=groups)
+        forest.plot(0, max_depth=2)
+        forest.render(0, 'testdrf', max_depth=2)
+        forest.export_graphviz(0, max_depth=2)
+
+        tree = DRPolicyTree(model_regression=DummyRegressor(strategy='constant', constant=0),
+                            model_propensity=DummyClassifier(strategy='uniform'),
+                            featurizer=PolynomialFeatures(degree=1, include_bias=False),
+                            cv=GroupKFold(n_splits=2), random_state=123).fit(y, T, X=X,
+                                                                             groups=groups)
+        tree.plot(max_depth=2)
+        tree.render('testdrt', max_depth=2)
+        tree.export_graphviz(max_depth=2)
 
     def test_pickling(self,):
 

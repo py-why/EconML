@@ -57,9 +57,35 @@ class _BaseDRPolicyLearner(PolicyLearner):
         return self
 
     def predict_value(self, X):
+        """ Get effect values for each non-baseline treatment and for each sample.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The training input samples. 
+
+        Returns
+        -------
+        values : array-like of shape (n_samples, n_treatments - 1)
+            The predicted average value for each sample and for each non-baseline treatment, as compared
+            to the baseline treatment value and based on the feature neighborhoods defined by the trees.
+        """
         return self.drlearner_.const_marginal_effect(X)
 
     def predict(self, X):
+        """ Get recommended treatment for each sample.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The training input samples. 
+
+        Returns
+        -------
+        treatment : array-like of shape (n_samples,)
+            The index of the recommended treatment in the same order as in categories, or in
+            lexicographic order if `categories='auto'`.
+        """
         values = self.predict_value(X)
         return np.argmax(np.hstack([np.zeros((values.shape[0], 1)), values]), axis=1)
 
@@ -121,7 +147,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
                  mc_iters=None,
                  mc_agg='mean',
                  max_depth=None,
-                 min_samples_split=5,
+                 min_samples_split=10,
                  min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
                  max_features="auto",
@@ -203,12 +229,12 @@ class DRPolicyForest(_BaseDRPolicyLearner):
                  mc_agg='mean',
                  n_estimators=1000,
                  max_depth=None,
-                 min_samples_split=5,
+                 min_samples_split=10,
                  min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
                  max_features="auto",
                  min_impurity_decrease=0.,
-                 max_samples=.45,
+                 max_samples=.5,
                  min_balancedness_tol=.45,
                  honest=True,
                  n_jobs=-1,
