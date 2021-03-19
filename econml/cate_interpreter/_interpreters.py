@@ -145,6 +145,23 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         self.min_impurity_decrease = min_impurity_decrease
 
     def interpret(self, cate_estimator, X):
+        """
+        Interpret the heterogeneity of a CATE estimator when applied to a set of features
+
+        Parameters
+        ----------
+        cate_estimator : :class:`.LinearCateEstimator`
+            The fitted estimator to interpret
+
+        X : array-like
+            The features against which to interpret the estimator;
+            must be compatible shape-wise with the features used to fit
+            the estimator
+
+        Returns
+        -------
+        self: object instance
+        """
         self.tree_model_ = DecisionTreeRegressor(criterion=self.criterion,
                                                  splitter=self.splitter,
                                                  max_depth=self.max_depth,
@@ -241,10 +258,34 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
+    max_features : int, float or {"auto", "sqrt", "log2"}, default=None
+        The number of features to consider when looking for the best split:
+
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a fraction and
+          `int(max_features * n_features)` features are considered at each
+          split.
+        - If "auto", then `max_features=n_features`.
+        - If "sqrt", then `max_features=sqrt(n_features)`.
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
+
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+
     min_weight_fraction_leaf : float, optional, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
+
+    min_balancedness_tol: float in [0, .5], default=.45
+        How imbalanced a split we can tolerate. This enforces that each split leaves at least
+        (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
+        of the total weight of samples, when sample_weight is not None. Default value, ensures
+        that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
+        balancedness and to .5 for perfectly balanced splits. For the formal inference theory
+        to be valid, this has to be any positive constant bounded away from zero.
 
     min_impurity_decrease : float, optional, default 0.
         A node will be split if this split induces a decrease of the impurity
@@ -315,10 +356,12 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
             the estimator
 
         sample_treatment_costs : array-like, optional
-            The cost of treatment.  Can be a scalar or a variable cost with the same number of rows as ``X``
+            The cost of treatment.  Can be a scalar or have dimension (n_samples, n_treatments)
+            or (n_samples,) if T is a vector
 
-        treatment_names : list of string, optional
-            The names of the treatments (excluding the control/baseline treatment)
+        Returns
+        -------
+        self: object instance
         """
         X = check_array(X)
         self.tree_model_ = PolicyTree(criterion='neg_welfare',
