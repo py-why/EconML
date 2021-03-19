@@ -632,25 +632,28 @@ class TestGRFPython(unittest.TestCase):
 
     def test_warm_start(self,):
         n_features = 2
-        n = 10
+        n = 100
         random_state = 123
         X, y, _ = self._get_regression_data(n, n_features, random_state)
 
-        forest = RegressionForest(n_estimators=4, warm_start=True, random_state=123).fit(X, y)
-        forest.n_estimators = 8
-        forest.fit(X, y)
-        pred1 = forest.predict(X)
-        inds1 = forest.get_subsample_inds()
-        tree_states1 = [t.random_state for t in forest]
+        for inference in [True, False]:
+            forest = RegressionForest(n_estimators=4, inference=inference,
+                                      warm_start=True, random_state=123).fit(X, y)
+            forest.n_estimators = 8
+            forest.fit(X, y)
+            pred1 = forest.predict(X)
+            inds1 = forest.get_subsample_inds()
+            tree_states1 = [t.random_state for t in forest]
 
-        forest = RegressionForest(n_estimators=8, warm_start=True, random_state=123).fit(X, y)
-        pred2 = forest.predict(X)
-        inds2 = forest.get_subsample_inds()
-        tree_states2 = [t.random_state for t in forest]
+            forest = RegressionForest(n_estimators=8, inference=inference,
+                                      warm_start=True, random_state=123).fit(X, y)
+            pred2 = forest.predict(X)
+            inds2 = forest.get_subsample_inds()
+            tree_states2 = [t.random_state for t in forest]
 
-        np.testing.assert_allclose(pred1, pred2)
-        np.testing.assert_allclose(inds1, inds2)
-        np.testing.assert_allclose(tree_states1, tree_states2)
+            np.testing.assert_allclose(pred1, pred2)
+            np.testing.assert_allclose(inds1, inds2)
+            np.testing.assert_allclose(tree_states1, tree_states2)
         return
 
     def test_multioutput(self,):

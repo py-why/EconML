@@ -211,7 +211,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         elif n_more_estimators == 0:
             warn("Warm-start fitting without increasing n_estimators does not "
-                 "fit new trees.")
+                 "fit new trees.", UserWarning)
         else:
 
             if self.warm_start and len(self.estimators_) > 0:
@@ -227,7 +227,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
                 # Advancing subsample_random_state. Assumes each prior fit call has the same number of
                 # samples at fit time. If not then this would not exactly replicate a single batch execution,
                 # but would still advance randomness enough so that tree subsamples will be different.
-                for _, n_, ns_ in range(len(self.estimators_), self.n_samples_, self.n_samples_subsample_):
+                for _, n_, ns_ in zip(range(len(self.estimators_)), self.n_samples_, self.n_samples_subsample_):
                     subsample_random_state.choice(n_, ns_, replace=False)
             s_inds = [subsample_random_state.choice(n_samples, n_samples_subsample, replace=False)
                       for _ in range(n_more_estimators)]

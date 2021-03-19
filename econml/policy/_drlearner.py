@@ -95,15 +95,15 @@ class _BaseDRPolicyLearner(PolicyLearner):
         feature_importances_ : ndarray of shape (n_features,)
             Normalized total parameter heterogeneity inducing importance of each feature
         """
-        return self.policy_model.feature_importances(max_depth=max_depth,
-                                                     depth_decay_exponent=depth_decay_exponent)
+        return self.policy_model_.feature_importances(max_depth=max_depth,
+                                                      depth_decay_exponent=depth_decay_exponent)
 
     @property
     def feature_importances_(self):
         return self.feature_importances()
 
     @property
-    def policy_model(self):
+    def policy_model_(self):
         return self.drlearner_.multitask_model_cate
 
 
@@ -169,22 +169,22 @@ class DRPolicyTree(_BaseDRPolicyLearner):
                                  random_state=self.random_state)
 
     def plot(self, *, feature_names=None, treatment_names=None, **kwargs):
-        return self.policy_model.plot(feature_names=self.policy_feature_names(feature_names=feature_names),
-                                      treatment_names=treatment_names,
-                                      **kwargs)
+        return self.policy_model_.plot(feature_names=self.policy_feature_names(feature_names=feature_names),
+                                       treatment_names=treatment_names,
+                                       **kwargs)
     plot.__doc__ = _SingleTreeExporterMixin.plot.__doc__
 
     def export_graphviz(self, *, feature_names=None, treatment_names=None, **kwargs):
-        return self.policy_model.export_graphviz(feature_names=self.policy_feature_names(feature_names=feature_names),
-                                                 treatment_names=treatment_names,
-                                                 **kwargs)
+        return self.policy_model_.export_graphviz(feature_names=self.policy_feature_names(feature_names=feature_names),
+                                                  treatment_names=treatment_names,
+                                                  **kwargs)
     export_graphviz.__doc__ = _SingleTreeExporterMixin.export_graphviz.__doc__
 
     def render(self, out_file, *, feature_names=None, treatment_names=None, **kwargs):
-        return self.policy_model.render(out_file,
-                                        feature_names=self.policy_feature_names(feature_names=feature_names),
-                                        treatment_names=treatment_names,
-                                        **kwargs)
+        return self.policy_model_.render(out_file,
+                                         feature_names=self.policy_feature_names(feature_names=feature_names),
+                                         treatment_names=treatment_names,
+                                         **kwargs)
     render.__doc__ = _SingleTreeExporterMixin.render.__doc__
 
 
@@ -299,9 +299,9 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         fontsize : int, optional, default None
             Font size for text
         """
-        return self.policy_model[tree_id].plot(feature_names=self.policy_feature_names(feature_names=feature_names),
-                                               treatment_names=treatment_names,
-                                               **kwargs)
+        return self.policy_model_[tree_id].plot(feature_names=self.policy_feature_names(feature_names=feature_names),
+                                                treatment_names=treatment_names,
+                                                **kwargs)
 
     def export_graphviz(self, tree_id, *, feature_names=None, treatment_names=None, **kwargs):
         """
@@ -351,9 +351,9 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             impurity, threshold and value attributes of each node.
         """
         feature_names = self.policy_feature_names(feature_names=feature_names)
-        return self.policy_model[tree_id].export_graphviz(feature_names=feature_names,
-                                                          treatment_names=treatment_names,
-                                                          **kwargs)
+        return self.policy_model_[tree_id].export_graphviz(feature_names=feature_names,
+                                                           treatment_names=treatment_names,
+                                                           **kwargs)
 
     def render(self, tree_id, out_file, *, feature_names=None, treatment_names=None, **kwargs):
         """
@@ -407,7 +407,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             impurity, threshold and value attributes of each node.
         """
         feature_names = self.policy_feature_names(feature_names=feature_names)
-        return self.policy_model[tree_id].render(out_file,
-                                                 feature_names=feature_names,
-                                                 treatment_names=treatment_names,
-                                                 **kwargs)
+        return self.policy_model_[tree_id].render(out_file,
+                                                  feature_names=feature_names,
+                                                  treatment_names=treatment_names,
+                                                  **kwargs)
