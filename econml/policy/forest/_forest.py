@@ -34,7 +34,114 @@ MAX_INT = np.iinfo(np.int32).max
 
 
 class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
-    """ TODO Enable inference on `predict_value` with leaf-wise normality
+    """ TODO Enable inference on `predict_value` with BLB
+
+    Parameters
+    ----------
+    n_estimators : integer, optional (default=100)
+        The total number of trees in the forest. The forest consists of a
+        forest of sqrt(n_estimators) sub-forests, where each sub-forest
+        contains sqrt(n_estimators) trees.
+
+    criterion : {``'neg_welfare'``}, default='neg_welfare'
+        The criterion type
+
+    splitter : {"best"}, default="best"
+        The strategy used to choose the split at each node. Supported
+        strategies are "best" to choose the best split.
+
+    max_depth : int, default=None
+        The maximum depth of the tree. If None, then nodes are expanded until
+        all leaves are pure or until all leaves contain less than
+        min_samples_split samples.
+
+    min_samples_split : int or float, default=10
+        The minimum number of samples required to split an internal node:
+
+        - If int, then consider `min_samples_split` as the minimum number.
+        - If float, then `min_samples_split` is a fraction and
+          `ceil(min_samples_split * n_samples)` are the minimum
+          number of samples for each split.
+
+    min_samples_leaf : int or float, default=5
+        The minimum number of samples required to be at a leaf node.
+        A split point at any depth will only be considered if it leaves at
+        least ``min_samples_leaf`` training samples in each of the left and
+        right branches.  This may have the effect of smoothing the model,
+        especially in regression.
+
+        - If int, then consider `min_samples_leaf` as the minimum number.
+        - If float, then `min_samples_leaf` is a fraction and
+          `ceil(min_samples_leaf * n_samples)` are the minimum
+          number of samples for each node.
+
+    min_weight_fraction_leaf : float, default=0.0
+        The minimum weighted fraction of the sum total of weights (of all
+        the input samples) required to be at a leaf node. Samples have
+        equal weight when sample_weight is not provided.
+
+    max_features : int, float or {"auto", "sqrt", "log2"}, default=None
+        The number of features to consider when looking for the best split:
+
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a fraction and
+          `int(max_features * n_features)` features are considered at each
+          split.
+        - If "auto", then `max_features=n_features`.
+        - If "sqrt", then `max_features=sqrt(n_features)`.
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
+
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+
+    min_impurity_decrease : float, default=0.0
+        A node will be split if this split induces a decrease of the impurity
+        greater than or equal to this value.
+        The weighted impurity decrease equation is the following::
+
+            N_t / N * (impurity - N_t_R / N_t * right_impurity
+                                - N_t_L / N_t * left_impurity)
+
+        where ``N`` is the total number of samples, ``N_t`` is the number of
+        samples at the current node, ``N_t_L`` is the number of samples in the
+        left child, and ``N_t_R`` is the number of samples in the right child.
+        ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
+        if ``sample_weight`` is passed.
+
+    min_balancedness_tol: float in [0, .5], default=.45
+        How imbalanced a split we can tolerate. This enforces that each split leaves at least
+        (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
+        of the total weight of samples, when sample_weight is not None. Default value, ensures
+        that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
+        balancedness and to .5 for perfectly balanced splits. For the formal inference theory
+        to be valid, this has to be any positive constant bounded away from zero.
+
+    honest: bool, default=True
+        Whether the data should be split in two equally sized samples, such that the one half-sample
+        is used to determine the optimal split at each node and the other sample is used to determine
+        the value of every node.
+
+    n_jobs : int or None, optional (default=-1)
+        The number of jobs to run in parallel for both `fit` and `predict`.
+        ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
+        ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
+        for more details.
+
+    verbose : int, optional (default=0)
+        Controls the verbosity when fitting and predicting.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
+
+    warm_start : bool, default=False
+        When set to ``True``, reuse the solution of the previous call to fit
+        and add more estimators to the ensemble, otherwise, just fit a whole
+        new forest.
     """
 
     def __init__(self,

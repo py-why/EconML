@@ -1312,11 +1312,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    max_leaf_nodes : int or None, optional (default=None)
-        Grow trees with ``max_leaf_nodes`` in best-first fashion.
-        Best nodes are defined as relative reduction in impurity.
-        If None then unlimited number of leaf nodes.
-
     min_impurity_decrease : float, optional (default=0.)
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
@@ -1333,22 +1328,31 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    subsample_fr : float or 'auto', optional (default='auto')
-        The fraction of the half-samples that are used on each tree. Each tree
-        will be built on subsample_fr * n_samples/2.
+    max_samples : int or float in (0, .5], default=.45,
+        The number of samples to use for each subsample that is used to train each tree:
 
-        If 'auto', then the subsampling fraction is set to::
+        - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
+        - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
+          from all the samples.
 
-            (n_samples/2)**(1-1/(2*n_features+2))/(n_samples/2)
-
-        which is sufficient to guarantee asympotitcally valid inference.
+    min_balancedness_tol: float in [0, .5], default=.45
+        How imbalanced a split we can tolerate. This enforces that each split leaves at least
+        (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
+        of the total weight of samples, when sample_weight is not None. Default value, ensures
+        that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
+        balancedness and to .5 for perfectly balanced splits. For the formal inference theory
+        to be valid, this has to be any positive constant bounded away from zero.
 
     honest : boolean, optional (default=True)
         Whether to use honest trees, i.e. half of the samples are used for
         creating the tree structure and the other half for the estimation at
         the leafs. If False, then all samples are used for both parts.
 
-    n_jobs : int or None, optional (default=None)
+    subforest_size : int, default=4,
+        The number of trees in each sub-forest that is used in the bootstrap-of-little-bags calculation.
+        The parameter `n_estimators` must be divisible by `subforest_size`. Should typically be a small constant.
+
+    n_jobs : int or None, optional (default=-1)
         The number of jobs to run in parallel for both `fit` and `predict`.
         ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`

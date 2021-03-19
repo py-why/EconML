@@ -50,8 +50,34 @@ class _DRLearnerWrapper(DRLearner):
 
 class _BaseDRPolicyLearner(PolicyLearner):
 
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
-        Y, T, X, W = check_inputs(Y, T, X, W=W, multi_output_T=True, multi_output_Y=False)
+    def _gen_drpolicy_learner(self):
+        pass
+
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None):
+        """
+        Estimate a policy model from data.
+
+        Parameters
+        ----------
+        Y: (n,) vector of length n
+            Outcomes for each sample
+        T: (n,) vector of length n
+            Treatments for each sample
+        X: optional(n, d_x) matrix or None (Default=None)
+            Features for each sample
+        W: optional(n, d_w) matrix or None (Default=None)
+            Controls for each sample
+        sample_weight: optional(n,) vector or None (Default=None)
+            Weights for each samples
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the `cv` argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+
+        Returns
+        -------
+        self: object instance
+        """
         self.drlearner_ = self._gen_drpolicy_learner()
         self.drlearner_.fit(Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups)
         return self
@@ -134,7 +160,197 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
 
 class DRPolicyTree(_BaseDRPolicyLearner):
-    """ TODO Enable inference on `predict_value` with leaf-wise normality
+    """
+    Policy learner that uses doubly-robust correction techniques to account for
+    covariate shift (selection bias) between the treatment arms. 
+
+    In this estimator, the policy is estimated by first constructing doubly robust estimates of the counterfactual
+    outcomes
+
+    .. math ::
+        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i=t]\
+            + \\frac{Y_i - E[Y | X_i, W_i, T_i=t]}{Pr[T_i=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
+
+    Then optimizing the objective
+
+    .. math ::
+        V(\pi) = sum_i \sum_t \pi_t(X_i) * (Y_{i, t} - Y_{i, 0})
+
+    with the constraint that only one of :math:`\pi_t(X_i)` is 1 and the rest are 0, for each :math:`X_i`.
+
+    Thus if we estimate the nuisance functions :math:`h(X, W, T) = E[Y | X, W, T]` and
+    :math:`p_t(X, W)=Pr[T=t | X, W]` in the first stage, we can estimate the final stage cate for each
+    treatment t, by running a constructing a decision tree that maximizes the objective :math:`V(\pi)`
+
+    The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
+    problem of predicting the label :math:`T` from :math:`X, W`. The :class:`.DRLearner`
+    class takes as input the parameter ``model_propensity``, which is an arbitrary scikit-learn
+    classifier, that is internally used to solve this classification problem.
+
+    The second nuisance function :math:`h` is a simple regression problem and the :class:`.DRLearner`
+    class takes as input the parameter ``model_regressor``, which is an arbitrary scikit-learn regressor that
+    is internally used to solve this regression problem.
+
+    Parameters
+    ----------
+    model_propensity : scikit-learn classifier or 'auto', optional (default='auto')
+        Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
+        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
+        where T is a shape (n, ) array.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
+
+    model_regression : scikit-learn regressor or 'auto', optional (default='auto')
+        Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
+        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
+        `predict` methods. If different models per treatment arm are desired, see the
+        :class:`.MultiModelWrapper` helper class.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+
+    model_final :
+        estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
+        on (features X).
+
+        - If X is None, then the fit method of model_final should be able to handle X=None.
+        - If featurizer is not None and X is not None, then it is trained on the outcome of
+          featurizer.fit_transform(X).
+        - If multitask_model_final is True, then this model must support multitasking
+          and it is trained by regressing all doubly robust target outcomes on (featurized) features simultanteously.
+        - The output of the predict(X) of the trained model will contain the CATEs for each treatment compared to
+          baseline treatment (lexicographically smallest). If multitask_model_final is False, it is assumed to be a
+          mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
+          clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
+
+    multitask_model_final : bool, optional, default False
+        Whether the model_final should be treated as a multi-task model. See description of model_final.
+
+    featurizer : :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    min_propensity : float, optional, default ``1e-6``
+        The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
+    cv: int, cross-validation generator or an iterable, optional (default is 2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
+    max_depth : integer or None, optional (default=None)
+        The maximum depth of the tree. If None, then nodes are expanded until
+        all leaves are pure or until all leaves contain less than
+        min_samples_split samples.
+
+    min_samples_split : int, float, optional (default=10)
+        The minimum number of splitting samples required to split an internal node.
+
+        - If int, then consider `min_samples_split` as the minimum number.
+        - If float, then `min_samples_split` is a fraction and
+          `ceil(min_samples_split * n_samples)` are the minimum
+          number of samples for each split.
+
+    min_samples_leaf : int, float, optional (default=5)
+        The minimum number of samples required to be at a leaf node.
+        A split point at any depth will only be considered if it leaves at
+        least ``min_samples_leaf`` splitting samples in each of the left and
+        right branches.  This may have the effect of smoothing the model,
+        especially in regression. After construction the tree is also pruned
+        so that there are at least min_samples_leaf estimation samples on
+        each leaf.
+
+        - If int, then consider `min_samples_leaf` as the minimum number.
+        - If float, then `min_samples_leaf` is a fraction and
+          `ceil(min_samples_leaf * n_samples)` are the minimum
+          number of samples for each node.
+
+    min_weight_fraction_leaf : float, optional (default=0.)
+        The minimum weighted fraction of the sum total of weights (of all
+        splitting samples) required to be at a leaf node. Samples have
+        equal weight when sample_weight is not provided. After construction
+        the tree is pruned so that the fraction of the sum total weight
+        of the estimation samples contained in each leaf node is at
+        least min_weight_fraction_leaf
+
+    max_features : int, float, string or None, optional (default="auto")
+        The number of features to consider when looking for the best split:
+
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a fraction and
+          `int(max_features * n_features)` features are considered at each
+          split.
+        - If "auto", then `max_features=n_features`.
+        - If "sqrt", then `max_features=sqrt(n_features)`.
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
+
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+
+    min_impurity_decrease : float, optional (default=0.)
+        A node will be split if this split induces a decrease of the impurity
+        greater than or equal to this value.
+
+        The weighted impurity decrease equation is the following::
+
+            N_t / N * (impurity - N_t_R / N_t * right_impurity
+                                - N_t_L / N_t * left_impurity)
+
+        where ``N`` is the total number of split samples, ``N_t`` is the number of
+        split samples at the current node, ``N_t_L`` is the number of split samples in the
+        left child, and ``N_t_R`` is the number of split samples in the right child.
+
+        ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
+        if ``sample_weight`` is passed.
+
+    max_samples : int or float in (0, 1], default=.5,
+        The number of samples to use for each subsample that is used to train each tree:
+
+        - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
+        - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
+          from all the samples.
+
+    min_balancedness_tol: float in [0, .5], default=.45
+        How imbalanced a split we can tolerate. This enforces that each split leaves at least
+        (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
+        of the total weight of samples, when sample_weight is not None. Default value, ensures
+        that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
+        balancedness and to .5 for perfectly balanced splits. For the formal inference theory
+        to be valid, this has to be any positive constant bounded away from zero.
+
+    honest : boolean, optional (default=True)
+        Whether to use honest trees, i.e. half of the samples are used for
+        creating the tree structure and the other half for the estimation at
+        the leafs. If False, then all samples are used for both parts.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self, *,
@@ -215,7 +431,211 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
 
 class DRPolicyForest(_BaseDRPolicyLearner):
-    """ TODO Enable inference on `predict_value` with BLB
+    """
+    Policy learner that uses doubly-robust correction techniques to account for
+    covariate shift (selection bias) between the treatment arms. 
+
+    In this estimator, the policy is estimated by first constructing doubly robust estimates of the counterfactual
+    outcomes
+
+    .. math ::
+        Y_{i, t}^{DR} = E[Y | X_i, W_i, T_i=t]\
+            + \\frac{Y_i - E[Y | X_i, W_i, T_i=t]}{Pr[T_i=t | X_i, W_i]} \\cdot 1\\{T_i=t\\}
+
+    Then optimizing the objective
+
+    .. math ::
+        V(\pi) = sum_i \sum_t \pi_t(X_i) * (Y_{i, t} - Y_{i, 0})
+
+    with the constraint that only one of :math:`\pi_t(X_i)` is 1 and the rest are 0, for each :math:`X_i`.
+
+    Thus if we estimate the nuisance functions :math:`h(X, W, T) = E[Y | X, W, T]` and
+    :math:`p_t(X, W)=Pr[T=t | X, W]` in the first stage, we can estimate the final stage cate for each
+    treatment t, by running a constructing a decision tree that maximizes the objective :math:`V(\pi)`
+
+    The problem of estimating the nuisance function :math:`p` is a simple multi-class classification
+    problem of predicting the label :math:`T` from :math:`X, W`. The :class:`.DRLearner`
+    class takes as input the parameter ``model_propensity``, which is an arbitrary scikit-learn
+    classifier, that is internally used to solve this classification problem.
+
+    The second nuisance function :math:`h` is a simple regression problem and the :class:`.DRLearner`
+    class takes as input the parameter ``model_regressor``, which is an arbitrary scikit-learn regressor that
+    is internally used to solve this regression problem.
+
+    Parameters
+    ----------
+    model_propensity : scikit-learn classifier or 'auto', optional (default='auto')
+        Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
+        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
+        where T is a shape (n, ) array.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
+
+    model_regression : scikit-learn regressor or 'auto', optional (default='auto')
+        Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
+        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
+        `predict` methods. If different models per treatment arm are desired, see the
+        :class:`.MultiModelWrapper` helper class.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+
+    model_final :
+        estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
+        on (features X).
+
+        - If X is None, then the fit method of model_final should be able to handle X=None.
+        - If featurizer is not None and X is not None, then it is trained on the outcome of
+          featurizer.fit_transform(X).
+        - If multitask_model_final is True, then this model must support multitasking
+          and it is trained by regressing all doubly robust target outcomes on (featurized) features simultanteously.
+        - The output of the predict(X) of the trained model will contain the CATEs for each treatment compared to
+          baseline treatment (lexicographically smallest). If multitask_model_final is False, it is assumed to be a
+          mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
+          clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
+
+    multitask_model_final : bool, optional, default False
+        Whether the model_final should be treated as a multi-task model. See description of model_final.
+
+    featurizer : :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    min_propensity : float, optional, default ``1e-6``
+        The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
+    cv: int, cross-validation generator or an iterable, optional (default is 2)
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
+    n_estimators : integer, optional (default=100)
+        The total number of trees in the forest. The forest consists of a
+        forest of sqrt(n_estimators) sub-forests, where each sub-forest
+        contains sqrt(n_estimators) trees.
+
+    max_depth : integer or None, optional (default=None)
+        The maximum depth of the tree. If None, then nodes are expanded until
+        all leaves are pure or until all leaves contain less than
+        min_samples_split samples.
+
+    min_samples_split : int, float, optional (default=10)
+        The minimum number of splitting samples required to split an internal node.
+
+        - If int, then consider `min_samples_split` as the minimum number.
+        - If float, then `min_samples_split` is a fraction and
+          `ceil(min_samples_split * n_samples)` are the minimum
+          number of samples for each split.
+
+    min_samples_leaf : int, float, optional (default=5)
+        The minimum number of samples required to be at a leaf node.
+        A split point at any depth will only be considered if it leaves at
+        least ``min_samples_leaf`` splitting samples in each of the left and
+        right branches.  This may have the effect of smoothing the model,
+        especially in regression. After construction the tree is also pruned
+        so that there are at least min_samples_leaf estimation samples on
+        each leaf.
+
+        - If int, then consider `min_samples_leaf` as the minimum number.
+        - If float, then `min_samples_leaf` is a fraction and
+          `ceil(min_samples_leaf * n_samples)` are the minimum
+          number of samples for each node.
+
+    min_weight_fraction_leaf : float, optional (default=0.)
+        The minimum weighted fraction of the sum total of weights (of all
+        splitting samples) required to be at a leaf node. Samples have
+        equal weight when sample_weight is not provided. After construction
+        the tree is pruned so that the fraction of the sum total weight
+        of the estimation samples contained in each leaf node is at
+        least min_weight_fraction_leaf
+
+    max_features : int, float, string or None, optional (default="auto")
+        The number of features to consider when looking for the best split:
+
+        - If int, then consider `max_features` features at each split.
+        - If float, then `max_features` is a fraction and
+          `int(max_features * n_features)` features are considered at each
+          split.
+        - If "auto", then `max_features=n_features`.
+        - If "sqrt", then `max_features=sqrt(n_features)`.
+        - If "log2", then `max_features=log2(n_features)`.
+        - If None, then `max_features=n_features`.
+
+        Note: the search for a split does not stop until at least one
+        valid partition of the node samples is found, even if it requires to
+        effectively inspect more than ``max_features`` features.
+
+    min_impurity_decrease : float, optional (default=0.)
+        A node will be split if this split induces a decrease of the impurity
+        greater than or equal to this value.
+
+        The weighted impurity decrease equation is the following::
+
+            N_t / N * (impurity - N_t_R / N_t * right_impurity
+                                - N_t_L / N_t * left_impurity)
+
+        where ``N`` is the total number of split samples, ``N_t`` is the number of
+        split samples at the current node, ``N_t_L`` is the number of split samples in the
+        left child, and ``N_t_R`` is the number of split samples in the right child.
+
+        ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
+        if ``sample_weight`` is passed.
+
+    max_samples : int or float in (0, 1], default=.5,
+        The number of samples to use for each subsample that is used to train each tree:
+
+        - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
+        - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
+          from all the samples.
+
+    min_balancedness_tol: float in [0, .5], default=.45
+        How imbalanced a split we can tolerate. This enforces that each split leaves at least
+        (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
+        of the total weight of samples, when sample_weight is not None. Default value, ensures
+        that at least 5% of the parent node weight falls in each side of the split. Set it to 0.0 for no
+        balancedness and to .5 for perfectly balanced splits. For the formal inference theory
+        to be valid, this has to be any positive constant bounded away from zero.
+
+    honest : boolean, optional (default=True)
+        Whether to use honest trees, i.e. half of the samples are used for
+        creating the tree structure and the other half for the estimation at
+        the leafs. If False, then all samples are used for both parts.
+
+    n_jobs : int or None, optional (default=-1)
+        The number of jobs to run in parallel for both `fit` and `predict`.
+        ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
+        ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
+        for more details.
+
+    verbose : int, optional (default=0)
+        Controls the verbosity when fitting and predicting.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self, *,
