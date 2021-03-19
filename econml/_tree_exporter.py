@@ -206,7 +206,8 @@ class _CateTreeMixin(_TreeExporter):
             value_text += "{}".format(np.around(mean, self.precision))
             if 'ci' in node_info:
                 value_text += " ({}, {})".format(np.around(node_info['ci'][0], self.precision),
-                                                 np.around(node_info['ci'][1], self.precision)) + self.characters[4]
+                                                 np.around(node_info['ci'][1], self.precision))
+            value_text += self.characters[4]
         node_string += value_text
 
         # Write node std of CATE
@@ -266,7 +267,7 @@ class _PolicyTreeMixin(_TreeExporter):
         if self.node_dict is not None:
             return self._node_replacement_text_with_dict(tree, node_id, criterion)
         value = tree.value[node_id][:, 0]
-        node_string = 'value = %s' % np.round(value[1:], self.precision)
+        node_string = 'value = %s' % np.round(value[1:] - value[0], self.precision)
 
         if tree.children_left[node_id] == _tree.TREE_LEAF:
             node_string += self.characters[4]
@@ -305,7 +306,8 @@ class _PolicyTreeMixin(_TreeExporter):
             value_text += "{}".format(np.around(mean, self.precision))
             if 'ci' in node_info:
                 value_text += " ({}, {})".format(np.around(node_info['ci'][0], self.precision),
-                                                 np.around(node_info['ci'][1], self.precision)) + self.characters[4]
+                                                 np.around(node_info['ci'][1], self.precision))
+            value_text += self.characters[4]
         node_string += value_text
 
         if tree.children_left[node_id] == _tree.TREE_LEAF:
@@ -314,7 +316,7 @@ class _PolicyTreeMixin(_TreeExporter):
             node_string += 'value - cost = %s' % np.round(value[1:], self.precision) + self.characters[4]
 
             value = tree.value[node_id][:, 0]
-            node_string += "Recommended Treatment: "
+            node_string += "Treatment: "
             if self.treatment_names:
                 class_name = self.treatment_names[np.argmax(value)]
             else:

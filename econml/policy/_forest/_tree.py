@@ -40,7 +40,7 @@ CRITERIA_POLICY = {"neg_welfare": LinearPolicyCriterion}
 
 
 class PolicyTree(_SingleTreeExporterMixin, BaseTree):
-    """ TODO Enable inference on `predict_value` with leaf-wise normality
+    """ Welfare maximization policy tree.
 
     Parameters
     ----------

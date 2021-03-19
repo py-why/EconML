@@ -34,7 +34,7 @@ MAX_INT = np.iinfo(np.int32).max
 
 
 class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
-    """ TODO Enable inference on `predict_value` with BLB
+    """ Welfare maximization policy forest.
 
     Parameters
     ----------

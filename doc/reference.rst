@@ -104,6 +104,18 @@ Sieve Methods
     econml.iv.sieve.HermiteFeatures
     econml.iv.sieve.DPolynomialFeatures
 
+.. _policy_api:
+
+Policy Learning
+---------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.policy.DRPolicyForest
+    econml.policy.DRPolicyTree
+    econml.policy.PolicyForest
+    econml.policy.PolicyTree
 
 .. _interpreters_api:
 
