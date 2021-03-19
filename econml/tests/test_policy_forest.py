@@ -20,6 +20,15 @@ from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.model_selection import GroupKFold
 
 
+graphviz_works = True
+try:
+    from graphviz import Graph
+    g = Graph()
+    g.render()
+except Exception:
+    graphviz_works = False
+
+
 class TestPolicyForest(unittest.TestCase):
 
     def _get_base_config(self):
@@ -373,6 +382,8 @@ class TestPolicyForest(unittest.TestCase):
         return
 
     def test_plotting(self,):
+        if not graphviz_works:
+            return
         n_features = 2
         n = 1000
         random_state = 123

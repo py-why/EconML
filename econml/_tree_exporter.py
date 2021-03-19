@@ -1,5 +1,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+#
+# This code contains some snippets of code from:
+# https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_export.py
+# published under the following license and copyright:
+# BSD 3-Clause License
+#
+# Copyright (c) 2007-2020 The scikit-learn developers.
+# All rights reserved.
 
 import abc
 import numpy as np
@@ -255,6 +263,8 @@ class _PolicyTreeMixin(_TreeExporter):
         return self.get_color(node_val)
 
     def node_replacement_text(self, tree, node_id, criterion):
+        if self.node_dict is not None:
+            return self._node_replacement_text_with_dict(tree, node_id, criterion)
         value = tree.value[node_id][:, 0]
         node_string = 'value = %s' % np.round(value[1:], self.precision)
 
@@ -269,6 +279,50 @@ class _PolicyTreeMixin(_TreeExporter):
                                           np.argmax(value),
                                           self.characters[2])
             node_string += class_name
+
+        return node_string
+
+    def _node_replacement_text_with_dict(self, tree, node_id, criterion):
+
+        # Write node mean CATE
+        node_info = self.node_dict[node_id]
+        node_string = 'CATE' + self.characters[4]
+        value_text = ""
+        mean = node_info['mean']
+        if hasattr(mean, 'shape') and (len(mean.shape) > 0):
+            if len(mean.shape) == 1:
+                for i in range(mean.shape[0]):
+                    value_text += "{}".format(np.around(mean[i], self.precision))
+                    if 'ci' in node_info:
+                        value_text += " ({}, {})".format(np.around(node_info['ci'][0][i], self.precision),
+                                                         np.around(node_info['ci'][1][i], self.precision))
+                    if i != mean.shape[0] - 1:
+                        value_text += ", "
+                value_text += self.characters[4]
+            else:
+                raise ValueError("can only handle up to 1d values")
+        else:
+            value_text += "{}".format(np.around(mean, self.precision))
+            if 'ci' in node_info:
+                value_text += " ({}, {})".format(np.around(node_info['ci'][0], self.precision),
+                                                 np.around(node_info['ci'][1], self.precision)) + self.characters[4]
+        node_string += value_text
+
+        if tree.children_left[node_id] == _tree.TREE_LEAF:
+            # Write recommended treatment and value - cost
+            value = tree.value[node_id][:, 0]
+            node_string += 'value - cost = %s' % np.round(value[1:], self.precision) + self.characters[4]
+
+            value = tree.value[node_id][:, 0]
+            node_string += "Recommended Treatment: "
+            if self.treatment_names:
+                class_name = self.treatment_names[np.argmax(value)]
+            else:
+                class_name = "T%s%s%s" % (self.characters[1],
+                                          np.argmax(value),
+                                          self.characters[2])
+            node_string += "{}".format(class_name)
+            node_string += self.characters[4]
 
         return node_string
 

@@ -117,7 +117,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         if ``sample_weight`` is passed.
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  include_model_uncertainty=False,
                  uncertainty_level=.1,
                  uncertainty_only_on_leaves=True,
@@ -222,7 +222,24 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
     Parameters
     ----------
-    risk_level : float or None,
+    include_uncertainty : bool, optional, default False
+        Whether to include confidence interval information when building a
+        simplified model of the cate model. If set to True, then
+        cate estimator needs to support the `const_marginal_ate_inference` method.
+
+    uncertainty_level : double, optional, default .05
+        The uncertainty level for the confidence intervals to be constructed
+        and used in the simplified model creation. If value=alpha
+        then a multitask decision tree will be built such that all samples
+        in a leaf have similar target prediction but also similar alpha
+        confidence intervals.
+
+    uncertainty_only_on_leaves : bool, optional, default True
+        Whether uncertainty information should be displayed only on leaf nodes.
+        If False, then interpretation can be slightly slower, especially for cate
+        models that have a computationally expensive inference method.
+
+    risk_level : float or None, optional (default=None)
         If None then the point estimate of the CATE of every point will be used as the
         effect of treatment. If any float alpha and risk_seeking=False (default), then the
         lower end point of an alpha confidence interval of the CATE will be used.
@@ -319,7 +336,10 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         The value of the policy that always treats all units, applied to the sample used with :meth:`interpret`
     """
 
-    def __init__(self,
+    def __init__(self, *,
+                 include_model_uncertainty=False,
+                 uncertainty_level=.1,
+                 uncertainty_only_on_leaves=True,
                  risk_level=None,
                  risk_seeking=False,
                  max_depth=None,
@@ -330,6 +350,9 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
                  min_balancedness_tol=.45,
                  min_impurity_decrease=0.,
                  random_state=None):
+        self.include_uncertainty = include_model_uncertainty
+        self.uncertainty_level = uncertainty_level
+        self.uncertainty_only_on_leaves = uncertainty_only_on_leaves
         self.risk_level = risk_level
         self.risk_seeking = risk_seeking
         self.max_depth = max_depth
@@ -411,6 +434,24 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         self.tree_model_.fit(X, all_y)
         self.policy_value_ = np.mean(np.max(self.tree_model_.predict_value(X), axis=1))
         self.always_treat_value_ = np.mean(y_pred, axis=0)
+
+        paths = self.tree_model_.decision_path(X)
+        node_dict = {}
+        for node_id in range(paths.shape[1]):
+            mask = paths.getcol(node_id).toarray().flatten().astype(bool)
+            Xsub = X[mask]
+            if (self.include_uncertainty and
+                    ((not self.uncertainty_only_on_leaves) or (self.tree_model_.tree_.children_left[node_id] < 0))):
+                res = cate_estimator.const_marginal_ate_inference(Xsub)
+                node_dict[node_id] = {'mean': res.mean_point,
+                                      'std': res.std_point,
+                                      'ci': res.conf_int_mean(alpha=self.uncertainty_level)}
+            else:
+                cate_node = y_pred[mask]
+                node_dict[node_id] = {'mean': np.mean(cate_node, axis=0),
+                                      'std': np.std(cate_node, axis=0)}
+        self.node_dict_ = node_dict
+
         return self
 
     def treat(self, X):
