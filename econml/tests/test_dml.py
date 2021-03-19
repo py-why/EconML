@@ -191,10 +191,12 @@ class TestDML(unittest.TestCase):
                                                 marg_eff if d_x else marg_eff[0:1], const_marg_eff)
 
                                             assert isinstance(est.score_, float)
-                                            for score in est.nuisance_scores_y:
-                                                assert isinstance(score, float)
-                                            for score in est.nuisance_scores_t:
-                                                assert isinstance(score, float)
+                                            for score_list in est.nuisance_scores_y:
+                                                for score in score_list:
+                                                    assert isinstance(score, float)
+                                            for score_list in est.nuisance_scores_t:
+                                                for score in score_list:
+                                                    assert isinstance(score, float)
 
                                             T0 = np.full_like(T, 'a') if is_discrete else np.zeros_like(T)
                                             eff = est.effect(X, T0=T0, T1=T)
@@ -569,9 +571,9 @@ class TestDML(unittest.TestCase):
         assert isinstance(est.original_featurizer, PolynomialFeatures)
         assert isinstance(est.featurizer_, Pipeline)
         assert isinstance(est.model_cate, WeightedLasso)
-        for mdl in est.models_y:
+        for mdl in est.models_y[0]:
             assert isinstance(mdl, WeightedLasso)
-        for mdl in est.models_t:
+        for mdl in est.models_t[0]:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
         np.testing.assert_array_equal(est.cate_feature_names(), ['X0', 'X0^2'])
@@ -585,9 +587,9 @@ class TestDML(unittest.TestCase):
         assert est.original_featurizer is None
         assert isinstance(est.featurizer_, FunctionTransformer)
         assert isinstance(est.model_cate, WeightedLasso)
-        for mdl in est.models_y:
+        for mdl in est.models_y[0]:
             assert isinstance(mdl, WeightedLasso)
-        for mdl in est.models_t:
+        for mdl in est.models_t[0]:
             assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 
@@ -1056,10 +1058,12 @@ class TestDML(unittest.TestCase):
         y = np.random.normal(size=(100,))
         T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
-        for cv in [1, 2, 3]:
-            est = LinearDML(cv=cv)
-            est.fit(y, T, X=X, W=W)
-            assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == cv
+        for mc_iters in [1, 2, 3]:
+            for cv in [1, 2, 3]:
+                est = LinearDML(cv=cv, mc_iters=mc_iters)
+                est.fit(y, T, X=X, W=W)
+                assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == mc_iters
+                assert len(est.nuisance_scores_t[0]) == len(est.nuisance_scores_y[0]) == cv
 
     def test_categories(self):
         dmls = [LinearDML, SparseLinearDML]

@@ -593,11 +593,11 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     @property
     def models_Y_X(self):
-        return [mdl._model_Y_X._model for mdl in super().models_nuisance_]
+        return [[mdl._model_Y_X._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_T_XZ(self):
-        return [mdl._model_T_XZ._model for mdl in super().models_nuisance_]
+        return [[mdl._model_T_XZ._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_Y_X(self):

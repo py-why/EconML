@@ -327,10 +327,11 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=3)
         nuisance_scores_y = est.nuisance_scores_[0]
         nuisance_scores_t = est.nuisance_scores_[1]
-        assert len(nuisance_scores_y) == len(nuisance_scores_t) == 2  # as many scores as splits
+        assert len(nuisance_scores_y) == len(nuisance_scores_t) == 1  # as many scores as iterations
+        assert len(nuisance_scores_y[0]) == len(nuisance_scores_t[0]) == 2  # as many scores as splits
         # y scores should be positive, since W predicts Y somewhat
         # t scores might not be, since W and T are uncorrelated
-        np.testing.assert_array_less(0, nuisance_scores_y)
+        np.testing.assert_array_less(0, nuisance_scores_y[0])
 
     def test_ol_discrete_treatment(self):
         class ModelNuisance:
