@@ -601,11 +601,12 @@ class _BaseDMLIV(_OrthoLearner):
 
         Returns
         -------
-        models_Y_X: list of objects of type(`model_Y_X`)
-            A list of instances of the `model_Y_X` object. Each element corresponds to a crossfitting
+        models_Y_X: nested list of objects of type(`model_Y_X`)
+            A nested list of instances of the `model_Y_X` object. Number of sublist equals to number of monte carlo
+            iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_Y_X._model for mdl in super().models_nuisance_]
+        return [[mdl._model_Y_X._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_T_X(self):
@@ -614,11 +615,12 @@ class _BaseDMLIV(_OrthoLearner):
 
         Returns
         -------
-        models_T_X: list of objects of type(`model_T_X`)
-            A list of instances of the `model_T_X` object. Each element corresponds to a crossfitting
+        models_T_X: nested list of objects of type(`model_T_X`)
+            A nested list of instances of the `model_T_X` object. Number of sublist equals to number of monte carlo
+            iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_T_X._model for mdl in super().models_nuisance_]
+        return [[mdl._model_T_X._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_T_XZ(self):
@@ -627,11 +629,12 @@ class _BaseDMLIV(_OrthoLearner):
 
         Returns
         -------
-        models_T_XZ: list of objects of type(`model_T_XZ`)
-            A list of instances of the `model_T_XZ` object. Each element corresponds to a crossfitting
+        models_T_XZ: nested list of objects of type(`model_T_XZ`)
+            A nested list of instances of the `model_T_XZ` object. Number of sublist equals to number of monte carlo
+            iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model_T_XZ._model for mdl in super().models_nuisance_]
+        return [[mdl._model_T_XZ._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_Y_X(self):
