@@ -2,10 +2,11 @@
 # Licensed under the MIT License.
 
 import numpy as np
+import pandas as pd
 import unittest
 from econml.dml import LinearDML, CausalForestDML
 from econml.orf import DROrthoForest
-from econml.dr import DRLearner, ForestDRLearner
+from econml.dr import DRLearner, ForestDRLearner, LinearDRLearner
 from econml.metalearners import XLearner
 from econml.iv.dml import DMLATEIV
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
@@ -65,3 +66,19 @@ class TestDowhy(unittest.TestCase):
                                               num_simulations=3)
                     est_dowhy.refute_estimate(method_name="data_subset_refuter", subset_fraction=0.8,
                                               num_simulations=3)
+
+    def test_store_dataframe_name(self):
+        Y, T, X, W, Z = self._get_data()
+        Y_name = "outcome"
+        Y = pd.Series(Y, name=Y_name)
+        T_name = "treatment"
+        T = pd.Series(T, name=T_name)
+        X_name = ["feature"]
+        X = pd.DataFrame(X, columns=X_name)
+        W_name = ["control1", "control2", "control3", "control4"]
+        W = pd.DataFrame(W, columns=W_name)
+        est = LinearDRLearner().dowhy.fit(Y, T, X, W)
+        np.testing.assert_array_equal(est._common_causes, X_name + W_name)
+        np.testing.assert_array_equal(est._effect_modifiers, X_name)
+        np.testing.assert_array_equal(est._treatment, [T_name])
+        np.testing.assert_array_equal(est._outcome, [Y_name])
