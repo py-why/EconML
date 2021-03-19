@@ -69,7 +69,6 @@ class _BaseDMLATEIV(_OrthoLearner):
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -77,7 +76,6 @@ class _BaseDMLATEIV(_OrthoLearner):
                          discrete_instrument=discrete_instrument,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -221,7 +219,6 @@ class DMLATEIV(_BaseDMLATEIV):
                  discrete_instrument=False,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -232,7 +229,6 @@ class DMLATEIV(_BaseDMLATEIV):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -298,7 +294,6 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
                  discrete_instrument=False,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -309,7 +304,6 @@ class ProjectedDMLATEIV(_BaseDMLATEIV):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -485,14 +479,12 @@ class _BaseDMLIV(_OrthoLearner):
 
     def __init__(self, discrete_instrument=False, discrete_treatment=False, categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None, mc_agg='mean',
                  random_state=None):
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -765,7 +757,6 @@ class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
                  featurizer=None,
                  fit_cate_intercept=True,
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  discrete_instrument=False, discrete_treatment=False,
@@ -777,7 +768,6 @@ class DMLIV(LinearModelFinalCateEstimatorMixin, _BaseDMLIV):
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          discrete_instrument=discrete_instrument,
@@ -895,7 +885,6 @@ class NonParamDMLIV(_BaseDMLIV):
                  model_final,
                  featurizer=None,
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  discrete_instrument=False,
@@ -908,7 +897,6 @@ class NonParamDMLIV(_BaseDMLIV):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         super().__init__(cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          discrete_instrument=discrete_instrument,

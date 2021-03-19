@@ -420,7 +420,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -435,7 +434,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -596,7 +594,6 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -609,7 +606,6 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,)
@@ -790,7 +786,6 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -810,7 +805,6 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -974,7 +968,6 @@ class KernelDML(DML):
                  dim=20,
                  bw=1.0,
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None, mc_agg='mean',
                  random_state=None):
         self.dim = dim
@@ -987,7 +980,6 @@ class KernelDML(DML):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -1087,7 +1079,6 @@ class NonParamDML(_BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -1101,7 +1092,6 @@ class NonParamDML(_BaseDML):
         super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -1190,7 +1180,6 @@ def ForestDML(model_y, model_t,
               discrete_treatment=False,
               categories='auto',
               cv=2,
-              n_crossfit_splits='raise',
               mc_iters=None,
               mc_agg='mean',
               n_estimators=100,
@@ -1244,10 +1233,6 @@ def ForestDML(model_y, model_t,
 
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
-
-    n_crossfit_splits: int or 'raise', optional (default='raise')
-        Deprecated by parameter `cv` and will be removed in next version. Can be used
-        interchangeably with `cv`.
 
     mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
@@ -1375,7 +1360,6 @@ def ForestDML(model_y, model_t,
                            discrete_treatment=discrete_treatment,
                            categories=categories,
                            cv=cv,
-                           n_crossfit_splits=n_crossfit_splits,
                            mc_iters=mc_iters,
                            mc_agg=mc_agg,
                            n_estimators=n_estimators,

@@ -397,7 +397,6 @@ class DRLearner(_OrthoLearner):
                  min_propensity=1e-6,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -408,7 +407,6 @@ class DRLearner(_OrthoLearner):
         self.featurizer = clone(featurizer, safe=False)
         self.min_propensity = min_propensity
         super().__init__(cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          discrete_treatment=True,
@@ -810,7 +808,6 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  min_propensity=1e-6,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -823,7 +820,6 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          min_propensity=min_propensity,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -1087,7 +1083,6 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  min_propensity=1e-6,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -1107,7 +1102,6 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          min_propensity=min_propensity,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -1239,10 +1233,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    n_crossfit_splits: int or 'raise', optional (default='raise')
-        Deprecated by parameter `cv` and will be removed in next version. Can be used
-        interchangeably with `cv`.
-
     mc_iters: int, optional (default=None)
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
@@ -1254,12 +1244,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         The total number of trees in the forest. The forest consists of a
         forest of sqrt(n_estimators) sub-forests, where each sub-forest
         contains sqrt(n_estimators) trees.
-
-    criterion : string, optional (default="mse")
-        The function to measure the quality of a split. Supported criteria
-        are "mse" for the mean squared error, which is equal to variance
-        reduction as feature selection criterion, and "mae" for the mean
-        absolute error.
 
     max_depth : integer or None, optional (default=None)
         The maximum depth of the tree. If None, then nodes are expanded until
@@ -1312,11 +1296,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    max_leaf_nodes : int or None, optional (default=None)
-        Grow trees with ``max_leaf_nodes`` in best-first fashion.
-        Best nodes are defined as relative reduction in impurity.
-        If None then unlimited number of leaf nodes.
-
     min_impurity_decrease : float, optional (default=0.)
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
@@ -1332,16 +1311,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
-
-    subsample_fr : float or 'auto', optional (default='auto')
-        The fraction of the half-samples that are used on each tree. Each tree
-        will be built on subsample_fr * n_samples/2.
-
-        If 'auto', then the subsampling fraction is set to::
-
-            (n_samples/2)**(1-1/(2*n_features+2))/(n_samples/2)
-
-        which is sufficient to guarantee asympotitcally valid inference.
 
     honest : boolean, optional (default=True)
         Whether to use honest trees, i.e. half of the samples are used for
@@ -1371,19 +1340,15 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                  min_propensity=1e-6,
                  categories='auto',
                  cv=2,
-                 n_crossfit_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  n_estimators=1000,
-                 criterion='deprecated',
                  max_depth=None,
                  min_samples_split=5,
                  min_samples_leaf=5,
                  min_weight_fraction_leaf=0.,
                  max_features="auto",
-                 max_leaf_nodes='deprecated',
                  min_impurity_decrease=0.,
-                 subsample_fr='deprecated',
                  max_samples=.45,
                  min_balancedness_tol=.45,
                  honest=True,
@@ -1404,12 +1369,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         self.subforest_size = subforest_size
         self.n_jobs = n_jobs
         self.verbose = verbose
-        self.n_crossfit_splits = n_crossfit_splits
-        if self.n_crossfit_splits != 'raise':
-            cv = self.n_crossfit_splits
-        self.subsample_fr = subsample_fr
-        self.max_leaf_nodes = max_leaf_nodes
-        self.criterion = criterion
         super().__init__(model_regression=model_regression,
                          model_propensity=model_propensity,
                          model_final=None,
@@ -1418,7 +1377,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                          min_propensity=min_propensity,
                          categories=categories,
                          cv=cv,
-                         n_splits='raise',
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -1506,48 +1464,3 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     def model_final(self, model):
         if model is not None:
             raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
-
-    ####################################################################
-    # Everything below should be removed once parameters are deprecated
-    ####################################################################
-
-    @property
-    def n_crossfit_splits(self):
-        return self.cv
-
-    @n_crossfit_splits.setter
-    def n_crossfit_splits(self, value):
-        if value != 'raise':
-            warn("Deprecated by parameter `n_splits` and will be removed in next version.")
-        self.cv = value
-
-    @property
-    def criterion(self):
-        return "mse"
-
-    @criterion.setter
-    def criterion(self, value):
-        if value != 'deprecated':
-            warn("The parameter 'criterion' has been deprecated and will be removed in the next version. "
-                 "Only the 'mse' criterion is supported.")
-
-    @property
-    def max_leaf_nodes(self):
-        return None
-
-    @max_leaf_nodes.setter
-    def max_leaf_nodes(self, value):
-        if value != 'deprecated':
-            warn("The parameter 'max_leaf_nodes' has been deprecated and will be removed in the next version.")
-
-    @property
-    def subsample_fr(self):
-        return 2 * self.max_samples
-
-    @subsample_fr.setter
-    def subsample_fr(self, value):
-        if value != 'deprecated':
-            warn("The parameter 'subsample_fr' has been deprecated and will be removed in the next version. "
-                 "Use 'max_samples' instead, with the convention that "
-                 "'subsample_fr=x' is equivalent to 'max_samples=x/2'.")
-            self.max_samples = .45 if value == 'auto' else value / 2
