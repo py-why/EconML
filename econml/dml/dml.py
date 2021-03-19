@@ -238,11 +238,12 @@ class _BaseDML(_RLearner):
 
         Returns
         -------
-        models_y: list of objects of type(`model_y`)
-            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
+        models_y: nested list of objects of type(`model_y`)
+            A nested list of instances of the `model_y` object. Number of sublist equals to number of monte carlo
+            iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model for mdl in super().models_y]
+        return [[mdl._model for mdl in mdls] for mdls in super().models_y]
 
     @property
     def models_t(self):
@@ -251,11 +252,12 @@ class _BaseDML(_RLearner):
 
         Returns
         -------
-        models_y: list of objects of type(`model_t`)
-            A list of instances of the `model_y` object. Each element corresponds to a crossfitting
+        models_t: nested list of objects of type(`model_t`)
+            A nested list of instances of the `model_y` object. Number of sublist equals to number of monte carlo
+            iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [mdl._model for mdl in super().models_t]
+        return [[mdl._model for mdl in mdls] for mdls in super().models_t]
 
     def cate_feature_names(self, feature_names=None):
         """
