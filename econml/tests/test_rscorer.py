@@ -22,9 +22,9 @@ def _fit_model(name, model, Y, T, X):
 class TestRScorer(unittest.TestCase):
 
     def _get_data(self):
-        X = np.random.normal(0, 1, size=(500, 2))
-        T = np.random.binomial(1, .5, size=(500,))
-        y = X[:, 0] * T + np.random.normal(size=(500,))
+        X = np.random.normal(0, 1, size=(1000, 2))
+        T = np.random.binomial(1, .5, size=(1000,))
+        y = X[:, 0] * T + np.random.normal(size=(1000,))
         return y, T, X, X[:, 0]
 
     def test_comparison(self):
@@ -56,9 +56,9 @@ class TestRScorer(unittest.TestCase):
                                      linear_first_stages=False, cv=3))
                   ]
 
-        models = Parallel(n_jobs=-1, verbose=1)(delayed(_fit_model)(name, mdl,
-                                                                    Y_train, T_train, X_train)
-                                                for name, mdl in models)
+        models = Parallel(n_jobs=1, verbose=1)(delayed(_fit_model)(name, mdl,
+                                                                   Y_train, T_train, X_train)
+                                               for name, mdl in models)
 
         scorer = RScorer(model_y=reg(), model_t=clf(),
                          discrete_treatment=True, cv=3, mc_iters=2, mc_agg='median')
