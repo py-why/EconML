@@ -381,9 +381,8 @@ class TestPolicyForest(unittest.TestCase):
         np.testing.assert_allclose(tree_states1, tree_states2)
         return
 
-    def test_plotting(self,):
-        if not graphviz_works:
-            return
+    @pytest.mark.skipif(not graphviz_works, reason="graphviz must be installed to test plotting")
+    def test_plotting(self):
         n_features = 2
         n = 1000
         random_state = 123
