@@ -200,12 +200,11 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
         Parameters
         ----------
-        X : (n, d) array
+        X : (n, n_features) array
             The features to split on
 
-        y : (n, m) array
-            All the variables required to calculate the criterion function, evaluate splits and
-            estimate local values, i.e. all the values that go into the moment function except X.
+        y : (n, n_treatments) array
+            The reward for each of the m treatments (including baseline treatment)
 
         sample_weight : (n,) array, default=None
             The sample weights
@@ -214,6 +213,10 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
             Whether to check the input parameters for validity. Should be set to False to improve
             running time in parallel execution, if the variables have already been checked by the
             forest class that spawned this tree.
+
+        Returns
+        -------
+        self : object instance
         """
 
         self.random_seed_ = self.random_state
@@ -231,7 +234,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return self
 
     def predict(self, X, check_input=True):
-        """
+        """ Predict the best treatment for each sample
 
         Parameters
         ----------
@@ -244,6 +247,8 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
         Returns
         -------
+        treatment : array-like of shape (n_samples)
+            The recommded treatment, i.e. the treatment index with the largest reward for each sample
         """
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)
@@ -251,7 +256,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         return np.argmax(pred, axis=1)
 
     def predict_value(self, X, check_input=True):
-        """
+        """ Predict the expected value of each treatment for each sample
 
         Parameters
         ----------
@@ -264,6 +269,8 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
         Returns
         -------
+        welfare : array-like of shape (n_samples, n_treatments)
+            The conditional average welfare for each treatment for the group of each sample defined by the tree
         """
         check_is_fitted(self)
         X = self._validate_X_predict(X, check_input)

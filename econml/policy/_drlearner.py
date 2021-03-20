@@ -156,6 +156,8 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
     @property
     def policy_model_(self):
+        """ The trained final stage policy model
+        """
         return self.drlearner_.multitask_model_cate
 
 

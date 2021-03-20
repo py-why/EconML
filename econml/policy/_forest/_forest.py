@@ -408,6 +408,19 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         return self.estimators_[0]._validate_X_predict(X, check_input=True)
 
     def predict_value(self, X):
+        """ Predict the expected value of each treatment for each sample
+
+        Parameters
+        ----------
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+
+        Returns
+        -------
+        welfare : array-like of shape (n_samples, n_treatments)
+            The conditional average welfare for each treatment for the group of each sample defined by the tree
+        """
 
         check_is_fitted(self)
         # Check data
@@ -430,4 +443,17 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         return y_hat
 
     def predict(self, X):
+        """ Predict the best treatment for each sample
+
+        Parameters
+        ----------
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+
+        Returns
+        -------
+        treatment : array-like of shape (n_samples)
+            The recommded treatment, i.e. the treatment index with the largest reward for each sample
+        """
         return np.argmax(self.predict_value(X), axis=1)
