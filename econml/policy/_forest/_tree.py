@@ -160,6 +160,12 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         The underlying Tree object. Please refer to
         ``help(econml.tree._tree.Tree)`` for attributes of Tree object.
 
+    policy_value_ : float
+        The value achieved by the recommended policy
+
+    always_treat_value_ : float
+        The value of the policy that treats all samples
+
     """
 
     def __init__(self, *,
