@@ -159,8 +159,8 @@ class _CateTreeMixin(_TreeExporter):
             self.colors['rgb'] = [(179, 108, 96), (81, 157, 96)]
 
         # in multi-target use mean of targets
-        tree_min = np.min(np.mean(tree.value, axis=1))
-        tree_max = np.max(np.mean(tree.value, axis=1))
+        tree_min = np.min(np.mean(tree.value, axis=1)) - 1e-12
+        tree_max = np.max(np.mean(tree.value, axis=1)) + 1e-12
 
         node_val = np.mean(tree.value[node_id])
 
