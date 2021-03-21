@@ -110,7 +110,7 @@ class _BaseDRPolicyLearner(PolicyLearner):
         -------
         treatment : array-like of shape (n_samples,)
             The index of the recommended treatment in the same order as in categories, or in
-            lexicographic order if `categories='auto'`.
+            lexicographic order if `categories='auto'`. 0 corresponds to the baseline/control treatment.
         """
         values = self.predict_value(X)
         return np.argmax(np.hstack([np.zeros((values.shape[0], 1)), values]), axis=1)
@@ -133,10 +133,24 @@ class _BaseDRPolicyLearner(PolicyLearner):
         return self.drlearner_.cate_feature_names(feature_names=feature_names)
 
     def policy_treatment_names(self, *, treatment_names=None):
+        """
+        Get the names of the treatments.
+
+        Parameters
+        ----------
+        treatment_names: list of strings of length n_categories
+            The names of the treatments (including the baseling). If None then values are auto-generated
+            based on input metadata.
+
+        Returns
+        -------
+        out_treatment_names: list of strings
+            The names of the treatments including the baseline/control treatment.
+        """
         if treatment_names is not None:
             if len(treatment_names) != len(self.drlearner_.cate_treatment_names()) + 1:
                 raise ValueError('The variable `treatment_names` should have length equal to '
-                                 'n_treatments + 1, containing the value of the control/none/basline treatment as '
+                                 'n_treatments + 1, containing the value of the control/none/baseline treatment as '
                                  'the first element and the names of all the treatments as subsequent elements.')
             return treatment_names
         return ['None'] + self.drlearner_.cate_treatment_names()
@@ -216,23 +230,6 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`.MultiModelWrapper` helper class.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
-
-    model_final :
-        estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
-        on (features X).
-
-        - If X is None, then the fit method of model_final should be able to handle X=None.
-        - If featurizer is not None and X is not None, then it is trained on the outcome of
-          featurizer.fit_transform(X).
-        - If multitask_model_final is True, then this model must support multitasking
-          and it is trained by regressing all doubly robust target outcomes on (featurized) features simultanteously.
-        - The output of the predict(X) of the trained model will contain the CATEs for each treatment compared to
-          baseline treatment (lexicographically smallest). If multitask_model_final is False, it is assumed to be a
-          mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
-          clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
-
-    multitask_model_final : bool, optional, default False
-        Whether the model_final should be treated as a multi-task model. See description of model_final.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -337,13 +334,6 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    max_samples : int or float in (0, 1], default=.5,
-        The number of samples to use for each subsample that is used to train each tree:
-
-        - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
-        - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
-          from all the samples.
-
     min_balancedness_tol: float in [0, .5], default=.45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
@@ -421,25 +411,169 @@ class DRPolicyTree(_BaseDRPolicyLearner):
                                  multitask_model_final=True,
                                  random_state=self.random_state)
 
-    def plot(self, *, feature_names=None, treatment_names=None, **kwargs):
+    def plot(self, *, feature_names=None, treatment_names=None, ax=None, title=None,
+             max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
+        """
+        Exports policy trees to matplotlib
+
+        Parameters
+        ----------
+        ax : :class:`matplotlib.axes.Axes`, optional, default None
+            The axes on which to plot
+
+        title : string, optional, default None
+            A title for the final figure to be printed at the top of the page.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        treatment_names : list of strings, optional, default None
+            Names of each of the treatments including the baseline/control
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+
+        fontsize : int, optional, default None
+            Font size for text
+        """
         return self.policy_model_.plot(feature_names=self.policy_feature_names(feature_names=feature_names),
                                        treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
-                                       **kwargs)
-    plot.__doc__ = _SingleTreeExporterMixin.plot.__doc__
+                                       ax=ax,
+                                       title=title,
+                                       max_depth=max_depth,
+                                       filled=filled,
+                                       rounded=rounded,
+                                       precision=precision,
+                                       fontsize=fontsize)
 
-    def export_graphviz(self, *, feature_names=None, treatment_names=None, **kwargs):
-        return self.policy_model_.export_graphviz(feature_names=self.policy_feature_names(feature_names=feature_names),
+    def export_graphviz(self, *, out_file=None,
+                        feature_names=None, treatment_names=None,
+                        max_depth=None, filled=True, leaves_parallel=True,
+                        rotate=False, rounded=True, special_characters=False, precision=3):
+        """
+        Export a graphviz dot file representing the learned tree model
+
+        Parameters
+        ----------
+        out_file : file object or string, optional, default None
+            Handle or name of the output file. If ``None``, the result is
+            returned as a string.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        treatment_names : list of strings, optional, default None
+            Names of each of the treatments, including the baseline treatment
+
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        leaves_parallel : bool, optional, default True
+            When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+        rotate : bool, optional, default False
+            When set to ``True``, orient tree left to right rather than top-down.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        special_characters : bool, optional, default False
+            When set to ``False``, ignore special characters for PostScript
+            compatibility.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+        """
+        return self.policy_model_.export_graphviz(out_file=out_file,
+                                                  feature_names=self.policy_feature_names(feature_names=feature_names),
                                                   treatment_names=self.policy_treatment_names(
                                                       treatment_names=treatment_names),
-                                                  **kwargs)
-    export_graphviz.__doc__ = _SingleTreeExporterMixin.export_graphviz.__doc__
+                                                  max_depth=max_depth,
+                                                  filled=filled,
+                                                  leaves_parallel=leaves_parallel,
+                                                  rotate=rotate,
+                                                  rounded=rounded,
+                                                  special_characters=special_characters,
+                                                  precision=precision)
 
-    def render(self, out_file, *, feature_names=None, treatment_names=None, **kwargs):
+    def render(self, out_file, *, format='pdf', view=True, feature_names=None,
+               treatment_names=None, max_depth=None,
+               filled=True, leaves_parallel=True, rotate=False, rounded=True,
+               special_characters=False, precision=3):
+        """
+        Render the tree to a flie
+
+        Parameters
+        ----------
+        out_file : file name to save to
+
+        format : string, optional, default 'pdf'
+            The file format to render to; must be supported by graphviz
+
+        view : bool, optional, default True
+            Whether to open the rendered result with the default application.
+
+        feature_names : list of strings, optional, default None
+            Names of each of the features.
+
+        treatment_names : list of strings, optional, default None
+            Names of each of the treatments, including the baseline/control
+
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
+
+        filled : bool, optional, default False
+            When set to ``True``, paint nodes to indicate majority class for
+            classification, extremity of values for regression, or purity of node
+            for multi-output.
+
+        leaves_parallel : bool, optional, default True
+            When set to ``True``, draw all leaf nodes at the bottom of the tree.
+
+        rotate : bool, optional, default False
+            When set to ``True``, orient tree left to right rather than top-down.
+
+        rounded : bool, optional, default True
+            When set to ``True``, draw node boxes with rounded corners and use
+            Helvetica fonts instead of Times-Roman.
+
+        special_characters : bool, optional, default False
+            When set to ``False``, ignore special characters for PostScript
+            compatibility.
+
+        precision : int, optional, default 3
+            Number of digits of precision for floating point in the values of
+            impurity, threshold and value attributes of each node.
+        """
         return self.policy_model_.render(out_file,
+                                         format='pdf',
+                                         view=view,
                                          feature_names=self.policy_feature_names(feature_names=feature_names),
                                          treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
-                                         **kwargs)
-    render.__doc__ = _SingleTreeExporterMixin.render.__doc__
+                                         max_depth=max_depth,
+                                         filled=filled,
+                                         leaves_parallel=leaves_parallel,
+                                         rotate=rotate,
+                                         rounded=rounded,
+                                         special_characters=special_characters,
+                                         precision=precision)
 
 
 class DRPolicyForest(_BaseDRPolicyLearner):
@@ -488,23 +622,6 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`.MultiModelWrapper` helper class.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
-
-    model_final :
-        estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
-        on (features X).
-
-        - If X is None, then the fit method of model_final should be able to handle X=None.
-        - If featurizer is not None and X is not None, then it is trained on the outcome of
-          featurizer.fit_transform(X).
-        - If multitask_model_final is True, then this model must support multitasking
-          and it is trained by regressing all doubly robust target outcomes on (featurized) features simultanteously.
-        - The output of the predict(X) of the trained model will contain the CATEs for each treatment compared to
-          baseline treatment (lexicographically smallest). If multitask_model_final is False, it is assumed to be a
-          mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
-          clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
-
-    multitask_model_final : bool, optional, default False
-        Whether the model_final should be treated as a multi-task model. See description of model_final.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -659,7 +776,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 n_estimators=1000,
+                 n_estimators=100,
                  max_depth=None,
                  min_samples_split=10,
                  min_samples_leaf=5,
@@ -718,7 +835,9 @@ class DRPolicyForest(_BaseDRPolicyLearner):
                                  multitask_model_final=True,
                                  random_state=self.random_state)
 
-    def plot(self, tree_id, *, feature_names=None, treatment_names=None, **kwargs):
+    def plot(self, tree_id, *, feature_names=None, treatment_names=None,
+             ax=None, title=None,
+             max_depth=None, filled=True, rounded=True, precision=3, fontsize=None):
         """
         Exports policy trees to matplotlib
 
@@ -738,8 +857,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
 
         treatment_names : list of strings, optional, default None
             Names of each of the treatments, starting with a name for the baseline/control treatment
-            (alphanumerically smallest in case of discrete treatment or the all-zero treatment
-            in the case of continuous)
+            (alphanumerically smallest)
 
         filled : bool, optional, default False
             When set to ``True``, paint nodes to indicate majority class for
@@ -760,9 +878,18 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         return self.policy_model_[tree_id].plot(feature_names=self.policy_feature_names(feature_names=feature_names),
                                                 treatment_names=self.policy_treatment_names(
                                                     treatment_names=treatment_names),
-                                                **kwargs)
+                                                ax=ax,
+                                                title=title,
+                                                max_depth=max_depth,
+                                                filled=filled,
+                                                rounded=rounded,
+                                                precision=precision,
+                                                fontsize=fontsize)
 
-    def export_graphviz(self, tree_id, *, feature_names=None, treatment_names=None, **kwargs):
+    def export_graphviz(self, tree_id, *, out_file=None, feature_names=None, treatment_names=None,
+                        max_depth=None,
+                        filled=True, leaves_parallel=True,
+                        rotate=False, rounded=True, special_characters=False, precision=3):
         """
         Export a graphviz dot file representing the learned tree model
 
@@ -780,8 +907,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
 
         treatment_names : list of strings, optional, default None
             Names of each of the treatments, starting with a name for the baseline/control/None treatment
-            (alphanumerically smallest in case of discrete treatment or the all-zero treatment
-            in the case of continuous)
+            (alphanumerically smallest in case of discrete treatment)
 
         max_depth: int or None, optional, default None
             The maximum tree depth to plot
@@ -810,12 +936,24 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             impurity, threshold and value attributes of each node.
         """
         feature_names = self.policy_feature_names(feature_names=feature_names)
-        return self.policy_model_[tree_id].export_graphviz(feature_names=feature_names,
+        return self.policy_model_[tree_id].export_graphviz(out_file=out_file,
+                                                           feature_names=feature_names,
                                                            treatment_names=self.policy_treatment_names(
                                                                treatment_names=treatment_names),
-                                                           **kwargs)
+                                                           max_depth=max_depth,
+                                                           filled=filled,
+                                                           leaves_parallel=leaves_parallel,
+                                                           rotate=rotate,
+                                                           rounded=rounded,
+                                                           special_characters=special_characters,
+                                                           precision=precision)
 
-    def render(self, tree_id, out_file, *, feature_names=None, treatment_names=None, **kwargs):
+    def render(self, tree_id, out_file, *, format='pdf', view=True,
+               feature_names=None,
+               treatment_names=None,
+               max_depth=None,
+               filled=True, leaves_parallel=True, rotate=False, rounded=True,
+               special_characters=False, precision=3):
         """
         Render the tree to a flie
 
@@ -837,8 +975,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
 
         treatment_names : list of strings, optional, default None
             Names of each of the treatments, starting with a name for the baseline/control treatment
-            (alphanumerically smallest in case of discrete treatment or the all-zero treatment
-            in the case of continuous)
+            (alphanumerically smallest in case of discrete treatment)
 
         max_depth: int or None, optional, default None
             The maximum tree depth to plot
@@ -871,4 +1008,12 @@ class DRPolicyForest(_BaseDRPolicyLearner):
                                                   feature_names=feature_names,
                                                   treatment_names=self.policy_treatment_names(
                                                       treatment_names=treatment_names),
-                                                  **kwargs)
+                                                  format=format,
+                                                  view=view,
+                                                  max_depth=max_depth,
+                                                  filled=filled,
+                                                  leaves_parallel=leaves_parallel,
+                                                  rotate=rotate,
+                                                  rounded=rounded,
+                                                  special_characters=special_characters,
+                                                  precision=precision)

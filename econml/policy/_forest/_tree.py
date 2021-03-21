@@ -40,7 +40,10 @@ CRITERIA_POLICY = {"neg_welfare": LinearPolicyCriterion}
 
 
 class PolicyTree(_SingleTreeExporterMixin, BaseTree):
-    """ Welfare maximization policy tree.
+    """ Welfare maximization policy tree. Trains a tree to maximize the objective:
+    :math:`1/n \\sum_i \\sum_j a_j(X_i) * y_{ij}`, where, where :math:`a(X)` is constrained
+    to take value of 1 only on one coordinate and zero otherwise. This corresponds to a policy
+    optimization problem.
 
     Parameters
     ----------
@@ -146,9 +149,6 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
     n_features_ : int
         The number of features when ``fit`` is performed.
-
-    n_outputs_ : int
-        The number of outputs when ``fit`` is performed.
 
     n_samples_ : int
         The number of training samples when ``fit`` is performed.

@@ -34,7 +34,10 @@ MAX_INT = np.iinfo(np.int32).max
 
 
 class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
-    """ Welfare maximization policy forest.
+    """ Welfare maximization policy forest. Trains a forest to maximize the objective:
+    :math:`1/n \\sum_i \\sum_j a_j(X_i) * y_{ij}`, where, where :math:`a(X)` is constrained
+    to take value of 1 only on one coordinate and zero otherwise. This corresponds to a policy
+    optimization problem.
 
     Parameters
     ----------
@@ -45,10 +48,6 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
     criterion : {``'neg_welfare'``}, default='neg_welfare'
         The criterion type
-
-    splitter : {"best"}, default="best"
-        The strategy used to choose the split at each node. Supported
-        strategies are "best" to choose the best split.
 
     max_depth : int, default=None
         The maximum depth of the tree. If None, then nodes are expanded until
@@ -110,6 +109,13 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
+    max_samples : int or float in (0, 1], default=.5,
+        The number of samples to use for each subsample that is used to train each tree:
+
+        - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
+        - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
+          from all the samples.
+
     min_balancedness_tol: float in [0, .5], default=.45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
@@ -142,6 +148,12 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
         new forest.
+
+    Attributes
+    ----------
+    feature_importances_ : ndarray of shape (n_features,)
+        The feature importances based on the amount of parameter heterogeneity they create.
+        The higher, the more important the feature.
     """
 
     def __init__(self,
@@ -247,8 +259,8 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         X : array-like of shape (n_samples, n_features)
             The training input samples. Internally, its dtype will be converted
             to ``dtype=np.float64``.
-        y : array-like of shape (n_samples,) or (n_samples, n_outcomes)
-            The outcome values for each sample.
+        y : array-like of shape (n_samples,) or (n_samples, n_treatments)
+            The outcome values for each sample and for each treatment.
         sample_weight : array-like of shape (n_samples,), default=None
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
@@ -377,6 +389,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
             Splits of depth larger than `max_depth` are not used in this calculation
         depth_decay_exponent: double, default=2.0
             The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0.
+
         Returns
         -------
         feature_importances_ : ndarray of shape (n_features,)
