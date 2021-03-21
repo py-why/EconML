@@ -69,7 +69,7 @@ class TestRScorer(unittest.TestCase):
         assert LinearRegression().fit(np.array(rscore).reshape(-1, 1), np.array(rootpehe_score)).coef_ < 0.5
         mdl, _ = scorer.best_model([mdl for _, mdl in models])
         rootpehe_best = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
-        assert rootpehe_best < 1.2 * np.min(rootpehe_score)
+        assert rootpehe_best < 1.2 * np.min(rootpehe_score) + 0.05
         mdl, _ = scorer.ensemble([mdl for _, mdl in models])
         rootpehe_ensemble = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
-        assert rootpehe_ensemble < 1.2 * np.min(rootpehe_score)
+        assert rootpehe_ensemble < 1.2 * np.min(rootpehe_score) + 0.05
