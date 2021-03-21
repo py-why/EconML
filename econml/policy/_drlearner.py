@@ -563,7 +563,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
             impurity, threshold and value attributes of each node.
         """
         return self.policy_model_.render(out_file,
-                                         format='pdf',
+                                         format=format,
                                          view=view,
                                          feature_names=self.policy_feature_names(feature_names=feature_names),
                                          treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
