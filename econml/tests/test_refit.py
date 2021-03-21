@@ -57,7 +57,7 @@ class TestRefit(unittest.TestCase):
             dml.intercept_
         with pytest.raises(AttributeError):
             dml.intercept__interval()
-        dml.model_final = DebiasedLasso(fit_intercept=False)
+        dml.model_final = DebiasedLasso(fit_intercept=False, random_state=123)
         dml.refit_final()
         assert isinstance(dml.model_cate, DebiasedLasso)
         dml.featurizer = PolynomialFeatures(degree=2, include_bias=False)
@@ -77,10 +77,10 @@ class TestRefit(unittest.TestCase):
         dml.discrete_treatment = True
         dml.featurizer = None
         dml.linear_first_stages = True
-        dml.model_t = LogisticRegression()
+        dml.model_t = LogisticRegression(random_state=123)
         dml.fit(y, T, X=X, W=W)
         newdml = DML(model_y=LinearRegression(),
-                     model_t=LogisticRegression(),
+                     model_t=LogisticRegression(random_state=123),
                      model_final=StatsModelsLinearRegression(fit_intercept=False),
                      discrete_treatment=True,
                      linear_first_stages=True,
@@ -116,13 +116,13 @@ class TestRefit(unittest.TestCase):
 
         dml = NonParamDML(model_y=LinearRegression(),
                           model_t=LinearRegression(),
-                          model_final=WeightedLasso(),
+                          model_final=WeightedLasso(random_state=123),
                           random_state=123)
         dml.fit(y, T, X=X, W=W)
         with pytest.raises(Exception):
             dml.refit_final()
         dml.fit(y, T, X=X, W=W, cache_values=True)
-        dml.model_final = DebiasedLasso(fit_intercept=False)
+        dml.model_final = DebiasedLasso(fit_intercept=False, random_state=123)
         dml.refit_final()
         assert isinstance(dml.model_cate, DebiasedLasso)
         dml.effect_interval(X[:1])
@@ -133,12 +133,12 @@ class TestRefit(unittest.TestCase):
         dml.discrete_treatment = True
         dml.featurizer = None
         dml.linear_first_stages = True
-        dml.model_t = LogisticRegression()
-        dml.model_final = DebiasedLasso()
+        dml.model_t = LogisticRegression(random_state=123)
+        dml.model_final = DebiasedLasso(random_state=123)
         dml.fit(y, T, X=X, W=W)
         newdml = NonParamDML(model_y=LinearRegression(),
-                             model_t=LogisticRegression(),
-                             model_final=DebiasedLasso(),
+                             model_t=LogisticRegression(random_state=123),
+                             model_final=DebiasedLasso(random_state=123),
                              discrete_treatment=True,
                              random_state=123).fit(y, T, X=X, W=W)
         np.testing.assert_array_equal(dml.effect(X[:1]), newdml.effect(X[:1]))
@@ -152,7 +152,7 @@ class TestRefit(unittest.TestCase):
             est.fit(y, T, X=X, W=W, cache_values=True)
             np.testing.assert_equal(est.model_regression, 'auto')
             est.model_regression = LinearRegression()
-            est.model_propensity = LogisticRegression()
+            est.model_propensity = LogisticRegression(random_state=123)
             est.fit(y, T, X=X, W=W, cache_values=True)
             assert isinstance(est.model_regression, LinearRegression)
             with pytest.raises(ValueError):
