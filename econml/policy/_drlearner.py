@@ -132,6 +132,15 @@ class _BaseDRPolicyLearner(PolicyLearner):
         """
         return self.drlearner_.cate_feature_names(feature_names=feature_names)
 
+    def policy_treatment_names(self, *, treatment_names=None):
+        if treatment_names is not None:
+            if len(treatment_names) != len(self.drlearner_.cate_treatment_names()) + 1:
+                raise ValueError('The variable `treatment_names` should have length equal to '
+                                 'n_treatments + 1, containing the value of the control/none/basline treatment as '
+                                 'the first element and the names of all the treatments as subsequent elements.')
+            return treatment_names
+        return ['None'] + self.drlearner_.cate_treatment_names()
+
     def feature_importances(self, max_depth=4, depth_decay_exponent=2.0):
         """
 
@@ -414,20 +423,21 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
     def plot(self, *, feature_names=None, treatment_names=None, **kwargs):
         return self.policy_model_.plot(feature_names=self.policy_feature_names(feature_names=feature_names),
-                                       treatment_names=treatment_names,
+                                       treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
                                        **kwargs)
     plot.__doc__ = _SingleTreeExporterMixin.plot.__doc__
 
     def export_graphviz(self, *, feature_names=None, treatment_names=None, **kwargs):
         return self.policy_model_.export_graphviz(feature_names=self.policy_feature_names(feature_names=feature_names),
-                                                  treatment_names=treatment_names,
+                                                  treatment_names=self.policy_treatment_names(
+                                                      treatment_names=treatment_names),
                                                   **kwargs)
     export_graphviz.__doc__ = _SingleTreeExporterMixin.export_graphviz.__doc__
 
     def render(self, out_file, *, feature_names=None, treatment_names=None, **kwargs):
         return self.policy_model_.render(out_file,
                                          feature_names=self.policy_feature_names(feature_names=feature_names),
-                                         treatment_names=treatment_names,
+                                         treatment_names=self.policy_treatment_names(treatment_names=treatment_names),
                                          **kwargs)
     render.__doc__ = _SingleTreeExporterMixin.render.__doc__
 
@@ -748,7 +758,8 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             Font size for text
         """
         return self.policy_model_[tree_id].plot(feature_names=self.policy_feature_names(feature_names=feature_names),
-                                                treatment_names=treatment_names,
+                                                treatment_names=self.policy_treatment_names(
+                                                    treatment_names=treatment_names),
                                                 **kwargs)
 
     def export_graphviz(self, tree_id, *, feature_names=None, treatment_names=None, **kwargs):
@@ -768,7 +779,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
             Names of each of the features.
 
         treatment_names : list of strings, optional, default None
-            Names of each of the treatments, starting with a name for the baseline/control treatment
+            Names of each of the treatments, starting with a name for the baseline/control/None treatment
             (alphanumerically smallest in case of discrete treatment or the all-zero treatment
             in the case of continuous)
 
@@ -800,7 +811,8 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         """
         feature_names = self.policy_feature_names(feature_names=feature_names)
         return self.policy_model_[tree_id].export_graphviz(feature_names=feature_names,
-                                                           treatment_names=treatment_names,
+                                                           treatment_names=self.policy_treatment_names(
+                                                               treatment_names=treatment_names),
                                                            **kwargs)
 
     def render(self, tree_id, out_file, *, feature_names=None, treatment_names=None, **kwargs):
@@ -857,5 +869,6 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         feature_names = self.policy_feature_names(feature_names=feature_names)
         return self.policy_model_[tree_id].render(out_file,
                                                   feature_names=feature_names,
-                                                  treatment_names=treatment_names,
+                                                  treatment_names=self.policy_treatment_names(
+                                                      treatment_names=treatment_names),
                                                   **kwargs)
