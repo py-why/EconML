@@ -38,14 +38,18 @@ class DoWhyWrapper:
         # to represent
         init_signature = inspect.signature(init)
         parameters = init_signature.parameters.values()
+        params = []
         for p in parameters:
             if p.kind == p.VAR_POSITIONAL or p.kind == p.VAR_KEYWORD:
                 raise RuntimeError("cate estimators should always specify their parameters in the signature "
                                    "of their __init__ (no varargs, no varkwargs). "
                                    f"{self._cate_estimator} with constructor {init_signature} doesn't "
                                    "follow this convention.")
+            # if the argument is deprecated, ignore it
+            if p.default != "deprecated":
+                params.append(p.name)
         # Extract and sort argument names excluding 'self'
-        return sorted([p.name for p in parameters])
+        return sorted(params)
 
     def fit(self, Y, T, X=None, W=None, Z=None, *, outcome_names=None, treatment_names=None, feature_names=None,
             confounder_names=None, instrument_names=None, graph=None, estimand_type="nonparametric-ate",
@@ -106,30 +110,41 @@ class DoWhyWrapper:
         -------
         self
         """
-
-        Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
-
-        # create dataframe
-        n_obs = Y.shape[0]
-        Y, T, X, W, Z = reshape_arrays_2dim(n_obs, Y, T, X, W, Z)
-
-        # currently dowhy only support single outcome and single treatment
-        assert Y.shape[1] == 1, "Can only accept single dimensional outcome."
-        assert T.shape[1] == 1, "Can only accept single dimensional treatment."
-
         # column names
         if outcome_names is None:
             outcome_names = get_input_columns(Y, prefix="Y")
         if treatment_names is None:
             treatment_names = get_input_columns(T, prefix="T")
         if feature_names is None:
-            feature_names = get_input_columns(X, prefix="X")
+            if X is not None:
+                feature_names = get_input_columns(X, prefix="X")
+            else:
+                feature_names = []
         if confounder_names is None:
-            confounder_names = get_input_columns(W, prefix="W")
+            if W is not None:
+                confounder_names = get_input_columns(W, prefix="W")
+            else:
+                confounder_names = []
         if instrument_names is None:
-            instrument_names = get_input_columns(Z, prefix="Z")
+            if Z is not None:
+                instrument_names = get_input_columns(Z, prefix="Z")
+            else:
+                instrument_names = []
         column_names = outcome_names + treatment_names + feature_names + confounder_names + instrument_names
+
+        # transfer input to numpy arrays
+        Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
+        # transfer input to 2d arrays
+        n_obs = Y.shape[0]
+        Y, T, X, W, Z = reshape_arrays_2dim(n_obs, Y, T, X, W, Z)
+        # create dataframe
         df = pd.DataFrame(np.hstack((Y, T, X, W, Z)), columns=column_names)
+
+        # currently dowhy only support single outcome and single treatment
+        assert Y.shape[1] == 1, "Can only accept single dimensional outcome."
+        assert T.shape[1] == 1, "Can only accept single dimensional treatment."
+
+        # call dowhy
         self.dowhy_ = CausalModel(
             data=df,
             treatment=treatment_names,
