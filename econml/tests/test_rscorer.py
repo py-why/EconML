@@ -22,9 +22,9 @@ def _fit_model(name, model, Y, T, X):
 class TestRScorer(unittest.TestCase):
 
     def _get_data(self):
-        X = np.random.normal(0, 1, size=(500, 2))
-        T = np.random.binomial(1, .5, size=(500,))
-        y = X[:, 0] * T + np.random.normal(size=(500,))
+        X = np.random.normal(0, 1, size=(2000, 2))
+        T = np.random.binomial(1, .5, size=(2000,))
+        y = X[:, 0] * T + np.random.normal(size=(2000,))
         return y, T, X, X[:, 0]
 
     def test_comparison(self):
@@ -56,9 +56,9 @@ class TestRScorer(unittest.TestCase):
                                      linear_first_stages=False, cv=3))
                   ]
 
-        models = Parallel(n_jobs=-1, verbose=1)(delayed(_fit_model)(name, mdl,
-                                                                    Y_train, T_train, X_train)
-                                                for name, mdl in models)
+        models = Parallel(n_jobs=1, verbose=1)(delayed(_fit_model)(name, mdl,
+                                                                   Y_train, T_train, X_train)
+                                               for name, mdl in models)
 
         scorer = RScorer(model_y=reg(), model_t=clf(),
                          discrete_treatment=True, cv=3, mc_iters=2, mc_agg='median')
@@ -69,7 +69,7 @@ class TestRScorer(unittest.TestCase):
         assert LinearRegression().fit(np.array(rscore).reshape(-1, 1), np.array(rootpehe_score)).coef_ < 0.5
         mdl, _ = scorer.best_model([mdl for _, mdl in models])
         rootpehe_best = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
-        assert rootpehe_best < 1.2 * np.min(rootpehe_score)
+        assert rootpehe_best < 1.2 * np.min(rootpehe_score) + 0.05
         mdl, _ = scorer.ensemble([mdl for _, mdl in models])
         rootpehe_ensemble = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
-        assert rootpehe_ensemble < 1.2 * np.min(rootpehe_score)
+        assert rootpehe_ensemble < 1.2 * np.min(rootpehe_score) + 0.05

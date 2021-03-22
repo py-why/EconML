@@ -37,14 +37,14 @@ import statsmodels
 from joblib import Parallel, delayed
 
 
-def _weighted_check_cv(cv=5, y=None, classifier=False):
+def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
     cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
                 (type_of_target(y) in ('binary', 'multiclass'))):
-            return WeightedStratifiedKFold(cv)
+            return WeightedStratifiedKFold(cv, random_state=random_state)
         else:
-            return WeightedKFold(cv)
+            return WeightedKFold(cv, random_state=random_state)
 
     if not hasattr(cv, 'split') or isinstance(cv, str):
         if not isinstance(cv, Iterable) or isinstance(cv, str):
@@ -435,7 +435,7 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         """
         # Make weighted splitter
         cv_temp = self.cv
-        self.cv = _weighted_check_cv(self.cv).split(X, y, sample_weight=sample_weight)
+        self.cv = _weighted_check_cv(self.cv, random_state=self.random_state).split(X, y, sample_weight=sample_weight)
         # Fit weighted model
         self._fit_weighted_linear_model(X, y, sample_weight)
         self.cv = cv_temp
@@ -546,7 +546,7 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         """
         # Make weighted splitter
         cv_temp = self.cv
-        self.cv = _weighted_check_cv(self.cv).split(X, y, sample_weight=sample_weight)
+        self.cv = _weighted_check_cv(self.cv, random_state=self.random_state).split(X, y, sample_weight=sample_weight)
         # Fit weighted model
         self._fit_weighted_linear_model(X, y, sample_weight)
         self.cv = cv_temp
