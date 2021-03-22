@@ -397,6 +397,9 @@ class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
     treatment_names : list of strings, optional, default None
         The names of the treatments
 
+    max_depth: int or None, optional, default None
+        The maximum tree depth to plot
+
     filled : bool, optional, default False
         When set to ``True``, paint nodes to indicate majority class for
         classification, extremity of values for regression, or purity of node
@@ -789,6 +792,9 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
 
         treatment_names : list of strings, optional, default None
             Names of each of the treatments
+
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
 
         filled : bool, optional, default False
             When set to ``True``, paint nodes to indicate majority class for

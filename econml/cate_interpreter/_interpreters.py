@@ -38,7 +38,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
     Parameters
     ----------
-    include_uncertainty : bool, optional, default False
+    include_model_uncertainty : bool, optional, default False
         Whether to include confidence interval information when building a
         simplified model of the cate model. If set to True, then
         cate estimator needs to support the `const_marginal_ate_inference` method.
@@ -238,7 +238,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
     Parameters
     ----------
-    include_uncertainty : bool, optional, default False
+    include_model_uncertainty : bool, optional, default False
         Whether to include confidence interval information when building a
         simplified model of the cate model. If set to True, then
         cate estimator needs to support the `const_marginal_ate_inference` method.
