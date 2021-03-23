@@ -517,7 +517,7 @@ from econml.policy import DRPolicyTree, DRPolicyForest
 from sklearn.ensemble import RandomForestRegressor
 
 # fit a single binary decision tree policy
-policy = DRPolicyTree(max_depth=2, min_impurity_decrease=0.01, honest=True)
+policy = DRPolicyTree(max_depth=1, min_impurity_decrease=0.01, honest=True)
 policy.fit(y, T, X=X, W=W)
 # predict the recommended treatment
 policy.predict(X)
@@ -528,7 +528,7 @@ policy.plot()
 policy.feature_importances_
 
 # fit a binary decision forest
-policy = DRPolicyForest(max_depth=2, min_impurity_decrease=0.01, honest=True)
+policy = DRPolicyForest(max_depth=1, min_impurity_decrease=0.01, honest=True)
 policy.fit(y, T, X=X, W=W)
 # predict the recommended treatment
 policy.predict(X)
