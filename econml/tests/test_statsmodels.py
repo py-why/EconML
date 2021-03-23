@@ -917,3 +917,22 @@ class TestStatsModels(unittest.TestCase):
                                                                  np.zeros(lower[i, j, 1:].shape) + precision_int)
                                     np.testing.assert_array_less(np.zeros(lower[i, j, 1:].shape) - precision_int,
                                                                  upper[i, j, 1:])
+
+    def test_fractional_weights_with_wls(self):
+        """ Testing that StatsmodelsLinearRegression gets same result with WLS from statsmodels package when sample
+        weight is not None but sample variance is None. """
+        # data
+        X = np.random.normal(0, 5, size=(100, 3))
+        betas = np.array([3.5, 2.1, 4])
+        epsilon = np.random.normal(0, 1, size=(100,))
+        y = np.dot(X, betas) + epsilon
+        y[0] = 1000
+        weight = np.random.uniform(0, 1, size=(100,))
+        weight[0] = 5
+
+        for cov_type in ['nonrobust', 'HC0', 'HC1']:
+            for fit_intercept in [True, False]:
+                est = OLS(fit_intercept=fit_intercept, cov_type=cov_type).fit(X, y, sample_weight=weight)
+                lr = StatsModelsOLS(fit_intercept=fit_intercept, fit_args={
+                                    'cov_type': cov_type, 'use_t': False}).fit(X, y, sample_weight=weight)
+                _compare_classes(est, lr, X[:5])

@@ -1682,44 +1682,57 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
     def _check_input(self, X, y, sample_weight, sample_var):
         """Check dimensions and other assertions."""
-        if sample_weight is None:
-            sample_weight = np.ones(y.shape[0])
-        elif np.any(np.not_equal(np.mod(sample_weight, 1), 0)):
-            raise AttributeError("Sample weights must all be integers for inference to be valid!")
-
-        if sample_var is None:
-            if np.any(np.not_equal(sample_weight, 1)):
-                warnings.warn(
-                    "No variance information was given for samples with sample_weight not equal to 1, "
-                    "that represent summaries of multiple original samples. Inference will be invalid!")
-            sample_var = np.zeros(y.shape)
-
-        if sample_var.ndim < 2:
-            if np.any(np.equal(sample_weight, 1) & np.not_equal(sample_var, 0)):
-                warnings.warn(
-                    "Variance was set to non-zero for an observation with sample_weight=1! "
-                    "sample_var represents the variance of the original observations that are "
-                    "summarized in this sample. Hence, cannot have a non-zero variance if only "
-                    "one observations was summarized. Inference will be invalid!")
-        else:
-            if np.any(np.equal(sample_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
-                warnings.warn(
-                    "Variance was set to non-zero for an observation with sample_weight=1! "
-                    "sample_var represents the variance of the original observations that are "
-                    "summarized in this sample. Hence, cannot have a non-zero variance if only "
-                    "one observations was summarized. Inference will be invalid!")
 
         if X is None:
             X = np.empty((y.shape[0], 0))
+        if self.fit_intercept:
+            X = add_constant(X, has_constant='add')
 
-        assert (X.shape[0] == y.shape[0] ==
-                sample_weight.shape[0] == sample_var.shape[0]), "Input lengths not compatible!"
-        if y.ndim >= 2:
-            assert (y.ndim == sample_var.ndim and
-                    y.shape[1] == sample_var.shape[1]), "Input shapes not compatible: {}, {}!".format(
-                y.shape, sample_var.shape)
+        if sample_weight is None:
+            sample_weight = np.ones(y.shape[0])
 
-        return X, y, sample_weight, sample_var
+        if sample_var is not None:
+            if np.any(np.not_equal(np.mod(sample_weight, 1), 0)):
+                raise AttributeError("Sample weights must all be integers for inference to be valid!")
+
+            if sample_var.ndim < 2:
+                if np.any(np.equal(sample_weight, 1) & np.not_equal(sample_var, 0)):
+                    warnings.warn(
+                        "Variance was set to non-zero for an observation with sample_weight=1! "
+                        "sample_var represents the variance of the original observations that are "
+                        "summarized in this sample. Hence, cannot have a non-zero variance if only "
+                        "one observations was summarized. Inference will be invalid!")
+            else:
+                if np.any(np.equal(sample_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
+                    warnings.warn(
+                        "Variance was set to non-zero for an observation with sample_weight=1! "
+                        "sample_var represents the variance of the original observations that are "
+                        "summarized in this sample. Hence, cannot have a non-zero variance if only "
+                        "one observations was summarized. Inference will be invalid!")
+            assert (X.shape[0] == y.shape[0] ==
+                    sample_weight.shape[0] == sample_var.shape[0]), "Input lengths not compatible!"
+            if y.ndim >= 2:
+                assert (y.ndim == sample_var.ndim and
+                        y.shape[1] == sample_var.shape[1]), "Input shapes not compatible: {}, {}!".format(
+                    y.shape, sample_var.shape)
+            return X, y, sample_weight, sample_var
+
+        else:
+            sample_var = np.zeros(y.shape)
+            assert (X.shape[0] == y.shape[0] == sample_weight.shape[0] ==
+                    sample_var.shape[0]), "Input lengths not compatible!"
+            if y.ndim >= 2:
+                assert (y.ndim == sample_var.ndim and
+                        y.shape[1] == sample_var.shape[1]), "Input shapes not compatible: {}, {}!".format(
+                    y.shape, sample_var.shape)
+
+            weighted_X = X * np.sqrt(sample_weight).reshape(-1, 1)
+            if y.ndim < 2:
+                weighted_y = y * np.sqrt(sample_weight)
+            else:
+                weighted_y = y * np.sqrt(sample_weight).reshape(-1, 1)
+            new_weight = np.ones_like(sample_weight)
+            return weighted_X, weighted_y, new_weight, sample_var
 
     def fit(self, X, y, sample_weight=None, sample_var=None):
         """
@@ -1745,8 +1758,6 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         # TODO: Add other types of covariance estimation (e.g. Newey-West (HAC), HC2, HC3)
         X, y, sample_weight, sample_var = self._check_input(X, y, sample_weight, sample_var)
 
-        if self.fit_intercept:
-            X = add_constant(X, has_constant='add')
         WX = X * np.sqrt(sample_weight).reshape(-1, 1)
 
         if y.ndim < 2:
