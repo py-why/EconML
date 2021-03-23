@@ -867,6 +867,19 @@ class InferenceResults(metaclass=abc.ABCMeta):
         """
         pass
 
+    def translate(self, offset):
+        """
+        Update the results in place by translating by an offset.
+
+        Parameters
+        ----------
+        offset: array-like
+            The offset by which to translate these results
+        """
+        # NOTE: use np.asarray(offset) becuase if offset is a pd.Series direct addition would make the sum
+        #       a Series as well, which would subsequently break summary_frame because flatten isn't supported
+        self.pred = self.pred + np.asarray(offset)
+
 
 class NormalInferenceResults(InferenceResults):
     """
@@ -1080,6 +1093,14 @@ class EmpiricalInferenceResults(InferenceResults):
         pred_dist = np.repeat(self.pred_dist, n_rows, axis=1)
         return EmpiricalInferenceResults(self.d_t, self.d_y, pred, pred_dist, self.inf_type, self.fname_transformer,
                                          self.feature_names, self.output_names, self.treatment_names)
+
+    def translate(self, other):
+        # offset preds
+        super().translate(other)
+        # offset the distribution, too
+        self.pred_dist = self.pred_dist + np.asarray(other)
+
+    translate.__doc__ = InferenceResults.translate.__doc__
 
 
 class PopulationSummaryResults:

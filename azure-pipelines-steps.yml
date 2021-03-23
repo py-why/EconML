@@ -53,6 +53,11 @@ jobs:
     displayName: 'Install graphviz on Linux'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
+  # Install OpenMP on Mac to support lightgbm
+  - script: 'brew install libomp'
+    displayName: 'Install OpenMP on Mac'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+
   # Install the package
   - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython && pip install ${{ parameters.package }}'
     displayName: 'Install dependencies'
