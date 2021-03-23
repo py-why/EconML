@@ -520,27 +520,27 @@ from sklearn.ensemble import RandomForestRegressor
 policy = DRPolicyTree(max_depth=1, min_impurity_decrease=0.01, honest=True)
 policy.fit(y, T, X=X, W=W)
 # predict the recommended treatment
-policy.predict(X)
+recommended_T = policy.predict(X)
 # plot the binary decision tree
 plt.figure(figsize=(10,5))
 policy.plot()
 # get feature importances
-policy.feature_importances_
+importances = policy.feature_importances_
 
 # fit a binary decision forest
 policy = DRPolicyForest(max_depth=1, min_impurity_decrease=0.01, honest=True)
 policy.fit(y, T, X=X, W=W)
 # predict the recommended treatment
-policy.predict(X)
+recommended_T = policy.predict(X)
 # plot the first tree in the ensemble
 plt.figure(figsize=(10,5))
 policy.plot(0)
 # get feature importances
-policy.feature_importances_
+importances = policy.feature_importances_
 ```
 
 
-  ![image](notebooks/images/policy_tree.png)
+  ![image](images/policy_tree.png)
 </details>
 
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
