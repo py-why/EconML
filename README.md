@@ -502,6 +502,47 @@ as p-values and z-statistics. When the CATE model is linear and parametric, then
   
   </details>
   
+
+### Policy Learning
+
+You can also perform direct policy learning from observational data, using the doubly robust method for offline
+policy learning. These methods directly predict a recommended treatment, without internally fitting an explicit
+model of the conditional average treatment effect.
+
+<details>
+  <summary>Doubly Robust Policy Learning (click to expand)</summary>
+
+```Python
+from econml.policy import DRPolicyTree, DRPolicyForest
+from sklearn.ensemble import RandomForestRegressor
+
+# fit a single binary decision tree policy
+policy = DRPolicyTree(max_depth=2, min_impurity_decrease=0.01, honest=True)
+policy.fit(y, T, X=X, W=W)
+# predict the recommended treatment
+policy.predict(X)
+# plot the binary decision tree
+plt.figure(figsize=(10,5))
+policy.plot()
+# get feature importances
+policy.feature_importances_
+
+# fit a binary decision forest
+policy = DRPolicyForest(max_depth=2, min_impurity_decrease=0.01, honest=True)
+policy.fit(y, T, X=X, W=W)
+# predict the recommended treatment
+policy.predict(X)
+# plot the first tree in the ensemble
+plt.figure(figsize=(10,5))
+policy.plot(0)
+# get feature importances
+policy.feature_importances_
+```
+
+
+  ![image](notebooks/images/policy_tree.png)
+</details>
+
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
 
 # For Developers
