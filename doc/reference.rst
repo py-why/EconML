@@ -252,6 +252,17 @@ Utilities
     
     econml.utilities
 
+Solutions
+---------
+
+Causal Feature Importance
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.solutions.causal_analysis
+
 Private Module Reference
 ========================
 
