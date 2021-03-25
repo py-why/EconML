@@ -261,6 +261,30 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         pred = self.tree_.predict(X)
         return np.argmax(pred, axis=1)
 
+    def predict_proba(self, X, check_input=True):
+        """ Predict the probability of recommending each treatment
+
+        Parameters
+        ----------
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        treatment_proba : array-like of shape (n_samples, n_treatments)
+            The probability of each treatment recommendation
+        """
+        check_is_fitted(self)
+        X = self._validate_X_predict(X, check_input)
+        pred = self.tree_.predict(X)
+        proba = np.zeros(pred.shape)
+        proba[np.arange(X.shape[0]), np.argmax(pred, axis=1)] = 1
+        return proba
+
     def predict_value(self, X, check_input=True):
         """ Predict the expected value of each treatment for each sample
 
