@@ -427,9 +427,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def __init__(self, *,
                  discrete_treatment, discrete_instrument, categories, cv, random_state,
-                 n_splits='raise', mc_iters=None, mc_agg='mean'):
+                 mc_iters=None, mc_agg='mean'):
         self.cv = cv
-        self.n_splits = n_splits
         self.discrete_treatment = discrete_treatment
         self.discrete_instrument = discrete_instrument
         self.random_state = random_state
@@ -867,18 +866,3 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if not hasattr(self, '_models_nuisance'):
             raise AttributeError("Model is not fitted!")
         return self._models_nuisance
-
-    #######################################################
-    # These should be removed once `n_splits` is deprecated
-    #######################################################
-
-    @property
-    def n_splits(self):
-        return self.cv
-
-    @n_splits.setter
-    def n_splits(self, value):
-        if value != 'raise':
-            warn("Parameter `n_splits` has been deprecated and will be removed in the next version. "
-                 "Use parameter `cv` instead.")
-            self.cv = value

@@ -450,6 +450,9 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         treatment_names : list of strings, optional, default None
             Names of each of the treatments including the baseline/control
 
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
+
         filled : bool, optional, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
@@ -878,6 +881,9 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         treatment_names : list of strings, optional, default None
             Names of each of the treatments, starting with a name for the baseline/control treatment
             (alphanumerically smallest)
+
+        max_depth: int or None, optional, default None
+            The maximum tree depth to plot
 
         filled : bool, optional, default False
             When set to ``True``, paint nodes to indicate majority class for

@@ -45,9 +45,11 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-**March 11, 2021:** Release v0.9.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.2)
+**March 22, 2021:** Release v0.10.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.10.0)
 
 <details><summary>Previous releases</summary>
+
+**March 11, 2021:** Release v0.9.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.2)
 
 **March 3, 2021:** Release v0.9.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.1)
 
@@ -396,19 +398,19 @@ See the <a href="#references">References</a> section for more details.
   reg = lambda: RandomForestRegressor(min_samples_leaf=20)
   clf = lambda: RandomForestClassifier(min_samples_leaf=20)
   models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
-                               linear_first_stages=False, n_splits=3)),
+                               linear_first_stages=False, cv=3)),
             ('xlearner', XLearner(models=reg(), cate_models=reg(), propensity_model=clf())),
             ('dalearner', DomainAdaptationLearner(models=reg(), final_models=reg(), propensity_model=clf())),
             ('slearner', SLearner(overall_model=reg())),
             ('drlearner', DRLearner(model_propensity=clf(), model_regression=reg(),
-                                    model_final=reg(), n_splits=3)),
+                                    model_final=reg(), cv=3)),
             ('rlearner', NonParamDML(model_y=reg(), model_t=clf(), model_final=reg(),
-                                     discrete_treatment=True, n_splits=3)),
+                                     discrete_treatment=True, cv=3)),
             ('dml3dlasso', DML(model_y=reg(), model_t=clf(),
                                model_final=LassoCV(cv=3, fit_intercept=False),
                                discrete_treatment=True,
                                featurizer=PolynomialFeatures(degree=3),
-                               linear_first_stages=False, n_splits=3))
+                               linear_first_stages=False, cv=3))
   ]
 
   # fit cate models on train data
@@ -416,7 +418,7 @@ See the <a href="#references">References</a> section for more details.
 
   # score cate models on validation data
   scorer = RScorer(model_y=reg(), model_t=clf(),
-                   discrete_treatment=True, n_splits=3, mc_iters=2, mc_agg='median')
+                   discrete_treatment=True, cv=3, mc_iters=2, mc_agg='median')
   scorer.fit(Y_val, T_val, X=X_val)
   rscore = [scorer.score(mdl) for _, mdl in models]
   # select the best model
