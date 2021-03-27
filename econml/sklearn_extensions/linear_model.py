@@ -1675,12 +1675,12 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         The statsmodels-style fit arguments; keys can include 'cov_type'
     """
 
-    def __init__(self, fit_intercept=True, cov_type=None):
+    def __init__(self, fit_intercept=True, cov_type="HC0"):
         self.cov_type = cov_type
         self.fit_intercept = fit_intercept
         return
 
-    def _check_input(self, X, y, sample_weight, sample_var):
+    def _check_input(self, X, y, sample_weight, freq_weight, sample_var):
         """Check dimensions and other assertions."""
 
         if X is None:
@@ -1688,53 +1688,59 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         if self.fit_intercept:
             X = add_constant(X, has_constant='add')
 
+        # set default values for None
         if sample_weight is None:
             sample_weight = np.ones(y.shape[0])
-
-        if sample_var is not None:
-            if np.any(np.not_equal(np.mod(sample_weight, 1), 0)):
-                raise AttributeError("Sample weights must all be integers for inference to be valid!")
-
-            if sample_var.ndim < 2:
-                if np.any(np.equal(sample_weight, 1) & np.not_equal(sample_var, 0)):
-                    warnings.warn(
-                        "Variance was set to non-zero for an observation with sample_weight=1! "
-                        "sample_var represents the variance of the original observations that are "
-                        "summarized in this sample. Hence, cannot have a non-zero variance if only "
-                        "one observations was summarized. Inference will be invalid!")
-            else:
-                if np.any(np.equal(sample_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
-                    warnings.warn(
-                        "Variance was set to non-zero for an observation with sample_weight=1! "
-                        "sample_var represents the variance of the original observations that are "
-                        "summarized in this sample. Hence, cannot have a non-zero variance if only "
-                        "one observations was summarized. Inference will be invalid!")
-            assert (X.shape[0] == y.shape[0] ==
-                    sample_weight.shape[0] == sample_var.shape[0]), "Input lengths not compatible!"
-            if y.ndim >= 2:
-                assert (y.ndim == sample_var.ndim and
-                        y.shape[1] == sample_var.shape[1]), "Input shapes not compatible: {}, {}!".format(
-                    y.shape, sample_var.shape)
-            return X, y, sample_weight, sample_var
-
-        else:
+        if freq_weight is None:
+            freq_weight = np.ones(y.shape[0])
+        if sample_var is None:
             sample_var = np.zeros(y.shape)
-            assert (X.shape[0] == y.shape[0] == sample_weight.shape[0] ==
-                    sample_var.shape[0]), "Input lengths not compatible!"
-            if y.ndim >= 2:
-                assert (y.ndim == sample_var.ndim and
-                        y.shape[1] == sample_var.shape[1]), "Input shapes not compatible: {}, {}!".format(
-                    y.shape, sample_var.shape)
 
-            weighted_X = X * np.sqrt(sample_weight).reshape(-1, 1)
-            if y.ndim < 2:
-                weighted_y = y * np.sqrt(sample_weight)
-            else:
-                weighted_y = y * np.sqrt(sample_weight).reshape(-1, 1)
-            new_weight = np.ones_like(sample_weight)
-            return weighted_X, weighted_y, new_weight, sample_var
+        # check freq_weight should be integer and should be accompanied by sample_var
+        if np.any(np.not_equal(np.mod(freq_weight, 1), 0)):
+            raise AttributeError("Frequency weights must all be integers for inference to be valid!")
+        if sample_var.ndim < 2:
+            if np.any(np.equal(freq_weight, 1) & np.not_equal(sample_var, 0)):
+                warnings.warn(
+                    "Variance was set to non-zero for an observation with freq_weight=1! "
+                    "sample_var represents the variance of the original observations that are "
+                    "summarized in this sample. Hence, cannot have a non-zero variance if only "
+                    "one observations was summarized. Inference will be invalid!")
+            elif np.any(np.not_equal(freq_weight, 1) & np.equal(sample_var, 0)):
+                warnings.warn(
+                    "Variance was set to zero for an observation with freq_weight>1! "
+                    "It's the same as repeat the samples, please use sample_weight instead!")
+        else:
+            if np.any(np.equal(freq_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
+                warnings.warn(
+                    "Variance was set to non-zero for an observation with freq_weight=1! "
+                    "sample_var represents the variance of the original observations that are "
+                    "summarized in this sample. Hence, cannot have a non-zero variance if only "
+                    "one observations was summarized. Inference will be invalid!")
+            elif np.any(np.not_equal(freq_weight, 1) & np.equal(np.sum(sample_var, axis=1), 0)):
+                warnings.warn(
+                    "Variance was set to zero for an observation with freq_weight>1! "
+                    "It's the same as repeat the samples, please use sample_weight instead!")
 
-    def fit(self, X, y, sample_weight=None, sample_var=None):
+        # check array shape
+        assert (X.shape[0] == y.shape[0] == sample_weight.shape[0] ==
+                freq_weight.shape[0] == sample_var.shape[0]), "Input lengths not compatible!"
+        if y.ndim >= 2:
+            assert (y.ndim == sample_var.ndim and
+                    y.shape[1] == sample_var.shape[1]), "Input shapes not compatible: {}, {}!".format(
+                y.shape, sample_var.shape)
+
+        # weight X and y and sample_var
+        weighted_X = X * np.sqrt(sample_weight).reshape(-1, 1)
+        if y.ndim < 2:
+            weighted_y = y * np.sqrt(sample_weight)
+            sample_var = sample_var * sample_weight
+        else:
+            weighted_y = y * np.sqrt(sample_weight).reshape(-1, 1)
+            sample_var = sample_var * (sample_weight.reshape(-1, 1))
+        return weighted_X, weighted_y, freq_weight, sample_var
+
+    def fit(self, X, y, sample_weight=None, freq_weight=None, sample_var=None):
         """
         Fits the model.
 
@@ -1744,28 +1750,31 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             co-variates
         y : {(N,), (N, p)} nd array like
             output variable(s)
-        sample_weight : (N,) nd array like of integers
+        sample_weight : (N,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (N, ) array like of integers or None
             Weight for the observation. Observation i is treated as the mean
-            outcome of sample_weight[i] independent observations
-        sample_var : {(N,), (N, p)} nd array like
-            Variance of the outcome(s) of the original sample_weight[i] observations
-            that were used to compute the mean outcome represented by observation i.
+            outcome of freq_weight[i] independent observations.
+            It's not None only when ``sample_var`` is not None.
+        sample_var : {(N,), (N, p)} nd array like or None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
 
         Returns
         -------
         self : StatsModelsLinearRegression
         """
         # TODO: Add other types of covariance estimation (e.g. Newey-West (HAC), HC2, HC3)
-        X, y, sample_weight, sample_var = self._check_input(X, y, sample_weight, sample_var)
+        X, y, freq_weight, sample_var = self._check_input(X, y, sample_weight, freq_weight, sample_var)
 
-        WX = X * np.sqrt(sample_weight).reshape(-1, 1)
+        WX = X * np.sqrt(freq_weight).reshape(-1, 1)
 
         if y.ndim < 2:
             self._n_out = 0
-            wy = y * np.sqrt(sample_weight)
+            wy = y * np.sqrt(freq_weight)
         else:
             self._n_out = y.shape[1]
-            wy = y * np.sqrt(sample_weight).reshape(-1, 1)
+            wy = y * np.sqrt(freq_weight).reshape(-1, 1)
 
         param, _, rank, _ = np.linalg.lstsq(WX, wy, rcond=None)
 
@@ -1775,7 +1784,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         sigma_inv = np.linalg.pinv(np.matmul(WX.T, WX))
         self._param = param
         var_i = sample_var + (y - np.matmul(X, param))**2
-        n_obs = np.sum(sample_weight)
+        n_obs = np.sum(freq_weight)
         df = len(param) if self._n_out == 0 else param.shape[0]
 
         if n_obs <= df:
@@ -1786,9 +1795,9 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         if (self.cov_type is None) or (self.cov_type == 'nonrobust'):
             if y.ndim < 2:
-                self._var = correction * np.average(var_i, weights=sample_weight) * sigma_inv
+                self._var = correction * np.average(var_i, weights=freq_weight) * sigma_inv
             else:
-                vars = correction * np.average(var_i, weights=sample_weight, axis=0)
+                vars = correction * np.average(var_i, weights=freq_weight, axis=0)
                 self._var = [v * sigma_inv for v in vars]
         elif (self.cov_type == 'HC0'):
             if y.ndim < 2:

@@ -91,15 +91,16 @@ class _ModelFinal:
     def __init__(self, model_final):
         self._model_final = model_final
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, freq_weight=None, sample_var=None):
         Y_res, T_res = nuisances
-        self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
+        self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight,
+                              freq_weight=freq_weight, sample_var=sample_var)
         return self
 
     def predict(self, X=None):
         return self._model_final.predict(X)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -200,7 +201,7 @@ class _RLearner(_OrthoLearner):
             def predict(self, X, W):
                 return self._model.predict(np.hstack([X, W]))
         class ModelFinal:
-            def fit(self, X, T, T_res, Y_res, sample_weight=None, sample_var=None):
+            def fit(self, X, T, T_res, Y_res, sample_weight=None, freq_weight=freq_weight, sample_var=None):
                 self.model = LinearRegression(fit_intercept=False).fit(X * T_res.reshape(-1, 1),
                                                                        Y_res)
                 return self
@@ -313,7 +314,7 @@ class _RLearner(_OrthoLearner):
             should just take the features and return the constant marginal effect. More, concretely::
 
                 model_final.fit(X, T_res, Y_res,
-                                sample_weight=sample_weight, sample_var=sample_var)
+                                sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var)
                 model_final.predict(X)
         """
         pass
@@ -326,7 +327,7 @@ class _RLearner(_OrthoLearner):
 
     @_deprecate_positional("X, and should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -341,10 +342,15 @@ class _RLearner(_OrthoLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n, ) array like of integers or None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            It's not None only when ``sample_var`` is not None.
+        sample_var : {(n,), (n, d_y)} nd array like or None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -361,7 +367,7 @@ class _RLearner(_OrthoLearner):
         """
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values,
                            inference=inference)
 

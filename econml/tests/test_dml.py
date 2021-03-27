@@ -730,7 +730,7 @@ class TestDML(unittest.TestCase):
                 est.featurizer = None
                 est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], cache_values=True)
                 np.testing.assert_equal(est.shap_values(X[:2, :4])['Y0']['T0_1'].values.shape, (2, 4))
-                with np.testing.assert_raises(ValueError):
+                with np.testing.assert_raises(TypeError):
                     est.fit(y[:100], T[:100], X=X[:100, :4], W=X[:100, 4:], sample_var=np.ones(100))
                 with np.testing.assert_raises(ValueError):
                     est.fit(y[:100], T[:100], X=None, W=X[:100, 4:])

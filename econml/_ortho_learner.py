@@ -194,7 +194,8 @@ def _crossfit(model, folds, *args, **kwargs):
 
 
 CachedValues = namedtuple('_CachedValues', ['nuisances',
-                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'sample_var', 'groups'])
+                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'freq_weight',
+                                            'sample_var', 'groups'])
 
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -450,9 +451,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             `fit` and `predict` methods that both have signatures::
 
                 model_nuisance.fit(Y, T, X=X, W=W, Z=Z,
-                                sample_weight=sample_weight, sample_var=sample_var)
+                                sample_weight=sample_weight)
                 model_nuisance.predict(Y, T, X=X, W=W, Z=Z,
-                                    sample_weight=sample_weight, sample_var=sample_var)
+                                    sample_weight=sample_weight)
 
             In fact we allow for the model method signatures to skip any of the keyword arguments
             as long as the class is always called with the omitted keyword argument set to ``None``.
@@ -475,7 +476,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Must implement `fit` and `predict` methods that must have signatures::
 
                 model_final.fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
-                                sample_weight=sample_weight, sample_var=sample_var)
+                                sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var)
                 model_final.predict(X=X)
 
             Predict, should just take the features X and return the constant marginal effect. In fact we allow
@@ -517,7 +518,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return var[inds] if var is not None else None
 
     def _strata(self, Y, T, X=None, W=None, Z=None,
-                sample_weight=None, sample_var=None, groups=None,
+                sample_weight=None, freq_weight=None, sample_var=None, groups=None,
                 cache_values=False, only_final=False, check_input=True):
         if self.discrete_instrument:
             Z = LabelEncoder().fit_transform(np.ravel(Z))
@@ -547,7 +548,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X=None, W=None, Z=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, Z=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None, only_final=False, check_input=True):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -564,10 +565,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Controls for each sample
         Z: optional (n, d_z) matrix or None (Default=None)
             Instruments for each sample
-        sample_weight: optional (n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional (n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n, ) array like of integers or None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            It's not None only when ``sample_var`` is not None.
+        sample_var : {(n,), (n, d_y)} nd array like or None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the cv argument passed to this class's initializer
@@ -592,9 +598,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         self._random_state = check_random_state(self.random_state)
         if check_input:
-            Y, T, X, W, Z, sample_weight, sample_var, groups = check_input_arrays(
-                Y, T, X, W, Z, sample_weight, sample_var, groups)
-            self._check_input_dims(Y, T, X, W, Z, sample_weight, sample_var, groups)
+            Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
+                Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
+            self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
 
         if not only_final:
 
@@ -616,9 +622,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
             all_nuisances = []
             fitted_inds = None
+            if sample_weight is None:
+                if freq_weight is not None:
+                    sample_weight_nuisances = freq_weight
+                else:
+                    sample_weight_nuisances = None
+            else:
+                if freq_weight is not None:
+                    sample_weight_nuisances = freq_weight * sample_weight
+                else:
+                    sample_weight_nuisances = sample_weight
 
             for _ in range(self.mc_iters or 1):
-                nuisances, new_inds = self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
+                nuisances, new_inds = self._fit_nuisances(
+                    Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
                 all_nuisances.append(nuisances)
                 if fitted_inds is None:
                     fitted_inds = new_inds
@@ -636,12 +653,14 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                     raise ValueError(
                         "Parameter `mc_agg` must be one of {'mean', 'median'}. Got {}".format(self.mc_agg))
 
-            Y, T, X, W, Z, sample_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
-                                                        for arr in (Y, T, X, W, Z, sample_weight, sample_var))
+            Y, T, X, W, Z, sample_weight, freq_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
+                                                                     for arr in (Y, T, X, W, Z, sample_weight,
+                                                                                 freq_weight, sample_var))
             nuisances = tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances])
             self._cached_values = CachedValues(nuisances=nuisances,
                                                Y=Y, T=T, X=X, W=W, Z=Z,
                                                sample_weight=sample_weight,
+                                               freq_weight=freq_weight,
                                                sample_var=sample_var,
                                                groups=groups) if cache_values else None
         else:
@@ -656,6 +675,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                         X=X, W=W, Z=Z,
                         nuisances=nuisances,
                         sample_weight=sample_weight,
+                        freq_weight=freq_weight,
                         sample_var=sample_var)
 
         return self
@@ -690,7 +710,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         cached = self._cached_values
         kwargs = filter_none_kwargs(
             Y=cached.Y, T=cached.T, X=cached.X, W=cached.W, Z=cached.Z,
-            sample_weight=cached.sample_weight, sample_var=cached.sample_var,
+            sample_weight=cached.sample_weight, freq_weight=cached.freq_weight, sample_var=cached.sample_var,
             groups=cached.groups,
         )
         _OrthoLearner.fit(self, **kwargs,
@@ -742,17 +762,19 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.nuisance_scores_ = scores
         return nuisances, fitted_inds
 
-    def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None,
+                   freq_weight=None, sample_var=None):
         self._ortho_learner_model_final.fit(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
                                                                        nuisances=nuisances,
                                                                        sample_weight=sample_weight,
+                                                                       freq_weight=freq_weight,
                                                                        sample_var=sample_var))
         self.score_ = None
         if hasattr(self._ortho_learner_model_final, 'score'):
             self.score_ = self._ortho_learner_model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
                                                                                            nuisances=nuisances,
-                                                                                           sample_weight=sample_weight,
-                                                                                           sample_var=sample_var))
+                                                                                           sample_weight=sample_weight)
+                                                                )
 
     def const_marginal_effect(self, X=None):
         X, = check_input_arrays(X)

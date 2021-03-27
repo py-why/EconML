@@ -75,7 +75,7 @@ class _BaseDRIVModelFinal:
                                          self._cov_clip, np.inf)
         return prel_theta + (res_y - prel_theta * res_t) * res_z / clipped_cov, clipped_cov
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, freq_weight=None, sample_var=None):
         self.d_y = Y.shape[1:]
         self.d_t = nuisances[1].shape[1:]
         self.d_z = nuisances[3].shape[1:]
@@ -105,7 +105,8 @@ class _BaseDRIVModelFinal:
             sample_weight = sample_weight * clipped_cov.ravel()**2
         elif self._opt_reweighted:
             sample_weight = clipped_cov.ravel()**2
-        self._model_final.fit(X, theta_dr, **filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var))
+        self._model_final.fit(X, theta_dr, **filter_none_kwargs(sample_weight=sample_weight,
+                                                                freq_weight=freq_weight, sample_var=sample_var))
 
         return self
 
@@ -114,7 +115,7 @@ class _BaseDRIVModelFinal:
             X = self._featurizer.transform(X)
         return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
         theta_dr, clipped_cov = self._effect_estimate(nuisances)
 
         if (X is not None) and (self._featurizer is not None):
@@ -243,7 +244,7 @@ class _BaseDRIV(_OrthoLearner):
 
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -260,10 +261,15 @@ class _BaseDRIV(_OrthoLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers or None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            It's not None only when ``sample_var`` is not None.
+        sample_var : {(n,), (n, d_y)} nd array like or None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -280,7 +286,7 @@ class _BaseDRIV(_OrthoLearner):
         """
         # Replacing fit from _OrthoLearner, to reorder arguments and improve the docstring
         return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
@@ -721,7 +727,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -738,10 +744,15 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers or None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            It's not None only when ``sample_var`` is not None.
+        sample_var : {(n,), (n, d_y)} nd array like or None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -758,7 +769,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         self : instance
         """
         return super().fit(Y, T, Z=Z, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     def refit_final(self, *, inference='auto'):
