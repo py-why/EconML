@@ -17,7 +17,7 @@ from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearch
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
 from sklearn.preprocessing import LabelEncoder
-from sklearn.utils import indexable
+from sklearn.utils import indexable, check_random_state
 from sklearn.utils.validation import _num_samples
 
 
@@ -29,12 +29,18 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
     else:
         kfold_model = KFold(n_splits=self.n_splits, shuffle=self.shuffle,
                             random_state=random_state)
+
     if sample_weight is None:
         return kfold_model.split(X, y)
+    else:
+        random_state = self.random_state
+        kfold_model.shuffle = True
+        kfold_model.random_state = random_state
+
     weights_sum = np.sum(sample_weight)
     max_deviations = []
     all_splits = []
-    for i in range(self.n_trials + 1):
+    for _ in range(self.n_trials + 1):
         splits = [test for (train, test) in list(kfold_model.split(X, y))]
         weight_fracs = np.array([np.sum(sample_weight[split]) / weights_sum for split in splits])
         if np.all(weight_fracs > .95 / self.n_splits):
@@ -45,7 +51,6 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
         max_deviation = np.max(np.abs(weight_fracs - 1 / self.n_splits))
         max_deviations.append(max_deviation)
         # Reseed random generator and try again
-        kfold_model.shuffle = True
         if isinstance(kfold_model.random_state, numbers.Integral):
             kfold_model.random_state = kfold_model.random_state + 1
         elif kfold_model.random_state is not None:
@@ -65,6 +70,7 @@ def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
     else:
         stratified_weight_splits = self._get_splits_from_weight_stratification(sample_weight)
     weight_fracs = np.array([np.sum(sample_weight[split]) / weights_sum for split in stratified_weight_splits])
+
     if np.all(weight_fracs > .95 / self.n_splits):
         # Found a good split, return.
         return self._get_folds_from_splits(stratified_weight_splits, X.shape[0])
@@ -141,20 +147,21 @@ class WeightedKFold:
     def _get_splits_from_weight_stratification(self, sample_weight):
         # Weight stratification algorithm
         # Sort weights for weight strata search
+        random_state = check_random_state(self.random_state)
         sorted_inds = np.argsort(sample_weight)
         sorted_weights = sample_weight[sorted_inds]
         max_split_size = sorted_weights.shape[0] // self.n_splits
         max_divisible_length = max_split_size * self.n_splits
         sorted_inds_subset = np.reshape(sorted_inds[:max_divisible_length], (max_split_size, self.n_splits))
-        shuffled_sorted_inds_subset = np.apply_along_axis(np.random.permutation, axis=1, arr=sorted_inds_subset)
+        shuffled_sorted_inds_subset = np.apply_along_axis(random_state.permutation, axis=1, arr=sorted_inds_subset)
         splits = [list(shuffled_sorted_inds_subset[:, i]) for i in range(self.n_splits)]
         if max_divisible_length != sorted_weights.shape[0]:
             # There are some leftover indices that have yet to be assigned
             subsample = sorted_inds[max_divisible_length:]
             if self.shuffle:
-                np.random.shuffle(subsample)
+                random_state.shuffle(subsample)
             new_splits = np.array_split(subsample, self.n_splits)
-            np.random.shuffle(new_splits)
+            random_state.shuffle(new_splits)
             # Append stratum splits to overall splits
             splits = [split + list(new_split) for split, new_split in zip(splits, new_splits)]
         return splits

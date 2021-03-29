@@ -438,7 +438,7 @@ Usage FAQs
 
     .. testcode::
 
-        from econml.drlearner import DRLearner
+        from econml.dr import DRLearner
         from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
         from sklearn.model_selection import GridSearchCV
         model_reg = lambda: GridSearchCV(
@@ -490,13 +490,13 @@ Usage FAQs
         est.score(Y_val, T_val, X_val, W_val)
 
     Moreover, one can independently check the goodness of fit of the fitted first stage models by
-    inspecting the fitted models. You can access the list of fitted first stage models (one for each
+    inspecting the fitted models. You can access the nested list of fitted first stage models (one for each
     fold of the crossfitting structure) via the methods: `models_t` and `models_y`. Then if those models
     also have a score associated attribute, that can be used as an indicator of performance of the first
     stage. For instance in the case of Random Forest first stages as in the above example, if the `oob_score`
     is set to `True`, then the estimator has a post-fit measure of performance::
 
-        [mdl.oob_score_ for mdl in est.models_regression]
+        [mdl.oob_score_ for mdls in est.models_regression for mdl in mdls]
 
     If one uses cross-validated estimators as first stages, then model selection for the first stage models
     is performed automatically.

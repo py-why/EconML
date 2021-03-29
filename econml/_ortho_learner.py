@@ -412,26 +412,24 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     Attributes
     ----------
-    models_nuisance_: list of objects of type(model_nuisance)
-        A list of instances of the model_nuisance object. Each element corresponds to a crossfitting
-        fold and is the model instance that was fitted for that training fold. If `mc_iters` is > 1,
-        then the fitted models from the last monte carlo iteration are being stored and returned.
-        TODO. Enable returning all fitted nuisance models from all monte carlo iterations.
+    models_nuisance_: nested list of objects of type(model_nuisance)
+        A nested list of instances of the model_nuisance object. The number of sublist equals to the
+        number of monte carlo iterations. Each element in the sublist corresponds to a crossfitting
+        fold and is the model instance that was fitted for that training fold.
     ortho_learner_model_final_: object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float or array of floats
         If the model_final has a score method, then `score_` contains the outcome of the final model
         score when evaluated on the fitted nuisances from the first stage. Represents goodness of fit,
         of the final CATE model.
-    nuisance_scores_ : tuple of lists of floats or None
+    nuisance_scores_ : tuple of nested lists of floats or None
         The out-of-sample scores from training each nuisance model
     """
 
     def __init__(self, *,
                  discrete_treatment, discrete_instrument, categories, cv, random_state,
-                 n_splits='raise', mc_iters=None, mc_agg='mean'):
+                 mc_iters=None, mc_agg='mean'):
         self.cv = cv
-        self.n_splits = n_splits
         self.discrete_treatment = discrete_treatment
         self.discrete_instrument = discrete_instrument
         self.random_state = random_state
@@ -633,10 +631,19 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 else:
                     sample_weight_nuisances = sample_weight
 
-            for _ in range(self.mc_iters or 1):
-                nuisances, new_inds = self._fit_nuisances(
+            self._models_nuisance = []
+            for idx in range(self.mc_iters or 1):
+                nuisances, fitted_models, new_inds, scores = self._fit_nuisances(
                     Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
                 all_nuisances.append(nuisances)
+                self._models_nuisance.append(fitted_models)
+                if scores is None:
+                    self.nuisance_scores_ = None
+                else:
+                    if idx == 0:
+                        self.nuisance_scores_ = tuple([] for _ in scores)
+                    for ind, score in enumerate(scores):
+                        self.nuisance_scores_[ind].append(score)
                 if fitted_inds is None:
                     fitted_inds = new_inds
                 elif not np.array_equal(fitted_inds, new_inds):
@@ -758,9 +765,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         nuisances, fitted_models, fitted_inds, scores = _crossfit(self._ortho_learner_model_nuisance, folds,
                                                                   Y, T, X=X, W=W, Z=Z,
                                                                   sample_weight=sample_weight, groups=groups)
-        self._models_nuisance = fitted_models
-        self.nuisance_scores_ = scores
-        return nuisances, fitted_inds
+        return nuisances, fitted_models, fitted_inds, scores
 
     def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None,
                    freq_weight=None, sample_var=None):
@@ -813,9 +818,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted nuisance models created at fit time.
-        It uses the mean prediction of the models fitted by the different crossfit folds.
-        Then calls the score function of the model_final and returns the calculated score.
-        The model_final model must have a score method.
+        It uses the mean prediction of the models fitted by the different crossfit folds
+        under different iterations. Then calls the score function of the model_final and
+        returns the calculated score. The model_final model must have a score method.
 
         If model_final does not have a score method, then it raises an :exc:`.AttributeError`
 
@@ -848,17 +853,22 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X, T = self._expand_treatments(X, T)
         if self.z_transformer is not None:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
-        n_splits = len(self._models_nuisance)
-        for idx, mdl in enumerate(self._models_nuisance):
-            nuisance_temp = mdl.predict(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z))
-            if not isinstance(nuisance_temp, tuple):
-                nuisance_temp = (nuisance_temp,)
+        n_iters = len(self._models_nuisance)
+        n_splits = len(self._models_nuisance[0])
 
-            if idx == 0:
-                nuisances = [np.zeros((n_splits,) + nuis.shape) for nuis in nuisance_temp]
+        # for each mc iteration
+        for i, models_nuisances in enumerate(self._models_nuisance):
+            # for each model under cross fit setting
+            for j, mdl in enumerate(models_nuisances):
+                nuisance_temp = mdl.predict(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z))
+                if not isinstance(nuisance_temp, tuple):
+                    nuisance_temp = (nuisance_temp,)
 
-            for it, nuis in enumerate(nuisance_temp):
-                nuisances[it][idx] = nuis
+                if i == 0 and j == 0:
+                    nuisances = [np.zeros((n_iters * n_splits,) + nuis.shape) for nuis in nuisance_temp]
+
+                for it, nuis in enumerate(nuisance_temp):
+                    nuisances[it][i * n_iters + j] = nuis
 
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
@@ -877,18 +887,3 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if not hasattr(self, '_models_nuisance'):
             raise AttributeError("Model is not fitted!")
         return self._models_nuisance
-
-    #######################################################
-    # These should be removed once `n_splits` is deprecated
-    #######################################################
-
-    @property
-    def n_splits(self):
-        return self.cv
-
-    @n_splits.setter
-    def n_splits(self, value):
-        if value != 'raise':
-            warn("Parameter `n_splits` has been deprecated and will be removed in the next version. "
-                 "Use parameter `cv` instead.")
-            self.cv = value

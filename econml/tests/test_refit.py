@@ -57,7 +57,7 @@ class TestRefit(unittest.TestCase):
             dml.intercept_
         with pytest.raises(AttributeError):
             dml.intercept__interval()
-        dml.model_final = DebiasedLasso(fit_intercept=False)
+        dml.model_final = DebiasedLasso(fit_intercept=False, random_state=123)
         dml.refit_final()
         assert isinstance(dml.model_cate, DebiasedLasso)
         dml.featurizer = PolynomialFeatures(degree=2, include_bias=False)
@@ -77,10 +77,10 @@ class TestRefit(unittest.TestCase):
         dml.discrete_treatment = True
         dml.featurizer = None
         dml.linear_first_stages = True
-        dml.model_t = LogisticRegression()
+        dml.model_t = LogisticRegression(random_state=123)
         dml.fit(y, T, X=X, W=W)
         newdml = DML(model_y=LinearRegression(),
-                     model_t=LogisticRegression(),
+                     model_t=LogisticRegression(random_state=123),
                      model_final=StatsModelsLinearRegression(fit_intercept=False),
                      discrete_treatment=True,
                      linear_first_stages=True,
@@ -116,13 +116,13 @@ class TestRefit(unittest.TestCase):
 
         dml = NonParamDML(model_y=LinearRegression(),
                           model_t=LinearRegression(),
-                          model_final=WeightedLasso(),
+                          model_final=WeightedLasso(random_state=123),
                           random_state=123)
         dml.fit(y, T, X=X, W=W)
         with pytest.raises(Exception):
             dml.refit_final()
         dml.fit(y, T, X=X, W=W, cache_values=True)
-        dml.model_final = DebiasedLasso(fit_intercept=False)
+        dml.model_final = DebiasedLasso(fit_intercept=False, random_state=123)
         dml.refit_final()
         assert isinstance(dml.model_cate, DebiasedLasso)
         dml.effect_interval(X[:1])
@@ -133,12 +133,12 @@ class TestRefit(unittest.TestCase):
         dml.discrete_treatment = True
         dml.featurizer = None
         dml.linear_first_stages = True
-        dml.model_t = LogisticRegression()
-        dml.model_final = DebiasedLasso()
+        dml.model_t = LogisticRegression(random_state=123)
+        dml.model_final = DebiasedLasso(random_state=123)
         dml.fit(y, T, X=X, W=W)
         newdml = NonParamDML(model_y=LinearRegression(),
-                             model_t=LogisticRegression(),
-                             model_final=DebiasedLasso(),
+                             model_t=LogisticRegression(random_state=123),
+                             model_final=DebiasedLasso(random_state=123),
                              discrete_treatment=True,
                              random_state=123).fit(y, T, X=X, W=W)
         np.testing.assert_array_equal(dml.effect(X[:1]), newdml.effect(X[:1]))
@@ -152,7 +152,7 @@ class TestRefit(unittest.TestCase):
             est.fit(y, T, X=X, W=W, cache_values=True)
             np.testing.assert_equal(est.model_regression, 'auto')
             est.model_regression = LinearRegression()
-            est.model_propensity = LogisticRegression()
+            est.model_propensity = LogisticRegression(random_state=123)
             est.fit(y, T, X=X, W=W, cache_values=True)
             assert isinstance(est.model_regression, LinearRegression)
             with pytest.raises(ValueError):
@@ -188,9 +188,9 @@ class TestRefit(unittest.TestCase):
         est.model_T_W = ElasticNet()
         est.model_Z_W = WeightedLasso()
         est.fit(y, T, W=W, Z=Z, cache_values=True)
-        assert isinstance(est.models_nuisance_[0]._model_Y_W._model, Lasso)
-        assert isinstance(est.models_nuisance_[0]._model_T_W._model, ElasticNet)
-        assert isinstance(est.models_nuisance_[0]._model_Z_W._model, WeightedLasso)
+        assert isinstance(est.models_nuisance_[0][0]._model_Y_W._model, Lasso)
+        assert isinstance(est.models_nuisance_[0][0]._model_T_W._model, ElasticNet)
+        assert isinstance(est.models_nuisance_[0][0]._model_Z_W._model, WeightedLasso)
 
         est = ProjectedDMLATEIV(model_Y_W=LinearRegression(),
                                 model_T_W=LinearRegression(),
@@ -202,9 +202,9 @@ class TestRefit(unittest.TestCase):
         est.model_T_W = ElasticNet()
         est.model_T_WZ = WeightedLasso()
         est.fit(y, T, W=W, Z=Z, cache_values=True)
-        assert isinstance(est.models_nuisance_[0]._model_Y_W._model, Lasso)
-        assert isinstance(est.models_nuisance_[0]._model_T_W._model, ElasticNet)
-        assert isinstance(est.models_nuisance_[0]._model_T_WZ._model, WeightedLasso)
+        assert isinstance(est.models_nuisance_[0][0]._model_Y_W._model, Lasso)
+        assert isinstance(est.models_nuisance_[0][0]._model_T_W._model, ElasticNet)
+        assert isinstance(est.models_nuisance_[0][0]._model_T_WZ._model, WeightedLasso)
 
         est = DMLIV(model_Y_X=LinearRegression(),
                     model_T_X=LinearRegression(),
@@ -226,9 +226,9 @@ class TestRefit(unittest.TestCase):
         est.model_T_X = ElasticNet()
         est.model_T_XZ = WeightedLasso()
         est.fit(y, T, X=X, Z=Z, cache_values=True)
-        assert isinstance(est.models_Y_X[0], Lasso)
-        assert isinstance(est.models_T_X[0], ElasticNet)
-        assert isinstance(est.models_T_XZ[0], WeightedLasso)
+        assert isinstance(est.models_Y_X[0][0], Lasso)
+        assert isinstance(est.models_T_X[0][0], ElasticNet)
+        assert isinstance(est.models_T_XZ[0][0], WeightedLasso)
 
         est = DMLIV(model_Y_X=LinearRegression(),
                     model_T_X=LinearRegression(),
@@ -250,9 +250,9 @@ class TestRefit(unittest.TestCase):
         est.model_T_X = ElasticNet()
         est.model_T_XZ = WeightedLasso()
         est.fit(y, T, X=X, Z=Z, cache_values=True)
-        assert isinstance(est.models_nuisance_[0]._model_Y_X._model, Lasso)
-        assert isinstance(est.models_nuisance_[0]._model_T_X._model, ElasticNet)
-        assert isinstance(est.models_nuisance_[0]._model_T_XZ._model, WeightedLasso)
+        assert isinstance(est.models_nuisance_[0][0]._model_Y_X._model, Lasso)
+        assert isinstance(est.models_nuisance_[0][0]._model_T_X._model, ElasticNet)
+        assert isinstance(est.models_nuisance_[0][0]._model_T_XZ._model, WeightedLasso)
 
         est = NonParamDMLIV(model_Y_X=LinearRegression(),
                             model_T_X=LinearRegression(),
@@ -279,9 +279,9 @@ class TestRefit(unittest.TestCase):
         est.refit_final()
         assert isinstance(est.model_final, Lasso)
         assert isinstance(est.model_final_, Lasso)
-        assert isinstance(est.models_nuisance_[0]._prel_model_effect.model_final_, LinearRegression)
+        assert isinstance(est.models_nuisance_[0][0]._prel_model_effect.model_final_, LinearRegression)
         est.fit(y, T, X=X, W=W, Z=Z, cache_values=True)
-        assert isinstance(est.models_nuisance_[0]._prel_model_effect.model_final_, Lasso)
+        assert isinstance(est.models_nuisance_[0][0]._prel_model_effect.model_final_, Lasso)
 
         est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(), model_T_XZ=LogisticRegression(),
                                       flexible_model_effect=LinearRegression())
@@ -298,7 +298,7 @@ class TestRefit(unittest.TestCase):
             est.model_final = LinearRegression()
         est.flexible_model_effect = Lasso()
         est.fit(y, T, X=X, W=W, Z=Z, cache_values=True)
-        assert isinstance(est.models_nuisance_[0]._prel_model_effect.model_final_, Lasso)
+        assert isinstance(est.models_nuisance_[0][0]._prel_model_effect.model_final_, Lasso)
 
     def test_can_set_discrete_treatment(self):
         X = np.random.choice(np.arange(5), size=(500, 3))

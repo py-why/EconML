@@ -488,7 +488,6 @@ class CausalForestDML(_BaseDML):
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
-                 n_crossfit_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  drate=True,
@@ -539,13 +538,9 @@ class CausalForestDML(_BaseDML):
         self.subforest_size = subforest_size
         self.n_jobs = n_jobs
         self.verbose = verbose
-        self.n_crossfit_splits = n_crossfit_splits
-        if self.n_crossfit_splits != 'raise':
-            cv = self.n_crossfit_splits
         super().__init__(discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_crossfit_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -957,17 +952,3 @@ class CausalForestDML(_BaseDML):
     def __iter__(self):
         """Return iterator over estimators in the ensemble."""
         return self.model_cate.__iter__()
-
-    #######################################################
-    # These should be removed once `n_splits` is deprecated
-    #######################################################
-
-    @property
-    def n_crossfit_splits(self):
-        return self.cv
-
-    @n_crossfit_splits.setter
-    def n_crossfit_splits(self, value):
-        if value != 'raise':
-            warn("Deprecated by parameter `n_crossfit_splits` and will be removed in next version.")
-        self.cv = value

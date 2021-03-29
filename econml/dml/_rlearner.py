@@ -232,26 +232,28 @@ class _RLearner(_OrthoLearner):
     array([0.999631...])
     >>> est.score_
     9.82623204...e-05
-    >>> [mdl._model for mdl in est.models_y]
+    >>> [mdl._model for mdls in est.models_y for mdl in mdls]
     [LinearRegression(), LinearRegression()]
-    >>> [mdl._model for mdl in est.models_t]
+    >>> [mdl._model for mdls in est.models_t for mdl in mdls]
     [LinearRegression(), LinearRegression()]
 
     Attributes
     ----------
-    models_y: list of objects of type(model_y)
-        A list of instances of the model_y object. Each element corresponds to a crossfitting
+    models_y: nested list of objects of type(model_y)
+        A nested list of instances of the model_y object. Number of sublist equals to number of monte carlo
+        iterations, each element in the sublist corresponds to a crossfitting
         fold and is the model instance that was fitted for that training fold.
-    models_t: list of objects of type(model_t)
-        A list of instances of the model_t object. Each element corresponds to a crossfitting
+    models_t: nested list of objects of type(model_t)
+        A nested list of instances of the model_t object. Number of sublist equals to number of monte carlo
+        iterations, each element in the sublist corresponds to a crossfitting
         fold and is the model instance that was fitted for that training fold.
     rlearner_model_final_ : object of type(model_final)
         An instance of the model_final object that was fitted after calling fit.
     score_ : float
         The MSE in the final residual on residual regression
-    nuisance_scores_y : list of float
+    nuisance_scores_y : nested list of float
         The out-of-sample scores for each outcome model
-    nuisance_scores_t : list of float
+    nuisance_scores_t : nested list of float
         The out-of-sample scores for each treatment model
 
         .. math::
@@ -262,13 +264,11 @@ class _RLearner(_OrthoLearner):
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
     """
 
-    def __init__(self, *, discrete_treatment, categories, cv, random_state,
-                 n_splits='raise', mc_iters=None, mc_agg='mean'):
+    def __init__(self, *, discrete_treatment, categories, cv, random_state, mc_iters=None, mc_agg='mean'):
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          random_state=random_state,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg)
@@ -407,11 +407,11 @@ class _RLearner(_OrthoLearner):
 
     @property
     def models_y(self):
-        return [mdl._model_y for mdl in super().models_nuisance_]
+        return [[mdl._model_y for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t(self):
-        return [mdl._model_t for mdl in super().models_nuisance_]
+        return [[mdl._model_t for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_y(self):

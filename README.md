@@ -45,9 +45,11 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-**March 11, 2021:** Release v0.9.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.2)
+**March 22, 2021:** Release v0.10.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.10.0)
 
 <details><summary>Previous releases</summary>
+
+**March 11, 2021:** Release v0.9.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.2)
 
 **March 3, 2021:** Release v0.9.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.1)
 
@@ -396,19 +398,19 @@ See the <a href="#references">References</a> section for more details.
   reg = lambda: RandomForestRegressor(min_samples_leaf=20)
   clf = lambda: RandomForestClassifier(min_samples_leaf=20)
   models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
-                               linear_first_stages=False, n_splits=3)),
+                               linear_first_stages=False, cv=3)),
             ('xlearner', XLearner(models=reg(), cate_models=reg(), propensity_model=clf())),
             ('dalearner', DomainAdaptationLearner(models=reg(), final_models=reg(), propensity_model=clf())),
             ('slearner', SLearner(overall_model=reg())),
             ('drlearner', DRLearner(model_propensity=clf(), model_regression=reg(),
-                                    model_final=reg(), n_splits=3)),
+                                    model_final=reg(), cv=3)),
             ('rlearner', NonParamDML(model_y=reg(), model_t=clf(), model_final=reg(),
-                                     discrete_treatment=True, n_splits=3)),
+                                     discrete_treatment=True, cv=3)),
             ('dml3dlasso', DML(model_y=reg(), model_t=clf(),
                                model_final=LassoCV(cv=3, fit_intercept=False),
                                discrete_treatment=True,
                                featurizer=PolynomialFeatures(degree=3),
-                               linear_first_stages=False, n_splits=3))
+                               linear_first_stages=False, cv=3))
   ]
 
   # fit cate models on train data
@@ -416,7 +418,7 @@ See the <a href="#references">References</a> section for more details.
 
   # score cate models on validation data
   scorer = RScorer(model_y=reg(), model_t=clf(),
-                   discrete_treatment=True, n_splits=3, mc_iters=2, mc_agg='median')
+                   discrete_treatment=True, cv=3, mc_iters=2, mc_agg='median')
   scorer.fit(Y_val, T_val, X=X_val)
   rscore = [scorer.score(mdl) for _, mdl in models]
   # select the best model
@@ -500,6 +502,47 @@ as p-values and z-statistics. When the CATE model is linear and parametric, then
   
   </details>
   
+
+### Policy Learning
+
+You can also perform direct policy learning from observational data, using the doubly robust method for offline
+policy learning. These methods directly predict a recommended treatment, without internally fitting an explicit
+model of the conditional average treatment effect.
+
+<details>
+  <summary>Doubly Robust Policy Learning (click to expand)</summary>
+
+```Python
+from econml.policy import DRPolicyTree, DRPolicyForest
+from sklearn.ensemble import RandomForestRegressor
+
+# fit a single binary decision tree policy
+policy = DRPolicyTree(max_depth=1, min_impurity_decrease=0.01, honest=True)
+policy.fit(y, T, X=X, W=W)
+# predict the recommended treatment
+recommended_T = policy.predict(X)
+# plot the binary decision tree
+plt.figure(figsize=(10,5))
+policy.plot()
+# get feature importances
+importances = policy.feature_importances_
+
+# fit a binary decision forest
+policy = DRPolicyForest(max_depth=1, min_impurity_decrease=0.01, honest=True)
+policy.fit(y, T, X=X, W=W)
+# predict the recommended treatment
+recommended_T = policy.predict(X)
+# plot the first tree in the ensemble
+plt.figure(figsize=(10,5))
+policy.plot(0)
+# get feature importances
+importances = policy.feature_importances_
+```
+
+
+  ![image](images/policy_tree.png)
+</details>
+
 To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/master/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
 
 # For Developers
@@ -567,6 +610,10 @@ contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additio
 
 # References
 
+Athey, Susan, and Stefan Wager.
+**Policy learning with observational data.**
+Econometrica 89.1 (2021): 133-161.
+
 X Nie, S Wager.
 **Quasi-Oracle Estimation of Heterogeneous Treatment Effects.**
 [*Biometrika*](https://doi.org/10.1093/biomet/asaa076), 2020
@@ -604,3 +651,7 @@ S. Wager, S. Athey.
 Jason Hartford, Greg Lewis, Kevin Leyton-Brown, and Matt Taddy. **Deep IV: A flexible approach for counterfactual prediction.** [*Proceedings of the 34th International Conference on Machine Learning, ICML'17*](http://proceedings.mlr.press/v70/hartford17a/hartford17a.pdf), 2017.
 
 V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newey. **Double Machine Learning for Treatment and Causal Parameters.** [*ArXiv preprint arXiv:1608.00060*](https://arxiv.org/abs/1608.00060), 2016.
+
+Dudik, M., Erhan, D., Langford, J., & Li, L.
+**Doubly robust policy evaluation and optimization.**
+Statistical Science, 29(4), 485-511, 2014.

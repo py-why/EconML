@@ -36,6 +36,7 @@ jobs:
           switch -Wildcard ($file) {
             "README.md" { Continue }
             "prototypes/*" { Continue }
+            "images/*" { Continue }
             "doc/*" { $docChanges = $true; Continue }
             "notebooks/*" { $nbChanges = $true; Continue }
             default { $codeChanges = $true; Continue }

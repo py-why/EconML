@@ -212,7 +212,6 @@ class _BaseDRIV(_OrthoLearner):
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -225,7 +224,6 @@ class _BaseDRIV(_OrthoLearner):
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
@@ -431,7 +429,6 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  cv=3,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  opt_reweighted=False,
@@ -448,7 +445,6 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          discrete_instrument=True,
@@ -566,7 +562,6 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  cv=3,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  opt_reweighted=False,
@@ -581,7 +576,6 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          opt_reweighted=opt_reweighted,
@@ -605,11 +599,11 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     @property
     def models_Y_X(self):
-        return [mdl._model_Y_X._model for mdl in super().models_nuisance_]
+        return [[mdl._model_Y_X._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_T_XZ(self):
-        return [mdl._model_T_XZ._model for mdl in super().models_nuisance_]
+        return [[mdl._model_T_XZ._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_Y_X(self):
@@ -702,7 +696,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  fit_cate_intercept=True,
                  cov_clip=.1,
                  cv=3,
-                 n_splits='raise',
                  mc_iters=None,
                  mc_agg='mean',
                  categories='auto',
@@ -715,7 +708,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          model_final=None,
                          cov_clip=cov_clip,
                          cv=cv,
-                         n_splits=n_splits,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          opt_reweighted=False,

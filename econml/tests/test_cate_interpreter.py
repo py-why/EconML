@@ -7,6 +7,7 @@ import pytest
 import graphviz
 from econml.cate_interpreter import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
 from econml.dml import LinearDML
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
 graphviz_works = True
 try:
@@ -28,7 +29,7 @@ class TestCateInterpreter(unittest.TestCase):
                 X = np.random.normal(size=(n, 4))
                 T = np.random.binomial(1, 0.5, size=t_shape)
                 Y = (T.flatten() * (2 * (X[:, 0] > 0) - 1)).reshape(y_shape)
-                est = LinearDML(discrete_treatment=True)
+                est = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True)
                 est.fit(Y, T, X=X)
                 for intrp in [SingleTreeCateInterpreter(), SingleTreePolicyInterpreter()]:
                     with self.subTest(t_shape=t_shape, y_shape=y_shape, intrp=intrp):
@@ -49,7 +50,7 @@ class TestCateInterpreter(unittest.TestCase):
         X = np.random.normal(size=(n, 4))
         T = np.random.binomial(1, 0.5, size=(n,))
         Y = (2 * (X[:, 0] > 0) - 1) * T.flatten()
-        est = LinearDML(discrete_treatment=True)
+        est = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True)
         est.fit(Y, T, X=X, inference=None)
 
         # can interpret without uncertainty
@@ -70,7 +71,7 @@ class TestCateInterpreter(unittest.TestCase):
         X = np.random.normal(size=(n, 4))
         T = np.random.binomial(1, 0.5, size=(n,))
         Y = (2 * (X[:, 0] > 0) - 1) * T.flatten()
-        est = LinearDML(discrete_treatment=True)
+        est = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(), discrete_treatment=True)
         est.fit(Y, T, X=X)
 
         # can interpret without uncertainty
@@ -82,20 +83,32 @@ class TestCateInterpreter(unittest.TestCase):
         intrp.interpret(est, X)
         T_policy = intrp.treat(X)
         assert T.shape == T_policy.shape
+        intrp.interpret(est, X, sample_treatment_costs=np.ones((T.shape[0], 1)))
+        T_policy = intrp.treat(X)
+        assert T.shape == T_policy.shape
+        with np.testing.assert_raises(ValueError):
+            intrp.interpret(est, X, sample_treatment_costs=np.ones((T.shape[0], 2)))
 
     def test_random_cate_settings(self):
         """Verify that we can call methods on the CATE interpreter with various combinations of inputs"""
         n = 100
         for _ in range(100):
-            t_shape = (n,) if self.coinflip else (n, 1)
-            y_shape = (n,) if self.coinflip else (n, 1)
+            t_shape = (n,) if self.coinflip() else (n, 1)
+            y_shape = (n,) if self.coinflip() else (n, 1)
             discrete_t = self.coinflip()
             X = np.random.normal(size=(n, 4))
             X2 = np.random.normal(size=(10, 4))
-            T = np.random.binomial(1, 0.5, size=t_shape) if discrete_t else np.random.normal(size=t_shape)
-            Y = (T.flatten() * (2 * (X[:, 0] > 0) - 1)).reshape(y_shape)
+            T = np.random.binomial(2, 0.5, size=t_shape) if discrete_t else np.random.normal(size=t_shape)
+            Y = ((T.flatten() == 1) * (2 * (X[:, 0] > 0) - 1) +
+                 (T.flatten() == 2) * (2 * (X[:, 1] > 0) - 1)).reshape(y_shape)
 
-            est = LinearDML(discrete_treatment=discrete_t)
+            if self.coinflip():
+                y_shape = (n, 2)
+                Y = np.tile(Y.reshape((-1, 1)), (1, 2))
+
+            est = LinearDML(model_y=LinearRegression(),
+                            model_t=LogisticRegression() if discrete_t else LinearRegression(),
+                            discrete_treatment=discrete_t)
 
             fit_kwargs = {}
             cate_init_kwargs = {}
@@ -119,13 +132,16 @@ class TestCateInterpreter(unittest.TestCase):
             if self.coinflip():
                 policy_init_kwargs.update(risk_seeking=True)
 
-            if self.coinflip():
-                policy_intrp_kwargs.update(treatment_names=['control gp', 'treated gp'])
-
             if self.coinflip(1 / 3):
                 policy_intrp_kwargs.update(sample_treatment_costs=0.1)
             elif self.coinflip():
-                policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10,)))
+                if discrete_t:
+                    policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10, 2)))
+                else:
+                    if self.coinflip():
+                        policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10, 1)))
+                    else:
+                        policy_intrp_kwargs.update(sample_treatment_costs=np.random.normal(size=(10,)))
 
             if self.coinflip():
                 common_kwargs.update(feature_names=['A', 'B', 'C', 'D'])
@@ -146,6 +162,12 @@ class TestCateInterpreter(unittest.TestCase):
             if self.coinflip():
                 render_kwargs.update(leaves_parallel=False)
                 export_kwargs.update(leaves_parallel=False)
+                if discrete_t:
+                    render_kwargs.update(treatment_names=['control gp', 'treated gp', 'more gp'])
+                    export_kwargs.update(treatment_names=['control gp', 'treated gp', 'more gp'])
+                else:
+                    render_kwargs.update(treatment_names=['control gp', 'treated gp'])
+                    export_kwargs.update(treatment_names=['control gp', 'treated gp'])
 
             if self.coinflip():
                 render_kwargs.update(format='png')

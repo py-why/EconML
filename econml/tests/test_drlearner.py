@@ -459,23 +459,27 @@ class TestDRLearner(unittest.TestCase):
                                         if isinstance(models[0], GradientBoostingClassifier):
                                             np.testing.assert_array_equal(np.array([mdl.feature_importances_
                                                                                     for mdl
-                                                                                    in est.models_regression]).shape,
+                                                                                    in est.models_regression[0]
+                                                                                    ]).shape,
                                                                           [2, 2 + X.shape[1] +
                                                                            (W.shape[1] if W is not None else 0)])
                                             np.testing.assert_array_equal(np.array([mdl.feature_importances_
                                                                                     for mdl
-                                                                                    in est.models_propensity]).shape,
+                                                                                    in est.models_propensity[0]
+                                                                                    ]).shape,
                                                                           [2, X.shape[1] +
                                                                            (W.shape[1] if W is not None else 0)])
                                         else:
                                             np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                     for mdl
-                                                                                    in est.models_regression]).shape,
+                                                                                    in est.models_regression[0]
+                                                                                    ]).shape,
                                                                           [2, 2 + X.shape[1] +
                                                                            (W.shape[1] if W is not None else 0)])
                                             np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                     for mdl
-                                                                                    in est.models_propensity]).shape,
+                                                                                    in est.models_propensity[0]
+                                                                                    ]).shape,
                                                                           [2, 3, X.shape[1] +
                                                                            (W.shape[1] if W is not None else 0)])
                                         if multitask_model_final:
@@ -635,23 +639,23 @@ class TestDRLearner(unittest.TestCase):
                                     if isinstance(model_t, GradientBoostingClassifier):
                                         np.testing.assert_array_equal(np.array([mdl.feature_importances_
                                                                                 for mdl
-                                                                                in est.models_regression]).shape,
+                                                                                in est.models_regression[0]]).shape,
                                                                       [2, 2 + len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
                                         np.testing.assert_array_equal(np.array([mdl.feature_importances_
                                                                                 for mdl
-                                                                                in est.models_propensity]).shape,
+                                                                                in est.models_propensity[0]]).shape,
                                                                       [2, len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
                                     else:
                                         np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                 for mdl
-                                                                                in est.models_regression]).shape,
+                                                                                in est.models_regression[0]]).shape,
                                                                       [2, 2 + len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
                                         np.testing.assert_array_equal(np.array([mdl.coef_
                                                                                 for mdl
-                                                                                in est.models_propensity]).shape,
+                                                                                in est.models_propensity[0]]).shape,
                                                                       [2, 3, len(feature_names) +
                                                                        (W.shape[1] if W is not None else 0)])
 
