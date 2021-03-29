@@ -1709,7 +1709,9 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             elif np.any(np.not_equal(freq_weight, 1) & np.equal(sample_var, 0)):
                 warnings.warn(
                     "Variance was set to zero for an observation with freq_weight>1! "
-                    "It's the same as repeat the samples, please use sample_weight instead!")
+                    "sample_var represents the variance of the original observations that are "
+                    "summarized in this sample. If it's zero, please use sample_wegiht instead "
+                    "to reflect the weight for each individual sample!")
         else:
             if np.any(np.equal(freq_weight, 1) & np.not_equal(np.sum(sample_var, axis=1), 0)):
                 warnings.warn(
@@ -1720,7 +1722,9 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             elif np.any(np.not_equal(freq_weight, 1) & np.equal(np.sum(sample_var, axis=1), 0)):
                 warnings.warn(
                     "Variance was set to zero for an observation with freq_weight>1! "
-                    "It's the same as repeat the samples, please use sample_weight instead!")
+                    "sample_var represents the variance of the original observations that are "
+                    "summarized in this sample. If it's zero, please use sample_wegiht instead "
+                    "to reflect the weight for each individual sample!")
 
         # check array shape
         assert (X.shape[0] == y.shape[0] == sample_weight.shape[0] ==

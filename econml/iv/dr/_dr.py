@@ -727,7 +727,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -746,13 +746,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             Controls for each sample
         sample_weight : (n,) array like or None
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers or None
-            Weight for the observation. Observation i is treated as the mean
-            outcome of freq_weight[i] independent observations.
-            It's not None only when ``sample_var`` is not None.
-        sample_var : {(n,), (n, d_y)} nd array like or None
-            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
-            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -768,8 +761,9 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         -------
         self : instance
         """
+        # TODO: do correct adjustment for sample_var
         return super().fit(Y, T, Z=Z, X=X, W=W,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     def refit_final(self, *, inference='auto'):

@@ -323,7 +323,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         -------
         self : object
         """
-
+        # TODO: support freq_weight and sample_var
         y, T, X, _ = check_inputs(y, T, X, W=None, multi_output_T=True, multi_output_Y=True)
 
         if sample_weight is not None:

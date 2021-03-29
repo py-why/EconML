@@ -1179,6 +1179,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         -------
         self: DRLearner instance
         """
+        # TODO: support freq_weight and sample_var in debiased lasso
         # Replacing fit from DRLearner, to add debiasedlasso inference in docstring
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self.discrete_treatment,

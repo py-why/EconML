@@ -864,6 +864,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         -------
         self
         """
+        # TODO: support freq_weight and sample_var in debiased lasso
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "

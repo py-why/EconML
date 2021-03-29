@@ -4,7 +4,8 @@
 import numpy as np
 import pytest
 from econml.dml import DML, LinearDML, NonParamDML
-from econml.inference import StatsModelsInference
+from econml.dr import LinearDRLearner
+from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
 from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
 from econml.sklearn_extensions.linear_model import WeightedLasso
 from statsmodels.regression.linear_model import WLS
@@ -19,6 +20,7 @@ from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression a
 import unittest
 import joblib
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.base import clone
 
 
 class StatsModelsOLS:
@@ -241,6 +243,18 @@ def _compare_dml_classes(est, lr, X_test, alpha=.05, tol=1e-10):
     assert np.all(np.abs(est.coef_ - lr.coef_) < tol), "{}, {}".format(est.coef_, lr.coef_)
     assert np.all(np.abs(np.array(est.coef__interval(alpha=alpha)) - np.array(lr.coef__interval(alpha=alpha))) < tol),\
         "{}, {}".format(np.array(est.coef__interval(alpha=alpha)), np.array(lr.coef__interval(alpha=alpha)))
+    assert np.all(np.abs(est.effect(X_test) - lr.effect(X_test)) <
+                  tol), "{}, {}".format(est.effect(X_test), lr.effect(X_test))
+    assert np.all(np.abs(np.array(est.effect_interval(X_test, alpha=alpha)) -
+                         np.array(lr.effect_interval(X_test, alpha=alpha))) < tol),\
+        "{}, {}".format(est.effect_interval(X_test, alpha=alpha), lr.effect_interval(X_test, alpha=alpha))
+
+
+def _compare_dr_classes(est, lr, X_test, alpha=.05, tol=1e-10):
+    assert np.all(np.abs(est.coef_(T=1) - lr.coef_(T=1)) < tol), "{}, {}".format(est.coef_(T=1), lr.coef_(T=1))
+    assert np.all(np.abs(np.array(est.coef__interval(T=1, alpha=alpha)) -
+                         np.array(lr.coef__interval(T=1, alpha=alpha))) < tol),\
+        "{}, {}".format(np.array(est.coef__interval(T=1, alpha=alpha)), np.array(lr.coef__interval(T=1, alpha=alpha)))
     assert np.all(np.abs(est.effect(X_test) - lr.effect(X_test)) <
                   tol), "{}, {}".format(est.effect(X_test), lr.effect(X_test))
     assert np.all(np.abs(np.array(est.effect_interval(X_test, alpha=alpha)) -
@@ -639,199 +653,6 @@ class TestStatsModels(unittest.TestCase):
         """ Testing that the summarized version of DML gives the same results as the non-summarized. """
         np.random.seed(123)
 
-        n = 100
-        for d in [1, 5]:
-            for p in [1, 5]:
-                for cov_type in ['nonrobust', 'HC0', 'HC1']:
-                    for alpha in [.01, .05, .2]:
-                        X = np.random.binomial(1, .8, size=(n, d))
-                        T = np.random.binomial(1, .5 * X[:, 0] + .25, size=(n,))
-                        w = X[:, 0] * 1.2
-
-                        def true_effect(x):
-                            return np.hstack([x[:, [0]] + t for t in range(p)])
-                        y = true_effect(X) * T.reshape(-1, 1) + X[:, [0] * p] + \
-                            (1 * X[:, [0]] + 1) * np.random.normal(0, 1, size=(n, p))
-                        if p == 1:
-                            y = y.flatten()
-                        X_test = np.random.binomial(1, .5, size=(100, d))
-
-                        XT = np.hstack([X, T.reshape(-1, 1)])
-                        (X1, X2, y1, y2, w1, w2,
-                         X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
-                         n_sum_sec, var_first, var_sec) = _summarize(XT, y, w)
-                        X = np.vstack([X1, X2])
-                        y = np.concatenate((y1, y2))
-                        w = np.concatenate((w1, w2))
-                        X_final = np.vstack([X_final_first, X_final_sec])
-                        y_sum = np.concatenate((y_sum_first, y_sum_sec))
-                        w_sum = np.concatenate((w_sum_first, w_sum_sec))
-                        n_sum = np.concatenate((n_sum_first, n_sum_sec))
-                        var_sum = np.concatenate((var_first, var_sec))
-                        first_half_sum = len(y_sum_first)
-                        first_half = len(y1)
-
-                        class SplitterSum:
-                            def __init__(self):
-                                return
-
-                            def split(self, X, T):
-                                return [(np.arange(0, first_half_sum), np.arange(first_half_sum, X.shape[0])),
-                                        (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
-
-                        est = LinearDML(
-                            model_y=LinearRegression(),
-                            model_t=LinearRegression(),
-                            cv=SplitterSum(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y_sum,
-                                                          X_final[:, -1], X_final[:, :-1],
-                                                          None, freq_weight=n_sum,
-                                                          sample_var=var_sum,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-
-                        class Splitter:
-                            def __init__(self):
-                                return
-
-                            def split(self, X, T):
-                                return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
-                                        (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
-
-                        lr = LinearDML(
-                            model_y=LinearRegression(),
-                            model_t=LinearRegression(),
-                            cv=Splitter(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-
-                        _compare_dml_classes(est, lr, X_test, alpha=alpha)
-
-                        # compare when both sample_var and sample_weight exist
-                        est = LinearDML(
-                            model_y=LinearRegression(),
-                            model_t=LinearRegression(),
-                            cv=SplitterSum(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y_sum,
-                                                          X_final[:, -1], X_final[:, :-1],
-                                                          None, sample_weight=w_sum, freq_weight=n_sum,
-                                                          sample_var=var_sum,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-                        lr = LinearDML(
-                            model_y=LinearRegression(),
-                            model_t=LinearRegression(),
-                            cv=Splitter(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-                        _compare_dml_classes(est, lr, X_test, alpha=alpha)
-
-    def test_dml_sum_vs_original_lasso(self):
-        """Testing that the summarized version of DML gives the same results as the non-summarized
-        when Lasso is used for first stage models. """
-
-        np.random.seed(123)
-
-        def first_stage_model():
-            return WeightedLasso(alpha=0.01, fit_intercept=True, tol=1e-12, random_state=123)
-        n = 100
-        for d in [1, 5]:
-            for p in [1, 5]:
-                for cov_type in ['nonrobust', 'HC0', 'HC1']:
-                    for alpha in [.01, .05, .2]:
-                        X = np.random.binomial(1, .8, size=(n, d))
-                        T = np.random.binomial(1, .5 * X[:, 0] + .25, size=(n,))
-                        w = X[:, 0] * 1.2
-
-                        def true_effect(x):
-                            return np.hstack([x[:, [0]] + t for t in range(p)])
-                        y = true_effect(X) * T.reshape(-1, 1) + X[:, [0] * p] + \
-                            (1 * X[:, [0]] + 1) * np.random.normal(0, 1, size=(n, p))
-                        if p == 1:
-                            y = y.flatten()
-                        X_test = np.random.binomial(1, .5, size=(100, d))
-
-                        XT = np.hstack([X, T.reshape(-1, 1)])
-                        (X1, X2, y1, y2, w1, w2,
-                         X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
-                         n_sum_sec, var_first, var_sec) = _summarize(XT, y, w)
-                        X = np.vstack([X1, X2])
-                        y = np.concatenate((y1, y2))
-                        w = np.concatenate((w1, w2))
-                        X_final = np.vstack([X_final_first, X_final_sec])
-                        y_sum = np.concatenate((y_sum_first, y_sum_sec))
-                        w_sum = np.concatenate((w_sum_first, w_sum_sec))
-                        n_sum = np.concatenate((n_sum_first, n_sum_sec))
-                        var_sum = np.concatenate((var_first, var_sec))
-                        first_half_sum = np.array(y_sum_first).shape[0]
-                        first_half = np.array(y1).shape[0]
-
-                        class SplitterSum:
-                            def __init__(self):
-                                return
-
-                            def split(self, X, T):
-                                return [(np.arange(0, first_half_sum), np.arange(first_half_sum, X.shape[0])),
-                                        (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
-
-                        est = LinearDML(
-                            model_y=first_stage_model(),
-                            model_t=first_stage_model(),
-                            cv=SplitterSum(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y_sum, X_final[:, -1], X_final[:, :-1], None,
-                                                          freq_weight=n_sum,
-                                                          sample_var=var_sum,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-
-                        class Splitter:
-                            def __init__(self):
-                                return
-
-                            def split(self, X, T):
-                                return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
-                                        (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
-
-                        lr = LinearDML(
-                            model_y=first_stage_model(),
-                            model_t=first_stage_model(),
-                            cv=Splitter(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-
-                        _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
-
-                        # compare when both sample_var and sample_weight exist
-                        est = LinearDML(
-                            model_y=first_stage_model(),
-                            model_t=first_stage_model(),
-                            cv=SplitterSum(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y_sum, X_final[:, -1], X_final[:, :-1], None,
-                                                          sample_weight=w_sum,
-                                                          freq_weight=n_sum,
-                                                          sample_var=var_sum,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-                        lr = LinearDML(
-                            model_y=first_stage_model(),
-                            model_t=first_stage_model(),
-                            cv=Splitter(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-                        _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
-
-    def test_dml_sum_vs_original_rf(self):
-        """ Testing that the summarized version of DML gives the same results as the non-summarized
-        when RandomForest is used for first stage models. """
-
-        np.random.seed(123)
-
-        def first_stage_model():
-            return RandomForestRegressor(n_estimators=10, bootstrap=False, random_state=123)
         n = 1000
         for d in [1, 5]:
             for p in [1, 5]:
@@ -851,8 +672,8 @@ class TestStatsModels(unittest.TestCase):
 
                         XT = np.hstack([X, T.reshape(-1, 1)])
                         (X1, X2, y1, y2, w1, w2,
-                         X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
-                         n_sum_sec, var_first, var_sec) = _summarize(XT, y, w)
+                            X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
+                            n_sum_sec, var_first, var_sec) = _summarize(XT, y, w)
                         X = np.vstack([X1, X2])
                         y = np.concatenate((y1, y2))
                         w = np.concatenate((w1, w2))
@@ -872,16 +693,6 @@ class TestStatsModels(unittest.TestCase):
                                 return [(np.arange(0, first_half_sum), np.arange(first_half_sum, X.shape[0])),
                                         (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
 
-                        est = LinearDML(
-                            model_y=first_stage_model(),
-                            model_t=first_stage_model(),
-                            cv=SplitterSum(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y_sum, X_final[:, -1], X_final[:, :-1], None,
-                                                          freq_weight=n_sum,
-                                                          sample_var=var_sum,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-
                         class Splitter:
                             def __init__(self):
                                 return
@@ -889,129 +700,207 @@ class TestStatsModels(unittest.TestCase):
                             def split(self, X, T):
                                 return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
                                         (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
+                        for first_stage_model in [LinearRegression(),
+                                                  WeightedLasso(alpha=0.01, fit_intercept=True,
+                                                                tol=1e-12, random_state=123),
+                                                  RandomForestRegressor(n_estimators=10, bootstrap=False,
+                                                                        random_state=123)]:
+                            est = LinearDML(
+                                model_y=first_stage_model,
+                                model_t=first_stage_model,
+                                cv=SplitterSum(),
+                                linear_first_stages=False)
+                            lr = LinearDML(
+                                model_y=first_stage_model,
+                                model_t=first_stage_model,
+                                cv=Splitter(),
+                                linear_first_stages=False)
 
-                        lr = LinearDML(
-                            model_y=first_stage_model(),
-                            model_t=first_stage_model(),
-                            cv=Splitter(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
+                            est.fit(y_sum,
+                                    X_final[:, -1], X_final[:, :-1],
+                                    None, freq_weight=n_sum,
+                                    sample_var=var_sum,
+                                    inference=StatsModelsInference(cov_type=cov_type))
+                            lr.fit(y, X[:, -1], X[:, :-1], None,
+                                   inference=StatsModelsInference(cov_type=cov_type))
+                            _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
-                        _compare_dml_classes(est, lr, X_test, alpha=alpha)
-
-                        # compare when both sample_var and sample_weight exist
-                        est = LinearDML(
-                            model_y=first_stage_model(),
-                            model_t=first_stage_model(),
-                            cv=SplitterSum(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y_sum, X_final[:, -1], X_final[:, :-1], None,
-                                                          sample_weight=w_sum,
-                                                          freq_weight=n_sum,
-                                                          sample_var=var_sum,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-                        lr = LinearDML(
-                            model_y=first_stage_model(),
-                            model_t=first_stage_model(),
-                            cv=Splitter(),
-                            linear_first_stages=False,
-                            discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
-                                                          inference=StatsModelsInference(cov_type=cov_type))
-                        _compare_dml_classes(est, lr, X_test, alpha=alpha)
+                            # compare when both sample_var and sample_weight exist
+                            est.fit(y_sum,
+                                    X_final[:, -1], X_final[:, :-1],
+                                    None, sample_weight=w_sum, freq_weight=n_sum,
+                                    sample_var=var_sum,
+                                    inference=StatsModelsInference(cov_type=cov_type))
+                            lr.fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
+                                   inference=StatsModelsInference(cov_type=cov_type))
+                            _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
     def test_nonparamdml_sum_vs_original(self):
         """ Testing that the summarized version of DML gives the same results as the non-summarized. """
         np.random.seed(123)
 
-        n = 100
+        n = 1000
         for d in [1, 5]:
             for p in [1, 5]:
-                for cov_type in ['nonrobust', 'HC0', 'HC1']:
-                    for alpha in [.01, .05, .2]:
-                        X = np.random.binomial(1, .8, size=(n, d))
-                        T = np.random.binomial(1, .5 * X[:, 0] + .25, size=(n,))
-                        w = X[:, 0] * 1.2
+                for alpha in [.01, .05, .2]:
+                    X = np.random.binomial(1, .8, size=(n, d))
+                    T = np.random.binomial(1, .5 * X[:, 0] + .25, size=(n,))
+                    w = X[:, 0] * 1.2
 
-                        def true_effect(x):
-                            return np.hstack([x[:, [0]] + t for t in range(p)])
-                        y = true_effect(X) * T.reshape(-1, 1) + X[:, [0] * p] + \
-                            (1 * X[:, [0]] + 1) * np.random.normal(0, 1, size=(n, p))
-                        if p == 1:
-                            y = y.flatten()
-                        X_test = np.random.binomial(1, .5, size=(100, d))
+                    def true_effect(x):
+                        return np.hstack([x[:, [0]] + t for t in range(p)])
+                    y = true_effect(X) * T.reshape(-1, 1) + X[:, [0] * p] + \
+                        (1 * X[:, [0]] + 1) * np.random.normal(0, 1, size=(n, p))
+                    if p == 1:
+                        y = y.flatten()
+                    X_test = np.random.binomial(1, .5, size=(100, d))
 
-                        XT = np.hstack([X, T.reshape(-1, 1)])
-                        (X1, X2, y1, y2, w1, w2,
-                         X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
-                         n_sum_sec, var_first, var_sec) = _summarize(XT, y, w)
-                        X = np.vstack([X1, X2])
-                        y = np.concatenate((y1, y2))
-                        w = np.concatenate((w1, w2))
-                        X_final = np.vstack([X_final_first, X_final_sec])
-                        y_sum = np.concatenate((y_sum_first, y_sum_sec))
-                        w_sum = np.concatenate((w_sum_first, w_sum_sec))
-                        n_sum = np.concatenate((n_sum_first, n_sum_sec))
-                        var_sum = np.concatenate((var_first, var_sec))
-                        first_half_sum = len(y_sum_first)
-                        first_half = len(y1)
+                    XT = np.hstack([X, T.reshape(-1, 1)])
+                    (X1, X2, y1, y2, w1, w2,
+                        X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
+                        n_sum_sec, var_first, var_sec) = _summarize(XT, y, w)
+                    X = np.vstack([X1, X2])
+                    y = np.concatenate((y1, y2))
+                    w = np.concatenate((w1, w2))
+                    X_final = np.vstack([X_final_first, X_final_sec])
+                    y_sum = np.concatenate((y_sum_first, y_sum_sec))
+                    w_sum = np.concatenate((w_sum_first, w_sum_sec))
+                    n_sum = np.concatenate((n_sum_first, n_sum_sec))
+                    var_sum = np.concatenate((var_first, var_sec))
+                    first_half_sum = len(y_sum_first)
+                    first_half = len(y1)
 
-                        class SplitterSum:
-                            def __init__(self):
-                                return
+                    class SplitterSum:
+                        def __init__(self):
+                            return
 
-                            def split(self, X, T):
-                                return [(np.arange(0, first_half_sum), np.arange(first_half_sum, X.shape[0])),
-                                        (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
+                        def split(self, X, T):
+                            return [(np.arange(0, first_half_sum), np.arange(first_half_sum, X.shape[0])),
+                                    (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
 
+                    class Splitter:
+                        def __init__(self):
+                            return
+
+                        def split(self, X, T):
+                            return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
+                                    (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
+                    for first_stage_model in [LinearRegression(),
+                                              WeightedLasso(alpha=0.01, fit_intercept=True,
+                                                            tol=1e-12, random_state=123),
+                                              RandomForestRegressor(n_estimators=10, bootstrap=False,
+                                                                    random_state=123)]:
                         est = NonParamDML(
-                            model_y=LinearRegression(),
-                            model_t=LinearRegression(),
+                            model_y=first_stage_model,
+                            model_t=first_stage_model,
                             model_final=OLS(),
-                            cv=SplitterSum(),
-                            discrete_treatment=False).fit(y_sum,
-                                                          X_final[:, -1], X_final[:, :-1],
-                                                          None, freq_weight=n_sum,
-                                                          sample_var=var_sum,
-                                                          inference="auto")
-
-                        class Splitter:
-                            def __init__(self):
-                                return
-
-                            def split(self, X, T):
-                                return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
-                                        (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
+                            cv=SplitterSum()).fit(y_sum,
+                                                  X_final[:, -1], X_final[:, :-1],
+                                                  None, freq_weight=n_sum,
+                                                  sample_var=var_sum,
+                                                  inference="auto")
 
                         lr = NonParamDML(
-                            model_y=LinearRegression(),
-                            model_t=LinearRegression(),
+                            model_y=first_stage_model,
+                            model_t=first_stage_model,
                             model_final=OLS(),
-                            cv=Splitter(),
-                            discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None,
-                                                          inference="auto")
-
+                            cv=Splitter()).fit(y, X[:, -1], X[:, :-1], None,
+                                               inference="auto")
                         _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-10)
 
                         # compare when both sample_var and sample_weight exist
-                        est = NonParamDML(
-                            model_y=LinearRegression(),
-                            model_t=LinearRegression(),
-                            model_final=OLS(),
-                            cv=SplitterSum(),
-                            discrete_treatment=False).fit(y_sum,
-                                                          X_final[:, -1], X_final[:, :-1],
-                                                          None, sample_weight=w_sum, freq_weight=n_sum,
-                                                          sample_var=var_sum,
-                                                          inference="auto")
-                        lr = NonParamDML(
-                            model_y=LinearRegression(),
-                            model_t=LinearRegression(),
-                            model_final=OLS(),
-                            cv=Splitter(),
-                            discrete_treatment=False).fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
-                                                          inference="auto")
+                        est.fit(y_sum,
+                                X_final[:, -1], X_final[:, :-1],
+                                None, sample_weight=w_sum, freq_weight=n_sum,
+                                sample_var=var_sum,
+                                inference="auto")
+                        lr.fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
+                               inference="auto")
                         _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-10)
+
+    def test_dr_sum_vs_original(self):
+        """ Testing that the summarized version of DR gives the same results as the non-summarized. """
+        np.random.seed(123)
+
+        n = 1000
+        for d in [1, 5]:
+            for cov_type in ['nonrobust', 'HC0', 'HC1']:
+                for alpha in [.01, .05, .2]:
+                    X = np.random.binomial(1, .8, size=(n, d))
+                    T = np.random.binomial(1, .5 * X[:, 0] + .25, size=(n,))
+                    w = X[:, 0] * 1.2
+
+                    def true_effect(x):
+                        return x[:, [0]]
+                    y = true_effect(X) * T.reshape(-1, 1) + X[:, [0] * 1] + \
+                        (1 * X[:, [0]] + 1) * np.random.normal(0, 1, size=(n, 1))
+                    y = y.flatten()
+                    X_test = np.random.binomial(1, .5, size=(100, d))
+
+                    XT = np.hstack([X, T.reshape(-1, 1)])
+                    (X1, X2, y1, y2, w1, w2,
+                        X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
+                        n_sum_sec, var_first, var_sec) = _summarize(XT, y, w)
+                    X = np.vstack([X1, X2])
+                    y = np.concatenate((y1, y2))
+                    w = np.concatenate((w1, w2))
+                    X_final = np.vstack([X_final_first, X_final_sec])
+                    y_sum = np.concatenate((y_sum_first, y_sum_sec))
+                    w_sum = np.concatenate((w_sum_first, w_sum_sec))
+                    n_sum = np.concatenate((n_sum_first, n_sum_sec))
+                    var_sum = np.concatenate((var_first, var_sec))
+                    first_half_sum = len(y_sum_first)
+                    first_half = len(y1)
+
+                    class SplitterSum:
+                        def __init__(self):
+                            return
+
+                        def split(self, X, T):
+                            return [(np.arange(0, first_half_sum), np.arange(first_half_sum, X.shape[0])),
+                                    (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
+
+                    class Splitter:
+                        def __init__(self):
+                            return
+
+                        def split(self, X, T):
+                            return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
+                                    (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
+                    for model_regression in [LinearRegression(),
+                                             WeightedLasso(alpha=0.01, fit_intercept=True,
+                                                           tol=1e-12, random_state=123),
+                                             RandomForestRegressor(n_estimators=10, bootstrap=False,
+                                                                   max_depth=3,
+                                                                   random_state=123)]:
+                        model_propensity = LogisticRegression(random_state=123)
+                        est = LinearDRLearner(
+                            model_regression=model_regression,
+                            model_propensity=model_propensity,
+                            cv=SplitterSum())
+                        lr = LinearDRLearner(
+                            model_regression=model_regression,
+                            model_propensity=model_propensity,
+                            cv=Splitter())
+
+                        est.fit(y_sum,
+                                X_final[:, -1], X_final[:, :-1],
+                                None, freq_weight=n_sum,
+                                sample_var=var_sum,
+                                inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
+                        lr.fit(y, X[:, -1], X[:, :-1], None,
+                               inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
+                        _compare_dr_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
+
+                        # compare when both sample_var and sample_weight exist
+                        est.fit(y_sum,
+                                X_final[:, -1], X_final[:, :-1],
+                                None, sample_weight=w_sum, freq_weight=n_sum,
+                                sample_var=var_sum,
+                                inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
+                        lr.fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
+                               inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
+                        _compare_dr_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
     def test_dml_multi_dim_treatment_outcome(self):
         """ Testing that the summarized and unsummarized version of DML gives the correct (known results). """
