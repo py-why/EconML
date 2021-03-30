@@ -342,13 +342,13 @@ class _RLearner(_OrthoLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
-        sample_weight : (n,) array like or None
+        sample_weight : (n,) array like, default None
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n, ) array like of integers or None
+        freq_weight: (n, ) array like of integers, default None
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
-            It's not None only when ``sample_var`` is not None.
-        sample_var : {(n,), (n, d_y)} nd array like or None
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(n,), (n, d_y)} nd array like, default None
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional

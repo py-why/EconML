@@ -712,7 +712,7 @@ class TestDRLearner(unittest.TestCase):
                                             np.testing.assert_array_equal(est.feature_importances_(t).shape,
                                                                           [X.shape[1]])
 
-    @ staticmethod
+    @staticmethod
     def _check_with_interval(truth, point, lower, upper):
         np.testing.assert_allclose(point, truth, rtol=0, atol=.2)
         np.testing.assert_array_less(lower - 0.05, truth)
@@ -933,19 +933,19 @@ class TestDRLearner(unittest.TestCase):
                                                          1), T.reshape(-1, 1), X
                          )
 
-    @ classmethod
+    @classmethod
     def _untreated_outcome(cls, x):
         return np.dot(x, cls.beta) + cls.random_state.normal(0, 1)
 
-    @ classmethod
+    @classmethod
     def _const_te(cls, x):
         return 2
 
-    @ classmethod
+    @classmethod
     def _heterogeneous_te(cls, x):
         return x[cls.heterogeneity_index]
 
-    @ classmethod
+    @classmethod
     def _generate_data(cls, n, d, untreated_outcome, treatment_effect, propensity):
         """Generates population data for given untreated_outcome, treatment_effect and propensity functions.
 

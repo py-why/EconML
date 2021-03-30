@@ -1759,7 +1759,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         freq_weight: (N, ) array like of integers or None
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
-            It's not None only when ``sample_var`` is not None.
+            When ``sample_var`` is not None, this should be provided.
         sample_var : {(N,), (N, p)} nd array like or None
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
