@@ -16,7 +16,7 @@ from ..sklearn_extensions.linear_model import StatsModelsLinearRegression
 from ..utilities import (Summary, _safe_norm_ppf, broadcast_unit_treatments,
                          cross_product, inverse_onehot, ndim,
                          parse_final_model_params,
-                         reshape_treatmentwise_effects, shape)
+                         reshape_treatmentwise_effects, shape, filter_none_kwargs)
 
 """Options for performing inference in estimators."""
 
@@ -88,7 +88,8 @@ class BootstrapInference(Inference):
     def fit(self, estimator, *args, **kwargs):
         est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, compute_means=False,
                                  bootstrap_type=self._bootstrap_type, verbose=self._verbose)
-        est.fit(*args, **kwargs)
+        filtered_kwargs = filter_none_kwargs(**kwargs)
+        est.fit(*args, **filtered_kwargs)
         self._est = est
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
