@@ -563,7 +563,7 @@ class LinearCateEstimator(BaseCateEstimator):
         """
         Calculate the heterogeneous treatment effect :math:`\\tau(X, T0, T1)`.
 
-        The effect is calculatred between the two treatment points
+        The effect is calculated between the two treatment points
         conditional on a vector of features on a set of m test samples :math:`\\{T0_i, T1_i, X_i\\}`.
         Since this class assumes a linear effect, only the difference between T0ᵢ and T1ᵢ
         matters for this computation.

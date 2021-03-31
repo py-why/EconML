@@ -33,10 +33,14 @@ References
     Orthogonal Statistical Learning.
     ACM Conference on Learning Theory. `<https://arxiv.org/abs/1901.09036>`_
 
+.. [dynamicdml] Greg Lewis and Vasilis Syrgkanis.
+    Double/Debiased Machine Learning for Dynamic Treatment Effects.
+    `<https://arxiv.org/abs/2002.07285>`_, 2021.
 """
 
 from .dml import (DML, LinearDML, SparseLinearDML,
                   KernelDML, NonParamDML, ForestDML)
+from .dynamic_dml import DynamicDML
 from .causal_forest import CausalForestDML
 
 __all__ = ["DML",
@@ -45,4 +49,5 @@ __all__ = ["DML",
            "KernelDML",
            "NonParamDML",
            "ForestDML",
-           "CausalForestDML", ]
+           "CausalForestDML",
+           "DynamicDML"]
