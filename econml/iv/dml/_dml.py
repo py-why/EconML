@@ -33,7 +33,7 @@ class _BaseDMLATEIVModelFinal:
         self._model_final = _FinalWrapper(LinearRegression(fit_intercept=False),
                                           fit_cate_intercept=True, featurizer=None, use_weight_trick=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, freq_weight=None, sample_var=None):
         Y_res, T_res, Z_res = nuisances
         if Z_res.ndim == 1:
             Z_res = Z_res.reshape(-1, 1)
@@ -49,7 +49,7 @@ class _BaseDMLATEIVModelFinal:
         # TODO: allow the final model to actually use X?
         return self._model_final.predict(X=None)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
         Y_res, T_res, Z_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -85,7 +85,7 @@ class _BaseDMLATEIV(_OrthoLearner):
 
     @_deprecate_positional("W and Z should be passed by keyword only. In a future release "
                            "we will disallow passing W and Z by position.", ['W', 'Z'])
-    def fit(self, Y, T, Z, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, Z, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -100,10 +100,15 @@ class _BaseDMLATEIV(_OrthoLearner):
             Instruments for each sample
         X: optional(n, d_x) matrix or None (Default=None)
             Features for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(n,), (n, d_y)} nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -120,7 +125,7 @@ class _BaseDMLATEIV(_OrthoLearner):
         """
         # Replacing fit from _OrthoLearner, to enforce W=None and improve the docstring
         return super().fit(Y, T, W=W, Z=Z,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     def score(self, Y, T, Z, W=None):
@@ -379,15 +384,16 @@ class _BaseDMLIVModelFinal:
     def __init__(self, model_final):
         self._model_final = clone(model_final, safe=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, freq_weight=None, sample_var=None):
         Y_res, T_res = nuisances
-        self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
+        self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight,
+                              freq_weight=freq_weight, sample_var=sample_var)
         return self
 
     def predict(self, X=None):
         return self._model_final.predict(X)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -491,7 +497,7 @@ class _BaseDMLIV(_OrthoLearner):
 
     @_deprecate_positional("Z and X should be passed by keyword only. In a future release "
                            "we will disallow passing Z and X by position.", ['X', 'Z'])
-    def fit(self, Y, T, Z, X=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, Z, X=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -506,10 +512,15 @@ class _BaseDMLIV(_OrthoLearner):
             Instruments for each sample
         X: optional(n, d_x) matrix or None (Default=None)
             Features for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(n,), (n, d_y)} nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -526,7 +537,7 @@ class _BaseDMLIV(_OrthoLearner):
         """
         # Replacing fit from _OrthoLearner, to enforce W=None and improve the docstring
         return super().fit(Y, T, X=X, Z=Z,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     def score(self, Y, T, Z, X=None):
