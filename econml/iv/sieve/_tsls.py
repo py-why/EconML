@@ -211,7 +211,7 @@ class SieveTSLS(BaseCateEstimator):
     @_deprecate_positional("X, W, and Z should be passed by keyword only. In a future release "
                            "we will disallow passing X, W, and Z by position.", ['X', 'W', 'Z'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, W, Z, *, inference=None):
+    def fit(self, Y, T, Z, X=None, W=None, *, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·, ·, ·), ∂τ(·, ·).
 

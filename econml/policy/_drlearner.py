@@ -14,11 +14,11 @@ from . import PolicyTree, PolicyForest
 
 class _PolicyModelFinal(_ModelFinal):
 
-    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, freq_weight=None, sample_var=None):
         if sample_var is not None:
             warn('Parameter `sample_var` is ignored by the final estimator')
             sample_var = None
-        Y_pred, = nuisances
+        Y_pred, _ = nuisances
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
@@ -38,7 +38,7 @@ class _PolicyModelFinal(_ModelFinal):
             return pred[:, np.newaxis, :]
         return pred
 
-    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None):
         return 0
 
 

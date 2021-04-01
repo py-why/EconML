@@ -281,7 +281,7 @@ def run_all_mc(first_stage, folder, n_list, n_exp, hetero_coef_list, d_list,
                                             X_final[:, -d_t:],
                                             X_final[:, :d_x],
                                             X_final[:, d_x:-d_t],
-                                            sample_weight=n_sum,
+                                            freq_weight=n_sum,
                                             sample_var=var_sum,
                                             inference=StatsModelsInference(cov_type=cov_type))
 

@@ -109,7 +109,9 @@ class _ModelNuisance:
             T_counter[:, t] = 1
             Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
             Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
-        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,))
+        T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
+        propensities_weight = np.sum(propensities * T_complete, axis=1)
+        return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities_weight.reshape((n,))
 
 
 class _ModelFinal:
@@ -124,19 +126,26 @@ class _ModelFinal:
         self._multitask_model_final = multitask_model_final
         return
 
-    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
-        Y_pred, = nuisances
+    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, freq_weight=None, sample_var=None):
+        Y_pred, propensities = nuisances
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
-        filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight, sample_var=sample_var)
+
         if self._multitask_model_final:
             ys = Y_pred[..., 1:] - Y_pred[..., [0]]  # subtract control results from each other arm
             if self.d_y:  # need to squeeze out singleton so that we fit on 2D array
                 ys = ys.squeeze(1)
+            weighted_sample_var = np.tile((sample_var / propensities**2).reshape((-1, 1)),
+                                          self.d_t) if sample_var is not None else None
+            filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
+                                                 freq_weight=freq_weight, sample_var=weighted_sample_var)
             self.model_cate = self._model_final.fit(X, ys, **filtered_kwargs)
         else:
+            weighted_sample_var = sample_var / propensities**2 if sample_var is not None else None
+            filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
+                                                 freq_weight=freq_weight, sample_var=weighted_sample_var)
             self.models_cate = [clone(self._model_final, safe=False).fit(X, Y_pred[..., t] - Y_pred[..., 0],
                                                                          **filtered_kwargs)
                                 for t in np.arange(1, Y_pred.shape[-1])]
@@ -154,10 +163,10 @@ class _ModelFinal:
             preds = np.array([mdl.predict(X).reshape((-1,) + self.d_y) for mdl in self.models_cate])
             return np.moveaxis(preds, 0, -1)  # move treatment dim to end
 
-    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None):
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
-        Y_pred, = nuisances
+        Y_pred, _ = nuisances
         if self._multitask_model_final:
             Y_pred_diff = Y_pred[..., 1:] - Y_pred[..., [0]]
             cate_pred = self.model_cate.predict(X).reshape((-1, self.d_t))
@@ -447,7 +456,7 @@ class DRLearner(_OrthoLearner):
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -462,10 +471,15 @@ class DRLearner(_OrthoLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : (n,) nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -482,7 +496,7 @@ class DRLearner(_OrthoLearner):
         """
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     def refit_final(self, *, inference='auto'):
@@ -834,7 +848,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -849,10 +863,15 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : (n,) nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -870,7 +889,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         """
         # Replacing fit from DRLearner, to add statsmodels inference in docstring
         return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     @property
@@ -1124,7 +1143,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1139,10 +1158,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
-            Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
-            Sample variance for each sample
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -1158,17 +1175,14 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         -------
         self: DRLearner instance
         """
+        # TODO: support freq_weight and sample_var in debiased lasso
         # Replacing fit from DRLearner, to add debiasedlasso inference in docstring
-        # TODO: support sample_var
-        if sample_weight is not None and inference is not None:
-            warn("This estimator does not yet support sample variances and inference does not take "
-                 "sample variances into account. This feature will be supported in a future release.")
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
                                "We recommend using the LinearDRLearner for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=None, groups=groups,
+                           sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     @property
@@ -1425,7 +1439,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -1440,11 +1454,8 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
             Features for each sample
         W: optional (n × d_w) matrix
             Controls for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
-        sample_var: optional (n, n_y) vector
-            Variance of sample, in case it corresponds to summary of many samples. Currently
-            not in use by this method (as inference method does not require sample variance info).
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -1461,7 +1472,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         self
         """
         return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=None, groups=groups,
+                           sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     def multitask_model_cate(self):
