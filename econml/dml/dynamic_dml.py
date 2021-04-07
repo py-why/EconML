@@ -482,7 +482,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return _LinearDynamicModelFinal(wrapped_final_model, n_periods=n_periods)
 
     def _prefit(self, Y, T, *args, groups=None, only_final=False, **kwargs):
-        u_periods = np.unique(np.bincount(groups.astype(int)))
+        u_periods = np.unique(np.unique(groups, return_counts=True)[1])
         if len(u_periods) > 1:
             raise AttributeError(
                 "Imbalanced panel. Method currently expects only panels with equal number of periods. Pad your data")

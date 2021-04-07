@@ -12,6 +12,7 @@ from econml.dml import DynamicDML
 from econml.inference import BootstrapInference, EmpiricalInferenceResults, NormalInferenceResults
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 import econml.tests.utilities  # bugfix for assertWarns
+from econml.tests.dgp import DynamicPanelDGP
 
 
 class TestDynamicDML(unittest.TestCase):
@@ -79,7 +80,6 @@ class TestDynamicDML(unittest.TestCase):
                                     (d_y if d_y > 0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
 
                                 all_infs = [None, 'auto', BootstrapInference(2)]
-                                #all_infs = [None, 'auto']
                                 est = DynamicDML(model_y=Lasso() if d_y < 1 else MultiTaskLasso(),
                                                  model_t=LogisticRegression() if is_discrete else
                                                  (Lasso() if d_t < 1 else MultiTaskLasso()),
@@ -256,3 +256,40 @@ class TestDynamicDML(unittest.TestCase):
                                             eff = est.effect(X) if not is_discrete else est.effect(
                                                 X, T0='a', T1='b')
                                             self.assertEqual(shape(eff), effect_shape2)
+
+    def test_perf(self):
+        np.random.seed(123)
+        n_units = 400
+        n_periods = 3
+        n_treatments = 1
+        n_x = 100
+        s_x = 10
+        s_t = 10
+        hetero_strength = .5
+        hetero_inds = np.arange(n_x - n_treatments, n_x)
+        alpha_regs = [1e-4, 1e-3, 1e-2, 5e-2, .1, 1]
+
+        def lasso_model():
+            return LassoCV(cv=3, alphas=alpha_regs, max_iter=500)
+        # No heterogeneity
+        dgp = DynamicPanelDGP(n_periods, n_treatments, n_x).create_instance(
+            s_x, random_seed=1)
+        Y, T, X, W, groups = dgp.observational_data(n_units, s_t=s_t, random_seed=12)
+        est = DynamicDML(model_y=lasso_model(), model_t=lasso_model(), cv=3)
+        est.fit(Y, T, X=X, W=W, groups=groups, inference="auto")
+        np.testing.assert_allclose(est.intercept_, dgp.true_effect.flatten(), atol=1e-01)
+        np.testing.assert_array_less(est.intercept__interval()[0], dgp.true_effect.flatten())
+        np.testing.assert_array_less(dgp.true_effect.flatten(), est.intercept__interval()[1])
+        # Heterogeneous effects
+        hetero_strength = .5
+        hetero_inds = np.arange(n_x - n_treatments, n_x)
+        dgp = DynamicPanelDGP(n_periods, n_treatments, n_x).create_instance(
+            s_x, hetero_strength=hetero_strength, hetero_inds=hetero_inds, random_seed=1)
+        Y, T, X, W, groups = dgp.observational_data(n_units, s_t=s_t, random_seed=12)
+        est.fit(Y, T, X=X, W=W, groups=groups, inference="auto")
+        np.testing.assert_allclose(est.intercept_, dgp.true_effect.flatten(), atol=0.2)
+        np.testing.assert_allclose(est.coef_, dgp.true_hetero_effect[:, hetero_inds + 1], atol=0.2)
+        np.testing.assert_array_less(est.intercept__interval()[0], dgp.true_effect.flatten())
+        np.testing.assert_array_less(dgp.true_effect.flatten(), est.intercept__interval()[1])
+        np.testing.assert_array_less(est.coef__interval()[0], dgp.true_hetero_effect[:, hetero_inds + 1])
+        np.testing.assert_array_less(dgp.true_hetero_effect[:, hetero_inds + 1], est.coef__interval()[1])
