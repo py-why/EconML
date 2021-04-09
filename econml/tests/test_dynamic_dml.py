@@ -113,14 +113,11 @@ class TestDynamicDML(unittest.TestCase):
                                         np.testing.assert_allclose(
                                             marg_eff if d_x else marg_eff[0:1], const_marg_eff)
 
-                                        # TODO: add score and nuisance scores
-                                        """
-                                        assert isinstance(est.score_, float)
-                                        for score in est.nuisance_scores_y:
-                                            assert isinstance(score, float)
-                                        for score in est.nuisance_scores_t:
-                                            assert isinstance(score, float)
-                                        """
+                                        assert len(est.score_) == n_periods
+                                        for score in est.nuisance_scores_y[0]:
+                                            assert score.shape == (n_periods, )
+                                        for score in est.nuisance_scores_t[0]:
+                                            assert score.shape == (n_periods, n_periods)
 
                                         T0 = np.full_like(T_test, 'a') if is_discrete else np.zeros_like(T_test)
                                         eff = est.effect(X, T0=T0, T1=T_test)
@@ -238,8 +235,7 @@ class TestDynamicDML(unittest.TestCase):
                                                     [0], est.intercept__interval()[0], decimal=5)
 
                                             est.summary()
-
-                                        # TODO: add score to estimator
+                                        # TODO: fix score
                                         """
                                         est.score(Y, T, X, W)
                                         """

@@ -92,8 +92,6 @@ class _DynamicModelNuisance:
         return Y_res, T_res
 
     def score(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
-        # TODO: implement scores
-        # TODO: fix correctness?
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
         inds_score = np.arange(Y.shape[0])[np.arange(Y.shape[0]) % self.n_periods == 0]
@@ -147,7 +145,7 @@ class _DynamicModelFinal:
         self._model_final_trained = {k: clone(self._model_final, safe=False) for k in np.arange(n_periods)}
 
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        # TODO: handle sample weight, sample var
+        # NOTE: sample weight, sample var are not passed in
         Y_res, T_res = nuisances
         self._d_y = Y.shape[1:]
         for kappa in np.arange(self.n_periods):
@@ -186,8 +184,29 @@ class _DynamicModelFinal:
         return preds
 
     def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        # TODO: implement score
-        return None
+        assert Y.shape[0] % self.n_periods == 0, \
+            "Length of training data should be an integer multiple of time periods."
+        Y_res, T_res = nuisances
+
+        scores = np.full((self.n_periods, ), np.nan)
+        for kappa in np.arange(self.n_periods):
+            period = self.n_periods - 1 - kappa
+            period_filter = self.period_filter_gen(period, Y.shape[0])
+            Y_adj = Y_res[period_filter].copy()
+            if kappa > 0:
+                Y_adj -= np.sum(
+                    [self._model_final_trained[tau].predict_with_res(
+                        X[self.period_filter_gen(self.n_periods - 1 - tau, Y.shape[0])] if X is not None else None,
+                        T_res[period_filter, ..., self.n_periods - 1 - tau]
+                    ) for tau in np.arange(kappa)], axis=0)
+            Y_adj_pred = self._model_final_trained[kappa].predict_with_res(
+                X[period_filter] if X is not None else None,
+                T_res[period_filter, ..., period])
+            if sample_weight is not None:
+                scores[kappa] = np.mean(np.average((Y_adj - Y_adj_pred)**2, weights=sample_weight, axis=0))
+            else:
+                scores[kappa] = np.mean((Y_adj - Y_adj_pred) ** 2)
+        return scores
 
     def period_filter_gen(self, p, n):
         return (np.arange(n) % self.n_periods == p)
@@ -548,11 +567,38 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             warn("This CATE estimator does not yet support sample weights and sample variance. "
                  "These inputs will be ignored during fitting.",
                  UserWarning)
-        # TODO: support sample_weight, sample_var?
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=None, sample_var=None, groups=groups,
                            cache_values=cache_values,
                            inference=inference)
+
+    def score(self, Y, T, X=None, W=None):
+        """
+        Score the fitted CATE model on a new data set. Generates nuisance parameters
+        for the new data set based on the fitted residual nuisance models created at fit time.
+        It uses the mean prediction of the models fitted by the different crossfit folds.
+        Then calculates the MSE of the final residual Y on residual T regression.
+
+        If model_final does not have a score method, then it raises an :exc:`.AttributeError`
+
+        Parameters
+        ----------
+        Y: (n, d_y) matrix or vector of length n
+            Outcomes for each sample (required: n = n_groups * n_periods)
+        T: (n, d_t) matrix or vector of length n
+            Treatments for each sample (required: n = n_groups * n_periods)
+        X: optional(n, d_x) matrix or None (Default=None)
+            Features for each sample (Required: n = n_groups * n_periods)
+        W: optional(n, d_w) matrix or None (Default=None)
+            Controls for each sample (Required: n = n_groups * n_periods)
+
+        Returns
+        -------
+        score: float
+            The MSE of the final CATE model on the new data.
+        """
+        # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
+        return super().score(Y, T, X=X, W=W)
 
     def cate_treatment_names(self, treatment_names=None):
         """
@@ -658,3 +704,34 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     def model_final(self, model):
         if model is not None:
             raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
+
+    @property
+    def models_y(self):
+        return [[mdl._model_y for mdl in mdls] for mdls in super().models_nuisance_]
+
+    @property
+    def models_t(self):
+        return [[mdl._model_t for mdl in mdls] for mdls in super().models_nuisance_]
+
+    @property
+    def nuisance_scores_y(self):
+        return self.nuisance_scores_[0]
+
+    @property
+    def nuisance_scores_t(self):
+        return self.nuisance_scores_[1]
+
+    @property
+    def residuals_(self):
+        """
+        A tuple (y_res, T_res, X, W), of the residuals from the first stage estimation
+        along with the associated X and W. Samples are not guaranteed to be in the same
+        order as the input order.
+        """
+        if not hasattr(self, '_cached_values'):
+            raise AttributeError("Estimator is not fitted yet!")
+        if self._cached_values is None:
+            raise AttributeError("`fit` was called with `cache_values=False`. "
+                                 "Set to `True` to enable residual storage.")
+        Y_res, T_res = self._cached_values.nuisances
+        return Y_res, T_res, self._cached_values.X, self._cached_values.W
