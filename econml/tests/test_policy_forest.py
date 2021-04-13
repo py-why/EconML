@@ -291,7 +291,7 @@ class TestPolicyForest(unittest.TestCase):
         pred = forest.predict(X)
         pred_val = forest.predict_value(X)
         pred_prob = forest.predict_proba(X)
-        np.testing.assert_allclose(pred_prob.shape, (X.shape[0], 2))
+        assert pred_prob.shape == (X.shape[0], 2)
         feat_imp = forest.feature_importances()
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(X.astype(np.float32),
                                                                                np.asfortranarray(y))
