@@ -484,7 +484,8 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         # Parallel loop
         lock = threading.Lock()
-        Parallel(n_jobs=n_jobs, verbose=self.verbose, backend='threading', require="sharedmem")(
+       Parallel(n_jobs=n_jobs, verbose=self.verbose, require="sharedmem")(
+
             delayed(_accumulate_prediction)(e.predict_proba, X, [y_hat], lock)
             for e in self.estimators_)
 
