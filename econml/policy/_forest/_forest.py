@@ -504,9 +504,9 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         Returns
         -------
         treatment : array-like of shape (n_samples)
-            The recommded treatment, i.e. the treatment index most often predicted to have the highest reward for each sample.
-            Recommended treatments are aggregated from each tree in the ensemble and the treatment that receives
-            the most votes is returned. Use `predict_proba` to get the fraction of trees in the ensembel that
-            recommend each treatment for each sample.
+            The recommded treatment, i.e. the treatment index most often predicted to have the highest reward
+            for each sample. Recommended treatments are aggregated from each tree in the ensemble and the treatment
+            that receives the most votes is returned. Use `predict_proba` to get the fraction of trees in the ensemble
+            that recommend each treatment for each sample.
         """
         return np.argmax(self.predict_proba(X), axis=1)
