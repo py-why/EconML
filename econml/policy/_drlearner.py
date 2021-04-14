@@ -104,7 +104,6 @@ class _BaseDRPolicyLearner(PolicyLearner):
         Parameters
         ----------
         X : array-like of shape (n_samples, n_features)
-
             The input samples.
 
         Returns
