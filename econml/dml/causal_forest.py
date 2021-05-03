@@ -73,7 +73,7 @@ class _CausalForestFinalWrapper:
                      "where available.")
             residuals = Y_res - np.einsum('ijk,ik->ij', oob_preds, T_res)
             propensities = T - T_res
-            VarT = propensities * (1 - propensities)
+            VarT = np.clip(propensities * (1 - propensities), 1e-10, np.inf)
             drpreds = oob_preds
             drpreds += cross_product(residuals, T_res / VarT).reshape((-1, Y_res.shape[1], T_res.shape[1]))
             drpreds[np.isnan(oob_preds)] = np.nan
