@@ -455,6 +455,43 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         return y_hat
 
+    def predict_proba(self, X):
+        """ Predict the probability of recommending each treatment
+
+        Parameters
+        ----------
+        X : {array-like} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float64``.
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        treatment_proba : array-like of shape (n_samples, n_treatments)
+            The probability of each treatment recommendation
+        """
+        check_is_fitted(self)
+        # Check data
+        X = self._validate_X_predict(X)
+
+        # Assign chunk of trees to jobs
+        n_jobs, _, _ = _partition_estimators(self.n_estimators, self.n_jobs)
+
+        # avoid storing the output of every estimator by summing them here
+        y_hat = np.zeros((X.shape[0], self.n_outputs_), dtype=np.float64)
+
+        # Parallel loop
+        lock = threading.Lock()
+        Parallel(n_jobs=n_jobs, verbose=self.verbose, require="sharedmem")(
+            delayed(_accumulate_prediction)(e.predict_proba, X, [y_hat], lock)
+            for e in self.estimators_)
+
+        y_hat /= len(self.estimators_)
+
+        return y_hat
+
     def predict(self, X):
         """ Predict the best treatment for each sample
 
@@ -467,6 +504,9 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         Returns
         -------
         treatment : array-like of shape (n_samples)
-            The recommded treatment, i.e. the treatment index with the largest reward for each sample
+            The recommded treatment, i.e. the treatment index most often predicted to have the highest reward
+            for each sample. Recommended treatments are aggregated from each tree in the ensemble and the treatment
+            that receives the most votes is returned. Use `predict_proba` to get the fraction of trees in the ensemble
+            that recommend each treatment for each sample.
         """
-        return np.argmax(self.predict_value(X), axis=1)
+        return np.argmax(self.predict_proba(X), axis=1)
