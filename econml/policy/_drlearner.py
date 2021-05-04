@@ -4,7 +4,7 @@
 from warnings import warn
 import numpy as np
 from sklearn.base import clone
-from ..utilities import check_inputs, filter_none_kwargs
+from ..utilities import check_inputs, filter_none_kwargs, check_input_arrays
 from ..dr import DRLearner
 from ..dr._drlearner import _ModelFinal
 from .._tree_exporter import _SingleTreeExporterMixin
@@ -98,6 +98,24 @@ class _BaseDRPolicyLearner(PolicyLearner):
         """
         return self.drlearner_.const_marginal_effect(X)
 
+    def predict_proba(self, X):
+        """ Predict the probability of recommending each treatment
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples.
+
+        Returns
+        -------
+        treatment_proba : array-like of shape (n_samples, n_treatments)
+            The probability of each treatment recommendation
+        """
+        X, = check_input_arrays(X)
+        if self.drlearner_.featurizer_ is not None:
+            X = self.drlearner_.featurizer_.fit_transform(X)
+        return self.policy_model_.predict_proba(X)
+
     def predict(self, X):
         """ Get recommended treatment for each sample.
 
@@ -111,9 +129,11 @@ class _BaseDRPolicyLearner(PolicyLearner):
         treatment : array-like of shape (n_samples,)
             The index of the recommended treatment in the same order as in categories, or in
             lexicographic order if `categories='auto'`. 0 corresponds to the baseline/control treatment.
+            For ensemble policy models, recommended treatments are aggregated from each model in the ensemble
+            and the treatment that receives the most votes is returned. Use `predict_proba` to get the fraction
+            of models in the ensemble that recommend each treatment for each sample.
         """
-        values = self.predict_value(X)
-        return np.argmax(np.hstack([np.zeros((values.shape[0], 1)), values]), axis=1)
+        return np.argmax(self.predict_proba(X), axis=1)
 
     def policy_feature_names(self, *, feature_names=None):
         """
