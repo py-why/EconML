@@ -54,7 +54,7 @@ jobs:
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
   # Install the package
-  - script: 'pip install --upgrade setuptools wheel Cython && pip install ${{ parameters.package }}'
+  - script: 'python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython && pip install ${{ parameters.package }}'
     displayName: 'Install dependencies'
 
   - ${{ parameters.job.steps }}

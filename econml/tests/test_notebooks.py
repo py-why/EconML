@@ -23,7 +23,7 @@ def test_notebook(file):
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves
     ep = nbconvert.preprocessors.ExecutePreprocessor(
-        timeout=1200, allow_errors=True, extra_arguments=["--HistoryManager.enabled=False"])
+        timeout=1800, allow_errors=True, extra_arguments=["--HistoryManager.enabled=False"])
 
     ep.preprocess(nb, {'metadata': {'path': _nbdir}})
     errors = [nbconvert.preprocessors.CellExecutionError.from_cell_and_msg(cell, output)
