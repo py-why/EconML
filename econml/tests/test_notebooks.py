@@ -14,6 +14,8 @@ _notebooks = [
     os.path.join(subdir, path) for subdir
     in _nbsubdirs for path in os.listdir(os.path.join(_nbdir, subdir)) if
     path.endswith('.ipynb')]
+# omit the lalonde notebook
+_notebooks = [nb for nb in _notebooks if "Lalonde" not in nb]
 
 
 @pytest.mark.parametrize("file", _notebooks)
