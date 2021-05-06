@@ -21,7 +21,7 @@ try:
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 except ImportError as exn:
-    from ..utilities import MissingModule
+    from .utilities import MissingModule
 
     # make any access to matplotlib or plt throw an exception
     matplotlib = plt = MissingModule("matplotlib is no longer a dependency of the main econml package; "
