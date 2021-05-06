@@ -371,7 +371,7 @@ class _RLearner(_OrthoLearner):
                            cache_values=cache_values,
                            inference=inference)
 
-    def score(self, Y, T, X=None, W=None):
+    def score(self, Y, T, X=None, W=None, sample_weight=None):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
@@ -390,6 +390,9 @@ class _RLearner(_OrthoLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
+        sample_weight: optional(n,) vector or None (Default=None)
+            Weights for each samples
+
 
         Returns
         -------
@@ -397,7 +400,7 @@ class _RLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight)
 
     @property
     def rlearner_model_final_(self):

@@ -460,7 +460,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     def _gen_rlearner_model_final(self):
         return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
 
-    # override only so that we can update the docstring to indicate support for `StatsModelsInference`
+    # override only so that we can update the docstring to indicate support for `LinearModelFinalInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
