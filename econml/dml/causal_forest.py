@@ -16,7 +16,8 @@ from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import add_intercept, shape, check_inputs, _deprecate_positional, cross_product, Summary
+from ..utilities import (add_intercept, shape, check_inputs, check_input_arrays,
+                         _deprecate_positional, cross_product, Summary)
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
@@ -643,6 +644,8 @@ class CausalForestDML(_BaseDML):
             The tuned causal forest object. This is the same object (not a copy) as the original one, but where
             all parameters of the object have been set to the best performing parameters from the tuning grid.
         """
+        Y, T, X, W, sample_weight, groups = check_input_arrays(Y, T, X, W, sample_weight, groups)
+
         if params == 'auto':
             params = {'max_samples': [.3, .5],
                       'min_balancedness_tol': [.3, .5],
@@ -737,7 +740,6 @@ class CausalForestDML(_BaseDML):
         """
         if X is None:
             raise ValueError("This estimator does not support X=None!")
-        Y, T, X, W = check_inputs(Y, T, X, W=W, multi_output_T=True, multi_output_Y=True)
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values,
