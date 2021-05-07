@@ -1473,6 +1473,9 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         -------
         self
         """
+        if X is None:
+            raise ValueError("This estimator does not support X=None!")
+
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
