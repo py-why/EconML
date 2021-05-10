@@ -363,7 +363,7 @@ class TestGRFPython(unittest.TestCase):
         # test that the subsampling scheme past to the trees is correct
         random_state = 123
         n, n_features, n_treatments = 10, 2, 2
-        n_estimators = 600
+        n_estimators = 603 # This sample size is chosen in particular to test rounding based error when subsampling
         config = self._get_base_config()
         config['n_estimators'] = n_estimators
         config['max_samples'] = .7
@@ -390,20 +390,20 @@ class TestGRFPython(unittest.TestCase):
         config['n_estimators'] = n_estimators
         config['inference'] = True
         config['subforest_size'] = 2
-        config['max_samples'] = .4
+        config['max_samples'] = .5
         config['max_depth'] = 1
         config['honest'] = True
         X, T, y, _, _ = self._get_causal_data(n, n_features, n_treatments, random_state)
         forest = self._train_causal_forest(X, T, y, config)
         subinds = forest.get_subsample_inds()
         inds, counts = np.unique(subinds, return_counts=True)
-        np.testing.assert_allclose(counts / n_estimators, .4, atol=.06)
+        np.testing.assert_allclose(counts / n_estimators, .5, atol=.06)
         counts = np.zeros(n)
         for it, tree in enumerate(forest):
             _, samples_val = tree.get_train_test_split_inds()
             inds_val = subinds[it][samples_val]
             counts[inds_val] += 1
-        np.testing.assert_allclose(counts / n_estimators, .2, atol=.05)
+        np.testing.assert_allclose(counts / n_estimators, .25, atol=.05)
         return
 
     def _get_step_regression_data(self, n, n_features, random_state):
