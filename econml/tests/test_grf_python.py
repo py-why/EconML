@@ -363,7 +363,7 @@ class TestGRFPython(unittest.TestCase):
         # test that the subsampling scheme past to the trees is correct
         random_state = 123
         n, n_features, n_treatments = 10, 2, 2
-        n_estimators = 603 # This sample size is chosen in particular to test rounding based error when subsampling
+        n_estimators = 603  # This sample size is chosen in particular to test rounding based error when subsampling
         config = self._get_base_config()
         config['n_estimators'] = n_estimators
         config['max_samples'] = .7
