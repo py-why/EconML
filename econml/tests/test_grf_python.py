@@ -386,7 +386,7 @@ class TestGRFPython(unittest.TestCase):
         forest = self._train_causal_forest(X, T, y, config)
         subinds = forest.get_subsample_inds()
         inds, counts = np.unique(subinds, return_counts=True)
-        np.testing.assert_allclose(counts / n_estimators, config['max_samples']/n, atol=.06)
+        np.testing.assert_allclose(counts / n_estimators, config['max_samples'] / n, atol=.06)
         config = self._get_base_config()
         config['n_estimators'] = n_estimators
         config['inference'] = True
