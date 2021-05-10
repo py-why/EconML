@@ -364,7 +364,7 @@ class TestGRFPython(unittest.TestCase):
         random_state = 123
         # The sample size is chosen in particular to test rounding based error when subsampling
         n, n_features, n_treatments = 15, 2, 2
-        n_estimators = 600
+        n_estimators = 1000
         config = self._get_base_config()
         config['n_estimators'] = n_estimators
         config['max_samples'] = .7
