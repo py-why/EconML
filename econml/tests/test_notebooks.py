@@ -9,7 +9,7 @@ import nbconvert
 import traitlets
 
 _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
-_nbsubdirs = ['.', 'CustomerScenarios']  # TODO: add AutoML notebooks
+_nbsubdirs = ['.', 'CustomerScenarios', 'Solutions']  # TODO: add AutoML notebooks
 _notebooks = [
     os.path.join(subdir, path) for subdir
     in _nbsubdirs for path in os.listdir(os.path.join(_nbdir, subdir)) if
