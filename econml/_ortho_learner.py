@@ -193,9 +193,9 @@ def _crossfit(model, folds, *args, **kwargs):
     return nuisances, model_list, np.sort(fitted_inds.astype(int)), (scores if calculate_scores else None)
 
 
-CachedValues = namedtuple('_CachedValues', ['nuisances',
-                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'freq_weight',
-                                            'sample_var', 'groups'])
+CachedValues = namedtuple('CachedValues', ['nuisances',
+                                           'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'freq_weight',
+                                           'sample_var', 'groups'])
 
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):

@@ -424,3 +424,20 @@ class TestCausalAnalysis(unittest.TestCase):
                 ca.fit(X_df, y)
                 eff = ca.global_causal_effect(alpha=0.05)
                 eff = ca.local_causal_effect(X_df, alpha=0.05)
+
+    def test_can_serialize(self):
+        import pickle
+        y = pd.Series(np.random.choice([0, 1], size=(500,)))
+        X = pd.DataFrame({'a': np.random.normal(size=500),
+                          'b': np.random.normal(size=500),
+                          'c': np.random.choice([0, 1], size=500),
+                          'd': np.random.choice(['a', 'b', 'c'], size=500)})
+        inds = ['a', 'b', 'c', 'd']
+        cats = ['c', 'd']
+        hinds = ['a', 'd']
+
+        ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model='linear')
+        ca = pickle.loads(pickle.dumps(ca))
+        ca.fit(X, y)
+        ca = pickle.loads(pickle.dumps(ca))
+        eff = ca.global_causal_effect()

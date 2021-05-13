@@ -198,6 +198,13 @@ class _ColumnTransformer(TransformerMixin):
             return rest
 
 
+# named tuple type for storing results inside CausalAnalysis class;
+# must be lifted to module level to enable pickling
+_result = namedtuple("_result", field_names=[
+    "feature_index", "feature_name", "feature_baseline", "feature_levels", "hinds",
+    "X_transformer", "W_transformer", "estimator", "global_inference"])
+
+
 class CausalAnalysis:
     """
     Note: this class is experimental and the API may evolve over our next few releases.
@@ -247,10 +254,6 @@ class CausalAnalysis:
     n_jobs: int, default -1
         Degree of parallelism to use when training models via joblib.Parallel
     """
-
-    _result_data = namedtuple("_result", field_names=[
-        "feature_index", "feature_name", "feature_baseline", "feature_levels", "hinds",
-        "X_transformer", "W_transformer", "estimator", "global_inference"])
 
     def __init__(self, feature_inds, categorical, heterogeneity_inds=None, feature_names=None, classification=False,
                  upper_bound_on_cat_expansion=5, nuisance_models='linear', heterogeneity_model='linear', n_jobs=-1):
@@ -487,15 +490,15 @@ class CausalAnalysis:
                     _CausalInsightsConstants.CategoricalColumnKey: [name],
                     _CausalInsightsConstants.EngineeredNameKey: [name]
                 }
-            result = CausalAnalysis._result_data(feature_index=feat_ind,
-                                                 feature_name=name,
-                                                 feature_baseline=baseline,
-                                                 feature_levels=cats,
-                                                 hinds=hinds,
-                                                 X_transformer=X_transformer,
-                                                 W_transformer=W_transformer,
-                                                 estimator=est,
-                                                 global_inference=global_inference)
+            result = _result(feature_index=feat_ind,
+                             feature_name=name,
+                             feature_baseline=baseline,
+                             feature_levels=cats,
+                             hinds=hinds,
+                             X_transformer=X_transformer,
+                             W_transformer=W_transformer,
+                             estimator=est,
+                             global_inference=global_inference)
 
             return insights, result
 
