@@ -45,6 +45,7 @@ class _CausalInsightsConstants:
     CausalComputationTypeKey = 'causal_computation_type'
     ConfoundingIntervalKey = 'confounding_interval'
     ViewKey = 'view'
+    InitArgsKey = 'init_args'
 
     ALL = [RawFeatureNameKey,
            EngineeredNameKey,
@@ -59,7 +60,8 @@ class _CausalInsightsConstants:
            Version,
            CausalComputationTypeKey,
            ConfoundingIntervalKey,
-           ViewKey]
+           ViewKey,
+           InitArgsKey]
 
 
 def _get_default_shared_insights_output():
@@ -78,6 +80,7 @@ def _get_default_shared_insights_output():
         _CausalInsightsConstants.Version: '1.0',
         _CausalInsightsConstants.CausalComputationTypeKey: "simple",
         _CausalInsightsConstants.ConfoundingIntervalKey: None,
+        _CausalInsightsConstants.InitArgsKey: {}
     }
 
 
@@ -196,6 +199,19 @@ class _ColumnTransformer(TransformerMixin):
             return np.concatenate((cats, rest))
         else:
             return rest
+
+
+# Convert python objects to (possibly nested) types that can easily be represented as literals
+def _sanitize(obj):
+    if obj is None or isinstance(obj, (bool, int, str, float)):
+        return obj
+    elif isinstance(obj, dict):
+        return {_sanitize(key): _sanitize(obj[key]) for key in obj}
+    else:
+        try:
+            return [_sanitize(item) for item in obj]
+        except e:
+            raise ValueError(f"Could not sanitize input {obj}")
 
 
 # named tuple type for storing results inside CausalAnalysis class;
@@ -392,6 +408,17 @@ class CausalAnalysis:
         # start with empty results and default shared insights
         self._results = []
         self._shared = _get_default_shared_insights_output()
+        self._shared[_CausalInsightsConstants.InitArgsKey] = {
+            'feature_inds': _sanitize(self.feature_inds),
+            'categorical': _sanitize(self.categorical),
+            'heterogeneity_inds': _sanitize(self.heterogeneity_inds),
+            'feature_names': _sanitize(self.feature_names),
+            'classification': _sanitize(self.classification),
+            'upper_bound_on_cat_expansion': _sanitize(self.upper_bound_on_cat_expansion),
+            'nuisance_models': _sanitize(self.nuisance_models),
+            'heterogeneity_model': _sanitize(self.heterogeneity_model),
+            'n_jobs': _sanitize(self.n_jobs)
+        }
 
         # convert categorical indicators to numeric indices
         categorical_inds = _get_column_indices(X, self.categorical)
