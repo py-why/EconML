@@ -309,10 +309,12 @@ class CausalAnalysis:
                 raise ValueError(
                     f"Can't warm start: previous X had {self._d_x} columns, new X has {X.shape[1]} columns")
 
-        # TODO: implement check for upper bound on categoricals
-
         # work with numeric feature indices, so that we can easily compare with categorical ones
         train_inds = _get_column_indices(X, self.feature_inds)
+
+        if len(train_inds) == 0:
+            raise ValueError(
+                "No features specified. At least one feature index must be specified so that a model can be trained.")
 
         heterogeneity_inds = self.heterogeneity_inds
         if heterogeneity_inds is None:
@@ -351,7 +353,7 @@ class CausalAnalysis:
             new_inds = [ind for ind in train_inds if (ind not in self._cache or
                                                       heterogeneity_inds[ind] != self._cache[ind][1].hinds)]
         else:
-            new_inds = train_inds
+            new_inds = list(train_inds)
 
             self._cache = {}  # store mapping from feature to insights, results
 
@@ -393,6 +395,24 @@ class CausalAnalysis:
 
         # convert categorical indicators to numeric indices
         categorical_inds = _get_column_indices(X, self.categorical)
+
+        # check for indices over the categorical expansion bound
+        over_bound_inds = []
+        for ind in new_inds:
+            n_cats = len(np.unique(_safe_indexing(X, ind, axis=1)))
+            if ind in categorical_inds and n_cats > self.upper_bound_on_cat_expansion:
+                warnings.warn(f"Column {ind} has more than {self.upper_bound_on_cat_expansion} values "
+                              "so no heterogeneity model will be fit for it; increase 'upper_bound_on_cat_expansion' "
+                              "to change this behavior.")
+                # can't remove in place while iterating over new_inds, so store in separate list
+                over_bound_inds.append(ind)
+        for ind in over_bound_inds:
+            new_inds.remove(ind)
+            # also remove from train_inds so we don't try to access the result later
+            train_inds.remove(ind)
+            if len(train_inds) == 0:
+                raise ValueError("No features remain; increase the upper_bound_on_cat_expansion so that at least "
+                                 "one feature model can be trained.")
 
         def process_feature(name, feat_ind):
             discrete_treatment = feat_ind in categorical_inds

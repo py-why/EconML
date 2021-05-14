@@ -441,3 +441,43 @@ class TestCausalAnalysis(unittest.TestCase):
         ca.fit(X, y)
         ca = pickle.loads(pickle.dumps(ca))
         eff = ca.global_causal_effect()
+
+    def test_over_cat_limit(self):
+        y = pd.Series(np.random.choice([0, 1], size=(500,)))
+        X = pd.DataFrame({'a': np.random.normal(size=500),
+                          'b': np.random.normal(size=500),
+                          'c': np.random.choice([0, 1], size=500),
+                          'd': np.random.choice(['a', 'b', 'c', 'd'], size=500),
+                          'e': np.random.choice([7, 8, 9, 10, 11], size=500),
+                          'f': np.random.choice(['x', 'y'], size=500),
+                          'g': np.random.choice([0, 1], size=500),
+                          'h': np.random.choice(['q', 'r', 's'], size=500)})
+        inds = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+        cats = ['c', 'd', 'e', 'f', 'g', 'h']
+        hinds = ['a', 'd']
+        ca = CausalAnalysis(inds, cats, hinds, upper_bound_on_cat_expansion=2)
+        ca.fit(X, y)
+
+        # columns 'd', 'e', 'h' have too many values
+        self.assertEqual([res.feature_name for res in ca._results], ['a', 'b', 'c', 'f', 'g'])
+
+        inds = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+        cats = ['c', 'd', 'e', 'f', 'g', 'h']
+        hinds = ['a', 'd']
+        ca = CausalAnalysis(inds, cats, hinds, upper_bound_on_cat_expansion=3)
+        ca.fit(X, y)
+
+        # columns 'd', 'e' have too many values
+        self.assertEqual([res.feature_name for res in ca._results], ['a', 'b', 'c', 'f', 'g', 'h'])
+
+        ca.upper_bound_on_cat_expansion = 2
+        ca.fit(X, y, warm_start=True)
+
+        # lowering bound shouldn't affect already fit columns when warm starting
+        self.assertEqual([res.feature_name for res in ca._results], ['a', 'b', 'c', 'f', 'g', 'h'])
+
+        ca.upper_bound_on_cat_expansion = 4
+        ca.fit(X, y, warm_start=True)
+
+        # column d is now okay, too
+        self.assertEqual([res.feature_name for res in ca._results], ['a', 'b', 'c', 'd', 'f', 'g', 'h'])
