@@ -552,12 +552,13 @@ To see more complex examples, go to the [notebooks](https://github.com/Microsoft
 You can get started by cloning this repository. We use 
 [setuptools](https://setuptools.readthedocs.io/en/latest/index.html) for building and distributing our package.
 We rely on some recent features of setuptools, so make sure to upgrade to a recent version with
-`pip install setuptools --upgrade`.  Then from your local copy of the repository you can run `python setup.py develop` to get started.
+`pip install setuptools --upgrade`.  Then from your local copy of the repository you can run `pip install -e .` to get started (but depending on what you're doing you might want to install with extras instead, like `pip install -e .[plt]` if you want to use matplotlib integration, or you can use  `pip install -e .[all]` to include all extras).
 
 ## Running the tests
 
-This project uses [pytest](https://docs.pytest.org/) for testing.  To run tests locally after installing the package, 
-you can use `python setup.py pytest`.
+This project uses [pytest](https://docs.pytest.org/) for testing.  To run tests locally after installing the package, you can use `pip install pytest-runner` followed by `python setup.py pytest`.
+
+We have added pytest marks to some tests to make it easier to run a subset, and you can set the PYTEST_ADDOPTS environment variable to take advantage of this.  For instance, you can set it to `-m "not (notebook or automl)"` to skip notebook and automl tests that have some additional dependencies. 
 
 ## Generating the documentation
 
