@@ -125,7 +125,7 @@ def _first_stage_reg(X, y, *, automl=True):
 
 def _first_stage_clf(X, y, *, make_regressor=False, automl=True):
     if automl:
-        model = GridSearchCVList([make_pipeline(StandardScaler(), LogisticRegression()),
+        model = GridSearchCVList([make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000)),
                                   RandomForestClassifier(
                                       n_estimators=100, random_state=123),
                                   GradientBoostingClassifier(random_state=123)],
