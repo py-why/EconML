@@ -997,10 +997,12 @@ class CausalAnalysis:
         if is_policy:
             intrp.interpret(result.estimator, Xtest,
                             sample_treatment_costs=treatment_cost)
+            treat = intrp.treat(Xtest)
         else:  # no treatment cost for CATE trees
             intrp.interpret(result.estimator, Xtest)
+            treat = None
 
-        return intrp, result.X_transformer.get_feature_names(self.feature_names_), treatment_names
+        return intrp, result.X_transformer.get_feature_names(self.feature_names_), treatment_names, treat
 
     # TODO: it seems like it would be better to just return the tree itself rather than plot it;
     #       however, the tree can't store the feature and treatment names we compute here...
@@ -1027,18 +1029,21 @@ class CausalAnalysis:
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
         """
-        intrp, feature_names, treatment_names = self._tree(True, Xtest, feature_index,
-                                                           treatment_cost=treatment_cost,
-                                                           max_depth=max_depth,
-                                                           min_samples_leaf=min_samples_leaf,
-                                                           min_impurity_decrease=min_value_increase,
-                                                           alpha=alpha)
+        intrp, feature_names, treatment_names, _ = self._tree(True, Xtest, feature_index,
+                                                              treatment_cost=treatment_cost,
+                                                              max_depth=max_depth,
+                                                              min_samples_leaf=min_samples_leaf,
+                                                              min_impurity_decrease=min_value_increase,
+                                                              alpha=alpha)
         return intrp.plot(feature_names=feature_names, treatment_names=treatment_names)
 
-    def _policy_tree_string(self, Xtest, feature_index, *, treatment_cost=0,
+    def _policy_tree_output(self, Xtest, feature_index, *, treatment_cost=0,
                             max_depth=3, min_samples_leaf=2, min_value_increase=1e-4, alpha=.1):
         """
-        Get a recommended policy tree in graphviz format as a string.
+        Get a tuple policy outputs.
+
+        The first item in the tuple is the recommended policy tree in graphviz format as a string.
+        The second item is the recommended treatment for each sample as a list.
 
         Parameters
         ----------
@@ -1060,18 +1065,18 @@ class CausalAnalysis:
 
         Returns
         -------
-        tree : string
-            The policy tree represented as a graphviz string
+        tree : tuple of string, list of int
+            The policy tree represented as a graphviz string and the recommended treatment for each row
         """
 
-        intrp, feature_names, treatment_names = self._tree(True, Xtest, feature_index,
-                                                           treatment_cost=treatment_cost,
-                                                           max_depth=max_depth,
-                                                           min_samples_leaf=min_samples_leaf,
-                                                           min_impurity_decrease=min_value_increase,
-                                                           alpha=alpha)
+        intrp, feature_names, treatment_names, treat = self._tree(True, Xtest, feature_index,
+                                                                  treatment_cost=treatment_cost,
+                                                                  max_depth=max_depth,
+                                                                  min_samples_leaf=min_samples_leaf,
+                                                                  min_impurity_decrease=min_value_increase,
+                                                                  alpha=alpha)
         return intrp.export_graphviz(feature_names=feature_names,
-                                     treatment_names=treatment_names)
+                                     treatment_names=treatment_names), treat.tolist()
 
     # TODO: it seems like it would be better to just return the tree itself rather than plot it;
     #       however, the tree can't store the feature and treatment names we compute here...
@@ -1099,11 +1104,11 @@ class CausalAnalysis:
             A (1-alpha)*100% confidence interval is displayed.
         """
 
-        intrp, feature_names, treatment_names = self._tree(False, Xtest, feature_index,
-                                                           max_depth=max_depth,
-                                                           min_samples_leaf=min_samples_leaf,
-                                                           min_impurity_decrease=min_impurity_decrease,
-                                                           alpha=alpha)
+        intrp, feature_names, treatment_names, _ = self._tree(False, Xtest, feature_index,
+                                                              max_depth=max_depth,
+                                                              min_samples_leaf=min_samples_leaf,
+                                                              min_impurity_decrease=min_impurity_decrease,
+                                                              alpha=alpha)
         return intrp.plot(feature_names=feature_names,
                           treatment_names=treatment_names)
 
@@ -1131,10 +1136,10 @@ class CausalAnalysis:
             A (1-alpha)*100% confidence interval is displayed.
         """
 
-        intrp, feature_names, treatment_names = self._tree(False, Xtest, feature_index,
-                                                           max_depth=max_depth,
-                                                           min_samples_leaf=min_samples_leaf,
-                                                           min_impurity_decrease=min_impurity_decrease,
-                                                           alpha=alpha)
+        intrp, feature_names, treatment_names, _ = self._tree(False, Xtest, feature_index,
+                                                              max_depth=max_depth,
+                                                              min_samples_leaf=min_samples_leaf,
+                                                              min_impurity_decrease=min_impurity_decrease,
+                                                              alpha=alpha)
         return intrp.export_graphviz(feature_names=feature_names,
                                      treatment_names=treatment_names)
