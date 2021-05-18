@@ -236,7 +236,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         .. math ::
             \\mathbb{E}_n[\\ell(V; \\theta(X), \\hat{h}(V))]\
-            = \\frac{1}{n} \\sum_{i=1}^n \\sum_i \\ell(V_i; \\theta(X_i), \\hat{U}_i)
+            = \\frac{1}{n} \\sum_{i=1}^n \\ell(V_i; \\theta(X_i), \\hat{U}_i)
 
         The method is a bit more general in that the final step does not need to be a loss minimization step.
         The class takes as input a model for fitting an estimate of the nuisance h given a set of samples
