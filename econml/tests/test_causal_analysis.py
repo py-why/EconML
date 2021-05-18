@@ -44,13 +44,13 @@ class TestCausalAnalysis(unittest.TestCase):
                 coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
                 loc_point_est = np.array(loc_dict[_CausalInsightsConstants.PointEstimateKey])
 
-                ca._policy_tree_string(X, 1)
+                ca._policy_tree_output(X, 1)
                 ca._heterogeneity_tree_string(X, 1)
                 ca._heterogeneity_tree_string(X, 3)
 
                 # Can't handle multi-dimensional treatments
                 with self.assertRaises(AssertionError):
-                    ca._policy_tree_string(X, 3)
+                    ca._policy_tree_output(X, 3)
 
                 # global shape is (d_y, sum(d_t))
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -133,13 +133,13 @@ class TestCausalAnalysis(unittest.TestCase):
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
                 assert loc_point_est.shape == (2,) + glo_point_est.shape
 
-                ca._policy_tree_string(X, inds[1])
+                ca._policy_tree_output(X, inds[1])
                 ca._heterogeneity_tree_string(X, inds[1])
                 ca._heterogeneity_tree_string(X, inds[3])
 
                 # Can't handle multi-dimensional treatments
                 with self.assertRaises(AssertionError):
-                    ca._policy_tree_string(X, inds[3])
+                    ca._policy_tree_output(X, inds[3])
 
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
@@ -199,13 +199,13 @@ class TestCausalAnalysis(unittest.TestCase):
             coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
             loc_point_est = np.array(loc_dict[_CausalInsightsConstants.PointEstimateKey])
 
-            ca._policy_tree_string(X, 1)
+            ca._policy_tree_output(X, 1)
             ca._heterogeneity_tree_string(X, 1)
             ca._heterogeneity_tree_string(X, 3)
 
             # Can't handle multi-dimensional treatments
             with self.assertRaises(AssertionError):
-                ca._policy_tree_string(X, 3)
+                ca._policy_tree_output(X, 3)
 
             # global shape is (d_y, sum(d_t))
             assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -279,7 +279,7 @@ class TestCausalAnalysis(unittest.TestCase):
         assert glo_point_est.shape == coh_point_est.shape == (1, 1)
         assert loc_point_est.shape == (2,) + glo_point_est.shape
 
-        ca._policy_tree_string(X, inds[0])
+        ca._policy_tree_output(X, inds[0])
         ca._heterogeneity_tree_string(X, inds[0])
 
     def test_final_models(self):
@@ -302,13 +302,13 @@ class TestCausalAnalysis(unittest.TestCase):
                 coh_dict = ca._cohort_causal_effect_dict(X[:2])
                 loc_dict = ca._local_causal_effect_dict(X[:2])
 
-                ca._policy_tree_string(X, 1)
+                ca._policy_tree_output(X, 1)
                 ca._heterogeneity_tree_string(X, 1)
                 ca._heterogeneity_tree_string(X, 3)
 
                 # Can't handle multi-dimensional treatments
                 with self.assertRaises(AssertionError):
-                    ca._policy_tree_string(X, 3)
+                    ca._policy_tree_output(X, 3)
 
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
@@ -370,13 +370,13 @@ class TestCausalAnalysis(unittest.TestCase):
         assert glo_point_est.shape == coh_point_est.shape == (1, 5)
         assert loc_point_est.shape == (2,) + glo_point_est.shape
 
-        ca._policy_tree_string(X, inds[1])
+        ca._policy_tree_output(X, inds[1])
         ca._heterogeneity_tree_string(X, inds[1])
         ca._heterogeneity_tree_string(X, inds[3])
 
         # Can't handle multi-dimensional treatments
         with self.assertRaises(AssertionError):
-            ca._policy_tree_string(X, inds[3])
+            ca._policy_tree_output(X, inds[3])
 
     def test_warm_start(self):
         for classification in [True, False]:
