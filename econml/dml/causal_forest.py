@@ -647,11 +647,11 @@ class CausalForestDML(_BaseDML):
         Y, T, X, W, sample_weight, groups = check_input_arrays(Y, T, X, W, sample_weight, groups)
 
         if params == 'auto':
-            params = {'max_samples': [.3, .45],
-                      'min_balancedness_tol': [.3, .5],
-                      'min_samples_leaf': [5, 50],
-                      'max_depth': [3, None],
-                      'min_var_fraction_leaf': [None, .01]}
+            params = {
+                'min_weight_fraction_leaf': [0.0001, .01],
+                'max_depth': [3, 5, None],
+                'min_var_fraction_leaf': [0.001, .01]
+            }
         else:
             # If custom param grid, check that only estimator parameters are being altered
             estimator_param_names = self.tunable_params
