@@ -876,9 +876,23 @@ class InferenceResults(metaclass=abc.ABCMeta):
         offset: array-like
             The offset by which to translate these results
         """
-        # NOTE: use np.asarray(offset) becuase if offset is a pd.Series direct addition would make the sum
+        # NOTE: use np.asarray(offset) because if offset is a pd.Series direct addition would make the sum
         #       a Series as well, which would subsequently break summary_frame because flatten isn't supported
         self.pred = self.pred + np.asarray(offset)
+
+    @abc.abstractmethod
+    def scale(self, factor):
+        """
+        Update the results in place by scaling by a factor.
+
+        Parameters
+        ----------
+        factor: array-like
+            The factor by which to scale these results
+        """
+        # NOTE: use np.asarray(factor) because if offset is a pd.Series direct addition would make the product
+        #       a Series as well, which would subsequently break summary_frame because flatten isn't supported
+        self.pred = self.pred * np.asarray(factor)
 
 
 class NormalInferenceResults(InferenceResults):
@@ -999,6 +1013,17 @@ class NormalInferenceResults(InferenceResults):
                                       self.fname_transformer, self.feature_names,
                                       self.output_names, self.treatment_names)
 
+    def scale(self, factor):
+        # scale preds
+        super().scale(factor)
+        # scale std errs
+        if self.pred_stderr is not None:
+            self.pred_stderr = self.pred_stderr * np.abs(np.asarray(factor))
+        if self.mean_pred_stderr is not None:
+            self.mean_pred_stderr = self.mean_pred_stderr * np.abs(np.asarray(factor))
+
+    scale.__doc__ = InferenceResults.scale.__doc__
+
 
 class EmpiricalInferenceResults(InferenceResults):
     """
@@ -1101,6 +1126,14 @@ class EmpiricalInferenceResults(InferenceResults):
         self.pred_dist = self.pred_dist + np.asarray(other)
 
     translate.__doc__ = InferenceResults.translate.__doc__
+
+    def scale(self, factor):
+        # scale preds
+        super().scale(factor)
+        # scale the distribution, too
+        self.pred_dist = self.pred_dist * np.asarray(factor)
+
+    scale.__doc__ = InferenceResults.scale.__doc__
 
 
 class PopulationSummaryResults:
