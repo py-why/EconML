@@ -151,6 +151,15 @@ class TestDRIV(unittest.TestCase):
                                         # test can run score
                                         est.score(y, T, Z, X=X, W=W)
 
+                                        if X is not None:
+                                            # test cate_feature_names
+                                            expect_feat_len = featurizer.fit(
+                                                X).n_output_features_ if featurizer else d_x
+                                            self.assertEqual(len(est.cate_feature_names()), expect_feat_len)
+
+                                            # test can run shap values
+                                            shap_values = est.shap_values(X[:10])
+
     def test_accuracy(self):
         # helper function
         def prel_model_effect():
@@ -173,9 +182,10 @@ class TestDRIV(unittest.TestCase):
             return y, T, Z, X
 
         ests_list = [LinearIntentToTreatDRIV(
-            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False), fit_cate_intercept=True
         ), LinearDRIV(
             prel_model_effect=prel_model_effect(),
+            fit_cate_intercept=True,
             projection=False,
             discrete_instrument=True,
             discrete_treatment=True,
@@ -206,7 +216,7 @@ class TestDRIV(unittest.TestCase):
             with self.subTest(est=est):
                 est.fit(y, T, Z, X=X[:, [0]], W=X[:, 1:], inference="auto")
                 coef_lb, coef_ub = est.coef__interval()
-                intercept_lb, intercept_ub = est.intercept__interval()
+                intercept_lb, intercept_ub = est.intercept__interval(alpha=0.05)
                 np.testing.assert_array_less(coef_lb, true_coef)
                 np.testing.assert_array_less(true_coef, coef_ub)
                 np.testing.assert_array_less(intercept_lb, 0)

@@ -23,7 +23,8 @@ from sklearn.dummy import DummyClassifier
 
 from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import (StatsModelsCateEstimatorMixin, DebiasedLassoCateEstimatorMixin,
-                                ForestModelFinalCateEstimatorMixin, GenericSingleTreatmentModelFinalInference)
+                                ForestModelFinalCateEstimatorMixin, GenericSingleTreatmentModelFinalInference,
+                                LinearCateEstimator)
 from ...inference import StatsModelsInference
 from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso, WeightedLassoCVWrapper
 from ...sklearn_extensions.model_selection import WeightedStratifiedKFold
@@ -31,6 +32,7 @@ from ...utilities import (_deprecate_positional, add_intercept, filter_none_kwar
                           inverse_onehot, get_feature_names_or_default, check_high_dimensional)
 from ...grf import RegressionForest
 from ...dml.dml import _FirstStageWrapper, _FinalWrapper
+from ..._shap import _shap_explain_model_cate
 
 
 class _BaseDRIVModelNuisance:
@@ -501,6 +503,16 @@ class _BaseDRIV(_OrthoLearner):
         """
         return self.ortho_learner_model_final_._model_final
 
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
+        return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, X, self._d_t, self._d_y,
+                                        featurizer=self.featurizer_,
+                                        feature_names=feature_names,
+                                        treatment_names=treatment_names,
+                                        output_names=output_names,
+                                        input_names=self._input_names,
+                                        background_samples=background_samples)
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
+
 
 class DRIV(_BaseDRIV):
     """
@@ -835,8 +847,6 @@ class DRIV(_BaseDRIV):
         Get the scores for prel_model_effect model on the out-of-sample training data
         """
         return self.nuisance_scores_[4]
-
-    # TODO: add shap
 
 
 class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
