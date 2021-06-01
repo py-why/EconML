@@ -1143,8 +1143,8 @@ class PopulationSummaryResults:
 
     """
 
-    def __init__(self, pred, pred_stderr, mean_pred_stderr, d_t, d_y, alpha, value, decimals, tol,
-                 output_names=None, treatment_names=None):
+    def __init__(self, pred, pred_stderr, mean_pred_stderr, d_t, d_y, value, decimals, tol,
+                 alpha=.1, output_names=None, treatment_names=None):
         self.pred = pred
         self.pred_stderr = pred_stderr
         self.mean_pred_stderr = mean_pred_stderr
@@ -1242,7 +1242,7 @@ class PopulationSummaryResults:
         pvalue = norm.sf(np.abs(self.zstat(value=value)), loc=0, scale=1) * 2
         return pvalue
 
-    def conf_int_mean(self, *, alpha=.1):
+    def conf_int_mean(self, *, alpha=None):
         """
         Get the confidence interval of the mean point estimate of each treatment on each outcome for sample X.
 
@@ -1287,7 +1287,7 @@ class PopulationSummaryResults:
         """
         return np.std(self.pred, axis=0)
 
-    def percentile_point(self, *, alpha=.1):
+    def percentile_point(self, *, alpha=None):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
 
@@ -1310,7 +1310,7 @@ class PopulationSummaryResults:
         upper_percentile_point = np.percentile(self.pred, (1 - alpha / 2) * 100, axis=0)
         return lower_percentile_point, upper_percentile_point
 
-    def conf_int_point(self, *, alpha=.1, tol=.001):
+    def conf_int_point(self, *, alpha=None, tol=.001):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
 
