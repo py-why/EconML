@@ -13,10 +13,7 @@ https://arxiv.org/abs/1905.10176
 
 """
 
-from ._dml import DMLATEIV, ProjectedDMLATEIV, DMLIV, LinearDMLIV, NonParamDMLIV
+from ._dml import LinearDMLIV, NonParamDMLIV
 
-__all__ = ["DMLATEIV",
-           "ProjectedDMLATEIV",
-           "DMLIV",
-           "LinearDMLIV",
+__all__ = ["LinearDMLIV",
            "NonParamDMLIV"]
