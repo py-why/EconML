@@ -269,6 +269,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
                       self.n_periods * d_xt))
         Sigma = np.zeros((self.n_periods * d_xt,
                           self.n_periods * d_xt))
+        self._res_epsilon = {}
         for kappa in np.arange(self.n_periods):
             # Calculating the (kappa, kappa) block entry (of size n_treatments x n_treatments) of matrix Sigma
             period = self.n_periods - 1 - kappa
@@ -283,6 +284,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
             res_epsilon = (Y_res[period_filter] -
                            (Y_diff[:, y_index] if y_index >= 0 else Y_diff)
                            ).reshape(-1, 1, 1)
+            self._res_epsilon[period] = res_epsilon.flatten()
             cur_resT = XT_res[period][period]
             cov_cur_resT = cur_resT.reshape(-1, d_xt, 1) @ cur_resT.reshape(-1, 1, d_xt)
             sigma_kappa = np.mean((res_epsilon**2) * cov_cur_resT, axis=0)
@@ -295,6 +297,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
                     axis=0)
                 M[kappa * d_xt:(kappa + 1) * d_xt,
                   tau * d_xt:(tau + 1) * d_xt] = m_kappa_tau
+            self._M = M
         return np.linalg.inv(M) @ Sigma @ np.linalg.inv(M).T
 
 
