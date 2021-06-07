@@ -228,7 +228,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         self.random_seed_ = self.random_state
         self.random_state_ = check_random_state(self.random_seed_)
         if check_input:
-            X, y = check_X_y(X, y, multi_output=True, y_numeric=True)
+            X, y = check_X_y(X, y, multi_output=True, y_numeric=True, ensure_min_features=0)
         n_y = 1 if y.ndim == 1 else y.shape[1]
         super().fit(X, y, n_y, n_y, n_y,
                     sample_weight=sample_weight, check_input=check_input)

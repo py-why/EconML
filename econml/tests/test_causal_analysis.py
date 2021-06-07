@@ -450,10 +450,12 @@ class TestCausalAnalysis(unittest.TestCase):
                 categorical = [5, 6]
                 ca = CausalAnalysis(feat_inds, categorical, heterogeneity_inds=hetero_inds,
                                     classification=classification,
-                                    nuisance_models='linear', heterogeneity_model="linear", n_jobs=-1)
+                                    nuisance_models='linear', heterogeneity_model=h_model, n_jobs=-1)
                 ca.fit(X_df, y)
                 eff = ca.global_causal_effect(alpha=0.05)
                 eff = ca.local_causal_effect(X_df, alpha=0.05)
+                for ind in feat_inds:
+                    tree, val, always_trt = ca._policy_tree_output(X_df, ind)
 
     def test_can_serialize(self):
         import pickle
