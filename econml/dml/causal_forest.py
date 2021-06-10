@@ -166,7 +166,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         self.d_t = self._d_t[0] if self._d_t else 1
         self.d_y = self._d_y[0] if self._d_y else 1
 
-    def const_marginal_effect_interval(self, X, *, alpha=0.1):
+    def const_marginal_effect_interval(self, X, *, alpha=0.05):
         return self.const_marginal_effect_inference(X).conf_int(alpha=alpha)
 
     def const_marginal_effect_inference(self, X):
@@ -180,7 +180,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         return NormalInferenceResults(d_t=self.d_t, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
 
-    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+    def effect_interval(self, X, *, T0, T1, alpha=0.05):
         return self.effect_inference(X, T0=T0, T1=T1).conf_int(alpha=alpha)
 
     def effect_inference(self, X, *, T0, T1):
@@ -754,13 +754,13 @@ class CausalForestDML(_BaseDML):
         imps = self.model_final_.feature_importances(max_depth=max_depth, depth_decay_exponent=depth_decay_exponent)
         return imps.reshape(self._d_y + (-1,))
 
-    def summary(self, alpha=0.1, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
+    def summary(self, alpha=0.05, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect.
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.1)
+        alpha: optional float in [0, 1] (default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
         value: optinal float (default=0)

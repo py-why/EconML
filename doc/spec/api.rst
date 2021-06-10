@@ -132,7 +132,7 @@ The base class of all the methods in our API has the following signature:
                 for each sample
             '''
 
-        def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+        def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
             ''' Confidence intervals for the quantities τ(·, ·, ·) produced by the model. 
             Available only when inference is not None, when calling the fit method.
 
@@ -147,7 +147,7 @@ The base class of all the methods in our API has the following signature:
                 for each quantity.
             '''
         
-        def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
             ''' Confidence intervals for the quantities effect ∂τ(·, ·) produced by the model. 
             Available only when inference is not None, when calling the fit method.
 
@@ -208,7 +208,7 @@ and constant marginal CATE interval at any target feature vector :math:`\vec{x}`
             on each outcome	for each sample
             '''
         
-        def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+        def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
             ''' Confidence intervals for the quantities θ(·) produced by the model.
             Available only when inference is not None, when calling the fit method.
 
@@ -227,7 +227,7 @@ and constant marginal CATE interval at any target feature vector :math:`\vec{x}`
         def marginal_effect(self, T, X=None)
             return const_marginal_effect(X)
         
-        def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+        def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
             return const_marginal_effect_interval(X, alpha=alpha)
         
 

@@ -1174,7 +1174,7 @@ class BLBInference(Inference):
                             " Estimators must implement the '_predict' method with the correct signature.")
         return self
 
-    def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+    def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
         """ Confidence intervals for the quantities :math:`\\theta(X)` produced
         by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
@@ -1184,7 +1184,7 @@ class BLBInference(Inference):
         X: optional (m, d_x) matrix or None (Default=None)
             Features for each sample
 
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1247,7 +1247,7 @@ class BLBInference(Inference):
         scales = np.asarray([np.sqrt(dT[i] @ params_and_cov[i][1] @ dT[i]) for i in range(X.shape[0])])
         return eff.reshape((-1,) + self._estimator._d_y), scales.reshape((-1,) + self._estimator._d_y)
 
-    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
         """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
         by the model. Available only when ``inference`` is ``blb`` or ``auto``, when
         calling the fit method.
@@ -1260,7 +1260,7 @@ class BLBInference(Inference):
             Base treatments for each sample
         T1: optional (m, d_t) matrix or vector of length m (Default=1)
             Target treatments for each sample
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 

@@ -793,7 +793,7 @@ class DebiasedLasso(WeightedLasso):
         pred_stderr = np.sqrt(var_pred)
         return pred_stderr
 
-    def predict_interval(self, X, alpha=0.1):
+    def predict_interval(self, X, alpha=0.05):
         """Build prediction confidence intervals using the debiased lasso.
 
         Parameters
@@ -801,7 +801,7 @@ class DebiasedLasso(WeightedLasso):
         X : ndarray or scipy.sparse matrix, (n_samples, n_features)
             Samples.
 
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -823,12 +823,12 @@ class DebiasedLasso(WeightedLasso):
                 upper, scale=s), 0, sd_pred)
         return y_lower, y_upper
 
-    def coef__interval(self, alpha=0.1):
+    def coef__interval(self, alpha=0.05):
         """Get a confidence interval bounding the fitted coefficients.
 
         Parameters
         ----------
-        alpha : float
+        alpha : float, default 0.05
             The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
             of the parameter distribution as confidence interval
 
@@ -842,12 +842,12 @@ class DebiasedLasso(WeightedLasso):
         return self.coef_ + np.apply_along_axis(lambda s: norm.ppf(lower, scale=s), 0, self.coef_stderr_), \
             self.coef_ + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, self.coef_stderr_)
 
-    def intercept__interval(self, alpha=0.1):
+    def intercept__interval(self, alpha=0.05):
         """Get a confidence interval bounding the fitted intercept.
 
         Parameters
         ----------
-        alpha : float
+        alpha : float, default 0.05
             The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
             of the parameter distribution as confidence interval
 
@@ -1109,7 +1109,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
             pred_stderr = pred_stderr.flatten()
         return pred_stderr
 
-    def predict_interval(self, X, alpha=0.1):
+    def predict_interval(self, X, alpha=0.05):
         """Build prediction confidence intervals using the debiased lasso.
 
         Parameters
@@ -1117,7 +1117,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         X : ndarray or scipy.sparse matrix, (n_samples, n_features)
             Samples.
 
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1137,12 +1137,12 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
             y_upper = y_upper.flatten()
         return y_lower, y_upper
 
-    def coef__interval(self, alpha=0.1):
+    def coef__interval(self, alpha=0.05):
         """Get a confidence interval bounding the fitted coefficients.
 
         Parameters
         ----------
-        alpha : float
+        alpha : float, default 0.05
             The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
             of the parameter distribution as confidence interval
 
@@ -1161,12 +1161,12 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
             coef_upper = coef_upper.flatten()
         return coef_lower, coef_upper
 
-    def intercept__interval(self, alpha=0.1):
+    def intercept__interval(self, alpha=0.05):
         """Get a confidence interval bounding the fitted intercept.
 
         Parameters
         ----------
-        alpha : float
+        alpha : float, default 0.05
             The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
             of the parameter distribution as confidence interval
 
@@ -1589,13 +1589,13 @@ class _StatsModelsWrapper(BaseEstimator):
             return np.array([np.sqrt(np.clip(np.sum(np.matmul(X, v) * X, axis=1), 0, np.inf))
                              for v in self._param_var]).T
 
-    def coef__interval(self, alpha=.05):
+    def coef__interval(self, alpha=0.05):
         """
         Gets a confidence interval bounding the fitted coefficients.
 
         Parameters
         ----------
-        alpha : float
+        alpha : float, default 0.05
             The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
             of the parameter distribution as confidence interval
 
@@ -1609,13 +1609,13 @@ class _StatsModelsWrapper(BaseEstimator):
             np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                       for p, err in zip(self.coef_, self.coef_stderr_)])
 
-    def intercept__interval(self, alpha=.05):
+    def intercept__interval(self, alpha=0.05):
         """
         Gets a confidence interval bounding the intercept(s) (or 0 if no intercept was fit).
 
         Parameters
         ----------
-        alpha : float
+        alpha : float, default 0.05
             The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
             of the parameter distribution as confidence interval
 
@@ -1637,7 +1637,7 @@ class _StatsModelsWrapper(BaseEstimator):
                 np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                           for p, err in zip(self.intercept_, self.intercept_stderr_)])
 
-    def predict_interval(self, X, alpha=.05):
+    def predict_interval(self, X, alpha=0.05):
         """
         Gets a confidence interval bounding the prediction.
 
@@ -1645,7 +1645,7 @@ class _StatsModelsWrapper(BaseEstimator):
         ----------
         X : (n, d) array like
             The covariates on which to predict
-        alpha : float
+        alpha : float, default 0.05
             The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
             of the parameter distribution as confidence interval
 

@@ -331,7 +331,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         return call
 
     @_defer_to_inference
-    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
         """ Confidence intervals for the quantities :math:`\\tau(X, T0, T1)` produced
         by the model. Available only when ``inference`` is not ``None``, when
         calling the fit method.
@@ -344,7 +344,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Base treatments for each sample
         T1: optional (m, d_t) matrix or vector of length m (Default=1)
             Target treatments for each sample
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -380,7 +380,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         pass
 
     @_defer_to_inference
-    def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+    def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
         """ Confidence intervals for the quantities :math:`\\partial \\tau(T, X)` produced
         by the model. Available only when ``inference`` is not ``None``, when
         calling the fit method.
@@ -391,7 +391,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Base treatments for each sample
         X: optional (m, d_x) matrix or None (Default=None)
             Features for each sample
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -426,7 +426,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         pass
 
     @_defer_to_inference
-    def ate_interval(self, X=None, *, T0, T1, alpha=0.1):
+    def ate_interval(self, X=None, *, T0, T1, alpha=0.05):
         """ Confidence intervals for the quantity :math:`E_X[\\tau(X, T0, T1)]` produced
         by the model. Available only when ``inference`` is not ``None``, when
         calling the fit method.
@@ -439,7 +439,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Base treatments for each sample
         T1: optional (m, d_t) matrix or vector of length m (Default=1)
             Target treatments for each sample
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -475,7 +475,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         pass
 
     @_defer_to_inference
-    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.05):
         """ Confidence intervals for the quantities :math:`E_{T,X}[\\partial \\tau(T, X)]` produced
         by the model. Available only when ``inference`` is not ``None``, when
         calling the fit method.
@@ -486,7 +486,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Base treatments for each sample
         X: optional (m, d_x) matrix or None (Default=None)
             Features for each sample
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -628,7 +628,7 @@ class LinearCateEstimator(BaseCateEstimator):
         eff = self.const_marginal_effect(X)
         return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
 
-    def marginal_effect_interval(self, T, X=None, *, alpha=0.1):
+    def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
         X, T = self._expand_treatments(X, T)
         effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
         if X is None:  # need to repeat by the number of rows of T to ensure the right shape
@@ -645,7 +645,7 @@ class LinearCateEstimator(BaseCateEstimator):
     marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
     @BaseCateEstimator._defer_to_inference
-    def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+    def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
         """ Confidence intervals for the quantities :math:`\\theta(X)` produced
         by the model. Available only when ``inference`` is not ``None``, when
         calling the fit method.
@@ -654,7 +654,7 @@ class LinearCateEstimator(BaseCateEstimator):
         ----------
         X: optional (m, d_x) matrix or None (Default=None)
             Features for each sample
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -706,7 +706,7 @@ class LinearCateEstimator(BaseCateEstimator):
         return np.mean(self.const_marginal_effect(X=X), axis=0)
 
     @BaseCateEstimator._defer_to_inference
-    def const_marginal_ate_interval(self, X=None, *, alpha=0.1):
+    def const_marginal_ate_interval(self, X=None, *, alpha=0.05):
         """ Confidence intervals for the quantities :math:`E_X[\\theta(X)]` produced
         by the model. Available only when ``inference`` is not ``None``, when
         calling the fit method.
@@ -715,7 +715,7 @@ class LinearCateEstimator(BaseCateEstimator):
         ----------
         X: optional (m, d_x) matrix or None (Default=None)
             Features for each sample
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -751,7 +751,7 @@ class LinearCateEstimator(BaseCateEstimator):
         return self.const_marginal_ate(X=X)
     marginal_ate.__doc__ = BaseCateEstimator.marginal_ate.__doc__
 
-    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.05):
         return self.const_marginal_ate_interval(X=X, alpha=alpha)
     marginal_ate_interval.__doc__ = BaseCateEstimator.marginal_ate_interval.__doc__
 
@@ -866,7 +866,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         return super().ate(X=X, T0=T0, T1=T1)
     ate.__doc__ = BaseCateEstimator.ate.__doc__
 
-    def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+    def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
         return super().ate_interval(X=X, T0=T0, T1=T1, alpha=alpha)
     ate_interval.__doc__ = BaseCateEstimator.ate_interval.__doc__
 
@@ -940,13 +940,13 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
                                         self.fit_cate_intercept_)[1]
 
     @BaseCateEstimator._defer_to_inference
-    def coef__interval(self, *, alpha=0.1):
+    def coef__interval(self, *, alpha=0.05):
         """ The coefficients in the linear model of the constant marginal treatment
         effect.
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -970,13 +970,13 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def intercept__interval(self, *, alpha=0.1):
+    def intercept__interval(self, *, alpha=0.05):
         """ The intercept in the linear model of the constant marginal treatment
         effect.
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -999,13 +999,13 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         """
         pass
 
-    def summary(self, alpha=0.1, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
+    def summary(self, alpha=0.05, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect.
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.1)
+        alpha: optional float in [0, 1] (default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
         value: optinal float (default=0)
@@ -1192,7 +1192,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         return self.fitted_models_final[ind].intercept_.reshape(self._d_y)
 
     @BaseCateEstimator._defer_to_inference
-    def coef__interval(self, T, *, alpha=0.1):
+    def coef__interval(self, T, *, alpha=0.05):
         """ The confidence interval for the coefficients in the linear model of the
         constant marginal treatment effect associated with treatment T.
 
@@ -1200,7 +1200,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         ----------
         T: alphanumeric
             The input treatment for which we want the coefficients.
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1229,7 +1229,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         pass
 
     @BaseCateEstimator._defer_to_inference
-    def intercept__interval(self, T, *, alpha=0.1):
+    def intercept__interval(self, T, *, alpha=0.05):
         """ The intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
@@ -1237,7 +1237,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         ----------
         T: alphanumeric
             The input treatment for which we want the coefficients.
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1266,14 +1266,14 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         """
         pass
 
-    def summary(self, T, *, alpha=0.1, value=0, decimals=3,
+    def summary(self, T, *, alpha=0.05, value=0, decimals=3,
                 feature_names=None, treatment_names=None, output_names=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
         effect associated with treatment T.
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.1)
+        alpha: optional float in [0, 1] (default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
         value: optinal float (default=0)
