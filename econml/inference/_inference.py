@@ -35,19 +35,19 @@ class Inference(metaclass=abc.ABCMeta):
         """
         pass
 
-    def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+    def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
         return self.effect_inference(X=X, T0=T0, T1=T1).population_summary(alpha=alpha).conf_int_mean()
 
     def ate_inference(self, X=None, *, T0=0, T1=1):
         return self.effect_inference(X=X, T0=T0, T1=T1).population_summary()
 
-    def marginal_ate_interval(self, T, X=None, *, alpha=0.1):
+    def marginal_ate_interval(self, T, X=None, *, alpha=0.05):
         return self.marginal_effect_inference(T, X=X).population_summary(alpha=alpha).conf_int_mean()
 
     def marginal_ate_inference(self, T, X=None):
         return self.marginal_effect_inference(T, X=X).population_summary()
 
-    def const_marginal_ate_interval(self, X=None, *, alpha=0.1):
+    def const_marginal_ate_interval(self, X=None, *, alpha=0.05):
         return self.const_marginal_effect_inference(X=X).population_summary(alpha=alpha).conf_int_mean()
 
     def const_marginal_ate_inference(self, X=None):
@@ -102,7 +102,7 @@ class BootstrapInference(Inference):
 
         m = getattr(self._est, name)
         if name.endswith('_interval'):  # convert alpha to lower/upper
-            def wrapped(*args, alpha=0.1, **kwargs):
+            def wrapped(*args, alpha=0.05, **kwargs):
                 return m(*args, lower=100 * alpha / 2, upper=100 * (1 - alpha / 2), **kwargs)
             return wrapped
         else:
@@ -130,7 +130,7 @@ class GenericModelFinalInference(Inference):
         self.d_t = self._d_t[0] if self._d_t else 1
         self.d_y = self._d_y[0] if self._d_y else 1
 
-    def const_marginal_effect_interval(self, X, *, alpha=0.1):
+    def const_marginal_effect_interval(self, X, *, alpha=0.05):
         return self.const_marginal_effect_inference(X).conf_int(alpha=alpha)
 
     def const_marginal_effect_inference(self, X):
@@ -177,7 +177,7 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
             raise AttributeError("This method only works for single-dimensional continuous treatment "
                                  "or binary categorical treatment")
 
-    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+    def effect_interval(self, X, *, T0, T1, alpha=0.05):
         return self.effect_inference(X, T0=T0, T1=T1).conf_int(alpha=alpha)
 
     def effect_inference(self, X, *, T0, T1):
@@ -231,7 +231,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
                      UserWarning)
         return self.model_final.predict(X) - intercept
 
-    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+    def effect_interval(self, X, *, T0, T1, alpha=0.05):
         return self.effect_inference(X, T0=T0, T1=T1).conf_int(alpha=alpha)
 
     def effect_inference(self, X, *, T0, T1):
@@ -274,7 +274,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
             inf_res.mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0)
         return inf_res
 
-    def coef__interval(self, *, alpha=0.1):
+    def coef__interval(self, *, alpha=0.05):
         lo, hi = self.model_final.coef__interval(alpha)
         lo_int, hi_int = self.model_final.intercept__interval(alpha)
         lo = parse_final_model_params(lo, lo_int,
@@ -316,7 +316,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
                                       output_names=self._est.cate_output_names(),
                                       treatment_names=self._est.cate_treatment_names())
 
-    def intercept__interval(self, *, alpha=0.1):
+    def intercept__interval(self, *, alpha=0.05):
         if not self.fit_cate_intercept:
             raise AttributeError("No intercept was fitted!")
         lo, hi = self.model_final.coef__interval(alpha)
@@ -406,7 +406,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
         if hasattr(estimator, 'fit_cate_intercept'):
             self.fit_cate_intercept = estimator.fit_cate_intercept
 
-    def const_marginal_effect_interval(self, X, *, alpha=0.1):
+    def const_marginal_effect_interval(self, X, *, alpha=0.05):
         return self.const_marginal_effect_inference(X).conf_int(alpha=alpha)
 
     def const_marginal_effect_inference(self, X):
@@ -430,7 +430,7 @@ class GenericModelFinalInferenceDiscrete(Inference):
                                       output_names=self._est.cate_output_names(),
                                       treatment_names=self._est.cate_treatment_names())
 
-    def effect_interval(self, X, *, T0, T1, alpha=0.1):
+    def effect_interval(self, X, *, T0, T1, alpha=0.05):
         return self.effect_inference(X, T0=T0, T1=T1).conf_int(alpha=alpha)
 
     def effect_inference(self, X, *, T0, T1):
@@ -492,7 +492,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
             res_inf.mean_pred_stderr = mean_pred_stderr
         return res_inf
 
-    def coef__interval(self, T, *, alpha=0.1):
+    def coef__interval(self, T, *, alpha=0.05):
         _, T = self._est._expand_treatments(None, T)
         ind = inverse_onehot(T).item() - 1
         assert ind >= 0, "No model was fitted for the control"
@@ -523,7 +523,7 @@ class LinearModelFinalInferenceDiscrete(GenericModelFinalInferenceDiscrete):
                                       feature_names=self._est.cate_feature_names(),
                                       output_names=self._est.cate_output_names())
 
-    def intercept__interval(self, T, *, alpha=0.1):
+    def intercept__interval(self, T, *, alpha=0.05):
         if not self.fit_cate_intercept:
             raise AttributeError("No intercept was fitted!")
         _, T = self._est._expand_treatments(None, T)
@@ -660,13 +660,13 @@ class InferenceResults(metaclass=abc.ABCMeta):
         return None
 
     @abc.abstractmethod
-    def conf_int(self, alpha=0.1):
+    def conf_int(self, alpha=0.05):
         """
         Get the confidence interval of the metric of each treatment on each outcome for each sample X[i].
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -721,14 +721,14 @@ class InferenceResults(metaclass=abc.ABCMeta):
             raise AttributeError("Only point estimates are available!")
         return (self.point_estimate - value) / self.stderr
 
-    def summary_frame(self, alpha=0.1, value=0, decimals=3,
+    def summary_frame(self, alpha=0.05, value=0, decimals=3,
                       feature_names=None, output_names=None, treatment_names=None):
         """
         Output the dataframe for all the inferences above.
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.1)
+        alpha: optional float in [0, 1] (default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
         value: optinal float (default=0)
@@ -804,13 +804,13 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         return res
 
-    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
+    def population_summary(self, alpha=0.05, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
         """
         Output the object of population summary results.
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.1)
+        alpha: optional float in [0, 1] (default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
         value: optinal float (default=0)
@@ -948,13 +948,13 @@ class NormalInferenceResults(InferenceResults):
         """
         return self.pred_stderr
 
-    def conf_int(self, alpha=0.1):
+    def conf_int(self, alpha=0.05):
         """
         Get the confidence interval of the metric of each treatment on each outcome for each sample X[i].
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -996,7 +996,7 @@ class NormalInferenceResults(InferenceResults):
         """
         return norm.sf(np.abs(self.zstat(value)), loc=0, scale=1) * 2
 
-    def population_summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
+    def population_summary(self, alpha=0.05, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
         pop_summ = super().population_summary(alpha=alpha, value=value, decimals=decimals,
                                               tol=tol, output_names=output_names, treatment_names=treatment_names)
         pop_summ.mean_pred_stderr = self.mean_pred_stderr
@@ -1069,13 +1069,13 @@ class EmpiricalInferenceResults(InferenceResults):
         """
         return np.std(self.pred_dist, axis=0)
 
-    def conf_int(self, alpha=0.1):
+    def conf_int(self, alpha=0.05):
         """
         Get the confidence interval of the metric of each treatment on each outcome for each sample X[i].
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.1)
+        alpha: optional float in [0, 1] (Default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1159,18 +1159,18 @@ class PopulationSummaryResults:
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    mean_pred_stderr: None or array-like or scaler, shape (d_y, d_t) or (d_y,)
+    mean_pred_stderr: None or array-like or scalar, shape (d_y, d_t) or (d_y,)
         The standard error of the mean point estimate, this is derived from coefficient stderr when final
         stage is linear model, otherwise it's None.
         This is the exact standard error of the mean, which is not conservative.
-    alpha: optional float in [0, 1] (default=0.1)
+    alpha: ffloat in [0, 1], default 0.05
         The overall level of confidence of the reported interval.
         The alpha/2, 1-alpha/2 confidence interval is reported.
-    value: optinal float (default=0)
+    value: float, default 0
         The mean value of the metric you'd like to test under null hypothesis.
-    decimals: optinal int (default=3)
+    decimals: int, default 3
         Number of decimal places to round each column to.
-    tol:  optinal float (default=0.001)
+    tol: float, default 0.001
         The stopping criterion. The iterations will stop when the outcome is less than ``tol``
     output_names: optional list of strings or None (default is None)
             The names of the outputs
@@ -1179,7 +1179,7 @@ class PopulationSummaryResults:
 
     """
 
-    def __init__(self, pred, pred_stderr, mean_pred_stderr, d_t, d_y, alpha=0.1,
+    def __init__(self, pred, pred_stderr, mean_pred_stderr, d_t, d_y, alpha=0.05,
                  value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
         self.pred = pred
         self.pred_stderr = pred_stderr
@@ -1243,7 +1243,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        value: optional float (default=0)
+        value: optional float
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
@@ -1264,7 +1264,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        value: optional float (default=0)
+        value: optional float
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
@@ -1285,7 +1285,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=.1)
+        alpha: optional float in [0, 1]
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1330,7 +1330,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=.1)
+        alpha: optional float in [0, 1] (default=0.05)
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1353,10 +1353,10 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=.1)
+        alpha: optional float in [0, 1]
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        tol:  optinal float(default=.001)
+        tol:  optinal float
             The stopping criterion. The iterations will stop when the outcome is less than ``tol``
 
         Returns
@@ -1396,14 +1396,14 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.1)
+        alpha: optional float in [0, 1]
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
+        value: optional float
             The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
+        decimals: optional int
             Number of decimal places to round each column to.
-        tol:  optinal float (default=0.001)
+        tol:  optional float
             The stopping criterion. The iterations will stop when the outcome is less than ``tol``
         output_names: optional list of strings or None (default is None)
                 The names of the outputs

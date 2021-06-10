@@ -38,34 +38,34 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
     Parameters
     ----------
-    include_model_uncertainty : bool, optional, default False
+    include_model_uncertainty : bool, default False
         Whether to include confidence interval information when building a
         simplified model of the cate model. If set to True, then
         cate estimator needs to support the `const_marginal_ate_inference` method.
 
-    uncertainty_level : double, optional, default .1
+    uncertainty_level : double, default 0.05
         The uncertainty level for the confidence intervals to be constructed
         and used in the simplified model creation. If value=alpha
         then a multitask decision tree will be built such that all samples
         in a leaf have similar target prediction but also similar alpha
         confidence intervals.
 
-    uncertainty_only_on_leaves : bool, optional, default True
+    uncertainty_only_on_leaves : bool, default True
         Whether uncertainty information should be displayed only on leaf nodes.
         If False, then interpretation can be slightly slower, especially for cate
         models that have a computationally expensive inference method.
 
-    splitter : string, optional, default "best"
+    splitter : string, default "best"
         The strategy used to choose the split at each node. Supported
         strategies are "best" to choose the best split and "random" to choose
         the best random split.
 
-    max_depth : int or None, optional, default None
+    max_depth : int or None, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional, default 2
+    min_samples_split : int, float, default 2
         The minimum number of samples required to split an internal node:
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -73,7 +73,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional, default 1
+    min_samples_leaf : int, float, default 1
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -85,7 +85,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional, default 0.
+    min_weight_fraction_leaf : float, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
@@ -106,18 +106,18 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    random_state : int, RandomState instance or None, optional, default None
+    random_state : int, RandomState instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
 
-    max_leaf_nodes : int or None, optional, default None
+    max_leaf_nodes : int or None, default None
         Grow a tree with ``max_leaf_nodes`` in best-first fashion.
         Best nodes are defined as relative reduction in impurity.
         If None then unlimited number of leaf nodes.
 
-    min_impurity_decrease : float, optional, default 0.
+    min_impurity_decrease : float, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -135,7 +135,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
 
     def __init__(self, *,
                  include_model_uncertainty=False,
-                 uncertainty_level=.1,
+                 uncertainty_level=0.05,
                  uncertainty_only_on_leaves=True,
                  splitter="best",
                  max_depth=None,
@@ -238,40 +238,40 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
     Parameters
     ----------
-    include_model_uncertainty : bool, optional, default False
+    include_model_uncertainty : bool, default False
         Whether to include confidence interval information when building a
         simplified model of the cate model. If set to True, then
         cate estimator needs to support the `const_marginal_ate_inference` method.
 
-    uncertainty_level : double, optional, default .1
+    uncertainty_level : double, default 0.05
         The uncertainty level for the confidence intervals to be constructed
         and used in the simplified model creation. If value=alpha
         then a multitask decision tree will be built such that all samples
         in a leaf have similar target prediction but also similar alpha
         confidence intervals.
 
-    uncertainty_only_on_leaves : bool, optional, default True
+    uncertainty_only_on_leaves : bool, default True
         Whether uncertainty information should be displayed only on leaf nodes.
         If False, then interpretation can be slightly slower, especially for cate
         models that have a computationally expensive inference method.
 
-    risk_level : float or None, optional (default=None)
+    risk_level : float or None (default=None)
         If None then the point estimate of the CATE of every point will be used as the
         effect of treatment. If any float alpha and risk_seeking=False (default), then the
         lower end point of an alpha confidence interval of the CATE will be used.
         Otherwise if risk_seeking=True, then the upper end of an alpha confidence interval
         will be used.
 
-    risk_seeking : bool, optional, default False,
+    risk_seeking : bool, default False,
         Whether to use an optimistic or pessimistic value for the effect estimate at a
         sample point. Used only when risk_level is not None.
 
-    max_depth : int or None, optional, default None
+    max_depth : int or None, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional, default 2
+    min_samples_split : int, float, default 2
         The minimum number of samples required to split an internal node:
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -279,7 +279,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional, default 1
+    min_samples_leaf : int, float, default 1
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -291,7 +291,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional, default 0.
+    min_weight_fraction_leaf : float, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
@@ -320,7 +320,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
 
-    min_impurity_decrease : float, optional, default 0.
+    min_impurity_decrease : float, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -335,7 +335,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    random_state : int, RandomState instance or None, optional, default None
+    random_state : int, RandomState instance or None, default None
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
@@ -354,7 +354,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
     def __init__(self, *,
                  include_model_uncertainty=False,
-                 uncertainty_level=.1,
+                 uncertainty_level=0.05,
                  uncertainty_only_on_leaves=True,
                  risk_level=None,
                  risk_seeking=False,

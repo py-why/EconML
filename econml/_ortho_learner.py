@@ -794,7 +794,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             return self._ortho_learner_model_final.predict(X)
     const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
-    def const_marginal_effect_interval(self, X=None, *, alpha=0.1):
+    def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
         X, = check_input_arrays(X)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
@@ -806,7 +806,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return super().const_marginal_effect_inference(X)
     const_marginal_effect_inference.__doc__ = LinearCateEstimator.const_marginal_effect_inference.__doc__
 
-    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.1):
+    def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
         X, T0, T1 = check_input_arrays(X, T0, T1)
         self._check_fitted_dims(X)
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)

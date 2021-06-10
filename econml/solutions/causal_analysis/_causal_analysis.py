@@ -1089,13 +1089,13 @@ class CausalAnalysis:
                                expand_arr=expand_arr,
                                drop_sample=drop_sample)
 
-    def global_causal_effect(self, *, alpha=0.1, keep_all_levels=False):
+    def global_causal_effect(self, *, alpha=0.05, keep_all_levels=False):
         """
         Get the global causal effect for each feature as a pandas DataFrame.
 
         Parameters
         ----------
-        alpha : float, default 0.1
+        alpha : float, default 0.05
             The confidence level of the confidence interval
         keep_all_levels : bool, default False
             Whether to keep all levels of the output dataframe ('outcome', 'feature', and 'feature_level')
@@ -1119,7 +1119,7 @@ class CausalAnalysis:
         return self._pandas_summary(lambda res: res.global_inference, props=self._point_props(alpha),
                                     n=1, expand_arr=True, keep_all_levels=keep_all_levels)
 
-    def _global_causal_effect_dict(self, *, alpha=0.1, row_wise=False):
+    def _global_causal_effect_dict(self, *, alpha=0.05, row_wise=False):
         """
         Gets the global causal effect for each feature as dictionary.
 
@@ -1144,7 +1144,7 @@ class CausalAnalysis:
             return est.const_marginal_ate_inference(X=X)
         return inference_from_result
 
-    def cohort_causal_effect(self, Xtest, *, alpha=0.1, keep_all_levels=False):
+    def cohort_causal_effect(self, Xtest, *, alpha=0.05, keep_all_levels=False):
         """
         Gets the average causal effects for a particular cohort defined by a population of X's.
 
@@ -1152,7 +1152,7 @@ class CausalAnalysis:
         ----------
         Xtest : array-like
             The cohort samples for which to return the average causal effects within cohort
-        alpha : float, default 0.1
+        alpha : float, default 0.05
             The confidence level of the confidence interval
         keep_all_levels : bool, default False
             Whether to keep all levels of the output dataframe ('outcome', 'feature', and 'feature_level')
@@ -1176,7 +1176,7 @@ class CausalAnalysis:
                                     props=self._summary_props(alpha), n=1,
                                     expand_arr=True, keep_all_levels=keep_all_levels)
 
-    def _cohort_causal_effect_dict(self, Xtest, *, alpha=0.1, row_wise=False):
+    def _cohort_causal_effect_dict(self, Xtest, *, alpha=0.05, row_wise=False):
         """
         Gets the cohort causal effects for each feature as dictionary.
 
@@ -1205,7 +1205,7 @@ class CausalAnalysis:
             return eff
         return inference_from_result
 
-    def local_causal_effect(self, Xtest, *, alpha=0.1, keep_all_levels=False):
+    def local_causal_effect(self, Xtest, *, alpha=0.05, keep_all_levels=False):
         """
         Gets the local causal effect for each feature as a pandas DataFrame.
 
@@ -1213,7 +1213,7 @@ class CausalAnalysis:
         ----------
         Xtest : array-like
             The samples for which to return the causal effects
-        alpha : float, default 0.1
+        alpha : float, default 0.05
             The confidence level of the confidence interval
         keep_all_levels : bool, default False
             Whether to keep all levels of the output dataframe ('sample', 'outcome', 'feature', and 'feature_level')
@@ -1238,7 +1238,7 @@ class CausalAnalysis:
         return self._pandas_summary(self._local_effect_inference(Xtest),
                                     props=self._point_props(alpha), n=Xtest.shape[0], keep_all_levels=keep_all_levels)
 
-    def _local_causal_effect_dict(self, Xtest, *, alpha=0.1, row_wise=False):
+    def _local_causal_effect_dict(self, Xtest, *, alpha=0.05, row_wise=False):
         """
         Gets the local feature importance as dictionary
 
@@ -1307,7 +1307,7 @@ class CausalAnalysis:
 
         return inf
 
-    def whatif(self, X, Xnew, feature_index, y, *, alpha=0.1):
+    def whatif(self, X, Xnew, feature_index, y, *, alpha=0.05):
         """
         Get counterfactual predictions when feature_index is changed to Xnew from its observational counterpart.
 
@@ -1324,7 +1324,7 @@ class CausalAnalysis:
             the string name if the input is a dataframe
         y: array-like
             Observed labels or outcome of a predictive model for baseline y values
-        alpha : float in [0, 1], default 0.1
+        alpha : float in [0, 1], default 0.05
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
 
@@ -1335,7 +1335,7 @@ class CausalAnalysis:
         """
         return self._whatif_inference(X, Xnew, feature_index, y).summary_frame(alpha=alpha)
 
-    def _whatif_dict(self, X, Xnew, feature_index, y, *, alpha=0.1, row_wise=False):
+    def _whatif_dict(self, X, Xnew, feature_index, y, *, alpha=0.05, row_wise=False):
         """
         Get counterfactual predictions when feature_index is changed to Xnew from its observational counterpart.
 
@@ -1352,7 +1352,7 @@ class CausalAnalysis:
             the string name if the input is a dataframe
         y: array-like
             Observed labels or outcome of a predictive model for baseline y values
-        alpha : float in [0, 1], default 0.1
+        alpha : float in [0, 1], default 0.05
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
         row_wise : boolean, default False
@@ -1386,7 +1386,7 @@ class CausalAnalysis:
 
     def _tree(self, is_policy, Xtest, feature_index, *, treatment_costs=0,
               max_depth=3, min_samples_leaf=2, min_impurity_decrease=1e-4,
-              include_model_uncertainty=False, alpha=.1):
+              include_model_uncertainty=False, alpha=0.05):
 
         result = self._safe_result_index(Xtest, feature_index)
         Xtest = result.X_transformer.transform(Xtest)
@@ -1444,7 +1444,7 @@ class CausalAnalysis:
     #       however, the tree can't store the feature and treatment names we compute here...
     def plot_policy_tree(self, Xtest, feature_index, *, treatment_costs=0,
                          max_depth=3, min_samples_leaf=2, min_value_increase=1e-4, include_model_uncertainty=False,
-                         alpha=.1):
+                         alpha=0.05):
         """
         Plot a recommended policy tree using matplotlib.
 
@@ -1458,15 +1458,15 @@ class CausalAnalysis:
             Cost of treatment, as a scalar value or per-sample. For continuous features this is the marginal cost per
             unit of treatment; for discrete features, this is the difference in cost between each of the non-default
             values and the default value (i.e., if non-scalar the array should have shape (n,d_t-1))
-        max_depth : int, optional (default=3)
+        max_depth : int, default 3
             maximum depth of the tree
-        min_samples_leaf : int, optional (default=2)
+        min_samples_leaf : int, default 2
             minimum number of samples on each leaf
-        min_value_increase : float, optional (default=1e-4)
+        min_value_increase : float, default 1e-4
             The minimum increase in the policy value that a split needs to create to construct it
         include_model_uncertainty : bool, default False
             Whether to include confidence interval information when building a simplified model of the cate model.
-        alpha : float in [0, 1], optional (default=.1)
+        alpha : float in [0, 1], default 0.05
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
         """
@@ -1480,7 +1480,7 @@ class CausalAnalysis:
         return intrp.plot(feature_names=feature_names, treatment_names=treatment_names)
 
     def _policy_tree_output(self, Xtest, feature_index, *, treatment_costs=0,
-                            max_depth=3, min_samples_leaf=2, min_value_increase=1e-4, alpha=.1):
+                            max_depth=3, min_samples_leaf=2, min_value_increase=1e-4, alpha=0.05):
         """
         Get a tuple of policy outputs.
 
@@ -1501,13 +1501,13 @@ class CausalAnalysis:
             Cost of treatment, as a scalar value or per-sample. For continuous features this is the marginal cost per
             unit of treatment; for discrete features, this is the difference in cost between each of the non-default
             values and the default value (i.e., if non-scalar the array should have shape (n,d_t-1))
-        max_depth : int, optional (default=3)
+        max_depth : int, default 3
             maximum depth of the tree
-        min_samples_leaf : int, optional (default=2)
+        min_samples_leaf : int, default 2
             minimum number of samples on each leaf
-        min_value_increase : float, optional (default=1e-4)
+        min_value_increase : float, default 1e-4
             The minimum increase in the policy value that a split needs to create to construct it
-        alpha : float in [0, 1], optional (default=.1)
+        alpha : float in [0, 1], default 0.05
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
 
@@ -1537,7 +1537,7 @@ class CausalAnalysis:
     def plot_heterogeneity_tree(self, Xtest, feature_index, *,
                                 max_depth=3, min_samples_leaf=2, min_impurity_decrease=1e-4,
                                 include_model_uncertainty=False,
-                                alpha=.1):
+                                alpha=0.05):
         """
         Plot an effect hetergoeneity tree using matplotlib.
 
@@ -1547,16 +1547,16 @@ class CausalAnalysis:
             Features
         feature_index
             Index of the feature to be considered as treament
-        max_depth : int, optional (default=3)
+        max_depth : int, default 3
             maximum depth of the tree
-        min_samples_leaf : int, optional (default=2)
+        min_samples_leaf : int, default 2
             minimum number of samples on each leaf
-        min_impurity_decrease : float, optional (default=1e-4)
+        min_impurity_decrease : float, default 1e-4
             The minimum decrease in the impurity/uniformity of the causal effect that a split needs to
             achieve to construct it
         include_model_uncertainty : bool, default False
             Whether to include confidence interval information when building a simplified model of the cate model.
-        alpha : float in [0, 1], optional (default=.1)
+        alpha : float in [0, 1], default 0.05
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
         """
@@ -1572,7 +1572,7 @@ class CausalAnalysis:
 
     def _heterogeneity_tree_output(self, Xtest, feature_index, *,
                                    max_depth=3, min_samples_leaf=2, min_impurity_decrease=1e-4,
-                                   include_model_uncertainty=False, alpha=.1):
+                                   include_model_uncertainty=False, alpha=0.05):
         """
         Get an effect heterogeneity tree expressed as a dictionary.
 
@@ -1591,7 +1591,7 @@ class CausalAnalysis:
             achieve to construct it
         include_model_uncertainty : bool, default False
             Whether to include confidence interval information when building a simplified model of the cate model.
-        alpha : float in [0, 1], optional (default=.1)
+        alpha : float in [0, 1], default 0.05
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
         """
@@ -1611,7 +1611,7 @@ class CausalAnalysis:
                 return {'effect': _sanitize(tree.value[node_id])}
         return _tree_interpreter_to_dict(intrp, feature_names, hetero_data)
 
-    def individualized_policy(self, Xtest, feature_index, *, n_rows=None, treatment_costs=0, alpha=0.1):
+    def individualized_policy(self, Xtest, feature_index, *, n_rows=None, treatment_costs=0, alpha=0.05):
         """
         Get individualized treatment policy based on the learned model for a feature, sorted by the predicted effect.
 
@@ -1627,7 +1627,7 @@ class CausalAnalysis:
             Cost of treatment, as a scalar value or per-sample. For continuous features this is the marginal cost per
             unit of treatment; for discrete features, this is the difference in cost between each of the non-default
             values and the default value (i.e., if non-scalar the array should have shape (n,d_t-1))
-        alpha: float in [0, 1], default 0.1
+        alpha: float in [0, 1], default 0.05
             Confidence level of the confidence intervals
             A (1-alpha)*100% confidence interval is returned
 
@@ -1738,7 +1738,7 @@ class CausalAnalysis:
         return df.join(orig_df).sort_values('Effect of treatment',
                                             ascending=False).head(n_rows)
 
-    def _individualized_policy_dict(self, Xtest, feature_index, *, n_rows=None, treatment_costs=0, alpha=0.1):
+    def _individualized_policy_dict(self, Xtest, feature_index, *, n_rows=None, treatment_costs=0, alpha=0.05):
         """
         Get individualized treatment policy based on the learned model for a feature, sorted by the predicted effect.
 
@@ -1752,7 +1752,7 @@ class CausalAnalysis:
             How many rows to return (all rows by default)
         treatment_costs: array-like, default 0
             Cost of treatment, as a scalar value or per-sample
-        alpha: float in [0, 1], default 0.1
+        alpha: float in [0, 1], default 0.05
             Confidence level of the confidence intervals
             A (1-alpha)*100% confidence interval is returned
 
