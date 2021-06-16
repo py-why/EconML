@@ -1905,3 +1905,72 @@ class StatsModelsRLM(_StatsModelsWrapper):
             self._param_var = np.array([mdl.cov_params() for mdl in self.models])
 
         return self
+
+
+class StatsModels2SLS(_StatsModelsWrapper):
+    """
+    Class solve the moment equation E[(y-theta*T)*Z]=0
+
+    Parameters
+    ----------
+    fit_intercept : bool (optional, default=True)
+        Whether to fit an intercept in this model
+    """
+
+    def __init__(self):
+        self.fit_intercept = False
+        return
+
+    def fit(self, y, T, Z, sample_weight=None, freq_weight=None, sample_var=None):
+        """
+        Fits the model.
+
+        Parameters
+        ----------
+        y :  {(N,), (N, p)} nd array like
+            output variables
+        T :  {(N, p)} nd array like
+            treatment variables
+        Z :  {(N, p)} nd array like
+            instrumental variables
+        sample_weight : (N,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (N, ) array like of integers or None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(N,), (N, p)} nd array like or None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
+
+
+        Returns
+        -------
+        self : StatsModels2SLS
+        """
+
+        self._n_out = 0 if y.ndim < 2 else y.shape[1]
+
+        # solve moment equation E[(y-theta*T)*Z]=0
+        # theta = (Z.T*T)^(-1)*Z.T*y
+        zT_t = np.dot(Z.T, T)
+        zT_y = np.dot(Z.T, y)
+        param = np.linalg.solve(zT_t, zT_y)
+        self._param = param
+
+        # learn cov(theta)
+        # solve first stage linear regression E[T|Z]
+        zT_z = np.dot(Z.T, Z)
+        self._thatparams = np.linalg.solve(zT_z, zT_t)
+        that = np.dot(Z, self._thatparams)
+        # (that.T*that)^{-1}
+        thatT_that = np.dot(that.T, that)
+        thatT_that_inv = np.linalg.inv(thatT_that)
+        # sigma^2
+        var_i = (y - np.dot(T, param))**2
+        if y.ndim < 2:
+            sigma2 = np.average(var_i)
+            self._param_var = sigma2 * thatT_that_inv
+        else:
+            sigma2 = np.average(var_i, axis=0)
+            self._param_var = [s * thatT_that_inv for s in sigma2]

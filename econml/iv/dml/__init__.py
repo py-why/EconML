@@ -13,7 +13,9 @@ https://arxiv.org/abs/1905.10176
 
 """
 
-from ._dml import LinearDMLIV, NonParamDMLIV
+from ._dml import OrthoIV, DMLIV, LinearDMLIV, NonParamDMLIV
 
-__all__ = ["LinearDMLIV",
+__all__ = ["OrthoIV",
+           "DMLIV",
+           "LinearDMLIV",
            "NonParamDMLIV"]

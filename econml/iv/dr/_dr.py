@@ -312,7 +312,7 @@ class _BaseDRIV(_OrthoLearner):
                  random_state=None):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
-        self.fit_cate_intercept = clone(fit_cate_intercept, safe=False)
+        self.fit_cate_intercept = fit_cate_intercept
         self.cov_clip = cov_clip
         self.opt_reweighted = opt_reweighted
         super().__init__(discrete_instrument=discrete_instrument,
@@ -405,6 +405,10 @@ class _BaseDRIV(_OrthoLearner):
         return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
+
+    def refit_final(self, *, inference='auto'):
+        return super().refit_final(inference=inference)
+    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
@@ -830,7 +834,7 @@ class DRIV(_BaseDRIV):
         """
         Get the scores for z_xw model on the out-of-sample training data
         """
-        if self.projection:
+        if not self.projection:
             raise AttributeError("Direct model is fitted for instrument! Use nuisance_scores_z_xw.")
         return self.nuisance_scores_[2]
 
@@ -1029,10 +1033,6 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     @property
     def bias_part_of_coef(self):
         return self.ortho_learner_model_final_._fit_cate_intercept
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def model_final(self):
@@ -1277,10 +1277,6 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
     @property
     def bias_part_of_coef(self):
         return self.ortho_learner_model_final_._fit_cate_intercept
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def model_final(self):
@@ -1601,10 +1597,6 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def model_final(self):
@@ -2159,10 +2151,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         return super().fit(Y, T, Z=Z, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
-
-    def refit_final(self, *, inference='auto'):
-        return super().refit_final(inference=inference)
-    refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
     @property
     def fit_cate_intercept_(self):
