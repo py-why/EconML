@@ -161,7 +161,9 @@ class TestDRIV(unittest.TestCase):
                                             shap_values = est.shap_values(X[:10])
 
     def test_accuracy(self):
+        np.random.seed(42)
         # helper function
+
         def prel_model_effect():
             return _DummyCATE()
 
@@ -210,7 +212,7 @@ class TestDRIV(unittest.TestCase):
         true_coef = 10
 
         def true_fn(X):
-            return 10 * X[:, 0]
+            return true_coef * X[:, 0]
         y, T, Z, X = dgp(n, p, true_fn)
         for est in ests_list:
             with self.subTest(est=est):

@@ -1948,6 +1948,9 @@ class StatsModels2SLS(_StatsModelsWrapper):
         -------
         self : StatsModels2SLS
         """
+        assert sample_weight is None, "sample_weight is not supported yet for this class!"
+        assert freq_weight is None, "freq_weight is not supported yet for this class!"
+        assert sample_var is None, "sample_var is not supported yet for this class!"
 
         self._n_out = 0 if y.ndim < 2 else y.shape[1]
 

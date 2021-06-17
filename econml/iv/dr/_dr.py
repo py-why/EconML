@@ -532,7 +532,7 @@ class DRIV(_BaseDRIV):
         model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
 
     model_z_xw : estimator
-        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods   
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
 
     model_tz_xw : estimator
         model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
@@ -867,7 +867,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
 
     model_z_xw : estimator
-        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods   
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
 
     model_tz_xw : estimator
         model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
@@ -1061,7 +1061,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
 
     model_z_xw : estimator
-        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods   
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
 
     model_tz_xw : estimator
         model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
@@ -1301,7 +1301,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
 
     model_z_xw : estimator
-        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods   
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
 
     model_tz_xw : estimator
         model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods

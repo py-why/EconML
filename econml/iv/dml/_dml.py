@@ -28,6 +28,7 @@ from ...utilities import (_deprecate_positional, get_feature_names_or_default, f
                           cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, shape)
 from ...dml.dml import _FirstStageWrapper, _FinalWrapper
 from ...dml._rlearner import _ModelFinal
+from ..._shap import _shap_explain_joint_linear_model_cate, _shap_explain_model_cate
 
 
 class _OrthoIVModelNuisance:
@@ -52,7 +53,7 @@ class _OrthoIVModelNuisance:
         if self._projection:
             # concat W and Z
             WZ = self._combine(W, Z, Y.shape[0])
-            self._model_t_xw.fit(X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
+            self._model_t_xwz.fit(X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
         else:
             self._model_z_xw.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         return self
@@ -96,7 +97,8 @@ class _OrthoIVModelNuisance:
         if (X is None) and (W is None):  # In this case predict above returns a single row
             Y_pred = np.tile(Y_pred.reshape(1, -1), (Y.shape[0], 1))
             T_pred = np.tile(T_pred.reshape(1, -1), (T.shape[0], 1))
-            Z_pred = np.tile(Z_pred.reshape(1, -1), (Z.shape[0], 1))
+            if not self._projection:
+                Z_pred = np.tile(Z_pred.reshape(1, -1), (Z.shape[0], 1))
 
         Y_res = Y - Y_pred.reshape(Y.shape)
         T_res = T - T_pred.reshape(T.shape)
@@ -794,7 +796,7 @@ class _BaseDMLIV(_OrthoLearner):
 class DMLIV(_BaseDMLIV):
     """
     The base class for parametric DMLIV estimators to estimate a CATE. It accepts three generic machine
-    learning models as nuisance functions: 
+    learning models as nuisance functions:
     1) model_y_xw that estimates :math:`\\E[Y | X]`
     2) model_t_xw that estimates :math:`\\E[T | X]`
     3) model_t_xwz that estimates :math:`\\E[T | X, Z]`
@@ -1000,6 +1002,19 @@ class DMLIV(_BaseDMLIV):
     @property
     def fit_cate_intercept_(self):
         return self.ortho_learner_model_final_._model_final._fit_cate_intercept
+
+    def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
+        if hasattr(self, "featurizer_") and self.featurizer_ is not None:
+            X = self.featurizer_.transform(X)
+        feature_names = self.cate_feature_names(feature_names)
+        return _shap_explain_joint_linear_model_cate(self.model_final_, X, self._d_t, self._d_y,
+                                                     self.bias_part_of_coef,
+                                                     feature_names=feature_names, treatment_names=treatment_names,
+                                                     output_names=output_names,
+                                                     input_names=self._input_names,
+                                                     background_samples=background_samples)
+
+    shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
 
 class LinearDMLIV(DMLIV):
