@@ -128,7 +128,9 @@ def _first_stage_reg(X, y, *, automl=True, random_state=None, verbose=0):
         return make_pipeline(StandardScaler(), Lasso(alpha=model.steps[1][1].alpha_, random_state=random_state))
 
 
-def _first_stage_clf(X, y, *, make_regressor=False, automl=True, random_state=None, verbose=0):
+def _first_stage_clf(X, y, *, make_regressor=False, automl=True, min_count=None, random_state=None, verbose=0):
+    if min_count is None:
+        min_count = _CAT_LIMIT  # we have at least this many instances
     if automl:
         model = GridSearchCVList([make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000,
                                                                                      random_state=random_state)),
@@ -139,13 +141,13 @@ def _first_stage_clf(X, y, *, make_regressor=False, automl=True, random_state=No
                                                   {'max_depth': [3, None],
                                                    'min_weight_fraction_leaf': [.001, .01, .1]},
                                                   {'learning_rate': [0.1, 0.3], 'max_depth': [3, 5]}],
-                                 cv=3,
+                                 cv=min(3, min_count),
                                  scoring='neg_log_loss',
                                  verbose=verbose)
         est = model.fit(X, y).best_estimator_
     else:
         model = make_pipeline(StandardScaler(), LogisticRegressionCV(
-            cv=5, max_iter=1000, random_state=random_state)).fit(X, y)
+            cv=min(5, min_count), max_iter=1000, random_state=random_state)).fit(X, y)
         est = make_pipeline(StandardScaler(), LogisticRegression(
             C=model.steps[1][1].C_[0], random_state=random_state))
     if make_regressor:
@@ -242,146 +244,155 @@ _result = namedtuple("_result", field_names=[
     "X_transformer", "W_transformer", "estimator", "global_inference", "treatment_value"])
 
 
-def _process_feature(name, feat_ind, verbose, categorical_inds, categories, heterogeneity_inds, y, X,
+def _process_feature(name, feat_ind, verbose, categorical_inds, categories, heterogeneity_inds, min_counts, y, X,
                      nuisance_models, h_model, random_state, model_y):
-    if verbose > 0:
-        print(f"CausalAnalysis: Feature {name}")
+    try:
+        if verbose > 0:
+            print(f"CausalAnalysis: Feature {name}")
 
-    discrete_treatment = feat_ind in categorical_inds
-    if discrete_treatment:
-        cats = categories[categorical_inds.index(feat_ind)]
-    else:
-        cats = 'auto'  # just leave the setting at the default otherwise
+        discrete_treatment = feat_ind in categorical_inds
+        if discrete_treatment:
+            cats = categories[categorical_inds.index(feat_ind)]
+        else:
+            cats = 'auto'  # just leave the setting at the default otherwise
 
-    hinds = heterogeneity_inds[feat_ind]
-    WX_transformer = ColumnTransformer([('encode', OneHotEncoder(drop='first', sparse=False),
-                                         [ind for ind in categorical_inds
-                                             if ind != feat_ind]),
-                                        ('drop', 'drop', feat_ind)],
-                                       remainder='passthrough')
-    W_transformer = ColumnTransformer([('encode', OneHotEncoder(drop='first', sparse=False),
-                                        [ind for ind in categorical_inds
-                                            if ind != feat_ind and ind not in hinds]),
-                                       ('drop', 'drop', hinds),
-                                       ('drop_feat', 'drop', feat_ind)],
-                                      remainder='passthrough')
-    # Use _ColumnTransformer instead of ColumnTransformer so we can get feature names
-    X_transformer = _ColumnTransformer([ind for ind in categorical_inds
-                                        if ind != feat_ind and ind in hinds],
-                                       [ind for ind in hinds
-                                        if ind != feat_ind and ind not in categorical_inds])
+        hinds = heterogeneity_inds[feat_ind]
+        WX_transformer = ColumnTransformer([('encode', OneHotEncoder(drop='first', sparse=False),
+                                             [ind for ind in categorical_inds
+                                              if ind != feat_ind]),
+                                            ('drop', 'drop', feat_ind)],
+                                           remainder='passthrough')
+        W_transformer = ColumnTransformer([('encode', OneHotEncoder(drop='first', sparse=False),
+                                            [ind for ind in categorical_inds
+                                             if ind != feat_ind and ind not in hinds]),
+                                           ('drop', 'drop', hinds),
+                                           ('drop_feat', 'drop', feat_ind)],
+                                          remainder='passthrough')
+        # Use _ColumnTransformer instead of ColumnTransformer so we can get feature names
+        X_transformer = _ColumnTransformer([ind for ind in categorical_inds
+                                            if ind != feat_ind and ind in hinds],
+                                           [ind for ind in hinds
+                                            if ind != feat_ind and ind not in categorical_inds])
 
-    # Controls are all other columns of X
-    WX = WX_transformer.fit_transform(X)
-    # can't use X[:, feat_ind] when X is a DataFrame
-    T = _safe_indexing(X, feat_ind, axis=1)
+        # Controls are all other columns of X
+        WX = WX_transformer.fit_transform(X)
+        # can't use X[:, feat_ind] when X is a DataFrame
+        T = _safe_indexing(X, feat_ind, axis=1)
 
-    # TODO: we can't currently handle unseen values of the feature column when getting the effect;
-    #       we might want to modify OrthoLearner (and other discrete treatment classes)
-    #       so that the user can opt-in to allowing unseen treatment values
-    #       (and return NaN or something in that case)
+        # TODO: we can't currently handle unseen values of the feature column when getting the effect;
+        #       we might want to modify OrthoLearner (and other discrete treatment classes)
+        #       so that the user can opt-in to allowing unseen treatment values
+        #       (and return NaN or something in that case)
 
-    W = W_transformer.fit_transform(X)
-    X_xf = X_transformer.fit_transform(X)
-    if W.shape[1] == 0:
-        # array checking routines don't accept 0-width arrays
-        W = None
+        W = W_transformer.fit_transform(X)
+        X_xf = X_transformer.fit_transform(X)
+        if W.shape[1] == 0:
+            # array checking routines don't accept 0-width arrays
+            W = None
 
-    if X_xf.shape[1] == 0:
-        X_xf = None
-
-    if verbose > 0:
-        print("CausalAnalysis: performing model selection on T model")
-
-    # perform model selection
-    model_t = (_first_stage_clf(WX, T, automl=nuisance_models == 'automl',
-                                random_state=random_state, verbose=verbose)
-               if discrete_treatment else _first_stage_reg(WX, T, automl=nuisance_models == 'automl',
-                                                           random_state=random_state,
-                                                           verbose=verbose))
-
-    if X_xf is None and h_model == 'forest':
-        warnings.warn(f"Using a linear model instead of a forest model for feature '{name}' "
-                      "because forests don't support models with no heterogeneity indices")
-        h_model = 'linear'
-
-    if h_model == 'linear':
-        est = LinearDML(model_y=model_y,
-                        model_t=model_t,
-                        discrete_treatment=discrete_treatment,
-                        fit_cate_intercept=True,
-                        linear_first_stages=False,
-                        categories=cats,
-                        random_state=random_state)
-    elif h_model == 'forest':
-        est = CausalForestDML(model_y=model_y,
-                              model_t=model_t,
-                              discrete_treatment=discrete_treatment,
-                              n_estimators=4000,
-                              min_var_leaf_on_val=True,
-                              categories=cats,
-                              random_state=random_state,
-                              verbose=verbose)
+        if X_xf.shape[1] == 0:
+            X_xf = None
 
         if verbose > 0:
-            print("CausalAnalysis: tuning forest")
-        est.tune(y, T, X=X_xf, W=W)
-    if verbose > 0:
-        print("CausalAnalysis: training causal model")
-    est.fit(y, T, X=X_xf, W=W, cache_values=True)
+            print("CausalAnalysis: performing model selection on T model")
 
-    # Prefer ate__inference to const_marginal_ate_inference(X) because it is doubly-robust and not conservative
-    if h_model == 'forest' and discrete_treatment:
-        global_inference = est.ate__inference()
-    else:
-        # convert to NormalInferenceResults for consistency
-        inf = est.const_marginal_ate_inference(X=X_xf)
-        global_inference = NormalInferenceResults(d_t=inf.d_t, d_y=inf.d_y,
-                                                  pred=inf.mean_point,
-                                                  pred_stderr=inf.stderr_mean,
-                                                  mean_pred_stderr=None,
-                                                  inf_type='ate')
+        # perform model selection
+        model_t = (_first_stage_clf(WX, T, automl=nuisance_models == 'automl',
+                                    min_count=min_counts.get(feat_ind, None),
+                                    random_state=random_state, verbose=verbose)
+                   if discrete_treatment else _first_stage_reg(WX, T, automl=nuisance_models == 'automl',
+                                                               random_state=random_state,
+                                                               verbose=verbose))
 
-    # Set the dictionary values shared between local and global summaries
-    if discrete_treatment:
-        cats = est.transformer.categories_[0]
-        baseline = cats[est.transformer.drop_idx_[0]]
-        cats = cats[np.setdiff1d(np.arange(len(cats)),
-                                 est.transformer.drop_idx_[0])]
-        d_t = len(cats)
-        insights = {
-            _CausalInsightsConstants.TypeKey: ['cat'] * d_t,
-            _CausalInsightsConstants.RawFeatureNameKey: [name] * d_t,
-            _CausalInsightsConstants.CategoricalColumnKey: cats.tolist(),
-            _CausalInsightsConstants.EngineeredNameKey: [
-                f"{name} (base={baseline}): {c}" for c in cats]
-        }
-        treatment_value = 1
-    else:
-        d_t = 1
-        cats = ["num"]
-        baseline = None
-        insights = {
-            _CausalInsightsConstants.TypeKey: ["num"],
-            _CausalInsightsConstants.RawFeatureNameKey: [name],
-            _CausalInsightsConstants.CategoricalColumnKey: [name],
-            _CausalInsightsConstants.EngineeredNameKey: [name]
-        }
-        # calculate a "typical" treatment value, using the mean of the absolute value of non-zero treatments
-        treatment_value = np.mean(np.abs(T[T != 0]))
+        if X_xf is None and h_model == 'forest':
+            warnings.warn(f"Using a linear model instead of a forest model for feature '{name}' "
+                          "because forests don't support models with no heterogeneity indices")
+            h_model = 'linear'
 
-    result = _result(feature_index=feat_ind,
-                     feature_name=name,
-                     feature_baseline=baseline,
-                     feature_levels=cats,
-                     hinds=hinds,
-                     X_transformer=X_transformer,
-                     W_transformer=W_transformer,
-                     estimator=est,
-                     global_inference=global_inference,
-                     treatment_value=treatment_value)
+        if h_model == 'linear':
+            est = LinearDML(model_y=model_y,
+                            model_t=model_t,
+                            discrete_treatment=discrete_treatment,
+                            fit_cate_intercept=True,
+                            linear_first_stages=False,
+                            categories=cats,
+                            random_state=random_state)
+        elif h_model == 'forest':
+            est = CausalForestDML(model_y=model_y,
+                                  model_t=model_t,
+                                  discrete_treatment=discrete_treatment,
+                                  n_estimators=4000,
+                                  min_var_leaf_on_val=True,
+                                  categories=cats,
+                                  random_state=random_state,
+                                  verbose=verbose)
 
-    return insights, result
+            if verbose > 0:
+                print("CausalAnalysis: tuning forest")
+            est.tune(y, T, X=X_xf, W=W)
+        if verbose > 0:
+            print("CausalAnalysis: training causal model")
+        est.fit(y, T, X=X_xf, W=W, cache_values=True)
+
+        # Prefer ate__inference to const_marginal_ate_inference(X) because it is doubly-robust and not conservative
+        if h_model == 'forest' and discrete_treatment:
+            global_inference = est.ate__inference()
+        else:
+            # convert to NormalInferenceResults for consistency
+            inf = est.const_marginal_ate_inference(X=X_xf)
+            global_inference = NormalInferenceResults(d_t=inf.d_t, d_y=inf.d_y,
+                                                      pred=inf.mean_point,
+                                                      pred_stderr=inf.stderr_mean,
+                                                      mean_pred_stderr=None,
+                                                      inf_type='ate')
+
+        # Set the dictionary values shared between local and global summaries
+        if discrete_treatment:
+            cats = est.transformer.categories_[0]
+            baseline = cats[est.transformer.drop_idx_[0]]
+            cats = cats[np.setdiff1d(np.arange(len(cats)),
+                                     est.transformer.drop_idx_[0])]
+            d_t = len(cats)
+            insights = {
+                _CausalInsightsConstants.TypeKey: ['cat'] * d_t,
+                _CausalInsightsConstants.RawFeatureNameKey: [name] * d_t,
+                _CausalInsightsConstants.CategoricalColumnKey: cats.tolist(),
+                _CausalInsightsConstants.EngineeredNameKey: [
+                    f"{name} (base={baseline}): {c}" for c in cats]
+            }
+            treatment_value = 1
+        else:
+            d_t = 1
+            cats = ["num"]
+            baseline = None
+            insights = {
+                _CausalInsightsConstants.TypeKey: ["num"],
+                _CausalInsightsConstants.RawFeatureNameKey: [name],
+                _CausalInsightsConstants.CategoricalColumnKey: [name],
+                _CausalInsightsConstants.EngineeredNameKey: [name]
+            }
+            # calculate a "typical" treatment value, using the mean of the absolute value of non-zero treatments
+            treatment_value = np.mean(np.abs(T[T != 0]))
+
+        result = _result(feature_index=feat_ind,
+                         feature_name=name,
+                         feature_baseline=baseline,
+                         feature_levels=cats,
+                         hinds=hinds,
+                         X_transformer=X_transformer,
+                         W_transformer=W_transformer,
+                         estimator=est,
+                         global_inference=global_inference,
+                         treatment_value=treatment_value)
+
+        return insights, result
+    except Exception as e:
+        return e
+
+
+# Unless we're opting into minimal cross-fitting, this is the minimum number of instances of each category
+# required to fit a discrete DML model
+_CAT_LIMIT = 10
 
 
 class CausalAnalysis:
@@ -440,6 +451,10 @@ class CausalAnalysis:
         Degree of parallelism to use when training models via joblib.Parallel
     verbose : int, default=0
         Controls the verbosity when fitting and predicting.
+    skip_cat_limit_checks: bool, default False
+        By default, categorical features need to have several instances of each category in order for a model to be
+        fit robustly. Setting this to True will skip these checks (although at least 2 instances will always be
+        required for linear heterogeneity models, and 4 for forest heterogeneity models even in that case).
     random_state : int, RandomState instance or None, default=None
         Controls the randomness of the estimator. The features are always
         randomly permuted at each split. When ``max_features < n_features``, the algorithm will
@@ -449,11 +464,25 @@ class CausalAnalysis:
         improvement of the criterion is identical for several splits and one
         split has to be selected at random. To obtain a deterministic behaviour
         during fitting, ``random_state`` has to be fixed to an integer.
+
+    Attributes
+    ----------
+    nuisance_models_: string
+        The nuisance models setting used for the most recent call to fit
+    heterogeneity_model: string
+        The heterogeneity model setting used for the most recent call to fit
+    feature_names_: list of string
+        The list of feature names from the data in the most recent call to fit
+    trained_feature_indices_: list of int
+        The list of feature indices where models were trained successfully
+    untrained_feature_indices_: list of tuple of (int, string or Exception)
+        The list of indices that were requested but not able to be trained succesfully,
+        along with either a reason or caught Exception for each
     """
 
     def __init__(self, feature_inds, categorical, heterogeneity_inds=None, feature_names=None, classification=False,
                  upper_bound_on_cat_expansion=5, nuisance_models='linear', heterogeneity_model='linear', *,
-                 categories='auto', n_jobs=-1, verbose=0, random_state=None):
+                 categories='auto', n_jobs=-1, verbose=0, skip_cat_limit_checks=False, random_state=None):
         self.feature_inds = feature_inds
         self.categorical = categorical
         self.heterogeneity_inds = heterogeneity_inds
@@ -465,6 +494,7 @@ class CausalAnalysis:
         self.categories = categories
         self.n_jobs = n_jobs
         self.verbose = verbose
+        self.skip_cat_limit_checks = skip_cat_limit_checks
         self.random_state = random_state
 
     def fit(self, X, y, warm_start=False):
@@ -628,21 +658,57 @@ class CausalAnalysis:
                 f"has length {len(categories)} while there are {len(categorical_inds)} categorical columns.")
 
         # check for indices over the categorical expansion bound
-        over_bound_inds = []
+        invalid_inds = getattr(self, 'untrained_feature_indices_', [])
+
+        # assume we'll be able to train former failures this time; we'll add them back if not
+        invalid_inds = [(ind, reason) for (ind, reason) in invalid_inds if ind not in new_inds]
+
+        min_counts = {}
         for ind in new_inds:
-            n_cats = len(np.unique(_safe_indexing(X, ind, axis=1)))
-            if ind in categorical_inds and n_cats > self.upper_bound_on_cat_expansion:
-                warnings.warn(f"Column {ind} has more than {self.upper_bound_on_cat_expansion} values "
-                              "so no heterogeneity model will be fit for it; increase 'upper_bound_on_cat_expansion' "
-                              "to change this behavior.")
-                # can't remove in place while iterating over new_inds, so store in separate list
-                over_bound_inds.append(ind)
-        for ind in over_bound_inds:
+
+            if ind in categorical_inds:
+                cats, counts = np.unique(_safe_indexing(X, ind, axis=1), return_counts=True)
+                min_ind = np.argmin(counts)
+                if len(cats) > self.upper_bound_on_cat_expansion:
+                    warnings.warn(f"Column {ind} has more than {self.upper_bound_on_cat_expansion} values "
+                                  "so no heterogeneity model will be fit for it; increase "
+                                  "'upper_bound_on_cat_expansion' to change this behavior.")
+                    # can't remove in place while iterating over new_inds, so store in separate list
+                    invalid_inds.append((ind, 'upper_bound_on_cat_expansion'))
+
+                elif counts[min_ind] < _CAT_LIMIT:
+                    if self.skip_cat_limit_checks and (counts[min_ind] >= 5 or
+                                                       (counts[min_ind] >= 2 and
+                                                        self.heterogeneity_model != 'forest')):
+                        # train the model, but warn
+                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                                      f"the training dataset, which is less than {_CAT_LIMIT}. A model will be fit "
+                                      "because 'skip_cat_limit_checks' is True, but this model may not be robust.")
+                        min_counts[ind] = counts[min_ind]
+                    elif counts[min_ind] < 2 or (counts[min_ind] < 5 and self.heterogeneity_model == 'forest'):
+                        # no model can be trained in this case since we need more folds
+                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                                      "the training dataset, but linear heterogeneity models need at least 2 and "
+                                      "forest heterogeneity models need at least 5 instances, so no model will be fit "
+                                      "for this column")
+                        invalid_inds.append((ind, 'cat_limit'))
+                    else:
+                        # don't train a model, but suggest workaround since there are enough instances of least
+                        # populated class
+                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                                      f"the training dataset, which is less than {_CAT_LIMIT}, so no heterogeneity "
+                                      "model will be fit for it. This check can be turned off by setting "
+                                      "'skip_cat_limit_checks' to True, but that may result in an inaccurate model "
+                                      "for this feature.")
+                        invalid_inds.append((ind, 'cat_limit'))
+
+        for (ind, _) in invalid_inds:
             new_inds.remove(ind)
             # also remove from train_inds so we don't try to access the result later
             train_inds.remove(ind)
             if len(train_inds) == 0:
-                raise ValueError("No features remain; increase the upper_bound_on_cat_expansion so that at least "
+                raise ValueError("No features remain; increase the upper_bound_on_cat_expansion and ensure that there "
+                                 "are several instances of each categorical value so that at least "
                                  "one feature model can be trained.")
 
         if self.feature_names is None:
@@ -664,9 +730,21 @@ class CausalAnalysis:
                                      verbose=self.verbose
                                  )(joblib.delayed(_process_feature)(
                                      feat_name, feat_ind,
-                                     self.verbose, categorical_inds, categories, heterogeneity_inds, y, X,
+                                     self.verbose, categorical_inds, categories, heterogeneity_inds, min_counts, y, X,
                                      self.nuisance_models, self.heterogeneity_model, self.random_state, self._model_y)
-                                   for feat_name, feat_ind in zip(new_feat_names, new_inds))))
+                                     for feat_name, feat_ind in zip(new_feat_names, new_inds))))
+
+        # track indices where an exception was thrown, since we can't remove from dictionary while iterating
+        inds_to_remove = []
+        for ind, value in cache_updates.items():
+            if isinstance(value, Exception):
+                # don't want to cache this failed result
+                inds_to_remove.append(ind)
+                train_inds.remove(ind)
+                invalid_inds.append((ind, value))
+
+        for ind in inds_to_remove:
+            del cache_updates[ind]
 
         self._cache.update(cache_updates)
 
@@ -675,6 +753,10 @@ class CausalAnalysis:
             self._results.append(result)
             for k in dict_update:
                 self._shared[k] += dict_update[k]
+
+        invalid_inds.sort()
+        self.untrained_feature_indices_ = invalid_inds
+        self.trained_feature_indices_ = train_inds
 
         self.nuisance_models_ = self.nuisance_models
         self.heterogeneity_model_ = self.heterogeneity_model

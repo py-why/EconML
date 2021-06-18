@@ -662,7 +662,8 @@ class CausalForestDML(_BaseDML):
         strata = None
         if self.discrete_treatment:
             strata = self._strata(Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups)
-        train, test = train_test_split(np.arange(Y.shape[0]), train_size=.7,
+        # use 0.699 instead of 0.7 as train size so that if there are 5 examples in a stratum, we get 2 in test
+        train, test = train_test_split(np.arange(Y.shape[0]), train_size=0.699,
                                        random_state=self.random_state, stratify=strata)
         ytrain, yval, Ttrain, Tval = Y[train], Y[test], T[train], T[test]
         Xtrain, Xval = (X[train], X[test]) if X is not None else (None, None)
