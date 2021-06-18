@@ -596,3 +596,67 @@ class TestCausalAnalysis(unittest.TestCase):
         ca_test.fit(X, y)
         ind_policy = ca_test.individualized_policy(X[:50], feature_index='A')
         self.assertFalse(ind_policy.isnull().values.any())
+
+    def test_invalid_inds(self):
+        X = np.zeros((300, 6))
+        y = np.random.normal(size=(300,))
+
+        # first column: 10 ones, this is fine
+        X[np.random.choice(300, 10, replace=False), 0] = 1  # ten ones, should be fine
+
+        # second column: 6 categories, plenty of random instances of each
+        # this is fine only if we increase the cateogry limit
+        X[:, 1] = np.random.choice(6, 300)  # six categories
+
+        # third column: nine ones, lots of twos, not enough unless we disable check
+        X[np.random.choice(300, 100, replace=False), 2] = 2
+        X[np.random.choice(300, 9, replace=False), 2] = 1
+
+        # fourth column: 5 ones, also not enough but barely works even with forest heterogeneity
+        X[np.random.choice(300, 5, replace=False), 3] = 1
+
+        # fifth column: 2 ones, ensures that we will change number of folds for linear heterogeneity
+        # forest heterogeneity won't work
+        X[np.random.choice(300, 2, replace=False), 4] = 1
+
+        # sixth column: just 1 one, not enough even without check
+        X[np.random.choice(300, 1), 5] = 1  # one instance of
+
+        col_names = ['a', 'b', 'c', 'd', 'e', 'f']
+        X = pd.DataFrame(X, columns=col_names)
+
+        for n in ['linear', 'automl']:
+            for h in ['linear', 'forest']:
+                for warm_start in [True, False]:
+                    ca = CausalAnalysis(col_names, col_names, col_names, verbose=1,
+                                        nuisance_models=n, heterogeneity_model=h)
+                    ca.fit(X, y)
+
+                    self.assertEqual(ca.trained_feature_indices_, [0])  # only first column okay
+                    self.assertEqual(ca.untrained_feature_indices_, [(1, 'upper_bound_on_cat_expansion'),
+                                                                     (2, 'cat_limit'),
+                                                                     (3, 'cat_limit'),
+                                                                     (4, 'cat_limit'),
+                                                                     (5, 'cat_limit')])
+
+                    # increase bound on cat expansion
+                    ca.upper_bound_on_cat_expansion = 6
+                    ca.fit(X, y, warm_start=warm_start)
+
+                    self.assertEqual(ca.trained_feature_indices_, [0, 1])  # second column okay also
+                    self.assertEqual(ca.untrained_feature_indices_, [(2, 'cat_limit'),
+                                                                     (3, 'cat_limit'),
+                                                                     (4, 'cat_limit'),
+                                                                     (5, 'cat_limit')])
+
+                    # skip checks (reducing folds accordingly)
+                    ca.skip_cat_limit_checks = True
+                    ca.fit(X, y, warm_start=warm_start)
+
+                    if h == 'linear':
+                        self.assertEqual(ca.trained_feature_indices_, [0, 1, 2, 3, 4])  # all but last col okay
+                        self.assertEqual(ca.untrained_feature_indices_, [(5, 'cat_limit')])
+                    else:
+                        self.assertEqual(ca.trained_feature_indices_, [0, 1, 2, 3])  # can't handle last two
+                        self.assertEqual(ca.untrained_feature_indices_, [(4, 'cat_limit'),
+                                                                         (5, 'cat_limit')])
