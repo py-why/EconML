@@ -26,4 +26,4 @@ __all__ = ['automated_ml',
            'dowhy',
            '__version__']
 
-__version__ = '0.12.0b1'
+__version__ = '0.12.0b2'
