@@ -14,6 +14,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 
 
+@pytest.mark.half
 class Test2SLS(unittest.TestCase):
 
     def test_hermite_shape(self):

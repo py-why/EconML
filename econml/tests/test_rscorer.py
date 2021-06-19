@@ -19,6 +19,7 @@ def _fit_model(name, model, Y, T, X):
     return name, model.fit(Y, T, X=X)
 
 
+@pytest.mark.half
 class TestRScorer(unittest.TestCase):
 
     def _get_data(self):

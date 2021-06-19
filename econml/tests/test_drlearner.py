@@ -24,6 +24,7 @@ import scipy.special
 import econml.tests.utilities  # bugfix for assertWarns
 
 
+@pytest.mark.half
 class TestDRLearner(unittest.TestCase):
 
     @classmethod
