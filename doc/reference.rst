@@ -66,9 +66,9 @@ Double Machine Learning (DML) IV
 .. autosummary::
     :toctree: _autosummary
 
-    econml.iv.dml.DMLATEIV
-    econml.iv.dml.ProjectedDMLATEIV
+    econml.iv.dml.OrthoIV
     econml.iv.dml.DMLIV
+    econml.iv.dml.LinearDMLIV
     econml.iv.dml.NonParamDMLIV
 
 .. _driv_api:
@@ -79,6 +79,10 @@ Doubly Robust (DR) IV
 .. autosummary::
     :toctree: _autosummary
 
+    econml.iv.dr.DRIV
+    econml.iv.dr.LinearDRIV
+    econml.iv.dr.SparseLinearDRIV
+    econml.iv.dr.ForestDRIV
     econml.iv.dr.IntentToTreatDRIV
     econml.iv.dr.LinearIntentToTreatDRIV
 

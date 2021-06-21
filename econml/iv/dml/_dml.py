@@ -326,7 +326,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         Returns
         -------
-        self: _BaseDMLATEIV instance
+        self: OrthoIV instance
         """
         if self.projection:
             assert self.model_z_xw == "auto", ("In the case of projection=True, model_z_xw will not be fitted, "

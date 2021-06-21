@@ -534,6 +534,9 @@ class DRIV(_BaseDRIV):
     model_z_xw : estimator
         model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
 
+    model_t_xwz : estimator
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+
     model_tz_xw : estimator
         model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
 
@@ -544,8 +547,8 @@ class DRIV(_BaseDRIV):
         model compatible with the sklearn regression API, used to fit the effect on X
 
     projection: bool, optional, default False
-        If True, we fit a slight variant of DRIV where we use E[T|X, Z] as the instrument as opposed to Z.
-        model_t_xw (E[T|X]) is also used to predict E[T|X, Z], model_z_xw will be disabled
+        If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
+        model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -607,6 +610,7 @@ class DRIV(_BaseDRIV):
                  model_y_xw="auto",
                  model_t_xw="auto",
                  model_z_xw="auto",
+                 model_t_xwz="auto",
                  model_tz_xw="auto",
                  prel_model_effect,
                  model_final,
@@ -624,14 +628,11 @@ class DRIV(_BaseDRIV):
                  random_state=None):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
+        self.model_t_xwz = clone(model_t_xwz, safe=False)
+        self.model_z_xw = clone(model_z_xw, safe=False)
         self.model_tz_xw = clone(model_tz_xw, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
         self.projection = projection
-        if self.projection:
-            self.model_t_xwz = clone(model_t_xw, safe=False)
-        else:
-            self.model_z_xw = clone(model_z_xw, safe=False)
-
         super().__init__(model_final=model_final,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
@@ -717,6 +718,59 @@ class DRIV(_BaseDRIV):
                                           _FirstStageWrapper(model_z_xw, False, self._gen_featurizer(),
                                                              False, self.discrete_instrument),
                                           self.projection, self.discrete_treatment, self.discrete_instrument)
+
+    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
+                           "we will disallow passing X and W by position.", ['X', 'W'])
+    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference="auto"):
+        """
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
+
+        Parameters
+        ----------
+        Y: (n,) vector of length n
+            Outcomes for each sample
+        T: (n,) vector of length n
+            Treatments for each sample
+        Z: (n, d_z) matrix
+            Instruments for each sample
+        X: optional(n, d_x) matrix or None (Default=None)
+            Features for each sample
+        W: optional(n, d_w) matrix or None (Default=None)
+            Controls for each sample
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : (n,) nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the `cv` argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'auto'
+            (or an instance of :class:`.GenericSingleTreatmentModelFinalInference`)
+
+        Returns
+        -------
+        self
+        """
+        if self.projection:
+            assert self.model_z_xw == "auto", ("In the case of projection=True, model_z_xw will not be fitted, "
+                                               "please leave it when initializing the estimator!")
+        else:
+            assert self.model_t_xwz == "auto", ("In the case of projection=False, model_t_xwz will not be fitted, "
+                                                "please leave it when initializing the estimator!")
+        return super().fit(Y, T, X=X, W=W, Z=Z,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values, inference=inference)
 
     @property
     def models_y_xw(self):
@@ -869,6 +923,9 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     model_z_xw : estimator
         model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
 
+    model_t_xwz : estimator
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+
     model_tz_xw : estimator
         model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
 
@@ -876,8 +933,8 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
 
     projection: bool, optional, default False
-        If True, we fit a slight variant of DRIV where we use E[T|X, Z] as the instrument as opposed to Z.
-        model_t_xw (E[T|X]) is also used to predict E[T|X, Z], model_z_xw will be disabled
+        If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
+        model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -942,6 +999,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  model_y_xw="auto",
                  model_t_xw="auto",
                  model_z_xw="auto",
+                 model_t_xwz="auto",
                  model_tz_xw="auto",
                  prel_model_effect,
                  projection=False,
@@ -959,6 +1017,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xw=model_t_xw,
                          model_z_xw=model_z_xw,
+                         model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
                          prel_model_effect=prel_model_effect,
                          model_final=None,
@@ -1063,6 +1122,9 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
     model_z_xw : estimator
         model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
 
+    model_t_xwz : estimator
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+
     model_tz_xw : estimator
         model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
 
@@ -1070,8 +1132,8 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
 
     projection: bool, optional, default False
-        If True, we fit a slight variant of DRIV where we use E[T|X, Z] as the instrument as opposed to Z.
-        model_t_xw (E[T|X]) is also used to predict E[T|X, Z], model_z_xw will be disabled
+        If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
+        model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -1166,6 +1228,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  model_y_xw="auto",
                  model_t_xw="auto",
                  model_z_xw="auto",
+                 model_t_xwz="auto",
                  model_tz_xw="auto",
                  prel_model_effect,
                  projection=False,
@@ -1197,6 +1260,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xw=model_t_xw,
                          model_z_xw=model_z_xw,
+                         model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
                          prel_model_effect=prel_model_effect,
                          model_final=None,
@@ -1303,6 +1367,9 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
     model_z_xw : estimator
         model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
 
+    model_t_xwz : estimator
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+
     model_tz_xw : estimator
         model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
 
@@ -1310,8 +1377,8 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
 
     projection: bool, optional, default False
-        If True, we fit a slight variant of DRIV where we use E[T|X, Z] as the instrument as opposed to Z.
-        model_t_xw (E[T|X]) is also used to predict E[T|X, Z], model_z_xw will be disabled
+        If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
+        model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -1478,6 +1545,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  model_y_xw="auto",
                  model_t_xw="auto",
                  model_z_xw="auto",
+                 model_t_xwz="auto",
                  model_tz_xw="auto",
                  prel_model_effect,
                  projection=False,
@@ -1520,6 +1588,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xw=model_t_xw,
                          model_z_xw=model_z_xw,
+                         model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
                          prel_model_effect=prel_model_effect,
                          model_final=None,
@@ -1720,8 +1789,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
     """
 
     def __init__(self, *,
-                 model_y_xw,
-                 model_t_xwz,
+                 model_y_xw="auto",
+                 model_t_xwz="auto",
                  prel_model_effect,
                  model_final,
                  z_propensity="auto",

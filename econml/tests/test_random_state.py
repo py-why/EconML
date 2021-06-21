@@ -8,8 +8,8 @@ from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML
 from econml.dml import NonParamDML, CausalForestDML
 from econml.dr import DRLearner, SparseLinearDRLearner, LinearDRLearner, ForestDRLearner
-from econml.iv.dml import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV)
-from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
+from econml.iv.dml import OrthoIV, DMLIV, LinearDMLIV, NonParamDMLIV
+from econml.iv.dr import (LinearDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference
@@ -20,6 +20,7 @@ from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
 from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from econml.iv.dr._dr import _DummyCATE
 
 
 class TestRandomState(unittest.TestCase):
@@ -93,39 +94,36 @@ class TestRandomState(unittest.TestCase):
     def test_orthoiv_random_state(self):
         Y, T, X, W, X_test = self._make_data(500, 2)
         for est in [
-            DMLATEIV(model_Y_W=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                     model_T_W=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                     model_Z_W=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                     discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
-            ProjectedDMLATEIV(model_Y_W=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                              model_T_W=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                              model_T_WZ=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                              discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123)]:
-            TestRandomState._test_random_state(est, None, Y, T, W=W, Z=T)
-        for est in [
-                DMLIV(model_Y_X=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                      model_T_X=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                      model_T_XZ=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                      model_final=LinearRegression(fit_intercept=False),
-                      discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
-                NonParamDMLIV(model_Y_X=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                              model_T_X=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                              model_T_XZ=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                              model_final=LinearRegression(),
-                              discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123)]:
-            TestRandomState._test_random_state(est, X_test, Y, T, X=X, Z=T)
-        for est in [IntentToTreatDRIV(model_Y_X=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                                      model_T_XZ=RandomForestClassifier(n_estimators=10,
-                                                                        max_depth=4, random_state=123),
-                                      flexible_model_effect=RandomForestRegressor(n_estimators=10,
-                                                                                  max_depth=4, random_state=123),
-                                      cv=2, random_state=123),
-                    LinearIntentToTreatDRIV(model_Y_X=RandomForestRegressor(n_estimators=10,
-                                                                            max_depth=4, random_state=123),
-                                            model_T_XZ=RandomForestClassifier(n_estimators=10,
-                                                                              max_depth=4, random_state=123),
-                                            flexible_model_effect=RandomForestRegressor(n_estimators=10,
-                                                                                        max_depth=4,
-                                                                                        random_state=123),
-                                            cv=2, random_state=123)]:
+            OrthoIV(model_y_xw=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
+                    model_t_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                    model_z_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                    discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
+            LinearDMLIV(model_y_xw=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
+                        model_t_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                        model_t_xwz=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                        discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
+            NonParamDMLIV(model_y_xw=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
+                          model_t_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                          model_t_xwz=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                          model_final=LinearRegression(),
+                          discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
+            LinearDRIV(model_y_xw=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
+                       model_t_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                       model_z_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                       model_tz_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                       prel_model_effect=_DummyCATE(),
+                       discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
+            IntentToTreatDRIV(model_y_xw=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
+                              model_t_xwz=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
+                              flexible_model_effect=RandomForestRegressor(
+                                  n_estimators=10, max_depth=4, random_state=123),
+                              cv=2, random_state=123),
+            LinearIntentToTreatDRIV(model_y_xw=RandomForestRegressor(n_estimators=10,
+                                                                     max_depth=4, random_state=123),
+                                    model_t_xwz=RandomForestClassifier(n_estimators=10,
+                                                                       max_depth=4, random_state=123),
+                                    flexible_model_effect=RandomForestRegressor(n_estimators=10,
+                                                                                max_depth=4,
+                                                                                random_state=123),
+                                    cv=2, random_state=123)]:
             TestRandomState._test_random_state(est, X_test, Y, T, X=X, W=W, Z=T)

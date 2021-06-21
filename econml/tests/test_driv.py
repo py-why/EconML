@@ -161,7 +161,7 @@ class TestDRIV(unittest.TestCase):
                                             shap_values = est.shap_values(X[:10])
 
     def test_accuracy(self):
-        np.random.seed(42)
+        np.random.seed(123)
         # helper function
 
         def prel_model_effect():

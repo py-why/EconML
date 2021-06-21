@@ -195,8 +195,8 @@ class TestPandasIntegration(unittest.TestCase):
         T = TestPandasIntegration.df[TestPandasIntegration.bin_treat]
         Z = TestPandasIntegration.df[TestPandasIntegration.instrument]
         # Test LinearIntentToTreatDRIV
-        est = LinearIntentToTreatDRIV(model_Y_X=GradientBoostingRegressor(),
-                                      model_T_XZ=GradientBoostingClassifier(),
+        est = LinearIntentToTreatDRIV(model_y_xw=GradientBoostingRegressor(),
+                                      model_t_xwz=GradientBoostingClassifier(),
                                       flexible_model_effect=GradientBoostingRegressor())
         est.fit(Y, T, Z=Z, X=X, inference='statsmodels')
         treatment_effects = est.effect(X)
