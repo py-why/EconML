@@ -16,7 +16,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.linear_model import LinearRegression, MultiTaskLasso, LassoCV
 from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
-from econml.ortho_iv import LinearIntentToTreatDRIV
+from econml.iv.dr import LinearIntentToTreatDRIV
 from econml.deepiv import DeepIVEstimator
 
 

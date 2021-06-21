@@ -6,15 +6,15 @@ import econml.iv.dr as driv
 from .utilities import deprecated
 
 
-@deprecated("The econml.ortho_iv.DMLATEIV class has been moved to econml.iv.dml.DMLATEIV; "
+@deprecated("The econml.ortho_iv.DMLATEIV class has been moved to econml.iv.dml.OrthoIV; "
             "an upcoming release will remove support for the old name")
-class DMLATEIV(dmliv.DMLATEIV):
+class DMLATEIV(dmliv.OrthoIV):
     pass
 
 
-@deprecated("The econml.ortho_iv.ProjectedDMLATEIV class has been moved to econml.iv.dml.ProjectedDMLATEIV; "
+@deprecated("The econml.ortho_iv.ProjectedDMLATEIV class has been moved to econml.iv.dml.OrthoIV; "
             "an upcoming release will remove support for the old name")
-class ProjectedDMLATEIV(dmliv.ProjectedDMLATEIV):
+class ProjectedDMLATEIV(dmliv.OrthoIV):
     pass
 
 

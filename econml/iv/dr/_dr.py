@@ -29,7 +29,7 @@ from ...inference import StatsModelsInference
 from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso, WeightedLassoCVWrapper
 from ...sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ...utilities import (_deprecate_positional, add_intercept, filter_none_kwargs,
-                          inverse_onehot, get_feature_names_or_default, check_high_dimensional)
+                          inverse_onehot, get_feature_names_or_default, check_high_dimensional, check_input_arrays)
 from ...grf import RegressionForest
 from ...dml.dml import _FirstStageWrapper, _FinalWrapper
 from ..._shap import _shap_explain_model_cate
@@ -176,7 +176,6 @@ class _BaseDRIVModelNuisance:
         Y_pred = Y_pred.reshape(Y.shape)
         T_pred = T_pred.reshape(T.shape)
         TZ_pred = TZ_pred.reshape(T.shape)
-        prel_theta = prel_theta.reshape(Y.shape)
 
         Y_res = Y - Y_pred
         T_res = T - T_pred
@@ -196,8 +195,7 @@ class _BaseDRIVModelNuisance:
             cov = TZ_pred - T_pred * Z_pred
 
         # check nuisances outcome shape
-        assert prel_theta.ndim == 1, "Nuisance outcome should be vector!"
-        assert Y_res.ndim == 1, "Nuisance outcome should be vector!"
+        # Y_res could be a vector or 1-dimensional 2d-array
         assert T_res.ndim == 1, "Nuisance outcome should be vector!"
         assert Z_res.ndim == 1, "Nuisance outcome should be vector!"
         assert cov.ndim == 1, "Nuisance outcome should be vector!"
@@ -236,7 +234,8 @@ class _BaseDRIVModelFinal:
             self._featurizer = self._original_featurizer
 
     def _effect_estimate(self, nuisances):
-        prel_theta, res_y, res_t, res_z, cov = [nuisance.reshape(nuisances[0].shape) for nuisance in nuisances]
+        # all could be reshaped to vector since Y, T, Z are all single dimensional.
+        prel_theta, res_y, res_t, res_z, cov = [nuisance.reshape(nuisances[0].shape[0]) for nuisance in nuisances]
 
         # Estimate final model of theta(X) by minimizing the square loss:
         # (prel_theta(X) + (Y_res - prel_theta(X) * T_res) * Z_res / cov[T,Z | X] - theta(X))^2
@@ -264,7 +263,6 @@ class _BaseDRIVModelFinal:
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, freq_weight=None, sample_var=None):
         self.d_y = Y.shape[1:]
         self.d_t = T.shape[1:]
-
         theta_dr, clipped_cov = self._effect_estimate(nuisances)
 
         X = self._transform_X(X, n=theta_dr.shape[0])
@@ -340,21 +338,19 @@ class _BaseDRIV(_OrthoLearner):
                                    self.cov_clip, self.opt_reweighted)
 
     def _check_inputs(self, Y, T, Z, X, W):
-        if len(Y.shape) > 1 and Y.shape[1] > 1:
+        Y1, T1, Z1, = check_input_arrays(Y, T, Z)
+        if len(Y1.shape) > 1 and Y1.shape[1] > 1:
             raise AssertionError("DRIV only supports single dimensional outcome")
-        if len(T.shape) > 1 and T.shape[1] > 1:
+        if len(T1.shape) > 1 and T1.shape[1] > 1:
             if self.discrete_treatment:
                 raise AttributeError("DRIV only supports binary treatments")
             else:
                 raise AttributeError("DRIV only supports single-dimensional continuous treatments")
-        if len(Z.shape) > 1 and Z.shape[1] > 1:
+        if len(Z1.shape) > 1 and Z1.shape[1] > 1:
             if self.discrete_instrument:
                 raise AttributeError("DRIV only supports binary instruments")
             else:
                 raise AttributeError("DRIV only supports single-dimensional continuous instruments")
-        Z = Z.ravel()
-        T = T.ravel()
-        Y = Y.ravel()
         return Y, T, Z, X, W
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
@@ -1746,18 +1742,13 @@ class _IntentToTreatDRIVModelNuisance:
         Z_pred = Z_pred.reshape(Z.shape)
         T_pred_one = T_pred_one.reshape(T.shape)
         T_pred_zero = T_pred_zero.reshape(T.shape)
-        prel_theta = prel_theta.reshape(Y.shape)
 
+        # T_res, Z_res, beta expect shape to be (n,1)
         beta = Z_pred * (1 - Z_pred) * (T_pred_one - T_pred_zero)
         T_pred = T_pred_one * Z_pred + T_pred_zero * (1 - Z_pred)
         Y_res = Y - Y_pred
         T_res = T - T_pred
         Z_res = Z - Z_pred
-
-        # check nuisances outcome shape
-        # T_res, Z_res, beta expect shape to be (n,1)
-        assert prel_theta.ndim == 1, "Nuisance outcome should be vector!"
-        assert Y_res.ndim == 1, "Nuisance outcome should be vector!"
 
         return prel_theta, Y_res, T_res, Z_res, beta
 

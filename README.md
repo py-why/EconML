@@ -290,8 +290,8 @@ from econml.iv.dr import LinearIntentToTreatDRIV
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.linear_model import LinearRegression
 
-est = LinearIntentToTreatDRIV(model_Y_X=GradientBoostingRegressor(),
-                              model_T_XZ=GradientBoostingClassifier(),
+est = LinearIntentToTreatDRIV(model_y_xw=GradientBoostingRegressor(),
+                              model_t_xwz=GradientBoostingClassifier(),
                               flexible_model_effect=GradientBoostingRegressor())
 est.fit(Y, T, Z=Z, X=X) # OLS inference by default
 treatment_effects = est.effect(X_test)
