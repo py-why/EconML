@@ -669,10 +669,11 @@ class CausalAnalysis:
             if ind in categorical_inds:
                 cats, counts = np.unique(_safe_indexing(X, ind, axis=1), return_counts=True)
                 min_ind = np.argmin(counts)
-                if len(cats) > self.upper_bound_on_cat_expansion:
-                    warnings.warn(f"Column {ind} has more than {self.upper_bound_on_cat_expansion} values "
-                                  "so no heterogeneity model will be fit for it; increase "
-                                  "'upper_bound_on_cat_expansion' to change this behavior.")
+                n_cat = len(cats)
+                if n_cat > self.upper_bound_on_cat_expansion:
+                    warnings.warn(f"Column {ind} has more than {self.upper_bound_on_cat_expansion} "
+                                  f"values (found {n_cat}) so no heterogeneity model will be fit for it; "
+                                  "increase 'upper_bound_on_cat_expansion' to change this behavior.")
                     # can't remove in place while iterating over new_inds, so store in separate list
                     invalid_inds.append((ind, 'upper_bound_on_cat_expansion'))
 
