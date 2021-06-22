@@ -10,6 +10,7 @@ from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedM
 from econml.sklearn_extensions.linear_model import WeightedLasso
 from statsmodels.regression.linear_model import WLS
 from statsmodels.tools.tools import add_constant
+from statsmodels.sandbox.regression.gmm import IV2SLS
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression, LassoCV, Lasso, MultiTaskLassoCV
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -17,6 +18,7 @@ from sklearn.model_selection import KFold, StratifiedKFold
 import scipy.special
 import time
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression as OLS
+from econml.sklearn_extensions.linear_model import StatsModels2SLS
 import unittest
 import joblib
 from sklearn.preprocessing import PolynomialFeatures
@@ -1033,3 +1035,30 @@ class TestStatsModels(unittest.TestCase):
                                                                  np.zeros(lower[i, j, 1:].shape) + precision_int)
                                     np.testing.assert_array_less(np.zeros(lower[i, j, 1:].shape) - precision_int,
                                                                  upper[i, j, 1:])
+
+
+class TestStatsModels2SLS(unittest.TestCase):
+    def test_comp_with_IV2SLS(self):
+        alpha = 0.05
+        tol = 1e-2
+
+        # dgp
+        n = 1000
+        Z = np.random.binomial(1, 0.5, size=(n, 1))
+        T = 3.5 * Z + np.random.normal(0, 1, size=(n, 1))
+        Y = 5.8 * T + np.random.normal(0, 1, size=(n, 1))
+
+        # StatsModels2SLS
+        est = StatsModels2SLS(cov_type="nonrobust")
+        est.fit(Y.ravel(), T, Z)
+
+        # IV2SLS
+        iv2sls = IV2SLS(Y.ravel(), T, Z).fit()
+
+        assert est.cov_type == iv2sls.cov_type, "{}, {}".format(est.cov_type, iv2sls.cov_type)
+        np.testing.assert_allclose(est.coef_, iv2sls.params, rtol=tol, atol=0)
+        np.testing.assert_allclose(est._param_var, iv2sls.cov_params(), rtol=tol, atol=0)
+        np.testing.assert_allclose(est.coef__interval(alpha=alpha)[
+                                   0], iv2sls.conf_int(alpha=alpha)[:, 0], rtol=tol, atol=0)
+        np.testing.assert_allclose(est.coef__interval(alpha=alpha)[
+                                   1], iv2sls.conf_int(alpha=alpha)[:, 1], rtol=tol, atol=0)
