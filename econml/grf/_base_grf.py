@@ -793,6 +793,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         """
         if interval:
             point, pred_var = self._predict_point_and_var(X, full=True, point=True, var=True)
+            assert np.isclose(pred_var[pred_var < 0], 0, atol=1e-8).all(), '`pred_var` should not produce large negative values'
             pred_var = np.maximum(pred_var, 1e-32)
             lb, ub = np.zeros(point.shape), np.zeros(point.shape)
             for t in range(self.n_outputs_):
