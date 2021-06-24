@@ -246,7 +246,7 @@ class _BaseDRIVModelFinal:
         cov_sign[cov_sign == 0] = 1
         clipped_cov = cov_sign * np.clip(np.abs(cov),
                                          self._cov_clip, np.inf)
-        return prel_theta + (res_y - prel_theta * res_t) * res_z / clipped_cov, clipped_cov
+        return prel_theta + (res_y - prel_theta * res_t) * res_z / clipped_cov, clipped_cov, res_z
 
     def _transform_X(self, X, n=1, fitting=True):
         if X is not None:
@@ -263,15 +263,16 @@ class _BaseDRIVModelFinal:
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, freq_weight=None, sample_var=None):
         self.d_y = Y.shape[1:]
         self.d_t = T.shape[1:]
-        theta_dr, clipped_cov = self._effect_estimate(nuisances)
+        theta_dr, clipped_cov, res_z = self._effect_estimate(nuisances)
 
         X = self._transform_X(X, n=theta_dr.shape[0])
         if self._opt_reweighted and (sample_weight is not None):
             sample_weight = sample_weight * clipped_cov.ravel()**2
         elif self._opt_reweighted:
             sample_weight = clipped_cov.ravel()**2
+        target_var = sample_var * (res_z**2 / clipped_cov**2) if sample_var is not None else None
         self._model_final.fit(X, theta_dr, **filter_none_kwargs(sample_weight=sample_weight,
-                                                                freq_weight=freq_weight, sample_var=sample_var))
+                                                                freq_weight=freq_weight, sample_var=target_var))
         return self
 
     def predict(self, X=None):
@@ -279,7 +280,7 @@ class _BaseDRIVModelFinal:
         return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
 
     def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
-        theta_dr, clipped_cov = self._effect_estimate(nuisances)
+        theta_dr, clipped_cov, _ = self._effect_estimate(nuisances)
 
         X = self._transform_X(X, fitting=False)
 
