@@ -237,6 +237,29 @@ def _tree_interpreter_to_dict(interp, features, leaf_data=lambda t, n: {}):
     return recurse(0)
 
 
+class _PolicyOutput:
+    """
+    A type encapsulating various information related to a learned policy.
+
+    Attributes
+    ----------
+    tree_dictionary:dict
+        The policy tree represented as a dictionary,
+    policy_value:float
+        The average value of applying the recommended policy (over using the control),
+    always_treat:dict of string to float
+        A dictionary mapping each non-control treatment to the value of always treating with it (over control),
+    control_name:string
+        The name of the control treatment
+    """
+
+    def __init__(self, tree_dictionary, policy_value, always_treat, control_name):
+        self.tree_dictionary = tree_dictionary
+        self.policy_value = policy_value
+        self.always_treat = always_treat
+        self.control_name = control_name
+
+
 # named tuple type for storing results inside CausalAnalysis class;
 # must be lifted to module level to enable pickling
 _result = namedtuple("_result", field_names=[
@@ -1291,10 +1314,7 @@ class CausalAnalysis:
 
         Returns
         -------
-        tree : tuple of string, float, list of float
-            The policy tree represented as a graphviz string,
-            the value of applying the recommended policy (over never treating),
-            the value of always treating (over never treating) for each non-control treatment
+        output : _PolicyOutput
         """
 
         (intrp, feature_names, treatment_names,
@@ -1307,7 +1327,11 @@ class CausalAnalysis:
 
         def policy_data(tree, node_id):
             return {'treatment': treatment_names[np.argmax(tree.value[node_id])]}
-        return _tree_interpreter_to_dict(intrp, feature_names, policy_data), policy_val, always_trt.tolist()
+        return _PolicyOutput(_tree_interpreter_to_dict(intrp, feature_names, policy_data),
+                             policy_val,
+                             {treatment_names[i + 1]: val
+                              for (i, val) in enumerate(always_trt.tolist())},
+                             treatment_names[0])
 
     # TODO: it seems like it would be better to just return the tree itself rather than plot it;
     #       however, the tree can't store the feature and treatment names we compute here...
