@@ -876,9 +876,9 @@ class InferenceResults(metaclass=abc.ABCMeta):
         offset: array-like
             The offset by which to translate these results
         """
-        # NOTE: use np.asarray(offset) because if offset is a pd.Series direct addition would make the sum
-        #       a Series as well, which would subsequently break summary_frame because flatten isn't supported
-        self.pred = self.pred + np.asarray(offset)
+        # Use broadcast to ensure that the shape of pred isn't being changed due to broadcasting the other direction
+        offset = np.broadcast_to(np.asarray(offset), np.shape(self.pred))
+        self.pred = self.pred + offset
 
     @abc.abstractmethod
     def scale(self, factor):
@@ -890,8 +890,8 @@ class InferenceResults(metaclass=abc.ABCMeta):
         factor: array-like
             The factor by which to scale these results
         """
-        # NOTE: use np.asarray(factor) because if offset is a pd.Series direct addition would make the product
-        #       a Series as well, which would subsequently break summary_frame because flatten isn't supported
+        # Use broadcast to ensure that the shape of pred isn't being changed due to broadcasting the other direction
+        factor = np.broadcast_to(np.asarray(factor), np.shape(self.pred))
         self.pred = self.pred * np.asarray(factor)
 
 
@@ -1017,10 +1017,11 @@ class NormalInferenceResults(InferenceResults):
         # scale preds
         super().scale(factor)
         # scale std errs
+        factor = np.broadcast_to(np.asarray(factor), np.shape(self.pred))
         if self.pred_stderr is not None:
-            self.pred_stderr = self.pred_stderr * np.abs(np.asarray(factor))
+            self.pred_stderr = self.pred_stderr * np.abs(factor)
         if self.mean_pred_stderr is not None:
-            self.mean_pred_stderr = self.mean_pred_stderr * np.abs(np.asarray(factor))
+            self.mean_pred_stderr = self.mean_pred_stderr * np.abs(factor)
 
     scale.__doc__ = InferenceResults.scale.__doc__
 
@@ -1123,7 +1124,8 @@ class EmpiricalInferenceResults(InferenceResults):
         # offset preds
         super().translate(other)
         # offset the distribution, too
-        self.pred_dist = self.pred_dist + np.asarray(other)
+        other = np.broadcast_to(np.asarray(other), np.shape(self.pred_dist))
+        self.pred_dist = self.pred_dist + other
 
     translate.__doc__ = InferenceResults.translate.__doc__
 
@@ -1131,7 +1133,8 @@ class EmpiricalInferenceResults(InferenceResults):
         # scale preds
         super().scale(factor)
         # scale the distribution, too
-        self.pred_dist = self.pred_dist * np.asarray(factor)
+        factor = np.broadcast_to(np.asarray(factor), np.shape(self.pred_dist))
+        self.pred_dist = self.pred_dist * factor
 
     scale.__doc__ = InferenceResults.scale.__doc__
 
