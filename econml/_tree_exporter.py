@@ -33,9 +33,9 @@ except ImportError as exn:
     from .utilities import MissingModule
 
     # make any access to graphviz or plt throw an exception
-    graphviz = plt = MissingModule("graphviz is no longer a dependency of the main econml package; "
-                                   "install econml[plt] or econml[all] to require it, or install graphviz "
-                                   "separately, to use the tree interpreters", exn)
+    graphviz = MissingModule("graphviz is no longer a dependency of the main econml package; "
+                             "install econml[plt] or econml[all] to require it, or install graphviz "
+                             "separately, to use the tree interpreters", exn)
 
 # HACK: We're relying on some of sklearn's non-public classes which are not completely stable.
 #       However, the alternative is reimplementing a bunch of intricate stuff by hand
