@@ -515,7 +515,7 @@ class TestCausalAnalysis(unittest.TestCase):
         self.assertEqual([res.feature_name for res in ca._results], ['a', 'b', 'c', 'd', 'f', 'g', 'h'])
 
     def test_individualized_policy(self):
-        y = pd.Series(np.random.choice([0, 1], size=(500,)))
+        y_arr = np.random.choice([0, 1], size=(500,))
         X = pd.DataFrame({'a': np.random.normal(size=500),
                           'b': np.random.normal(size=500),
                           'c': np.random.choice([0, 1], size=500),
@@ -524,24 +524,26 @@ class TestCausalAnalysis(unittest.TestCase):
         cats = ['c', 'd']
         hinds = ['a', 'd']
 
-        ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model='linear')
-        ca.fit(X, y)
-        df = ca.individualized_policy(X, 'a')
-        self.assertEqual(df.shape[0], 500)  # all rows included by default
-        self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
-        df = ca.individualized_policy(X, 'b', n_rows=5)
-        self.assertEqual(df.shape[0], 5)
-        self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
-        # verify that we can use a scalar treatment cost
-        df = ca.individualized_policy(X, 'c', treatment_costs=100)
-        self.assertEqual(df.shape[0], 500)
-        self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
-        # verify that we can specify per-treatment costs for each sample
-        df = ca.individualized_policy(X, 'd', alpha=0.05, treatment_costs=np.random.normal(size=(500, 2)))
-        self.assertEqual(df.shape[0], 500)
-        self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+        for y in [pd.Series(y_arr), y_arr.reshape(-1, 1)]:
+            for classification in [True, False]:
+                ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model='linear', classification=classification)
+                ca.fit(X, y)
+                df = ca.individualized_policy(X, 'a')
+                self.assertEqual(df.shape[0], 500)  # all rows included by default
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                df = ca.individualized_policy(X, 'b', n_rows=5)
+                self.assertEqual(df.shape[0], 5)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                # verify that we can use a scalar treatment cost
+                df = ca.individualized_policy(X, 'c', treatment_costs=100)
+                self.assertEqual(df.shape[0], 500)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                # verify that we can specify per-treatment costs for each sample
+                df = ca.individualized_policy(X, 'd', alpha=0.05, treatment_costs=np.random.normal(size=(500, 2)))
+                self.assertEqual(df.shape[0], 500)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
 
-        dictionary = ca._individualized_policy_dict(X, 'a')
+                dictionary = ca._individualized_policy_dict(X, 'a')
 
     def test_random_state(self):
         # verify that using the same state returns the same results each time

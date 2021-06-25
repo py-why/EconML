@@ -1422,11 +1422,22 @@ class CausalAnalysis:
         else:
             effect = result.estimator.const_marginal_effect_inference(Xtest)
 
+        multi_y = (not self._vec_y) or self.classification
+
+        if multi_y and result.feature_baseline is not None and np.ndim(treatment_costs) == 2:
+            # we've got treatment costs of shape (n, d_t-1) so we need to add a y dimension to broadcast safely
+            treatment_costs = np.expand_dims(treatment_costs, 1)
+
         effect.translate(-treatment_costs)
 
         est = effect.point_estimate
         est_lb = effect.conf_int(alpha)[0]
         est_ub = effect.conf_int(alpha)[1]
+
+        if multi_y:  # y was an array, not a vector
+            est = np.squeeze(est, 1)
+            est_lb = np.squeeze(est_lb, 1)
+            est_ub = np.squeeze(est_ub, 1)
 
         if result.feature_baseline is None:
             rec = np.empty(est.shape[0], dtype=object)
