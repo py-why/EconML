@@ -507,7 +507,7 @@ class CausalAnalysis:
                  upper_bound_on_cat_expansion=5, nuisance_models='linear', heterogeneity_model='linear', *,
                  categories='auto', n_jobs=-1, verbose=0, skip_cat_limit_checks=False, random_state=None):
         self.feature_inds = feature_inds
-        self.categorical = categorical
+        self.categorical = categorical if categorical is not None else []
         self.heterogeneity_inds = heterogeneity_inds
         self.feature_names = feature_names
         self.classification = classification
