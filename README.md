@@ -591,13 +591,13 @@ The reStructuredText files that make up the documentation are stored in the [doc
 
 If you use EconML in your research, please cite us as follows:
 
-   Microsoft Research. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/microsoft/EconML, 2019. Version 0.x.
+   Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/microsoft/EconML, 2019. Version 0.x.
 
 BibTex:
 
 ```
 @misc{econml,
-  author={Microsoft Research},
+  author={Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis},
   title={{EconML}: {A Python Package for ML-Based Heterogeneous Treatment Effects Estimation}},
   howpublished={https://github.com/microsoft/EconML},
   note={Version 0.x},
