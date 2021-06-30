@@ -55,13 +55,18 @@ class TestCausalAnalysis(unittest.TestCase):
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment
                 for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
-                    _, policy_val, always_trt = ca._policy_tree_output(X, idx)
-                    assert isinstance(always_trt, list)
+                    pto = ca._policy_tree_output(X, idx)
+                    policy_val = pto.policy_value
+                    always_trt = pto.always_treat
+                    assert isinstance(pto.control_name, str)
+                    assert isinstance(always_trt, dict)
                     assert np.array(policy_val).shape == ()
-                    assert np.array(always_trt).shape == (length,)
+                    assert len(always_trt) == length
+                    for val in always_trt.values():
+                        assert np.array(val).shape == ()
 
                     # policy value should exceed always treating with any treatment
-                    assert_less_close(always_trt, policy_val)
+                    assert_less_close(np.array(list(always_trt.values())), policy_val)
 
                 # global shape is (d_y, sum(d_t))
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -149,13 +154,18 @@ class TestCausalAnalysis(unittest.TestCase):
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment
                 for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
-                    _, policy_val, always_trt = ca._policy_tree_output(X, inds[idx])
-                    assert isinstance(always_trt, list)
+                    pto = ca._policy_tree_output(X, inds[idx])
+                    policy_val = pto.policy_value
+                    always_trt = pto.always_treat
+                    assert isinstance(pto.control_name, str)
+                    assert isinstance(always_trt, dict)
                     assert np.array(policy_val).shape == ()
-                    assert np.array(always_trt).shape == (length,)
+                    assert len(always_trt) == length
+                    for val in always_trt.values():
+                        assert np.array(val).shape == ()
 
                     # policy value should exceed always treating with any treatment
-                    assert_less_close(always_trt, policy_val)
+                    assert_less_close(np.array(list(always_trt.values())), policy_val)
 
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
@@ -220,13 +230,18 @@ class TestCausalAnalysis(unittest.TestCase):
             # Make sure we handle continuous, binary, and multi-class treatments
             # For multiple discrete treatments, one "always treat" value per non-default treatment
             for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
-                _, policy_val, always_trt = ca._policy_tree_output(X, idx)
-                assert isinstance(always_trt, list)
+                pto = ca._policy_tree_output(X, idx)
+                policy_val = pto.policy_value
+                always_trt = pto.always_treat
+                assert isinstance(pto.control_name, str)
+                assert isinstance(always_trt, dict)
                 assert np.array(policy_val).shape == ()
-                assert np.array(always_trt).shape == (length,)
+                assert len(always_trt) == length
+                for val in always_trt.values():
+                    assert np.array(val).shape == ()
 
                 # policy value should exceed always treating with any treatment
-                assert_less_close(always_trt, policy_val)
+                assert_less_close(np.array(list(always_trt.values())), policy_val)
 
             # global shape is (d_y, sum(d_t))
             assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -328,13 +343,18 @@ class TestCausalAnalysis(unittest.TestCase):
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment
                 for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
-                    _, policy_val, always_trt = ca._policy_tree_output(X, idx)
-                    assert isinstance(always_trt, list)
+                    pto = ca._policy_tree_output(X, idx)
+                    policy_val = pto.policy_value
+                    always_trt = pto.always_treat
+                    assert isinstance(pto.control_name, str)
+                    assert isinstance(always_trt, dict)
                     assert np.array(policy_val).shape == ()
-                    assert np.array(always_trt).shape == (length,)
+                    assert len(always_trt) == length
+                    for val in always_trt.values():
+                        assert np.array(val).shape == ()
 
                     # policy value should exceed always treating with any treatment
-                    assert_less_close(always_trt, policy_val)
+                    assert_less_close(np.array(list(always_trt.values())), policy_val)
 
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
@@ -400,13 +420,18 @@ class TestCausalAnalysis(unittest.TestCase):
         # Make sure we handle continuous, binary, and multi-class treatments
         # For multiple discrete treatments, one "always treat" value per non-default treatment
         for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
-            _, policy_val, always_trt = ca._policy_tree_output(X, inds[idx])
-            assert isinstance(always_trt, list)
+            pto = ca._policy_tree_output(X, inds[idx])
+            policy_val = pto.policy_value
+            always_trt = pto.always_treat
+            assert isinstance(pto.control_name, str)
+            assert isinstance(always_trt, dict)
             assert np.array(policy_val).shape == ()
-            assert np.array(always_trt).shape == (length,)
+            assert len(always_trt) == length
+            for val in always_trt.values():
+                assert np.array(val).shape == ()
 
             # policy value should exceed always treating with any treatment
-            assert_less_close(always_trt, policy_val)
+            assert_less_close(np.array(list(always_trt.values())), policy_val)
 
     def test_warm_start(self):
         for classification in [True, False]:
@@ -455,7 +480,7 @@ class TestCausalAnalysis(unittest.TestCase):
                 eff = ca.global_causal_effect(alpha=0.05)
                 eff = ca.local_causal_effect(X_df, alpha=0.05)
                 for ind in feat_inds:
-                    tree, val, always_trt = ca._policy_tree_output(X_df, ind)
+                    pto = ca._policy_tree_output(X_df, ind)
 
     def test_can_serialize(self):
         import pickle
@@ -515,7 +540,7 @@ class TestCausalAnalysis(unittest.TestCase):
         self.assertEqual([res.feature_name for res in ca._results], ['a', 'b', 'c', 'd', 'f', 'g', 'h'])
 
     def test_individualized_policy(self):
-        y = pd.Series(np.random.choice([0, 1], size=(500,)))
+        y_arr = np.random.choice([0, 1], size=(500,))
         X = pd.DataFrame({'a': np.random.normal(size=500),
                           'b': np.random.normal(size=500),
                           'c': np.random.choice([0, 1], size=500),
@@ -524,24 +549,26 @@ class TestCausalAnalysis(unittest.TestCase):
         cats = ['c', 'd']
         hinds = ['a', 'd']
 
-        ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model='linear')
-        ca.fit(X, y)
-        df = ca.individualized_policy(X, 'a')
-        self.assertEqual(df.shape[0], 500)  # all rows included by default
-        self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
-        df = ca.individualized_policy(X, 'b', n_rows=5)
-        self.assertEqual(df.shape[0], 5)
-        self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
-        # verify that we can use a scalar treatment cost
-        df = ca.individualized_policy(X, 'c', treatment_costs=100)
-        self.assertEqual(df.shape[0], 500)
-        self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
-        # verify that we can specify per-treatment costs for each sample
-        df = ca.individualized_policy(X, 'd', alpha=0.05, treatment_costs=np.random.normal(size=(500, 2)))
-        self.assertEqual(df.shape[0], 500)
-        self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+        for y in [pd.Series(y_arr), y_arr.reshape(-1, 1)]:
+            for classification in [True, False]:
+                ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model='linear', classification=classification)
+                ca.fit(X, y)
+                df = ca.individualized_policy(X, 'a')
+                self.assertEqual(df.shape[0], 500)  # all rows included by default
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                df = ca.individualized_policy(X, 'b', n_rows=5)
+                self.assertEqual(df.shape[0], 5)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                # verify that we can use a scalar treatment cost
+                df = ca.individualized_policy(X, 'c', treatment_costs=100)
+                self.assertEqual(df.shape[0], 500)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                # verify that we can specify per-treatment costs for each sample
+                df = ca.individualized_policy(X, 'd', alpha=0.05, treatment_costs=np.random.normal(size=(500, 2)))
+                self.assertEqual(df.shape[0], 500)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
 
-        dictionary = ca._individualized_policy_dict(X, 'a')
+                dictionary = ca._individualized_policy_dict(X, 'a')
 
     def test_random_state(self):
         # verify that using the same state returns the same results each time
