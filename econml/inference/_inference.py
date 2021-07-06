@@ -1243,7 +1243,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        value: optinal float (default=0)
+        value: optional float (default=0)
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
@@ -1264,7 +1264,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        value: optinal float (default=0)
+        value: optional float (default=0)
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
