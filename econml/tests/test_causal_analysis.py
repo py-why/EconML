@@ -3,10 +3,15 @@
 
 import unittest
 import numpy as np
+from numpy.core.fromnumeric import squeeze
 import pandas as pd
 from contextlib import ExitStack
 from econml.solutions.causal_analysis import CausalAnalysis
 from econml.solutions.causal_analysis._causal_analysis import _CausalInsightsConstants
+
+
+def assert_less_close(arr1, arr2):
+    assert np.all(np.logical_or(arr1 <= arr2, np.isclose(arr1, arr2)))
 
 
 class TestCausalAnalysis(unittest.TestCase):
@@ -44,13 +49,24 @@ class TestCausalAnalysis(unittest.TestCase):
                 coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
                 loc_point_est = np.array(loc_dict[_CausalInsightsConstants.PointEstimateKey])
 
-                ca._policy_tree_output(X, 1)
-                ca._heterogeneity_tree_string(X, 1)
-                ca._heterogeneity_tree_string(X, 3)
+                ca._heterogeneity_tree_output(X, 1)
+                ca._heterogeneity_tree_output(X, 3)
 
-                # Can't handle multi-dimensional treatments
-                with self.assertRaises(AssertionError):
-                    ca._policy_tree_output(X, 3)
+                # Make sure we handle continuous, binary, and multi-class treatments
+                # For multiple discrete treatments, one "always treat" value per non-default treatment
+                for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+                    pto = ca._policy_tree_output(X, idx)
+                    policy_val = pto.policy_value
+                    always_trt = pto.always_treat
+                    assert isinstance(pto.control_name, str)
+                    assert isinstance(always_trt, dict)
+                    assert np.array(policy_val).shape == ()
+                    assert len(always_trt) == length
+                    for val in always_trt.values():
+                        assert np.array(val).shape == ()
+
+                    # policy value should exceed always treating with any treatment
+                    assert_less_close(np.array(list(always_trt.values())), policy_val)
 
                 # global shape is (d_y, sum(d_t))
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -62,11 +78,9 @@ class TestCausalAnalysis(unittest.TestCase):
                     cm = self.assertRaises(Exception)
                 with cm:
                     inf = ca.whatif(X[:2], np.ones(shape=(2,)), 1, y[:2])
-                    assert np.shape(inf.point_estimate) == np.shape(y[:2])
-                    inf.summary_frame()
+                    assert np.shape(inf.point_estimate) == (2,)
                     inf = ca.whatif(X[:2], np.ones(shape=(2,)), 2, y[:2])
-                    assert np.shape(inf.point_estimate) == np.shape(y[:2])
-                    inf.summary_frame()
+                    assert np.shape(inf.point_estimate) == (2,)
 
                     ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2])
 
@@ -133,13 +147,25 @@ class TestCausalAnalysis(unittest.TestCase):
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
                 assert loc_point_est.shape == (2,) + glo_point_est.shape
 
-                ca._policy_tree_output(X, inds[1])
-                ca._heterogeneity_tree_string(X, inds[1])
-                ca._heterogeneity_tree_string(X, inds[3])
+                pto = ca._policy_tree_output(X, inds[1])
+                ca._heterogeneity_tree_output(X, inds[1])
+                ca._heterogeneity_tree_output(X, inds[3])
 
-                # Can't handle multi-dimensional treatments
-                with self.assertRaises(AssertionError):
-                    ca._policy_tree_output(X, inds[3])
+                # Make sure we handle continuous, binary, and multi-class treatments
+                # For multiple discrete treatments, one "always treat" value per non-default treatment
+                for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+                    pto = ca._policy_tree_output(X, inds[idx])
+                    policy_val = pto.policy_value
+                    always_trt = pto.always_treat
+                    assert isinstance(pto.control_name, str)
+                    assert isinstance(always_trt, dict)
+                    assert np.array(policy_val).shape == ()
+                    assert len(always_trt) == length
+                    for val in always_trt.values():
+                        assert np.array(val).shape == ()
+
+                    # policy value should exceed always treating with any treatment
+                    assert_less_close(np.array(list(always_trt.values())), policy_val)
 
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
@@ -149,10 +175,8 @@ class TestCausalAnalysis(unittest.TestCase):
                 with cm:
                     inf = ca.whatif(X[:2], np.ones(shape=(2,)), inds[1], y[:2])
                     assert np.shape(inf.point_estimate) == np.shape(y[:2])
-                    inf.summary_frame()
                     inf = ca.whatif(X[:2], np.ones(shape=(2,)), inds[2], y[:2])
                     assert np.shape(inf.point_estimate) == np.shape(y[:2])
-                    inf.summary_frame()
 
                     ca._whatif_dict(X[:2], np.ones(shape=(2,)), inds[1], y[:2])
 
@@ -200,12 +224,24 @@ class TestCausalAnalysis(unittest.TestCase):
             loc_point_est = np.array(loc_dict[_CausalInsightsConstants.PointEstimateKey])
 
             ca._policy_tree_output(X, 1)
-            ca._heterogeneity_tree_string(X, 1)
-            ca._heterogeneity_tree_string(X, 3)
+            ca._heterogeneity_tree_output(X, 1)
+            ca._heterogeneity_tree_output(X, 3)
 
-            # Can't handle multi-dimensional treatments
-            with self.assertRaises(AssertionError):
-                ca._policy_tree_output(X, 3)
+            # Make sure we handle continuous, binary, and multi-class treatments
+            # For multiple discrete treatments, one "always treat" value per non-default treatment
+            for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+                pto = ca._policy_tree_output(X, idx)
+                policy_val = pto.policy_value
+                always_trt = pto.always_treat
+                assert isinstance(pto.control_name, str)
+                assert isinstance(always_trt, dict)
+                assert np.array(policy_val).shape == ()
+                assert len(always_trt) == length
+                for val in always_trt.values():
+                    assert np.array(val).shape == ()
+
+                # policy value should exceed always treating with any treatment
+                assert_less_close(np.array(list(always_trt.values())), policy_val)
 
             # global shape is (d_y, sum(d_t))
             assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -217,11 +253,9 @@ class TestCausalAnalysis(unittest.TestCase):
                 cm = self.assertRaises(Exception)
             with cm:
                 inf = ca.whatif(X[:2], np.ones(shape=(2,)), 1, y[:2])
-                assert np.shape(inf.point_estimate) == np.shape(y[:2])
-                inf.summary_frame()
+                assert np.shape(inf.point_estimate) == (2,)
                 inf = ca.whatif(X[:2], np.ones(shape=(2,)), 2, y[:2])
-                assert np.shape(inf.point_estimate) == np.shape(y[:2])
-                inf.summary_frame()
+                assert np.shape(inf.point_estimate) == (2,)
 
                 ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2])
 
@@ -280,7 +314,7 @@ class TestCausalAnalysis(unittest.TestCase):
         assert loc_point_est.shape == (2,) + glo_point_est.shape
 
         ca._policy_tree_output(X, inds[0])
-        ca._heterogeneity_tree_string(X, inds[0])
+        ca._heterogeneity_tree_output(X, inds[0])
 
     def test_final_models(self):
         d_y = (1,)
@@ -303,12 +337,24 @@ class TestCausalAnalysis(unittest.TestCase):
                 loc_dict = ca._local_causal_effect_dict(X[:2])
 
                 ca._policy_tree_output(X, 1)
-                ca._heterogeneity_tree_string(X, 1)
-                ca._heterogeneity_tree_string(X, 3)
+                ca._heterogeneity_tree_output(X, 1)
+                ca._heterogeneity_tree_output(X, 3)
 
-                # Can't handle multi-dimensional treatments
-                with self.assertRaises(AssertionError):
-                    ca._policy_tree_output(X, 3)
+                # Make sure we handle continuous, binary, and multi-class treatments
+                # For multiple discrete treatments, one "always treat" value per non-default treatment
+                for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+                    pto = ca._policy_tree_output(X, idx)
+                    policy_val = pto.policy_value
+                    always_trt = pto.always_treat
+                    assert isinstance(pto.control_name, str)
+                    assert isinstance(always_trt, dict)
+                    assert np.array(policy_val).shape == ()
+                    assert len(always_trt) == length
+                    for val in always_trt.values():
+                        assert np.array(val).shape == ()
+
+                    # policy value should exceed always treating with any treatment
+                    assert_less_close(np.array(list(always_trt.values())), policy_val)
 
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
@@ -317,10 +363,7 @@ class TestCausalAnalysis(unittest.TestCase):
                     cm = self.assertRaises(Exception)
                 with cm:
                     inf = ca.whatif(X[:2], np.ones(shape=(2,)), 1, y[:2])
-                    inf.summary_frame()
                     inf = ca.whatif(X[:2], np.ones(shape=(2,)), 2, y[:2])
-                    inf.summary_frame()
-
                     ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2])
 
         with self.assertRaises(AssertionError):
@@ -371,12 +414,24 @@ class TestCausalAnalysis(unittest.TestCase):
         assert loc_point_est.shape == (2,) + glo_point_est.shape
 
         ca._policy_tree_output(X, inds[1])
-        ca._heterogeneity_tree_string(X, inds[1])
-        ca._heterogeneity_tree_string(X, inds[3])
+        ca._heterogeneity_tree_output(X, inds[1])
+        ca._heterogeneity_tree_output(X, inds[3])
 
-        # Can't handle multi-dimensional treatments
-        with self.assertRaises(AssertionError):
-            ca._policy_tree_output(X, inds[3])
+        # Make sure we handle continuous, binary, and multi-class treatments
+        # For multiple discrete treatments, one "always treat" value per non-default treatment
+        for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+            pto = ca._policy_tree_output(X, inds[idx])
+            policy_val = pto.policy_value
+            always_trt = pto.always_treat
+            assert isinstance(pto.control_name, str)
+            assert isinstance(always_trt, dict)
+            assert np.array(policy_val).shape == ()
+            assert len(always_trt) == length
+            for val in always_trt.values():
+                assert np.array(val).shape == ()
+
+            # policy value should exceed always treating with any treatment
+            assert_less_close(np.array(list(always_trt.values())), policy_val)
 
     def test_warm_start(self):
         for classification in [True, False]:
@@ -420,10 +475,12 @@ class TestCausalAnalysis(unittest.TestCase):
                 categorical = [5, 6]
                 ca = CausalAnalysis(feat_inds, categorical, heterogeneity_inds=hetero_inds,
                                     classification=classification,
-                                    nuisance_models='linear', heterogeneity_model="linear", n_jobs=-1)
+                                    nuisance_models='linear', heterogeneity_model=h_model, n_jobs=-1)
                 ca.fit(X_df, y)
                 eff = ca.global_causal_effect(alpha=0.05)
                 eff = ca.local_causal_effect(X_df, alpha=0.05)
+                for ind in feat_inds:
+                    pto = ca._policy_tree_output(X_df, ind)
 
     def test_can_serialize(self):
         import pickle
@@ -481,3 +538,152 @@ class TestCausalAnalysis(unittest.TestCase):
 
         # column d is now okay, too
         self.assertEqual([res.feature_name for res in ca._results], ['a', 'b', 'c', 'd', 'f', 'g', 'h'])
+
+    def test_individualized_policy(self):
+        y_arr = np.random.choice([0, 1], size=(500,))
+        X = pd.DataFrame({'a': np.random.normal(size=500),
+                          'b': np.random.normal(size=500),
+                          'c': np.random.choice([0, 1], size=500),
+                          'd': np.random.choice(['a', 'b', 'c'], size=500)})
+        inds = ['a', 'b', 'c', 'd']
+        cats = ['c', 'd']
+        hinds = ['a', 'd']
+
+        for y in [pd.Series(y_arr), y_arr.reshape(-1, 1)]:
+            for classification in [True, False]:
+                ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model='linear', classification=classification)
+                ca.fit(X, y)
+                df = ca.individualized_policy(X, 'a')
+                self.assertEqual(df.shape[0], 500)  # all rows included by default
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                df = ca.individualized_policy(X, 'b', n_rows=5)
+                self.assertEqual(df.shape[0], 5)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                # verify that we can use a scalar treatment cost
+                df = ca.individualized_policy(X, 'c', treatment_costs=100)
+                self.assertEqual(df.shape[0], 500)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+                # verify that we can specify per-treatment costs for each sample
+                df = ca.individualized_policy(X, 'd', alpha=0.05, treatment_costs=np.random.normal(size=(500, 2)))
+                self.assertEqual(df.shape[0], 500)
+                self.assertEqual(df.shape[1], 4 + X.shape[1])  # new cols for policy, effect, upper and lower bounds
+
+                dictionary = ca._individualized_policy_dict(X, 'a')
+
+    def test_random_state(self):
+        # verify that using the same state returns the same results each time
+        y = np.random.choice([0, 1], size=(500,))
+        X = np.hstack((np.random.normal(size=(500, 2)),
+                       np.random.choice([0, 1], size=(500, 1)),
+                       np.random.choice([0, 1, 2], size=(500, 1))))
+        inds = [0, 1, 2, 3]
+        cats = [2, 3]
+        hinds = [0, 3]
+        for n_model in ['linear', 'automl']:
+            for h_model in ['linear', 'forest']:
+                for classification in [True, False]:
+                    ca = CausalAnalysis(inds, cats, hinds, classification=classification,
+                                        nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
+                    ca.fit(X, y)
+                    glo = ca.global_causal_effect()
+
+                    ca2 = CausalAnalysis(inds, cats, hinds, classification=classification,
+                                         nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
+                    ca2.fit(X, y)
+                    glo2 = ca.global_causal_effect()
+
+                    np.testing.assert_equal(glo.point.values, glo2.point.values)
+                    np.testing.assert_equal(glo.stderr.values, glo2.stderr.values)
+
+    def test_can_set_categories(self):
+        y = pd.Series(np.random.choice([0, 1], size=(500,)))
+        X = pd.DataFrame({'a': np.random.normal(size=500),
+                          'b': np.random.normal(size=500),
+                          'c': np.random.choice([0, 1], size=500),
+                          'd': np.random.choice(['a', 'b', 'c'], size=500)})
+        inds = ['a', 'b', 'c', 'd']
+        cats = ['c', 'd']
+        hinds = ['a', 'd']
+
+        # set the categories for column 'd' explicitly so that b is default
+        categories = ['auto', ['b', 'c', 'a']]
+
+        ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model='linear', categories=categories)
+        ca.fit(X, y)
+        eff = ca.global_causal_effect()
+        values = eff.loc['d'].index.values
+        np.testing.assert_equal(eff.loc['d'].index.values, ['cvb', 'avb'])
+
+    def test_policy_with_index(self):
+        inds = np.arange(1000)
+        np.random.shuffle(inds)
+        X = pd.DataFrame(np.random.normal(0, 1, size=(1000, 2)), columns=['A', 'B'], index=inds)
+        y = np.random.normal(0, 1, size=1000)
+        ca_test = CausalAnalysis(feature_inds=['A'], categorical=[])
+        ca_test.fit(X, y)
+        ind_policy = ca_test.individualized_policy(X[:50], feature_index='A')
+        self.assertFalse(ind_policy.isnull().values.any())
+
+    def test_invalid_inds(self):
+        X = np.zeros((300, 6))
+        y = np.random.normal(size=(300,))
+
+        # first column: 10 ones, this is fine
+        X[np.random.choice(300, 10, replace=False), 0] = 1  # ten ones, should be fine
+
+        # second column: 6 categories, plenty of random instances of each
+        # this is fine only if we increase the cateogry limit
+        X[:, 1] = np.random.choice(6, 300)  # six categories
+
+        # third column: nine ones, lots of twos, not enough unless we disable check
+        X[np.random.choice(300, 100, replace=False), 2] = 2
+        X[np.random.choice(300, 9, replace=False), 2] = 1
+
+        # fourth column: 5 ones, also not enough but barely works even with forest heterogeneity
+        X[np.random.choice(300, 5, replace=False), 3] = 1
+
+        # fifth column: 2 ones, ensures that we will change number of folds for linear heterogeneity
+        # forest heterogeneity won't work
+        X[np.random.choice(300, 2, replace=False), 4] = 1
+
+        # sixth column: just 1 one, not enough even without check
+        X[np.random.choice(300, 1), 5] = 1  # one instance of
+
+        col_names = ['a', 'b', 'c', 'd', 'e', 'f']
+        X = pd.DataFrame(X, columns=col_names)
+
+        for n in ['linear', 'automl']:
+            for h in ['linear', 'forest']:
+                for warm_start in [True, False]:
+                    ca = CausalAnalysis(col_names, col_names, col_names, verbose=1,
+                                        nuisance_models=n, heterogeneity_model=h)
+                    ca.fit(X, y)
+
+                    self.assertEqual(ca.trained_feature_indices_, [0])  # only first column okay
+                    self.assertEqual(ca.untrained_feature_indices_, [(1, 'upper_bound_on_cat_expansion'),
+                                                                     (2, 'cat_limit'),
+                                                                     (3, 'cat_limit'),
+                                                                     (4, 'cat_limit'),
+                                                                     (5, 'cat_limit')])
+
+                    # increase bound on cat expansion
+                    ca.upper_bound_on_cat_expansion = 6
+                    ca.fit(X, y, warm_start=warm_start)
+
+                    self.assertEqual(ca.trained_feature_indices_, [0, 1])  # second column okay also
+                    self.assertEqual(ca.untrained_feature_indices_, [(2, 'cat_limit'),
+                                                                     (3, 'cat_limit'),
+                                                                     (4, 'cat_limit'),
+                                                                     (5, 'cat_limit')])
+
+                    # skip checks (reducing folds accordingly)
+                    ca.skip_cat_limit_checks = True
+                    ca.fit(X, y, warm_start=warm_start)
+
+                    if h == 'linear':
+                        self.assertEqual(ca.trained_feature_indices_, [0, 1, 2, 3, 4])  # all but last col okay
+                        self.assertEqual(ca.untrained_feature_indices_, [(5, 'cat_limit')])
+                    else:
+                        self.assertEqual(ca.trained_feature_indices_, [0, 1, 2, 3])  # can't handle last two
+                        self.assertEqual(ca.untrained_feature_indices_, [(4, 'cat_limit'),
+                                                                         (5, 'cat_limit')])

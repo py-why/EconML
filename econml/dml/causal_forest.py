@@ -74,7 +74,7 @@ class _CausalForestFinalWrapper:
                      "where available.")
             residuals = Y_res - np.einsum('ijk,ik->ij', oob_preds, T_res)
             propensities = T - T_res
-            VarT = np.clip(propensities * (1 - propensities), 1e-10, np.inf)
+            VarT = np.clip(propensities * (1 - propensities), 1e-2, np.inf)
             drpreds = oob_preds
             drpreds += cross_product(residuals, T_res / VarT).reshape((-1, Y_res.shape[1], T_res.shape[1]))
             drpreds[np.isnan(oob_preds)] = np.nan
@@ -647,11 +647,11 @@ class CausalForestDML(_BaseDML):
         Y, T, X, W, sample_weight, groups = check_input_arrays(Y, T, X, W, sample_weight, groups)
 
         if params == 'auto':
-            params = {'max_samples': [.3, .45],
-                      'min_balancedness_tol': [.3, .5],
-                      'min_samples_leaf': [5, 50],
-                      'max_depth': [3, None],
-                      'min_var_fraction_leaf': [None, .01]}
+            params = {
+                'min_weight_fraction_leaf': [0.0001, .01],
+                'max_depth': [3, 5, None],
+                'min_var_fraction_leaf': [0.001, .01]
+            }
         else:
             # If custom param grid, check that only estimator parameters are being altered
             estimator_param_names = self.tunable_params
@@ -662,7 +662,8 @@ class CausalForestDML(_BaseDML):
         strata = None
         if self.discrete_treatment:
             strata = self._strata(Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups)
-        train, test = train_test_split(np.arange(Y.shape[0]), train_size=.7,
+        # use 0.699 instead of 0.7 as train size so that if there are 5 examples in a stratum, we get 2 in test
+        train, test = train_test_split(np.arange(Y.shape[0]), train_size=0.699,
                                        random_state=self.random_state, stratify=strata)
         ytrain, yval, Ttrain, Tval = Y[train], Y[test], T[train], T[test]
         Xtrain, Xval = (X[train], X[test]) if X is not None else (None, None)

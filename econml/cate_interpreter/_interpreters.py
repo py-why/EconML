@@ -402,7 +402,13 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         -------
         self: object instance
         """
-        X = check_array(X)
+        if X is not None:
+            X = check_array(X)
+            X_in = X
+        else:
+            X = np.empty(shape=(1, 0))
+            X_in = None
+
         self.tree_model_ = PolicyTree(criterion='neg_welfare',
                                       splitter='best',
                                       max_depth=self.max_depth,
@@ -416,11 +422,11 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
                                       random_state=self.random_state)
 
         if self.risk_level is None:
-            y_pred = cate_estimator.const_marginal_effect(X)
+            y_pred = cate_estimator.const_marginal_effect(X_in)
         elif not self.risk_seeking:
-            y_pred, _ = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
+            y_pred, _ = cate_estimator.const_marginal_effect_interval(X_in, alpha=self.risk_level)
         else:
-            _, y_pred = cate_estimator.const_marginal_effect_interval(X, alpha=self.risk_level)
+            _, y_pred = cate_estimator.const_marginal_effect_interval(X_in, alpha=self.risk_level)
 
         # average the outcome dimension if it exists and ensure 2d y_pred
         if y_pred.ndim == 3:
@@ -455,7 +461,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         node_dict = {}
         for node_id in range(paths.shape[1]):
             mask = paths.getcol(node_id).toarray().flatten().astype(bool)
-            Xsub = X[mask]
+            Xsub = X_in[mask] if X_in is not None else None
             if (self.include_uncertainty and
                     ((not self.uncertainty_only_on_leaves) or (self.tree_model_.tree_.children_left[node_id] < 0))):
                 res = cate_estimator.const_marginal_ate_inference(Xsub)

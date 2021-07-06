@@ -414,7 +414,7 @@ class TestInference(unittest.TestCase):
         new_coef = est.coef_
         np.testing.assert_array_equal(coef, new_coef)
 
-    def test_translte(self):
+    def test_translate(self):
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
         for offset in [10, pd.Series(np.arange(TestInference.X.shape[0]))]:
             for inf in ['auto', BootstrapInference(n_bootstrap_samples=5)]:
@@ -426,6 +426,19 @@ class TestInference(unittest.TestCase):
                 np.testing.assert_array_equal(pred + offset, pred2)
                 np.testing.assert_array_almost_equal(bounds[0] + offset, bounds2[0])
                 np.testing.assert_array_almost_equal(bounds[1] + offset, bounds2[1])
+
+    def test_scale(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        for factor in [10, pd.Series(np.arange(TestInference.X.shape[0]))]:
+            for inf in ['auto', BootstrapInference(n_bootstrap_samples=5)]:
+                est = LinearDML().fit(Y, T, X=X, W=W, inference=inf)
+                inf = est.const_marginal_effect_inference(X)
+                pred, bounds, summary = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                inf.scale(factor)
+                pred2, bounds2, summary2 = inf.point_estimate, inf.conf_int(), inf.summary_frame()
+                np.testing.assert_array_equal(pred * factor, pred2)
+                np.testing.assert_array_almost_equal(bounds[0] * factor, bounds2[0])
+                np.testing.assert_array_almost_equal(bounds[1] * factor, bounds2[1])
 
     class _NoFeatNamesEst:
         def __init__(self, cate_est):

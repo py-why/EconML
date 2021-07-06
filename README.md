@@ -45,9 +45,15 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-**May 18, 2021:** Release v0.11.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.11.1)
+**June 25, 2021:** Release v0.12.0b3, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b3)
 
 <details><summary>Previous releases</summary>
+
+**June 18, 2021:** Release v0.12.0b2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b2)
+
+**June 7, 2021:** Release v0.12.0b1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b1)
+
+**May 18, 2021:** Release v0.11.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.11.1)
 
 **May 8, 2021:** Release v0.11.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.11.0)
 
@@ -585,13 +591,13 @@ The reStructuredText files that make up the documentation are stored in the [doc
 
 If you use EconML in your research, please cite us as follows:
 
-   Microsoft Research. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/microsoft/EconML, 2019. Version 0.x.
+   Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/microsoft/EconML, 2019. Version 0.x.
 
 BibTex:
 
 ```
 @misc{econml,
-  author={Microsoft Research},
+  author={Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis},
   title={{EconML}: {A Python Package for ML-Based Heterogeneous Treatment Effects Estimation}},
   howpublished={https://github.com/microsoft/EconML},
   note={Version 0.x},
