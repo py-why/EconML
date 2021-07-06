@@ -1179,8 +1179,8 @@ class PopulationSummaryResults:
 
     """
 
-    def __init__(self, pred, pred_stderr, mean_pred_stderr, d_t, d_y, value, decimals, tol,
-                 alpha=.1, output_names=None, treatment_names=None):
+    def __init__(self, pred, pred_stderr, mean_pred_stderr, d_t, d_y, alpha=0.1,
+                 value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
         self.pred = pred
         self.pred_stderr = pred_stderr
         self.mean_pred_stderr = mean_pred_stderr
@@ -1237,7 +1237,7 @@ class PopulationSummaryResults:
             raise AttributeError("Only point estimates are available!")
         return np.sqrt(np.mean(self.pred_stderr**2, axis=0))
 
-    def zstat(self, *, value=0):
+    def zstat(self, *, value=None):
         """
         Get the z statistic of the mean point estimate of each treatment on each outcome for sample X.
 
@@ -1258,7 +1258,7 @@ class PopulationSummaryResults:
         zstat = (self.mean_point - value) / self.stderr_mean
         return zstat
 
-    def pvalue(self, *, value=0):
+    def pvalue(self, *, value=None):
         """
         Get the p value of the z test of each treatment on each outcome for sample X.
 
@@ -1275,6 +1275,7 @@ class PopulationSummaryResults:
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will be a scalar)
         """
+        value = self.value if value is None else value
         pvalue = norm.sf(np.abs(self.zstat(value=value)), loc=0, scale=1) * 2
         return pvalue
 
@@ -1346,7 +1347,7 @@ class PopulationSummaryResults:
         upper_percentile_point = np.percentile(self.pred, (1 - alpha / 2) * 100, axis=0)
         return lower_percentile_point, upper_percentile_point
 
-    def conf_int_point(self, *, alpha=None, tol=.001):
+    def conf_int_point(self, *, alpha=None, tol=None):
         """
         Get the confidence interval of the point estimate of each treatment on each outcome for sample X.
 
@@ -1389,7 +1390,7 @@ class PopulationSummaryResults:
         """
         return np.sqrt(self.stderr_mean**2 + self.std_point**2)
 
-    def summary(self, alpha=0.1, value=0, decimals=3, tol=0.001, output_names=None, treatment_names=None):
+    def summary(self, alpha=None, value=None, decimals=None, tol=None, output_names=None, treatment_names=None):
         """
         Output the summary inferences above.
 
