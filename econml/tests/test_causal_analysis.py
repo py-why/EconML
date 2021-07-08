@@ -42,8 +42,13 @@ class TestCausalAnalysis(unittest.TestCase):
                 assert loc.index.names == ['sample'] + glo.index.names
 
                 glo_dict = ca._global_causal_effect_dict()
+                glo_dict2 = ca._global_causal_effect_dict(row_wise=True)
+
                 coh_dict = ca._cohort_causal_effect_dict(X[:2])
+                coh_dict2 = ca._cohort_causal_effect_dict(X[:2], row_wise=True)
+
                 loc_dict = ca._local_causal_effect_dict(X[:2])
+                loc_dict2 = ca._local_causal_effect_dict(X[:2], row_wise=True)
 
                 glo_point_est = np.array(glo_dict[_CausalInsightsConstants.PointEstimateKey])
                 coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
@@ -71,6 +76,14 @@ class TestCausalAnalysis(unittest.TestCase):
                 # global shape is (d_y, sum(d_t))
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
                 assert loc_point_est.shape == (2,) + glo_point_est.shape
+
+                # global and cohort row-wise dicts have d_y * d_t entries
+                assert len(
+                    glo_dict2[_CausalInsightsConstants.RowData]) == len(
+                    coh_dict2[_CausalInsightsConstants.RowData]) == 5
+                # local dictionary is flattened to n_rows * d_y * d_t
+                assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
+
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
                     cm = ExitStack()
@@ -83,6 +96,7 @@ class TestCausalAnalysis(unittest.TestCase):
                     assert np.shape(inf.point_estimate) == (2,)
 
                     ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2])
+                    ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2], row_wise=True)
 
                 # features; for categoricals they should appear #cats-1 times each
                 fts = ['x0', 'x1', 'x2', 'x3', 'x3']
@@ -136,8 +150,13 @@ class TestCausalAnalysis(unittest.TestCase):
                     assert fts[i] == glo.index[i][0] == loc.index[i][1] == loc.index[len(fts) + i][1]
 
                 glo_dict = ca._global_causal_effect_dict()
+                glo_dict2 = ca._global_causal_effect_dict(row_wise=True)
+
                 coh_dict = ca._cohort_causal_effect_dict(X[:2])
+                coh_dict2 = ca._cohort_causal_effect_dict(X[:2], row_wise=True)
+
                 loc_dict = ca._local_causal_effect_dict(X[:2])
+                loc_dict2 = ca._local_causal_effect_dict(X[:2], row_wise=True)
 
                 glo_point_est = np.array(glo_dict[_CausalInsightsConstants.PointEstimateKey])
                 coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
@@ -146,6 +165,13 @@ class TestCausalAnalysis(unittest.TestCase):
                 # global shape is (d_y, sum(d_t))
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
                 assert loc_point_est.shape == (2,) + glo_point_est.shape
+
+                # global and cohort row-wise dicts have d_y * d_t entries
+                assert len(
+                    glo_dict2[_CausalInsightsConstants.RowData]) == len(
+                    coh_dict2[_CausalInsightsConstants.RowData]) == 5
+                # local dictionary is flattened to n_rows * d_y * d_t
+                assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
 
                 pto = ca._policy_tree_output(X, inds[1])
                 ca._heterogeneity_tree_output(X, inds[1])
@@ -179,6 +205,7 @@ class TestCausalAnalysis(unittest.TestCase):
                     assert np.shape(inf.point_estimate) == np.shape(y[:2])
 
                     ca._whatif_dict(X[:2], np.ones(shape=(2,)), inds[1], y[:2])
+                    ca._whatif_dict(X[:2], np.ones(shape=(2,)), inds[1], y[:2], row_wise=True)
 
             badargs = [
                 (n_inds, n_cats, [4]),  # hinds out of range
@@ -216,8 +243,13 @@ class TestCausalAnalysis(unittest.TestCase):
             assert loc.index.names == ['sample'] + glo.index.names
 
             glo_dict = ca._global_causal_effect_dict()
+            glo_dict2 = ca._global_causal_effect_dict(row_wise=True)
+
             coh_dict = ca._cohort_causal_effect_dict(X[:2])
+            coh_dict2 = ca._cohort_causal_effect_dict(X[:2], row_wise=True)
+
             loc_dict = ca._local_causal_effect_dict(X[:2])
+            loc_dict2 = ca._local_causal_effect_dict(X[:2], row_wise=True)
 
             glo_point_est = np.array(glo_dict[_CausalInsightsConstants.PointEstimateKey])
             coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
@@ -246,6 +278,14 @@ class TestCausalAnalysis(unittest.TestCase):
             # global shape is (d_y, sum(d_t))
             assert glo_point_est.shape == coh_point_est.shape == (1, 5)
             assert loc_point_est.shape == (2,) + glo_point_est.shape
+
+            # global and cohort row-wise dicts have d_y * d_t entries
+            assert len(
+                glo_dict2[_CausalInsightsConstants.RowData]) == len(
+                coh_dict2[_CausalInsightsConstants.RowData]) == 5
+            # local dictionary is flattened to n_rows * d_y * d_t
+            assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
+
             if not classification:
                 # ExitStack can be used as a "do nothing" ContextManager
                 cm = ExitStack()
@@ -258,6 +298,7 @@ class TestCausalAnalysis(unittest.TestCase):
                 assert np.shape(inf.point_estimate) == (2,)
 
                 ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2])
+                ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2], row_wise=True)
 
             # features; for categoricals they should appear #cats-1 times each
             fts = ['x0', 'x1', 'x2', 'x3', 'x3']
@@ -302,8 +343,13 @@ class TestCausalAnalysis(unittest.TestCase):
         assert loc.index.names == ['sample']
 
         glo_dict = ca._global_causal_effect_dict()
+        glo_dict2 = ca._global_causal_effect_dict(row_wise=True)
+
         coh_dict = ca._cohort_causal_effect_dict(X[:2])
+        coh_dict2 = ca._cohort_causal_effect_dict(X[:2], row_wise=True)
+
         loc_dict = ca._local_causal_effect_dict(X[:2])
+        loc_dict2 = ca._local_causal_effect_dict(X[:2], row_wise=True)
 
         glo_point_est = np.array(glo_dict[_CausalInsightsConstants.PointEstimateKey])
         coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
@@ -312,6 +358,21 @@ class TestCausalAnalysis(unittest.TestCase):
         # global shape is (d_y, sum(d_t))
         assert glo_point_est.shape == coh_point_est.shape == (1, 1)
         assert loc_point_est.shape == (2,) + glo_point_est.shape
+
+        glo2 = ca.global_causal_effect(keep_all_levels=True)
+        coh2 = ca.cohort_causal_effect(X[:2], keep_all_levels=True)
+        loc2 = ca.local_causal_effect(X[:2], keep_all_levels=True)
+        assert ({ind.name for ind in glo2.index.levels} ==
+                {ind.name for ind in coh2.index.levels} ==
+                {"outcome", "feature", "feature_value"})
+        assert {ind.name for ind in loc2.index.levels} == {"sample", "outcome", "feature", "feature_value"}
+
+        # global and cohort row-wise dicts have d_y * d_t entries
+        assert len(
+            glo_dict2[_CausalInsightsConstants.RowData]) == len(
+            coh_dict2[_CausalInsightsConstants.RowData]) == 1
+        # local dictionary is flattened to n_rows * d_y * d_t
+        assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 2
 
         ca._policy_tree_output(X, inds[0])
         ca._heterogeneity_tree_output(X, inds[0])
@@ -365,6 +426,7 @@ class TestCausalAnalysis(unittest.TestCase):
                     inf = ca.whatif(X[:2], np.ones(shape=(2,)), 1, y[:2])
                     inf = ca.whatif(X[:2], np.ones(shape=(2,)), 2, y[:2])
                     ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2])
+                    ca._whatif_dict(X[:2], np.ones(shape=(2,)), 1, y[:2], row_wise=True)
 
         with self.assertRaises(AssertionError):
             ca = CausalAnalysis(inds, cats, hinds, classification=classification, heterogeneity_model='other')
@@ -402,8 +464,13 @@ class TestCausalAnalysis(unittest.TestCase):
             assert fts[i] == glo.index[i][0] == loc.index[i][1] == loc.index[len(fts) + i][1]
 
         glo_dict = ca._global_causal_effect_dict()
+        glo_dict2 = ca._global_causal_effect_dict(row_wise=True)
+
         coh_dict = ca._cohort_causal_effect_dict(X[:2])
+        coh_dict2 = ca._cohort_causal_effect_dict(X[:2], row_wise=True)
+
         loc_dict = ca._local_causal_effect_dict(X[:2])
+        loc_dict2 = ca._local_causal_effect_dict(X[:2], row_wise=True)
 
         glo_point_est = np.array(glo_dict[_CausalInsightsConstants.PointEstimateKey])
         coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
@@ -412,6 +479,13 @@ class TestCausalAnalysis(unittest.TestCase):
         # global shape is (d_y, sum(d_t))
         assert glo_point_est.shape == coh_point_est.shape == (1, 5)
         assert loc_point_est.shape == (2,) + glo_point_est.shape
+
+        # global and cohort row-wise dicts have d_y * d_t entries
+        assert len(
+            glo_dict2[_CausalInsightsConstants.RowData]) == len(
+            coh_dict2[_CausalInsightsConstants.RowData]) == 5
+        # local dictionary is flattened to n_rows * d_y * d_t
+        assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
 
         ca._policy_tree_output(X, inds[1])
         ca._heterogeneity_tree_output(X, inds[1])
