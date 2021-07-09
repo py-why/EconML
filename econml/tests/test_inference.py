@@ -287,7 +287,7 @@ class TestInference(unittest.TestCase):
             TestInference.W,
             inference=BootstrapInference(5)
         ).summary(1)
-        
+
     def test_alpha(self):
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
         est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
