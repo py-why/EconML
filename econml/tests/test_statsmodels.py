@@ -1079,21 +1079,21 @@ class TestStatsModels(unittest.TestCase):
                             cv=Splitter())
 
                         est.fit(y_sum,
-                                X_final[:, -2], X_final[:, -1], X_final[:, :-2],
-                                None, freq_weight=n_sum,
+                                X_final[:, -2], Z=X_final[:, -1], X=X_final[:, :-2],
+                                W=None, freq_weight=n_sum,
                                 sample_var=var_sum,
                                 inference=StatsModelsInference(cov_type=cov_type))
-                        lr.fit(y, X[:, -2], X[:, -1], X[:, :-2], None,
+                        lr.fit(y, X[:, -2], Z=X[:, -1], X=X[:, :-2], W=None,
                                inference=StatsModelsInference(cov_type=cov_type))
                         _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-8)
 
                         # compare when both sample_var and sample_weight exist
                         est.fit(y_sum,
-                                X_final[:, -2], X_final[:, -1], X_final[:, :-2],
-                                None, sample_weight=w_sum, freq_weight=n_sum,
+                                X_final[:, -2], Z=X_final[:, -1], X=X_final[:, :-2],
+                                W=None, sample_weight=w_sum, freq_weight=n_sum,
                                 sample_var=var_sum,
                                 inference=StatsModelsInference(cov_type=cov_type))
-                        lr.fit(y, X[:, -2], X[:, -1], X[:, :-2], None, sample_weight=w,
+                        lr.fit(y, X[:, -2], Z=X[:, -1], X=X[:, :-2], W=None, sample_weight=w,
                                inference=StatsModelsInference(cov_type=cov_type))
                         _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-8)
 

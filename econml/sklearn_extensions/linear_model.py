@@ -1909,7 +1909,7 @@ class StatsModelsRLM(_StatsModelsWrapper):
 
 class StatsModels2SLS(_StatsModelsWrapper):
     """
-    Class solve the moment equation E[(y-theta*T)*Z]=0
+    Class that solves the moment equation E[(y-theta*T)*Z]=0
 
     Parameters
     ----------
@@ -1994,14 +1994,16 @@ class StatsModels2SLS(_StatsModelsWrapper):
         # learn cov(theta)
         # solve first stage linear regression E[T|Z]
         zT_z = np.dot(Z.T, Z)
+        # "that" means T̂
         self._thatparams = np.linalg.solve(zT_z, zT_t)
         that = np.dot(Z, self._thatparams)
-        # (that.T*that)^{-1}
+        # (T̂.T*T̂)^{-1}
         thatT_that = np.dot(that.T, that)
         thatT_that_inv = np.linalg.inv(thatT_that)
         # sigma^2
         var_i = (y - np.dot(T, param))**2
 
+        # reference: http://www.hec.unil.ch/documents/seminars/deep/361.pdf
         if (self.cov_type is None) or (self.cov_type == 'nonrobust'):
             if y.ndim < 2:
                 self._var = correction * np.average(var_i) * thatT_that_inv

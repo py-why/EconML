@@ -57,6 +57,10 @@ class _BaseDRIVModelNuisance:
         return None if W is None else W
 
     def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
+        T = T.ravel() if not self._discrete_treatment else T
+        Z = Z.ravel() if not self._discrete_instrument else Z
+
         self._model_y_xw.fit(X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
         self._model_t_xw.fit(X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
         if self._projection:

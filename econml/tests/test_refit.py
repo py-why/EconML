@@ -182,12 +182,12 @@ class TestRefit(unittest.TestCase):
                       model_t_xw=LinearRegression(),
                       model_z_xw=LinearRegression(),
                       mc_iters=2)
-        est.fit(y, T, Z, W=W, cache_values=True)
+        est.fit(y, T, Z=Z, W=W, cache_values=True)
         est.refit_final()
         est.model_y_xw = Lasso()
         est.model_t_xw = ElasticNet()
         est.model_z_xw = WeightedLasso()
-        est.fit(y, T, Z, W=W, cache_values=True)
+        est.fit(y, T, Z=Z, W=W, cache_values=True)
         assert isinstance(est.models_nuisance_[0][0]._model_y_xw._model, Lasso)
         assert isinstance(est.models_nuisance_[0][0]._model_t_xw._model, ElasticNet)
         assert isinstance(est.models_nuisance_[0][0]._model_z_xw._model, WeightedLasso)
@@ -197,11 +197,11 @@ class TestRefit(unittest.TestCase):
                     model_t_xwz=LinearRegression(),
                     model_final=LinearRegression(fit_intercept=False),
                     mc_iters=2)
-        est.fit(y, T, Z, X=X, W=W, cache_values=True)
+        est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         est.model_y_xw = Lasso()
         est.model_t_xw = ElasticNet()
         est.model_t_xwz = WeightedLasso()
-        est.fit(y, T, Z, X=X, W=W, cache_values=True)
+        est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         assert isinstance(est.models_nuisance_[0][0]._model_y_xw._model, Lasso)
         assert isinstance(est.models_nuisance_[0][0]._model_t_xw._model, ElasticNet)
         assert isinstance(est.models_nuisance_[0][0]._model_t_xwz._model, WeightedLasso)
@@ -211,7 +211,7 @@ class TestRefit(unittest.TestCase):
                             model_t_xwz=LinearRegression(),
                             model_final=LinearRegression(fit_intercept=True),
                             mc_iters=2)
-        est.fit(y, T, Z, X=X, W=W, cache_values=True)
+        est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         est.featurizer = PolynomialFeatures(degree=2, include_bias=False)
         est.model_final = WeightedLasso()
         est.refit_final()

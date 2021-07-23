@@ -42,7 +42,7 @@ class _OrthoIVModelNuisance:
             self._model_z_xw = model_z
 
     def _combine(self, W, Z, n_samples):
-        if Z is not None:  # Z will not be None
+        if Z is not None:
             Z = Z.reshape(n_samples, -1)
             return Z if W is None else np.hstack([W, Z])
         return None if W is None else W
@@ -208,11 +208,12 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  random_state=None):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
+        self.model_t_xwz = clone(model_t_xwz, safe=False)
+        self.model_z_xw = clone(model_z_xw, safe=False)
         self.projection = projection
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
-        self.model_t_xwz = clone(model_t_xwz, safe=False)
-        self.model_z_xw = clone(model_z_xw, safe=False)
+
         super().__init__(discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
@@ -283,11 +284,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                                                             self._gen_featurizer(), False, self.discrete_instrument),
                                          self.projection)
 
-    # override only so that we can update the docstring to indicate support for `LinearModelFinalInference` and
-    # to enforce Z to be required
-    @_deprecate_positional("W and Z should be passed by keyword only. In a future release "
-                           "we will disallow passing W and Z by position.", ['W', 'Z'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference="auto"):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -562,7 +559,7 @@ class _BaseDMLIVModelNuisance:
         self._model_t_xwz = clone(model_t_xwz, safe=False)
 
     def _combine(self, W, Z, n_samples):
-        if Z is not None:  # Z will not be None
+        if Z is not None:
             Z = Z.reshape(n_samples, -1)
             return Z if W is None else np.hstack([W, Z])
         return None if W is None else W
@@ -807,8 +804,7 @@ class DMLIV(_BaseDMLIV):
         \\sum_i (Y_i - \\E[Y|X_i] - \theta(X) * (\\E[T|X_i, Z_i] - \\E[T|X_i]))^2
 
     This loss is minimized by the model_final class, which is passed as an input.
-    In the child class {LinearDMLIV}, we implement different strategies of how to invoke
-    machine learning algorithms to minimize this final square loss.
+    In the child class {LinearDMLIV}, we minimize the least square loss.
 
     Parameters
     ----------
@@ -949,9 +945,7 @@ class DMLIV(_BaseDMLIV):
                                                   False))
 
     # override only so that we can enforce Z to be required
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1284,9 +1278,7 @@ class NonParamDMLIV(_BaseDMLIV):
                                                   True))
 
     # override only so that we can enforce Z to be required
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.

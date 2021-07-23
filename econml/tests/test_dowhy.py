@@ -8,7 +8,9 @@ from econml.dml import LinearDML, CausalForestDML
 from econml.orf import DROrthoForest
 from econml.dr import DRLearner, ForestDRLearner, LinearDRLearner
 from econml.metalearners import XLearner
-from econml.iv.dml import OrthoIV
+from econml.iv.dml import OrthoIV, LinearDMLIV
+from econml.iv.dr import LinearDRIV
+from econml.iv.dr._dr import _DummyCATE
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 
 
@@ -42,14 +44,21 @@ class TestDowhy(unittest.TestCase):
                                      model_t_xw=clf(),
                                      model_z_xw=reg(),
                                      discrete_treatment=True,
-                                     discrete_instrument=False)}
+                                     discrete_instrument=False),
+                  "dmliv": LinearDMLIV(fit_cate_intercept=True,
+                                       discrete_treatment=True,
+                                       discrete_instrument=False),
+                  "driv": LinearDRIV(prel_model_effect=_DummyCATE(),
+                                     fit_cate_intercept=True,
+                                     discrete_instrument=False,
+                                     discrete_treatment=True)}
         for name, model in models.items():
             with self.subTest(name=name):
                 est = model
                 if name == "xlearner":
                     est_dowhy = est.dowhy.fit(Y, T, X=np.hstack((X, W)), W=None)
-                elif name == "orthoiv":
-                    est_dowhy = est.dowhy.fit(Y, T, Z=Z, X=None, W=W)
+                elif name in ["orthoiv", "dmliv", "driv"]:
+                    est_dowhy = est.dowhy.fit(Y, T, Z=Z, X=X, W=W)
                 else:
                     est_dowhy = est.dowhy.fit(Y, T, X=X, W=W)
                 # test causal graph

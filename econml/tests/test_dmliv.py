@@ -100,7 +100,7 @@ class TestDMLIV(unittest.TestCase):
                                         # ensure we can serialize unfit estimator
                                         pickle.dumps(est)
 
-                                        est.fit(y, T, Z, X=X, W=W)
+                                        est.fit(y, T, Z=Z, X=X, W=W)
 
                                         # ensure we can serialize fit estimator
                                         pickle.dumps(est)
@@ -181,7 +181,7 @@ class TestDMLIV(unittest.TestCase):
         y, T, Z, X = dgp(n, p, true_fn)
         for est in ests_list:
             with self.subTest(est=est):
-                est.fit(y, T, Z, X=None, W=X, inference="auto")
+                est.fit(y, T, Z=Z, X=None, W=X, inference="auto")
                 ate_lb, ate_ub = est.effect_interval()
                 np.testing.assert_array_less(ate_lb, true_ate)
                 np.testing.assert_array_less(true_ate, ate_ub)
