@@ -171,13 +171,13 @@ class TestDRIV(unittest.TestCase):
         def dgp(n, p, true_fn):
             X = np.random.normal(0, 1, size=(n, p))
             Z = np.random.binomial(1, 0.5, size=(n,))
-            nu = np.random.uniform(-5, 5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
             coef_Z = 0.8
             C = np.random.binomial(
                 1, coef_Z * special.expit(0.4 * X[:, 0] + nu)
             )  # Compliers when recomended
             C0 = np.random.binomial(
-                1, 0.006 * np.ones(X.shape[0])
+                1, 0.06 * np.ones(X.shape[0])
             )  # Non-compliers when not recommended
             T = C * Z + C0 * (1 - Z)
             y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))

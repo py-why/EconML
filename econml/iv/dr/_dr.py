@@ -101,6 +101,10 @@ class _BaseDRIVModelNuisance:
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
+        T = T.ravel() if not self._discrete_treatment else T
+        Z = Z.ravel() if not self._discrete_instrument else Z
+
         if hasattr(self._model_y_xw, 'score'):
             y_xw_score = self._model_y_xw.score(X=X, W=W, Target=Y, sample_weight=sample_weight)
         else:
