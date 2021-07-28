@@ -1932,6 +1932,10 @@ class StatsModels2SLS(_StatsModelsWrapper):
         # check array shape
         assert (T.shape[0] == Z.shape[0] == y.shape[0] == sample_weight.shape[0]), "Input lengths not compatible!"
 
+        # check dimension of treatment equals to dimension of instrument
+        if T.shape[1] != Z.shape[1]:
+            raise AssertionError("Can only accept as many instruments as treatments!")
+
         # weight X and y
         weighted_Z = Z * np.sqrt(sample_weight).reshape(-1, 1)
         weighted_T = T * np.sqrt(sample_weight).reshape(-1, 1)
@@ -1941,18 +1945,18 @@ class StatsModels2SLS(_StatsModelsWrapper):
             weighted_y = y * np.sqrt(sample_weight).reshape(-1, 1)
         return weighted_Z, weighted_T, weighted_y
 
-    def fit(self, y, T, Z, sample_weight=None, freq_weight=None, sample_var=None):
+    def fit(self, Z, T, y, sample_weight=None, freq_weight=None, sample_var=None):
         """
         Fits the model.
 
         Parameters
         ----------
-        y :  {(N,), (N, p)} nd array like
-            output variables
-        T :  {(N, p)} nd array like
-            treatment variables
         Z :  {(N, p)} nd array like
             instrumental variables
+        T :  {(N, p)} nd array like
+            treatment variables
+        y :  {(N,), (N, p)} nd array like
+            output variables
         sample_weight : (N,) array like or None
             Individual weights for each sample. If None, it assumes equal weight.
         freq_weight: (N, ) array like of integers or None

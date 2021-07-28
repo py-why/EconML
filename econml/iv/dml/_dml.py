@@ -151,7 +151,7 @@ class _OrthoIVModelFinal:
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
                                              freq_weight=freq_weight, sample_var=sample_var)
 
-        self._model_final.fit(Y_res, XT_res, XZ_res, **filtered_kwargs)
+        self._model_final.fit(XZ_res, XT_res, Y_res, **filtered_kwargs)
 
         return self
 
@@ -164,7 +164,7 @@ class _OrthoIVModelFinal:
                                              self._d_t, self._d_y)
 
     def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
-        Y_res, T_res, _ = nuisances
+        Y_res, T_res, Z_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
         if T_res.ndim == 1:
@@ -172,9 +172,10 @@ class _OrthoIVModelFinal:
         effects = self.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
         if sample_weight is not None:
-            return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
+            return np.linalg.norm(np.average(cross_product(Z_res, Y_res - Y_res_pred), weights=sample_weight, axis=0),
+                                  ord=2)
         else:
-            return np.mean((Y_res - Y_res_pred) ** 2)
+            return np.linalg.norm(np.mean(cross_product(Z_res, Y_res - Y_res_pred), axis=0), ord=2)
 
 
 class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
@@ -189,6 +190,85 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     Requires that either co-variance of T, Z is independent of X or that effect
     is not heterogeneous in X for correct recovery. Otherwise it estimates
     a biased ATE.
+
+    Parameters
+    ----------
+    model_y_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+
+    model_t_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
+
+    model_t_xwz : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
+
+    model_z_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument.
+
+    projection: bool, optional, default False
+        If True, we fit a slight variant of OrthoIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
+        model_z_xw will be disabled; If False, model_t_xwz will be disabled.
+
+    featurizer : :term:`transformer`, optional, default None
+        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
+        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
+        If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default False
+        Whether the linear CATE model should have a constant term.
+
+    discrete_treatment: bool, optional, default False
+        Whether the treatment values should be treated as categorical, rather than continuous, quantities
+
+    discrete_instrument: bool, optional, default False
+        Whether the instrument values should be treated as categorical, rather than continuous, quantities
+
+    categories: 'auto' or list, default 'auto'
+        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
+        The first category will be treated as the control treatment.
+
+    cv: int, cross-validation generator or an iterable, optional, default 2
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer/None inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+
+        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
+        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
+
+    mc_iters: int, optional (default=None)
+        The number of times to rerun the first stage models to reduce the variance of the nuisances.
+
+    mc_agg: {'mean', 'median'}, optional (default='mean')
+        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
+        cross-fitting.
+
+    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
+        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
+        by :mod:`np.random<numpy.random>`.
     """
 
     def __init__(self, *,
@@ -226,7 +306,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_final(self):
-        return StatsModels2SLS()
+        return StatsModels2SLS(cov_type="HC0")
 
     def _gen_ortho_learner_model_final(self):
         return _OrthoIVModelFinal(self._gen_model_final(), self._gen_featurizer(), self.fit_cate_intercept)
@@ -546,6 +626,21 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         if model is not None:
             raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
 
+    @property
+    def residuals_(self):
+        """
+        A tuple (y_res, T_res,Z_res, X, W, Z), of the residuals from the first stage estimation
+        along with the associated X, W and Z. Samples are not guaranteed to be in the same
+        order as the input order.
+        """
+        if not hasattr(self, '_cached_values'):
+            raise AttributeError("Estimator is not fitted yet!")
+        if self._cached_values is None:
+            raise AttributeError("`fit` was called with `cache_values=False`. "
+                                 "Set to `True` to enable residual storage.")
+        Y_res, T_res, Z_res = self._cached_values.nuisances
+        return Y_res, T_res, Z_res, self._cached_values.X, self._cached_values.W, self._cached_values.Z
+
 
 class _BaseDMLIVModelNuisance:
     """
@@ -622,6 +717,50 @@ class _BaseDMLIVModelFinal(_ModelFinal):
 class _BaseDMLIV(_OrthoLearner):
     # A helper class that access all the internal fitted objects of a DMLIV Cate Estimator.
     # Used by both Parametric and Non Parametric DMLIV.
+    # override only so that we can enforce Z to be required
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+            cache_values=False, inference=None):
+        """
+        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
+
+        Parameters
+        ----------
+        Y: (n, d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n, d_t) matrix or vector of length n
+            Treatments for each sample
+        Z: (n, d_z) matrix
+            Instruments for each sample
+        X: optional(n, d_x) matrix or None (Default=None)
+            Features for each sample
+        W: optional (n, d_w) matrix or None (Default=None)
+            Controls for each sample
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(n,), (n, d_y)} nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the `cv` argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`)
+
+        Returns
+        -------
+        self
+        """
+        return super().fit(Y, T, X=X, W=W, Z=Z,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           cache_values=cache_values, inference=inference)
 
     def score(self, Y, T, Z, X=None, W=None, sample_weight=None):
         """
@@ -804,20 +943,28 @@ class DMLIV(_BaseDMLIV):
         \\sum_i (Y_i - \\E[Y|X_i] - \theta(X) * (\\E[T|X_i, Z_i] - \\E[T|X_i]))^2
 
     This loss is minimized by the model_final class, which is passed as an input.
-    In the child class {LinearDMLIV}, we minimize the least square loss.
 
     Parameters
     ----------
-    model_y_xw : estimator
+    model_y_xw : estimator or 'auto' (default is 'auto')
         model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t_xw : estimator
-        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
+    model_t_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_t_xwz : estimator
-        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+    model_t_xwz : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_final : estimator
+    model_final : estimator (default is :class:`.StatsModelsLinearRegression`)
         final model that at fit time takes as input :math:`(Y-\\E[Y|X])`, :math:`(\\E[T|X,Z]-\\E[T|X])` and X
         and supports method predict(X) that produces the CATE at X
 
@@ -873,7 +1020,7 @@ class DMLIV(_BaseDMLIV):
                  model_y_xw="auto",
                  model_t_xw="auto",
                  model_t_xwz="auto",
-                 model_final,
+                 model_final=StatsModelsLinearRegression(fit_intercept=False),
                  featurizer=None,
                  fit_cate_intercept=True,
                  discrete_treatment=False,
@@ -944,51 +1091,6 @@ class DMLIV(_BaseDMLIV):
                                                   self._gen_featurizer(),
                                                   False))
 
-    # override only so that we can enforce Z to be required
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
-        """
-        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
-
-        Parameters
-        ----------
-        Y: (n, d_y) matrix or vector of length n
-            Outcomes for each sample
-        T: (n, d_t) matrix or vector of length n
-            Treatments for each sample
-        Z: (n, d_z) matrix
-            Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
-            Features for each sample
-        W: optional (n, d_w) matrix or None (Default=None)
-            Controls for each sample
-        sample_weight : (n,) array like, default None
-            Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
-            Weight for the observation. Observation i is treated as the mean
-            outcome of freq_weight[i] independent observations.
-            When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
-            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
-            compute the mean outcome represented by observation i.
-        groups: (n,) vector, optional
-            All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the `cv` argument passed to this class's initializer
-            must support a 'groups' argument to its split method.
-        cache_values: bool, default False
-            Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
-            Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of :class:`.BootstrapInference`)
-
-        Returns
-        -------
-        self
-        """
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
-
     @property
     def bias_part_of_coef(self):
         return self.ortho_learner_model_final_._model_final._fit_cate_intercept
@@ -1009,112 +1111,6 @@ class DMLIV(_BaseDMLIV):
                                                      background_samples=background_samples)
 
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
-
-
-class LinearDMLIV(DMLIV):
-    """
-    A child of the DMLIV class that fits a low-dimensional linear final stage implemented as a statsmodel regression.
-
-    Parameters
-    ----------
-    model_y_xw : estimator
-        model to estimate :math:`\\E[Y | X, W]`. Must support `fit` and `predict` methods.
-
-    model_t_xw : estimator
-        model to estimate :math:`\\E[T | X, W]`. Must support `fit` and either `predict` or `predict_proba` methods,
-        depending on whether the treatment is discrete.
-
-    model_t_xwz : estimator
-        model to estimate :math:`\\E[T | X, W, Z]`. Must support `fit` and either `predict` or `predict_proba`
-        methods, depending on whether the treatment is discrete.
-
-    featurizer: :term:`transformer`, optional, default None
-        Must support fit_transform and transform. Used to create composite features in the final CATE regression.
-        It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
-        If featurizer=None, then CATE is trained on X.
-
-    fit_cate_intercept : bool, optional, default True
-        Whether the linear CATE model should have a constant term.
-
-    discrete_treatment: bool, optional, default False
-        Whether the treatment values should be treated as categorical, rather than continuous, quantities
-
-    discrete_instrument: bool, optional, default False
-        Whether the instrument values should be treated as categorical, rather than continuous, quantities
-
-    categories: 'auto' or list, default 'auto'
-        The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
-        The first category will be treated as the control treatment.
-
-    cv: int, cross-validation generator or an iterable, optional, default 2
-        Determines the cross-validation splitting strategy.
-        Possible inputs for cv are:
-
-        - None, to use the default 3-fold cross-validation,
-        - integer, to specify the number of folds.
-        - :term:`CV splitter`
-        - An iterable yielding (train, test) splits as arrays of indices.
-
-        For integer/None inputs, if the treatment is discrete
-        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
-        :class:`~sklearn.model_selection.KFold` is used
-        (with a random shuffle in either case).
-
-        Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
-        W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
-
-    mc_iters: int, optional (default=None)
-        The number of times to rerun the first stage models to reduce the variance of the nuisances.
-
-    mc_agg: {'mean', 'median'}, optional (default='mean')
-        How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
-        cross-fitting.
-
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
-        If int, random_state is the seed used by the random number generator;
-        If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
-        If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
-        by :mod:`np.random<numpy.random>`.
-    """
-
-    def __init__(self, *,
-                 model_y_xw="auto",
-                 model_t_xw="auto",
-                 model_t_xwz="auto",
-                 featurizer=None,
-                 fit_cate_intercept=True,
-                 discrete_treatment=False,
-                 discrete_instrument=False,
-                 categories='auto',
-                 cv=2,
-                 mc_iters=None,
-                 mc_agg='mean',
-                 random_state=None):
-        super().__init__(model_y_xw=model_y_xw,
-                         model_t_xw=model_t_xw,
-                         model_t_xwz=model_t_xwz,
-                         model_final=None,
-                         featurizer=featurizer,
-                         fit_cate_intercept=fit_cate_intercept,
-                         discrete_treatment=discrete_treatment,
-                         discrete_instrument=discrete_instrument,
-                         categories=categories,
-                         cv=cv,
-                         mc_iters=mc_iters,
-                         mc_agg=mc_agg,
-                         random_state=random_state)
-
-    def _gen_model_final(self):
-        return StatsModelsLinearRegression(fit_intercept=False)
-
-    @property
-    def model_final(self):
-        return self._gen_model_final()
-
-    @model_final.setter
-    def model_final(self, model):
-        if model is not None:
-            raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
 
 
 class NonParamDMLIV(_BaseDMLIV):
@@ -1144,16 +1140,25 @@ class NonParamDMLIV(_BaseDMLIV):
 
     Parameters
     ----------
-    model_y_xw : estimator
+    model_y_xw : estimator or 'auto' (default is 'auto')
         model to estimate :math:`\\E[Y | X, W]`. Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t_xw : estimator
+    model_t_xw : estimator or 'auto' (default is 'auto')
         model to estimate :math:`\\E[T | X, W]`. Must support `fit` and either `predict` or `predict_proba` methods,
         depending on whether the treatment is discrete.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_t_xwz : estimator
+    model_t_xwz : estimator or 'auto' (default is 'auto')
         model to estimate :math:`\\E[T | X, W, Z]`. Must support `fit` and either `predict` or `predict_proba`
         methods, depending on whether the treatment is discrete.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
     model_final : estimator
         final model for predicting :math:`\\tilde{Y}` from X with sample weights V(X)
@@ -1276,50 +1281,6 @@ class NonParamDMLIV(_BaseDMLIV):
                                                   False,
                                                   self._gen_featurizer(),
                                                   True))
-
-    # override only so that we can enforce Z to be required
-    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
-        """
-        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
-
-        Parameters
-        ----------
-        Y: (n, d_y) matrix or vector of length n
-            Outcomes for each sample
-        T: (n, d_t) matrix or vector of length n
-            Treatments for each sample
-        Z: (n, d_z) matrix
-            Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
-            Features for each sample
-        W: optional (n, d_w) matrix or None (Default=None)
-            Controls for each sample
-        sample_weight : (n,) array like, default None
-            Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
-            Weight for the observation. Observation i is treated as the mean
-            outcome of freq_weight[i] independent observations.
-            When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
-            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
-            compute the mean outcome represented by observation i.
-        groups: (n,) vector, optional
-            All rows corresponding to the same group will be kept together during splitting.
-            If groups is not None, the `cv` argument passed to this class's initializer
-            must support a 'groups' argument to its split method.
-        cache_values: bool, default False
-            Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
-            Method for performing inference.  This estimator supports 'bootstrap'
-            (or an instance of :class:`.BootstrapInference`)
-        Returns
-        -------
-        self
-        """
-        return super().fit(Y, T, X=X, W=W, Z=Z,
-                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           cache_values=cache_values, inference=inference)
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
         return _shap_explain_model_cate(self.const_marginal_effect, self.model_cate, X, self._d_t, self._d_y,

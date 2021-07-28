@@ -68,7 +68,6 @@ Double Machine Learning (DML) IV
 
     econml.iv.dml.OrthoIV
     econml.iv.dml.DMLIV
-    econml.iv.dml.LinearDMLIV
     econml.iv.dml.NonParamDMLIV
 
 .. _driv_api:

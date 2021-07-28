@@ -8,7 +8,7 @@ from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML
 from econml.dml import NonParamDML, CausalForestDML
 from econml.dr import DRLearner, SparseLinearDRLearner, LinearDRLearner, ForestDRLearner
-from econml.iv.dml import OrthoIV, DMLIV, LinearDMLIV, NonParamDMLIV
+from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr import (LinearDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
@@ -98,10 +98,6 @@ class TestRandomState(unittest.TestCase):
                     model_t_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                     model_z_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                     discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
-            LinearDMLIV(model_y_xw=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
-                        model_t_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                        model_t_xwz=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                        discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
             NonParamDMLIV(model_y_xw=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                           model_t_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                           model_t_xwz=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),

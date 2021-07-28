@@ -6,7 +6,7 @@ import pytest
 from econml.dml import DML, LinearDML, NonParamDML
 from econml.dr import LinearDRLearner
 from econml.iv.dr import LinearDRIV
-from econml.iv.dml import LinearDMLIV
+from econml.iv.dml import DMLIV
 from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
 from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
 from econml.sklearn_extensions.linear_model import WeightedLasso
@@ -985,25 +985,25 @@ class TestStatsModels(unittest.TestCase):
                             cv=Splitter())
 
                         est.fit(y_sum,
-                                X_final[:, -2], X_final[:, -1], X_final[:, :-2],
-                                None, freq_weight=n_sum,
+                                X_final[:, -2], Z=X_final[:, -1], X=X_final[:, :-2],
+                                W=None, freq_weight=n_sum,
                                 sample_var=var_sum,
                                 inference=StatsModelsInference(cov_type=cov_type))
-                        lr.fit(y, X[:, -2], X[:, -1], X[:, :-2], None,
+                        lr.fit(y, X[:, -2], Z=X[:, -1], X=X[:, :-2], W=None,
                                inference=StatsModelsInference(cov_type=cov_type))
                         _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
                         # compare when both sample_var and sample_weight exist
                         est.fit(y_sum,
-                                X_final[:, -2], X_final[:, -1], X_final[:, :-2],
-                                None, sample_weight=w_sum, freq_weight=n_sum,
+                                X_final[:, -2], Z=X_final[:, -1], X=X_final[:, :-2],
+                                W=None, sample_weight=w_sum, freq_weight=n_sum,
                                 sample_var=var_sum,
                                 inference=StatsModelsInference(cov_type=cov_type))
-                        lr.fit(y, X[:, -2], X[:, -1], X[:, :-2], None, sample_weight=w,
+                        lr.fit(y, X[:, -2], Z=X[:, -1], X=X[:, :-2], W=None, sample_weight=w,
                                inference=StatsModelsInference(cov_type=cov_type))
                         _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
-    def test_lineardmliv_sum_vs_original(self):
+    def test_dmliv_sum_vs_original(self):
         """ Testing that the summarized version of DR gives the same results as the non-summarized. """
         np.random.seed(123)
 
@@ -1060,7 +1060,7 @@ class TestStatsModels(unittest.TestCase):
                                                                    max_depth=3,
                                                                    random_state=123)]:
                         model_propensity = LogisticRegression(random_state=123)
-                        est = LinearDMLIV(
+                        est = DMLIV(
                             model_y_xw=model_regression,
                             model_t_xw=model_propensity,
                             model_t_xwz=model_propensity,
@@ -1069,7 +1069,7 @@ class TestStatsModels(unittest.TestCase):
                             fit_cate_intercept=False,
                             cv=SplitterSum())
 
-                        lr = LinearDMLIV(
+                        lr = DMLIV(
                             model_y_xw=model_regression,
                             model_t_xw=model_propensity,
                             model_t_xwz=model_propensity,
@@ -1243,7 +1243,7 @@ class TestStatsModels2SLS(unittest.TestCase):
 
         # StatsModels2SLS
         est = StatsModels2SLS(cov_type="nonrobust")
-        est.fit(Y.ravel(), T, Z)
+        est.fit(Z, T, Y.ravel())
 
         # IV2SLS
         iv2sls = IV2SLS(Y.ravel(), T, Z).fit()

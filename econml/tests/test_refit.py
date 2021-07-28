@@ -7,7 +7,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
 from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, ForestDML)
 from econml.dr import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
-from econml.iv.dml import (OrthoIV, DMLIV, LinearDMLIV, NonParamDMLIV)
+from econml.iv.dml import (OrthoIV, DMLIV, NonParamDMLIV)
 from econml.iv.dr import (LinearDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV)
 from econml.sklearn_extensions.linear_model import (DebiasedLasso, WeightedLasso,
                                                     StatsModelsRLM, StatsModelsLinearRegression)
@@ -232,12 +232,12 @@ class TestRefit(unittest.TestCase):
         assert isinstance(est.model_final, Lasso)
         assert isinstance(est.model_final_, Lasso)
         assert isinstance(est.models_nuisance_[0][0]._prel_model_effect.model_final_, LinearRegression)
-        est.fit(y, T, Z, X=X, W=W, cache_values=True)
+        est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         assert isinstance(est.models_nuisance_[0][0]._prel_model_effect.model_final_, Lasso)
 
         est = LinearIntentToTreatDRIV(model_y_xw=LinearRegression(), model_t_xwz=LogisticRegression(),
                                       flexible_model_effect=LinearRegression())
-        est.fit(y, T, Z, X=X, W=W, cache_values=True)
+        est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         est.fit_cate_intercept = False
         est.intercept_
         est.intercept__interval()
@@ -249,7 +249,7 @@ class TestRefit(unittest.TestCase):
         with pytest.raises(ValueError):
             est.model_final = LinearRegression()
         est.flexible_model_effect = Lasso()
-        est.fit(y, T, Z, X=X, W=W, cache_values=True)
+        est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
         assert isinstance(est.models_nuisance_[0][0]._prel_model_effect.model_final_, Lasso)
 
     def test_can_set_discrete_treatment(self):

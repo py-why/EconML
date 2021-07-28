@@ -121,7 +121,7 @@ class TestDRIV(unittest.TestCase):
                                         # ensure we can serialize unfit estimator
                                         pickle.dumps(est)
 
-                                        est.fit(y, T, Z, X=X, W=W)
+                                        est.fit(y, T, Z=Z, X=X, W=W)
 
                                         # ensure we can serialize fit estimator
                                         pickle.dumps(est)
@@ -149,7 +149,7 @@ class TestDRIV(unittest.TestCase):
                                         self.assertEqual(shape(eff_int), (2,) + effect_shape)
 
                                         # test can run score
-                                        est.score(y, T, Z, X=X, W=W)
+                                        est.score(y, T, Z=Z, X=X, W=W)
 
                                         if X is not None:
                                             # test cate_feature_names
@@ -203,7 +203,7 @@ class TestDRIV(unittest.TestCase):
         y, T, Z, X = dgp(n, p, true_fn)
         for est in ests_list:
             with self.subTest(est=est):
-                est.fit(y, T, Z, X=None, W=X, inference="auto")
+                est.fit(y, T, Z=Z, X=None, W=X, inference="auto")
                 ate_lb, ate_ub = est.ate_interval()
                 np.testing.assert_array_less(ate_lb, true_ate)
                 np.testing.assert_array_less(true_ate, ate_ub)
@@ -216,7 +216,7 @@ class TestDRIV(unittest.TestCase):
         y, T, Z, X = dgp(n, p, true_fn)
         for est in ests_list:
             with self.subTest(est=est):
-                est.fit(y, T, Z, X=X[:, [0]], W=X[:, 1:], inference="auto")
+                est.fit(y, T, Z=Z, X=X[:, [0]], W=X[:, 1:], inference="auto")
                 coef_lb, coef_ub = est.coef__interval()
                 intercept_lb, intercept_ub = est.intercept__interval(alpha=0.05)
                 np.testing.assert_array_less(coef_lb, true_coef)

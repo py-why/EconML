@@ -7,7 +7,7 @@ import unittest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, ForestDML)
 from econml.dr import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
-from econml.iv.dml import OrthoIV, DMLIV, LinearDMLIV, NonParamDMLIV
+from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 
@@ -72,10 +72,6 @@ class TestMonteCarlo(unittest.TestCase):
                           model_t_xw=LinearRegression(),
                           model_t_xwz=LinearRegression(),
                           model_final=LinearRegression(), mc_iters=2, mc_agg='median'),
-                    LinearDMLIV(model_y_xw=LinearRegression(),
-                                model_t_xw=LinearRegression(),
-                                model_t_xwz=LinearRegression(),
-                                mc_iters=2, mc_agg='median'),
                     NonParamDMLIV(model_y_xw=LinearRegression(),
                                   model_t_xw=LinearRegression(),
                                   model_t_xwz=LinearRegression(),

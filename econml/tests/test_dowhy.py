@@ -8,7 +8,7 @@ from econml.dml import LinearDML, CausalForestDML
 from econml.orf import DROrthoForest
 from econml.dr import DRLearner, ForestDRLearner, LinearDRLearner
 from econml.metalearners import XLearner
-from econml.iv.dml import OrthoIV, LinearDMLIV
+from econml.iv.dml import OrthoIV, DMLIV
 from econml.iv.dr import LinearDRIV
 from econml.iv.dr._dr import _DummyCATE
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
@@ -45,9 +45,9 @@ class TestDowhy(unittest.TestCase):
                                      model_z_xw=reg(),
                                      discrete_treatment=True,
                                      discrete_instrument=False),
-                  "dmliv": LinearDMLIV(fit_cate_intercept=True,
-                                       discrete_treatment=True,
-                                       discrete_instrument=False),
+                  "dmliv": DMLIV(fit_cate_intercept=True,
+                                 discrete_treatment=True,
+                                 discrete_instrument=False),
                   "driv": LinearDRIV(prel_model_effect=_DummyCATE(),
                                      fit_cate_intercept=True,
                                      discrete_instrument=False,

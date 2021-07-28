@@ -12,7 +12,7 @@ from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from econml.utilities import shape
-from econml.iv.dml import OrthoIV, DMLIV, LinearDMLIV, NonParamDMLIV
+from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 
 
 class TestDMLIV(unittest.TestCase):
@@ -73,11 +73,6 @@ class TestDMLIV(unittest.TestCase):
                                     ),
                                     DMLIV(
                                         model_final=LinearRegression(fit_intercept=False),
-                                        featurizer=featurizer,
-                                        discrete_treatment=binary_T,
-                                        discrete_instrument=binary_Z,
-                                    ),
-                                    LinearDMLIV(
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,

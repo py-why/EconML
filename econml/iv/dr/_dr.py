@@ -96,7 +96,7 @@ class _BaseDRIVModelNuisance:
             Z = inverse_onehot(Z)
         if self._discrete_treatment:
             T = inverse_onehot(T)
-        self._prel_model_effect.fit(Y, T, Z, X=X,
+        self._prel_model_effect.fit(Y, T, Z=Z, X=X,
                                     W=W, sample_weight=sample_weight, groups=groups)
         return self
 
@@ -116,7 +116,7 @@ class _BaseDRIVModelNuisance:
             raw_T = inverse_onehot(T) if self._discrete_treatment else T
             raw_Z = inverse_onehot(Z) if self._discrete_instrument else Z
             effect_score = self._prel_model_effect.score(Y, raw_T,
-                                                         raw_Z, X=X, W=W, sample_weight=sample_weight)
+                                                         Z=raw_Z, X=X, W=W, sample_weight=sample_weight)
         else:
             effect_score = None
 
@@ -208,17 +208,6 @@ class _BaseDRIVModelNuisance:
 
 
 class _BaseDRIVModelFinal:
-    """
-    Final model at fit time, fits a residual on residual regression with a heterogeneous coefficient
-    that depends on X, i.e.
-
-        .. math ::
-            Y - \\E[Y | X] = \\theta(X) \\cdot (\\E[T | X, Z] - \\E[T | X]) + \\epsilon
-
-    and at predict time returns :math:`\\theta(X)`. The score method returns the MSE of this final
-    residual on residual regression.
-    """
-
     def __init__(self, model_final, featurizer, fit_cate_intercept, cov_clip, opt_reweighted):
         self._model_final = clone(model_final, safe=False)
         self._original_featurizer = clone(featurizer, safe=False)
@@ -304,7 +293,7 @@ class _BaseDRIV(_OrthoLearner):
                  model_final,
                  featurizer=None,
                  fit_cate_intercept=False,
-                 cov_clip=0.1,
+                 cov_clip=1e-3,
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
@@ -358,9 +347,7 @@ class _BaseDRIV(_OrthoLearner):
                 raise AttributeError("DRIV only supports single-dimensional continuous instruments")
         return Y, T, Z, X, W
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference="auto"):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -518,6 +505,22 @@ class _BaseDRIV(_OrthoLearner):
                                         background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
+    @property
+    def residuals_(self):
+        """
+        A tuple (prel_theta, Y_res, T_res, Z_res, cov, X, W, Z), of the residuals from the first stage estimation
+        along with the associated X, W and Z. Samples are not guaranteed to be in the same
+        order as the input order.
+        """
+        if not hasattr(self, '_cached_values'):
+            raise AttributeError("Estimator is not fitted yet!")
+        if self._cached_values is None:
+            raise AttributeError("`fit` was called with `cache_values=False`. "
+                                 "Set to `True` to enable residual storage.")
+        prel_theta, Y_res, T_res, Z_res, cov = self._cached_values.nuisances
+        return (prel_theta, Y_res, T_res, Z_res, cov, self._cached_values.X, self._cached_values.W,
+                self._cached_values.Z)
+
 
 class DRIV(_BaseDRIV):
     """
@@ -526,20 +529,37 @@ class DRIV(_BaseDRIV):
 
     Parameters
     ----------
-    model_y_xw : estimator
-        model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods
+    model_y_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t_xw : estimator
-        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
+    model_t_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_z_xw : estimator
-        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
+    model_z_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument.
 
-    model_t_xwz : estimator
-        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+    model_t_xwz : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_tz_xw : estimator
-        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
+    model_tz_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument and discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument or continuous treatment.
 
     prel_model_effect : estimator
         model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
@@ -555,6 +575,9 @@ class DRIV(_BaseDRIV):
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default False
+        Whether the linear CATE model should have a constant term.
 
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
@@ -618,7 +641,7 @@ class DRIV(_BaseDRIV):
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=False,
-                 cov_clip=0.1,
+                 cov_clip=1e-3,
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
@@ -720,9 +743,7 @@ class DRIV(_BaseDRIV):
                                                              False, self.discrete_instrument),
                                           self.projection, self.discrete_treatment, self.discrete_instrument)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference="auto"):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -765,10 +786,10 @@ class DRIV(_BaseDRIV):
         """
         if self.projection:
             assert self.model_z_xw == "auto", ("In the case of projection=True, model_z_xw will not be fitted, "
-                                               "please leave it when initializing the estimator!")
+                                               "please keep it as default!")
         else:
             assert self.model_t_xwz == "auto", ("In the case of projection=False, model_t_xwz will not be fitted, "
-                                                "please leave it when initializing the estimator!")
+                                                "please keep it as default!")
         return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
@@ -910,25 +931,45 @@ class DRIV(_BaseDRIV):
 
 class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     """
-    The DRIV algorithm for estimating CATE with IVs. It is the parent of the
-    public classes {LinearDRIV, SparseLinearDRIV,ForestDRIV}
+    Special case of the :class:`.DRIV` where the final stage
+    is a Linear Regression. In this case, inference can be performed via the StatsModels Inference approach
+    and its asymptotic normal characterization of the estimated parameters. This is computationally
+    faster than bootstrap inference. Leave the default ``inference='auto'`` unchanged, or explicitly set
+    ``inference='statsmodels'`` at fit time to enable inference via asymptotic normality.
 
     Parameters
     ----------
-    model_y_xw : estimator
+    model_y_xw : estimator or 'auto' (default is 'auto')
         model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t_xw : estimator
-        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
+    model_t_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_z_xw : estimator
-        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
+    model_z_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument.
 
-    model_t_xwz : estimator
-        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+    model_t_xwz : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_tz_xw : estimator
-        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
+    model_tz_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument and discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument or continuous treatment.
 
     prel_model_effect : estimator
         model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
@@ -1006,7 +1047,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=True,
-                 cov_clip=0.1,
+                 cov_clip=1e-3,
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
@@ -1038,9 +1079,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1114,20 +1153,37 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
 
     Parameters
     ----------
-    model_y_xw : estimator
+    model_y_xw : estimator or 'auto' (default is 'auto')
         model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t_xw : estimator
-        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
+    model_t_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_z_xw : estimator
-        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
+    model_z_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument.
 
-    model_t_xwz : estimator
-        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+    model_t_xwz : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_tz_xw : estimator
-        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
+    model_tz_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument and discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument or continuous treatment.
 
     prel_model_effect : estimator
         model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
@@ -1242,7 +1298,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  max_iter=1000,
                  tol=1e-4,
                  n_jobs=None,
-                 cov_clip=0.1,
+                 cov_clip=1e-3,
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
@@ -1289,9 +1345,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                              n_jobs=self.n_jobs,
                              random_state=self.random_state)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1359,20 +1413,37 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
 
     Parameters
     ----------
-    model_y_xw : estimator
+    model_y_xw : estimator or 'auto' (default is 'auto')
         model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t_xw : estimator
-        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods
+    model_t_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_z_xw : estimator
-        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods
+    model_z_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument.
 
-    model_t_xwz : estimator
-        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods
+    model_t_xwz : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous treatment.
 
-    model_tz_xw : estimator
-        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods
+    model_tz_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete instrument and discrete treatment,
+        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
+        will be applied for continuous instrument or continuous treatment.
 
     prel_model_effect : estimator
         model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
@@ -1564,7 +1635,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  subforest_size=4,
                  n_jobs=-1,
                  verbose=0,
-                 cov_clip=0.1,
+                 cov_clip=1e-3,
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
@@ -1624,9 +1695,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                                 verbose=self.verbose,
                                 warm_start=False)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1679,11 +1748,6 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
 
 
 class _IntentToTreatDRIVModelNuisance:
-    """
-    Nuisance model fits the three models at fit time and at predict time
-    returns :math:`Y-\\E[Y|X]` and :math:`\\E[T|X,Z]-\\E[T|X]` as residuals.
-    """
-
     def __init__(self, model_y_xw, model_t_xwz, dummy_z, prel_model_effect):
         self._model_y_xw = clone(model_y_xw, safe=False)
         self._model_t_xwz = clone(model_t_xwz, safe=False)
@@ -1704,7 +1768,7 @@ class _IntentToTreatDRIVModelNuisance:
         self._dummy_z.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         # we need to undo the one-hot encoding for calling effect,
         # since it expects raw values
-        self._prel_model_effect.fit(Y, inverse_onehot(T), inverse_onehot(Z), X=X, W=W,
+        self._prel_model_effect.fit(Y, inverse_onehot(T), Z=inverse_onehot(Z), X=X, W=W,
                                     sample_weight=sample_weight, groups=groups)
         return self
 
@@ -1792,7 +1856,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  z_propensity="auto",
                  featurizer=None,
                  fit_cate_intercept=False,
-                 cov_clip=.1,
+                 cov_clip=1e-3,
                  opt_reweighted=False,
                  categories='auto',
                  cv=3,
@@ -1804,7 +1868,6 @@ class _IntentToTreatDRIV(_BaseDRIV):
         self.prel_model_effect = clone(prel_model_effect, safe=False)
         self.z_propensity = z_propensity
 
-        # TODO: check that Y, T, Z do not have multiple columns
         super().__init__(model_final=model_final,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
@@ -1858,7 +1921,7 @@ class _DummyCATE:
     def __init__(self):
         return
 
-    def fit(self, y, T, Z, *, X, W=None, sample_weight=None, groups=None, **kwargs):
+    def fit(self, y, T, *, Z, X=None, W=None, sample_weight=None, groups=None, **kwargs):
         return self
 
     def effect(self, X):
@@ -1873,11 +1936,14 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     Parameters
     ----------
-    model_y_xw : estimator
-        model to estimate :math:`\\E[Y | X]`.  Must support `fit` and `predict` methods.
+    model_y_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t_xwz : estimator
-        model to estimate :math:`\\E[T | X, Z]`.  Must support `fit` and `predict_proba` methods.
+    model_t_xwz : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict_proba` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment.
 
     flexible_model_effect : estimator
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
@@ -1886,13 +1952,17 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
 
     z_propensity: float or "auto", optional, default "auto"
-        The ratio of the A/B test in treatment group. If "auto", It's calculated from 0/1 ratio in Z; If input a ratio,
-        it has to be a float between 0 to 1.
+        The ratio of the A/B test in treatment group. If "auto", we assume that the instrument is fully randomized
+        and independent of any other variables. It's calculated as the proportion of Z=1 in the overall population;
+        If input a ratio, it has to be a float between 0 to 1.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
+
+    fit_cate_intercept : bool, optional, default False
+        Whether the linear CATE model should have a constant term.
 
     cov_clip : float, optional, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
@@ -1948,7 +2018,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  z_propensity="auto",
                  featurizer=None,
                  fit_cate_intercept=False,
-                 cov_clip=.1,
+                 cov_clip=1e-3,
                  cv=3,
                  mc_iters=None,
                  mc_agg='mean',
@@ -2069,18 +2139,23 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
 
     Parameters
     ----------
-    model_y_xw : estimator
-        model to estimate :math:`\\E[Y | X]`.  Must support `fit` and `predict` methods.
+    model_y_xw : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[Y | X, W]`.  Must support `fit` and `predict` methods.
+        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t_xwz : estimator
-        model to estimate :math:`\\E[T | X, Z]`.  Must support `fit` and `predict_proba` methods.
+
+    model_t_xwz : estimator or 'auto' (default is 'auto')
+        model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict_proba` methods.
+        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
+        will be applied for discrete treatment.
 
     flexible_model_effect : estimator
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
     z_propensity: float or "auto", optional, default "auto"
-        The ratio of the A/B test in treatment group. If "auto", It's calculated from 0/1 ratio in Z; If input a ratio,
-        it has to be a float between 0 to 1.
+        The ratio of the A/B test in treatment group. If "auto", we assume that the instrument is fully randomized
+        and independent of any other variables. It's calculated as the proportion of Z=1 in the overall population;
+        If input a ratio, it has to be a float between 0 to 1.
 
     featurizer : :term:`transformer`, optional, default None
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -2143,7 +2218,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  z_propensity="auto",
                  featurizer=None,
                  fit_cate_intercept=True,
-                 cov_clip=.1,
+                 cov_clip=1e-3,
                  cv=3,
                  mc_iters=None,
                  mc_agg='mean',
@@ -2169,9 +2244,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         return StatsModelsLinearRegression(fit_intercept=False)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, Z, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
