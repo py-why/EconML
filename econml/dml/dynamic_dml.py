@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+# TODO: add paper reference
+
 import abc
 import numpy as np
 from warnings import warn
@@ -39,19 +41,18 @@ class _DynamicModelNuisance:
             "Length of training data should be an integer multiple of time periods."
         inds_train = np.arange(Y.shape[0])[np.arange(Y.shape[0]) % self.n_periods == 0]
         self._model_y_trained = {}
-        self._model_t_trained = {}
-        for kappa in np.arange(self.n_periods):
-            self._model_y_trained[kappa] = clone(self._model_y, safe=False).fit(
-                self._filter_or_None(X, inds_train + kappa),
+        self._model_t_trained = {j: {} for j in np.arange(self.n_periods)}
+        for t in np.arange(self.n_periods):
+            self._model_y_trained[t] = clone(self._model_y, safe=False).fit(
+                self._filter_or_None(X, inds_train + t),
                 self._filter_or_None(
-                    W, inds_train + kappa),
+                    W, inds_train + t),
                 Y[inds_train + self.n_periods - 1])
-            self._model_t_trained[kappa] = {}
-            for tau in np.arange(kappa, self.n_periods):
-                self._model_t_trained[kappa][tau] = clone(self._model_t, safe=False).fit(
-                    self._filter_or_None(X, inds_train + kappa),
-                    self._filter_or_None(W, inds_train + kappa),
-                    T[inds_train + tau])
+            for j in np.arange(t, self.n_periods):
+                self._model_t_trained[j][t] = clone(self._model_t, safe=False).fit(
+                    self._filter_or_None(X, inds_train + t),
+                    self._filter_or_None(W, inds_train + t),
+                    T[inds_train + j])
         return self
 
     def predict(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
@@ -63,31 +64,32 @@ class _DynamicModelNuisance:
             Y residuals for each period in panel format.
             This shape is required for _OrthoLearner's crossfitting.
         T_res : (n, d_t, n_periods) matrix
-            T residuals for pairs of periods (kappa, tau), where the data is in panel format for kappa
-            and in index form for tau. For example, the residuals for (kappa, tau) can be retrieved via
-            T_res[np.arange(n) % n_periods == kappa, ..., tau]. For tau < kappa, the entries of this
+            T residuals for pairs of periods (t, j), where the data is in panel format for t
+            and in index form for j. For example, the residuals for (t, j) can be retrieved via
+            T_res[np.arange(n) % n_periods == t, ..., j]. For t < j, the entries of this
             matrix are np.nan.
             This shape is required for _OrthoLearner's crossfitting.
         """
+        # TODO: update T_res docstring
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
         inds_predict = np.arange(Y.shape[0])[np.arange(Y.shape[0]) % self.n_periods == 0]
         Y_res = np.full(Y.shape, np.nan)
         T_res = np.full(T.shape + (self.n_periods, ), np.nan)
         shape_formatter = self._get_shape_formatter(X, W)
-        for kappa in np.arange(self.n_periods):
+        for t in np.arange(self.n_periods):
             Y_slice = Y[inds_predict + self.n_periods - 1]
-            Y_pred = self._model_y_trained[kappa].predict(
-                self._filter_or_None(X, inds_predict + kappa),
-                self._filter_or_None(W, inds_predict + kappa))
-            Y_res[np.arange(Y.shape[0]) % self.n_periods == kappa] = Y_slice\
+            Y_pred = self._model_y_trained[t].predict(
+                self._filter_or_None(X, inds_predict + t),
+                self._filter_or_None(W, inds_predict + t))
+            Y_res[np.arange(Y.shape[0]) % self.n_periods == t] = Y_slice\
                 - shape_formatter(Y_slice, Y_pred).reshape(Y_slice.shape)
-            for tau in np.arange(kappa, self.n_periods):
-                T_slice = T[inds_predict + tau]
-                T_pred = self._model_t_trained[kappa][tau].predict(
-                    self._filter_or_None(X, inds_predict + kappa),
-                    self._filter_or_None(W, inds_predict + kappa))
-                T_res[np.arange(Y.shape[0]) % self.n_periods == kappa, ..., tau] = T_slice\
+            for j in np.arange(t, self.n_periods):
+                T_slice = T[inds_predict + j]
+                T_pred = self._model_t_trained[j][t].predict(
+                    self._filter_or_None(X, inds_predict + t),
+                    self._filter_or_None(W, inds_predict + t))
+                T_res[np.arange(Y.shape[0]) % self.n_periods == j, ..., t] = T_slice\
                     - shape_formatter(T_slice, T_pred).reshape(T_slice.shape)
         return Y_res, T_res
 
@@ -97,21 +99,21 @@ class _DynamicModelNuisance:
         inds_score = np.arange(Y.shape[0])[np.arange(Y.shape[0]) % self.n_periods == 0]
         if hasattr(self._model_y, 'score'):
             Y_score = np.full((self.n_periods, ), np.nan)
-            for kappa in np.arange(self.n_periods):
-                Y_score[kappa] = self._model_y_trained[kappa].score(
-                    self._filter_or_None(X, inds_score + kappa),
-                    self._filter_or_None(W, inds_score + kappa),
+            for t in np.arange(self.n_periods):
+                Y_score[t] = self._model_y_trained[t].score(
+                    self._filter_or_None(X, inds_score + t),
+                    self._filter_or_None(W, inds_score + t),
                     Y[inds_score + self.n_periods - 1])
         else:
             Y_score = None
         if hasattr(self._model_t, 'score'):
             T_score = np.full((self.n_periods, self.n_periods), np.nan)
-            for kappa in np.arange(self.n_periods):
-                for tau in np.arange(kappa, self.n_periods):
-                    T_score[kappa][tau] = self._model_t_trained[kappa][tau].score(
-                        self._filter_or_None(X, inds_score + kappa),
-                        self._filter_or_None(W, inds_score + kappa),
-                        T[inds_score + tau])
+            for t in np.arange(self.n_periods):
+                for j in np.arange(t, self.n_periods):
+                    T_score[j][t] = self._model_t_trained[j][t].score(
+                        self._filter_or_None(X, inds_score + t),
+                        self._filter_or_None(W, inds_score + t),
+                        T[inds_score + j])
         else:
             T_score = None
         return Y_score, T_score
@@ -148,17 +150,17 @@ class _DynamicModelFinal:
         # NOTE: sample weight, sample var are not passed in
         Y_res, T_res = nuisances
         self._d_y = Y.shape[1:]
-        for kappa in np.arange(self.n_periods):
-            period = self.n_periods - 1 - kappa
+        for t in np.arange(self.n_periods):
+            period = self.n_periods - 1 - t
             period_filter = self.period_filter_gen(period, Y.shape[0])
             Y_adj = Y_res[period_filter].copy()
-            if kappa > 0:
+            if t > 0:
                 Y_adj -= np.sum(
-                    [self._model_final_trained[tau].predict_with_res(
-                        X[self.period_filter_gen(self.n_periods - 1 - tau, Y.shape[0])] if X is not None else None,
-                        T_res[period_filter, ..., self.n_periods - 1 - tau]
-                    ) for tau in np.arange(kappa)], axis=0)
-            self._model_final_trained[kappa].fit(
+                    [self._model_final_trained[j].predict_with_res(
+                        X[self.period_filter_gen(self.n_periods - 1 - j, Y.shape[0])] if X is not None else None,
+                        T_res[self.period_filter_gen(self.n_periods - 1 - j, Y.shape[0]), ..., period]
+                    ) for j in np.arange(t)], axis=0)
+            self._model_final_trained[t].fit(
                 X[period_filter] if X is not None else None, T[period_filter],
                 T_res[period_filter, ..., period], Y_adj)
 
@@ -176,9 +178,9 @@ class _DynamicModelFinal:
             x_dy_shape +
             (self.n_periods * d_t, )
         )
-        for kappa in range(self.n_periods):
-            preds[..., kappa * d_t: (kappa + 1) * d_t] = \
-                self._model_final_trained[kappa].predict(X).reshape(
+        for t in range(self.n_periods):
+            preds[..., t * d_t: (t + 1) * d_t] = \
+                self._model_final_trained[t].predict(X).reshape(
                 x_dy_shape + (d_t, )
             )
         return preds
@@ -189,23 +191,23 @@ class _DynamicModelFinal:
         Y_res, T_res = nuisances
 
         scores = np.full((self.n_periods, ), np.nan)
-        for kappa in np.arange(self.n_periods):
-            period = self.n_periods - 1 - kappa
+        for t in np.arange(self.n_periods):
+            period = self.n_periods - 1 - t
             period_filter = self.period_filter_gen(period, Y.shape[0])
             Y_adj = Y_res[period_filter].copy()
-            if kappa > 0:
+            if t > 0:
                 Y_adj -= np.sum(
-                    [self._model_final_trained[tau].predict_with_res(
-                        X[self.period_filter_gen(self.n_periods - 1 - tau, Y.shape[0])] if X is not None else None,
-                        T_res[period_filter, ..., self.n_periods - 1 - tau]
-                    ) for tau in np.arange(kappa)], axis=0)
-            Y_adj_pred = self._model_final_trained[kappa].predict_with_res(
+                    [self._model_final_trained[j].predict_with_res(
+                        X[self.period_filter_gen(self.n_periods - 1 - j, Y.shape[0])] if X is not None else None,
+                        T_res[self.period_filter_gen(self.n_periods - 1 - j, Y.shape[0]), ..., period]
+                    ) for j in np.arange(t)], axis=0)
+            Y_adj_pred = self._model_final_trained[t].predict_with_res(
                 X[period_filter] if X is not None else None,
                 T_res[period_filter, ..., period])
             if sample_weight is not None:
-                scores[kappa] = np.mean(np.average((Y_adj - Y_adj_pred)**2, weights=sample_weight, axis=0))
+                scores[t] = np.mean(np.average((Y_adj - Y_adj_pred)**2, weights=sample_weight, axis=0))
             else:
-                scores[kappa] = np.mean((Y_adj - Y_adj_pred) ** 2)
+                scores[t] = np.mean((Y_adj - Y_adj_pred) ** 2)
         return scores
 
     def period_filter_gen(self, p, n):
@@ -233,7 +235,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         self.model_final_._param = coef.T if self.model_final_._n_out else coef
 
     def _get_coef_(self):
-        period_coefs = np.array([self._model_final_trained[kappa]._model.coef_ for kappa in range(self.n_periods)])
+        period_coefs = np.array([self._model_final_trained[t]._model.coef_ for t in range(self.n_periods)])
         if self._d_y:
             return np.array([
                 np.array([period_coefs[k, i, :] for k in range(self.n_periods)]).flatten()
@@ -256,49 +258,48 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         XT_res = np.array([
             [
                 self._model_final_trained[0]._combine(
-                    X[self.period_filter_gen(tau, Y_res.shape[0])] if X is not None else None,
-                    T_res[self.period_filter_gen(kappa, Y_res.shape[0]), ..., tau],
+                    X[self.period_filter_gen(j, Y_res.shape[0])] if X is not None else None,
+                    T_res[self.period_filter_gen(t, Y_res.shape[0]), ..., j],
                     fitting=False
                 )
-                for tau in range(self.n_periods)
+                for j in range(self.n_periods)
             ]
-            for kappa in range(self.n_periods)
+            for t in range(self.n_periods)
         ])
         d_xt = XT_res.shape[-1]
-        M = np.zeros((self.n_periods * d_xt,
+        J = np.zeros((self.n_periods * d_xt,
                       self.n_periods * d_xt))
         Sigma = np.zeros((self.n_periods * d_xt,
                           self.n_periods * d_xt))
-        self._res_epsilon = {}
-        for kappa in np.arange(self.n_periods):
-            # Calculating the (kappa, kappa) block entry (of size n_treatments x n_treatments) of matrix Sigma
-            period = self.n_periods - 1 - kappa
+        for t in np.arange(self.n_periods):
+            # Calculating the (t, t) block entry (of size n_treatments x n_treatments) of matrix Sigma
+            period = self.n_periods - 1 - t
             period_filter = self.period_filter_gen(period, Y_res.shape[0])
             Y_diff = np.sum([
-                self._model_final_trained[tau].predict_with_res(
-                    X[self.period_filter_gen(self.n_periods - 1 - tau,
+                self._model_final_trained[j].predict_with_res(
+                    X[self.period_filter_gen(self.n_periods - 1 - j,
                                              Y_res.shape[0])] if X is not None else None,
-                    T_res[period_filter, ..., self.n_periods - 1 - tau])
-                for tau in np.arange(kappa + 1)
+                    T_res[self.period_filter_gen(self.n_periods - 1 - j,
+                                                 Y_res.shape[0]), ..., period]
+                )
+                for j in np.arange(t + 1)
             ], axis=0)
             res_epsilon = (Y_res[period_filter] -
                            (Y_diff[:, y_index] if y_index >= 0 else Y_diff)
                            ).reshape(-1, 1, 1)
-            self._res_epsilon[period] = res_epsilon.flatten()
             cur_resT = XT_res[period][period]
             cov_cur_resT = cur_resT.reshape(-1, d_xt, 1) @ cur_resT.reshape(-1, 1, d_xt)
-            sigma_kappa = np.mean((res_epsilon**2) * cov_cur_resT, axis=0)
-            Sigma[kappa * d_xt:(kappa + 1) * d_xt,
-                  kappa * d_xt:(kappa + 1) * d_xt] = sigma_kappa
-            for tau in np.arange(kappa + 1):
-                # Calculating the (kappa, tau) block entry (of size n_treatments x n_treatments) of matrix M
-                m_kappa_tau = np.mean(
-                    XT_res[period][self.n_periods - 1 - tau].reshape(-1, d_xt, 1) @ cur_resT.reshape(-1, 1, d_xt),
+            sigma_t = np.mean((res_epsilon**2) * cov_cur_resT, axis=0)
+            Sigma[t * d_xt:(t + 1) * d_xt,
+                  t * d_xt:(t + 1) * d_xt] = sigma_t
+            for j in np.arange(t + 1):
+                # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix J
+                m_t_j = np.mean(
+                    XT_res[self.n_periods - 1 - j][period].reshape(-1, d_xt, 1) @ cur_resT.reshape(-1, 1, d_xt),
                     axis=0)
-                M[kappa * d_xt:(kappa + 1) * d_xt,
-                  tau * d_xt:(tau + 1) * d_xt] = m_kappa_tau
-            self._M = M
-        return np.linalg.inv(M) @ Sigma @ np.linalg.inv(M).T
+                J[t * d_xt:(t + 1) * d_xt,
+                  j * d_xt:(j + 1) * d_xt] = m_t_j
+        return np.linalg.inv(J) @ Sigma @ np.linalg.inv(J).T
 
 
 class _DynamicFinalWrapper(_FinalWrapper):
@@ -668,7 +669,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                 if self.transformer:
                     T = np.hstack([
                         base_expand_treatments(
-                            X, T[:, [kappa]])[1] for kappa in range(self._n_periods)
+                            X, T[:, [t]])[1] for t in range(self._n_periods)
                     ])
             outTs.append(T)
         return (X,) + tuple(outTs)
