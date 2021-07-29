@@ -255,6 +255,8 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
             x (n_periods*n_treatments) matrix for a single outcome.
         """
         Y_res, T_res = nuisances
+        # Calculate auxiliary quantities
+        # X ⨂ T_res
         XT_res = np.array([
             [
                 self._model_final_trained[0]._combine(
@@ -267,38 +269,49 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
             for t in range(self.n_periods)
         ])
         d_xt = XT_res.shape[-1]
+        # sum(model_final.predict(X, T_res))
+        Y_diff = np.array([
+            np.sum([
+                self._model_final_trained[j].predict_with_res(
+                    X[self.period_filter_gen(self.n_periods - 1 - j,
+                                             Y_res.shape[0])] if X is not None else None,
+                    T_res[
+                        self.period_filter_gen(self.n_periods - 1 - j, Y_res.shape[0]), ..., self.n_periods - 1 - t]
+                ) for j in np.arange(t + 1)],
+                axis=0
+            )
+            for t in np.arange(self.n_periods)
+        ])
         J = np.zeros((self.n_periods * d_xt,
                       self.n_periods * d_xt))
         Sigma = np.zeros((self.n_periods * d_xt,
                           self.n_periods * d_xt))
         for t in np.arange(self.n_periods):
-            # Calculating the (t, t) block entry (of size n_treatments x n_treatments) of matrix Sigma
-            period = self.n_periods - 1 - t
-            period_filter = self.period_filter_gen(period, Y_res.shape[0])
-            Y_diff = np.sum([
-                self._model_final_trained[j].predict_with_res(
-                    X[self.period_filter_gen(self.n_periods - 1 - j,
-                                             Y_res.shape[0])] if X is not None else None,
-                    T_res[self.period_filter_gen(self.n_periods - 1 - j,
-                                                 Y_res.shape[0]), ..., period]
-                )
-                for j in np.arange(t + 1)
-            ], axis=0)
-            res_epsilon = (Y_res[period_filter] -
-                           (Y_diff[:, y_index] if y_index >= 0 else Y_diff)
-                           ).reshape(-1, 1, 1)
-            cur_resT = XT_res[period][period]
-            cov_cur_resT = cur_resT.reshape(-1, d_xt, 1) @ cur_resT.reshape(-1, 1, d_xt)
-            sigma_t = np.mean((res_epsilon**2) * cov_cur_resT, axis=0)
-            Sigma[t * d_xt:(t + 1) * d_xt,
-                  t * d_xt:(t + 1) * d_xt] = sigma_t
-            for j in np.arange(t + 1):
-                # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix J
-                m_t_j = np.mean(
-                    XT_res[self.n_periods - 1 - j][period].reshape(-1, d_xt, 1) @ cur_resT.reshape(-1, 1, d_xt),
-                    axis=0)
-                J[t * d_xt:(t + 1) * d_xt,
-                  j * d_xt:(j + 1) * d_xt] = m_t_j
+            period_t = self.n_periods - 1 - t
+            period_filter_t = self.period_filter_gen(period_t, Y_res.shape[0])
+            res_epsilon_t = (Y_res[period_filter_t] -
+                             (Y_diff[t][:, y_index] if y_index >= 0 else Y_diff[t])
+                             ).reshape(-1, 1, 1)
+            resT_t = XT_res[period_t][period_t]
+            for j in np.arange(self.n_periods):
+                # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix Sigma
+                period_j = self.n_periods - 1 - j
+                period_filter_j = self.period_filter_gen(period_j, Y_res.shape[0])
+                res_epsilon_j = (Y_res[period_filter_j] -
+                                 (Y_diff[j][:, y_index] if y_index >= 0 else Y_diff[j])
+                                 ).reshape(-1, 1, 1)
+                resT_j = XT_res[period_j][period_j]
+                cov_resT_tj = resT_t.reshape(-1, d_xt, 1) @ resT_j.reshape(-1, 1, d_xt)
+                sigma_tj = np.mean((res_epsilon_t * res_epsilon_j) * cov_resT_tj, axis=0)
+                Sigma[t * d_xt:(t + 1) * d_xt,
+                      j * d_xt:(j + 1) * d_xt] = sigma_tj
+                if j <= t:
+                    # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix J
+                    m_tj = np.mean(
+                        XT_res[period_j][period_t].reshape(-1, d_xt, 1) @ resT_t.reshape(-1, 1, d_xt),
+                        axis=0)
+                    J[t * d_xt:(t + 1) * d_xt,
+                      j * d_xt:(j + 1) * d_xt] = m_tj
         return np.linalg.inv(J) @ Sigma @ np.linalg.inv(J).T
 
 
