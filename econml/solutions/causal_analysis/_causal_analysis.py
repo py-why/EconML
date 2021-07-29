@@ -244,10 +244,11 @@ def _sanitize(obj):
 # Convert SingleTreeInterpreter to a python dictionary
 def _tree_interpreter_to_dict(interp, features, leaf_data=lambda t, n: {}):
     tree = interp.tree_model_.tree_
+    node_dict = interp.node_dict_
 
     def recurse(node_id):
         if tree.children_left[node_id] == _tree.TREE_LEAF:
-            return {'leaf': True, 'n_samples': tree.n_node_samples[node_id], **leaf_data(tree, node_id)}
+            return {'leaf': True, 'n_samples': tree.n_node_samples[node_id], **leaf_data(tree, node_id, node_dict)}
         else:
             return {'leaf': False, 'feature': features[tree.feature[node_id]], 'threshold': tree.threshold[node_id],
                     'left': recurse(tree.children_left[node_id]),
@@ -1418,7 +1419,7 @@ class CausalAnalysis:
                                                    min_impurity_decrease=min_value_increase,
                                                    alpha=alpha)
 
-        def policy_data(tree, node_id):
+        def policy_data(tree, node_id, node_dict):
             return {'treatment': treatment_names[np.argmax(tree.value[node_id])]}
         return _PolicyOutput(_tree_interpreter_to_dict(intrp, feature_names, policy_data),
                              policy_val,
@@ -1466,7 +1467,7 @@ class CausalAnalysis:
 
     def _heterogeneity_tree_output(self, Xtest, feature_index, *,
                                    max_depth=3, min_samples_leaf=2, min_impurity_decrease=1e-4,
-                                   alpha=.1):
+                                   include_model_uncertainty=False, alpha=.1):
         """
         Get an effect heterogeneity tree expressed as a dictionary.
 
@@ -1483,6 +1484,8 @@ class CausalAnalysis:
         min_impurity_decrease : float, optional (default=1e-4)
             The minimum decrease in the impurity/uniformity of the causal effect that a split needs to
             achieve to construct it
+        include_model_uncertainty : bool, default False
+            Whether to include confidence interval information when building a simplified model of the cate model.
         alpha : float in [0, 1], optional (default=.1)
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
@@ -1492,10 +1495,15 @@ class CausalAnalysis:
                                                 max_depth=max_depth,
                                                 min_samples_leaf=min_samples_leaf,
                                                 min_impurity_decrease=min_impurity_decrease,
+                                                include_model_uncertainty=include_model_uncertainty,
                                                 alpha=alpha)
 
-        def hetero_data(tree, node_id):
-            return {'effect': _sanitize(tree.value[node_id])}
+        def hetero_data(tree, node_id, node_dict):
+            if include_model_uncertainty:
+                return {'effect': _sanitize(tree.value[node_id]),
+                        'ci': _sanitize(node_dict[node_id]['ci'])}
+            else:
+                return {'effect': _sanitize(tree.value[node_id])}
         return _tree_interpreter_to_dict(intrp, feature_names, hetero_data)
 
     def individualized_policy(self, Xtest, feature_index, *, n_rows=None, treatment_costs=0, alpha=0.1):
@@ -1578,22 +1586,25 @@ class CausalAnalysis:
             # we now need to construct the delta in the cost between the two treatments and translate the effect
             current_treatment = orig_df['Current treatment'].values
             if np.ndim(treatment_costs) >= 2:
-                treatment_costs = treatment_costs.reshape(treatment_costs.shape[:2]) # remove third dimenions potentially added
-                assert treatment_costs.shape[1] == len(treatment_arr) - 1, ("If treatment costs are an array, they must"
-                                                                            " be of shape (n, d_t-1), where n is the number"
-                                                                            " of samples and d_t the number of treatment"
+                # remove third dimenions potentially added
+                treatment_costs = treatment_costs.reshape(treatment_costs.shape[:2])
+                assert treatment_costs.shape[1] == len(treatment_arr) - 1, ("If treatment costs are an array, "
+                                                                            " they must be of shape (n, d_t-1),"
+                                                                            " where n is the number of samples"
+                                                                            " and d_t the number of treatment"
                                                                             " categories.")
                 all_costs = np.hstack([zeros, treatment_costs])
-                # find cost of current treatment: equality creates a 2d array with True on each row, only if its the location
-                # of the current treatment. Then we take the corresponding cost.
-                current_cost = all_costs[current_treatment.reshape(-1, 1)==treatment_arr.reshape(1, -1)]
+                # find cost of current treatment: equality creates a 2d array with True on each row,
+                # only if its the location of the current treatment. Then we take the corresponding cost.
+                current_cost = all_costs[current_treatment.reshape(-1, 1) == treatment_arr.reshape(1, -1)]
                 target_cost = np.take_along_axis(all_costs, eff_ind.reshape(-1, 1), 1).reshape(-1)
             else:
                 assert isinstance(treatment_costs, (int, float)), ("Treatments costs should either be float or "
-                                                            "a 2d array of size (n, d_t-1).")
+                                                                   "a 2d array of size (n, d_t-1).")
                 all_costs = np.array([0] + [treatment_costs] * (len(treatment_arr) - 1))
                 # construct index of current treatment
-                current_ind = (current_treatment.reshape(-1, 1)==treatment_arr.reshape(1, -1)) @ np.arange(len(treatment_arr))
+                current_ind = (current_treatment.reshape(-1, 1) ==
+                               treatment_arr.reshape(1, -1)) @ np.arange(len(treatment_arr))
                 current_cost = all_costs[current_ind]
                 target_cost = all_costs[eff_ind]
             delta_cost = current_cost - target_cost
