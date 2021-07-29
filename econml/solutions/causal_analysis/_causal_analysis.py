@@ -1587,7 +1587,8 @@ class CausalAnalysis:
             current_treatment = orig_df['Current treatment'].values
             if np.ndim(treatment_costs) >= 2:
                 # remove third dimenions potentially added
-                treatment_costs = treatment_costs.reshape(treatment_costs.shape[:2])
+                if multi_y:  # y was an array, not a vector
+                    treatment_costs = np.squeeze(treatment_costs, 1)
                 assert treatment_costs.shape[1] == len(treatment_arr) - 1, ("If treatment costs are an array, "
                                                                             " they must be of shape (n, d_t-1),"
                                                                             " where n is the number of samples"
