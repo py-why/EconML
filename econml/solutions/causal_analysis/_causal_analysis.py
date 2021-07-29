@@ -1573,9 +1573,40 @@ class CausalAnalysis:
             eff_ind = np.argmax(all_effs, axis=1)
             treatment_arr = np.array([result.feature_baseline] + [lvl for lvl in result.feature_levels], dtype=object)
             rec = treatment_arr[eff_ind]
+            # we need to call effect_inference to get the correct CI between the two treatment options
             effect = result.estimator.effect_inference(Xtest, T0=orig_df['Current treatment'], T1=rec)
+            # we now need to construct the delta in the cost between the two treatments and translate the effect
+            current_treatment = orig_df['Current treatment'].values
+            if np.ndim(treatment_costs) >= 2:
+                treatment_costs = treatment_costs.reshape(treatment_costs.shape[:2]) # remove third dimenions potentially added
+                assert treatment_costs.shape[1] == len(treatment_arr) - 1, ("If treatment costs are an array, they must"
+                                                                            " be of shape (n, d_t-1), where n is the number"
+                                                                            " of samples and d_t the number of treatment"
+                                                                            " categories.")
+                all_costs = np.hstack([zeros, treatment_costs])
+                # find cost of current treatment: equality creates a 2d array with True on each row, only if its the location
+                # of the current treatment. Then we take the corresponding cost.
+                current_cost = all_costs[current_treatment.reshape(-1, 1)==treatment_arr.reshape(1, -1)]
+                target_cost = np.take_along_axis(all_costs, eff_ind.reshape(-1, 1), 1).reshape(-1)
+            else:
+                assert isinstance(treatment_costs, (int, float)), ("Treatments costs should either be float or "
+                                                            "a 2d array of size (n, d_t-1).")
+                all_costs = np.array([0] + [treatment_costs] * (len(treatment_arr) - 1))
+                # construct index of current treatment
+                current_ind = (current_treatment.reshape(-1, 1)==treatment_arr.reshape(1, -1)) @ np.arange(len(treatment_arr))
+                current_cost = all_costs[current_ind]
+                target_cost = all_costs[eff_ind]
+            delta_cost = current_cost - target_cost
+            # add second dimension if needed for broadcasting during translation of effect
+            if multi_y:
+                delta_cost = np.expand_dims(delta_cost, 1)
+            effect.translate(delta_cost)
             eff = effect.point_estimate
             eff_lb, eff_ub = effect.conf_int(alpha)
+            if multi_y:  # y was an array, not a vector
+                eff = np.squeeze(eff, 1)
+                eff_lb = np.squeeze(eff_lb, 1)
+                eff_ub = np.squeeze(eff_ub, 1)
 
         df = pd.DataFrame({'Treatment': rec,
                            'Effect of treatment': eff,
