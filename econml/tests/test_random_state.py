@@ -16,7 +16,7 @@ from econml.inference import BootstrapInference
 from contextlib import ExitStack
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 import itertools
-from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM, StatsModelsLinearRegression
 from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -107,7 +107,7 @@ class TestRandomState(unittest.TestCase):
                        model_t_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                        model_z_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
                        model_tz_xw=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),
-                       prel_model_effect=_DummyCATE(),
+                       flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                        discrete_treatment=True, discrete_instrument=True, cv=2, random_state=123),
             IntentToTreatDRIV(model_y_xw=RandomForestRegressor(n_estimators=10, max_depth=4, random_state=123),
                               model_t_xwz=RandomForestClassifier(n_estimators=10, max_depth=4, random_state=123),

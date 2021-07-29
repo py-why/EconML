@@ -16,9 +16,6 @@ from econml.iv.dr import (DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, Intent
 
 class TestDRIV(unittest.TestCase):
     def test_cate_api(self):
-        def prel_model_effect():
-            return _DummyCATE()
-
         def const_marg_eff_shape(n, d_x, binary_T):
             return (n if d_x else 1,) + ((1,) if binary_T else ())
 
@@ -58,7 +55,7 @@ class TestDRIV(unittest.TestCase):
                             ]:
                                 est_list = [
                                     DRIV(
-                                        prel_model_effect=prel_model_effect(),
+                                        flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                                         model_final=StatsModelsLinearRegression(
                                             fit_intercept=False
                                         ),
@@ -69,7 +66,7 @@ class TestDRIV(unittest.TestCase):
                                         featurizer=featurizer,
                                     ),
                                     LinearDRIV(
-                                        prel_model_effect=prel_model_effect(),
+                                        flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                                         fit_cate_intercept=True,
                                         projection=projection,
                                         discrete_instrument=binary_Z,
@@ -77,7 +74,7 @@ class TestDRIV(unittest.TestCase):
                                         featurizer=featurizer,
                                     ),
                                     SparseLinearDRIV(
-                                        prel_model_effect=prel_model_effect(),
+                                        flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                                         fit_cate_intercept=True,
                                         projection=projection,
                                         discrete_instrument=binary_Z,
@@ -85,7 +82,7 @@ class TestDRIV(unittest.TestCase):
                                         featurizer=featurizer,
                                     ),
                                     ForestDRIV(
-                                        prel_model_effect=prel_model_effect(),
+                                        flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                                         projection=projection,
                                         discrete_instrument=binary_Z,
                                         discrete_treatment=binary_T,
@@ -162,12 +159,8 @@ class TestDRIV(unittest.TestCase):
 
     def test_accuracy(self):
         np.random.seed(123)
-        # helper function
-
-        def prel_model_effect():
-            return _DummyCATE()
-
         # dgp (binary T, binary Z)
+
         def dgp(n, p, true_fn):
             X = np.random.normal(0, 1, size=(n, p))
             Z = np.random.binomial(1, 0.5, size=(n,))
@@ -186,11 +179,11 @@ class TestDRIV(unittest.TestCase):
         ests_list = [LinearIntentToTreatDRIV(
             flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False), fit_cate_intercept=True
         ), LinearDRIV(
-            prel_model_effect=prel_model_effect(),
             fit_cate_intercept=True,
             projection=False,
             discrete_instrument=True,
             discrete_treatment=True,
+            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False)
         )]
 
         # no heterogeneity

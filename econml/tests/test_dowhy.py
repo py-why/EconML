@@ -12,6 +12,7 @@ from econml.iv.dml import OrthoIV, DMLIV
 from econml.iv.dr import LinearDRIV
 from econml.iv.dr._dr import _DummyCATE
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 
 
 class TestDowhy(unittest.TestCase):
@@ -48,7 +49,7 @@ class TestDowhy(unittest.TestCase):
                   "dmliv": DMLIV(fit_cate_intercept=True,
                                  discrete_treatment=True,
                                  discrete_instrument=False),
-                  "driv": LinearDRIV(prel_model_effect=_DummyCATE(),
+                  "driv": LinearDRIV(flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                                      fit_cate_intercept=True,
                                      discrete_instrument=False,
                                      discrete_treatment=True)}

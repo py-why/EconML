@@ -32,6 +32,7 @@ from ...utilities import (_deprecate_positional, add_intercept, filter_none_kwar
                           inverse_onehot, get_feature_names_or_default, check_high_dimensional, check_input_arrays)
 from ...grf import RegressionForest
 from ...dml.dml import _FirstStageWrapper, _FinalWrapper
+from ...iv.dml import NonParamDMLIV
 from ..._shap import _shap_explain_model_cate
 
 
@@ -526,7 +527,127 @@ class _BaseDRIV(_OrthoLearner):
                 self._cached_values.Z)
 
 
-class DRIV(_BaseDRIV):
+class _DRIV(_BaseDRIV):
+    """
+    Private Base class for the DRIV algorithm.
+    """
+
+    def __init__(self, *,
+                 model_y_xw="auto",
+                 model_t_xw="auto",
+                 model_z_xw="auto",
+                 model_t_xwz="auto",
+                 model_tz_xw="auto",
+                 prel_model_effect,
+                 model_final,
+                 projection=False,
+                 featurizer=None,
+                 fit_cate_intercept=False,
+                 cov_clip=1e-3,
+                 opt_reweighted=False,
+                 discrete_instrument=False,
+                 discrete_treatment=False,
+                 categories='auto',
+                 cv=2,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 random_state=None):
+        self.model_y_xw = clone(model_y_xw, safe=False)
+        self.model_t_xw = clone(model_t_xw, safe=False)
+        self.model_t_xwz = clone(model_t_xwz, safe=False)
+        self.model_z_xw = clone(model_z_xw, safe=False)
+        self.model_tz_xw = clone(model_tz_xw, safe=False)
+        self.prel_model_effect = clone(prel_model_effect, safe=False)
+        self.projection = projection
+        super().__init__(model_final=model_final,
+                         featurizer=featurizer,
+                         fit_cate_intercept=fit_cate_intercept,
+                         cov_clip=cov_clip,
+                         opt_reweighted=opt_reweighted,
+                         discrete_instrument=discrete_instrument,
+                         discrete_treatment=discrete_treatment,
+                         categories=categories,
+                         cv=cv,
+                         mc_iters=mc_iters,
+                         mc_agg=mc_agg,
+                         random_state=random_state)
+
+    def _gen_prel_model_effect(self):
+        return clone(self.prel_model_effect, safe=False)
+
+    def _gen_ortho_learner_model_nuisance(self):
+        if self.model_y_xw == 'auto':
+            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+        else:
+            model_y_xw = clone(self.model_y_xw, safe=False)
+
+        if self.model_t_xw == 'auto':
+            if self.discrete_treatment:
+                model_t_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                  random_state=self.random_state)
+            else:
+                model_t_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+        else:
+            model_t_xw = clone(self.model_t_xw, safe=False)
+
+        if self.projection:
+            # this is a regression model since proj_t is probability
+            if self.model_tz_xw == "auto":
+                model_tz_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+            else:
+                model_tz_xw = clone(self.model_tz_xw, safe=False)
+
+            if self.model_t_xwz == 'auto':
+                if self.discrete_treatment:
+                    model_t_xwz = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                       random_state=self.random_state)
+                else:
+                    model_t_xwz = WeightedLassoCVWrapper(random_state=self.random_state)
+            else:
+                model_t_xwz = clone(self.model_t_xwz, safe=False)
+
+            return _BaseDRIVModelNuisance(self._gen_prel_model_effect(),
+                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False),
+                                          _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
+                                                             False, self.discrete_treatment),
+                                          # outcome is continuous since proj_t is probability
+                                          _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
+                                                             False),
+                                          _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
+                                                             False, self.discrete_treatment),
+                                          self.projection, self.discrete_treatment, self.discrete_instrument)
+
+        else:
+            if self.model_tz_xw == "auto":
+                if self.discrete_treatment and self.discrete_instrument:
+                    model_tz_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                       random_state=self.random_state)
+                else:
+                    model_tz_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+            else:
+                model_tz_xw = clone(self.model_tz_xw, safe=False)
+
+            if self.model_z_xw == 'auto':
+                if self.discrete_instrument:
+                    model_z_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                      random_state=self.random_state)
+                else:
+                    model_z_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+            else:
+                model_z_xw = clone(self.model_z_xw, safe=False)
+
+            return _BaseDRIVModelNuisance(self._gen_prel_model_effect(),
+                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False),
+                                          _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
+                                                             False, self.discrete_treatment),
+                                          _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
+                                                             self.discrete_treatment and self.discrete_instrument),
+                                          _FirstStageWrapper(model_z_xw, False, self._gen_featurizer(),
+                                                             False, self.discrete_instrument),
+                                          self.projection, self.discrete_treatment, self.discrete_instrument)
+
+
+class DRIV(_DRIV):
     """
     The DRIV algorithm for estimating CATE with IVs. It is the parent of the
     public classes {LinearDRIV, SparseLinearDRIV,ForestDRIV}
@@ -565,11 +686,22 @@ class DRIV(_BaseDRIV):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument or continuous treatment.
 
-    prel_model_effect : estimator
-        model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
+    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+        model that estimates a preliminary version of the CATE.
+        If 'driv', :class:`._DRIV` will be used.
+        If 'dmliv', :class:`.NonParamDMLIV` will be used
 
-    model_final : estimator
-        model compatible with the sklearn regression API, used to fit the effect on X
+    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+        Determines the cross-validation splitting strategy for the preliminary effect model.
+
+    prel_opt_reweighted : bool, optional, default True
+        Whether to reweight the samples to minimize variance for the preliminary effect model.
+
+    flexible_model_effect : estimator
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+
+    model_final : estimator, optional
+        a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
 
     projection: bool, optional, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -640,8 +772,11 @@ class DRIV(_BaseDRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
-                 prel_model_effect,
-                 model_final,
+                 prel_model_effect="driv",
+                 prel_cv=1,
+                 prel_opt_reweighted=True,
+                 flexible_model_effect,
+                 model_final=None,
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=False,
@@ -654,14 +789,18 @@ class DRIV(_BaseDRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
-        self.model_y_xw = clone(model_y_xw, safe=False)
-        self.model_t_xw = clone(model_t_xw, safe=False)
-        self.model_t_xwz = clone(model_t_xwz, safe=False)
-        self.model_z_xw = clone(model_z_xw, safe=False)
-        self.model_tz_xw = clone(model_tz_xw, safe=False)
-        self.prel_model_effect = clone(prel_model_effect, safe=False)
-        self.projection = projection
-        super().__init__(model_final=model_final,
+        self.prel_model_effect = prel_model_effect
+        self.prel_cv = prel_cv
+        self.prel_opt_reweighted = prel_opt_reweighted
+        self.flexible_model_effect = clone(flexible_model_effect, safe=False)
+        super().__init__(model_y_xw=model_y_xw,
+                         model_t_xw=model_t_xw,
+                         model_z_xw=model_z_xw,
+                         model_t_xwz=model_t_xwz,
+                         model_tz_xw=model_tz_xw,
+                         prel_model_effect=self.prel_model_effect,
+                         model_final=model_final,
+                         projection=projection,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
@@ -674,78 +813,49 @@ class DRIV(_BaseDRIV):
                          mc_agg=mc_agg,
                          random_state=random_state)
 
-    def _gen_ortho_learner_model_nuisance(self):
-        if self.model_y_xw == 'auto':
-            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+    def _gen_model_final(self):
+        if self.model_final is None:
+            return clone(self.flexible_model_effect, safe=False)
+        return clone(self.model_final, safe=False)
+
+    def _gen_prel_model_effect(self):
+        if self.prel_model_effect == "driv":
+            return _DRIV(model_y_xw=clone(self.model_y_xw, safe=False),
+                         model_t_xw=clone(self.model_t_xw, safe=False),
+                         model_z_xw=clone(self.model_z_xw, safe=False),
+                         model_t_xwz=clone(self.model_t_xwz, safe=False),
+                         model_tz_xw=clone(self.model_tz_xw, safe=False),
+                         prel_model_effect=_DummyCATE(),
+                         model_final=clone(self.flexible_model_effect, safe=False),
+                         projection=self.projection,
+                         featurizer=self._gen_featurizer(),
+                         fit_cate_intercept=self.fit_cate_intercept,
+                         cov_clip=self.cov_clip,
+                         opt_reweighted=self.prel_opt_reweighted,
+                         discrete_instrument=self.discrete_instrument,
+                         discrete_treatment=self.discrete_treatment,
+                         categories=self.categories,
+                         cv=self.prel_cv,
+                         mc_iters=self.mc_iters,
+                         mc_agg=self.mc_agg,
+                         random_state=self.random_state)
+        elif self.prel_model_effect == "dmliv":
+            return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
+                                 model_t_xw=clone(self.model_t_xw, safe=False),
+                                 model_t_xwz=clone(self.model_t_xwz, safe=False),
+                                 model_final=clone(self.flexible_model_effect, safe=False),
+                                 discrete_instrument=self.discrete_instrument,
+                                 discrete_treatment=self.discrete_treatment,
+                                 featurizer=self._gen_featurizer(),
+                                 categories=self.categories,
+                                 cv=self.prel_cv,
+                                 mc_iters=self.mc_iters,
+                                 mc_agg=self.mc_agg,
+                                 random_state=self.random_state)
         else:
-            model_y_xw = clone(self.model_y_xw, safe=False)
-
-        if self.model_t_xw == 'auto':
-            if self.discrete_treatment:
-                model_t_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                  random_state=self.random_state)
-            else:
-                model_t_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t_xw = clone(self.model_t_xw, safe=False)
-
-        prel_model_effect = clone(self.prel_model_effect, safe=False)
-
-        if self.projection:
-            # this is a regression model since proj_t is probability
-            if self.model_tz_xw == "auto":
-                model_tz_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_tz_xw = clone(self.model_tz_xw, safe=False)
-
-            if self.model_t_xwz == 'auto':
-                if self.discrete_treatment:
-                    model_t_xwz = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                       random_state=self.random_state)
-                else:
-                    model_t_xwz = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_t_xwz = clone(self.model_t_xwz, safe=False)
-
-            return _BaseDRIVModelNuisance(prel_model_effect,
-                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False),
-                                          _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
-                                          # outcome is continuous since proj_t is probability
-                                          _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
-                                                             False),
-                                          _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
-                                          self.projection, self.discrete_treatment, self.discrete_instrument)
-
-        else:
-            if self.model_tz_xw == "auto":
-                if self.discrete_treatment and self.discrete_instrument:
-                    model_tz_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                       random_state=self.random_state)
-                else:
-                    model_tz_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_tz_xw = clone(self.model_tz_xw, safe=False)
-
-            if self.model_z_xw == 'auto':
-                if self.discrete_instrument:
-                    model_z_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                      random_state=self.random_state)
-                else:
-                    model_z_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_z_xw = clone(self.model_z_xw, safe=False)
-
-            return _BaseDRIVModelNuisance(prel_model_effect,
-                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False),
-                                          _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
-                                          _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
-                                                             self.discrete_treatment and self.discrete_instrument),
-                                          _FirstStageWrapper(model_z_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_instrument),
-                                          self.projection, self.discrete_treatment, self.discrete_instrument)
+            raise ValueError(
+                "We only support 'dmliv' or 'driv' preliminary model effect, "
+                f"but received '{self.prel_model_effect}'!")
 
     def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference="auto"):
@@ -791,8 +901,9 @@ class DRIV(_BaseDRIV):
         if self.projection:
             assert self.model_z_xw == "auto", ("In the case of projection=True, model_z_xw will not be fitted, "
                                                "please keep it as default!")
-        else:
-            assert self.model_t_xwz == "auto", ("In the case of projection=False, model_t_xwz will not be fitted, "
+        if self.prel_model_effect == "driv" and not self.projection:
+            assert self.model_t_xwz == "auto", ("In the case of projection=False and prel_model_effect='driv', "
+                                                "model_t_xwz will not be fitted, "
                                                 "please keep it as default!")
         return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
@@ -975,8 +1086,19 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument or continuous treatment.
 
-    prel_model_effect : estimator
-        model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
+    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+        model that estimates a preliminary version of the CATE.
+        If 'driv', :class:`._DRIV` will be used.
+        If 'dmliv', :class:`.NonParamDMLIV` will be used
+
+    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+        Determines the cross-validation splitting strategy for the preliminary effect model.
+
+    prel_opt_reweighted : bool, optional, default True
+        Whether to reweight the samples to minimize variance for the preliminary effect model.
+
+    flexible_model_effect : estimator
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
     projection: bool, optional, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -1047,7 +1169,10 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
-                 prel_model_effect,
+                 prel_model_effect="driv",
+                 prel_cv=1,
+                 prel_opt_reweighted=True,
+                 flexible_model_effect,
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -1066,6 +1191,9 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
                          prel_model_effect=prel_model_effect,
+                         prel_cv=prel_cv,
+                         prel_opt_reweighted=prel_opt_reweighted,
+                         flexible_model_effect=flexible_model_effect,
                          model_final=None,
                          projection=projection,
                          featurizer=featurizer,
@@ -1189,8 +1317,19 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument or continuous treatment.
 
-    prel_model_effect : estimator
-        model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
+    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+        model that estimates a preliminary version of the CATE.
+        If 'driv', :class:`._DRIV` will be used.
+        If 'dmliv', :class:`.NonParamDMLIV` will be used
+
+    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+        Determines the cross-validation splitting strategy for the preliminary effect model.
+
+    prel_opt_reweighted : bool, optional, default True
+        Whether to reweight the samples to minimize variance for the preliminary effect model.
+
+    flexible_model_effect : estimator
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
     projection: bool, optional, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -1291,7 +1430,10 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
-                 prel_model_effect,
+                 prel_model_effect="driv",
+                 prel_cv=1,
+                 prel_opt_reweighted=True,
+                 flexible_model_effect,
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -1324,6 +1466,9 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
                          prel_model_effect=prel_model_effect,
+                         prel_cv=prel_cv,
+                         prel_opt_reweighted=prel_opt_reweighted,
+                         flexible_model_effect=flexible_model_effect,
                          model_final=None,
                          projection=projection,
                          featurizer=featurizer,
@@ -1449,8 +1594,19 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument or continuous treatment.
 
-    prel_model_effect : estimator
-        model that estimates a preliminary version of the CATE (e.g. via DMLIV or other method)
+    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+        model that estimates a preliminary version of the CATE.
+        If 'driv', :class:`._DRIV` will be used.
+        If 'dmliv', :class:`.NonParamDMLIV` will be used
+
+    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+        Determines the cross-validation splitting strategy for the preliminary effect model.
+
+    prel_opt_reweighted : bool, optional, default True
+        Whether to reweight the samples to minimize variance for the preliminary effect model.
+
+    flexible_model_effect : estimator
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
     projection: bool, optional, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -1623,7 +1779,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
-                 prel_model_effect,
+                 prel_model_effect="driv",
+                 prel_cv=1,
+                 prel_opt_reweighted=True,
+                 flexible_model_effect,
                  projection=False,
                  featurizer=None,
                  n_estimators=1000,
@@ -1667,6 +1826,9 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
                          prel_model_effect=prel_model_effect,
+                         prel_cv=prel_cv,
+                         prel_opt_reweighted=prel_opt_reweighted,
+                         flexible_model_effect=flexible_model_effect,
                          model_final=None,
                          projection=projection,
                          featurizer=featurizer,
@@ -1949,6 +2111,17 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
         will be applied for discrete treatment.
 
+    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+        model that estimates a preliminary version of the CATE.
+        If 'driv', :class:`._DRIV` will be used.
+        If 'dmliv', :class:`.NonParamDMLIV` will be used
+
+    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+        Determines the cross-validation splitting strategy for the preliminary effect model.
+
+    prel_opt_reweighted : bool, optional, default True
+        Whether to reweight the samples to minimize variance for the preliminary effect model.
+
     flexible_model_effect : estimator
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
@@ -2017,6 +2190,9 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     def __init__(self, *,
                  model_y_xw="auto",
                  model_t_xwz="auto",
+                 prel_model_effect="driv",
+                 prel_cv=1,
+                 prel_opt_reweighted=True,
                  flexible_model_effect,
                  model_final=None,
                  z_propensity="auto",
@@ -2031,9 +2207,12 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  random_state=None):
         # maybe shouldn't expose fit_cate_intercept in this class?
         self.flexible_model_effect = clone(flexible_model_effect, safe=False)
+        self.prel_model_effect = prel_model_effect
+        self.prel_cv = prel_cv
+        self.prel_opt_reweighted = prel_opt_reweighted
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xwz=model_t_xwz,
-                         prel_model_effect=None,
+                         prel_model_effect=self.prel_model_effect,
                          model_final=model_final,
                          z_propensity=z_propensity,
                          featurizer=featurizer,
@@ -2052,17 +2231,35 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         return clone(self.model_final, safe=False)
 
     def _gen_prel_model_effect(self):
-        return _IntentToTreatDRIV(model_y_xw=clone(self.model_y_xw, safe=False),
-                                  model_t_xwz=clone(self.model_t_xwz, safe=False),
-                                  prel_model_effect=_DummyCATE(),
-                                  model_final=clone(self.flexible_model_effect, safe=False),
-                                  featurizer=self._gen_featurizer(),
-                                  fit_cate_intercept=self.fit_cate_intercept,
-                                  cov_clip=self.cov_clip,
-                                  categories=self.categories,
-                                  opt_reweighted=True,
-                                  cv=1,  # avoid nested cv
-                                  random_state=self.random_state)
+        if self.prel_model_effect == "driv":
+            return _IntentToTreatDRIV(model_y_xw=clone(self.model_y_xw, safe=False),
+                                      model_t_xwz=clone(self.model_t_xwz, safe=False),
+                                      prel_model_effect=_DummyCATE(),
+                                      model_final=clone(self.flexible_model_effect, safe=False),
+                                      featurizer=self._gen_featurizer(),
+                                      fit_cate_intercept=self.fit_cate_intercept,
+                                      cov_clip=self.cov_clip,
+                                      categories=self.categories,
+                                      opt_reweighted=self.prel_opt_reweighted,
+                                      cv=self.prel_cv,
+                                      random_state=self.random_state)
+        elif self.prel_model_effect == "dmliv":
+            return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
+                                 model_t_xw=clone(self.model_t_xwz, safe=False),
+                                 model_t_xwz=clone(self.model_t_xwz, safe=False),
+                                 model_final=clone(self.flexible_model_effect, safe=False),
+                                 discrete_instrument=True,
+                                 discrete_treatment=True,
+                                 featurizer=self._gen_featurizer(),
+                                 categories=self.categories,
+                                 cv=self.prel_cv,
+                                 mc_iters=self.mc_iters,
+                                 mc_agg=self.mc_agg,
+                                 random_state=self.random_state)
+        else:
+            raise ValueError(
+                "We only support 'dmliv' or 'driv' preliminary model effect, "
+                f"but received '{self.prel_model_effect}'!")
 
     @property
     def models_y_xw(self):
@@ -2127,15 +2324,6 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         """
         return self.nuisance_scores_[2]
 
-    @property
-    def prel_model_effect(self):
-        return self._gen_prel_model_effect()
-
-    @prel_model_effect.setter
-    def prel_model_effect(self, value):
-        if value is not None:
-            raise ValueError("Parameter `prel_model_effect` cannot be altered for this estimator.")
-
 
 class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     """
@@ -2152,6 +2340,17 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         model to estimate :math:`\\E[T | X, W, Z]`.  Must support `fit` and `predict_proba` methods.
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
         will be applied for discrete treatment.
+
+    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+        model that estimates a preliminary version of the CATE.
+        If 'driv', :class:`._DRIV` will be used.
+        If 'dmliv', :class:`.NonParamDMLIV` will be used
+
+    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+        Determines the cross-validation splitting strategy for the preliminary effect model.
+
+    prel_opt_reweighted : bool, optional, default True
+        Whether to reweight the samples to minimize variance for the preliminary effect model.
 
     flexible_model_effect : estimator
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
@@ -2218,6 +2417,9 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     def __init__(self, *,
                  model_y_xw="auto",
                  model_t_xwz="auto",
+                 prel_model_effect="driv",
+                 prel_cv=1,
+                 prel_opt_reweighted=True,
                  flexible_model_effect,
                  z_propensity="auto",
                  featurizer=None,
@@ -2231,6 +2433,9 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  random_state=None):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xwz=model_t_xwz,
+                         prel_model_effect=prel_model_effect,
+                         prel_cv=prel_cv,
+                         prel_opt_reweighted=prel_opt_reweighted,
                          flexible_model_effect=flexible_model_effect,
                          model_final=None,
                          z_propensity=z_propensity,

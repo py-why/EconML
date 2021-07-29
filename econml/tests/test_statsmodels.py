@@ -9,7 +9,7 @@ from econml.iv.dr import LinearDRIV
 from econml.iv.dml import DMLIV
 from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
 from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
-from econml.sklearn_extensions.linear_model import WeightedLasso
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
 from econml.iv.dr._dr import _DummyCATE
 from statsmodels.regression.linear_model import WLS
 from statsmodels.tools.tools import add_constant
@@ -969,7 +969,7 @@ class TestStatsModels(unittest.TestCase):
                             model_t_xw=model_propensity,
                             model_z_xw=model_propensity,
                             model_tz_xw=model_propensity,
-                            prel_model_effect=_DummyCATE(),
+                            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                             discrete_instrument=True,
                             discrete_treatment=True,
                             cv=SplitterSum())
@@ -979,7 +979,7 @@ class TestStatsModels(unittest.TestCase):
                             model_t_xw=model_propensity,
                             model_z_xw=model_propensity,
                             model_tz_xw=model_propensity,
-                            prel_model_effect=_DummyCATE(),
+                            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                             discrete_instrument=True,
                             discrete_treatment=True,
                             cv=Splitter())
