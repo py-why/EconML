@@ -1571,14 +1571,11 @@ class CausalAnalysis:
             zeros = np.zeros((est.shape[0], 1))
             all_effs = np.hstack([zeros, est])
             eff_ind = np.argmax(all_effs, axis=1)
-            all_eff_lbs = np.hstack([zeros, est_lb])
-            all_eff_ubs = np.hstack([zeros, est_ub])
             treatment_arr = np.array([result.feature_baseline] + [lvl for lvl in result.feature_levels], dtype=object)
             rec = treatment_arr[eff_ind]
-            eff_ind = eff_ind.reshape(-1, 1)
-            eff = np.take_along_axis(all_effs, eff_ind, 1).reshape(-1)
-            eff_lb = np.take_along_axis(all_eff_lbs, eff_ind, 1).reshape(-1)
-            eff_ub = np.take_along_axis(all_eff_ubs, eff_ind, 1).reshape(-1)
+            effect = result.estimator.effect_inference(Xtest, T0=orig_df['Current treatment'], T1=rec)
+            eff = effect.point_estimate
+            eff_lb, eff_ub = effect.conf_int(alpha)
 
         df = pd.DataFrame({'Treatment': rec,
                            'Effect of treatment': eff,
