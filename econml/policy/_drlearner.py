@@ -14,7 +14,7 @@ from . import PolicyTree, PolicyForest
 
 class _PolicyModelFinal(_ModelFinal):
 
-    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None, groups=None):
         if sample_var is not None:
             warn('Parameter `sample_var` is ignored by the final estimator')
             sample_var = None
@@ -38,7 +38,7 @@ class _PolicyModelFinal(_ModelFinal):
             return pred[:, np.newaxis, :]
         return pred
 
-    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None, groups=None):
         return 0
 
 

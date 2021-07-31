@@ -17,6 +17,7 @@ Double Machine Learning (DML)
     econml.dml.SparseLinearDML
     econml.dml.CausalForestDML
     econml.dml.NonParamDML
+    econml.dml.DynamicDML
 
 .. _dr_api:
 

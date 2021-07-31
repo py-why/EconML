@@ -33,7 +33,7 @@ class _BaseDMLATEIVModelFinal:
         self._model_final = _FinalWrapper(LinearRegression(fit_intercept=False),
                                           fit_cate_intercept=True, featurizer=None, use_weight_trick=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         Y_res, T_res, Z_res = nuisances
         if Z_res.ndim == 1:
             Z_res = Z_res.reshape(-1, 1)
@@ -49,7 +49,7 @@ class _BaseDMLATEIVModelFinal:
         # TODO: allow the final model to actually use X?
         return self._model_final.predict(X=None)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         Y_res, T_res, Z_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
@@ -379,7 +379,7 @@ class _BaseDMLIVModelFinal:
     def __init__(self, model_final):
         self._model_final = clone(model_final, safe=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         Y_res, T_res = nuisances
         self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
         return self
@@ -387,7 +387,7 @@ class _BaseDMLIVModelFinal:
     def predict(self, X=None):
         return self._model_final.predict(X)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))

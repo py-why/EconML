@@ -34,7 +34,8 @@ What are the relevant estimator classes?
 This section describes the methodology implemented in the classes, :class:`._RLearner`,
 :class:`.DML`, :class:`.LinearDML`,
 :class:`.SparseLinearDML`, :class:`.KernelDML`, :class:`.NonParamDML`,
-:class:`.CausalForestDML`.
+:class:`.CausalForestDML`,
+:class:`.DynamicDML`.
 Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
@@ -71,8 +72,10 @@ Most of the methods provided make a parametric form assumption on the heterogene
 linear on some pre-defined; potentially high-dimensional; featurization). These methods include: 
 :class:`.DML`, :class:`.LinearDML`,
 :class:`.SparseLinearDML`, :class:`.KernelDML`.
-For fullly non-parametric heterogeneous treatment effect models, checkout the :class:`.NonParamDML`
-and the :class:`.CausalForestDML`. For more options of non-parametric CATE estimators, 
+For fullly non-parametric heterogeneous treatment effect models, check out the :class:`.NonParamDML`
+and the :class:`.CausalForestDML`. 
+For treatments assigned sequentially over several time periods, see the class :class:`.DynamicDML`.
+For more options of non-parametric CATE estimators, 
 check out the :ref:`Forest Estimators User Guide <orthoforestuserguide>` 
 and the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 
@@ -155,7 +158,7 @@ Class Hierarchy Structure
 In this library we implement variants of several of the approaches mentioned in the last section. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.dml.LinearDML econml.dml.SparseLinearDML econml.dml.KernelDML econml.dml.NonParamDML econml.dml.CausalForestDML
+    .. inheritance-diagram:: econml.dml.LinearDML econml.dml.SparseLinearDML econml.dml.KernelDML econml.dml.NonParamDML econml.dml.CausalForestDML econml.dml.DynamicDML
         :parts: 1
         :private-bases:
         :top-classes: econml._rlearner._RLearner, econml._cate_estimator.StatsModelsCateEstimatorMixin, econml._cate_estimator.DebiasedLassoCateEstimatorMixin
@@ -285,6 +288,37 @@ Below we give a brief description of each of these classes:
 
       Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
       alternatives to the :class:`.CausalForestDML`.
+
+    * **DynamicDML.** The class :class:`.DynamicDML` is an extension of the Double ML approach for treatments assigned sequentially over time periods.
+      This estimator will adjust for treatments that can have causal effects on future outcomes. The data corresponds to a Markov decision process :math:`\{X_t, W_t, T_t, Y_t\}_{t=1}^m`,
+      where :math:`X_t, W_t` corresponds to the state at time :math:`t`, :math:`T_t` is the treatment at time :math:`t` and :math:`Y_t` is the observed outcome at time :math:`t`.
+
+      The model makes the following structural equation assumptions on the data generating process:
+
+      .. math::
+
+        X_t =~& A \cdot T_{t-1} + B \cdot X_{t-1} + \eta_t\\ 
+        T_t =~& p(T_{t-1}, X_t, \zeta_t) \\
+        Y_t =~& \theta_0'T_t + \mu'X_t \epsilon_t
+
+      For more details about this model and underlying assumptions, see [Lewis2021]_.
+
+      To learn the treatment effects of treatments in the different periods on the last period outcome, one can simply call:
+
+      .. testcode::
+
+        import numpy as np
+        from econml.dml import DynamicDML
+
+        n_panels = 100  # number of panels
+        n_periods = 3  # number of time periods per panel
+        n = n_panels * n_periods
+        groups = np.repeat(a=np.arange(n_panels), repeats=n_periods, axis=0)
+        X = np.random.normal(size=(n, 1))
+        T = np.random.normal(size=(n, 2))
+        y = np.random.normal(size=(n, ))
+        est = DynamicDML()
+        est.fit(y, T, X=X, W=None, groups=groups, inference="auto")
 
     * **_RLearner.** The internal private class :class:`._RLearner` is a parent of the :class:`.DML`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,

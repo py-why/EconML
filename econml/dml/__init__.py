@@ -8,7 +8,7 @@ part of the observed outcome and treatment that is not predictable by the contro
 Then estimates a CATE model by regressing the residual outcome on the residual treatment
 in a manner that accounts for heterogeneity in the regression coefficient, with respect
 to X. For the theoretical foundations of these methods see [dml]_, [rlearner]_, [paneldml]_,
-[lassodml]_, [ortholearner]_.
+[lassodml]_, [ortholearner]_, [dynamicdml]_.
 
 References
 ----------

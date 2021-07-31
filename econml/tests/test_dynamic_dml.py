@@ -9,6 +9,7 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, Polynomial
 from sklearn.linear_model import (LinearRegression, LassoCV, Lasso, MultiTaskLasso,
                                   MultiTaskLassoCV, LogisticRegression)
 from econml.dml import DynamicDML
+from econml.dml.dynamic_dml import _get_groups_period_filter
 from econml.inference import BootstrapInference, EmpiricalInferenceResults, NormalInferenceResults
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 import econml.tests.utilities  # bugfix for assertWarns
@@ -267,25 +268,34 @@ class TestDynamicDML(unittest.TestCase):
 
         def lasso_model():
             return LassoCV(cv=3, alphas=alpha_regs, max_iter=500)
+
         # No heterogeneity
         dgp = DynamicPanelDGP(n_periods, n_treatments, n_x).create_instance(
             s_x, random_seed=1)
         Y, T, X, W, groups = dgp.observational_data(n_units, s_t=s_t, random_seed=12)
         est = DynamicDML(model_y=lasso_model(), model_t=lasso_model(), cv=3)
-        est.fit(Y, T, X=X, W=W, groups=groups, inference="auto")
-        np.testing.assert_allclose(est.intercept_, dgp.true_effect.flatten(), atol=1e-01)
-        np.testing.assert_array_less(est.intercept__interval()[0], dgp.true_effect.flatten())
-        np.testing.assert_array_less(dgp.true_effect.flatten(), est.intercept__interval()[1])
+        # Define indices to test
+        groups_filter = _get_groups_period_filter(groups, 3)
+        shuffled_idx = np.array([groups_filter[i] for i in range(n_periods)]).flatten()
+        test_indices = [np.arange(n_units * n_periods), shuffled_idx]
+        for test_idx in test_indices:
+            est.fit(Y[test_idx], T[test_idx], X=X[test_idx] if X is not None else None, W=W[test_idx],
+                    groups=groups[test_idx], inference="auto")
+            np.testing.assert_allclose(est.intercept_, dgp.true_effect.flatten(), atol=1e-01)
+            np.testing.assert_array_less(est.intercept__interval()[0], dgp.true_effect.flatten())
+            np.testing.assert_array_less(dgp.true_effect.flatten(), est.intercept__interval()[1])
+
         # Heterogeneous effects
-        hetero_strength = .5
-        hetero_inds = np.arange(n_x - n_treatments, n_x)
         dgp = DynamicPanelDGP(n_periods, n_treatments, n_x).create_instance(
             s_x, hetero_strength=hetero_strength, hetero_inds=hetero_inds, random_seed=1)
         Y, T, X, W, groups = dgp.observational_data(n_units, s_t=s_t, random_seed=12)
-        est.fit(Y, T, X=X, W=W, groups=groups, inference="auto")
-        np.testing.assert_allclose(est.intercept_, dgp.true_effect.flatten(), atol=0.2)
-        np.testing.assert_allclose(est.coef_, dgp.true_hetero_effect[:, hetero_inds + 1], atol=0.2)
-        np.testing.assert_array_less(est.intercept__interval()[0], dgp.true_effect.flatten())
-        np.testing.assert_array_less(dgp.true_effect.flatten(), est.intercept__interval()[1])
-        np.testing.assert_array_less(est.coef__interval()[0], dgp.true_hetero_effect[:, hetero_inds + 1])
-        np.testing.assert_array_less(dgp.true_hetero_effect[:, hetero_inds + 1], est.coef__interval()[1])
+        for test_idx in test_indices:
+            hetero_strength = .5
+            hetero_inds = np.arange(n_x - n_treatments, n_x)
+            est.fit(Y[test_idx], T[test_idx], X=X[test_idx], W=W[test_idx], groups=groups[test_idx], inference="auto")
+            np.testing.assert_allclose(est.intercept_, dgp.true_effect.flatten(), atol=0.2)
+            np.testing.assert_allclose(est.coef_, dgp.true_hetero_effect[:, hetero_inds + 1], atol=0.2)
+            np.testing.assert_array_less(est.intercept__interval()[0], dgp.true_effect.flatten())
+            np.testing.assert_array_less(dgp.true_effect.flatten(), est.intercept__interval()[1])
+            np.testing.assert_array_less(est.coef__interval()[0], dgp.true_hetero_effect[:, hetero_inds + 1])
+            np.testing.assert_array_less(dgp.true_hetero_effect[:, hetero_inds + 1], est.coef__interval()[1])

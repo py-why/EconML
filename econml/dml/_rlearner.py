@@ -91,7 +91,7 @@ class _ModelFinal:
     def __init__(self, model_final):
         self._model_final = model_final
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         Y_res, T_res = nuisances
         self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight, sample_var=sample_var)
         return self
@@ -99,7 +99,7 @@ class _ModelFinal:
     def predict(self, X=None):
         return self._model_final.predict(X)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         Y_res, T_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))

@@ -124,7 +124,7 @@ class _ModelFinal:
         self._multitask_model_final = multitask_model_final
         return
 
-    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None, groups=None):
         Y_pred, = nuisances
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         self.d_t = Y_pred.shape[-1] - 1  # track # of treatment (exclude baseline treatment)
@@ -154,7 +154,7 @@ class _ModelFinal:
             preds = np.array([mdl.predict(X).reshape((-1,) + self.d_y) for mdl in self.models_cate])
             return np.moveaxis(preds, 0, -1)  # move treatment dim to end
 
-    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None, groups=None):
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.transform(X)
         Y_pred, = nuisances

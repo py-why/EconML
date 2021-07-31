@@ -75,7 +75,7 @@ class _BaseDRIVModelFinal:
                                          self._cov_clip, np.inf)
         return prel_theta + (res_y - prel_theta * res_t) * res_z / clipped_cov, clipped_cov
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         self.d_y = Y.shape[1:]
         self.d_t = nuisances[1].shape[1:]
         self.d_z = nuisances[3].shape[1:]
@@ -114,7 +114,7 @@ class _BaseDRIVModelFinal:
             X = self._featurizer.transform(X)
         return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         theta_dr, clipped_cov = self._effect_estimate(nuisances)
 
         if (X is not None) and (self._featurizer is not None):

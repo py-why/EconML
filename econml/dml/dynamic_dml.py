@@ -23,6 +23,17 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          get_feature_names_or_default)
 
 
+def _get_groups_period_filter(groups, n_periods):
+    group_counts = {}
+    group_period_filter = {i: [] for i in range(n_periods)}
+    for i, g in enumerate(groups):
+        if g not in group_counts:
+            group_counts[g] = 0
+        group_period_filter[group_counts[g]].append(i)
+        group_counts[g] += 1
+    return group_period_filter
+
+
 class _DynamicModelNuisance:
     """
     Nuisance model fits the model_y and model_t at fit time and at predict time
@@ -36,23 +47,23 @@ class _DynamicModelNuisance:
         self.n_periods = n_periods
 
     def fit(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
-        """Fit a series of nuisance models for each period or period pairs"""
+        """Fit a series of nuisance models for each period or period pairs."""
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
-        inds_train = np.arange(Y.shape[0])[np.arange(Y.shape[0]) % self.n_periods == 0]
+        period_filters = _get_groups_period_filter(groups, self.n_periods)
         self._model_y_trained = {}
         self._model_t_trained = {j: {} for j in np.arange(self.n_periods)}
         for t in np.arange(self.n_periods):
             self._model_y_trained[t] = clone(self._model_y, safe=False).fit(
-                self._filter_or_None(X, inds_train + t),
+                self._filter_or_None(X, period_filters[t]),
                 self._filter_or_None(
-                    W, inds_train + t),
-                Y[inds_train + self.n_periods - 1])
+                    W, period_filters[t]),
+                Y[period_filters[self.n_periods - 1]])
             for j in np.arange(t, self.n_periods):
                 self._model_t_trained[j][t] = clone(self._model_t, safe=False).fit(
-                    self._filter_or_None(X, inds_train + t),
-                    self._filter_or_None(W, inds_train + t),
-                    T[inds_train + j])
+                    self._filter_or_None(X, period_filters[t]),
+                    self._filter_or_None(W, period_filters[t]),
+                    T[period_filters[j]])
         return self
 
     def predict(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
@@ -70,40 +81,39 @@ class _DynamicModelNuisance:
             matrix are np.nan.
             This shape is required for _OrthoLearner's crossfitting.
         """
-        # TODO: update T_res docstring
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
-        inds_predict = np.arange(Y.shape[0])[np.arange(Y.shape[0]) % self.n_periods == 0]
+        period_filters = _get_groups_period_filter(groups, self.n_periods)
         Y_res = np.full(Y.shape, np.nan)
         T_res = np.full(T.shape + (self.n_periods, ), np.nan)
         shape_formatter = self._get_shape_formatter(X, W)
         for t in np.arange(self.n_periods):
-            Y_slice = Y[inds_predict + self.n_periods - 1]
+            Y_slice = Y[period_filters[self.n_periods - 1]]
             Y_pred = self._model_y_trained[t].predict(
-                self._filter_or_None(X, inds_predict + t),
-                self._filter_or_None(W, inds_predict + t))
-            Y_res[np.arange(Y.shape[0]) % self.n_periods == t] = Y_slice\
+                self._filter_or_None(X, period_filters[t]),
+                self._filter_or_None(W, period_filters[t]))
+            Y_res[period_filters[t]] = Y_slice\
                 - shape_formatter(Y_slice, Y_pred).reshape(Y_slice.shape)
             for j in np.arange(t, self.n_periods):
-                T_slice = T[inds_predict + j]
+                T_slice = T[period_filters[j]]
                 T_pred = self._model_t_trained[j][t].predict(
-                    self._filter_or_None(X, inds_predict + t),
-                    self._filter_or_None(W, inds_predict + t))
-                T_res[np.arange(Y.shape[0]) % self.n_periods == j, ..., t] = T_slice\
+                    self._filter_or_None(X, period_filters[t]),
+                    self._filter_or_None(W, period_filters[t]))
+                T_res[period_filters[j], ..., t] = T_slice\
                     - shape_formatter(T_slice, T_pred).reshape(T_slice.shape)
         return Y_res, T_res
 
     def score(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
-        inds_score = np.arange(Y.shape[0])[np.arange(Y.shape[0]) % self.n_periods == 0]
+        period_filters = _get_groups_period_filter(groups, self.n_periods)
         if hasattr(self._model_y, 'score'):
             Y_score = np.full((self.n_periods, ), np.nan)
             for t in np.arange(self.n_periods):
                 Y_score[t] = self._model_y_trained[t].score(
-                    self._filter_or_None(X, inds_score + t),
-                    self._filter_or_None(W, inds_score + t),
-                    Y[inds_score + self.n_periods - 1])
+                    self._filter_or_None(X, period_filters[t]),
+                    self._filter_or_None(W, period_filters[t]),
+                    Y[period_filters[self.n_periods - 1]])
         else:
             Y_score = None
         if hasattr(self._model_t, 'score'):
@@ -111,9 +121,9 @@ class _DynamicModelNuisance:
             for t in np.arange(self.n_periods):
                 for j in np.arange(t, self.n_periods):
                     T_score[j][t] = self._model_t_trained[j][t].score(
-                        self._filter_or_None(X, inds_score + t),
-                        self._filter_or_None(W, inds_score + t),
-                        T[inds_score + j])
+                        self._filter_or_None(X, period_filters[t]),
+                        self._filter_or_None(W, period_filters[t]),
+                        T[period_filters[j]])
         else:
             T_score = None
         return Y_score, T_score
@@ -146,23 +156,23 @@ class _DynamicModelFinal:
         self.n_periods = n_periods
         self._model_final_trained = {k: clone(self._model_final, safe=False) for k in np.arange(n_periods)}
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         # NOTE: sample weight, sample var are not passed in
+        period_filters = _get_groups_period_filter(groups, self.n_periods)
         Y_res, T_res = nuisances
         self._d_y = Y.shape[1:]
         for t in np.arange(self.n_periods):
             period = self.n_periods - 1 - t
-            period_filter = self.period_filter_gen(period, Y.shape[0])
-            Y_adj = Y_res[period_filter].copy()
+            Y_adj = Y_res[period_filters[period]].copy()
             if t > 0:
                 Y_adj -= np.sum(
                     [self._model_final_trained[j].predict_with_res(
-                        X[self.period_filter_gen(self.n_periods - 1 - j, Y.shape[0])] if X is not None else None,
-                        T_res[self.period_filter_gen(self.n_periods - 1 - j, Y.shape[0]), ..., period]
+                        X[period_filters[self.n_periods - 1 - j]] if X is not None else None,
+                        T_res[period_filters[self.n_periods - 1 - j], ..., period]
                     ) for j in np.arange(t)], axis=0)
             self._model_final_trained[t].fit(
-                X[period_filter] if X is not None else None, T[period_filter],
-                T_res[period_filter, ..., period], Y_adj)
+                X[period_filters[period]] if X is not None else None, T[period_filters[period]],
+                T_res[period_filters[period], ..., period], Y_adj)
 
         return self
 
@@ -185,25 +195,25 @@ class _DynamicModelFinal:
             )
         return preds
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
         Y_res, T_res = nuisances
-
         scores = np.full((self.n_periods, ), np.nan)
+        period_filters = _get_groups_period_filter(groups, self.n_periods)
         for t in np.arange(self.n_periods):
             period = self.n_periods - 1 - t
-            period_filter = self.period_filter_gen(period, Y.shape[0])
-            Y_adj = Y_res[period_filter].copy()
+            # period_filter = self.period_filter_gen(period, Y.shape[0])
+            Y_adj = Y_res[period_filters[period]].copy()
             if t > 0:
                 Y_adj -= np.sum(
                     [self._model_final_trained[j].predict_with_res(
-                        X[self.period_filter_gen(self.n_periods - 1 - j, Y.shape[0])] if X is not None else None,
-                        T_res[self.period_filter_gen(self.n_periods - 1 - j, Y.shape[0]), ..., period]
+                        X[period_filters[self.n_periods - 1 - j]] if X is not None else None,
+                        T_res[period_filters[self.n_periods - 1 - j], ..., period]
                     ) for j in np.arange(t)], axis=0)
             Y_adj_pred = self._model_final_trained[t].predict_with_res(
-                X[period_filter] if X is not None else None,
-                T_res[period_filter, ..., period])
+                X[period_filters[period]] if X is not None else None,
+                T_res[period_filters[period], ..., period])
             if sample_weight is not None:
                 scores[t] = np.mean(np.average((Y_adj - Y_adj_pred)**2, weights=sample_weight, axis=0))
             else:
@@ -225,10 +235,11 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         super().__init__(model_final, n_periods)
         self.model_final_ = StatsModelsLinearRegression(fit_intercept=False)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
-        super().fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances, sample_weight=sample_weight, sample_var=sample_var)
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
+        super().fit(Y, T, X=X, W=W, Z=Z, nuisances=nuisances,
+                    sample_weight=sample_weight, sample_var=sample_var, groups=groups)
         # Compose final model
-        cov = self._get_cov(nuisances, X)
+        cov = self._get_cov(nuisances, X, groups)
         coef = self._get_coef_()
         self.model_final_._n_out = self._d_y[0] if self._d_y else 0
         self.model_final_._param_var = cov / (Y.shape[0] / self.n_periods)
@@ -243,25 +254,28 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
             ])
         return period_coefs.flatten()
 
-    def _get_cov(self, nuisances, X):
+    def _get_cov(self, nuisances, X, groups):
         if self._d_y:
             return np.array(
-                [self._fit_single_output_cov((nuisances[0][:, i], nuisances[1]), X, i) for i in range(self._d_y[0])]
+                [self._fit_single_output_cov((nuisances[0][:, i], nuisances[1]), X, i, groups)
+                 for i in range(self._d_y[0])]
             )
-        return self._fit_single_output_cov(nuisances, X, -1)
+        return self._fit_single_output_cov(nuisances, X, -1, groups)
 
-    def _fit_single_output_cov(self, nuisances, X, y_index):
+    def _fit_single_output_cov(self, nuisances, X, y_index, groups):
         """ Calculates the covariance (n_periods*n_treatments)
             x (n_periods*n_treatments) matrix for a single outcome.
         """
+        # TODO: add group filters here
         Y_res, T_res = nuisances
         # Calculate auxiliary quantities
+        period_filters = _get_groups_period_filter(groups, self.n_periods)
         # X ⨂ T_res
         XT_res = np.array([
             [
                 self._model_final_trained[0]._combine(
-                    X[self.period_filter_gen(j, Y_res.shape[0])] if X is not None else None,
-                    T_res[self.period_filter_gen(t, Y_res.shape[0]), ..., j],
+                    X[period_filters[j]] if X is not None else None,
+                    T_res[period_filters[t], ..., j],
                     fitting=False
                 )
                 for j in range(self.n_periods)
@@ -273,10 +287,9 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         Y_diff = np.array([
             np.sum([
                 self._model_final_trained[j].predict_with_res(
-                    X[self.period_filter_gen(self.n_periods - 1 - j,
-                                             Y_res.shape[0])] if X is not None else None,
+                    X[period_filters[self.n_periods - 1 - j]] if X is not None else None,
                     T_res[
-                        self.period_filter_gen(self.n_periods - 1 - j, Y_res.shape[0]), ..., self.n_periods - 1 - t]
+                        period_filters[self.n_periods - 1 - j], ..., self.n_periods - 1 - t]
                 ) for j in np.arange(t + 1)],
                 axis=0
             )
@@ -288,7 +301,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
                           self.n_periods * d_xt))
         for t in np.arange(self.n_periods):
             period_t = self.n_periods - 1 - t
-            period_filter_t = self.period_filter_gen(period_t, Y_res.shape[0])
+            period_filter_t = period_filters[period_t]
             res_epsilon_t = (Y_res[period_filter_t] -
                              (Y_diff[t][:, y_index] if y_index >= 0 else Y_diff[t])
                              ).reshape(-1, 1, 1)
@@ -296,7 +309,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
             for j in np.arange(self.n_periods):
                 # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix Sigma
                 period_j = self.n_periods - 1 - j
-                period_filter_j = self.period_filter_gen(period_j, Y_res.shape[0])
+                period_filter_j = period_filters[period_j]
                 res_epsilon_j = (Y_res[period_filter_j] -
                                  (Y_diff[j][:, y_index] if y_index >= 0 else Y_diff[j])
                                  ).reshape(-1, 1, 1)
@@ -545,11 +558,19 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups,
             cache_values=False, inference=None):
-        """
-        Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
+        """Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
-        The input data has to be in panel format, i.e. a sequence of groups, each with the same size corresponding
-        to the number of time periods the treatments were assigned over.
+        The input data must contain groups with the same size corresponding to the number
+        of time periods the treatments were assigned over.
+
+        The data should be preferably in panel format, with groups clustered together.
+        If group members do not appear together, the following is assumed:
+
+        * the first instance of a group in the dataset is assumed to correspond to the first period of that group
+        * the second instance of a group in the dataset is assumed to correspond to the 
+          second period of that group
+
+        ...etc.
 
         Parameters
         ----------
@@ -589,7 +610,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                            cache_values=cache_values,
                            inference=inference)
 
-    def score(self, Y, T, X=None, W=None):
+    def score(self, Y, T, X=None, W=None, *, groups):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
@@ -608,6 +629,8 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             Features for each sample (Required: n = n_groups * n_periods)
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample (Required: n = n_groups * n_periods)
+        groups: (n,) vector, required
+            All rows corresponding to the same group will be kept together during splitting.
 
         Returns
         -------
@@ -615,7 +638,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W)
+        return super().score(Y, T, X=X, W=W, groups=groups)
 
     def cate_treatment_names(self, treatment_names=None):
         """

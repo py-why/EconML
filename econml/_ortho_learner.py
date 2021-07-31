@@ -664,7 +664,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                         X=X, W=W, Z=Z,
                         nuisances=nuisances,
                         sample_weight=sample_weight,
-                        sample_var=sample_var)
+                        sample_var=sample_var,
+                        groups=groups)
 
         return self
 
@@ -748,17 +749,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                                   sample_weight=sample_weight, groups=groups)
         return nuisances, fitted_models, fitted_inds, scores
 
-    def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None):
+    def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None,
+                   sample_weight=None, sample_var=None, groups=None):
         self._ortho_learner_model_final.fit(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
                                                                        nuisances=nuisances,
                                                                        sample_weight=sample_weight,
-                                                                       sample_var=sample_var))
+                                                                       sample_var=sample_var,
+                                                                       groups=groups))
         self.score_ = None
         if hasattr(self._ortho_learner_model_final, 'score'):
             self.score_ = self._ortho_learner_model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
                                                                                            nuisances=nuisances,
                                                                                            sample_weight=sample_weight,
-                                                                                           sample_var=sample_var))
+                                                                                           sample_var=sample_var,
+                                                                                           groups=groups))
 
     def const_marginal_effect(self, X=None):
         X, = check_input_arrays(X)
@@ -793,7 +797,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return super().effect_inference(X, T0=T0, T1=T1)
     effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted nuisance models created at fit time.
@@ -817,6 +821,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Instruments for each sample
         sample_weight: optional(n,) vector or None (Default=None)
             Weights for each samples
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
 
         Returns
         -------
@@ -853,7 +859,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             nuisances[it] = np.mean(nuisances[it], axis=0)
 
         return self._ortho_learner_model_final.score(Y, T, nuisances=nuisances,
-                                                     **filter_none_kwargs(X=X, W=W, Z=Z, sample_weight=sample_weight))
+                                                     **filter_none_kwargs(X=X, W=W, Z=Z,
+                                                                          sample_weight=sample_weight, groups=groups))
 
     @property
     def ortho_learner_model_final_(self):

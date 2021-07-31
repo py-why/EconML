@@ -114,3 +114,8 @@ References
     Lundberg, S.,  Lee, S. (2017).
     A Unified Approach to Interpreting Model Predictions.
     URL https://arxiv.org/abs/1705.07874
+
+.. [Lewis2021] 
+    Lewis, G., Syrgkanis, V. (2021).
+    Double/Debiased Machine Learning for Dynamic Treatment Effects.
+    URL https://arxiv.org/abs/2002.07285
