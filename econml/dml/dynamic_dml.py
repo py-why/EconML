@@ -20,7 +20,8 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          cross_product, deprecated, fit_with_groups,
                          hstack, inverse_onehot, ndim, reshape,
                          reshape_treatmentwise_effects, shape, transpose,
-                         get_feature_names_or_default)
+                         get_feature_names_or_default, check_input_arrays,
+                         filter_none_kwargs)
 
 
 def _get_groups_period_filter(groups, n_periods):
@@ -203,7 +204,6 @@ class _DynamicModelFinal:
         period_filters = _get_groups_period_filter(groups, self.n_periods)
         for t in np.arange(self.n_periods):
             period = self.n_periods - 1 - t
-            # period_filter = self.period_filter_gen(period, Y.shape[0])
             Y_adj = Y_res[period_filters[period]].copy()
             if t > 0:
                 Y_adj -= np.sum(
@@ -219,9 +219,6 @@ class _DynamicModelFinal:
             else:
                 scores[t] = np.mean((Y_adj - Y_adj_pred) ** 2)
         return scores
-
-    def period_filter_gen(self, p, n):
-        return (np.arange(n) % self.n_periods == p)
 
 
 class _LinearDynamicModelFinal(_DynamicModelFinal):
@@ -567,7 +564,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         If group members do not appear together, the following is assumed:
 
         * the first instance of a group in the dataset is assumed to correspond to the first period of that group
-        * the second instance of a group in the dataset is assumed to correspond to the 
+        * the second instance of a group in the dataset is assumed to correspond to the
           second period of that group
 
         ...etc.
@@ -610,7 +607,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                            cache_values=cache_values,
                            inference=inference)
 
-    def score(self, Y, T, X=None, W=None, *, groups):
+    def score(self, Y, T, X=None, W=None, sample_weight=None, *, groups):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
@@ -637,8 +634,33 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         score: float
             The MSE of the final CATE model on the new data.
         """
-        # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W, groups=groups)
+        if not hasattr(self._ortho_learner_model_final, 'score'):
+            raise AttributeError("Final model does not have a score method!")
+        Y, T, X, W, groups = check_input_arrays(Y, T, X, W, groups)
+        self._check_fitted_dims(X)
+        X, T = super()._expand_treatments(X, T)
+        n_iters = len(self._models_nuisance)
+        n_splits = len(self._models_nuisance[0])
+
+        # for each mc iteration
+        for i, models_nuisances in enumerate(self._models_nuisance):
+            # for each model under cross fit setting
+            for j, mdl in enumerate(models_nuisances):
+                nuisance_temp = mdl.predict(Y, T, **filter_none_kwargs(X=X, W=W, groups=groups))
+                if not isinstance(nuisance_temp, tuple):
+                    nuisance_temp = (nuisance_temp,)
+
+                if i == 0 and j == 0:
+                    nuisances = [np.zeros((n_iters * n_splits,) + nuis.shape) for nuis in nuisance_temp]
+
+                for it, nuis in enumerate(nuisance_temp):
+                    nuisances[it][i * n_iters + j] = nuis
+
+        for it in range(len(nuisances)):
+            nuisances[it] = np.mean(nuisances[it], axis=0)
+        return self._ortho_learner_model_final.score(Y, T, nuisances=nuisances,
+                                                     **filter_none_kwargs(X=X, W=W,
+                                                                          sample_weight=sample_weight, groups=groups))
 
     def cate_treatment_names(self, treatment_names=None):
         """

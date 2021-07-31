@@ -845,7 +845,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for i, models_nuisances in enumerate(self._models_nuisance):
             # for each model under cross fit setting
             for j, mdl in enumerate(models_nuisances):
-                nuisance_temp = mdl.predict(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z))
+                nuisance_temp = mdl.predict(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z, groups=groups))
                 if not isinstance(nuisance_temp, tuple):
                     nuisance_temp = (nuisance_temp,)
 
