@@ -86,7 +86,7 @@ jobs:
   parameters:
     versions: ['3.8']
     images: ['ubuntu-18.04']
-    package: '-e .[tf]'
+    package: '-e .[tf,plt]'
     job:
       job: 'Notebooks'
       dependsOn: 'EvalChanges'

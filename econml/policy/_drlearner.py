@@ -4,7 +4,7 @@
 from warnings import warn
 import numpy as np
 from sklearn.base import clone
-from ..utilities import check_inputs, filter_none_kwargs
+from ..utilities import check_inputs, filter_none_kwargs, check_input_arrays
 from ..dr import DRLearner
 from ..dr._drlearner import _ModelFinal
 from .._tree_exporter import _SingleTreeExporterMixin
@@ -14,11 +14,12 @@ from . import PolicyTree, PolicyForest
 
 class _PolicyModelFinal(_ModelFinal):
 
-    def fit(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None, groups=None):
+    def fit(self, Y, T, X=None, W=None, *, nuisances,
+            sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         if sample_var is not None:
             warn('Parameter `sample_var` is ignored by the final estimator')
             sample_var = None
-        Y_pred, = nuisances
+        Y_pred, _ = nuisances
         self.d_y = Y_pred.shape[1:-1]  # track whether there's a Y dimension (must be a singleton)
         if (X is not None) and (self._featurizer is not None):
             X = self._featurizer.fit_transform(X)
@@ -38,7 +39,7 @@ class _PolicyModelFinal(_ModelFinal):
             return pred[:, np.newaxis, :]
         return pred
 
-    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, sample_var=None, groups=None):
+    def score(self, Y, T, X=None, W=None, *, nuisances, sample_weight=None, groups=None):
         return 0
 
 
@@ -98,6 +99,24 @@ class _BaseDRPolicyLearner(PolicyLearner):
         """
         return self.drlearner_.const_marginal_effect(X)
 
+    def predict_proba(self, X):
+        """ Predict the probability of recommending each treatment
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            The input samples.
+
+        Returns
+        -------
+        treatment_proba : array-like of shape (n_samples, n_treatments)
+            The probability of each treatment recommendation
+        """
+        X, = check_input_arrays(X)
+        if self.drlearner_.featurizer_ is not None:
+            X = self.drlearner_.featurizer_.fit_transform(X)
+        return self.policy_model_.predict_proba(X)
+
     def predict(self, X):
         """ Get recommended treatment for each sample.
 
@@ -111,9 +130,11 @@ class _BaseDRPolicyLearner(PolicyLearner):
         treatment : array-like of shape (n_samples,)
             The index of the recommended treatment in the same order as in categories, or in
             lexicographic order if `categories='auto'`. 0 corresponds to the baseline/control treatment.
+            For ensemble policy models, recommended treatments are aggregated from each model in the ensemble
+            and the treatment that receives the most votes is returned. Use `predict_proba` to get the fraction
+            of models in the ensemble that recommend each treatment for each sample.
         """
-        values = self.predict_value(X)
-        return np.argmax(np.hstack([np.zeros((values.shape[0], 1)), values]), axis=1)
+        return np.argmax(self.predict_proba(X), axis=1)
 
     def policy_feature_names(self, *, feature_names=None):
         """

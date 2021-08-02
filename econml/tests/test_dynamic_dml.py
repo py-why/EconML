@@ -236,7 +236,7 @@ class TestDynamicDML(unittest.TestCase):
                                                     [0], est.intercept__interval()[0], decimal=5)
 
                                             est.summary()
-                                        est.score(Y, T, X, W)
+                                        est.score(Y, T, X, W, groups=groups)
                                         # make sure we can call effect with implied scalar treatments,
                                         # no matter the dimensions of T, and also that we warn when there
                                         # are multiple treatments

@@ -45,9 +45,21 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-**March 22, 2021:** Release v0.10.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.10.0)
+**July 9, 2021:** Release v0.12.0b4, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b4)
 
 <details><summary>Previous releases</summary>
+
+**June 25, 2021:** Release v0.12.0b3, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b3)
+
+**June 18, 2021:** Release v0.12.0b2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b2)
+
+**June 7, 2021:** Release v0.12.0b1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b1)
+
+**May 18, 2021:** Release v0.11.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.11.1)
+
+**May 8, 2021:** Release v0.11.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.11.0)
+
+**March 22, 2021:** Release v0.10.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.10.0)
 
 **March 11, 2021:** Release v0.9.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.2)
 
@@ -550,12 +562,13 @@ To see more complex examples, go to the [notebooks](https://github.com/Microsoft
 You can get started by cloning this repository. We use 
 [setuptools](https://setuptools.readthedocs.io/en/latest/index.html) for building and distributing our package.
 We rely on some recent features of setuptools, so make sure to upgrade to a recent version with
-`pip install setuptools --upgrade`.  Then from your local copy of the repository you can run `python setup.py develop` to get started.
+`pip install setuptools --upgrade`.  Then from your local copy of the repository you can run `pip install -e .` to get started (but depending on what you're doing you might want to install with extras instead, like `pip install -e .[plt]` if you want to use matplotlib integration, or you can use  `pip install -e .[all]` to include all extras).
 
 ## Running the tests
 
-This project uses [pytest](https://docs.pytest.org/) for testing.  To run tests locally after installing the package, 
-you can use `python setup.py pytest`.
+This project uses [pytest](https://docs.pytest.org/) for testing.  To run tests locally after installing the package, you can use `pip install pytest-runner` followed by `python setup.py pytest`.
+
+We have added pytest marks to some tests to make it easier to run a subset, and you can set the PYTEST_ADDOPTS environment variable to take advantage of this.  For instance, you can set it to `-m "not (notebook or automl)"` to skip notebook and automl tests that have some additional dependencies. 
 
 ## Generating the documentation
 
@@ -580,13 +593,13 @@ The reStructuredText files that make up the documentation are stored in the [doc
 
 If you use EconML in your research, please cite us as follows:
 
-   Microsoft Research. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/microsoft/EconML, 2019. Version 0.x.
+   Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/microsoft/EconML, 2019. Version 0.x.
 
 BibTex:
 
 ```
 @misc{econml,
-  author={Microsoft Research},
+  author={Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis},
   title={{EconML}: {A Python Package for ML-Based Heterogeneous Treatment Effects Estimation}},
   howpublished={https://github.com/microsoft/EconML},
   note={Version 0.x},

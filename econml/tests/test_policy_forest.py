@@ -290,6 +290,8 @@ class TestPolicyForest(unittest.TestCase):
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(X, y)
         pred = forest.predict(X)
         pred_val = forest.predict_value(X)
+        pred_prob = forest.predict_proba(X)
+        assert pred_prob.shape == (X.shape[0], 2)
         feat_imp = forest.feature_importances()
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(X.astype(np.float32),
                                                                                np.asfortranarray(y))
@@ -298,12 +300,15 @@ class TestPolicyForest(unittest.TestCase):
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(tuple(X), tuple(y))
         np.testing.assert_allclose(pred, forest.predict(tuple(X)))
         np.testing.assert_allclose(pred_val, forest.predict_value(tuple(X)))
+        np.testing.assert_allclose(pred_prob, forest.predict_proba(tuple(X)))
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(list(X), list(y))
         np.testing.assert_allclose(pred, forest.predict(list(X)))
         np.testing.assert_allclose(pred_val, forest.predict_value(list(X)))
+        np.testing.assert_allclose(pred_prob, forest.predict_proba(list(X)))
         forest = PolicyForest(n_estimators=20, n_jobs=1, random_state=123).fit(pd.DataFrame(X), pd.DataFrame(y))
         np.testing.assert_allclose(pred, forest.predict(pd.DataFrame(X)))
         np.testing.assert_allclose(pred_val, forest.predict_value(pd.DataFrame(X)))
+        np.testing.assert_allclose(pred_prob, forest.predict_proba(pd.DataFrame(X)))
 
         groups = np.repeat(np.arange(X.shape[0]), 2)
         Xraw = X.copy()
@@ -324,6 +329,15 @@ class TestPolicyForest(unittest.TestCase):
                                    forest.predict_value(Xraw[mask]).flatten(), atol=.08)
         np.testing.assert_allclose(feat_imp, forest.feature_importances(), atol=1e-4)
         np.testing.assert_allclose(feat_imp, forest.feature_importances_, atol=1e-4)
+        pred = forest.predict(X)
+        pred_val = forest.predict_value(X)
+        pred_prob = forest.predict_proba(X)
+        np.testing.assert_allclose(pred, forest.predict(tuple(X)))
+        np.testing.assert_allclose(pred_val, forest.predict_value(tuple(X)))
+        np.testing.assert_allclose(pred, forest.predict(pd.DataFrame(X)))
+        np.testing.assert_allclose(pred_val, forest.predict_value(pd.DataFrame(X)))
+        np.testing.assert_allclose(pred_prob, forest.predict_proba(pd.DataFrame(X)))
+
         return
 
     def test_raise_exceptions(self,):

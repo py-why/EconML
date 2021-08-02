@@ -16,7 +16,8 @@ from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
-from ..utilities import add_intercept, shape, check_inputs, _deprecate_positional, cross_product, Summary
+from ..utilities import (add_intercept, shape, check_inputs, check_input_arrays,
+                         _deprecate_positional, cross_product, Summary)
 from ..grf import CausalForest, MultiOutputGRF
 from .._cate_estimator import LinearCateEstimator
 from .._shap import _shap_explain_multitask_model_cate
@@ -52,13 +53,11 @@ class _CausalForestFinalWrapper:
         stderr = (np.nanstd(drpreds, axis=0) / np.sqrt(nonnan)).reshape(self._d_y + self._d_t)
         return point, stderr
 
-    def fit(self, X, T, T_res, Y_res, sample_weight=None, sample_var=None, groups=None):
+    def fit(self, X, T, T_res, Y_res, sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
         self._d_t = shape(T_res)[1:]
         self._d_y = shape(Y_res)[1:]
         fts = self._combine(X)
-        if sample_var is not None:
-            raise ValueError("This estimator does not support sample_var!")
         if T_res.ndim == 1:
             T_res = T_res.reshape((-1, 1))
         if Y_res.ndim == 1:
@@ -75,7 +74,7 @@ class _CausalForestFinalWrapper:
                      "where available.")
             residuals = Y_res - np.einsum('ijk,ik->ij', oob_preds, T_res)
             propensities = T - T_res
-            VarT = propensities * (1 - propensities)
+            VarT = np.clip(propensities * (1 - propensities), 1e-2, np.inf)
             drpreds = oob_preds
             drpreds += cross_product(residuals, T_res / VarT).reshape((-1, Y_res.shape[1], T_res.shape[1]))
             drpreds[np.isnan(oob_preds)] = np.nan
@@ -608,7 +607,7 @@ class CausalForestDML(_BaseDML):
                 'honest', 'inference', 'fit_intercept', 'subforest_size']
 
     def tune(self, Y, T, *, X=None, W=None,
-             sample_weight=None, sample_var=None, groups=None,
+             sample_weight=None, groups=None,
              params='auto'):
         """
         Tunes the major hyperparameters of the final stage causal forest based on out-of-sample R-score
@@ -630,9 +629,6 @@ class CausalForestDML(_BaseDML):
             Controls for each sample
         sample_weight: optional (n,) vector
             Weights for each row
-        sample_var: optional (n, n_y) vector
-            Variance of sample, in case it corresponds to summary of many samples. Currently
-            not in use by this method (as inference method does not require sample variance info).
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -648,12 +644,14 @@ class CausalForestDML(_BaseDML):
             The tuned causal forest object. This is the same object (not a copy) as the original one, but where
             all parameters of the object have been set to the best performing parameters from the tuning grid.
         """
+        Y, T, X, W, sample_weight, groups = check_input_arrays(Y, T, X, W, sample_weight, groups)
+
         if params == 'auto':
-            params = {'max_samples': [.3, .5],
-                      'min_balancedness_tol': [.3, .5],
-                      'min_samples_leaf': [5, 50],
-                      'max_depth': [3, None],
-                      'min_var_fraction_leaf': [None, .01]}
+            params = {
+                'min_weight_fraction_leaf': [0.0001, .01],
+                'max_depth': [3, 5, None],
+                'min_var_fraction_leaf': [0.001, .01]
+            }
         else:
             # If custom param grid, check that only estimator parameters are being altered
             estimator_param_names = self.tunable_params
@@ -664,7 +662,8 @@ class CausalForestDML(_BaseDML):
         strata = None
         if self.discrete_treatment:
             strata = self._strata(Y, T, X=X, W=W, sample_weight=sample_weight, groups=groups)
-        train, test = train_test_split(np.arange(Y.shape[0]), train_size=.7,
+        # use 0.699 instead of 0.7 as train size so that if there are 5 examples in a stratum, we get 2 in test
+        train, test = train_test_split(np.arange(Y.shape[0]), train_size=0.699,
                                        random_state=self.random_state, stratify=strata)
         ytrain, yval, Ttrain, Tval = Y[train], Y[test], T[train], T[test]
         Xtrain, Xval = (X[train], X[test]) if X is not None else (None, None)
@@ -674,10 +673,6 @@ class CausalForestDML(_BaseDML):
             sample_weight_train, sample_weight_val = sample_weight[train], sample_weight[test]
         else:
             sample_weight_train, sample_weight_val = None, None
-        if sample_var is not None:
-            sample_var_train, _ = sample_var[train], sample_var[test]
-        else:
-            sample_var_train, _ = None, None
 
         est = clone(self, safe=False)
         est.n_estimators = 100
@@ -696,7 +691,7 @@ class CausalForestDML(_BaseDML):
                 setattr(est, key, value)
             if it == 0:
                 est.fit(ytrain, Ttrain, X=Xtrain, W=Wtrain, sample_weight=sample_weight_train,
-                        sample_var=sample_var_train, groups=groups_train, cache_values=True)
+                        groups=groups_train, cache_values=True)
             else:
                 est.refit_final()
             scores.append((scorer.score(est), tuple(zip(names, values))))
@@ -712,7 +707,7 @@ class CausalForestDML(_BaseDML):
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -727,11 +722,8 @@ class CausalForestDML(_BaseDML):
             Features for each sample
         W: optional (n × d_w) matrix
             Controls for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
-        sample_var: optional (n, n_y) vector
-            Variance of sample, in case it corresponds to summary of many samples. Currently
-            not in use by this method (as inference method does not require sample variance info).
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -747,13 +739,10 @@ class CausalForestDML(_BaseDML):
         -------
         self
         """
-        if sample_var is not None:
-            raise ValueError("This estimator does not support sample_var!")
         if X is None:
             raise ValueError("This estimator does not support X=None!")
-        Y, T, X, W = check_inputs(Y, T, X, W=W, multi_output_T=True, multi_output_Y=True)
         return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values,
                            inference=inference)
 

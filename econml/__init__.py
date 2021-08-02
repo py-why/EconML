@@ -18,6 +18,7 @@ __all__ = ['automated_ml',
            'ortho_iv',
            'policy',
            'score',
+           'solutions',
            'sklearn_extensions',
            'tree',
            'two_stage_least_squares',
@@ -25,4 +26,4 @@ __all__ = ['automated_ml',
            'dowhy',
            '__version__']
 
-__version__ = '0.10.0'
+__version__ = '0.12.0b4'

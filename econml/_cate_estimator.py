@@ -10,7 +10,7 @@ from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
-                        inverse_onehot, Summary, get_input_columns)
+                        inverse_onehot, Summary, get_input_columns, check_input_arrays)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
@@ -809,6 +809,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
             self._set_transformed_treatment_names()
 
     def _expand_treatments(self, X=None, *Ts):
+        X, *Ts = check_input_arrays(X, *Ts)
         n_rows = 1 if X is None else shape(X)[0]
         outTs = []
         for T in Ts:

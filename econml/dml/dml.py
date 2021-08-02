@@ -32,7 +32,7 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          cross_product, deprecated, fit_with_groups,
                          hstack, inverse_onehot, ndim, reshape,
                          reshape_treatmentwise_effects, shape, transpose,
-                         get_feature_names_or_default)
+                         get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
 
 
@@ -134,22 +134,15 @@ class _FinalWrapper:
             F = np.ones((T.shape[0], 1))
         return cross_product(F, T)
 
-    def fit(self, X, T, T_res, Y_res, sample_weight=None, sample_var=None, groups=None):
+    def fit(self, X, T, T_res, Y_res, sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
         self._d_t = shape(T_res)[1:]
         self._d_y = shape(Y_res)[1:]
         if not self._use_weight_trick:
             fts = self._combine(X, T_res)
-            if sample_weight is not None:
-                if sample_var is not None:
-                    self._model.fit(fts,
-                                    Y_res, sample_weight=sample_weight, sample_var=sample_var)
-                else:
-                    self._model.fit(fts,
-                                    Y_res, sample_weight=sample_weight)
-            else:
-                self._model.fit(fts, Y_res)
-
+            filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
+                                                 freq_weight=freq_weight, sample_var=sample_var)
+            self._model.fit(fts, Y_res, **filtered_kwargs)
             self._intercept = None
             intercept = self._model.predict(np.zeros_like(fts[0:1]))
             if (np.count_nonzero(intercept) > 0):
@@ -171,15 +164,13 @@ class _FinalWrapper:
                 clipped_T_res = clipped_T_res.reshape(-1, 1)
             target = Y_res / clipped_T_res
             target_var = sample_var / clipped_T_res**2 if sample_var is not None else None
-
             if sample_weight is not None:
-                if target_var is not None:
-                    self._model.fit(F, target, sample_weight=sample_weight * T_res.flatten()**2,
-                                    sample_var=target_var)
-                else:
-                    self._model.fit(F, target, sample_weight=sample_weight * T_res.flatten()**2)
+                sample_weight = sample_weight * T_res.flatten()**2
             else:
-                self._model.fit(F, target, sample_weight=T_res.flatten()**2)
+                sample_weight = T_res.flatten()**2
+            filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight,
+                                                 freq_weight=freq_weight, sample_var=target_var)
+            self._model.fit(F, target, **filtered_kwargs)
         else:
             raise AttributeError("This combination is not a feasible one!")
         return self
@@ -472,7 +463,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -487,8 +478,15 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             Features for each sample
         W: optional (n × d_w) matrix
             Controls for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(n,), (n, d_y)} nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -504,7 +502,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         -------
         self
         """
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight,
+                           sample_var=sample_var, groups=groups,
                            cache_values=cache_values,
                            inference=inference)
 
@@ -618,7 +617,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -633,10 +632,15 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
             Features for each sample
         W: optional (n × d_w) matrix
             Controls for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
-        sample_var: (n,) vector, optional
-            Sample variance for each sample
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(n,), (n, d_y)} nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -653,7 +657,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         self
         """
         return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+                           sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values,
                            inference=inference)
 
@@ -824,7 +828,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -839,11 +843,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             Features for each sample
         W: optional (n × d_w) matrix
             Controls for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
-        sample_var: optional (n, n_y) vector
-            Variance of sample, in case it corresponds to summary of many samples. Currently
-            not in use by this method but will be supported in a future release.
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -859,16 +860,13 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         -------
         self
         """
-        # TODO: support sample_var
-        if sample_var is not None and inference is not None:
-            warn("This estimator does not yet support sample variances and inference does not take "
-                 "sample variances into account. This feature will be supported in a future release.")
+        # TODO: support freq_weight and sample_var in debiased lasso
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
                                "We recommend using the LinearDML estimator for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
-                           sample_weight=sample_weight, sample_var=None, groups=groups,
+                           sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
 
     @property
@@ -991,6 +989,42 @@ class KernelDML(DML):
 
     def _gen_featurizer(self):
         return _RandomFeatures(dim=self.dim, bw=self.bw, random_state=self.random_state)
+
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
+            cache_values=False, inference='auto'):
+        """
+        Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
+
+        Parameters
+        ----------
+        Y: (n × d_y) matrix or vector of length n
+            Outcomes for each sample
+        T: (n × dₜ) matrix or vector of length n
+            Treatments for each sample
+        X: optional (n × dₓ) matrix
+            Features for each sample
+        W: optional (n × d_w) matrix
+            Controls for each sample
+        sample_weight : (n,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
+        groups: (n,) vector, optional
+            All rows corresponding to the same group will be kept together during splitting.
+            If groups is not None, the `cv` argument passed to this class's initializer
+            must support a 'groups' argument to its split method.
+        cache_values: bool, default False
+            Whether to cache inputs and first stage results, which will allow refitting a different final model
+        inference: string, :class:`.Inference` instance, or None
+            Method for performing inference.  This estimator supports 'bootstrap'
+            (or an instance of :class:`.BootstrapInference`) and 'auto'
+            (or an instance of :class:`.LinearModelFinalInference`)
+
+        Returns
+        -------
+        self
+        """
+        return super().fit(Y, T, X=X, W=W,
+                           sample_weight=sample_weight, groups=groups,
+                           cache_values=cache_values, inference=inference)
 
     @property
     def featurizer(self):
@@ -1125,7 +1159,7 @@ class NonParamDML(_BaseDML):
     # support for `GenericSingleTreatmentModelFinalInference`
     @_deprecate_positional("X and W should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -1140,8 +1174,15 @@ class NonParamDML(_BaseDML):
             Features for each sample
         W: optional (n × d_w) matrix
             Controls for each sample
-        sample_weight: optional (n,) vector
-            Weights for each row
+        sample_weight : (n,) array like, default None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (n,) array like of integers, default None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(n,), (n, d_y)} nd array like, default None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
@@ -1157,7 +1198,8 @@ class NonParamDML(_BaseDML):
         -------
         self
         """
-        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, sample_var=sample_var, groups=groups,
+        return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var,
+                           groups=groups,
                            cache_values=cache_values,
                            inference=inference)
 

@@ -187,7 +187,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         return sparse_hstack(indicators).tocsr(), n_nodes_ptr
 
-    def fit(self, X, T, y, *, sample_weight=None, sample_var=None, **kwargs):
+    def fit(self, X, T, y, *, sample_weight=None, **kwargs):
         """
         Build a forest of trees from the training set (X, T, y) and any other auxiliary variables.
 
@@ -204,8 +204,6 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
-        sample_var : array-like of shape (n_samples,), default=None
-            Currently ignored and raises a warning. Added for API consistency and for raising relevant errors.
         **kwargs : dictionary of array-like items of shape (n_samples, d_var)
             Auxiliary random variables that go into the moment function (e.g. instrument, censoring etc)
             Any of these variables will be passed on as is to the `get_pointJ` and
@@ -215,11 +213,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         -------
         self : object
         """
-
-        if sample_var is not None:
-            warn("`sample_var` is currently being ingored by the estimator. All samples are "
-                 "considered to have equal variance of y.")
-
+        # TODO: support freq_weight and sample_var
         y, T, X, _ = check_inputs(y, T, X, W=None, multi_output_T=True, multi_output_Y=True)
 
         if sample_weight is not None:

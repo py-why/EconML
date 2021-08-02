@@ -13,7 +13,6 @@ import abc
 import numpy as np
 import re
 from io import StringIO
-import graphviz
 from sklearn.utils.validation import check_is_fitted
 
 try:
@@ -21,13 +20,22 @@ try:
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 except ImportError as exn:
-    from ..utilities import MissingModule
+    from .utilities import MissingModule
 
     # make any access to matplotlib or plt throw an exception
     matplotlib = plt = MissingModule("matplotlib is no longer a dependency of the main econml package; "
                                      "install econml[plt] or econml[all] to require it, or install matplotlib "
                                      "separately, to use the tree interpreters", exn)
 
+try:
+    import graphviz
+except ImportError as exn:
+    from .utilities import MissingModule
+
+    # make any access to graphviz or plt throw an exception
+    graphviz = MissingModule("graphviz is no longer a dependency of the main econml package; "
+                             "install econml[plt] or econml[all] to require it, or install graphviz "
+                             "separately, to use the tree interpreters", exn)
 
 # HACK: We're relying on some of sklearn's non-public classes which are not completely stable.
 #       However, the alternative is reimplementing a bunch of intricate stuff by hand

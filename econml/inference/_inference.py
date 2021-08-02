@@ -16,7 +16,7 @@ from ..sklearn_extensions.linear_model import StatsModelsLinearRegression
 from ..utilities import (Summary, _safe_norm_ppf, broadcast_unit_treatments,
                          cross_product, inverse_onehot, ndim,
                          parse_final_model_params,
-                         reshape_treatmentwise_effects, shape)
+                         reshape_treatmentwise_effects, shape, filter_none_kwargs)
 
 """Options for performing inference in estimators."""
 
@@ -88,7 +88,8 @@ class BootstrapInference(Inference):
     def fit(self, estimator, *args, **kwargs):
         est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, compute_means=False,
                                  bootstrap_type=self._bootstrap_type, verbose=self._verbose)
-        est.fit(*args, **kwargs)
+        filtered_kwargs = filter_none_kwargs(**kwargs)
+        est.fit(*args, **filtered_kwargs)
         self._est = est
         self._d_t = estimator._d_t
         self._d_y = estimator._d_y
@@ -866,6 +867,33 @@ class InferenceResults(metaclass=abc.ABCMeta):
         """
         pass
 
+    def translate(self, offset):
+        """
+        Update the results in place by translating by an offset.
+
+        Parameters
+        ----------
+        offset: array-like
+            The offset by which to translate these results
+        """
+        # Use broadcast to ensure that the shape of pred isn't being changed due to broadcasting the other direction
+        offset = np.broadcast_to(np.asarray(offset), np.shape(self.pred))
+        self.pred = self.pred + offset
+
+    @abc.abstractmethod
+    def scale(self, factor):
+        """
+        Update the results in place by scaling by a factor.
+
+        Parameters
+        ----------
+        factor: array-like
+            The factor by which to scale these results
+        """
+        # Use broadcast to ensure that the shape of pred isn't being changed due to broadcasting the other direction
+        factor = np.broadcast_to(np.asarray(factor), np.shape(self.pred))
+        self.pred = self.pred * np.asarray(factor)
+
 
 class NormalInferenceResults(InferenceResults):
     """
@@ -985,6 +1013,18 @@ class NormalInferenceResults(InferenceResults):
                                       self.fname_transformer, self.feature_names,
                                       self.output_names, self.treatment_names)
 
+    def scale(self, factor):
+        # scale preds
+        super().scale(factor)
+        # scale std errs
+        factor = np.broadcast_to(np.asarray(factor), np.shape(self.pred))
+        if self.pred_stderr is not None:
+            self.pred_stderr = self.pred_stderr * np.abs(factor)
+        if self.mean_pred_stderr is not None:
+            self.mean_pred_stderr = self.mean_pred_stderr * np.abs(factor)
+
+    scale.__doc__ = InferenceResults.scale.__doc__
+
 
 class EmpiricalInferenceResults(InferenceResults):
     """
@@ -1079,6 +1119,24 @@ class EmpiricalInferenceResults(InferenceResults):
         pred_dist = np.repeat(self.pred_dist, n_rows, axis=1)
         return EmpiricalInferenceResults(self.d_t, self.d_y, pred, pred_dist, self.inf_type, self.fname_transformer,
                                          self.feature_names, self.output_names, self.treatment_names)
+
+    def translate(self, other):
+        # offset preds
+        super().translate(other)
+        # offset the distribution, too
+        other = np.broadcast_to(np.asarray(other), np.shape(self.pred_dist))
+        self.pred_dist = self.pred_dist + other
+
+    translate.__doc__ = InferenceResults.translate.__doc__
+
+    def scale(self, factor):
+        # scale preds
+        super().scale(factor)
+        # scale the distribution, too
+        factor = np.broadcast_to(np.asarray(factor), np.shape(self.pred_dist))
+        self.pred_dist = self.pred_dist * factor
+
+    scale.__doc__ = InferenceResults.scale.__doc__
 
 
 class PopulationSummaryResults:
