@@ -92,7 +92,7 @@ class _ModelFinal:
         self._model_final = model_final
 
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None,
-            sample_weight=None, freq_weight=None, sample_var=None):
+            sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         Y_res, T_res = nuisances
         self._model_final.fit(X, T, T_res, Y_res, sample_weight=sample_weight,
                               freq_weight=freq_weight, sample_var=sample_var)
