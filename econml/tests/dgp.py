@@ -1,5 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
+import abc
 import numpy as np
 from econml.utilities import cross_product
 from statsmodels.tools.tools import add_constant
@@ -13,9 +14,11 @@ class _BaseDynamicPanelDGP:
         self.n_x = n_x
         return
 
+    @abc.abstractmethod
     def create_instance(self, *args, **kwargs):
         pass
 
+    @abc.abstractmethod
     def _gen_data_with_policy(self, n_units, policy_gen, random_seed=123):
         pass
 
@@ -138,7 +141,7 @@ class DynamicPanelDGP(_BaseDynamicPanelDGP):
         return Y, T, X[:, self.hetero_inds] if self.hetero_inds else None, X[:, self.endo_inds], groups
 
     def observational_data(self, n_units, gamma=0, s_t=1, sigma_t=0.5, random_seed=123):
-        """ Generated observational data with some observational treatment policy parameters
+        """Generate observational data with some observational treatment policy parameters.
 
         Parameters
         ----------

@@ -56,14 +56,14 @@ class _DynamicModelNuisance:
         self._model_t_trained = {j: {} for j in np.arange(self.n_periods)}
         for t in np.arange(self.n_periods):
             self._model_y_trained[t] = clone(self._model_y, safe=False).fit(
-                self._filter_or_None(X, period_filters[t]),
-                self._filter_or_None(
+                self._index_or_None(X, period_filters[t]),
+                self._index_or_None(
                     W, period_filters[t]),
                 Y[period_filters[self.n_periods - 1]])
             for j in np.arange(t, self.n_periods):
                 self._model_t_trained[j][t] = clone(self._model_t, safe=False).fit(
-                    self._filter_or_None(X, period_filters[t]),
-                    self._filter_or_None(W, period_filters[t]),
+                    self._index_or_None(X, period_filters[t]),
+                    self._index_or_None(W, period_filters[t]),
                     T[period_filters[j]])
         return self
 
@@ -91,15 +91,15 @@ class _DynamicModelNuisance:
         for t in np.arange(self.n_periods):
             Y_slice = Y[period_filters[self.n_periods - 1]]
             Y_pred = self._model_y_trained[t].predict(
-                self._filter_or_None(X, period_filters[t]),
-                self._filter_or_None(W, period_filters[t]))
+                self._index_or_None(X, period_filters[t]),
+                self._index_or_None(W, period_filters[t]))
             Y_res[period_filters[t]] = Y_slice\
                 - shape_formatter(Y_slice, Y_pred).reshape(Y_slice.shape)
             for j in np.arange(t, self.n_periods):
                 T_slice = T[period_filters[j]]
                 T_pred = self._model_t_trained[j][t].predict(
-                    self._filter_or_None(X, period_filters[t]),
-                    self._filter_or_None(W, period_filters[t]))
+                    self._index_or_None(X, period_filters[t]),
+                    self._index_or_None(W, period_filters[t]))
                 T_res[period_filters[j], ..., t] = T_slice\
                     - shape_formatter(T_slice, T_pred).reshape(T_slice.shape)
         return Y_res, T_res
@@ -112,8 +112,8 @@ class _DynamicModelNuisance:
             Y_score = np.full((self.n_periods, ), np.nan)
             for t in np.arange(self.n_periods):
                 Y_score[t] = self._model_y_trained[t].score(
-                    self._filter_or_None(X, period_filters[t]),
-                    self._filter_or_None(W, period_filters[t]),
+                    self._index_or_None(X, period_filters[t]),
+                    self._index_or_None(W, period_filters[t]),
                     Y[period_filters[self.n_periods - 1]])
         else:
             Y_score = None
@@ -122,8 +122,8 @@ class _DynamicModelNuisance:
             for t in np.arange(self.n_periods):
                 for j in np.arange(t, self.n_periods):
                     T_score[j][t] = self._model_t_trained[j][t].score(
-                        self._filter_or_None(X, period_filters[t]),
-                        self._filter_or_None(W, period_filters[t]),
+                        self._index_or_None(X, period_filters[t]),
+                        self._index_or_None(W, period_filters[t]),
                         T[period_filters[j]])
         else:
             T_score = None
@@ -134,7 +134,7 @@ class _DynamicModelNuisance:
             return lambda x, x_pred: np.tile(x_pred.reshape(1, -1), (x.shape[0], 1))
         return lambda x, x_pred: x_pred
 
-    def _filter_or_None(self, X, filter_idx):
+    def _index_or_None(self, X, filter_idx):
         return None if X is None else X[filter_idx]
 
 
@@ -742,7 +742,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     @property
     def original_featurizer(self):
-        # NOTE: important to use the rlearner_model_final_ attribute instead of the
+        # NOTE: important to use the _ortho_learner_model_final_ attribute instead of the
         #       attribute so that the trained featurizer will be passed through
         return self.ortho_learner_model_final_._model_final_trained[0]._original_featurizer
 
@@ -755,7 +755,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     @property
     def model_final_(self):
         # NOTE This is used by the inference methods and is more for internal use to the library
-        #      We need to use the rlearner's copy to retain the information from fitting
+        #      We need to use the _ortho_learner's copy to retain the information from fitting
         return self.ortho_learner_model_final_.model_final_
 
     @property

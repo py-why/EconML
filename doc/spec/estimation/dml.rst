@@ -51,6 +51,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
 .. testsetup::
 
+    # DML
     import numpy as np
     X = np.random.choice(np.arange(5), size=(100,3))
     Y = np.random.normal(size=(100,2))
@@ -58,6 +59,12 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
     T = T0 = T1 = np.random.choice(np.arange(3), size=(100,2))
     t = t0 = t1 = T[:,0]
     W = np.random.normal(size=(100,2))
+
+    # DynamicDML
+    groups = np.repeat(a=np.arange(100), repeats=3, axis=0)
+    X_dyn = np.random.normal(size=(300, 1))
+    T_dyn = np.random.normal(size=(300, 2))
+    y_dyn = np.random.normal(size=(300, ))
 
 .. testcode::
 
@@ -307,18 +314,9 @@ Below we give a brief description of each of these classes:
 
       .. testcode::
 
-        import numpy as np
         from econml.dml import DynamicDML
-
-        n_panels = 100  # number of panels
-        n_periods = 3  # number of time periods per panel
-        n = n_panels * n_periods
-        groups = np.repeat(a=np.arange(n_panels), repeats=n_periods, axis=0)
-        X = np.random.normal(size=(n, 1))
-        T = np.random.normal(size=(n, 2))
-        y = np.random.normal(size=(n, ))
         est = DynamicDML()
-        est.fit(y, T, X=X, W=None, groups=groups, inference="auto")
+        est.fit(y_dyn, T_dyn, X=X_dyn, W=None, groups=groups, inference="auto")
 
     * **_RLearner.** The internal private class :class:`._RLearner` is a parent of the :class:`.DML`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,
