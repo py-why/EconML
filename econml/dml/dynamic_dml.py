@@ -682,7 +682,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         slice_treatment_names = super().cate_treatment_names(treatment_names)
         treatment_names_out = []
         for k in range(self._n_periods):
-            treatment_names_out += [f"$({t})_{k}$" for t in slice_treatment_names]
+            treatment_names_out += [f"({t})$_{k}$" for t in slice_treatment_names]
         return treatment_names_out
 
     def cate_feature_names(self, feature_names=None):
