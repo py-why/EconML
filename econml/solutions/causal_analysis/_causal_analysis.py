@@ -1684,3 +1684,27 @@ class CausalAnalysis:
                                           n_rows=n_rows,
                                           treatment_costs=treatment_costs,
                                           alpha=alpha).to_dict('list')
+
+    def typical_treatment_value(self, feature_index):
+        """
+        Get the typical treatment value used for the specified feature
+
+        Parameters
+        ----------
+        feature_index: int or string
+            The index of the feature to be considered as treatment
+
+        Returns
+        -------
+        treatment_value : float
+            The treatment value considered 'typical' for this feature
+        """
+        result = [res for res in self._results if res.feature_index == feature_index]
+        if len(result) == 0:
+            if self._has_column_names:
+                result = [res for res in self._results if res.feature_name == feature_index]
+                assert len(result) == 1, f"Could not find feature with index/name {feature_index}"
+                return result[0].treatment_value
+            else:
+                raise ValueError(f"No feature with index {feature_index}")
+        return result[0].treatment_value

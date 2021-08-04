@@ -57,6 +57,13 @@ class TestCausalAnalysis(unittest.TestCase):
                 ca._heterogeneity_tree_output(X, 1)
                 ca._heterogeneity_tree_output(X, 3)
 
+                # continuous treatments have typical treatment values equal to
+                # the mean of the absolute value of non-zero entries
+                np.testing.assert_allclose(ca.typical_treatment_value(0), np.mean(np.abs(X[:, 0])))
+                np.testing.assert_allclose(ca.typical_treatment_value(1), np.mean(np.abs(X[:, 1])))
+                # discrete treatments have typical treatment value 1
+                assert ca.typical_treatment_value(2) == ca.typical_treatment_value(3) == 1
+
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment
                 for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
@@ -176,6 +183,13 @@ class TestCausalAnalysis(unittest.TestCase):
                 pto = ca._policy_tree_output(X, inds[1])
                 ca._heterogeneity_tree_output(X, inds[1])
                 ca._heterogeneity_tree_output(X, inds[3])
+
+                # continuous treatments have typical treatment values equal to
+                # the mean of the absolute value of non-zero entries
+                np.testing.assert_allclose(ca.typical_treatment_value(inds[0]), np.mean(np.abs(X['a'])))
+                np.testing.assert_allclose(ca.typical_treatment_value(inds[1]), np.mean(np.abs(X['b'])))
+                # discrete treatments have typical treatment value 1
+                assert ca.typical_treatment_value(inds[2]) == ca.typical_treatment_value(inds[3]) == 1
 
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment
