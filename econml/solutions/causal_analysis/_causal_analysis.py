@@ -715,15 +715,27 @@ class CausalAnalysis:
         # assume we'll be able to train former failures this time; we'll add them back if not
         invalid_inds = [(ind, reason) for (ind, reason) in invalid_inds if ind not in new_inds]
 
+        self._has_column_names = True
+        if self.feature_names is None:
+            if hasattr(X, "iloc"):
+                feature_names = X.columns
+            else:
+                self._has_column_names = False
+                feature_names = [f"x{i}" for i in range(X.shape[1])]
+        else:
+            feature_names = self.feature_names
+        self.feature_names_ = feature_names
+
         min_counts = {}
         for ind in new_inds:
+            column_text = self._format_col(ind)
 
             if ind in categorical_inds:
                 cats, counts = np.unique(_safe_indexing(X, ind, axis=1), return_counts=True)
                 min_ind = np.argmin(counts)
                 n_cat = len(cats)
                 if n_cat > self.upper_bound_on_cat_expansion:
-                    warnings.warn(f"Column {ind} has more than {self.upper_bound_on_cat_expansion} "
+                    warnings.warn(f"{column_text} has more than {self.upper_bound_on_cat_expansion} "
                                   f"values (found {n_cat}) so no heterogeneity model will be fit for it; "
                                   "increase 'upper_bound_on_cat_expansion' to change this behavior.")
                     # can't remove in place while iterating over new_inds, so store in separate list
@@ -734,13 +746,14 @@ class CausalAnalysis:
                                                        (counts[min_ind] >= 2 and
                                                         self.heterogeneity_model != 'forest')):
                         # train the model, but warn
-                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
-                                      f"the training dataset, which is less than {_CAT_LIMIT}. A model will be fit "
-                                      "because 'skip_cat_limit_checks' is True, but this model may not be robust.")
+                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                                      f"the training dataset, which is less than the lower limit ({_CAT_LIMIT}). "
+                                      "A model will still be fit because 'skip_cat_limit_checks' is True, "
+                                      "but this model may not be robust.")
                         min_counts[ind] = counts[min_ind]
                     elif counts[min_ind] < 2 or (counts[min_ind] < 5 and self.heterogeneity_model == 'forest'):
                         # no model can be trained in this case since we need more folds
-                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
                                       "the training dataset, but linear heterogeneity models need at least 2 and "
                                       "forest heterogeneity models need at least 5 instances, so no model will be fit "
                                       "for this column")
@@ -748,11 +761,11 @@ class CausalAnalysis:
                     else:
                         # don't train a model, but suggest workaround since there are enough instances of least
                         # populated class
-                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
-                                      f"the training dataset, which is less than {_CAT_LIMIT}, so no heterogeneity "
-                                      "model will be fit for it. This check can be turned off by setting "
-                                      "'skip_cat_limit_checks' to True, but that may result in an inaccurate model "
-                                      "for this feature.")
+                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                                      f"the training dataset, which is less than the lower limit ({_CAT_LIMIT}), "
+                                      "so no heterogeneity model will be fit for it. This check can be turned off by "
+                                      "setting 'skip_cat_limit_checks' to True, but that may result in an inaccurate "
+                                      "model for this feature.")
                         invalid_inds.append((ind, 'cat_limit'))
 
         for (ind, _) in invalid_inds:
@@ -763,16 +776,6 @@ class CausalAnalysis:
                 raise ValueError("No features remain; increase the upper_bound_on_cat_expansion and ensure that there "
                                  "are several instances of each categorical value so that at least "
                                  "one feature model can be trained.")
-
-        if self.feature_names is None:
-            if hasattr(X, "iloc"):
-                feature_names = X.columns
-            else:
-                feature_names = [f"x{i}" for i in range(X.shape[1])]
-        else:
-            feature_names = self.feature_names
-
-        self.feature_names_ = feature_names
 
         # extract subset of names matching new columns
         new_feat_names = _safe_indexing(feature_names, new_inds)
@@ -814,6 +817,12 @@ class CausalAnalysis:
         self.nuisance_models_ = self.nuisance_models
         self.heterogeneity_model_ = self.heterogeneity_model
         return self
+
+    def _format_col(self, ind):
+        if self._has_column_names:
+            return f"Column {ind} ({self.feature_names_[ind]})"
+        else:
+            return f"Column {ind}"
 
     # properties to return from effect InferenceResults
     @staticmethod
@@ -1172,10 +1181,29 @@ class CausalAnalysis:
         )
 
         (numeric_index,) = _get_column_indices(X, [feature_index])
+
+        bad_inds = dict(self.untrained_feature_indices_)
+        if numeric_index in bad_inds:
+            error = bad_inds[numeric_index]
+            col_text = self._format_col(numeric_index)
+            if error == 'cat_limit':
+                msg = f"{col_text} had a value with fewer than {_CAT_LIMIT} occurences, so no model was fit for it"
+            elif error == 'upper_bound_on_cat_expansion':
+                msg = (f"{col_text} had more distinct values than the setting of 'upper_bound_on_cat_expansion', "
+                       "so no model was fit for it")
+            else:
+                msg = (f"{col_text} generated the following error during fitting, "
+                       f"so no model was fit for it:\n{str(error)}")
+            raise ValueError(msg)
+
+        if numeric_index not in self.trained_feature_indices_:
+            raise ValueError(f"{self._format_col(numeric_index)} was not passed as a feature index "
+                             "so no model was fit for it")
+
         results = [res for res in self._results
                    if res.feature_index == numeric_index]
 
-        assert len(results) != 0, f"The feature index supplied was not fitted"
+        assert len(results) == 1
         (result,) = results
         return result
 
