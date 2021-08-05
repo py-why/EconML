@@ -1,8 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-# TODO: add paper reference
-
 import abc
 import numpy as np
 from warnings import warn
@@ -94,14 +92,14 @@ class _DynamicModelNuisance:
                 self._index_or_None(X, period_filters[t]),
                 self._index_or_None(W, period_filters[t]))
             Y_res[period_filters[t]] = Y_slice\
-                - shape_formatter(Y_slice, Y_pred).reshape(Y_slice.shape)
+                - shape_formatter(Y_slice, Y_pred)
             for j in np.arange(t, self.n_periods):
                 T_slice = T[period_filters[j]]
                 T_pred = self._model_t_trained[j][t].predict(
                     self._index_or_None(X, period_filters[t]),
                     self._index_or_None(W, period_filters[t]))
                 T_res[period_filters[j], ..., t] = T_slice\
-                    - shape_formatter(T_slice, T_pred).reshape(T_slice.shape)
+                    - shape_formatter(T_slice, T_pred)
         return Y_res, T_res
 
     def score(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
@@ -131,8 +129,8 @@ class _DynamicModelNuisance:
 
     def _get_shape_formatter(self, X, W):
         if (X is None) and (W is None):
-            return lambda x, x_pred: np.tile(x_pred.reshape(1, -1), (x.shape[0], 1))
-        return lambda x, x_pred: x_pred
+            return lambda x, x_pred: np.tile(x_pred.reshape(1, -1), (x.shape[0], 1)).reshape(x.shape)
+        return lambda x, x_pred: x_pred.reshape(x.shape)
 
     def _index_or_None(self, X, filter_idx):
         return None if X is None else X[filter_idx]
