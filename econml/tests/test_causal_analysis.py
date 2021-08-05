@@ -6,6 +6,7 @@ import numpy as np
 from numpy.core.fromnumeric import squeeze
 import pandas as pd
 from contextlib import ExitStack
+import pytest
 from econml.solutions.causal_analysis import CausalAnalysis
 from econml.solutions.causal_analysis._causal_analysis import _CausalInsightsConstants
 
@@ -14,6 +15,7 @@ def assert_less_close(arr1, arr2):
     assert np.all(np.logical_or(arr1 <= arr2, np.isclose(arr1, arr2)))
 
 
+@pytest.mark.causal
 class TestCausalAnalysis(unittest.TestCase):
 
     def test_basic_array(self):
