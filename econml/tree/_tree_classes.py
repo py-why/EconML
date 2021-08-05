@@ -187,8 +187,8 @@ class BaseTree(BaseEstimator):
             raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
         if max_depth < 0:
             raise ValueError("max_depth must be greater than or equal to zero. ")
-        if not (0 < max_features <= self.n_features_):
-            raise ValueError("max_features must be in (0, n_features]")
+        if not (0 <= max_features <= self.n_features_):
+            raise ValueError("max_features must be in [0, n_features]")
         if not 0 <= self.min_balancedness_tol <= 0.5:
             raise ValueError("min_balancedness_tol must be in [0, 0.5]")
 
@@ -278,7 +278,7 @@ class BaseTree(BaseEstimator):
         """Validate X whenever one tries to predict, apply, or any other of the prediction
         related methods. """
         if check_input:
-            X = check_array(X, dtype=DTYPE, accept_sparse=False)
+            X = check_array(X, dtype=DTYPE, accept_sparse=False, ensure_min_features=0)
 
         n_features = X.shape[1]
         if self.n_features_ != n_features:
