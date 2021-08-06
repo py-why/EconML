@@ -8,18 +8,18 @@ from sklearn.base import clone
 from sklearn.model_selection import GroupKFold
 from scipy.stats import norm
 from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
-from ..sklearn_extensions.linear_model import (StatsModelsLinearRegression, WeightedLassoCVWrapper)
-from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
-from .dml import _FirstStageWrapper, _FinalWrapper
-from .._cate_estimator import TreatmentExpansionMixin, LinearModelFinalCateEstimatorMixin
-from .._ortho_learner import _OrthoLearner
-from ..utilities import (_deprecate_positional, add_intercept,
-                         broadcast_unit_treatments, check_high_dimensional,
-                         cross_product, deprecated, fit_with_groups,
-                         hstack, inverse_onehot, ndim, reshape,
-                         reshape_treatmentwise_effects, shape, transpose,
-                         get_feature_names_or_default, check_input_arrays,
-                         filter_none_kwargs)
+from ...sklearn_extensions.linear_model import (StatsModelsLinearRegression, WeightedLassoCVWrapper)
+from ...sklearn_extensions.model_selection import WeightedStratifiedKFold
+from ...dml.dml import _FirstStageWrapper, _FinalWrapper
+from ..._cate_estimator import TreatmentExpansionMixin, LinearModelFinalCateEstimatorMixin
+from ..._ortho_learner import _OrthoLearner
+from ...utilities import (_deprecate_positional, add_intercept,
+                          broadcast_unit_treatments, check_high_dimensional,
+                          cross_product, deprecated, fit_with_groups,
+                          hstack, inverse_onehot, ndim, reshape,
+                          reshape_treatmentwise_effects, shape, transpose,
+                          get_feature_names_or_default, check_input_arrays,
+                          filter_none_kwargs)
 
 
 def _get_groups_period_filter(groups, n_periods):
@@ -408,7 +408,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     .. testcode::
 
-        from econml.dml import DynamicDML
+        from econml.dynamic.dml import DynamicDML
 
         np.random.seed(123)
 
@@ -544,7 +544,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     @_deprecate_positional("X, and should be passed by keyword only. In a future release "
                            "we will disallow passing X and W by position.", ['X', 'W'])
     def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups,
-            cache_values=False, inference=None):
+            cache_values=False, inference='auto'):
         """Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
         The input data must contain groups with the same size corresponding to the number
@@ -559,6 +559,10 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         ...etc.
 
+        Only the value of the features X at the first period of each unit are used for
+        heterogeneity. The value of X in subseuqnet periods is used as a time-varying control
+        but not for heterogeneity.
+
         Parameters
         ----------
         Y: (n, d_y) matrix or vector of length n
@@ -566,7 +570,9 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample (required: n = n_groups * n_periods)
         X: optional(n, d_x) matrix or None (Default=None)
-            Features for each sample (Required: n = n_groups * n_periods)
+            Features for each sample (Required: n = n_groups * n_periods). Only first
+            period features from each unit are used for heterogeneity, the rest are
+            used as time-varying controls together with W
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample (Required: n = n_groups * n_periods)
         sample_weight: optional(n,) vector or None (Default=None)

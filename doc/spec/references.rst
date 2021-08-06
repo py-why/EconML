@@ -119,3 +119,8 @@ References
     Lewis, G., Syrgkanis, V. (2021).
     Double/Debiased Machine Learning for Dynamic Treatment Effects.
     URL https://arxiv.org/abs/2002.07285
+
+.. [Hernan2010]
+    Hernán, Miguel A., and James M. Robins (2010).
+    Causal inference.
+    URL https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/

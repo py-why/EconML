@@ -17,7 +17,6 @@ Double Machine Learning (DML)
     econml.dml.SparseLinearDML
     econml.dml.CausalForestDML
     econml.dml.NonParamDML
-    econml.dml.DynamicDML
 
 .. _dr_api:
 
@@ -104,6 +103,21 @@ Sieve Methods
     econml.iv.sieve.SieveTSLS
     econml.iv.sieve.HermiteFeatures
     econml.iv.sieve.DPolynomialFeatures
+
+.. _dynamic_api:
+
+Estimators for Dynamic Treatment Regimes
+----------------------------------------
+
+.. _dynamicdml_api:
+
+Dynamic Double Machine Learning
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.dynamic.dml.DynamicDML
 
 .. _policy_api:
 

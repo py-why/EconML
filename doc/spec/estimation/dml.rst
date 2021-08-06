@@ -34,8 +34,7 @@ What are the relevant estimator classes?
 This section describes the methodology implemented in the classes, :class:`._RLearner`,
 :class:`.DML`, :class:`.LinearDML`,
 :class:`.SparseLinearDML`, :class:`.KernelDML`, :class:`.NonParamDML`,
-:class:`.CausalForestDML`,
-:class:`.DynamicDML`.
+:class:`.CausalForestDML`.
 Click on each of these links for a detailed module documentation and input parameters of each class.
 
 
@@ -60,12 +59,6 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
     t = t0 = t1 = T[:,0]
     W = np.random.normal(size=(100,2))
 
-    # DynamicDML
-    groups = np.repeat(a=np.arange(100), repeats=3, axis=0)
-    X_dyn = np.random.normal(size=(300, 1))
-    T_dyn = np.random.normal(size=(300, 2))
-    y_dyn = np.random.normal(size=(300, ))
-
 .. testcode::
 
     from econml.dml import LinearDML
@@ -81,7 +74,6 @@ linear on some pre-defined; potentially high-dimensional; featurization). These 
 :class:`.SparseLinearDML`, :class:`.KernelDML`.
 For fullly non-parametric heterogeneous treatment effect models, check out the :class:`.NonParamDML`
 and the :class:`.CausalForestDML`. 
-For treatments assigned sequentially over several time periods, see the class :class:`.DynamicDML`.
 For more options of non-parametric CATE estimators, 
 check out the :ref:`Forest Estimators User Guide <orthoforestuserguide>` 
 and the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
@@ -165,7 +157,7 @@ Class Hierarchy Structure
 In this library we implement variants of several of the approaches mentioned in the last section. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.dml.LinearDML econml.dml.SparseLinearDML econml.dml.KernelDML econml.dml.NonParamDML econml.dml.CausalForestDML econml.dml.DynamicDML
+    .. inheritance-diagram:: econml.dml.LinearDML econml.dml.SparseLinearDML econml.dml.KernelDML econml.dml.NonParamDML econml.dml.CausalForestDML
         :parts: 1
         :private-bases:
         :top-classes: econml._rlearner._RLearner, econml._cate_estimator.StatsModelsCateEstimatorMixin, econml._cate_estimator.DebiasedLassoCateEstimatorMixin
@@ -295,28 +287,6 @@ Below we give a brief description of each of these classes:
 
       Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
       alternatives to the :class:`.CausalForestDML`.
-
-    * **DynamicDML.** The class :class:`.DynamicDML` is an extension of the Double ML approach for treatments assigned sequentially over time periods.
-      This estimator will adjust for treatments that can have causal effects on future outcomes. The data corresponds to a Markov decision process :math:`\{X_t, W_t, T_t, Y_t\}_{t=1}^m`,
-      where :math:`X_t, W_t` corresponds to the state at time :math:`t`, :math:`T_t` is the treatment at time :math:`t` and :math:`Y_t` is the observed outcome at time :math:`t`.
-
-      The model makes the following structural equation assumptions on the data generating process:
-
-      .. math::
-
-        X_t =~& A \cdot T_{t-1} + B \cdot X_{t-1} + \eta_t\\ 
-        T_t =~& p(T_{t-1}, X_t, \zeta_t) \\
-        Y_t =~& \theta_0'T_t + \mu'X_t \epsilon_t
-
-      For more details about this model and underlying assumptions, see [Lewis2021]_.
-
-      To learn the treatment effects of treatments in the different periods on the last period outcome, one can simply call:
-
-      .. testcode::
-
-        from econml.dml import DynamicDML
-        est = DynamicDML()
-        est.fit(y_dyn, T_dyn, X=X_dyn, W=None, groups=groups, inference="auto")
 
     * **_RLearner.** The internal private class :class:`._RLearner` is a parent of the :class:`.DML`
       and allows the user to specify any way of fitting a final model that takes as input the residual :math:`\tilde{T}`,

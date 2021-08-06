@@ -165,7 +165,7 @@ To install from source, see [For Developers](#for-developers) section below.
   <summary>Dynamic Double Machine Learning (click to expand)</summary>
 
   ```Python
-  from econml.dml import DynamicDML
+  from econml.dynamic.dml import DynamicDML
   # Use defaults
   est = DynamicDML()
   # Or specify hyperparameters

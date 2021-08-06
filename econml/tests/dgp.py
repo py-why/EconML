@@ -4,6 +4,16 @@ import abc
 import numpy as np
 from econml.utilities import cross_product
 from statsmodels.tools.tools import add_constant
+try:
+    import matplotlib
+    import matplotlib.pyplot as plt
+except ImportError as exn:
+    from .utilities import MissingModule
+
+    # make any access to matplotlib or plt throw an exception
+    matplotlib = plt = MissingModule("matplotlib is no longer a dependency of the main econml package; "
+                                     "install econml[plt] or econml[all] to require it, or install matplotlib "
+                                     "separately, to use the tree interpreters", exn)
 
 
 class _BaseDynamicPanelDGP:
@@ -52,8 +62,8 @@ class DynamicPanelDGP(_BaseDynamicPanelDGP):
     def __init__(self, n_periods, n_treatments, n_x):
         super().__init__(n_periods, n_treatments, n_x)
 
-    def create_instance(self, s_x, sigma_x=.5, sigma_y=.5, conf_str=5, hetero_strength=0, hetero_inds=None,
-                        autoreg=.5, state_effect=.5, random_seed=123):
+    def create_instance(self, s_x, sigma_x=.8, sigma_y=.1, conf_str=5, hetero_strength=.5, hetero_inds=None,
+                        autoreg=.25, state_effect=.25, random_seed=123):
         np.random.seed(random_seed)
         self.s_x = s_x
         self.conf_str = conf_str
@@ -145,7 +155,7 @@ class DynamicPanelDGP(_BaseDynamicPanelDGP):
                 np.random.normal(0, self.sigma_y)
             groups[t] = t // self.n_periods
 
-        return Y, T, X[:, self.hetero_inds] if self.hetero_inds else None, X[:, self.endo_inds], groups
+        return Y, T, X[:, self.hetero_inds] if (self.hetero_inds is not None) else None, X[:, self.endo_inds], groups
 
     def observational_data(self, n_units, gamma=0, s_t=1, sigma_t=0.5, random_seed=123):
         """Generate observational data with some observational treatment policy parameters.
@@ -164,3 +174,46 @@ class DynamicPanelDGP(_BaseDynamicPanelDGP):
             return gamma * Tpre + (1 - gamma) * np.dot(Delta, X) + \
                 np.random.normal(0, sigma_t, size=self.n_treatments)
         return self._gen_data_with_policy(n_units, policy_gen, random_seed=random_seed)
+
+
+# Auxiliary function for adding xticks and vertical lines when plotting results
+# for dynamic dml vs ground truth parameters.
+def add_vlines(n_periods, n_treatments, hetero_inds):
+    locs, labels = plt.xticks([], [])
+    locs += [- .501 + (len(hetero_inds) + 1) / 2]
+    labels += ["\n\n$\\tau_{{{}}}$".format(0)]
+    locs += [qx for qx in np.arange(len(hetero_inds) + 1)]
+    labels += ["$1$"] + ["$x_{{{}}}$".format(qx) for qx in hetero_inds]
+    for q in np.arange(1, n_treatments):
+        plt.axvline(x=q * (len(hetero_inds) + 1) - .5,
+                    linestyle='--', color='red', alpha=.2)
+        locs += [q * (len(hetero_inds) + 1) - .501 + (len(hetero_inds) + 1) / 2]
+        labels += ["\n\n$\\tau_{{{}}}$".format(q)]
+        locs += [(q * (len(hetero_inds) + 1) + qx)
+                 for qx in np.arange(len(hetero_inds) + 1)]
+        labels += ["$1$"] + ["$x_{{{}}}$".format(qx) for qx in hetero_inds]
+    locs += [- .501 + (len(hetero_inds) + 1) * n_treatments / 2]
+    labels += ["\n\n\n\n$\\theta_{{{}}}$".format(0)]
+    for t in np.arange(1, n_periods):
+        plt.axvline(x=t * (len(hetero_inds) + 1) *
+                    n_treatments - .5, linestyle='-', alpha=.6)
+        locs += [t * (len(hetero_inds) + 1) * n_treatments - .501 +
+                 (len(hetero_inds) + 1) * n_treatments / 2]
+        labels += ["\n\n\n\n$\\theta_{{{}}}$".format(t)]
+        locs += [t * (len(hetero_inds) + 1) *
+                 n_treatments - .501 + (len(hetero_inds) + 1) / 2]
+        labels += ["\n\n$\\tau_{{{}}}$".format(0)]
+        locs += [t * (len(hetero_inds) + 1) * n_treatments +
+                 qx for qx in np.arange(len(hetero_inds) + 1)]
+        labels += ["$1$"] + ["$x_{{{}}}$".format(qx) for qx in hetero_inds]
+        for q in np.arange(1, n_treatments):
+            plt.axvline(x=t * (len(hetero_inds) + 1) * n_treatments + q * (len(hetero_inds) + 1) - .5,
+                        linestyle='--', color='red', alpha=.2)
+            locs += [t * (len(hetero_inds) + 1) * n_treatments + q *
+                     (len(hetero_inds) + 1) - .501 + (len(hetero_inds) + 1) / 2]
+            labels += ["\n\n$\\tau_{{{}}}$".format(q)]
+            locs += [t * (len(hetero_inds) + 1) * n_treatments + (q * (len(hetero_inds) + 1) + qx)
+                     for qx in np.arange(len(hetero_inds) + 1)]
+            labels += ["$1$"] + ["$x_{{{}}}$".format(qx) for qx in hetero_inds]
+    plt.xticks(locs, labels)
+    plt.tight_layout()

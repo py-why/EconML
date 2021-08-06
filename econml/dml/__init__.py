@@ -8,7 +8,7 @@ part of the observed outcome and treatment that is not predictable by the contro
 Then estimates a CATE model by regressing the residual outcome on the residual treatment
 in a manner that accounts for heterogeneity in the regression coefficient, with respect
 to X. For the theoretical foundations of these methods see [dml]_, [rlearner]_, [paneldml]_,
-[lassodml]_, [ortholearner]_, [dynamicdml]_.
+[lassodml]_, [ortholearner]_.
 
 References
 ----------
@@ -32,15 +32,10 @@ References
 .. [ortholearner] Dylan Foster, Vasilis Syrgkanis (2019).
     Orthogonal Statistical Learning.
     ACM Conference on Learning Theory. `<https://arxiv.org/abs/1901.09036>`_
-
-.. [dynamicdml] Greg Lewis and Vasilis Syrgkanis.
-    Double/Debiased Machine Learning for Dynamic Treatment Effects.
-    `<https://arxiv.org/abs/2002.07285>`_, 2021.
 """
 
 from .dml import (DML, LinearDML, SparseLinearDML,
                   KernelDML, NonParamDML, ForestDML)
-from .dynamic_dml import DynamicDML
 from .causal_forest import CausalForestDML
 
 __all__ = ["DML",
@@ -49,5 +44,4 @@ __all__ = ["DML",
            "KernelDML",
            "NonParamDML",
            "ForestDML",
-           "CausalForestDML",
-           "DynamicDML"]
+           "CausalForestDML"]
