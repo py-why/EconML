@@ -165,11 +165,11 @@ class _DynamicModelFinal:
             if t < self.n_periods - 1:
                 Y_adj -= np.sum(
                     [self._model_final_trained[j].predict_with_res(
-                        X[period_filters[j]] if X is not None else None,
+                        X[period_filters[0]] if X is not None else None,
                         T_res[period_filters[j], ..., t]
                     ) for j in np.arange(t + 1, self.n_periods)], axis=0)
             self._model_final_trained[t].fit(
-                X[period_filters[t]] if X is not None else None, T[period_filters[t]],
+                X[period_filters[0]] if X is not None else None, T[period_filters[t]],
                 T_res[period_filters[t], ..., t], Y_adj)
 
         return self
@@ -204,11 +204,11 @@ class _DynamicModelFinal:
             if t < self.n_periods - 1:
                 Y_adj -= np.sum(
                     [self._model_final_trained[j].predict_with_res(
-                        X[period_filters[j]] if X is not None else None,
+                        X[period_filters[0]] if X is not None else None,
                         T_res[period_filters[j], ..., t]
                     ) for j in np.arange(t + 1, self.n_periods)], axis=0)
             Y_adj_pred = self._model_final_trained[t].predict_with_res(
-                X[period_filters[t]] if X is not None else None,
+                X[period_filters[0]] if X is not None else None,
                 T_res[period_filters[t], ..., t])
             if sample_weight is not None:
                 scores[t] = np.mean(np.average((Y_adj - Y_adj_pred)**2, weights=sample_weight, axis=0))
@@ -266,7 +266,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         XT_res = np.array([
             [
                 self._model_final_trained[0]._combine(
-                    X[period_filters[j]] if X is not None else None,
+                    X[period_filters[0]] if X is not None else None,
                     T_res[period_filters[t], ..., j],
                     fitting=False
                 )
@@ -279,7 +279,7 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         Y_diff = np.array([
             np.sum([
                 self._model_final_trained[j].predict_with_res(
-                    X[period_filters[j]] if X is not None else None,
+                    X[period_filters[0]] if X is not None else None,
                     T_res[period_filters[j], ..., t]
                 ) for j in np.arange(t, self.n_periods)],
                 axis=0
@@ -423,34 +423,34 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         est.fit(y, T, X=X, W=None, groups=groups, inference="auto")
 
     >>> est.const_marginal_effect(X[:2])
-   array([[-0.349..., -0.076...,  0.069...,  0.111..., -0.012...,
-         0.031...],
-          [-0.126... ,  0.397...,  0.021..., -0.171..., -0.411...,
-        -0.088...]])
+    array([[-0.336..., -0.048..., -0.061...,  0.042..., -0.204...,
+         0.00667271],
+        [-0.101...,  0.433...,  0.054..., -0.217..., -0.101...,
+         -0.159...]])
     >>> est.effect(X[:2], T0=0, T1=1)
-    array([-0.225..., -0.378...])
+    array([-0.601..., -0.091...])
     >>> est.effect(X[:2], T0=np.zeros((2, n_periods*T.shape[1])), T1=np.ones((2, n_periods*T.shape[1])))
-    array([-0.225..., -0.378...])
+    array([-0.601..., -0.091...])
     >>> est.coef_
-    array([[ 0.107...],
-       [ 0.227...],
-       [-0.023...],
-       [-0.136...],
-       [-0.191...],
-       [-0.057...]])
+    array([[ 0.112...],
+       [ 0.231...],
+       [ 0.055...],
+       [-0.125...],
+       [ 0.049...],
+       [-0.079...]])
     >>> est.coef__interval()
-    (array([[-0.051...],
-        [ 0.040...],
-        [-0.154...],
-        [-0.336...],
-        [-0.333...],
-        [-0.171...]]),
-    array([[ 0.265...],
-        [ 0.415...],
-        [ 0.108...],
-        [ 0.064...],
-        [-0.050...],
-        [ 0.056...]]))
+    (array([[-0.035...],
+        [ 0.029...],
+        [-0.087... ],
+        [-0.366... ],
+        [-0.090...],
+        [-0.233...]]),
+    array([[0.260...],
+        [0.433... ],
+        [0.198...],
+        [0.116...],
+        [0.189...],
+        [0.074...]]))
     """
 
     def __init__(self, *,

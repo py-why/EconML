@@ -130,13 +130,17 @@ class DynamicPanelDGP(_BaseDynamicPanelDGP):
             period = t % self.n_periods
             if period == 0:
                 X[t] = np.random.normal(0, self.sigma_x, size=self.n_x)
+                const_x0 = X[t][self.hetero_inds]
                 T[t] = policy_gen(np.zeros(self.n_treatments), X[t], period)
             else:
                 X[t] = (np.dot(self.x_hetero_effect, X[t - 1]) + 1) * np.dot(self.Alpha, T[t - 1]) + \
                     np.dot(self.Beta, X[t - 1]) + \
                     np.random.normal(0, self.sigma_x, size=self.n_x)
+                # The feature for heterogeneity stays constant
+                X_t = X[t].copy()
+                X_t[self.hetero_inds] = const_x0
                 T[t] = policy_gen(T[t - 1], X[t], period)
-            Y[t] = (np.dot(self.y_hetero_effect, X[t]) + 1) * np.dot(self.epsilon, T[t]) + \
+            Y[t] = (np.dot(self.y_hetero_effect, X_t if period != 0 else X[t]) + 1) * np.dot(self.epsilon, T[t]) + \
                 np.dot(X[t], self.zeta) + \
                 np.random.normal(0, self.sigma_y)
             groups[t] = t // self.n_periods
