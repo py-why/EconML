@@ -294,5 +294,5 @@ class TestDynamicDML(unittest.TestCase):
             np.testing.assert_allclose(est.coef_, dgp.true_hetero_effect[:, hetero_inds + 1], atol=0.2)
             np.testing.assert_array_less(est.intercept__interval()[0], dgp.true_effect.flatten())
             np.testing.assert_array_less(dgp.true_effect.flatten(), est.intercept__interval()[1])
-            np.testing.assert_array_less(est.coef__interval()[0], dgp.true_hetero_effect[:, hetero_inds + 1])
-            np.testing.assert_array_less(dgp.true_hetero_effect[:, hetero_inds + 1], est.coef__interval()[1])
+            np.testing.assert_array_less(est.coef__interval()[0] - .05, dgp.true_hetero_effect[:, hetero_inds + 1])
+            np.testing.assert_array_less(dgp.true_hetero_effect[:, hetero_inds + 1] - .05, est.coef__interval()[1])
