@@ -93,28 +93,31 @@ class DynamicPanelDGP(_BaseDynamicPanelDGP):
                 len(self.hetero_inds)
 
         self.true_effect = np.zeros((self.n_periods, self.n_treatments))
-        self.true_effect[0] = self.epsilon
-        for t in np.arange(1, self.n_periods):
+        # Invert indices to match latest API
+        self.true_effect[self.n_periods - 1] = self.epsilon
+        for t in np.arange(self.n_periods - 2, -1, -1):
             self.true_effect[t, :] = (self.zeta.reshape(
-                1, -1) @ np.linalg.matrix_power(self.Beta, t - 1) @ self.Alpha)
+                1, -1) @ np.linalg.matrix_power(self.Beta, (self.n_periods - 1 - t) - 1) @ self.Alpha)
 
         self.true_hetero_effect = np.zeros(
             (self.n_periods, (self.n_x + 1) * self.n_treatments))
-        self.true_hetero_effect[0, :] = cross_product(
+        self.true_hetero_effect[self.n_periods - 1, :] = cross_product(
             add_constant(self.y_hetero_effect.reshape(1, -1), has_constant='add'),
             self.epsilon.reshape(1, -1))
-        for t in np.arange(1, self.n_periods):
+        for t in np.arange(self.n_periods - 2, -1, -1):
+            # Invert indices to match latest API
             self.true_hetero_effect[t, :] = cross_product(
                 add_constant(self.x_hetero_effect.reshape(1, -1), has_constant='add'),
-                self.zeta.reshape(1, -1) @ np.linalg.matrix_power(self.Beta, t - 1) @ self.Alpha)
+                self.zeta.reshape(1, -1) @ np.linalg.matrix_power(
+                    self.Beta, (self.n_periods - 1 - t) - 1) @ self.Alpha)
         return self
 
     def hetero_effect_fn(self, t, x):
-        if t == 0:
+        if t == self.n_periods - 1:
             return (np.dot(self.y_hetero_effect, x.flatten()) + 1) * self.epsilon
         else:
             return (np.dot(self.x_hetero_effect, x.flatten()) + 1) *\
-                (self.zeta.reshape(1, -1) @ np.linalg.matrix_power(self.Beta, t - 1)
+                (self.zeta.reshape(1, -1) @ np.linalg.matrix_power(self.Beta, (self.n_periods - 1 - t) - 1)
                     @ self.Alpha).flatten()
 
     def _gen_data_with_policy(self, n_units, policy_gen, random_seed=123):

@@ -160,18 +160,17 @@ class _DynamicModelFinal:
         period_filters = _get_groups_period_filter(groups, self.n_periods)
         Y_res, T_res = nuisances
         self._d_y = Y.shape[1:]
-        for t in np.arange(self.n_periods):
-            period = self.n_periods - 1 - t
-            Y_adj = Y_res[period_filters[period]].copy()
-            if t > 0:
+        for t in np.arange(self.n_periods - 1, -1, -1):
+            Y_adj = Y_res[period_filters[t]].copy()
+            if t < self.n_periods - 1:
                 Y_adj -= np.sum(
                     [self._model_final_trained[j].predict_with_res(
-                        X[period_filters[self.n_periods - 1 - j]] if X is not None else None,
-                        T_res[period_filters[self.n_periods - 1 - j], ..., period]
-                    ) for j in np.arange(t)], axis=0)
+                        X[period_filters[j]] if X is not None else None,
+                        T_res[period_filters[j], ..., t]
+                    ) for j in np.arange(t + 1, self.n_periods)], axis=0)
             self._model_final_trained[t].fit(
-                X[period_filters[period]] if X is not None else None, T[period_filters[period]],
-                T_res[period_filters[period], ..., period], Y_adj)
+                X[period_filters[t]] if X is not None else None, T[period_filters[t]],
+                T_res[period_filters[t], ..., t], Y_adj)
 
         return self
 
@@ -200,18 +199,17 @@ class _DynamicModelFinal:
         Y_res, T_res = nuisances
         scores = np.full((self.n_periods, ), np.nan)
         period_filters = _get_groups_period_filter(groups, self.n_periods)
-        for t in np.arange(self.n_periods):
-            period = self.n_periods - 1 - t
-            Y_adj = Y_res[period_filters[period]].copy()
-            if t > 0:
+        for t in np.arange(self.n_periods - 1, -1, -1):
+            Y_adj = Y_res[period_filters[t]].copy()
+            if t < self.n_periods - 1:
                 Y_adj -= np.sum(
                     [self._model_final_trained[j].predict_with_res(
-                        X[period_filters[self.n_periods - 1 - j]] if X is not None else None,
-                        T_res[period_filters[self.n_periods - 1 - j], ..., period]
-                    ) for j in np.arange(t)], axis=0)
+                        X[period_filters[j]] if X is not None else None,
+                        T_res[period_filters[j], ..., t]
+                    ) for j in np.arange(t + 1, self.n_periods)], axis=0)
             Y_adj_pred = self._model_final_trained[t].predict_with_res(
-                X[period_filters[period]] if X is not None else None,
-                T_res[period_filters[period], ..., period])
+                X[period_filters[t]] if X is not None else None,
+                T_res[period_filters[t], ..., t])
             if sample_weight is not None:
                 scores[t] = np.mean(np.average((Y_adj - Y_adj_pred)**2, weights=sample_weight, axis=0))
             else:
@@ -261,7 +259,6 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         """ Calculates the covariance (n_periods*n_treatments)
             x (n_periods*n_treatments) matrix for a single outcome.
         """
-        # TODO: add group filters here
         Y_res, T_res = nuisances
         # Calculate auxiliary quantities
         period_filters = _get_groups_period_filter(groups, self.n_periods)
@@ -282,10 +279,9 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         Y_diff = np.array([
             np.sum([
                 self._model_final_trained[j].predict_with_res(
-                    X[period_filters[self.n_periods - 1 - j]] if X is not None else None,
-                    T_res[
-                        period_filters[self.n_periods - 1 - j], ..., self.n_periods - 1 - t]
-                ) for j in np.arange(t + 1)],
+                    X[period_filters[j]] if X is not None else None,
+                    T_res[period_filters[j], ..., t]
+                ) for j in np.arange(t, self.n_periods)],
                 axis=0
             )
             for t in np.arange(self.n_periods)
@@ -295,28 +291,24 @@ class _LinearDynamicModelFinal(_DynamicModelFinal):
         Sigma = np.zeros((self.n_periods * d_xt,
                           self.n_periods * d_xt))
         for t in np.arange(self.n_periods):
-            period_t = self.n_periods - 1 - t
-            period_filter_t = period_filters[period_t]
-            res_epsilon_t = (Y_res[period_filter_t] -
+            res_epsilon_t = (Y_res[period_filters[t]] -
                              (Y_diff[t][:, y_index] if y_index >= 0 else Y_diff[t])
                              ).reshape(-1, 1, 1)
-            resT_t = XT_res[period_t][period_t]
+            resT_t = XT_res[t][t]
             for j in np.arange(self.n_periods):
                 # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix Sigma
-                period_j = self.n_periods - 1 - j
-                period_filter_j = period_filters[period_j]
-                res_epsilon_j = (Y_res[period_filter_j] -
+                res_epsilon_j = (Y_res[period_filters[j]] -
                                  (Y_diff[j][:, y_index] if y_index >= 0 else Y_diff[j])
                                  ).reshape(-1, 1, 1)
-                resT_j = XT_res[period_j][period_j]
+                resT_j = XT_res[j][j]
                 cov_resT_tj = resT_t.reshape(-1, d_xt, 1) @ resT_j.reshape(-1, 1, d_xt)
                 sigma_tj = np.mean((res_epsilon_t * res_epsilon_j) * cov_resT_tj, axis=0)
                 Sigma[t * d_xt:(t + 1) * d_xt,
                       j * d_xt:(j + 1) * d_xt] = sigma_tj
-                if j <= t:
+                if j >= t:
                     # Calculating the (t, j) block entry (of size n_treatments x n_treatments) of matrix J
                     m_tj = np.mean(
-                        XT_res[period_j][period_t].reshape(-1, d_xt, 1) @ resT_t.reshape(-1, 1, d_xt),
+                        XT_res[j][t].reshape(-1, d_xt, 1) @ resT_t.reshape(-1, 1, d_xt),
                         axis=0)
                     J[t * d_xt:(t + 1) * d_xt,
                       j * d_xt:(j + 1) * d_xt] = m_tj
@@ -431,34 +423,34 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         est.fit(y, T, X=X, W=None, groups=groups, inference="auto")
 
     >>> est.const_marginal_effect(X[:2])
-    array([[-0.012...,  0.031...,  0.069...,  0.111..., -0.349...,
-        -0.076...],
-       [-0.411..., -0.088...,  0.021..., -0.171..., -0.126... ,
-         0.397...]])
+   array([[-0.349..., -0.076...,  0.069...,  0.111..., -0.012...,
+         0.031...],
+          [-0.126... ,  0.397...,  0.021..., -0.171..., -0.411...,
+        -0.088...]])
     >>> est.effect(X[:2], T0=0, T1=1)
     array([-0.225..., -0.378...])
     >>> est.effect(X[:2], T0=np.zeros((2, n_periods*T.shape[1])), T1=np.ones((2, n_periods*T.shape[1])))
     array([-0.225..., -0.378...])
     >>> est.coef_
-    array([[-0.191...],
-       [-0.057...],
+    array([[ 0.107...],
+       [ 0.227...],
        [-0.023...],
        [-0.136...],
-       [ 0.107...],
-       [ 0.227...]])
+       [-0.191...],
+       [-0.057...]])
     >>> est.coef__interval()
-    (array([[-0.333...],
-        [-0.171...],
+    (array([[-0.051...],
+        [ 0.040...],
         [-0.154...],
         [-0.336...],
-        [-0.051...],
-        [ 0.040...]]),
-    array([[-0.050...],
-        [ 0.056...],
+        [-0.333...],
+        [-0.171...]]),
+    array([[ 0.265...],
+        [ 0.415...],
         [ 0.108...],
         [ 0.064...],
-        [ 0.265...],
-        [ 0.415...]]))
+        [-0.050...],
+        [ 0.056...]]))
     """
 
     def __init__(self, *,
