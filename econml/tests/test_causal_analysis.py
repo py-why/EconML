@@ -571,6 +571,7 @@ class TestCausalAnalysis(unittest.TestCase):
                 eff = ca.local_causal_effect(X_df, alpha=0.05)
                 for ind in feat_inds:
                     pto = ca._policy_tree_output(X_df, ind)
+                    ca._individualized_policy_dict(X_df, ind)
 
     def test_can_serialize(self):
         import pickle

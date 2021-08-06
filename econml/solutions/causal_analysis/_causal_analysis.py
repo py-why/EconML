@@ -1600,6 +1600,7 @@ class CausalAnalysis:
 
         Xtest = result.X_transformer.transform(Xtest)
         if Xtest.shape[1] == 0:
+            x_rows = Xtest.shape[0]
             Xtest = None
 
         if result.feature_baseline is None:
@@ -1607,6 +1608,9 @@ class CausalAnalysis:
             effect = result.estimator.effect_inference(Xtest, T1=result.treatment_value * 0.1)
         else:
             effect = result.estimator.const_marginal_effect_inference(Xtest)
+
+        if Xtest is None:  # we got a scalar effect although our original X may have had more rows
+            effect = effect._expand_outputs(x_rows)
 
         multi_y = (not self._vec_y) or self.classification
 
