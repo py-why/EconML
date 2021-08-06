@@ -72,10 +72,11 @@ Below we give a brief description of each of these classes:
 
       .. math::
 
-        X_t =~& A \cdot T_{t-1} + B \cdot X_{t-1} + \eta_t\\ 
-        T_t =~& p(T_{t-1}, X_t, \zeta_t) \\
-        Y_t =~& \theta_0'T_t + \mu'X_t \epsilon_t
+        XW_t =~& A \cdot T_{t-1} + B \cdot XW_{t-1} + \eta_t\\ 
+        T_t =~& p(T_{t-1}, XW_t, \zeta_t) \\
+        Y_t =~& \theta_0(X_0)'T_t + \mu'XW_t + \epsilon_t
 
+      where :math:`XW` is the concatenation of the :math:`X` and :math:`W` variables.
       For more details about this model and underlying assumptions, see [Lewis2021]_.
 
       To learn the treatment effects of treatments in the different periods on the last period outcome, one can simply call:
@@ -91,4 +92,4 @@ Below we give a brief description of each of these classes:
 Usage FAQs
 ==========
 
-See our FAQ section in `_dmluserguide`_
+See our FAQ section in :ref:`DML User Guide <dmluserguide>`
