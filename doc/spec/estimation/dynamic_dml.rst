@@ -46,7 +46,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
 .. testcode::
 
-    from econml.dml import DynamicDML
+    from econml.dynamic.dml import DynamicDML
     est = DynamicDML()
     est.fit(y_dyn, T_dyn, X=X_dyn, W=W_dyn, groups=groups)
 
@@ -83,7 +83,7 @@ Below we give a brief description of each of these classes:
 
       .. testcode::
 
-        from econml.dml import DynamicDML
+        from econml.dynamic.dml import DynamicDML
         est = DynamicDML()
         est.fit(y_dyn, T_dyn, X=X_dyn, W=W_dyn, groups=groups)
 
