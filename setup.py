@@ -6,7 +6,7 @@ import re
 from glob import glob
 from pathlib import Path
 
-with open(os.path.join(os.path.dirname(__file__), "econml", "__init__.py")) as file:
+with open(os.path.join(os.path.dirname(__file__), "econml", "_version.py")) as file:
     for line in file:
         m = re.fullmatch("__version__ = '([^']+)'\n", line)
         if m:
