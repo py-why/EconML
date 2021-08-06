@@ -57,7 +57,7 @@ Class Hierarchy Structure
 In this library we implement variants of several of the approaches mentioned in the last section. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.dml.DynamicDML
+    .. inheritance-diagram:: econml.dynamic.dml.DynamicDML
         :parts: 1
         :private-bases:
         :top-classes: econml._OrthoLearner, econml._cate_estimator.LinearModelFinalCateEstimatorMixin
