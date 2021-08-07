@@ -131,6 +131,8 @@ html_extra_path = ['map.svg']
 #
 # html_sidebars = {}
 
+html_logo = 'econml-logo-inverse.png'
+html_favicon = 'econml.ico'
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
