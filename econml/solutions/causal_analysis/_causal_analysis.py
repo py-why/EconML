@@ -126,7 +126,7 @@ def _get_data_causal_insights_keys():
 
 def _first_stage_reg(X, y, *, automl=True, random_state=None, verbose=0):
     if automl:
-        model = GridSearchCVList([make_pipeline(StandardScaler(), LassoCV(random_state=random_state)),
+        model = GridSearchCVList([LassoCV(random_state=random_state),
                                   RandomForestRegressor(
                                       n_estimators=100, random_state=random_state, min_samples_leaf=10),
                                   lgb.LGBMRegressor(num_leaves=32, random_state=random_state)],
@@ -138,25 +138,30 @@ def _first_stage_reg(X, y, *, automl=True, random_state=None, verbose=0):
                                  scoring='r2',
                                  verbose=verbose)
         best_est = model.fit(X, y).best_estimator_
-        if isinstance(best_est, Pipeline):
-            return make_pipeline(StandardScaler(), Lasso(alpha=best_est.steps[1][1].alpha_, random_state=random_state))
+        if isinstance(best_est, LassoCV):
+            return Lasso(alpha=best_est.alpha_, random_state=random_state)
         else:
             return best_est
     else:
-        model = make_pipeline(StandardScaler(), LassoCV(cv=5, random_state=random_state)).fit(X, y)
-        return make_pipeline(StandardScaler(), Lasso(alpha=model.steps[1][1].alpha_, random_state=random_state))
+        model = LassoCV(cv=5, random_state=random_state).fit(X, y)
+        return Lasso(alpha=model.alpha_, random_state=random_state)
 
 
 def _first_stage_clf(X, y, *, make_regressor=False, automl=True, min_count=None, random_state=None, verbose=0):
+    # use same Cs as would be used by default by LogisticRegressionCV
+    cs = np.logspace(-4, 4, 10)
     if min_count is None:
         min_count = _CAT_LIMIT  # we have at least this many instances
     if automl:
-        model = GridSearchCVList([make_pipeline(StandardScaler(), LogisticRegression(max_iter=1000,
-                                                                                     random_state=random_state)),
+        # NOTE: we don't use LogisticRegressionCV inside the grid search because of the nested stratification
+        #       which could affect how many times each distinct Y value needs to be present in the data
+
+        model = GridSearchCVList([LogisticRegression(max_iter=1000,
+                                                     random_state=random_state),
                                   RandomForestClassifier(n_estimators=100, min_samples_leaf=10,
                                                          random_state=random_state),
                                   lgb.LGBMClassifier(num_leaves=32, random_state=random_state)],
-                                 param_grid_list=[{'logisticregression__C': [0.01, .1, 1, 10, 100]},
+                                 param_grid_list=[{'C': cs},
                                                   {'max_depth': [3, None],
                                                    'min_weight_fraction_leaf': [.001, .01, .1]},
                                                   {'learning_rate': [0.1, 0.3], 'max_depth': [3, 5]}],
@@ -165,10 +170,9 @@ def _first_stage_clf(X, y, *, make_regressor=False, automl=True, min_count=None,
                                  verbose=verbose)
         est = model.fit(X, y).best_estimator_
     else:
-        model = make_pipeline(StandardScaler(), LogisticRegressionCV(
-            cv=min(5, min_count), max_iter=1000, random_state=random_state)).fit(X, y)
-        est = make_pipeline(StandardScaler(), LogisticRegression(
-            C=model.steps[1][1].C_[0], random_state=random_state))
+        model = LogisticRegressionCV(
+            cv=min(5, min_count), max_iter=1000, Cs=cs, random_state=random_state).fit(X, y)
+        est = LogisticRegression(C=model.C_[0], random_state=random_state)
     if make_regressor:
         return _RegressionWrapper(est)
     else:
@@ -204,14 +208,21 @@ class _ColumnTransformer(TransformerMixin):
                                                  handle_unknown='ignore').fit(cat_cols)
         else:
             self.has_cats = False
+        cont_cols = _safe_indexing(X, self.passthrough, axis=1)
+        if cont_cols.shape[1] > 0:
+            self.has_conts = True
+            self.scaler = StandardScaler().fit(cont_cols)
+        else:
+            self.has_conts = False
         self.d_x = X.shape[1]
         return self
 
     def transform(self, X):
         rest = _safe_indexing(X, self.passthrough, axis=1)
+        if self.has_conts:
+            rest = self.scaler.transform(rest)
         if self.has_cats:
-            cats = self.one_hot_encoder.transform(
-                _safe_indexing(X, self.categorical, axis=1))
+            cats = self.one_hot_encoder.transform(_safe_indexing(X, self.categorical, axis=1))
             return np.hstack((cats, rest))
         else:
             return rest
@@ -244,10 +255,11 @@ def _sanitize(obj):
 # Convert SingleTreeInterpreter to a python dictionary
 def _tree_interpreter_to_dict(interp, features, leaf_data=lambda t, n: {}):
     tree = interp.tree_model_.tree_
+    node_dict = interp.node_dict_
 
     def recurse(node_id):
         if tree.children_left[node_id] == _tree.TREE_LEAF:
-            return {'leaf': True, 'n_samples': tree.n_node_samples[node_id], **leaf_data(tree, node_id)}
+            return {'leaf': True, 'n_samples': tree.n_node_samples[node_id], **leaf_data(tree, node_id, node_dict)}
         else:
             return {'leaf': False, 'feature': features[tree.feature[node_id]], 'threshold': tree.threshold[node_id],
                     'left': recurse(tree.children_left[node_id]),
@@ -287,7 +299,7 @@ _result = namedtuple("_result", field_names=[
 
 
 def _process_feature(name, feat_ind, verbose, categorical_inds, categories, heterogeneity_inds, min_counts, y, X,
-                     nuisance_models, h_model, random_state, model_y):
+                     nuisance_models, h_model, random_state, model_y, cv, mc_iters):
     try:
         if verbose > 0:
             print(f"CausalAnalysis: Feature {name}")
@@ -303,13 +315,13 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
                                              [ind for ind in categorical_inds
                                               if ind != feat_ind]),
                                             ('drop', 'drop', feat_ind)],
-                                           remainder='passthrough')
+                                           remainder=StandardScaler())
         W_transformer = ColumnTransformer([('encode', OneHotEncoder(drop='first', sparse=False),
                                             [ind for ind in categorical_inds
                                              if ind != feat_ind and ind not in hinds]),
                                            ('drop', 'drop', hinds),
                                            ('drop_feat', 'drop', feat_ind)],
-                                          remainder='passthrough')
+                                          remainder=StandardScaler())
         # Use _ColumnTransformer instead of ColumnTransformer so we can get feature names
         X_transformer = _ColumnTransformer([ind for ind in categorical_inds
                                             if ind != feat_ind and ind in hinds],
@@ -358,7 +370,9 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
                             fit_cate_intercept=True,
                             linear_first_stages=False,
                             categories=cats,
-                            random_state=random_state)
+                            random_state=random_state,
+                            cv=cv,
+                            mc_iters=mc_iters)
         elif h_model == 'forest':
             est = CausalForestDML(model_y=model_y,
                                   model_t=model_t,
@@ -367,7 +381,9 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
                                   min_var_leaf_on_val=True,
                                   categories=cats,
                                   random_state=random_state,
-                                  verbose=verbose)
+                                  verbose=verbose,
+                                  cv=cv,
+                                  mc_iters=mc_iters)
 
             if verbose > 0:
                 print("CausalAnalysis: tuning forest")
@@ -493,6 +509,20 @@ class CausalAnalysis:
         Degree of parallelism to use when training models via joblib.Parallel
     verbose : int, default=0
         Controls the verbosity when fitting and predicting.
+    cv: int, cross-validation generator or an iterable, default 5
+        Determines the strategy for cross-fitting used when training causal models for each feature.
+        Possible inputs for cv are:
+
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`
+        - An iterable yielding (train, test) splits as arrays of indices.
+
+        For integer inputs, if the treatment is discrete
+        :class:`~sklearn.model_selection.StratifiedKFold` is used, else,
+        :class:`~sklearn.model_selection.KFold` is used
+        (with a random shuffle in either case).
+    mc_iters: int, default 3
+        The number of times to rerun the first stage models to reduce the variance of the causal model nuisances.
     skip_cat_limit_checks: bool, default False
         By default, categorical features need to have several instances of each category in order for a model to be
         fit robustly. Setting this to True will skip these checks (although at least 2 instances will always be
@@ -524,7 +554,8 @@ class CausalAnalysis:
 
     def __init__(self, feature_inds, categorical, heterogeneity_inds=None, feature_names=None, classification=False,
                  upper_bound_on_cat_expansion=5, nuisance_models='linear', heterogeneity_model='linear', *,
-                 categories='auto', n_jobs=-1, verbose=0, skip_cat_limit_checks=False, random_state=None):
+                 categories='auto', n_jobs=-1, verbose=0, cv=5, mc_iters=3, skip_cat_limit_checks=False,
+                 random_state=None):
         self.feature_inds = feature_inds
         self.categorical = categorical
         self.heterogeneity_inds = heterogeneity_inds
@@ -536,6 +567,8 @@ class CausalAnalysis:
         self.categories = categories
         self.n_jobs = n_jobs
         self.verbose = verbose
+        self.cv = cv
+        self.mc_iters = mc_iters
         self.skip_cat_limit_checks = skip_cat_limit_checks
         self.random_state = random_state
 
@@ -649,7 +682,7 @@ class CausalAnalysis:
                                            OneHotEncoder(
                                                drop='first', sparse=False),
                                            self.categorical)],
-                                         remainder='passthrough').fit_transform(X)
+                                         remainder=StandardScaler()).fit_transform(X)
 
                 if self.verbose > 0:
                     print("CausalAnalysis: performing model selection on overall Y model")
@@ -714,15 +747,27 @@ class CausalAnalysis:
         # assume we'll be able to train former failures this time; we'll add them back if not
         invalid_inds = [(ind, reason) for (ind, reason) in invalid_inds if ind not in new_inds]
 
+        self._has_column_names = True
+        if self.feature_names is None:
+            if hasattr(X, "iloc"):
+                feature_names = X.columns
+            else:
+                self._has_column_names = False
+                feature_names = [f"x{i}" for i in range(X.shape[1])]
+        else:
+            feature_names = self.feature_names
+        self.feature_names_ = feature_names
+
         min_counts = {}
         for ind in new_inds:
+            column_text = self._format_col(ind)
 
             if ind in categorical_inds:
                 cats, counts = np.unique(_safe_indexing(X, ind, axis=1), return_counts=True)
                 min_ind = np.argmin(counts)
                 n_cat = len(cats)
                 if n_cat > self.upper_bound_on_cat_expansion:
-                    warnings.warn(f"Column {ind} has more than {self.upper_bound_on_cat_expansion} "
+                    warnings.warn(f"{column_text} has more than {self.upper_bound_on_cat_expansion} "
                                   f"values (found {n_cat}) so no heterogeneity model will be fit for it; "
                                   "increase 'upper_bound_on_cat_expansion' to change this behavior.")
                     # can't remove in place while iterating over new_inds, so store in separate list
@@ -733,13 +778,14 @@ class CausalAnalysis:
                                                        (counts[min_ind] >= 2 and
                                                         self.heterogeneity_model != 'forest')):
                         # train the model, but warn
-                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
-                                      f"the training dataset, which is less than {_CAT_LIMIT}. A model will be fit "
-                                      "because 'skip_cat_limit_checks' is True, but this model may not be robust.")
+                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                                      f"the training dataset, which is less than the lower limit ({_CAT_LIMIT}). "
+                                      "A model will still be fit because 'skip_cat_limit_checks' is True, "
+                                      "but this model may not be robust.")
                         min_counts[ind] = counts[min_ind]
                     elif counts[min_ind] < 2 or (counts[min_ind] < 5 and self.heterogeneity_model == 'forest'):
                         # no model can be trained in this case since we need more folds
-                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
                                       "the training dataset, but linear heterogeneity models need at least 2 and "
                                       "forest heterogeneity models need at least 5 instances, so no model will be fit "
                                       "for this column")
@@ -747,11 +793,11 @@ class CausalAnalysis:
                     else:
                         # don't train a model, but suggest workaround since there are enough instances of least
                         # populated class
-                        warnings.warn(f"Column {ind}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
-                                      f"the training dataset, which is less than {_CAT_LIMIT}, so no heterogeneity "
-                                      "model will be fit for it. This check can be turned off by setting "
-                                      "'skip_cat_limit_checks' to True, but that may result in an inaccurate model "
-                                      "for this feature.")
+                        warnings.warn(f"{column_text}'s value {cats[min_ind]} has only {counts[min_ind]} instances in "
+                                      f"the training dataset, which is less than the lower limit ({_CAT_LIMIT}), "
+                                      "so no heterogeneity model will be fit for it. This check can be turned off by "
+                                      "setting 'skip_cat_limit_checks' to True, but that may result in an inaccurate "
+                                      "model for this feature.")
                         invalid_inds.append((ind, 'cat_limit'))
 
         for (ind, _) in invalid_inds:
@@ -763,16 +809,6 @@ class CausalAnalysis:
                                  "are several instances of each categorical value so that at least "
                                  "one feature model can be trained.")
 
-        if self.feature_names is None:
-            if hasattr(X, "iloc"):
-                feature_names = X.columns
-            else:
-                feature_names = [f"x{i}" for i in range(X.shape[1])]
-        else:
-            feature_names = self.feature_names
-
-        self.feature_names_ = feature_names
-
         # extract subset of names matching new columns
         new_feat_names = _safe_indexing(feature_names, new_inds)
 
@@ -783,7 +819,8 @@ class CausalAnalysis:
                                  )(joblib.delayed(_process_feature)(
                                      feat_name, feat_ind,
                                      self.verbose, categorical_inds, categories, heterogeneity_inds, min_counts, y, X,
-                                     self.nuisance_models, self.heterogeneity_model, self.random_state, self._model_y)
+                                     self.nuisance_models, self.heterogeneity_model, self.random_state, self._model_y,
+                                     self.cv, self.mc_iters)
                                      for feat_name, feat_ind in zip(new_feat_names, new_inds))))
 
         # track indices where an exception was thrown, since we can't remove from dictionary while iterating
@@ -813,6 +850,12 @@ class CausalAnalysis:
         self.nuisance_models_ = self.nuisance_models
         self.heterogeneity_model_ = self.heterogeneity_model
         return self
+
+    def _format_col(self, ind):
+        if self._has_column_names:
+            return f"Column {ind} ({self.feature_names_[ind]})"
+        else:
+            return f"Column {ind}"
 
     # properties to return from effect InferenceResults
     @staticmethod
@@ -1171,10 +1214,29 @@ class CausalAnalysis:
         )
 
         (numeric_index,) = _get_column_indices(X, [feature_index])
+
+        bad_inds = dict(self.untrained_feature_indices_)
+        if numeric_index in bad_inds:
+            error = bad_inds[numeric_index]
+            col_text = self._format_col(numeric_index)
+            if error == 'cat_limit':
+                msg = f"{col_text} had a value with fewer than {_CAT_LIMIT} occurences, so no model was fit for it"
+            elif error == 'upper_bound_on_cat_expansion':
+                msg = (f"{col_text} had more distinct values than the setting of 'upper_bound_on_cat_expansion', "
+                       "so no model was fit for it")
+            else:
+                msg = (f"{col_text} generated the following error during fitting, "
+                       f"so no model was fit for it:\n{str(error)}")
+            raise ValueError(msg)
+
+        if numeric_index not in self.trained_feature_indices_:
+            raise ValueError(f"{self._format_col(numeric_index)} was not passed as a feature index "
+                             "so no model was fit for it")
+
         results = [res for res in self._results
                    if res.feature_index == numeric_index]
 
-        assert len(results) != 0, f"The feature index supplied was not fitted"
+        assert len(results) == 1
         (result,) = results
         return result
 
@@ -1418,7 +1480,7 @@ class CausalAnalysis:
                                                    min_impurity_decrease=min_value_increase,
                                                    alpha=alpha)
 
-        def policy_data(tree, node_id):
+        def policy_data(tree, node_id, node_dict):
             return {'treatment': treatment_names[np.argmax(tree.value[node_id])]}
         return _PolicyOutput(_tree_interpreter_to_dict(intrp, feature_names, policy_data),
                              policy_val,
@@ -1466,7 +1528,7 @@ class CausalAnalysis:
 
     def _heterogeneity_tree_output(self, Xtest, feature_index, *,
                                    max_depth=3, min_samples_leaf=2, min_impurity_decrease=1e-4,
-                                   alpha=.1):
+                                   include_model_uncertainty=False, alpha=.1):
         """
         Get an effect heterogeneity tree expressed as a dictionary.
 
@@ -1483,6 +1545,8 @@ class CausalAnalysis:
         min_impurity_decrease : float, optional (default=1e-4)
             The minimum decrease in the impurity/uniformity of the causal effect that a split needs to
             achieve to construct it
+        include_model_uncertainty : bool, default False
+            Whether to include confidence interval information when building a simplified model of the cate model.
         alpha : float in [0, 1], optional (default=.1)
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
@@ -1492,10 +1556,15 @@ class CausalAnalysis:
                                                 max_depth=max_depth,
                                                 min_samples_leaf=min_samples_leaf,
                                                 min_impurity_decrease=min_impurity_decrease,
+                                                include_model_uncertainty=include_model_uncertainty,
                                                 alpha=alpha)
 
-        def hetero_data(tree, node_id):
-            return {'effect': _sanitize(tree.value[node_id])}
+        def hetero_data(tree, node_id, node_dict):
+            if include_model_uncertainty:
+                return {'effect': _sanitize(tree.value[node_id]),
+                        'ci': _sanitize(node_dict[node_id]['ci'])}
+            else:
+                return {'effect': _sanitize(tree.value[node_id])}
         return _tree_interpreter_to_dict(intrp, feature_names, hetero_data)
 
     def individualized_policy(self, Xtest, feature_index, *, n_rows=None, treatment_costs=0, alpha=0.1):
@@ -1571,14 +1640,46 @@ class CausalAnalysis:
             zeros = np.zeros((est.shape[0], 1))
             all_effs = np.hstack([zeros, est])
             eff_ind = np.argmax(all_effs, axis=1)
-            all_eff_lbs = np.hstack([zeros, est_lb])
-            all_eff_ubs = np.hstack([zeros, est_ub])
             treatment_arr = np.array([result.feature_baseline] + [lvl for lvl in result.feature_levels], dtype=object)
             rec = treatment_arr[eff_ind]
-            eff_ind = eff_ind.reshape(-1, 1)
-            eff = np.take_along_axis(all_effs, eff_ind, 1).reshape(-1)
-            eff_lb = np.take_along_axis(all_eff_lbs, eff_ind, 1).reshape(-1)
-            eff_ub = np.take_along_axis(all_eff_ubs, eff_ind, 1).reshape(-1)
+            # we need to call effect_inference to get the correct CI between the two treatment options
+            effect = result.estimator.effect_inference(Xtest, T0=orig_df['Current treatment'], T1=rec)
+            # we now need to construct the delta in the cost between the two treatments and translate the effect
+            current_treatment = orig_df['Current treatment'].values
+            if np.ndim(treatment_costs) >= 2:
+                # remove third dimenions potentially added
+                if multi_y:  # y was an array, not a vector
+                    treatment_costs = np.squeeze(treatment_costs, 1)
+                assert treatment_costs.shape[1] == len(treatment_arr) - 1, ("If treatment costs are an array, "
+                                                                            " they must be of shape (n, d_t-1),"
+                                                                            " where n is the number of samples"
+                                                                            " and d_t the number of treatment"
+                                                                            " categories.")
+                all_costs = np.hstack([zeros, treatment_costs])
+                # find cost of current treatment: equality creates a 2d array with True on each row,
+                # only if its the location of the current treatment. Then we take the corresponding cost.
+                current_cost = all_costs[current_treatment.reshape(-1, 1) == treatment_arr.reshape(1, -1)]
+                target_cost = np.take_along_axis(all_costs, eff_ind.reshape(-1, 1), 1).reshape(-1)
+            else:
+                assert isinstance(treatment_costs, (int, float)), ("Treatments costs should either be float or "
+                                                                   "a 2d array of size (n, d_t-1).")
+                all_costs = np.array([0] + [treatment_costs] * (len(treatment_arr) - 1))
+                # construct index of current treatment
+                current_ind = (current_treatment.reshape(-1, 1) ==
+                               treatment_arr.reshape(1, -1)) @ np.arange(len(treatment_arr))
+                current_cost = all_costs[current_ind]
+                target_cost = all_costs[eff_ind]
+            delta_cost = current_cost - target_cost
+            # add second dimension if needed for broadcasting during translation of effect
+            if multi_y:
+                delta_cost = np.expand_dims(delta_cost, 1)
+            effect.translate(delta_cost)
+            eff = effect.point_estimate
+            eff_lb, eff_ub = effect.conf_int(alpha)
+            if multi_y:  # y was an array, not a vector
+                eff = np.squeeze(eff, 1)
+                eff_lb = np.squeeze(eff_lb, 1)
+                eff_ub = np.squeeze(eff_ub, 1)
 
         df = pd.DataFrame({'Treatment': rec,
                            'Effect of treatment': eff,
@@ -1616,3 +1717,27 @@ class CausalAnalysis:
                                           n_rows=n_rows,
                                           treatment_costs=treatment_costs,
                                           alpha=alpha).to_dict('list')
+
+    def typical_treatment_value(self, feature_index):
+        """
+        Get the typical treatment value used for the specified feature
+
+        Parameters
+        ----------
+        feature_index: int or string
+            The index of the feature to be considered as treatment
+
+        Returns
+        -------
+        treatment_value : float
+            The treatment value considered 'typical' for this feature
+        """
+        result = [res for res in self._results if res.feature_index == feature_index]
+        if len(result) == 0:
+            if self._has_column_names:
+                result = [res for res in self._results if res.feature_name == feature_index]
+                assert len(result) == 1, f"Could not find feature with index/name {feature_index}"
+                return result[0].treatment_value
+            else:
+                raise ValueError(f"No feature with index {feature_index}")
+        return result[0].treatment_value

@@ -5,7 +5,7 @@
 
 
 
-<h1><img src="https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/MSR-ALICE-HeaderGraphic-1920x720_1-800x550.jpg" width="130px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
+<h1><img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
 
 **EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and built as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
 techniques with econometrics to bring automation to complex causal inference problems. The promise of EconML:
@@ -45,9 +45,13 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-**July 9, 2021:** Release v0.12.0b4, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b4)
+**August 5, 2021:** Release v0.12.0b6, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b6)
 
 <details><summary>Previous releases</summary>
+
+**August 3, 2021:** Release v0.12.0b5, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b5)
+
+**July 9, 2021:** Release v0.12.0b4, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b4)
 
 **June 25, 2021:** Release v0.12.0b3, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b3)
 

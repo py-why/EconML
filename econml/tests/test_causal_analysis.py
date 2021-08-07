@@ -6,6 +6,7 @@ import numpy as np
 from numpy.core.fromnumeric import squeeze
 import pandas as pd
 from contextlib import ExitStack
+import pytest
 from econml.solutions.causal_analysis import CausalAnalysis
 from econml.solutions.causal_analysis._causal_analysis import _CausalInsightsConstants
 
@@ -14,6 +15,7 @@ def assert_less_close(arr1, arr2):
     assert np.all(np.logical_or(arr1 <= arr2, np.isclose(arr1, arr2)))
 
 
+@pytest.mark.causal
 class TestCausalAnalysis(unittest.TestCase):
 
     def test_basic_array(self):
@@ -56,6 +58,13 @@ class TestCausalAnalysis(unittest.TestCase):
 
                 ca._heterogeneity_tree_output(X, 1)
                 ca._heterogeneity_tree_output(X, 3)
+
+                # continuous treatments have typical treatment values equal to
+                # the mean of the absolute value of non-zero entries
+                np.testing.assert_allclose(ca.typical_treatment_value(0), np.mean(np.abs(X[:, 0])))
+                np.testing.assert_allclose(ca.typical_treatment_value(1), np.mean(np.abs(X[:, 1])))
+                # discrete treatments have typical treatment value 1
+                assert ca.typical_treatment_value(2) == ca.typical_treatment_value(3) == 1
 
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment
@@ -176,6 +185,13 @@ class TestCausalAnalysis(unittest.TestCase):
                 pto = ca._policy_tree_output(X, inds[1])
                 ca._heterogeneity_tree_output(X, inds[1])
                 ca._heterogeneity_tree_output(X, inds[3])
+
+                # continuous treatments have typical treatment values equal to
+                # the mean of the absolute value of non-zero entries
+                np.testing.assert_allclose(ca.typical_treatment_value(inds[0]), np.mean(np.abs(X['a'])))
+                np.testing.assert_allclose(ca.typical_treatment_value(inds[1]), np.mean(np.abs(X['b'])))
+                # discrete treatments have typical treatment value 1
+                assert ca.typical_treatment_value(inds[2]) == ca.typical_treatment_value(inds[3]) == 1
 
                 # Make sure we handle continuous, binary, and multi-class treatments
                 # For multiple discrete treatments, one "always treat" value per non-default treatment

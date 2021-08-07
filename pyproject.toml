@@ -14,5 +14,6 @@ markers = [
     "slow",
     "notebook",
     "automl",
-    "dml"
+    "dml",
+    "causal"
 ]
