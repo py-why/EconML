@@ -1932,9 +1932,9 @@ class StatsModels2SLS(_StatsModelsWrapper):
         # check array shape
         assert (T.shape[0] == Z.shape[0] == y.shape[0] == sample_weight.shape[0]), "Input lengths not compatible!"
 
-        # check dimension of treatment equals to dimension of instrument
-        if T.shape[1] != Z.shape[1]:
-            raise AssertionError("Can only accept as many instruments as treatments!")
+        # check dimension of instruments is more than dimension of treatments
+        if Z.shape[1] < T.shape[1]:
+            raise AssertionError("The number of treatments couldn't be larger than the number of instruments!")
 
         # weight X and y
         weighted_Z = Z * np.sqrt(sample_weight).reshape(-1, 1)
@@ -1979,11 +1979,18 @@ class StatsModels2SLS(_StatsModelsWrapper):
 
         self._n_out = 0 if y.ndim < 2 else y.shape[1]
 
-        # solve moment equation E[(y-theta*T)*Z]=0
-        # theta = (Z.T*T)^(-1)*Z.T*y
+        # learn point estimate
+        # solve first stage linear regression E[T|Z]
+        zT_z = np.dot(Z.T, Z)
         zT_t = np.dot(Z.T, T)
-        zT_y = np.dot(Z.T, y)
-        param = np.linalg.solve(zT_t, zT_y)
+        # "that" means T̂
+        self._thatparams = np.linalg.solve(zT_z, zT_t)
+        that = np.dot(Z, self._thatparams)
+        # solve second stage linear regression E[Y|that]
+        # (T̂.T*T̂)^{-1}
+        thatT_that = np.dot(that.T, that)
+        thatT_y = np.dot(that.T, y)
+        param = np.linalg.solve(thatT_that, thatT_y)
         self._param = param
 
         n_obs = y.shape[0]
@@ -1996,13 +2003,7 @@ class StatsModels2SLS(_StatsModelsWrapper):
             correction = (n_obs / (n_obs - df))
 
         # learn cov(theta)
-        # solve first stage linear regression E[T|Z]
-        zT_z = np.dot(Z.T, Z)
-        # "that" means T̂
-        self._thatparams = np.linalg.solve(zT_z, zT_t)
-        that = np.dot(Z, self._thatparams)
         # (T̂.T*T̂)^{-1}
-        thatT_that = np.dot(that.T, that)
         thatT_that_inv = np.linalg.inv(thatT_that)
         # sigma^2
         var_i = (y - np.dot(T, param))**2

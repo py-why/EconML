@@ -686,7 +686,14 @@ class DRIV(_DRIV):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument or continuous treatment.
 
-    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+    flexible_model_effect : estimator or 'auto' (default is 'auto')
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+        If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
+
+    model_final : estimator, optional
+        a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
+
+    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
@@ -696,12 +703,6 @@ class DRIV(_DRIV):
 
     prel_opt_reweighted : bool, optional, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
-
-    flexible_model_effect : estimator
-        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
-
-    model_final : estimator, optional
-        a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
 
     projection: bool, optional, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -772,11 +773,11 @@ class DRIV(_DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
-                 prel_model_effect="driv",
+                 flexible_model_effect="auto",
+                 model_final=None,
+                 prel_cate_approach="driv",
                  prel_cv=1,
                  prel_opt_reweighted=True,
-                 flexible_model_effect,
-                 model_final=None,
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=False,
@@ -789,16 +790,20 @@ class DRIV(_DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
-        self.prel_model_effect = prel_model_effect
+
+        if flexible_model_effect == "auto":
+            self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
+        else:
+            self.flexible_model_effect = clone(flexible_model_effect, safe=False)
+        self.prel_cate_approach = prel_cate_approach
         self.prel_cv = prel_cv
         self.prel_opt_reweighted = prel_opt_reweighted
-        self.flexible_model_effect = clone(flexible_model_effect, safe=False)
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xw=model_t_xw,
                          model_z_xw=model_z_xw,
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
-                         prel_model_effect=self.prel_model_effect,
+                         prel_model_effect=self.prel_cate_approach,
                          model_final=model_final,
                          projection=projection,
                          featurizer=featurizer,
@@ -819,7 +824,7 @@ class DRIV(_DRIV):
         return clone(self.model_final, safe=False)
 
     def _gen_prel_model_effect(self):
-        if self.prel_model_effect == "driv":
+        if self.prel_cate_approach == "driv":
             return _DRIV(model_y_xw=clone(self.model_y_xw, safe=False),
                          model_t_xw=clone(self.model_t_xw, safe=False),
                          model_z_xw=clone(self.model_z_xw, safe=False),
@@ -839,7 +844,7 @@ class DRIV(_DRIV):
                          mc_iters=self.mc_iters,
                          mc_agg=self.mc_agg,
                          random_state=self.random_state)
-        elif self.prel_model_effect == "dmliv":
+        elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xw, safe=False),
                                  model_t_xwz=clone(self.model_t_xwz, safe=False),
@@ -855,7 +860,7 @@ class DRIV(_DRIV):
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
-                f"but received '{self.prel_model_effect}'!")
+                f"but received '{self.prel_cate_approach}'!")
 
     def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference="auto"):
@@ -901,8 +906,8 @@ class DRIV(_DRIV):
         if self.projection:
             assert self.model_z_xw == "auto", ("In the case of projection=True, model_z_xw will not be fitted, "
                                                "please keep it as default!")
-        if self.prel_model_effect == "driv" and not self.projection:
-            assert self.model_t_xwz == "auto", ("In the case of projection=False and prel_model_effect='driv', "
+        if self.prel_cate_approach == "driv" and not self.projection:
+            assert self.model_t_xwz == "auto", ("In the case of projection=False and prel_cate_approach='driv', "
                                                 "model_t_xwz will not be fitted, "
                                                 "please keep it as default!")
         return super().fit(Y, T, X=X, W=W, Z=Z,
@@ -1086,7 +1091,11 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument or continuous treatment.
 
-    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+    flexible_model_effect : estimator or 'auto' (default is 'auto')
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+        If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
+
+    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
@@ -1096,9 +1105,6 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
 
     prel_opt_reweighted : bool, optional, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
-
-    flexible_model_effect : estimator
-        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
     projection: bool, optional, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -1169,10 +1175,10 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
-                 prel_model_effect="driv",
+                 flexible_model_effect="auto",
+                 prel_cate_approach="driv",
                  prel_cv=1,
                  prel_opt_reweighted=True,
-                 flexible_model_effect,
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -1190,11 +1196,11 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                          model_z_xw=model_z_xw,
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
-                         prel_model_effect=prel_model_effect,
-                         prel_cv=prel_cv,
-                         prel_opt_reweighted=prel_opt_reweighted,
                          flexible_model_effect=flexible_model_effect,
                          model_final=None,
+                         prel_cate_approach=prel_cate_approach,
+                         prel_cv=prel_cv,
+                         prel_opt_reweighted=prel_opt_reweighted,
                          projection=projection,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
@@ -1317,7 +1323,11 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument or continuous treatment.
 
-    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+    flexible_model_effect : estimator or 'auto' (default is 'auto')
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+        If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
+
+    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
@@ -1327,9 +1337,6 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
 
     prel_opt_reweighted : bool, optional, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
-
-    flexible_model_effect : estimator
-        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
     projection: bool, optional, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -1430,10 +1437,10 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
-                 prel_model_effect="driv",
+                 flexible_model_effect="auto",
+                 prel_cate_approach="driv",
                  prel_cv=1,
                  prel_opt_reweighted=True,
-                 flexible_model_effect,
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -1465,11 +1472,11 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          model_z_xw=model_z_xw,
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
-                         prel_model_effect=prel_model_effect,
-                         prel_cv=prel_cv,
-                         prel_opt_reweighted=prel_opt_reweighted,
                          flexible_model_effect=flexible_model_effect,
                          model_final=None,
+                         prel_cate_approach=prel_cate_approach,
+                         prel_cv=prel_cv,
+                         prel_opt_reweighted=prel_opt_reweighted,
                          projection=projection,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
@@ -1594,7 +1601,11 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument or continuous treatment.
 
-    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+    flexible_model_effect : estimator or 'auto' (default is 'auto')
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+        If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
+
+    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
@@ -1604,9 +1615,6 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
 
     prel_opt_reweighted : bool, optional, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
-
-    flexible_model_effect : estimator
-        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
     projection: bool, optional, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -1779,10 +1787,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
-                 prel_model_effect="driv",
+                 flexible_model_effect="auto",
+                 prel_cate_approach="driv",
                  prel_cv=1,
                  prel_opt_reweighted=True,
-                 flexible_model_effect,
                  projection=False,
                  featurizer=None,
                  n_estimators=1000,
@@ -1825,11 +1833,11 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          model_z_xw=model_z_xw,
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
-                         prel_model_effect=prel_model_effect,
-                         prel_cv=prel_cv,
-                         prel_opt_reweighted=prel_opt_reweighted,
                          flexible_model_effect=flexible_model_effect,
                          model_final=None,
+                         prel_cate_approach=prel_cate_approach,
+                         prel_cv=prel_cv,
+                         prel_opt_reweighted=prel_opt_reweighted,
                          projection=projection,
                          featurizer=featurizer,
                          fit_cate_intercept=False,
@@ -2111,7 +2119,14 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
         will be applied for discrete treatment.
 
-    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+    flexible_model_effect : estimator or 'auto' (default is 'auto')
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+        If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
+
+    model_final : estimator, optional
+        a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
+
+    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
@@ -2121,12 +2136,6 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
 
     prel_opt_reweighted : bool, optional, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
-
-    flexible_model_effect : estimator
-        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
-
-    model_final : estimator, optional
-        a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
 
     z_propensity: float or "auto", optional, default "auto"
         The ratio of the A/B test in treatment group. If "auto", we assume that the instrument is fully randomized
@@ -2190,11 +2199,11 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     def __init__(self, *,
                  model_y_xw="auto",
                  model_t_xwz="auto",
-                 prel_model_effect="driv",
+                 prel_cate_approach="driv",
+                 flexible_model_effect="auto",
+                 model_final=None,
                  prel_cv=1,
                  prel_opt_reweighted=True,
-                 flexible_model_effect,
-                 model_final=None,
                  z_propensity="auto",
                  featurizer=None,
                  fit_cate_intercept=False,
@@ -2206,13 +2215,16 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  categories='auto',
                  random_state=None):
         # maybe shouldn't expose fit_cate_intercept in this class?
-        self.flexible_model_effect = clone(flexible_model_effect, safe=False)
-        self.prel_model_effect = prel_model_effect
+        if flexible_model_effect == "auto":
+            self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
+        else:
+            self.flexible_model_effect = clone(flexible_model_effect, safe=False)
+        self.prel_cate_approach = prel_cate_approach
         self.prel_cv = prel_cv
         self.prel_opt_reweighted = prel_opt_reweighted
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xwz=model_t_xwz,
-                         prel_model_effect=self.prel_model_effect,
+                         prel_model_effect=self.prel_cate_approach,
                          model_final=model_final,
                          z_propensity=z_propensity,
                          featurizer=featurizer,
@@ -2231,7 +2243,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         return clone(self.model_final, safe=False)
 
     def _gen_prel_model_effect(self):
-        if self.prel_model_effect == "driv":
+        if self.prel_cate_approach == "driv":
             return _IntentToTreatDRIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                       model_t_xwz=clone(self.model_t_xwz, safe=False),
                                       prel_model_effect=_DummyCATE(),
@@ -2243,7 +2255,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                       opt_reweighted=self.prel_opt_reweighted,
                                       cv=self.prel_cv,
                                       random_state=self.random_state)
-        elif self.prel_model_effect == "dmliv":
+        elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xwz, safe=False),
                                  model_t_xwz=clone(self.model_t_xwz, safe=False),
@@ -2259,7 +2271,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
-                f"but received '{self.prel_model_effect}'!")
+                f"but received '{self.prel_cate_approach}'!")
 
     @property
     def models_y_xw(self):
@@ -2341,7 +2353,11 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
         will be applied for discrete treatment.
 
-    prel_model_effect : one of {'driv', 'dmliv'}, optional (default='driv')
+    flexible_model_effect : estimator or 'auto' (default is 'auto')
+        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
+        If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
+
+    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
@@ -2351,9 +2367,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
 
     prel_opt_reweighted : bool, optional, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
-
-    flexible_model_effect : estimator
-        a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
 
     z_propensity: float or "auto", optional, default "auto"
         The ratio of the A/B test in treatment group. If "auto", we assume that the instrument is fully randomized
@@ -2417,10 +2430,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     def __init__(self, *,
                  model_y_xw="auto",
                  model_t_xwz="auto",
-                 prel_model_effect="driv",
+                 prel_cate_approach="driv",
+                 flexible_model_effect="auto",
                  prel_cv=1,
                  prel_opt_reweighted=True,
-                 flexible_model_effect,
                  z_propensity="auto",
                  featurizer=None,
                  fit_cate_intercept=True,
@@ -2433,11 +2446,11 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  random_state=None):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xwz=model_t_xwz,
-                         prel_model_effect=prel_model_effect,
-                         prel_cv=prel_cv,
-                         prel_opt_reweighted=prel_opt_reweighted,
                          flexible_model_effect=flexible_model_effect,
                          model_final=None,
+                         prel_cate_approach=prel_cate_approach,
+                         prel_cv=prel_cv,
+                         prel_opt_reweighted=prel_opt_reweighted,
                          z_propensity=z_propensity,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,

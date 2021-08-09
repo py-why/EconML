@@ -25,7 +25,8 @@ from ...inference import StatsModelsInference, GenericSingleTreatmentModelFinalI
 from ...sklearn_extensions.linear_model import StatsModels2SLS, StatsModelsLinearRegression, WeightedLassoCVWrapper
 from ...sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ...utilities import (_deprecate_positional, get_feature_names_or_default, filter_none_kwargs, add_intercept,
-                          cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, shape)
+                          cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, shape,
+                          parse_final_model_params, deprecated)
 from ...dml.dml import _FirstStageWrapper, _FinalWrapper
 from ...dml._rlearner import _ModelFinal
 from ..._shap import _shap_explain_joint_linear_model_cate, _shap_explain_model_cate
@@ -180,16 +181,16 @@ class _OrthoIVModelFinal:
 
 class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     """
-    Implementation of the orthogonal/double ml method for ATE estimation with
-    IV as described in
+    Implementation of the orthogonal/double ml method for CATE estimation with
+    IV as described in section 4.2:
 
     Double/Debiased Machine Learning for Treatment and Causal Parameters
     Victor Chernozhukov, Denis Chetverikov, Mert Demirer, Esther Duflo, Christian Hansen, Whitney Newey, James Robins
     https://arxiv.org/abs/1608.00060
 
-    Requires that either co-variance of T, Z is independent of X or that effect
-    is not heterogeneous in X for correct recovery. Otherwise it estimates
-    a biased ATE.
+    Solve the following moment equation:
+    .. math::
+        \\E[(Y-\\E[Y|X]-\theta(X) * (T-\\E[T|X]))(Z-\\E[Z|X])] = 0
 
     Parameters
     ----------
@@ -1112,6 +1113,44 @@ class DMLIV(_BaseDMLIV):
 
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
 
+    @property
+    def coef_(self):
+        """ The coefficients in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        coef: (n_x,) or (n_t, n_x) or (n_y, n_t, n_x) array like
+            Where n_x is the number of features that enter the final model (either the
+            dimension of X or the dimension of featurizer.fit_transform(X) if the CATE
+            estimator has a featurizer.), n_t is the number of treatments, n_y is
+            the number of outcomes. Dimensions are omitted if the original input was
+            a vector and not a 2D array. For binary treatment the n_t dimension is
+            also omitted.
+        """
+        return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
+                                        self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                        self.fit_cate_intercept_)[0]
+
+    @property
+    def intercept_(self):
+        """ The intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Returns
+        -------
+        intercept: float or (n_y,) or (n_y, n_t) array like
+            Where n_t is the number of treatments, n_y is
+            the number of outcomes. Dimensions are omitted if the original input was
+            a vector and not a 2D array. For binary treatment the n_t dimension is
+            also omitted.
+        """
+        if not self.fit_cate_intercept_:
+            raise AttributeError("No intercept was fitted!")
+        return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
+                                        self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
+                                        self.fit_cate_intercept_)[1]
+
 
 class NonParamDMLIV(_BaseDMLIV):
     """
@@ -1291,3 +1330,58 @@ class NonParamDMLIV(_BaseDMLIV):
                                         input_names=self._input_names,
                                         background_samples=background_samples)
     shap_values.__doc__ = LinearCateEstimator.shap_values.__doc__
+
+
+@deprecated("The DMLATEIV class has been deprecated by OrthoIV class with parameter `projection=False`, "
+            "an upcoming release will remove support for the old name")
+def DMLATEIV(model_Y_W,
+             model_T_W,
+             model_Z_W,
+             discrete_treatment=False,
+             discrete_instrument=False,
+             categories='auto',
+             cv=2,
+             mc_iters=None,
+             mc_agg='mean',
+             random_state=None):
+
+    return OrthoIV(model_y_xw=model_Y_W,
+                   model_t_xw=model_T_W,
+                   model_z_xw=model_Z_W,
+                   projection=False,
+                   featurizer=None,
+                   fit_cate_intercept=True,
+                   discrete_treatment=discrete_treatment,
+                   discrete_instrument=discrete_instrument,
+                   categories=categories,
+                   cv=cv,
+                   mc_iters=mc_iters,
+                   mc_agg=mc_agg,
+                   random_state=random_state)
+
+
+@deprecated("The DMLATEIV class has been deprecated by OrthoIV class with parameter `projection=True`, "
+            "an upcoming release will remove support for the old name")
+def ProjectedDMLATEIV(model_Y_W,
+                      model_T_W,
+                      model_T_WZ,
+                      discrete_treatment=False,
+                      discrete_instrument=False,
+                      categories='auto',
+                      cv=2,
+                      mc_iters=None,
+                      mc_agg='mean',
+                      random_state=None):
+    return OrthoIV(model_y_xw=model_Y_W,
+                   model_t_xw=model_T_W,
+                   model_t_xwz=model_T_WZ,
+                   projection=True,
+                   featurizer=None,
+                   fit_cate_intercept=True,
+                   discrete_treatment=discrete_treatment,
+                   discrete_instrument=discrete_instrument,
+                   categories=categories,
+                   cv=cv,
+                   mc_iters=mc_iters,
+                   mc_agg=mc_agg,
+                   random_state=random_state)
