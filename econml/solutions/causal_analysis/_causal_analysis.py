@@ -598,7 +598,7 @@ class CausalAnalysis:
             f"but was given {self.nuisance_models}")
 
         assert self.heterogeneity_model in ['linear', 'forest'], (
-            "The only supported heterogeneity models are 'linear' and, 'forest but received "
+            "The only supported heterogeneity models are 'linear' and 'forest' but received "
             f"{self.heterogeneity_model}")
 
         assert np.ndim(X) == 2, f"X must be a 2-dimensional array, but here had shape {np.shape(X)}"

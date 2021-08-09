@@ -795,8 +795,13 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
             point, pred_var = self._predict_point_and_var(X, full=True, point=True, var=True)
             lb, ub = np.zeros(point.shape), np.zeros(point.shape)
             for t in range(self.n_outputs_):
-                lb[:, t] = scipy.stats.norm.ppf(alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t, t]))
-                ub[:, t] = scipy.stats.norm.ppf(1 - alpha / 2, loc=point[:, t], scale=np.sqrt(pred_var[:, t, t]))
+                var = pred_var[:, t, t]
+                assert np.isclose(var[var < 0], 0, atol=1e-8).all(), f'`pred_var` must be > 0 {var[var < 0]}'
+                var = np.maximum(var, 1e-32)
+
+                pred_dist = scipy.stats.norm(loc=point[:, t], scale=np.sqrt(var))
+                lb[:, t] = pred_dist.ppf(alpha / 2)
+                ub[:, t] = pred_dist.ppf(1 - (alpha / 2))
             return point, lb, ub
         return self._predict_point_and_var(X, full=True, point=True, var=False)
 
