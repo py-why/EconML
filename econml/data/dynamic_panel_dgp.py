@@ -431,7 +431,10 @@ class SemiSynthetic:
                 ].mean()
                 true_effect[t, i] = ate_treated - ate_control
 
-        panelX = fn_df_control[self.columns].values.reshape(-1, n_periods, n_x)
+        new_index = ["proxy1", "proxy2", "proxy3", "proxy4"]
+        new_columns = [f"{ind}_{i}" for ind in new_index for i in range(-6, 0)] +\
+            [f"demo_{i}" for i in range(47)]
+        panelX = fn_df_control[new_columns].values.reshape(-1, n_periods, len(new_columns))
         panelT = fn_df_control[self.index[n_proxies:]
                                ].values.reshape(-1, n_periods, n_treatments)
         panelY = fn_df_control[outcome].values.reshape(-1, n_periods)
