@@ -288,6 +288,18 @@ class TestInference(unittest.TestCase):
             inference=BootstrapInference(5)
         ).summary(1)
 
+    def test_alpha(self):
+        Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
+        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression())
+        est.fit(Y, T, X=X, W=W)
+
+        # ensure alpha is passed
+        lb, ub = est.const_marginal_ate_interval(X, alpha=1)
+        assert (lb == ub).all()
+
+        lb, ub = est.const_marginal_ate_interval(X)
+        assert (lb != ub).all()
+
     def test_inference_with_none_stderr(self):
         Y, T, X, W = TestInference.Y, TestInference.T, TestInference.X, TestInference.W
         est = DML(model_y=LinearRegression(),
