@@ -123,6 +123,10 @@ class TestDMLIV(unittest.TestCase):
                                             self.assertEqual(shape(marg_eff_int), (2,) + marginal_effect_shape)
                                             self.assertEqual(shape(eff_int), (2,) + effect_shape)
 
+                                        # test summary
+                                        if isinstance(est, (OrthoIV, DMLIV)):
+                                            est.summary()
+
                                         # test can run score
                                         est.score(y, T, Z, X=X, W=W)
 

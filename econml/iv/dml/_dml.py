@@ -18,6 +18,7 @@ from sklearn.base import clone
 from sklearn.linear_model import LinearRegression, LogisticRegressionCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
+from itertools import product
 
 from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin, LinearCateEstimator
@@ -26,7 +27,7 @@ from ...sklearn_extensions.linear_model import StatsModels2SLS, StatsModelsLinea
 from ...sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ...utilities import (_deprecate_positional, get_feature_names_or_default, filter_none_kwargs, add_intercept,
                           cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, shape,
-                          parse_final_model_params, deprecated)
+                          parse_final_model_params, deprecated, Summary)
 from ...dml.dml import _FirstStageWrapper, _FinalWrapper
 from ...dml._rlearner import _ModelFinal
 from ..._shap import _shap_explain_joint_linear_model_cate, _shap_explain_model_cate
@@ -189,6 +190,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     https://arxiv.org/abs/1608.00060
 
     Solve the following moment equation:
+
     .. math::
         \\E[(Y-\\E[Y|X]-\theta(X) * (T-\\E[T|X]))(Z-\\E[Z|X])] = 0
 
@@ -1150,6 +1152,96 @@ class DMLIV(_BaseDMLIV):
         return parse_final_model_params(self.model_final_.coef_, self.model_final_.intercept_,
                                         self._d_y, self._d_t, self._d_t_in, self.bias_part_of_coef,
                                         self.fit_cate_intercept_)[1]
+
+    def summary(self, decimals=3, feature_names=None, treatment_names=None, output_names=None):
+        """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
+        effect.
+
+        Parameters
+        ----------
+        decimals: optinal int (default=3)
+            Number of decimal places to round each column to.
+        feature_names: optional list of strings or None (default is None)
+            The input of the feature names
+        treatment_names: optional list of strings or None (default is None)
+            The names of the treatments
+        output_names: optional list of strings or None (default is None)
+            The names of the outputs
+
+        Returns
+        -------
+        smry : Summary instance
+            this holds the summary tables and text, which can be printed or
+            converted to various output formats.
+        """
+        # Get input names
+        treatment_names = self.cate_treatment_names(treatment_names)
+        output_names = self.cate_output_names(output_names)
+        feature_names = self.cate_feature_names(feature_names)
+        # Summary
+        smry = Summary()
+        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
+                            "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
+                            "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:",
+                            "$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$",
+                            "where $\\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
+                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                            "each outcome $i$ and treatment $j$. "
+                            "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
+        d_t = self._d_t[0] if self._d_t else 1
+        d_y = self._d_y[0] if self._d_y else 1
+
+        def _reshape_array(arr, type):
+            if np.isscalar(arr):
+                arr = np.array([arr])
+            if type == 'coefficient':
+                arr = np.moveaxis(arr, -1, 0)
+            arr = arr.reshape(-1, 1)
+            return arr
+
+        # coefficient
+        try:
+            if self.coef_.size == 0:  # X is None
+                raise AttributeError("X is None, please call intercept_inference to learn the constant!")
+            else:
+                coef_array = np.round(_reshape_array(self.coef_, "coefficient"), decimals)
+                coef_headers = ["point_estimate"]
+                if d_t > 1 and d_y > 1:
+                    index = list(product(feature_names, output_names, treatment_names))
+                elif d_t > 1:
+                    index = list(product(feature_names, treatment_names))
+                elif d_y > 1:
+                    index = list(product(feature_names, output_names))
+                else:
+                    index = list(product(feature_names))
+                coef_stubs = ["|".join(ind_value) for ind_value in index]
+                coef_title = 'Coefficient Results'
+                smry.add_table(coef_array, coef_headers, coef_stubs, coef_title)
+        except Exception as e:
+            print("Coefficient Results: ", str(e))
+
+        # intercept
+        try:
+            if not self.fit_cate_intercept:
+                raise AttributeError("No intercept was fitted!")
+            else:
+                intercept_array = np.round(_reshape_array(self.intercept_, "intercept"), decimals)
+                intercept_headers = ["point_estimate"]
+                if d_t > 1 and d_y > 1:
+                    index = list(product(["cate_intercept"], output_names, treatment_names))
+                elif d_t > 1:
+                    index = list(product(["cate_intercept"], treatment_names))
+                elif d_y > 1:
+                    index = list(product(["cate_intercept"], output_names))
+                else:
+                    index = list(product(["cate_intercept"]))
+                intercept_stubs = ["|".join(ind_value) for ind_value in index]
+                intercept_title = 'CATE Intercept Results'
+                smry.add_table(intercept_array, intercept_headers, intercept_stubs, intercept_title)
+        except Exception as e:
+            print("CATE Intercept Results: ", str(e))
+        if len(smry.tables) > 0:
+            return smry
 
 
 class NonParamDMLIV(_BaseDMLIV):
