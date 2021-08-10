@@ -1783,7 +1783,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         param, _, rank, _ = np.linalg.lstsq(WX, wy, rcond=None)
 
         if rank < param.shape[0]:
-            warnings.warn("Co-variance matrix is undertermined. Inference will be invalid!")
+            warnings.warn("Co-variance matrix is underdetermined. Inference will be invalid!")
 
         sigma_inv = np.linalg.pinv(np.matmul(WX.T, WX))
         self._param = param

@@ -11,6 +11,7 @@ from sklearn.model_selection import KFold, GroupKFold
 from econml.dml import DML, LinearDML, SparseLinearDML, KernelDML, CausalForestDML
 from econml.dml import NonParamDML
 import numpy as np
+import pandas as pd
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference, EmpiricalInferenceResults, NormalInferenceResults
 from contextlib import ExitStack
@@ -670,6 +671,23 @@ class TestDML(unittest.TestCase):
                 np.testing.assert_allclose(point, truth, rtol=0, atol=.3)
                 np.testing.assert_array_less(lb - .01, truth)
                 np.testing.assert_array_less(truth, ub + .01)
+
+    def test_aaforest_pandas(self):
+        """Test that we can use CausalForest with pandas inputs"""
+
+        df = pd.DataFrame({'a': np.random.normal(size=500),
+                           'b': np.random.normal(size=500),
+                           'c': np.random.choice([0, 1], size=500),
+                           'd': np.random.choice(['a', 'b', 'c'], size=500)})
+
+        est = CausalForestDML(discrete_treatment=True)
+        est.tune(Y=df['a'], T=df['d'], X=df[['b', 'c']])
+        est.fit(Y=df['a'], T=df['d'], X=df[['b', 'c']])
+
+        # make sure we can get out post-fit stuff
+        ate = est.ate_
+        ate_inf = est.ate__inference()
+        eff = est.effect(df[['b', 'c']], T0=pd.Series(['b'] * 500), T1=pd.Series(['c'] * 500))
 
     def test_cfdml_ate_inference(self):
         np.random.seed(1234)

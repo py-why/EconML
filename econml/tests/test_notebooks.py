@@ -9,11 +9,13 @@ import nbconvert
 import traitlets
 
 _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
-_nbsubdirs = ['.', 'CustomerScenarios']  # TODO: add AutoML notebooks
+_nbsubdirs = ['.', 'CustomerScenarios', 'Solutions']  # TODO: add AutoML notebooks
 _notebooks = [
     os.path.join(subdir, path) for subdir
     in _nbsubdirs for path in os.listdir(os.path.join(_nbdir, subdir)) if
     path.endswith('.ipynb')]
+# omit the lalonde notebook
+_notebooks = [nb for nb in _notebooks if "Lalonde" not in nb]
 
 
 @pytest.mark.parametrize("file", _notebooks)
@@ -23,7 +25,7 @@ def test_notebook(file):
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves
     ep = nbconvert.preprocessors.ExecutePreprocessor(
-        timeout=1200, allow_errors=True, extra_arguments=["--HistoryManager.enabled=False"])
+        timeout=1800, allow_errors=True, extra_arguments=["--HistoryManager.enabled=False"])
 
     ep.preprocess(nb, {'metadata': {'path': _nbdir}})
     errors = [nbconvert.preprocessors.CellExecutionError.from_cell_and_msg(cell, output)

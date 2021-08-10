@@ -150,7 +150,7 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
     shap_outs = defaultdict(dict)
     for i in range(dt):
         try:
-            explainer = shap.Explainer(models[i], background,
+            explainer = shap.Explainer(models[i], masker=background,
                                        feature_names=transformed_feature_names)
         except Exception as e:
             print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
@@ -160,7 +160,10 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
                                      output_names=output_names_,
                                      input_names=input_names_,
                                      background_samples=background_samples)
-        shap_out = explainer(F)
+        if explainer.__class__.__name__ == "Tree":
+            shap_out = explainer(F, check_additivity=False)
+        else:
+            shap_out = explainer(F)
         if dy > 1:
             for j in range(dy):
                 base_values = shap_out.base_values[..., j]
@@ -323,7 +326,7 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
     shap_outs = defaultdict(dict)
     for j in range(dy):
         try:
-            explainer = shap.Explainer(multitask_model_cate[j], background,
+            explainer = shap.Explainer(multitask_model_cate[j], masker=background,
                                        feature_names=transformed_feature_names)
         except Exception as e:
             print("Final model can't be parsed, explain const_marginal_effect() instead!", repr(e))
@@ -334,7 +337,10 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
                                      input_names=input_names_,
                                      background_samples=background_samples)
 
-        shap_out = explainer(F)
+        if explainer.__class__.__name__ == "Tree":
+            shap_out = explainer(F, check_additivity=False)
+        else:
+            shap_out = explainer(F)
         if dt > 1:
             for i in range(dt):
                 base_values = shap_out.base_values[..., i]
