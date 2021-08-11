@@ -50,6 +50,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
 .. testsetup::
 
+    # DML
     import numpy as np
     X = np.random.choice(np.arange(5), size=(100,3))
     Y = np.random.normal(size=(100,2))
@@ -71,8 +72,9 @@ Most of the methods provided make a parametric form assumption on the heterogene
 linear on some pre-defined; potentially high-dimensional; featurization). These methods include: 
 :class:`.DML`, :class:`.LinearDML`,
 :class:`.SparseLinearDML`, :class:`.KernelDML`.
-For fullly non-parametric heterogeneous treatment effect models, checkout the :class:`.NonParamDML`
-and the :class:`.CausalForestDML`. For more options of non-parametric CATE estimators, 
+For fullly non-parametric heterogeneous treatment effect models, check out the :class:`.NonParamDML`
+and the :class:`.CausalForestDML`. 
+For more options of non-parametric CATE estimators, 
 check out the :ref:`Forest Estimators User Guide <orthoforestuserguide>` 
 and the :ref:`Meta Learners User Guide <metalearnersuserguide>`.
 

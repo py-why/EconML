@@ -32,7 +32,6 @@ References
 .. [ortholearner] Dylan Foster, Vasilis Syrgkanis (2019).
     Orthogonal Statistical Learning.
     ACM Conference on Learning Theory. `<https://arxiv.org/abs/1901.09036>`_
-
 """
 
 from .dml import (DML, LinearDML, SparseLinearDML,
@@ -45,4 +44,4 @@ __all__ = ["DML",
            "KernelDML",
            "NonParamDML",
            "ForestDML",
-           "CausalForestDML", ]
+           "CausalForestDML"]

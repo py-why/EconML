@@ -53,7 +53,7 @@ class _CausalForestFinalWrapper:
         stderr = (np.nanstd(drpreds, axis=0) / np.sqrt(nonnan)).reshape(self._d_y + self._d_t)
         return point, stderr
 
-    def fit(self, X, T, T_res, Y_res, sample_weight=None, freq_weight=None, sample_var=None):
+    def fit(self, X, T, T_res, Y_res, sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
         self._d_t = shape(T_res)[1:]
         self._d_y = shape(Y_res)[1:]

@@ -33,6 +33,7 @@ For information on use cases and background material on causal inference and het
     - [Interpretability](#interpretability)
     - [Causal Model Selection and Cross-Validation](#causal-model-selection-and-cross-validation)
     - [Inference](#inference)
+    - [Policy Learning](#policy-learning)
 - [For Developers](#for-developers)
   - [Running the tests](#running-the-tests)
   - [Generating the documentation](#generating-the-documentation)
@@ -160,6 +161,25 @@ To install from source, see [For Developers](#for-developers) section below.
   treatment_effects = est.effect(X_test)
   ```
 
+</details>
+
+<details>
+  <summary>Dynamic Double Machine Learning (click to expand)</summary>
+
+  ```Python
+  from econml.dynamic.dml import DynamicDML
+  # Use defaults
+  est = DynamicDML()
+  # Or specify hyperparameters
+  est = DynamicDML(model_y=LassoCV(cv=3), 
+                   model_t=LassoCV(cv=3), 
+                   cv=3)
+  est.fit(Y, T, X=X, W=None, groups=groups, inference="auto")
+  # Effects
+  treatment_effects = est.effect(X_test)
+  # Confidence intervals
+  lb, ub = est.effect_interval(X_test, alpha=0.05)
+  ```
 </details>
 
 <details>
