@@ -571,6 +571,7 @@ class TestCausalAnalysis(unittest.TestCase):
                 eff = ca.local_causal_effect(X_df, alpha=0.05)
                 for ind in feat_inds:
                     pto = ca._policy_tree_output(X_df, ind)
+                    ca._individualized_policy_dict(X_df, ind)
 
     def test_can_serialize(self):
         import pickle
@@ -777,3 +778,74 @@ class TestCausalAnalysis(unittest.TestCase):
                         self.assertEqual(ca.trained_feature_indices_, [0, 1, 2, 3])  # can't handle last two
                         self.assertEqual(ca.untrained_feature_indices_, [(4, 'cat_limit'),
                                                                          (5, 'cat_limit')])
+
+    # Add tests that guarantee that the reliance on DML feature order is not broken, such as
+    # Creare a transformer that zeros out all variables after the first n_x variables, so it zeros out W
+    # Pass an example where W is irrelevant and X is confounder
+    # As long as DML doesnt change the order of the inputs, then things should be good. Otherwise X would be
+    # zeroed out and the test will fail
+    def test_scaling_transforms(self):
+        # shouldn't matter if X is scaled much larger or much smaller than W, we should still get good estimates
+        n = 2000
+        X = np.random.normal(size=(n, 5))
+        W = np.random.normal(size=(n, 5))
+        W[:, 0] = 1  # make one of the columns a constant
+        xt, wt, xy, wy, theta = [np.random.normal(size=sz) for sz in [(5, 1), (5, 1), (5, 1), (5, 1), (1, 1)]]
+        T = X @ xt + W @ wt + np.random.normal(size=(n, 1))
+        Y = X @ xy + W @ wy + T @ theta
+        arr1 = np.hstack([X, W, T])
+        # rescaling X shouldn't affect the first stage models because they normalize the inputs
+        arr2 = np.hstack([1000 * X, W, T])
+        for hmodel in ['linear', 'forest']:
+            inds = [-1]  # we just care about T
+            cats = []
+            hinds = list(range(X.shape[1]))
+            ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model=hmodel, random_state=123)
+            ca.fit(arr1, Y)
+            eff1 = ca.global_causal_effect()
+
+            ca.fit(arr2, Y)
+            eff2 = ca.global_causal_effect()
+
+            np.testing.assert_allclose(eff1.point.values, eff2.point.values, rtol=1e-5)
+            np.testing.assert_allclose(eff1.ci_lower.values, eff2.ci_lower.values, rtol=1e-5)
+            np.testing.assert_allclose(eff1.ci_upper.values, eff2.ci_upper.values, rtol=1e-5)
+
+            np.testing.assert_allclose(eff1.point.values, theta.flatten(), rtol=1e-2)
+
+        # to recover individual coefficients with linear models, we need to be more careful in how we set up X to avoid
+        # cross terms
+        X = np.zeros(shape=(n, 5))
+        X[range(X.shape[0]), np.random.choice(5, size=n)] = 1
+        xt, wt, xy, wy, theta = [np.random.normal(size=sz) for sz in [(5, 1), (5, 1), (5, 1), (5, 1), (5, 1)]]
+        T = X @ xt + W @ wt + np.random.normal(size=(n, 1))
+        Y = X @ xy + W @ wy + T * (X @ theta)
+        arr1 = np.hstack([X, W, T])
+        arr2 = np.hstack([1000 * X, W, T])
+        for hmodel in ['linear', 'forest']:
+            inds = [-1]  # we just care about T
+            cats = []
+            hinds = list(range(X.shape[1]))
+            ca = CausalAnalysis(inds, cats, hinds, heterogeneity_model=hmodel, random_state=123)
+            ca.fit(arr1, Y)
+            eff1 = ca.global_causal_effect()
+            loc1 = ca.local_causal_effect(
+                np.hstack([np.eye(X.shape[1]), np.zeros((X.shape[1], arr1.shape[1] - X.shape[1]))]))
+            ca.fit(arr2, Y)
+            eff2 = ca.global_causal_effect()
+            loc2 = ca.local_causal_effect(
+                # scale by 1000 to match the input to this model:
+                # the scale of X does matter for the final model, which keeps results in user-denominated units
+                1000 * np.hstack([np.eye(X.shape[1]), np.zeros((X.shape[1], arr1.shape[1] - X.shape[1]))]))
+
+            # rescaling X still shouldn't affect the first stage models
+            np.testing.assert_allclose(eff1.point.values, eff2.point.values, rtol=1e-5)
+            np.testing.assert_allclose(eff1.ci_lower.values, eff2.ci_lower.values, rtol=1e-5)
+            np.testing.assert_allclose(eff1.ci_upper.values, eff2.ci_upper.values, rtol=1e-5)
+
+            np.testing.assert_allclose(loc1.point.values, loc2.point.values, rtol=1e-2)
+
+            # TODO: we don't recover the correct values with enough accuracy to enable this assertion
+            #       is there a different way to verify that we are learning the correct coefficients?
+
+            # np.testing.assert_allclose(loc1.point.values, theta.flatten(), rtol=1e-1)

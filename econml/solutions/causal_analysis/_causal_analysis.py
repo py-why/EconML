@@ -8,10 +8,11 @@ from collections import OrderedDict, namedtuple
 
 import joblib
 import lightgbm as lgb
+from numba.core.utils import erase_traceback
 import numpy as np
 from numpy.lib.function_base import iterable
 import pandas as pd
-from sklearn.base import TransformerMixin
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
@@ -172,7 +173,7 @@ def _first_stage_clf(X, y, *, make_regressor=False, automl=True, min_count=None,
     else:
         model = LogisticRegressionCV(
             cv=min(5, min_count), max_iter=1000, Cs=cs, random_state=random_state).fit(X, y)
-        est = LogisticRegression(C=model.C_[0], random_state=random_state)
+        est = LogisticRegression(C=model.C_[0], max_iter=1000, random_state=random_state)
     if make_regressor:
         return _RegressionWrapper(est)
     else:
@@ -192,8 +193,6 @@ def _final_stage(*, random_state=None, verbose=0):
 
 # simplification of sklearn's ColumnTransformer that encodes categoricals and passes through selected other columns
 # but also supports get_feature_names with expected signature
-
-
 class _ColumnTransformer(TransformerMixin):
     def __init__(self, categorical, passthrough):
         self.categorical = categorical
@@ -208,22 +207,16 @@ class _ColumnTransformer(TransformerMixin):
                                                  handle_unknown='ignore').fit(cat_cols)
         else:
             self.has_cats = False
-        cont_cols = _safe_indexing(X, self.passthrough, axis=1)
-        if cont_cols.shape[1] > 0:
-            self.has_conts = True
-            self.scaler = StandardScaler().fit(cont_cols)
-        else:
-            self.has_conts = False
         self.d_x = X.shape[1]
         return self
 
     def transform(self, X):
         rest = _safe_indexing(X, self.passthrough, axis=1)
-        if self.has_conts:
-            rest = self.scaler.transform(rest)
         if self.has_cats:
             cats = self.one_hot_encoder.transform(_safe_indexing(X, self.categorical, axis=1))
-            return np.hstack((cats, rest))
+            # NOTE: we rely on the passthrough columns coming first in the concatenated X;W
+            #       when we pipeline scaling with our first stage models later, so the order here is important
+            return np.hstack((rest, cats))
         else:
             return rest
 
@@ -234,9 +227,30 @@ class _ColumnTransformer(TransformerMixin):
         if self.has_cats:
             cats = self.one_hot_encoder.get_feature_names(
                 _safe_indexing(names, self.categorical, axis=0))
-            return np.concatenate((cats, rest))
+            return np.concatenate((rest, cats))
         else:
             return rest
+
+
+# Wrapper to make sure that we get a deep copy of the contents instead of clone returning an untrained copy
+class _Wrapper:
+    def __init__(self, item):
+        self.item = item
+
+
+class _FrozenTransformer(TransformerMixin, BaseEstimator):
+    def __init__(self, wrapper):
+        self.wrapper = wrapper
+
+    def fit(self, X, y):
+        return self
+
+    def transform(self, X):
+        return self.wrapper.item.transform(X)
+
+
+def _freeze(transformer):
+    return _FrozenTransformer(_Wrapper(transformer))
 
 
 # Convert python objects to (possibly nested) types that can easily be represented as literals
@@ -310,6 +324,13 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
         else:
             cats = 'auto'  # just leave the setting at the default otherwise
 
+        # the transformation logic here is somewhat tricky; we always need to encode the categorical columns,
+        # whether they end up in X or in W.  However, for the continuous columns, we want to scale them all
+        # when running the first stage models, but don't want to scale the X columns when running the final model,
+        # since then our coefficients will have odd units and our trees will also have decisions using those units.
+        #
+        # we achieve this by pipelining the X scaling with the Y and T models (with fixed scaling, not refitting)
+
         hinds = heterogeneity_inds[feat_ind]
         WX_transformer = ColumnTransformer([('encode', OneHotEncoder(drop='first', sparse=False),
                                              [ind for ind in categorical_inds
@@ -322,11 +343,14 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
                                            ('drop', 'drop', hinds),
                                            ('drop_feat', 'drop', feat_ind)],
                                           remainder=StandardScaler())
+
+        X_cont_inds = [ind for ind in hinds
+                       if ind != feat_ind and ind not in categorical_inds]
+
         # Use _ColumnTransformer instead of ColumnTransformer so we can get feature names
         X_transformer = _ColumnTransformer([ind for ind in categorical_inds
                                             if ind != feat_ind and ind in hinds],
-                                           [ind for ind in hinds
-                                            if ind != feat_ind and ind not in categorical_inds])
+                                           X_cont_inds)
 
         # Controls are all other columns of X
         WX = WX_transformer.fit_transform(X)
@@ -340,6 +364,20 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
 
         W = W_transformer.fit_transform(X)
         X_xf = X_transformer.fit_transform(X)
+
+        # HACK: this is slightly ugly because we rely on the fact that DML passes [X;W] to the first stage models
+        #       and so we can just peel the first columns off of that combined array for rescaling in the pipeline
+        # TODO: consider addding an API to DML that allows for better understanding of how the nuisance inputs are
+        #       built, such as model_y_feature_names, model_t_feature_names, model_y_transformer, etc., so that this
+        #       becomes a valid approach to handling this
+        X_scaler = ColumnTransformer([('scale', StandardScaler(),
+                                       list(range(len(X_cont_inds))))],
+                                     remainder='passthrough').fit(np.hstack([X_xf, W])).named_transformers_['scale']
+
+        X_scaler_fixed = ColumnTransformer([('scale', _freeze(X_scaler),
+                                             list(range(len(X_cont_inds))))],
+                                           remainder='passthrough')
+
         if W.shape[1] == 0:
             # array checking routines don't accept 0-width arrays
             W = None
@@ -358,14 +396,20 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
                                                                random_state=random_state,
                                                                verbose=verbose))
 
+        pipelined_model_t = Pipeline([('scale', X_scaler_fixed),
+                                      ('model', model_t)])
+
+        pipelined_model_y = Pipeline([('scale', X_scaler_fixed),
+                                      ('model', model_y)])
+
         if X_xf is None and h_model == 'forest':
             warnings.warn(f"Using a linear model instead of a forest model for feature '{name}' "
                           "because forests don't support models with no heterogeneity indices")
             h_model = 'linear'
 
         if h_model == 'linear':
-            est = LinearDML(model_y=model_y,
-                            model_t=model_t,
+            est = LinearDML(model_y=pipelined_model_y,
+                            model_t=pipelined_model_t,
                             discrete_treatment=discrete_treatment,
                             fit_cate_intercept=True,
                             linear_first_stages=False,
@@ -374,8 +418,8 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
                             cv=cv,
                             mc_iters=mc_iters)
         elif h_model == 'forest':
-            est = CausalForestDML(model_y=model_y,
-                                  model_t=model_t,
+            est = CausalForestDML(model_y=pipelined_model_y,
+                                  model_t=pipelined_model_t,
                                   discrete_treatment=discrete_treatment,
                                   n_estimators=4000,
                                   min_var_leaf_on_val=True,
@@ -1600,6 +1644,7 @@ class CausalAnalysis:
 
         Xtest = result.X_transformer.transform(Xtest)
         if Xtest.shape[1] == 0:
+            x_rows = Xtest.shape[0]
             Xtest = None
 
         if result.feature_baseline is None:
@@ -1607,6 +1652,9 @@ class CausalAnalysis:
             effect = result.estimator.effect_inference(Xtest, T1=result.treatment_value * 0.1)
         else:
             effect = result.estimator.const_marginal_effect_inference(Xtest)
+
+        if Xtest is None:  # we got a scalar effect although our original X may have had more rows
+            effect = effect._expand_outputs(x_rows)
 
         multi_y = (not self._vec_y) or self.classification
 
