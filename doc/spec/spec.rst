@@ -19,6 +19,7 @@ The EconML Python SDK, developed by the ALICE team at MSR New England, incorpora
     comparison
     estimation
     estimation_iv
+    estimation_dynamic
     inference
     interpretability
     references

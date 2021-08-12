@@ -258,7 +258,8 @@ class _BaseDRIVModelFinal:
             F = np.ones((n, 1))
         return F
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, freq_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None,
+            sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         self.d_y = Y.shape[1:]
         self.d_t = T.shape[1:]
         theta_dr, clipped_cov, res_z = self._effect_estimate(nuisances)

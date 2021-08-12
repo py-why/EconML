@@ -141,7 +141,8 @@ class _OrthoIVModelFinal:
             F = np.ones((T.shape[0], 1))
         return cross_product(F, T)
 
-    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, freq_weight=None, sample_var=None):
+    def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None,
+            sample_weight=None, freq_weight=None, sample_var=None, groups=None):
         Y_res, T_res, Z_res = nuisances
 
         # Track training dimensions to see if Y or T is a vector instead of a 2-dimensional array
@@ -165,7 +166,7 @@ class _OrthoIVModelFinal:
         return reshape_treatmentwise_effects(prediction,
                                              self._d_t, self._d_y)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None):
         Y_res, T_res, Z_res = nuisances
         if Y_res.ndim == 1:
             Y_res = Y_res.reshape((-1, 1))
