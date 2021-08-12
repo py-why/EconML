@@ -8,8 +8,11 @@ from econml.dml import LinearDML, CausalForestDML
 from econml.orf import DROrthoForest
 from econml.dr import DRLearner, ForestDRLearner, LinearDRLearner
 from econml.metalearners import XLearner
-from econml.iv.dml import DMLATEIV
+from econml.iv.dml import OrthoIV, DMLIV
+from econml.iv.dr import LinearDRIV
+from econml.iv.dr._dr import _DummyCATE
 from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 
 
 class TestDowhy(unittest.TestCase):
@@ -38,18 +41,25 @@ class TestDowhy(unittest.TestCase):
                   "xlearner": XLearner(models=reg(), cate_models=reg(), propensity_model=clf()),
                   "cfdml": CausalForestDML(model_y=reg(), model_t=clf(), discrete_treatment=True),
                   "orf": DROrthoForest(n_trees=10, propensity_model=clf(), model_Y=reg()),
-                  "dmlateiv": DMLATEIV(model_Y_W=reg(),
-                                       model_T_W=clf(),
-                                       model_Z_W=reg(),
-                                       discrete_treatment=True,
-                                       discrete_instrument=False)}
+                  "orthoiv": OrthoIV(model_y_xw=reg(),
+                                     model_t_xw=clf(),
+                                     model_z_xw=reg(),
+                                     discrete_treatment=True,
+                                     discrete_instrument=False),
+                  "dmliv": DMLIV(fit_cate_intercept=True,
+                                 discrete_treatment=True,
+                                 discrete_instrument=False),
+                  "driv": LinearDRIV(flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+                                     fit_cate_intercept=True,
+                                     discrete_instrument=False,
+                                     discrete_treatment=True)}
         for name, model in models.items():
             with self.subTest(name=name):
                 est = model
                 if name == "xlearner":
                     est_dowhy = est.dowhy.fit(Y, T, X=np.hstack((X, W)), W=None)
-                elif name == "dmlateiv":
-                    est_dowhy = est.dowhy.fit(Y, T, W=W, Z=Z)
+                elif name in ["orthoiv", "dmliv", "driv"]:
+                    est_dowhy = est.dowhy.fit(Y, T, Z=Z, X=X, W=W)
                 else:
                     est_dowhy = est.dowhy.fit(Y, T, X=X, W=W)
                 # test causal graph

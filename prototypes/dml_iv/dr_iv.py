@@ -84,7 +84,7 @@ class _BaseDRIV:
             splits = [(np.arange(X.shape[0]), np.arange(X.shape[0]))]
         # TODO. Deal with multi-class instrument
         elif self.binary_instrument or self.binary_treatment:
-            group = 2*T*self.binary_treatment + Z.flatten()*self.binary_instrument
+            group = 2 * T * self.binary_treatment + Z.flatten() * self.binary_instrument
             splits = StratifiedKFold(
                 n_splits=self.n_splits, shuffle=True).split(X, group)
         else:
@@ -395,6 +395,7 @@ class ProjectedDRIV(_BaseDRIV):
 # A/B test
 ##############################################################################
 
+
 class _IntentToTreatDRIV(_BaseDRIV):
     """
     Helper class for the DRIV algorithm for the intent-to-treat A/B test setting
@@ -412,10 +413,10 @@ class _IntentToTreatDRIV(_BaseDRIV):
                            'model_T_XZ': model_T_XZ,
                            'prel_model_effect': prel_model_effect}
         super(_IntentToTreatDRIV, self).__init__(nuisance_models, model_effect,
-                                   cov_clip=cov_clip,
-                                   n_splits=n_splits,
-                                   binary_instrument=True, binary_treatment=True,
-                                   opt_reweighted=opt_reweighted)
+                                                 cov_clip=cov_clip,
+                                                 n_splits=n_splits,
+                                                 binary_instrument=True, binary_treatment=True,
+                                                 opt_reweighted=opt_reweighted)
         return
 
     def _check_inputs(self, y, T, X, Z):
@@ -457,18 +458,23 @@ class _IntentToTreatDRIV(_BaseDRIV):
             res_y[test] = y[test] - \
                 self.model_Y_X[idx].fit(X[train], y[train]).predict(X[test])
 
-        return prel_theta, res_t, res_y, 2*Z-1 , delta
+        return prel_theta, res_t, res_y, 2 * Z - 1, delta
+
 
 class _DummyCATE:
     """
     A dummy cate effect model that always returns zero effect
     """
+
     def __init__(self):
         return
+
     def fit(self, y, T, X, Z):
         return self
+
     def effect(self, X):
         return np.zeros(X.shape[0])
+
 
 class IntentToTreatDRIV(_IntentToTreatDRIV):
     """
@@ -501,10 +507,10 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
             to give more weight on parts of the feature space where the instrument is strong.
         """
         prel_model_effect = _IntentToTreatDRIV(clone(model_Y_X, safe=False),
-                                            clone(model_T_XZ, safe=False),
-                                            _DummyCATE(),
-                                            clone(flexible_model_effect, safe=False),
-                                            cov_clip=1e-7, n_splits=1, opt_reweighted=True)
+                                               clone(model_T_XZ, safe=False),
+                                               _DummyCATE(),
+                                               clone(flexible_model_effect, safe=False),
+                                               cov_clip=1e-7, n_splits=1, opt_reweighted=True)
         if final_model_effect is None:
             final_model_effect = clone(flexible_model_effect, safe=False)
         super(IntentToTreatDRIV, self).__init__(model_Y_X, model_T_XZ, prel_model_effect,

@@ -5,11 +5,15 @@ import numpy as np
 import pytest
 from econml.dml import DML, LinearDML, NonParamDML
 from econml.dr import LinearDRLearner
+from econml.iv.dr import LinearDRIV
+from econml.iv.dml import DMLIV
 from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
 from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
-from econml.sklearn_extensions.linear_model import WeightedLasso
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
+from econml.iv.dr._dr import _DummyCATE
 from statsmodels.regression.linear_model import WLS
 from statsmodels.tools.tools import add_constant
+from statsmodels.sandbox.regression.gmm import IV2SLS
 from sklearn.dummy import DummyClassifier
 from sklearn.linear_model import LinearRegression, LogisticRegression, LassoCV, Lasso, MultiTaskLassoCV
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
@@ -17,6 +21,7 @@ from sklearn.model_selection import KFold, StratifiedKFold
 import scipy.special
 import time
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression as OLS
+from econml.sklearn_extensions.linear_model import StatsModels2SLS
 import unittest
 import joblib
 from sklearn.preprocessing import PolynomialFeatures
@@ -902,6 +907,196 @@ class TestStatsModels(unittest.TestCase):
                                inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
                         _compare_dr_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
+    def test_lineardriv_sum_vs_original(self):
+        """ Testing that the summarized version of DR gives the same results as the non-summarized. """
+        np.random.seed(123)
+
+        n = 1000
+        for d in [1, 5]:
+            for cov_type in ['nonrobust', 'HC0', 'HC1']:
+                for alpha in [.01, .05, .2]:
+                    X = np.random.binomial(1, .8, size=(n, d))
+                    Z = np.random.binomial(1, .5 * X[:, 0] + .25, size=(n,))
+                    T = np.random.binomial(1, .8 * Z + .1, size=(n,))
+                    w = 0.5 + X[:, 0] * 1.2
+
+                    def true_effect(x):
+                        return x[:, [0]]
+                    y = true_effect(X) * T.reshape(-1, 1) + X[:, [0] * 1] + \
+                        (1 * X[:, [0]] + 1) * np.random.normal(0, 1, size=(n, 1))
+                    y = y.flatten()
+                    X_test = np.random.binomial(1, .5, size=(100, d))
+
+                    XTZ = np.hstack([X, T.reshape(-1, 1), Z.reshape(-1, 1)])
+                    (X1, X2, y1, y2, w1, w2,
+                        X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
+                        n_sum_sec, var_first, var_sec) = _summarize(XTZ, y, w)
+                    X = np.vstack([X1, X2])
+                    y = np.concatenate((y1, y2))
+                    w = np.concatenate((w1, w2))
+                    X_final = np.vstack([X_final_first, X_final_sec])
+                    y_sum = np.concatenate((y_sum_first, y_sum_sec))
+                    w_sum = np.concatenate((w_sum_first, w_sum_sec))
+                    n_sum = np.concatenate((n_sum_first, n_sum_sec))
+                    var_sum = np.concatenate((var_first, var_sec))
+                    first_half_sum = len(y_sum_first)
+                    first_half = len(y1)
+
+                    class SplitterSum:
+                        def __init__(self):
+                            return
+
+                        def split(self, X, T):
+                            return [(np.arange(0, first_half_sum), np.arange(first_half_sum, X.shape[0])),
+                                    (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
+
+                    class Splitter:
+                        def __init__(self):
+                            return
+
+                        def split(self, X, T):
+                            return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
+                                    (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
+                    for model_regression in [LinearRegression(),
+                                             WeightedLasso(alpha=0.01, fit_intercept=True,
+                                                           tol=1e-12, random_state=123),
+                                             RandomForestRegressor(n_estimators=10, bootstrap=False,
+                                                                   max_depth=3,
+                                                                   random_state=123)]:
+                        model_propensity = LogisticRegression(random_state=123)
+                        est = LinearDRIV(
+                            model_y_xw=model_regression,
+                            model_t_xw=model_propensity,
+                            model_z_xw=model_propensity,
+                            model_tz_xw=model_propensity,
+                            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+                            discrete_instrument=True,
+                            discrete_treatment=True,
+                            cv=SplitterSum())
+
+                        lr = LinearDRIV(
+                            model_y_xw=model_regression,
+                            model_t_xw=model_propensity,
+                            model_z_xw=model_propensity,
+                            model_tz_xw=model_propensity,
+                            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+                            discrete_instrument=True,
+                            discrete_treatment=True,
+                            cv=Splitter())
+
+                        est.fit(y_sum,
+                                X_final[:, -2], Z=X_final[:, -1], X=X_final[:, :-2],
+                                W=None, freq_weight=n_sum,
+                                sample_var=var_sum,
+                                inference=StatsModelsInference(cov_type=cov_type))
+                        lr.fit(y, X[:, -2], Z=X[:, -1], X=X[:, :-2], W=None,
+                               inference=StatsModelsInference(cov_type=cov_type))
+                        _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
+
+                        # compare when both sample_var and sample_weight exist
+                        est.fit(y_sum,
+                                X_final[:, -2], Z=X_final[:, -1], X=X_final[:, :-2],
+                                W=None, sample_weight=w_sum, freq_weight=n_sum,
+                                sample_var=var_sum,
+                                inference=StatsModelsInference(cov_type=cov_type))
+                        lr.fit(y, X[:, -2], Z=X[:, -1], X=X[:, :-2], W=None, sample_weight=w,
+                               inference=StatsModelsInference(cov_type=cov_type))
+                        _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
+
+    def test_dmliv_sum_vs_original(self):
+        """ Testing that the summarized version of DR gives the same results as the non-summarized. """
+        np.random.seed(123)
+
+        n = 1000
+        for d in [1, 5]:
+            for cov_type in ['nonrobust', 'HC0', 'HC1']:
+                for alpha in [.01, .05, .2]:
+                    X = np.random.binomial(1, .8, size=(n, d))
+                    Z = np.random.binomial(1, .5 * X[:, 0] + .25, size=(n,))
+                    T = np.random.binomial(1, .8 * Z + .1, size=(n,))
+                    w = 0.5 + X[:, 0] * 1.2
+
+                    def true_effect(x):
+                        return x[:, [0]]
+                    y = true_effect(X) * T.reshape(-1, 1) + X[:, [0] * 1] + \
+                        (1 * X[:, [0]] + 1) * np.random.normal(0, 1, size=(n, 1))
+                    y = y.flatten()
+                    X_test = np.random.binomial(1, .5, size=(100, d))
+
+                    XTZ = np.hstack([X, T.reshape(-1, 1), Z.reshape(-1, 1)])
+                    (X1, X2, y1, y2, w1, w2,
+                        X_final_first, X_final_sec, y_sum_first, y_sum_sec, w_sum_first, w_sum_sec, n_sum_first,
+                        n_sum_sec, var_first, var_sec) = _summarize(XTZ, y, w)
+                    X = np.vstack([X1, X2])
+                    y = np.concatenate((y1, y2))
+                    w = np.concatenate((w1, w2))
+                    X_final = np.vstack([X_final_first, X_final_sec])
+                    y_sum = np.concatenate((y_sum_first, y_sum_sec))
+                    w_sum = np.concatenate((w_sum_first, w_sum_sec))
+                    n_sum = np.concatenate((n_sum_first, n_sum_sec))
+                    var_sum = np.concatenate((var_first, var_sec))
+                    first_half_sum = len(y_sum_first)
+                    first_half = len(y1)
+
+                    class SplitterSum:
+                        def __init__(self):
+                            return
+
+                        def split(self, X, T):
+                            return [(np.arange(0, first_half_sum), np.arange(first_half_sum, X.shape[0])),
+                                    (np.arange(first_half_sum, X.shape[0]), np.arange(0, first_half_sum))]
+
+                    class Splitter:
+                        def __init__(self):
+                            return
+
+                        def split(self, X, T):
+                            return [(np.arange(0, first_half), np.arange(first_half, X.shape[0])),
+                                    (np.arange(first_half, X.shape[0]), np.arange(0, first_half))]
+                    for model_regression in [LinearRegression(),
+                                             WeightedLasso(alpha=0.01, fit_intercept=True,
+                                                           tol=1e-12, random_state=123),
+                                             RandomForestRegressor(n_estimators=10, bootstrap=False,
+                                                                   max_depth=3,
+                                                                   random_state=123)]:
+                        model_propensity = LogisticRegression(random_state=123)
+                        est = DMLIV(
+                            model_y_xw=model_regression,
+                            model_t_xw=model_propensity,
+                            model_t_xwz=model_propensity,
+                            discrete_instrument=True,
+                            discrete_treatment=True,
+                            fit_cate_intercept=False,
+                            cv=SplitterSum())
+
+                        lr = DMLIV(
+                            model_y_xw=model_regression,
+                            model_t_xw=model_propensity,
+                            model_t_xwz=model_propensity,
+                            discrete_instrument=True,
+                            discrete_treatment=True,
+                            fit_cate_intercept=False,
+                            cv=Splitter())
+
+                        est.fit(y_sum,
+                                X_final[:, -2], Z=X_final[:, -1], X=X_final[:, :-2],
+                                W=None, freq_weight=n_sum,
+                                sample_var=var_sum,
+                                inference=StatsModelsInference(cov_type=cov_type))
+                        lr.fit(y, X[:, -2], Z=X[:, -1], X=X[:, :-2], W=None,
+                               inference=StatsModelsInference(cov_type=cov_type))
+                        _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-8)
+
+                        # compare when both sample_var and sample_weight exist
+                        est.fit(y_sum,
+                                X_final[:, -2], Z=X_final[:, -1], X=X_final[:, :-2],
+                                W=None, sample_weight=w_sum, freq_weight=n_sum,
+                                sample_var=var_sum,
+                                inference=StatsModelsInference(cov_type=cov_type))
+                        lr.fit(y, X[:, -2], Z=X[:, -1], X=X[:, :-2], W=None, sample_weight=w,
+                               inference=StatsModelsInference(cov_type=cov_type))
+                        _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-8)
+
     def test_dml_multi_dim_treatment_outcome(self):
         """ Testing that the summarized and unsummarized version of DML gives the correct (known results). """
         from econml.dml import LinearDML
@@ -1033,3 +1228,30 @@ class TestStatsModels(unittest.TestCase):
                                                                  np.zeros(lower[i, j, 1:].shape) + precision_int)
                                     np.testing.assert_array_less(np.zeros(lower[i, j, 1:].shape) - precision_int,
                                                                  upper[i, j, 1:])
+
+
+class TestStatsModels2SLS(unittest.TestCase):
+    def test_comp_with_IV2SLS(self):
+        alpha = 0.05
+        tol = 1e-2
+
+        # dgp
+        n = 1000
+        Z = np.random.binomial(1, 0.5, size=(n, 1))
+        T = 3.5 * Z + np.random.normal(0, 1, size=(n, 1))
+        Y = 5.8 * T + np.random.normal(0, 1, size=(n, 1))
+
+        # StatsModels2SLS
+        est = StatsModels2SLS(cov_type="nonrobust")
+        est.fit(Z, T, Y.ravel())
+
+        # IV2SLS
+        iv2sls = IV2SLS(Y.ravel(), T, Z).fit()
+
+        assert est.cov_type == iv2sls.cov_type, "{}, {}".format(est.cov_type, iv2sls.cov_type)
+        np.testing.assert_allclose(est.coef_, iv2sls.params, rtol=tol, atol=0)
+        np.testing.assert_allclose(est._param_var, iv2sls.cov_params(), rtol=tol, atol=0)
+        np.testing.assert_allclose(est.coef__interval(alpha=alpha)[
+                                   0], iv2sls.conf_int(alpha=alpha)[:, 0], rtol=tol, atol=0)
+        np.testing.assert_allclose(est.coef__interval(alpha=alpha)[
+                                   1], iv2sls.conf_int(alpha=alpha)[:, 1], rtol=tol, atol=0)

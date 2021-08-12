@@ -504,7 +504,7 @@ class DRLearner(_OrthoLearner):
         return super().refit_final(inference=inference)
     refit_final.__doc__ = _OrthoLearner.refit_final.__doc__
 
-    def score(self, Y, T, X=None, W=None):
+    def score(self, Y, T, X=None, W=None, sample_weight=None):
         """
         Score the fitted CATE model on a new data set. Generates nuisance parameters
         for the new data set based on the fitted residual nuisance models created at fit time.
@@ -523,6 +523,8 @@ class DRLearner(_OrthoLearner):
             Features for each sample
         W: optional(n, d_w) matrix or None (Default=None)
             Controls for each sample
+        sample_weight: optional(n,) vector or None (Default=None)
+            Weights for each samples
 
         Returns
         -------
@@ -530,7 +532,7 @@ class DRLearner(_OrthoLearner):
             The MSE of the final CATE model on the new data.
         """
         # Replacing score from _OrthoLearner, to enforce Z=None and improve the docstring
-        return super().score(Y, T, X=X, W=W)
+        return super().score(Y, T, X=X, W=W, sample_weight=sample_weight)
 
     @property
     def multitask_model_cate(self):
@@ -693,7 +695,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         \\theta_t(X) = \\left\\langle \\theta_t, \\phi(X) \\right\\rangle + \\beta_t
 
     where :math:`\\phi(X)` is the outcome features of the featurizers, or `X` if featurizer is None. :math:`\\beta_t`
-    is a an intercept of the CATE, which is included if ``fit_cate_intercept=True`` (Default). It fits this by
+    is an intercept of the CATE, which is included if ``fit_cate_intercept=True`` (Default). It fits this by
     running a standard ordinary linear regression (OLS), regressing the doubly robust outcome differences on X:
 
     .. math ::
@@ -1472,6 +1474,9 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         -------
         self
         """
+        if X is None:
+            raise ValueError("This estimator does not support X=None!")
+
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)

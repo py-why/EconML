@@ -1905,3 +1905,137 @@ class StatsModelsRLM(_StatsModelsWrapper):
             self._param_var = np.array([mdl.cov_params() for mdl in self.models])
 
         return self
+
+
+class StatsModels2SLS(_StatsModelsWrapper):
+    """
+    Class that solves the moment equation E[(y-theta*T)*Z]=0
+
+    Parameters
+    ----------
+    cov_type : one of {'HC0', 'HC1', 'nonrobust' or None} (optional, default='HC0')
+        Indicates how the covariance matrix is estimated.
+    """
+
+    def __init__(self, cov_type="HC0"):
+        self.fit_intercept = False
+        self.cov_type = cov_type
+        return
+
+    def _check_input(self, Z, T, y, sample_weight):
+        """Check dimensions and other assertions."""
+
+        # set default values for None
+        if sample_weight is None:
+            sample_weight = np.ones(y.shape[0])
+
+        # check array shape
+        assert (T.shape[0] == Z.shape[0] == y.shape[0] == sample_weight.shape[0]), "Input lengths not compatible!"
+
+        # check dimension of instruments is more than dimension of treatments
+        if Z.shape[1] < T.shape[1]:
+            raise AssertionError("The number of treatments couldn't be larger than the number of instruments!")
+
+        # weight X and y
+        weighted_Z = Z * np.sqrt(sample_weight).reshape(-1, 1)
+        weighted_T = T * np.sqrt(sample_weight).reshape(-1, 1)
+        if y.ndim < 2:
+            weighted_y = y * np.sqrt(sample_weight)
+        else:
+            weighted_y = y * np.sqrt(sample_weight).reshape(-1, 1)
+        return weighted_Z, weighted_T, weighted_y
+
+    def fit(self, Z, T, y, sample_weight=None, freq_weight=None, sample_var=None):
+        """
+        Fits the model.
+
+        Parameters
+        ----------
+        Z :  {(N, p)} nd array like
+            instrumental variables
+        T :  {(N, p)} nd array like
+            treatment variables
+        y :  {(N,), (N, p)} nd array like
+            output variables
+        sample_weight : (N,) array like or None
+            Individual weights for each sample. If None, it assumes equal weight.
+        freq_weight: (N, ) array like of integers or None
+            Weight for the observation. Observation i is treated as the mean
+            outcome of freq_weight[i] independent observations.
+            When ``sample_var`` is not None, this should be provided.
+        sample_var : {(N,), (N, p)} nd array like or None
+            Variance of the outcome(s) of the original freq_weight[i] observations that were used to
+            compute the mean outcome represented by observation i.
+
+
+        Returns
+        -------
+        self : StatsModels2SLS
+        """
+        assert freq_weight is None, "freq_weight is not supported yet for this class!"
+        assert sample_var is None, "sample_var is not supported yet for this class!"
+
+        Z, T, y = self._check_input(Z, T, y, sample_weight)
+
+        self._n_out = 0 if y.ndim < 2 else y.shape[1]
+
+        # learn point estimate
+        # solve first stage linear regression E[T|Z]
+        zT_z = np.dot(Z.T, Z)
+        zT_t = np.dot(Z.T, T)
+        # "that" means T̂
+        self._thatparams = np.linalg.solve(zT_z, zT_t)
+        that = np.dot(Z, self._thatparams)
+        # solve second stage linear regression E[Y|that]
+        # (T̂.T*T̂)^{-1}
+        thatT_that = np.dot(that.T, that)
+        thatT_y = np.dot(that.T, y)
+        param = np.linalg.solve(thatT_that, thatT_y)
+        self._param = param
+
+        n_obs = y.shape[0]
+        df = len(param) if self._n_out == 0 else param.shape[0]
+
+        if n_obs <= df:
+            warnings.warn("Number of observations <= than number of parameters. Using biased variance calculation!")
+            correction = 1
+        else:
+            correction = (n_obs / (n_obs - df))
+
+        # learn cov(theta)
+        # (T̂.T*T̂)^{-1}
+        thatT_that_inv = np.linalg.inv(thatT_that)
+        # sigma^2
+        var_i = (y - np.dot(T, param))**2
+
+        # reference: http://www.hec.unil.ch/documents/seminars/deep/361.pdf
+        if (self.cov_type is None) or (self.cov_type == 'nonrobust'):
+            if y.ndim < 2:
+                self._var = correction * np.average(var_i) * thatT_that_inv
+            else:
+                sigma2 = correction * np.average(var_i, axis=0)
+                self._var = [s * thatT_that_inv for s in sigma2]
+        elif (self.cov_type == 'HC0'):
+            if y.ndim < 2:
+                weighted_sigma = np.matmul(that.T, that * var_i.reshape(-1, 1))
+                self._var = np.matmul(thatT_that_inv, np.matmul(weighted_sigma, thatT_that_inv))
+            else:
+                self._var = []
+                for j in range(self._n_out):
+                    weighted_sigma = np.matmul(that.T, that * var_i[:, [j]])
+                    self._var.append(np.matmul(thatT_that_inv, np.matmul(weighted_sigma, thatT_that_inv)))
+        elif (self.cov_type == 'HC1'):
+            if y.ndim < 2:
+                weighted_sigma = np.matmul(that.T, that * var_i.reshape(-1, 1))
+                self._var = correction * np.matmul(thatT_that_inv, np.matmul(weighted_sigma, thatT_that_inv))
+            else:
+                self._var = []
+                for j in range(self._n_out):
+                    weighted_sigma = np.matmul(that.T, that * var_i[:, [j]])
+                    self._var.append(correction * np.matmul(thatT_that_inv,
+                                                            np.matmul(weighted_sigma, thatT_that_inv)))
+        else:
+            raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
+
+        self._param_var = np.array(self._var)
+        return self

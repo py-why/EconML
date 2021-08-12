@@ -7,7 +7,7 @@ import unittest
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, ForestDML)
 from econml.dr import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
-from econml.iv.dml import (DMLATEIV, ProjectedDMLATEIV, DMLIV, NonParamDMLIV)
+from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
 import numpy as np
 
@@ -65,25 +65,22 @@ class TestMonteCarlo(unittest.TestCase):
             est = gen(mc_iters=2, mc_agg='median')
             assert est.mc_iters == 2
             assert est.mc_agg == 'median'
-        for gen in [DMLATEIV(model_Y_W=LinearRegression(),
-                             model_T_W=LinearRegression(),
-                             model_Z_W=LinearRegression(), mc_iters=2, mc_agg='median'),
-                    ProjectedDMLATEIV(model_Y_W=LinearRegression(),
-                                      model_T_W=LinearRegression(),
-                                      model_T_WZ=LinearRegression(), mc_iters=2, mc_agg='median'),
-                    DMLIV(model_Y_X=LinearRegression(),
-                          model_T_X=LinearRegression(),
-                          model_T_XZ=LinearRegression(),
+        for gen in [OrthoIV(model_y_xw=LinearRegression(),
+                            model_t_xw=LinearRegression(),
+                            model_z_xw=LinearRegression(), mc_iters=2, mc_agg='median'),
+                    DMLIV(model_y_xw=LinearRegression(),
+                          model_t_xw=LinearRegression(),
+                          model_t_xwz=LinearRegression(),
                           model_final=LinearRegression(), mc_iters=2, mc_agg='median'),
-                    NonParamDMLIV(model_Y_X=LinearRegression(),
-                                  model_T_X=LinearRegression(),
-                                  model_T_XZ=LinearRegression(),
+                    NonParamDMLIV(model_y_xw=LinearRegression(),
+                                  model_t_xw=LinearRegression(),
+                                  model_t_xwz=LinearRegression(),
                                   model_final=LinearRegression(), mc_iters=2, mc_agg='median'),
-                    IntentToTreatDRIV(model_Y_X=LinearRegression(),
-                                      model_T_XZ=LinearRegression(),
+                    IntentToTreatDRIV(model_y_xw=LinearRegression(),
+                                      model_t_xwz=LinearRegression(),
                                       flexible_model_effect=LinearRegression(), mc_iters=2, mc_agg='median'),
-                    LinearIntentToTreatDRIV(model_Y_X=LinearRegression(),
-                                            model_T_XZ=LinearRegression(),
+                    LinearIntentToTreatDRIV(model_y_xw=LinearRegression(),
+                                            model_t_xwz=LinearRegression(),
                                             flexible_model_effect=LinearRegression(),
                                             mc_iters=2, mc_agg='median')]:
             assert est.mc_iters == 2

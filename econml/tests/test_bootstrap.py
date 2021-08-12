@@ -290,7 +290,7 @@ class TestBootstrap(unittest.TestCase):
         Z = [1, 0, 0, 1, 0, 1, 0, 1]
         Y = [1, 2, 3, 4, 5, 6, 7, 8]
         X = np.array([1, 1, 2, 2, 1, 2, 1, 2]).reshape(-1, 1)
-        est = LinearIntentToTreatDRIV(model_Y_X=LinearRegression(), model_T_XZ=LogisticRegression(),
+        est = LinearIntentToTreatDRIV(model_y_xw=LinearRegression(), model_t_xwz=LogisticRegression(),
                                       flexible_model_effect=LinearRegression(), cv=2)
         inference = BootstrapInference(n_bootstrap_samples=20, n_jobs=-1, verbose=3)
         est.fit(Y, T, Z=Z, X=X, inference=inference)
