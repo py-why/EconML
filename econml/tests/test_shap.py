@@ -39,7 +39,7 @@ class TestShap(unittest.TestCase):
                         ]
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
-                            est.fit(Y, T, X, W)
+                            est.fit(Y, T, X=X, W=W)
                             shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
                                                           background_samples=None)
 
@@ -98,9 +98,9 @@ class TestShap(unittest.TestCase):
                     for est in est_list:
                         with self.subTest(est=est, featurizer=featurizer, d_y=d_y, d_t=d_t):
                             if isinstance(est, (TLearner, SLearner, XLearner, DomainAdaptationLearner)):
-                                est.fit(Y, T, X)
+                                est.fit(Y, T, X=X)
                             else:
-                                est.fit(Y, T, X, W)
+                                est.fit(Y, T, X=X, W=W)
                             shap_values = est.shap_values(X[:10], feature_names=["a", "b", "c"],
                                                           background_samples=None)
                             for i, output in enumerate(est.cate_output_names()):

@@ -540,9 +540,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         # Required for bootstrap inference
         return groups
 
-    @_deprecate_positional("X, and should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, sample_var=None, groups,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, sample_var=None, groups,
             cache_values=False, inference='auto'):
         """Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 

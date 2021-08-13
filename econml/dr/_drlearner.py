@@ -455,9 +455,7 @@ class DRLearner(_OrthoLearner):
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), self.multitask_model_final)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -849,9 +847,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1144,9 +1140,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
@@ -1440,9 +1434,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).

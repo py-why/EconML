@@ -722,21 +722,21 @@ class TestStatsModels(unittest.TestCase):
                                 linear_first_stages=False)
 
                             est.fit(y_sum,
-                                    X_final[:, -1], X_final[:, :-1],
-                                    None, freq_weight=n_sum,
+                                    X_final[:, -1], X=X_final[:, :-1],
+                                    W=None, freq_weight=n_sum,
                                     sample_var=var_sum,
                                     inference=StatsModelsInference(cov_type=cov_type))
-                            lr.fit(y, X[:, -1], X[:, :-1], None,
+                            lr.fit(y, X[:, -1], X=X[:, :-1], W=None,
                                    inference=StatsModelsInference(cov_type=cov_type))
                             _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
                             # compare when both sample_var and sample_weight exist
                             est.fit(y_sum,
-                                    X_final[:, -1], X_final[:, :-1],
-                                    None, sample_weight=w_sum, freq_weight=n_sum,
+                                    X_final[:, -1], X=X_final[:, :-1],
+                                    W=None, sample_weight=w_sum, freq_weight=n_sum,
                                     sample_var=var_sum,
                                     inference=StatsModelsInference(cov_type=cov_type))
-                            lr.fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
+                            lr.fit(y, X[:, -1], X=X[:, :-1], W=None, sample_weight=w,
                                    inference=StatsModelsInference(cov_type=cov_type))
                             _compare_dml_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
@@ -800,8 +800,8 @@ class TestStatsModels(unittest.TestCase):
                             model_t=first_stage_model,
                             model_final=OLS(),
                             cv=SplitterSum()).fit(y_sum,
-                                                  X_final[:, -1], X_final[:, :-1],
-                                                  None, freq_weight=n_sum,
+                                                  X_final[:, -1], X=X_final[:, :-1],
+                                                  W=None, freq_weight=n_sum,
                                                   sample_var=var_sum,
                                                   inference="auto")
 
@@ -809,17 +809,17 @@ class TestStatsModels(unittest.TestCase):
                             model_y=first_stage_model,
                             model_t=first_stage_model,
                             model_final=OLS(),
-                            cv=Splitter()).fit(y, X[:, -1], X[:, :-1], None,
+                            cv=Splitter()).fit(y, X[:, -1], X=X[:, :-1], W=None,
                                                inference="auto")
                         _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-10)
 
                         # compare when both sample_var and sample_weight exist
                         est.fit(y_sum,
-                                X_final[:, -1], X_final[:, :-1],
-                                None, sample_weight=w_sum, freq_weight=n_sum,
+                                X_final[:, -1], X=X_final[:, :-1],
+                                W=None, sample_weight=w_sum, freq_weight=n_sum,
                                 sample_var=var_sum,
                                 inference="auto")
-                        lr.fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
+                        lr.fit(y, X[:, -1], X=X[:, :-1], W=None, sample_weight=w,
                                inference="auto")
                         _compare_classes(est.model_final_, lr.model_final_, X_test, alpha=alpha, tol=1e-10)
 
@@ -889,21 +889,21 @@ class TestStatsModels(unittest.TestCase):
                             cv=Splitter())
 
                         est.fit(y_sum,
-                                X_final[:, -1], X_final[:, :-1],
-                                None, freq_weight=n_sum,
+                                X_final[:, -1], X=X_final[:, :-1],
+                                W=None, freq_weight=n_sum,
                                 sample_var=var_sum,
                                 inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
-                        lr.fit(y, X[:, -1], X[:, :-1], None,
+                        lr.fit(y, X[:, -1], X=X[:, :-1], W=None,
                                inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
                         _compare_dr_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
                         # compare when both sample_var and sample_weight exist
                         est.fit(y_sum,
-                                X_final[:, -1], X_final[:, :-1],
-                                None, sample_weight=w_sum, freq_weight=n_sum,
+                                X_final[:, -1], X=X_final[:, :-1],
+                                W=None, sample_weight=w_sum, freq_weight=n_sum,
                                 sample_var=var_sum,
                                 inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
-                        lr.fit(y, X[:, -1], X[:, :-1], None, sample_weight=w,
+                        lr.fit(y, X[:, -1], X=X[:, :-1], W=None, sample_weight=w,
                                inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
                         _compare_dr_classes(est, lr, X_test, alpha=alpha, tol=1e-8)
 
@@ -1201,8 +1201,8 @@ class TestStatsModels(unittest.TestCase):
                                 linear_first_stages=False,
                                 discrete_treatment=False).fit(y_sum,
                                                               X_final[:, d:],
-                                                              X_final[:, :d_x],
-                                                              X_final[:, d_x:d],
+                                                              X=X_final[:, :d_x],
+                                                              W=X_final[:, d_x:d],
                                                               freq_weight=n_sum,
                                                               sample_var=var_sum,
                                                               inference=StatsModelsInference(cov_type='nonrobust'))

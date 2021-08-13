@@ -146,11 +146,11 @@ class TestMetalearners(unittest.TestCase):
         learner_instance.fit(list(Y), list(T), X=list(X))
         learner_instance.effect(list(TestMetalearners.X_test), T0=T0, T1=T1)
         # Check that it fails correctly if lists of different shape are passed in
-        self.assertRaises(ValueError, learner_instance.fit, Y, T, X[:TestMetalearners.n // 2])
-        self.assertRaises(ValueError, learner_instance.fit, Y[:TestMetalearners.n // 2], T, X)
+        self.assertRaises(ValueError, learner_instance.fit, Y, T, X=X[:TestMetalearners.n // 2])
+        self.assertRaises(ValueError, learner_instance.fit, Y[:TestMetalearners.n // 2], T, X=X)
         # Check that it works when T, Y have shape (n, 1)
         self.assertWarns(DataConversionWarning,
-                         learner_instance.fit, Y.reshape(-1, 1), T.reshape(-1, 1), X
+                         learner_instance.fit, Y.reshape(-1, 1), T.reshape(-1, 1), X=X
                          )
 
     @classmethod

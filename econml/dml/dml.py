@@ -461,9 +461,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return _FinalWrapper(self._gen_model_final(), self.fit_cate_intercept, self._gen_featurizer(), False)
 
     # override only so that we can update the docstring to indicate support for `LinearModelFinalInference`
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -615,9 +613,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         return StatsModelsLinearRegression(fit_intercept=False)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -826,9 +822,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                                         n_jobs=self.n_jobs,
                                         random_state=self.random_state)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
@@ -1157,9 +1151,7 @@ class NonParamDML(_BaseDML):
 
     # override only so that we can update the docstring to indicate
     # support for `GenericSingleTreatmentModelFinalInference`
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+    def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).

@@ -62,7 +62,7 @@ class TestOrthoForest(unittest.TestCase):
             est.fit(list(Y), list(T), X=list(TestOrthoForest.X), W=list(TestOrthoForest.W))
             # --> Check that it fails correctly if lists of different shape are passed in
             self.assertRaises(ValueError, est.fit, Y[:TestOrthoForest.n // 2], T[:TestOrthoForest.n // 2],
-                              TestOrthoForest.X, TestOrthoForest.W)
+                              X=TestOrthoForest.X, W=TestOrthoForest.W)
             # Check that outputs have the correct shape
             out_te = est.const_marginal_effect(TestOrthoForest.x_test)
             self.assertEqual(TestOrthoForest.x_test.shape[0], out_te.shape[0])
@@ -81,7 +81,7 @@ class TestOrthoForest(unittest.TestCase):
             # Test continuous treatments without controls
             T = TestOrthoForest.eta_sample(TestOrthoForest.n)
             Y = T * TE + TestOrthoForest.epsilon_sample(TestOrthoForest.n)
-            est.fit(Y, T, TestOrthoForest.X, inference="blb")
+            est.fit(Y, T, X=TestOrthoForest.X, inference="blb")
             self._test_te(est, TestOrthoForest.expected_exp_te, tol=0.5)
             self._test_ci(est, TestOrthoForest.expected_exp_te, tol=1.5)
 
@@ -106,15 +106,15 @@ class TestOrthoForest(unittest.TestCase):
         est.fit(list(Y), list(T), X=list(TestOrthoForest.X), W=list(TestOrthoForest.W))
         # --> Check that it fails correctly if lists of different shape are passed in
         self.assertRaises(ValueError, est.fit, Y[:TestOrthoForest.n // 2], T[:TestOrthoForest.n // 2],
-                          TestOrthoForest.X, TestOrthoForest.W)
+                          X=TestOrthoForest.X, W=TestOrthoForest.W)
         # --> Check that it works when T, Y have shape (n, 1)
         est.fit(Y.reshape(-1, 1), T.reshape(-1, 1), X=TestOrthoForest.X, W=TestOrthoForest.W)
         # --> Check that it fails correctly when T has shape (n, 2)
         self.assertRaises(ValueError, est.fit, Y, np.ones((TestOrthoForest.n, 2)),
-                          TestOrthoForest.X, TestOrthoForest.W)
+                          X=TestOrthoForest.X, W=TestOrthoForest.W)
         # --> Check that it fails correctly when the treatments are not numeric
         self.assertRaises(ValueError, est.fit, Y, np.array(["a"] * TestOrthoForest.n),
-                          TestOrthoForest.X, TestOrthoForest.W)
+                          X=TestOrthoForest.X, W=TestOrthoForest.W)
         # Check that outputs have the correct shape
         out_te = est.const_marginal_effect(TestOrthoForest.x_test)
         self.assertSequenceEqual((TestOrthoForest.x_test.shape[0], 1, 1), out_te.shape)

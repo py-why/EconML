@@ -44,8 +44,8 @@ class TestInference(unittest.TestCase):
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             summary_results = cate_est.summary()
@@ -64,8 +64,8 @@ class TestInference(unittest.TestCase):
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
@@ -78,8 +78,8 @@ class TestInference(unittest.TestCase):
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             summary_results = cate_est.summary()
@@ -90,8 +90,8 @@ class TestInference(unittest.TestCase):
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
@@ -104,8 +104,8 @@ class TestInference(unittest.TestCase):
             wrapped_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             summary_results = wrapped_est.summary()
@@ -117,8 +117,8 @@ class TestInference(unittest.TestCase):
             wrapped_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
@@ -138,8 +138,8 @@ class TestInference(unittest.TestCase):
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             summary_results = cate_est.summary(T=1)
@@ -159,8 +159,8 @@ class TestInference(unittest.TestCase):
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
@@ -174,8 +174,8 @@ class TestInference(unittest.TestCase):
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             summary_results = cate_est.summary(T=1)
@@ -187,8 +187,8 @@ class TestInference(unittest.TestCase):
             cate_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
@@ -202,8 +202,8 @@ class TestInference(unittest.TestCase):
             wrapped_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             summary_results = wrapped_est.summary(T=1)
@@ -216,8 +216,8 @@ class TestInference(unittest.TestCase):
             wrapped_est.fit(
                 TestInference.Y,
                 TestInference.T,
-                TestInference.X,
-                TestInference.W,
+                X=TestInference.X,
+                W=TestInference.W,
                 inference=inference
             )
             fnames = ['Q' + str(i) for i in range(TestInference.d_x)]
@@ -275,16 +275,16 @@ class TestInference(unittest.TestCase):
         LinearDML(model_t=LinearRegression(), model_y=LinearRegression()).fit(
             TestInference.Y,
             TestInference.T,
-            TestInference.X,
-            TestInference.W
+            X=TestInference.X,
+            W=TestInference.W
         ).summary()
 
         LinearDRLearner(model_regression=LinearRegression(),
                         model_propensity=LogisticRegression(), fit_cate_intercept=False).fit(
             TestInference.Y,
             TestInference.T > 0,
-            TestInference.X,
-            TestInference.W,
+            X=TestInference.X,
+            W=TestInference.W,
             inference=BootstrapInference(5)
         ).summary(1)
 
