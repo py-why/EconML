@@ -250,10 +250,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.categories = categories
         super().__init__()
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
     @BaseCateEstimator._wrap_fit
-    def fit(self, Y, T, X, W=None, *, inference='auto'):
+    def fit(self, Y, T, *, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -610,9 +608,7 @@ class DMLOrthoForest(BaseOrthoForest):
 
     # Need to redefine fit here for auto inference to work due to a quirk in how
     # wrap_fit is defined
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X, W=None, *, inference='auto'):
+    def fit(self, Y, T, *, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
@@ -949,9 +945,7 @@ class DROrthoForest(BaseOrthoForest):
             batch_size=batch_size,
             random_state=self.random_state)
 
-    @_deprecate_positional("X and W should be passed by keyword only. In a future release "
-                           "we will disallow passing X and W by position.", ['X', 'W'])
-    def fit(self, Y, T, X, W=None, *, inference='auto'):
+    def fit(self, Y, T, *, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
 
         Parameters
