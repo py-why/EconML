@@ -248,6 +248,18 @@ Inference Methods
     econml.inference.LinearModelFinalInferenceDiscrete
     econml.inference.StatsModelsInferenceDiscrete
 
+.. _solutions_api:
+
+Solutions
+---------
+
+Causal Analysis
+^^^^^^^^^^^^^^^
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.solutions.causal_analysis.CausalAnalysis
 
 .. _dowhy_api:
 
