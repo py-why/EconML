@@ -16,3 +16,4 @@ of [Newey2003]_.
 
     estimation/deepiv.rst
     estimation/two_sls.rst
+    estimation/orthoiv.rst
