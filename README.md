@@ -319,23 +319,81 @@ lb, ub = est.effect_interval(X_test, alpha=0.05)
 </details>
 
 <details>
-<summary>Orthogonal Instrumental Variables (click to expand)</summary>
+<summary>Double Machine Learning with Instrumental Variables (click to expand)</summary>
 
-* Intent to Treat Doubly Robust Learner (discrete instrument, discrete treatment)
+* Orthogonal instrumental variable learner
 
 ```Python
-from econml.iv.dr import LinearIntentToTreatDRIV
-from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
-from sklearn.linear_model import LinearRegression
+from econml.iv.dml import OrthoIV
 
-est = LinearIntentToTreatDRIV(model_y_xw=GradientBoostingRegressor(),
-                              model_t_xwz=GradientBoostingClassifier(),
-                              flexible_model_effect=GradientBoostingRegressor())
-est.fit(Y, T, Z=Z, X=X) # OLS inference by default
+est = OrthoIV(projection=False, 
+              discrete_treatment=True, 
+              discrete_instrument=True)
+est.fit(Y, T, Z=Z, X=X, W=W)
+treatment_effects = est.effect(X_test)
+lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
+```
+* Nonparametric double machine learning with instrumental variable
+
+```Python
+from econml.iv.dml import NonParamDMLIV
+
+est = NonParamDMLIV(projection=False, 
+                    discrete_treatment=True, 
+                    discrete_instrument=True)
+est.fit(Y, T, Z=Z, X=X, W=W) # no analytical confidence interval available
+treatment_effects = est.effect(X_test)
+```
+</details>
+
+<details>
+<summary>Doubly Robust Machine Learning with Instrumental Variables (click to expand)</summary>
+
+* Linear final stage
+```Python
+from econml.iv.dr import LinearDRIV
+
+est = LinearDRIV(discrete_instrument=True, discrete_treatment=True)
+est.fit(Y, T, Z=Z, X=X, W=W)
 treatment_effects = est.effect(X_test)
 lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
 ```
 
+* Sparse linear final stage
+
+```Python
+from econml.iv.dr import SparseLinearDRIV
+
+est = SparseLinearDRIV(discrete_instrument=True, discrete_treatment=True)
+est.fit(Y, T, Z=Z, X=X, W=W)
+treatment_effects = est.effect(X_test)
+lb, ub = est.effect_interval(X_test, alpha=0.05) # Debiased lasso confidence intervals
+```
+
+* Nonparametric final stage
+```Python
+from econml.iv.dr import ForestDRIV
+
+est = ForestDRIV(discrete_instrument=True, discrete_treatment=True)
+est.fit(Y, T, Z=Z, X=X, W=W)
+treatment_effects = est.effect(X_test)
+# Confidence intervals via Bootstrap-of-Little-Bags for forests
+lb, ub = est.effect_interval(X_test, alpha=0.05) 
+```
+
+* Linear intent-to-treat (discrete instrument, discrete treatment)
+
+```Python
+from econml.iv.dr import LinearIntentToTreatDRIV
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+
+est = LinearIntentToTreatDRIV(model_y_xw=GradientBoostingRegressor(),
+                              model_t_xwz=GradientBoostingClassifier(),
+                              flexible_model_effect=GradientBoostingRegressor())
+est.fit(Y, T, Z=Z, X=X, W=W)
+treatment_effects = est.effect(X_test)
+lb, ub = est.effect_interval(X_test, alpha=0.05) # OLS confidence intervals
+```
 </details>
 
 <details>
