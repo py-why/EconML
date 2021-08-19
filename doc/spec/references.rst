@@ -124,3 +124,8 @@ References
     Hernán, Miguel A., and James M. Robins (2010).
     Causal inference.
     URL https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/
+
+.. [Syrgkanis2019]
+    Syrgkanis, V., Lei, V., Oprescu, M., Hei, M., Battocchi, K., Lewis, G. (2019)
+    Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments
+    URL https://arxiv.org/abs/1905.10176
