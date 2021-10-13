@@ -59,9 +59,9 @@ autodoc_default_options = {'members': None,
                            'inherited-members': None,
                            'member-order': 'groupwise'}
 
-mathjax_config = {
-    'TeX': {
-        'Macros': {
+mathjax3_config = {
+    'tex': {
+        'macros': {
             'vec': [r'{\bf #1}', 1],
             'ldot': [r'\left\langle #1, #2 \right\rangle', 2],
             'E': r'\mathbb{E}',

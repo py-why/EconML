@@ -70,7 +70,7 @@ jobs:
       - script: 'pip install git+https://github.com/slundberg/shap.git@d1d2700acc0259f211934373826d5ff71ad514de'
         displayName: 'Install specific version of shap'  
 
-      - script: 'pip install "sphinx < 3.2" sphinx_rtd_theme'
+      - script: 'pip install sphinx sphinx_rtd_theme'
         displayName: 'Install sphinx'
 
       - script: 'python setup.py build_sphinx -W'

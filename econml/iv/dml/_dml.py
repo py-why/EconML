@@ -193,7 +193,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     Solve the following moment equation:
 
     .. math::
-        \\E[(Y-\\E[Y|X]-\theta(X) * (T-\\E[T|X]))(Z-\\E[Z|X])] = 0
+        \\E[(Y-\\E[Y|X]-\\theta(X) * (T-\\E[T|X]))(Z-\\E[Z|X])] = 0
 
     Parameters
     ----------
@@ -944,7 +944,7 @@ class DMLIV(_BaseDMLIV):
     Then it minimizes the square loss:
 
     .. math::
-        \\sum_i (Y_i - \\E[Y|X_i] - \theta(X) * (\\E[T|X_i, Z_i] - \\E[T|X_i]))^2
+        \\sum_i (Y_i - \\E[Y|X_i] - \\theta(X) * (\\E[T|X_i, Z_i] - \\E[T|X_i]))^2
 
     This loss is minimized by the model_final class, which is passed as an input.
 
