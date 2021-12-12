@@ -4,9 +4,6 @@
 import pytest
 import html
 import os
-import nbformat
-import nbconvert
-import traitlets
 
 _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
 _nbsubdirs = ['.', 'CustomerScenarios', 'Solutions']  # TODO: add AutoML notebooks
@@ -21,6 +18,9 @@ _notebooks = [nb for nb in _notebooks if "Lalonde" not in nb]
 @pytest.mark.parametrize("file", _notebooks)
 @pytest.mark.notebook
 def test_notebook(file):
+    import nbformat
+    import nbconvert
+
     nb = nbformat.read(os.path.join(_nbdir, file), as_version=4)
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves
