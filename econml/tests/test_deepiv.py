@@ -8,8 +8,12 @@ import numpy as np
 import warnings
 from sklearn.preprocessing import OneHotEncoder
 
-import keras
-import keras.backend as K
+try:
+    import keras
+    import keras.backend as K
+    keras_installed = True
+except ImportError:
+    keras_installed = False
 
 import pytest
 
@@ -19,6 +23,7 @@ from econml.iv.nnet._deepiv import mog_model, mog_loss_model, mog_sample_model, 
 from econml.utilities import reshape
 
 
+@pytest.mark.skipif(not keras_installed, reason="Keras not installed")
 class TestDeepIV(unittest.TestCase):
     def test_stop_grad(self):
         x_input = keras.layers.Input(shape=(1,))

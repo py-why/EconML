@@ -1,15 +1,18 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import re
 import pytest
 import html
 import os
-import nbformat
-import nbconvert
-import traitlets
 
 _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
+
 _nbsubdirs = ['.', 'CustomerScenarios', 'Solutions']  # TODO: add AutoML notebooks
+
+# filter directories by regex if the NOTEBOOK_DIR_PATTERN environment variable is set
+_nbsubdirs = [d for d in _nbsubdirs if re.match(os.getenv('NOTEBOOK_DIR_PATTERN', '.*'), d)]
+
 _notebooks = [
     os.path.join(subdir, path) for subdir
     in _nbsubdirs for path in os.listdir(os.path.join(_nbdir, subdir)) if
@@ -21,6 +24,9 @@ _notebooks = [nb for nb in _notebooks if "Lalonde" not in nb]
 @pytest.mark.parametrize("file", _notebooks)
 @pytest.mark.notebook
 def test_notebook(file):
+    import nbformat
+    import nbconvert
+
     nb = nbformat.read(os.path.join(_nbdir, file), as_version=4)
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves

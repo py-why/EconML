@@ -5,8 +5,13 @@ import numpy as np
 import pandas as pd
 import unittest
 import pytest
-import keras
-import tensorflow as tf
+
+try:
+    import keras
+    keras_installed = True
+except ImportError:
+    keras_installed = False
+
 from econml.drlearner import LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
 from econml.dml import LinearDML, SparseLinearDML, ForestDML
 from econml.ortho_forest import DMLOrthoForest, DROrthoForest
@@ -204,6 +209,7 @@ class TestPandasIntegration(unittest.TestCase):
         self._check_input_names(est.summary())  # Check input names propagate
         self._check_popsum_names(est.effect_inference(X).population_summary())
 
+    @pytest.mark.skipif(not keras_installed, reason="Keras not installed")
     def test_deepiv(self):
         X = TestPandasIntegration.df[TestPandasIntegration.features]
         Y = TestPandasIntegration.df[TestPandasIntegration.outcome]
