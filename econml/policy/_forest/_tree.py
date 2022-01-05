@@ -147,7 +147,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
     max_features_ : int
         The inferred value of max_features.
 
-    n_features_ : int
+    n_features_in_ : int
         The number of features when ``fit`` is performed.
 
     n_samples_ : int
