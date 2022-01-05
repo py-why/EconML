@@ -1294,9 +1294,10 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             converted to various output formats.
         """
         # Get input names
-        feature_names = self.cate_feature_names(feature_names)
         treatment_names = self.cate_treatment_names(treatment_names)
         output_names = self.cate_output_names(output_names)
+        # Note: we do not transform feature names since that is done within summary_frame
+
         # Summary
         smry = Summary()
         smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",

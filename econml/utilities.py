@@ -597,6 +597,13 @@ def get_input_columns(X, prefix="X"):
 
 
 def get_feature_names_or_default(featurizer, feature_names):
+    # Prefer sklearn 1.0's get_feature_names_out method to deprecated get_feature_names method
+    if hasattr(featurizer, "get_feature_names_out"):
+        try:
+            return featurizer.get_feature_names_out(feature_names)
+        except Exception:
+            # Some featurizers will throw, such as a pipeline with a transformer that doesn't itself support names
+            pass
     if hasattr(featurizer, 'get_feature_names'):
         # Get number of arguments, some sklearn featurizer don't accept feature_names
         arg_no = len(inspect.getfullargspec(featurizer.get_feature_names).args)
