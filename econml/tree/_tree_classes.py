@@ -8,6 +8,7 @@ from ._tree import Tree, DepthFirstTreeBuilder
 from ._splitter import Splitter, BestSplitter
 from ._criterion import Criterion
 from . import _tree
+from ..utilities import deprecated
 from sklearn.model_selection import train_test_split
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils import check_random_state
@@ -91,7 +92,7 @@ class BaseTree(BaseEstimator):
         random_state = self.random_state_
 
         # Determine output settings
-        n_samples, self.n_features_ = X.shape
+        n_samples, self.n_features_in_ = X.shape
         self.n_outputs_ = n_outputs
         self.n_relevant_outputs_ = n_relevant_outputs
         self.n_y_ = n_y
@@ -161,23 +162,23 @@ class BaseTree(BaseEstimator):
 
         if isinstance(self.max_features, str):
             if self.max_features == "auto":
-                max_features = self.n_features_
+                max_features = self.n_features_in_
             elif self.max_features == "sqrt":
-                max_features = max(1, int(np.sqrt(self.n_features_)))
+                max_features = max(1, int(np.sqrt(self.n_features_in_)))
             elif self.max_features == "log2":
-                max_features = max(1, int(np.log2(self.n_features_)))
+                max_features = max(1, int(np.log2(self.n_features_in_)))
             else:
                 raise ValueError("Invalid value for max_features. "
                                  "Allowed string values are 'auto', "
                                  "'sqrt' or 'log2'.")
         elif self.max_features is None:
-            max_features = self.n_features_
+            max_features = self.n_features_in_
         elif isinstance(self.max_features, numbers.Integral):
             max_features = self.max_features
         else:  # float
             if self.max_features > 0.0:
                 max_features = max(1,
-                                   int(self.max_features * self.n_features_))
+                                   int(self.max_features * self.n_features_in_))
             else:
                 max_features = 0
 
@@ -187,7 +188,7 @@ class BaseTree(BaseEstimator):
             raise ValueError("min_weight_fraction_leaf must in [0, 0.5]")
         if max_depth < 0:
             raise ValueError("max_depth must be greater than or equal to zero. ")
-        if not (0 <= max_features <= self.n_features_):
+        if not (0 <= max_features <= self.n_features_in_):
             raise ValueError("max_features must be in [0, n_features]")
         if not 0 <= self.min_balancedness_tol <= 0.5:
             raise ValueError("min_balancedness_tol must be in [0, 0.5]")
@@ -220,14 +221,14 @@ class BaseTree(BaseEstimator):
             max_val = len(samples_val) if sample_weight is None else np.count_nonzero(sample_weight[samples_val])
         # Initialize the criterion object and the criterion_val object if honest.
         if callable(self.criterion):
-            criterion = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_,
+            criterion = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_in_, self.n_y_,
                                        n_samples, max_train,
                                        random_state.randint(np.iinfo(np.int32).max))
             if not isinstance(criterion, Criterion):
                 raise ValueError("Input criterion is not a valid criterion")
             if self.honest:
-                criterion_val = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_,
-                                               n_samples, max_val,
+                criterion_val = self.criterion(self.n_outputs_, self.n_relevant_outputs_, self.n_features_in_,
+                                               self.n_y_, n_samples, max_val,
                                                random_state.randint(np.iinfo(np.int32).max))
             else:
                 criterion_val = criterion
@@ -236,11 +237,11 @@ class BaseTree(BaseEstimator):
             if not (self.criterion in valid_criteria):
                 raise ValueError("Input criterion is not a valid criterion")
             criterion = valid_criteria[self.criterion](
-                self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_, n_samples, max_train,
+                self.n_outputs_, self.n_relevant_outputs_, self.n_features_in_, self.n_y_, n_samples, max_train,
                 random_state.randint(np.iinfo(np.int32).max))
             if self.honest:
                 criterion_val = valid_criteria[self.criterion](
-                    self.n_outputs_, self.n_relevant_outputs_, self.n_features_, self.n_y_, n_samples, max_val,
+                    self.n_outputs_, self.n_relevant_outputs_, self.n_features_in_, self.n_y_, n_samples, max_val,
                     random_state.randint(np.iinfo(np.int32).max))
             else:
                 criterion_val = criterion
@@ -261,7 +262,8 @@ class BaseTree(BaseEstimator):
                                                 self.min_var_leaf_on_val,
                                                 random_state.randint(np.iinfo(np.int32).max))
 
-        self.tree_ = Tree(self.n_features_, self.n_outputs_, self.n_relevant_outputs_, store_jac=self._get_store_jac())
+        self.tree_ = Tree(self.n_features_in_, self.n_outputs_,
+                          self.n_relevant_outputs_, store_jac=self._get_store_jac())
 
         builder = DepthFirstTreeBuilder(splitter, min_samples_split,
                                         min_samples_leaf,
@@ -281,11 +283,11 @@ class BaseTree(BaseEstimator):
             X = check_array(X, dtype=DTYPE, accept_sparse=False, ensure_min_features=0)
 
         n_features = X.shape[1]
-        if self.n_features_ != n_features:
+        if self.n_features_in_ != n_features:
             raise ValueError("Number of features of the model must "
                              "match the input. Model n_features is %s and "
                              "input n_features is %s "
-                             % (self.n_features_, n_features))
+                             % (self.n_features_in_, n_features))
 
         return X
 
@@ -347,3 +349,9 @@ class BaseTree(BaseEstimator):
         """
         X = self._validate_X_predict(X, check_input)
         return self.tree_.decision_path(X)
+
+    @property
+    @deprecated(message=("This attribute is deprecated and will be removed in a future version; "
+                         "please use the 'n_features_in_' attribute instead."))
+    def n_features_(self):
+        return self.n_features_in_
