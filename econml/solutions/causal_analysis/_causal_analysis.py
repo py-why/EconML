@@ -489,12 +489,19 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
 
         return insights, result
     except Exception as e:
+        warnings.warn(f"Exception caught when training model for feature {name}: {e}")
         return e
 
 
 # Unless we're opting into minimal cross-fitting, this is the minimum number of instances of each category
 # required to fit a discrete DML model
 _CAT_LIMIT = 10
+
+# TODO: Add other nuisance model options, such as {'azure_automl', 'forests', 'boosting'} that will use particular
+#       sub-cases of models or also integrate with azure autoML. (post-MVP)
+# TODO: Add other heterogeneity model options, such as {'automl'} for performing
+#       model selection for the causal effect, or {'sparse_linear'} for using a debiased lasso. (post-MVP)
+# TODO: Enable multi-class classification (post-MVP)
 
 
 class CausalAnalysis:
@@ -530,19 +537,19 @@ class CausalAnalysis:
         and a warning flag is raised. The remainder of the models are fitted.
     classification: bool, default False
         Whether this is a classification (as opposed to regression) task
-        TODO. Enable also multi-class classification (post-MVP)
-    nuisance_models: one of {'linear', 'automl'}, optional (default='linear')
-        What models to use for nuisance estimation (i.e. for estimating propensity models or models of how
-        controls predict the outcome). If 'linear', then LassoCV (for regression) and LogisticRegressionCV
-        (for classification) are used. If 'automl', then a kfold cross-validation and model selection is performed
-        among several models and the best is chosen.
-        TODO. Add other options, such as {'azure_automl', 'forests', 'boosting'} that will use particular sub-cases
-        of models or also integrate with azure autoML. (post-MVP)
-    heterogeneity_model: one of {'linear', 'forest'}, optional (default='linear')
-        What type of model to use for treatment effect heterogeneity. 'linear' means that a heterogeneity model
-        of the form theta(X)=<a, X> will be used, while 'forest' means that a forest model will be trained instead.
-        TODO. Add other options, such as {'automl'} for performing
-        model selection for the causal effect, or {'sparse_linear'} for using a debiased lasso. (post-MVP)
+    nuisance_models: one of {'linear', 'automl'}, default 'linear'
+        The model class to use for nuisance estimation.  Separate nuisance models are trained to predict the
+        outcome and also each individual feature column from all of the other columns in the dataset as a prerequisite
+        step before computing the actual causal effect for that feature column. If 'linear', then
+        :class:`~sklearn.linear_model.LassoCV` (for regression) or :class:`~sklearn.linear_model.LogisticRegressionCV`
+        (for classification) is used for these models. If 'automl', then model selection picks the best-performing
+        among several different model classes for each model being trained using k-fold cross-validation, which
+        requires additional computation.
+    heterogeneity_model: one of {'linear', 'forest'}, default 'linear'
+        The type of model to use for the final heterogeneous treatment effect model. 'linear' means that a
+        the estimated treatment effect for a column will be a linear function of the heterogeneity features for that
+        column, while 'forest' means that a forest model will be trained to compute the effect from those heterogeneity
+        features instead.
     categories: 'auto' or list of ('auto' or list of values), default 'auto'
         What categories to use for the categorical columns.  If 'auto', then the categories will be inferred for
         all categorical columns; otherwise this argument should have as many entries as there are categorical columns,
