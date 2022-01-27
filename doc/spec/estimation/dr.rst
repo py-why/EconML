@@ -366,7 +366,7 @@ Usage FAQs
 
     If you care more about mean squared error than confidence intervals and hypothesis testing, then use the
     :class:`.DRLearner` class and choose a cross-validated final model (checkout the 
-    `Forest Learners Jupyter notebook <https://github.com/microsoft/EconML/blob/master/notebooks/ForestLearners%20Basic%20Example.ipynb>`_ 
+    `Forest Learners Jupyter notebook <https://github.com/microsoft/EconML/blob/main/notebooks/ForestLearners%20Basic%20Example.ipynb>`_ 
     for such an example).
     Also the check out the :ref:`Orthogonal Random Forest User Guide <orthoforestuserguide>` or the
     :ref:`Meta Learners User Guide <metalearnersuserguide>`.
@@ -516,7 +516,7 @@ Usage FAQs
 
 Check out the following Jupyter notebooks:
 
-* `Meta Learners Jupyter Notebook <https://github.com/microsoft/EconML/blob/master/notebooks/Metalearners%20Examples.ipynb>`_ 
-* `Forest Learners Jupyter Notebook <https://github.com/microsoft/EconML/blob/master/notebooks/ForestLearners%20Basic%20Example.ipynb>`_
+* `Meta Learners Jupyter Notebook <https://github.com/microsoft/EconML/blob/main/notebooks/Metalearners%20Examples.ipynb>`_ 
+* `Forest Learners Jupyter Notebook <https://github.com/microsoft/EconML/blob/main/notebooks/ForestLearners%20Basic%20Example.ipynb>`_
 
 
