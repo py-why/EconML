@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 #
 # This code contains some snippets of code from:
-# https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/tree/_export.py
+# https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/tree/_export.py
 # published under the following license and copyright:
 # BSD 3-Clause License
 #

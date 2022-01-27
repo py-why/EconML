@@ -2,7 +2,7 @@
 # Licensed under the MIT License.
 #
 # This code is a fork from:
-# https://github.com/scikit-learn/scikit-learn/blob/master/sklearn/ensemble/_base.py
+# https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/ensemble/_base.py
 # published under the following license and copyright:
 # BSD 3-Clause License
 #
