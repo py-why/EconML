@@ -77,4 +77,4 @@ Usage Examples
 ==================================
 
 For more extensive examples check out the following notebooks:
-`OrthoIV and DRIV Examples Jupyter Notebook <https://github.com/microsoft/EconML/blob/master/notebooks/OrthoIV%20and%20DRIV%20Examples.ipynb>`_.
+`OrthoIV and DRIV Examples Jupyter Notebook <https://github.com/microsoft/EconML/blob/main/notebooks/OrthoIV%20and%20DRIV%20Examples.ipynb>`_.
