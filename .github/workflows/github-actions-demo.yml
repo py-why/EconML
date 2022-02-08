@@ -1,19 +1,21 @@
 name: Pytest Experiment
+
 on: [push]
+
 jobs:
   build:
+
     runs-on: ubuntu-18.04
-    strategy:
-      matrix:
-        python: [3.7, 3.8, 3.9]
 
     steps:
       - uses: actions/checkout@v2
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python}}
-  - name: Install EconML and dependencies
+          python-version: 3.8
+  - name: Install EconML
     run: pip install -e .[tf, plt]'
+  - name: Install dependencies
     run: pip install pytest pytest-runner
+  - name: Run single test
     run: python -m pytest -q econml/tests/test_dowhy.py
