@@ -10,7 +10,7 @@ jobs:
         with:
           python-version: 3.8
       - name: Install EconML
-        run: pip install -e .[tf, plt]
+        run: pip install -e .[plt]
       - name: Install dependencies
         run: pip install pytest pytest-runner
       - name: Run single test
