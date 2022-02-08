@@ -10,8 +10,8 @@ from econml.dr import DRLearner, ForestDRLearner, LinearDRLearner
 from econml.metalearners import XLearner
 from econml.iv.dml import OrthoIV, DMLIV
 from econml.iv.dr import LinearDRIV
-from econml.iv.dr._dr import _DummyCATE
-from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
+# from econml.iv.dr._dr import _DummyCATE
+from sklearn.linear_model import LinearRegression, LogisticRegression # , Lasso
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 
 
@@ -65,7 +65,7 @@ class TestDowhy(unittest.TestCase):
                 # test causal graph
                 est_dowhy.view_model()
                 # test refutation estimate
-                est_dowhy.refute_estimate(method_name="random_common_cause")
+                est_dowhy.refute_estimate(method_name="random_common_cause", num_simulations=3)
                 if name != "orf":
                     est_dowhy.refute_estimate(method_name="add_unobserved_common_cause",
                                               confounders_effect_on_treatment="binary_flip",
