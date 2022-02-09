@@ -24,8 +24,25 @@ jobs:
           changeType="none"
           for file in "$editedFiles"
           do
-            echo "$file"
+            echo $file
+            case $file in 
+            "README.md") continue ;;
+            "econml/_version.py") continue ;;
+            "prototypes/*") continue ;;
+            "images/*") continue ;;
+            "doc/*") $docChanges=true continue ;;
+            "notebooks/*") $nbChanges = true continue ;;
+            default) $codeChanges = true continue ;;
+            esac
           done
+
+          echo "Code Changes"
+          if $codeChanges echo True else echo False fi
+          echo "Doc Changes"
+          if $docChanges echo True else echo False fi
+          echo "Notebook Changes"
+          if $nbChanges echo True else echo False fi
+
         
   build:
     runs-on: ubuntu-latest
