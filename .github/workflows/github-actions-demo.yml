@@ -1,6 +1,32 @@
 name: GitHub Actions Test
 on: [push]
 jobs:
+  find-changes:
+    runs-on: ubuntu-latest  
+    name: Test changed-files
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - name: check modified files
+        id: check_files
+        run: |
+          echo "=============== list modified files ==============="
+          editedFiles=`git diff --name-only HEAD^ --name-only`
+          echo "$editedFiles"
+
+          echo "========== check paths of modified files =========="
+          codeChanges=false
+          docChanges=false
+          nbChanges=false
+          changeType="none"
+          for file in "$editedFiles"
+          do
+            echo "$file"
+          done
+        
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -20,19 +46,6 @@ jobs:
       - name: Run single test
         run: python -m pytest -q econml/tests/test_dowhy.py
 
-  find-changes:
-    runs-on: ubuntu-latest  
-    name: Test changed-files
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 2
-
-      - name: check modified files
-        id: check_files
-        run: |
-          echo "=============== list modified files ==============="
-          git diff --name-only HEAD^ HEAD
+  
           
 
