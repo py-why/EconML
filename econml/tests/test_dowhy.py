@@ -10,18 +10,18 @@ from econml.dr import DRLearner, ForestDRLearner, LinearDRLearner
 from econml.metalearners import XLearner
 from econml.iv.dml import OrthoIV, DMLIV
 from econml.iv.dr import LinearDRIV
-# from econml.iv.dr._dr import _DummyCATE
-from sklearn.linear_model import LinearRegression, LogisticRegression # , Lasso
+from econml.iv.dr._dr import _DummyCATE
+from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 
 
 class TestDowhy(unittest.TestCase):
 
     def _get_data(self):
-        X = np.random.normal(0, 1, size=(500, 5))
-        T = np.random.binomial(1, .5, size=(500,))
-        Y = np.random.normal(0, 1, size=(500,))
-        Z = np.random.normal(0, 1, size=(500,))
+        X = np.random.normal(0, 1, size=(250, 5))
+        T = np.random.binomial(1, .5, size=(250,))
+        Y = np.random.normal(0, 1, size=(250,))
+        Z = np.random.normal(0, 1, size=(250,))
         return Y, T, X[:, [0]], X[:, 1:], Z
 
     def test_dowhy(self):
