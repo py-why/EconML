@@ -19,3 +19,20 @@ jobs:
         run: pip install pytest pytest-runner
       - name: Run single test
         run: python -m pytest -q econml/tests/test_dowhy.py
+
+  find-changes:
+    runs-on: ubuntu-latest  
+    name: Test changed-files
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+
+      - name: check modified files
+        id: check_files
+        run: |
+          echo "=============== list modified files ==============="
+          git diff --name-only HEAD^ HEAD
+          
+

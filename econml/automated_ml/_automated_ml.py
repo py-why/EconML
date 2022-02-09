@@ -13,7 +13,7 @@ import copy
 
 """Automated Machine Learning Support For EconML Estimators. This allows analysts
 to use AutomatedML to automate the process of selecting models for models Y, T,
-and final of their causal inferenve estimator.
+and final of their causal inference estimator.
 """
 
 LINEAR_MODELS_SET = set([
