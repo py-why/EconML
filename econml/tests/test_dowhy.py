@@ -18,10 +18,10 @@ from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 class TestDowhy(unittest.TestCase):
 
     def _get_data(self):
-        X = np.random.normal(0, 1, size=(500, 5))
-        T = np.random.binomial(1, .5, size=(500,))
-        Y = np.random.normal(0, 1, size=(500,))
-        Z = np.random.normal(0, 1, size=(500,))
+        X = np.random.normal(0, 1, size=(250, 5))
+        T = np.random.binomial(1, .5, size=(250,))
+        Y = np.random.normal(0, 1, size=(250,))
+        Z = np.random.normal(0, 1, size=(250,))
         return Y, T, X[:, [0]], X[:, 1:], Z
 
     def test_dowhy(self):
@@ -65,7 +65,7 @@ class TestDowhy(unittest.TestCase):
                 # test causal graph
                 est_dowhy.view_model()
                 # test refutation estimate
-                est_dowhy.refute_estimate(method_name="random_common_cause")
+                est_dowhy.refute_estimate(method_name="random_common_cause", num_simulations=3)
                 if name != "orf":
                     est_dowhy.refute_estimate(method_name="add_unobserved_common_cause",
                                               confounders_effect_on_treatment="binary_flip",
