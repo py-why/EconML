@@ -1,13 +1,13 @@
 name: GitHub Actions Test
 on: [push]
 jobs:
-  find-changes:
+  eval-changes:
     runs-on: ubuntu-latest  
     name: Test changed-files
     outputs:
-      run_job: ${{ steps.inspect_changes.outputs.code_changes }}
-      run_job: ${{ steps.inspect_changes.outputs.doc_changes }}
-      run_job: ${{ steps.inspect_changes.outputs.nb_changes }}
+      code_changes: ${{ steps.eval_changes.outputs.code_changes }}
+      doc_changes: ${{ steps.eval_changes.outputs.doc_changes }}
+      nb_changes: ${{ steps.eval_changes.outputs.nb_changes }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 2
 
       - name: check modified files
-        id: inspect_changes
+        id: eval_changes
         run: |
           echo "=============== list modified files ==============="
           editedFiles=`git diff --name-only HEAD^ --name-only`
@@ -62,6 +62,13 @@ jobs:
           set-output name=doc_changes::$docChanges
           set-output name=nb_changes::$nbChanges
 
+  linting:
+      runs-on: runs-on: ubuntu-latest
+      name: 'Linting'
+      needs: eval-changes
+      if: needs.eval_changes.outputs.code_changes == 'true'
+      steps:
+        run: 'pip install pycodestyle && pycodestyle econml'
         
   build:
     runs-on: ubuntu-latest
