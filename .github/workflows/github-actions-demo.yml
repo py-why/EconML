@@ -63,7 +63,7 @@ jobs:
           set-output name=nb_changes::$nbChanges
 
   linting:
-      runs-on: runs-on: ubuntu-latest
+      runs-on: ubuntu-latest
       name: 'Linting'
       needs: eval-changes
       if: needs.eval_changes.outputs.code_changes == 'true'
