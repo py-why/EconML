@@ -68,6 +68,8 @@ jobs:
       needs: eval-changes
       if: ${{ true }}
       steps:
+        - name: Checkout code
+          uses: actions/checkout@v2
         - name: Setup Python
           uses: actions/setup-python@v2
           with:
