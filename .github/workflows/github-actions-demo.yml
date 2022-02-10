@@ -22,34 +22,32 @@ jobs:
           docChanges=false
           nbChanges=false
           changeType="none"
-          for file in "$editedFiles"
-          do
-            echo $file
+          for file in "$editedFiles"; do
             case $file in 
             "README.md") continue ;;
             "econml/_version.py") continue ;;
             "prototypes/*") continue ;;
             "images/*") continue ;;
-            "doc/*") $docChanges=true continue ;;
-            "notebooks/*") $nbChanges = true continue ;;
-            default) $codeChanges = true continue ;;
+            "doc/*") docChanges=true ;;
+            "notebooks/*") nbChanges=true ;;
+            *) codeChanges=true ;;
             esac
-          done
+          done 
 
           echo "Code Changes"
-          if [ $codeChanges ]; then 
+          if $codeChanges; then 
             echo "True" 
           else 
             echo "False" 
           fi
           echo "Doc Changes"
-          if [ $docChanges ]; then 
+          if $docChanges; then 
             echo "True" 
           else 
             echo "False" 
           fi
           echo "Notebook Changes"
-          if [ $nbChanges ]; then 
+          if $nbChanges; then 
             echo "True" 
           else 
             echo "False" 
@@ -74,7 +72,3 @@ jobs:
         run: pip install pytest pytest-runner
       - name: Run single test
         run: python -m pytest -q econml/tests/test_dowhy.py
-
-  
-          
-
