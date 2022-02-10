@@ -65,7 +65,7 @@ jobs:
   linting:
       runs-on: ubuntu-latest
       name: 'Linting'
-      needs: eval-changes
+      needs: eval_changes
       if: needs.eval_changes.output.code_changes == 'true'
       steps:
         - name: Checkout code
