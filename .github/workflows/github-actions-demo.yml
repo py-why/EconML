@@ -58,9 +58,9 @@ jobs:
             echo "False" 
           fi
 
-          set-output name=code_changes::$codeChanges
-          set-output name=doc_changes::$docChanges
-          set-output name=nb_changes::$nbChanges
+          echo "set-output name=code_changes::$codeChanges"
+          echo "set-output name=doc_changes::$docChanges"
+          echo "set-output name=nb_changes::$nbChanges"
 
   linting:
       runs-on: ubuntu-latest
