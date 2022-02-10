@@ -37,11 +37,23 @@ jobs:
           done
 
           echo "Code Changes"
-          if [ $codeChanges ]; then echo "True" else echo "False" fi
+          if [ $codeChanges ]; then 
+            echo "True" 
+          else 
+            echo "False" 
+          fi
           echo "Doc Changes"
-          if [ $docChanges ]; then echo "True" else echo "False" fi
+          if [ $docChanges ]; then 
+            echo "True" 
+          else 
+            echo "False" 
+          fi
           echo "Notebook Changes"
-          if [ $nbChanges ]; then echo "True" else echo "False" fi
+          if [ $nbChanges ]; then 
+            echo "True" 
+          else 
+            echo "False" 
+          fi
 
         
   build:
