@@ -1,7 +1,7 @@
 name: GitHub Actions Test
 on: [push]
 jobs:
-  eval-changes:
+  eval_changes:
     runs-on: ubuntu-latest  
     name: Test changed-files
     outputs:
