@@ -68,7 +68,12 @@ jobs:
       needs: eval-changes
       if: needs.eval_changes.outputs.code_changes == 'true'
       steps:
-        run: 'pip install pycodestyle && pycodestyle econml'
+        - name: Setup Python
+          uses: actions/setup-python@v2
+          with:
+            python-version: 3.8
+        - name: Install and Run pycodestyle
+          run: 'pip install pycodestyle && pycodestyle econml'
         
   build:
     runs-on: ubuntu-latest
