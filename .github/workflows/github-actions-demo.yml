@@ -23,13 +23,14 @@ jobs:
           nbChanges=false
           changeType="none"
           for file in "$editedFiles"; do
+            echo $file
             case $file in 
-            "README.md") continue ;;
-            "econml/_version.py") continue ;;
-            "prototypes/*") continue ;;
-            "images/*") continue ;;
-            "doc/*") docChanges=true ;;
-            "notebooks/*") nbChanges=true ;;
+            README.md) continue ;;
+            econml/_version.py) continue ;;
+            prototypes/*) continue ;;
+            images/*) continue ;;
+            doc/*) docChanges=true ;;
+            notebooks/*)  nbChanges=true ;;
             *) codeChanges=true ;;
             esac
           done 
