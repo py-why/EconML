@@ -4,6 +4,10 @@ jobs:
   find-changes:
     runs-on: ubuntu-latest  
     name: Test changed-files
+    outputs:
+      run_job: ${{ steps.inspect_changes.outputs.code_changes }}
+      run_job: ${{ steps.inspect_changes.outputs.doc_changes }}
+      run_job: ${{ steps.inspect_changes.outputs.nb_changes }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -11,7 +15,7 @@ jobs:
           fetch-depth: 2
 
       - name: check modified files
-        id: check_files
+        id: inspect_changes
         run: |
           echo "=============== list modified files ==============="
           editedFiles=`git diff --name-only HEAD^ --name-only`
@@ -21,7 +25,6 @@ jobs:
           codeChanges=false
           docChanges=false
           nbChanges=false
-          changeType="none"
           for file in "$editedFiles"; do
             echo $file
             case $file in 
@@ -35,6 +38,7 @@ jobs:
             esac
           done 
 
+          echo "========== Change Summary =========="
           echo "Code Changes"
           if $codeChanges; then 
             echo "True" 
@@ -53,6 +57,10 @@ jobs:
           else 
             echo "False" 
           fi
+
+          set-output name=code_changes::$codeChanges
+          set-output name=doc_changes::$docChanges
+          set-output name=nb_changes::$nbChanges
 
         
   build:
