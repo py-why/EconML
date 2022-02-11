@@ -57,7 +57,7 @@ jobs:
             echo "False" 
           fi
 
-          "::set-output name=code_changes::hello"
+          echo "::set-output name=code_changes::hello"
           echo "set-output name=doc_changes::$docChanges"
           echo "set-output name=nb_changes::$nbChanges"
 
