@@ -66,9 +66,8 @@ jobs:
       runs-on: ubuntu-latest
       name: 'Linting'
       needs: eval_changes
-      if: needs.eval_changes.output.code_changes == 'true'
+      if: ${{ needs.eval_changes.output.code_changes }}
       steps:
-          run: echo ${{ needs.eval_changes.output.code_changes == 'true' }}
         - name: Checkout code
           uses: actions/checkout@v2
         - name: Setup Python
