@@ -65,6 +65,7 @@ jobs:
       runs-on: ubuntu-latest
       name: 'Linting'
       needs: eval_changes
+      if: ${{ needs.eval_changes.outputs.code_changes }}
       steps:
         - name: Print 
           run:  echo ${{needs.eval_changes.outputs.code_changes}}
