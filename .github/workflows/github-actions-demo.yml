@@ -77,11 +77,12 @@ jobs:
           run: 'pip install pycodestyle && pycodestyle econml'
 
   tests_main:
-    runs-on: ubuntu-latest
     name: Tests Main
     strategy:
       matrix:
         python: [3.7, 3.8, 3.9]
+        image: [ubuntu-latest]
+    runs-on: ${{ matrix.image }}
     needs: eval_changes
     if: ${{ needs.eval_changes.outputs.code_changes }}
     steps:
