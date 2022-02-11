@@ -77,7 +77,7 @@ jobs:
           run: 'pip install pycodestyle && pycodestyle econml'
 
   tests_main:
-    runs_on: ubuntu-latest
+    runs-on: ubuntu-latest
     name: Tests Main
     strategy:
       matrix:
@@ -102,4 +102,4 @@ jobs:
 
 
 
-        
+      
