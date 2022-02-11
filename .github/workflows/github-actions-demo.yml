@@ -58,7 +58,7 @@ jobs:
             echo "False" 
           fi
 
-          echo "set-output name=code_changes::$codeChanges"
+          echo "set-output name=code_changes::test"
           echo "set-output name=doc_changes::$docChanges"
           echo "set-output name=nb_changes::$nbChanges"
 
@@ -68,7 +68,7 @@ jobs:
       needs: eval_changes
       steps:
         - name: Print 
-          run: 'if $needs.eval_changes.output.code_changes; then echo "True" else echo "False" fi' 
+          run: echo ${{needs.eval_changes.outputs.code_changes}}
         - name: Checkout code
           uses: actions/checkout@v2
         - name: Setup Python
