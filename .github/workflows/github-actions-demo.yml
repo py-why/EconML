@@ -68,7 +68,7 @@ jobs:
       needs: eval_changes
       steps:
         - name: Print 
-          run: 'if ${{ needs.eval_changes.output.code_changes }}; then echo "True" else echo "False" fi' 
+          run: 'if $needs.eval_changes.output.code_changes; then echo "True" else echo "False" fi' 
         - name: Checkout code
           uses: actions/checkout@v2
         - name: Setup Python
