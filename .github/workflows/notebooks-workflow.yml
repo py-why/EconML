@@ -20,7 +20,8 @@ jobs:
       - name: Upgrade numpy
         run: pip install -U numpy~=1.21.0
       - name: Install Test Dependencies
-        run: pip install pytest pytest-runner jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+        run: |
+          pip install pytest pytest-runner jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
       - name: Unit Tests
         run: python setup.py pytest
         env: 
