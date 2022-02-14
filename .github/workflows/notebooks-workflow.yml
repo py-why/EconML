@@ -33,7 +33,7 @@ jobs:
           PYTEST_ADDOPT: '-m "notebook"'
           NOTEBOOK_DIR_PATTERN: 'CustomerScenarios'
       - name: Publish Test Results **/test-results.xml
-          uses: EnricoMi/publish-unit-test-result-action@v1
-          if: always()
-          with:
-            files: test-results/**/*.xml
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        if: always()
+        with:
+          files: test-results/**/*.xml
