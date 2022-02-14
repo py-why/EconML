@@ -126,7 +126,7 @@ jobs:
       - name: Upgrade numpy
         run: pip install -U numpy~=1.21.0
       - name: Install Test Dependencies
-        run: install pytest pytest-runner
+        run: pip install pytest pytest-runner
       - name: Install Jupyter
         run: pip install jupyter jupyter-client
       - name: Install nb
