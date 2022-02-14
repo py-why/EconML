@@ -1,5 +1,5 @@
 name: Build and Test Notebooks
-on: [push]
+on:
   push:
     paths:
       - 'notebooks/*'
