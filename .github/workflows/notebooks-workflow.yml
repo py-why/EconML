@@ -29,10 +29,10 @@ jobs:
         run: pip install seaborn xgboost tqdm
       - name: Unit Tests
         run: python setup.py pytest
-        env: 
-          PYTEST_ADDOPT: '-m "notebook"'
-          NOTEBOOK_DIR_PATTERN: 'CustomerScenarios'
-        - name: Publish Test Results **/test-results.xml
+          env: 
+            PYTEST_ADDOPT: '-m "notebook"'
+            NOTEBOOK_DIR_PATTERN: 'CustomerScenarios'
+      - name: Publish Test Results **/test-results.xml
           uses: EnricoMi/publish-unit-test-result-action@v1
           if: always()
           with:
