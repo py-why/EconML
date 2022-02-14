@@ -182,6 +182,7 @@ jobs:
   tests_main:
     name: Tests Main
     strategy:
+      fail-fast: false
       matrix:
         python: [3.7, 3.8, 3.9]
         image: [ubuntu-18.04, macOS-10.15, windows-2019]
