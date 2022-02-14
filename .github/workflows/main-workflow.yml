@@ -61,17 +61,35 @@ jobs:
           echo "::set-output name=doc_changes::$docChanges"
           echo "::set-output name=nb_changes::$nbChanges"
 
-  linting:
-    runs-on: ubuntu-latest
-    name: 'Linting'
+  build_documentation:
+    name: Build Documentation
+    runs-on: ubuntu-18.04
     needs: eval_changes
-    if: ${{ needs.eval_changes.outputs.code_changes }}
+    if: ${{ needs.eval_changes.outputs.doc_changes }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.8
-      - name: Install and Run pycodestyle
-         run: pip install pycodestyle && pycodestyle econml
+          python-version: 3.7
+      - name: Install EconML
+        run: pip install -e .[all]
+      - name: Install graphviz
+        run: sudo apt-get -yq install graphviz
+      - name: Install lightning
+        run: pip install sklearn-contrib-lightning
+      - name: Install specific version of shap
+        run: pip install git+https://github.com/slundberg/shap.git@d1d2700acc0259f211934373826d5ff71ad514de
+      - name: Install sphinx
+        run: pip install sphinx sphinx_rtd_theme
+      - name: Build documentation
+        run: python setup.py build_sphinx -W
+      - name: Publish documentation as an artifact
+        uses: actions/upload-artifact@v1
+        with:
+          name: Documentation
+          path: build/sphinx/html
+      - name: Run doctests
+        run: python setup.py build_sphinx -b doctest
+  
