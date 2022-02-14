@@ -99,7 +99,7 @@ jobs:
       - name: Install sphinx
         run: pip install sphinx sphinx_rtd_theme
       - name: Build documentation
-        run: python setup.py build_sphix -W
+        run: python setup.py build_sphinx -W
       - name: Publish documentation as an artifact
         uses: actions/upload-artifact@v1
         with:
