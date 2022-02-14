@@ -145,7 +145,6 @@ jobs:
           files: test-results/**/*.xml
   
   noncustomer_notebooks:
-  
     name: Notebooks (except Customer Solutions)
     runs-on: ubuntu-18.04
     needs: eval_changes
@@ -179,3 +178,29 @@ jobs:
         if: always()
         with:
           files: '**/test-results.xml'
+  
+  tests_main:
+    name: Tests Main
+    strategy:
+      matrix:
+        python: [3.7, 3.8, 3.9]
+        image: [ubuntu-18.04, macOS-10.15, windows-2019]
+    runs-on: ${{ matrix.image }}
+    needs: eval_changes
+    if: ${{ needs.eval_changes.outputs.code_changes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install EconML
+        run: pip install -e .[tf,plt]
+      - name: Install Dependencies
+        run: pip install pytest pytest-runner
+      - name: Run Unit Tests
+        run: python setup.py pytest
+        env:
+          PYTEST_ADDOPTS: '-m "not (notebook or automl or dml or causal)" -n 2'
+          COVERAGE_PROCESS_START: 'setup.cfg'
