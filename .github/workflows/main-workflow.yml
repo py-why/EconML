@@ -60,6 +60,21 @@ jobs:
           echo "::set-output name=code_changes::$codeChanges"
           echo "::set-output name=doc_changes::$docChanges"
           echo "::set-output name=nb_changes::$nbChanges"
+  linting: 
+    name: Linting
+    runs-on: ubuntu-18.04
+    needs: eval_changes
+    if: ${{ needs.eval_changes.outputs.code_changes }}
+    steps: 
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install and Run pycodestyle
+        run: pip install pycodestyle && pycodestyle econml
+        
 
   build_documentation:
     name: Build Documentation
