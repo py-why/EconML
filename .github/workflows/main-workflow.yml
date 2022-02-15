@@ -106,7 +106,7 @@ jobs:
           name: Documentation
           path: build/sphinx/html
       - name: Run doctests
-        run: python setup.py build_sphinx -b doctest
+        run: python setup.py build_sphinx -b doctest -W ignore::DeprecationWarning
 
   customer_notebooks:
     name: Customer Notebooks
@@ -196,6 +196,21 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
+      # Upgrade pip and ...
+      - name: Upgrade pip and setuptools
+        run: --upgrade pip && pip install --upgrade setuptools wheel Cython
+      # Enable long path support on Windows so that all packages can be installed correctly
+      - name: Enable long paths on Windows
+        run: reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
+        if: ${{ matrix.image }} == windows-2019
+      # Install graphviz programmatically on Linux
+      - name: Install graphviz on Linux
+        run: sudo apt-get -yq install graphviz
+        if: ${{ matrix.image }} == ubuntu-18.04
+      # Install OpenMP on Mac to support lightgbm
+      - name: Install OpenML on Mac
+        run: brew install libomp
+        if: ${{ matrix.image }} == macOS-10.15
       - name: Install EconML
         run: pip install -e .[tf,plt]
       - name: Install Dependencies
