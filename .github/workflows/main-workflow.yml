@@ -190,31 +190,44 @@ jobs:
     needs: eval_changes
     if: ${{ needs.eval_changes.outputs.code_changes }}
     steps:
+      # Checkout EconML code
       - name: Checkout code
         uses: actions/checkout@v2
+      
+      # Setup Python (including pip)
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python }}
+
       # Upgrade pip and ...
       - name: Upgrade pip and setuptools
         run: python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython
+
       # Enable long path support on Windows so that all packages can be installed correctly
       - name: Enable long paths on Windows
-        run: reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
         if: ${{ matrix.image }} == windows-2019
+        run: reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
+        
       # Install graphviz programmatically on Linux
       - name: Install graphviz on Linux
-        run: sudo apt-get -yq install graphviz
         if: ${{ matrix.image }} == ubuntu-18.04
+        run: sudo apt-get -yq install graphviz
+        
       # Install OpenMP on Mac to support lightgbm
       - name: Install OpenML on Mac
-        run: brew install libomp
         if: ${{ matrix.image }} == macOS-10.15
+        run: brew install libomp
+        
+      # Install EconML package
       - name: Install EconML
         run: pip install -e .[tf,plt]
+
+      # Install test dependencies
       - name: Install Dependencies
         run: pip install pytest pytest-runner
+
+      # Run tests
       - name: Run Unit Tests
         run: python setup.py pytest
         env:
