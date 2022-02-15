@@ -106,7 +106,7 @@ jobs:
           name: Documentation
           path: build/sphinx/html
       - name: Run doctests
-        run: python setup.py build_sphinx -b doctest -W ignore::DeprecationWarning
+        run: python setup.py build_sphinx -b doctest
 
   customer_notebooks:
     name: Customer Notebooks
@@ -233,3 +233,10 @@ jobs:
         env:
           PYTEST_ADDOPTS: '-m "not (notebook or automl or dml or causal)" -n 2'
           COVERAGE_PROCESS_START: 'setup.cfg'
+
+      # Persist coverage data as artifact
+       - name: Archive code coverage results
+         uses: actions/upload-artifact@v2
+         with:
+          name: code-coverage-report
+          path: output/test/code-coverage.html
