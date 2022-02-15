@@ -238,7 +238,7 @@ jobs:
           name: code-coverage-report
           path: output/test/code-coverage.html
 
-tests_dml:
+  tests_dml:
     name: Tests Double Machine Learning
     strategy:
       fail-fast: false
