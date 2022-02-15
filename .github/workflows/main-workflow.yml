@@ -138,11 +138,6 @@ jobs:
         env: 
           PYTEST_ADDOPT: '-m "notebook"'
           NOTEBOOK_DIR_PATTERN: 'CustomerScenarios'
-      - name: Publish Test Results **/test-results.xml
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: always()
-        with:
-          files: test-results/**/*.xml
   
   noncustomer_notebooks:
     name: Notebooks (except Customer Solutions)
@@ -173,11 +168,6 @@ jobs:
         env: 
           PYTEST_ADDOPT: '-m "notebook"'
           NOTEBOOK_DIR_PATTERN: '(?!CustomerScenarios)'
-      - name: Publish Test Results **/test-results.xml
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: always()
-        with:
-          files: '**/test-results.xml'
   
   tests_main:
     name: Tests Main
@@ -233,6 +223,82 @@ jobs:
         env:
           PYTEST_ADDOPTS: '-m "not (notebook or automl or dml or causal)" -n 2'
           COVERAGE_PROCESS_START: 'setup.cfg'
+      
+      # Publish test results
+      - uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: Python ${{ matrix.python }}, ${{ matrix.image }}
+          path: '**/test-results.xml'
+
+      # Persist coverage data as artifact
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v2
+        with:
+          name: code-coverage-report
+          path: output/test/code-coverage.html
+
+tests_dml:
+    name: Tests Double Machine Learning
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [3.7, 3.8, 3.9]
+        image: [ubuntu-18.04, macOS-10.15, windows-2019]
+    runs-on: ${{ matrix.image }}
+    needs: eval_changes
+    if: ${{ needs.eval_changes.outputs.code_changes }}
+    steps:
+      # Checkout EconML code
+      - name: Checkout code
+        uses: actions/checkout@v2
+      
+      # Setup Python (including pip)
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+
+      # Upgrade pip and setuptools
+      - name: Upgrade pip and setuptools
+        run: python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython
+
+      # Enable long path support on Windows so that all packages can be installed correctly
+      - name: Enable long paths on Windows
+        if: ${{ matrix.image == 'windows-2019' }}
+        run: reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
+        
+      # Install graphviz programmatically on Linux
+      - name: Install graphviz on Linux
+        if: ${{ matrix.image == 'ubuntu-18.04' }}
+        run: sudo apt-get -yq install graphviz
+        
+      # Install OpenMP on Mac to support lightgbm
+      - name: Install OpenML on Mac
+        if: ${{ matrix.image == 'macOS-10.15' }}
+        run: brew install libomp
+        
+      # Install EconML package
+      - name: Install EconML
+        run: pip install -e .[tf,plt]
+
+      # Install test dependencies
+      - name: Install Dependencies
+        run: pip install pytest pytest-runner
+
+      # Run tests
+      - name: Run Unit Tests
+        run: python setup.py pytest
+        env:
+          PYTEST_ADDOPTS: '-m "dml'
+          COVERAGE_PROCESS_START: 'setup.cfg'
+
+      # Publish test results
+      - uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: Python ${{ matrix.python }}, ${{ matrix.image }}
+          path: '**/test-results.xml'
 
       # Persist coverage data as artifact
       - name: Archive code coverage results
