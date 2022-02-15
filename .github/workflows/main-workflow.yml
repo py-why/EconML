@@ -198,7 +198,7 @@ jobs:
           python-version: ${{ matrix.python }}
       # Upgrade pip and ...
       - name: Upgrade pip and setuptools
-        run: --upgrade pip && pip install --upgrade setuptools wheel Cython
+        run: python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython
       # Enable long path support on Windows so that all packages can be installed correctly
       - name: Enable long paths on Windows
         run: reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
