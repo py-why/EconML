@@ -290,7 +290,7 @@ jobs:
       - name: Run Unit Tests
         run: python setup.py pytest
         env:
-          PYTEST_ADDOPTS: '-m "dml'
+          PYTEST_ADDOPTS: '-m "dml"'
           COVERAGE_PROCESS_START: 'setup.cfg'
 
       # Publish test results
