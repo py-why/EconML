@@ -249,7 +249,7 @@ jobs:
         if: failure()
         with:
           name: Python ${{ matrix.python }}, ${{ matrix.image }}
-          path: '**/test-results.xml'
+          path: junit/test-results.xml
 
       # Persist coverage data as artifact
       - name: Archive code coverage results
