@@ -206,17 +206,17 @@ jobs:
 
       # Enable long path support on Windows so that all packages can be installed correctly
       - name: Enable long paths on Windows
-        if: ${{ matrix.image }} == windows-2019
+        if: ${{ matrix.image == 'windows-2019' }}
         run: reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
         
       # Install graphviz programmatically on Linux
       - name: Install graphviz on Linux
-        if: ${{ matrix.image }} == ubuntu-18.04
+        if: ${{ matrix.image == 'ubuntu-18.04' }}
         run: sudo apt-get -yq install graphviz
         
       # Install OpenMP on Mac to support lightgbm
       - name: Install OpenML on Mac
-        if: ${{ matrix.image }} == macOS-10.15
+        if: ${{ matrix.image == 'macOS-10.15' }}
         run: brew install libomp
         
       # Install EconML package
