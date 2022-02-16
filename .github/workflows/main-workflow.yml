@@ -17,7 +17,7 @@ jobs:
       - id: check_changes
         run: |
           echo "=============== list modified files ==============="
-          editedFiles=`git diff --name-only HEAD^ --name-only`
+          editedFiles=`git diff --name-only ${{ github.event.pull_request.base.ref }}`
           echo "$editedFiles"
 
           echo "========== check paths of modified files =========="
