@@ -246,7 +246,6 @@ jobs:
       
       # Publish test results
       - uses: actions/upload-artifact@v2
-        if: failure()
         with:
           name: Python ${{ matrix.python }}, ${{ matrix.image }}
           path: junit/test-results.xml
