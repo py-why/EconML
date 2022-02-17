@@ -1,18 +1,21 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-import unittest
-import pytest
 import pickle
+import unittest
+
 import numpy as np
+import pytest
 from scipy import special
-from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.preprocessing import PolynomialFeatures
+
+from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
-from sklearn.preprocessing import PolynomialFeatures
 from econml.utilities import shape
-from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
+
 
 
 class TestDMLIV(unittest.TestCase):
