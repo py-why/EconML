@@ -29,15 +29,15 @@ class TestDRIV(unittest.TestCase):
         n = 500
         y = np.random.normal(size=(n,))
 
-        for d_w, d_x, binary_T, binary_Z, projection, featurizer in itertools.product(
-                                            [None, 10],     # d_w
-                                            [None, 3],      # d_x
-                                            [True, False],  # binary_T
-                                            [True, False],  # binary_Z
-                                            [True, False],  # projection
-                                            [None,          # featureizer
-                                            PolynomialFeatures(degree=2, include_bias=False),] 
-                                                        ):
+        # parameter combinations to test
+        for d_w, d_x, binary_T, binary_Z, projection, featurizer\
+            in itertools.product(
+                [None, 10],     # d_w
+                [None, 3],      # d_x
+                [True, False],  # binary_T
+                [True, False],  # binary_Z
+                [True, False],  # projection
+                [None, PolynomialFeatures(degree=2, include_bias=False), ]):    # featurizer
 
             if d_w is None:
                 W = None
@@ -48,7 +48,7 @@ class TestDRIV(unittest.TestCase):
                 X = None
             else:
                 X = np.random.normal(size=(n, d_x))
-                
+
             if binary_T:
                 T = np.random.choice(["a", "b"], size=(n,))
             else:
@@ -58,7 +58,7 @@ class TestDRIV(unittest.TestCase):
                 Z = np.random.choice(["c", "d"], size=(n,))
             else:
                 Z = np.random.normal(size=(n,))
- 
+
             est_list = [
                 DRIV(
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
@@ -117,9 +117,9 @@ class TestDRIV(unittest.TestCase):
                 ]
 
             for est in est_list:
-                with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T, binary_Z=binary_Z,
-                                    projection=projection, featurizer=featurizer,
-                                    est=est):
+                with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T,
+                                  binary_Z=binary_Z, projection=projection, featurizer=featurizer,
+                                  est=est):
 
                     # ensure we can serialize unfit estimator
                     pickle.dumps(est)
@@ -133,7 +133,7 @@ class TestDRIV(unittest.TestCase):
                     const_marginal_effect_shape = const_marg_eff_shape(n, d_x, binary_T)
                     marginal_effect_shape = marg_eff_shape(n, binary_T)
                     effect_shape = eff_shape(n, d_x)
-                    
+
                     # test effect
                     const_marg_eff = est.const_marginal_effect(X)
                     self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
