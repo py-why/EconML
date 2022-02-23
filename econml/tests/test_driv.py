@@ -15,15 +15,19 @@ from sklearn.preprocessing import PolynomialFeatures
 import unittest
 
 
+@pytest.mark.cate_api
 class TestDRIV(unittest.TestCase):
     def test_cate_api(self):
         def const_marg_eff_shape(n, d_x, binary_T):
+            """Constant marginal effect shape."""
             return (n if d_x else 1,) + ((1,) if binary_T else ())
 
         def marg_eff_shape(n, binary_T):
+            """Marginal effect shape."""
             return (n,) + ((1,) if binary_T else ())
 
         def eff_shape(n, d_x):
+            "Effect shape."
             return (n if d_x else 1,)
 
         n = 500
@@ -121,34 +125,39 @@ class TestDRIV(unittest.TestCase):
                                   binary_Z=binary_Z, projection=projection, featurizer=featurizer,
                                   est=est):
 
+                    # TODO: serializing/deserializing for every combination -- is this necessary?
                     # ensure we can serialize unfit estimator
-                    pickle.dumps(est)
+                    # pickle.dumps(est)
 
                     est.fit(y, T, Z=Z, X=X, W=W)
 
                     # ensure we can serialize fit estimator
-                    pickle.dumps(est)
+                    # pickle.dumps(est)
 
                     # expected effect size
-                    const_marginal_effect_shape = const_marg_eff_shape(n, d_x, binary_T)
+                    exp_const_marginal_effect_shape = const_marg_eff_shape(n, d_x, binary_T)
                     marginal_effect_shape = marg_eff_shape(n, binary_T)
                     effect_shape = eff_shape(n, d_x)
 
-                    # test effect
+                    # assert calculated constant marginal effect shape is expected
+                    # const_marginal effect is defined in LinearCateEstimator class
                     const_marg_eff = est.const_marginal_effect(X)
-                    self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
+                    self.assertEqual(shape(const_marg_eff), exp_const_marginal_effect_shape)
+
+                    # assert calculated marginal effect shape is expected
                     marg_eff = est.marginal_effect(T, X)
                     self.assertEqual(shape(marg_eff), marginal_effect_shape)
+
                     T0 = "a" if binary_T else 0
                     T1 = "b" if binary_T else 1
                     eff = est.effect(X, T0=T0, T1=T1)
                     self.assertEqual(shape(eff), effect_shape)
 
                     # test inference
-                    const_marg_eff_int = est.const_marginal_effect_interval(X)
-                    marg_eff_int = est.marginal_effect_interval(T, X)
-                    eff_int = est.effect_interval(X, T0=T0, T1=T1)
-                    self.assertEqual(shape(const_marg_eff_int), (2,) + const_marginal_effect_shape)
+                    const_marg_eff_int = est.const_marginal_effect_interval(X) # defer to infere
+                    marg_eff_int = est.marginal_effect_interval(T, X) # d
+                    eff_int = est.effect_interval(X, T0=T0, T1=T1)   # d
+                    self.assertEqual(shape(const_marg_eff_int), (2,) + exp_const_marginal_effect_shape)
                     self.assertEqual(shape(marg_eff_int), (2,) + marginal_effect_shape)
                     self.assertEqual(shape(eff_int), (2,) + effect_shape)
 
@@ -162,7 +171,7 @@ class TestDRIV(unittest.TestCase):
                         self.assertEqual(len(est.cate_feature_names()), expect_feat_len)
 
                         # test can run shap values
-                        shap_values = est.shap_values(X[:10])
+                        _ = est.shap_values(X[:10])
 
     def test_accuracy(self):
         np.random.seed(123)
