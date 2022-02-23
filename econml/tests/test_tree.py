@@ -4,10 +4,11 @@
 import unittest
 
 import numpy as np
+import pytest
 
 from econml.tree import DepthFirstTreeBuilder, BestSplitter, Tree, MSE
 
-
+@pytest.mark.serial
 class TestTree(unittest.TestCase):
 
     def _get_base_config(self):
@@ -256,10 +257,17 @@ class TestTree(unittest.TestCase):
         np.testing.assert_array_almost_equal(tree.value.flatten(), .4 * np.ones(len(tree.value)))
 
     def test_noisy_instance(self):
+        """
+        The purpose of this test
+        """
+
+        # initialize parameters
         n_samples = 5000
         X = np.random.normal(0, 1, size=(n_samples, 1))
         y_base = 1.0 * X[:, [0]] * (X[:, [0]] > 0)
         y = y_base + np.random.normal(0, .1, size=(n_samples, 1))
+
+        # initialize config wtih base config and overwite some values
         config = self._get_base_config()
         config['n_features'] = 1
         config['max_features'] = 1
@@ -271,11 +279,16 @@ class TestTree(unittest.TestCase):
         config['max_node_samples'] = X.shape[0]
         config['samples_train'] = np.arange(X.shape[0], dtype=np.intp)
         config['samples_val'] = np.arange(X.shape[0], dtype=np.intp)
+
+        # predict tree using config parameters and assert
+        # shape of trained tree is the same as y_test
         tree = self._train_tree(config, X, y)
         X_test = np.zeros((100, 1))
         X_test[:, 0] = np.linspace(np.percentile(X, 10), np.percentile(X, 90), 100)
         y_test = 1.0 * X_test[:, [0]] * (X_test[:, [0]] > 0)
         np.testing.assert_array_almost_equal(tree.predict(X_test), y_test, decimal=1)
+
+        # initialize config wtih base honest config and overwite some values
         config = self._get_base_honest_config()
         config['n_features'] = 1
         config['max_features'] = 1
@@ -287,6 +300,9 @@ class TestTree(unittest.TestCase):
         config['max_node_samples'] = X.shape[0] // 2
         config['samples_train'] = np.arange(X.shape[0] // 2, dtype=np.intp)
         config['samples_val'] = np.arange(X.shape[0] // 2, X.shape[0], dtype=np.intp)
+
+        # predict tree using config parameters and assert
+        # shape of trained tree is the same as y_test 
         tree = self._train_tree(config, X, y)
         X_test = np.zeros((100, 1))
         X_test[:, 0] = np.linspace(np.percentile(X, 10), np.percentile(X, 90), 100)
