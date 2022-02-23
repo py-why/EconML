@@ -16,5 +16,7 @@ markers = [
     "automl",
     "dml",
     "causal",
-    "serial"
+    "serial",
+    "cate_api", 
+    "cate_api_dml"
 ]

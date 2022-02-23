@@ -154,9 +154,9 @@ class TestDRIV(unittest.TestCase):
                     self.assertEqual(shape(eff), effect_shape)
 
                     # test inference
-                    const_marg_eff_int = est.const_marginal_effect_interval(X) # defer to infere
-                    marg_eff_int = est.marginal_effect_interval(T, X) # d
-                    eff_int = est.effect_interval(X, T0=T0, T1=T1)   # d
+                    const_marg_eff_int = est.const_marginal_effect_interval(X)
+                    marg_eff_int = est.marginal_effect_interval(T, X)
+                    eff_int = est.effect_interval(X, T0=T0, T1=T1)
                     self.assertEqual(shape(const_marg_eff_int), (2,) + exp_const_marginal_effect_shape)
                     self.assertEqual(shape(marg_eff_int), (2,) + marginal_effect_shape)
                     self.assertEqual(shape(eff_int), (2,) + effect_shape)
