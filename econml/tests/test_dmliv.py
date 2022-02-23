@@ -17,7 +17,6 @@ from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from econml.utilities import shape
 
 
-
 class TestDMLIV(unittest.TestCase):
     def test_cate_api(self):
         def const_marg_eff_shape(n, d_x, d_y, binary_T):
