@@ -8,6 +8,7 @@ import pytest
 
 from econml.tree import DepthFirstTreeBuilder, BestSplitter, Tree, MSE
 
+
 @pytest.mark.serial
 class TestTree(unittest.TestCase):
 
@@ -302,7 +303,7 @@ class TestTree(unittest.TestCase):
         config['samples_val'] = np.arange(X.shape[0] // 2, X.shape[0], dtype=np.intp)
 
         # predict tree using config parameters and assert
-        # shape of trained tree is the same as y_test 
+        # shape of trained tree is the same as y_test
         tree = self._train_tree(config, X, y)
         X_test = np.zeros((100, 1))
         X_test[:, 0] = np.linspace(np.percentile(X, 10), np.percentile(X, 90), 100)
