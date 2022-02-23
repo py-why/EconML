@@ -25,6 +25,7 @@ from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 import econml.tests.utilities  # bugfix for assertWarns
 
 
+@pytest.mark.serial
 class TestDRLearner(unittest.TestCase):
 
     @classmethod
