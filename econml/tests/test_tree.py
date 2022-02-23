@@ -2,12 +2,9 @@
 # Licensed under the MIT License.
 
 import unittest
-import logging
-import time
-import random
+
 import numpy as np
-import sparse as sp
-import pytest
+
 from econml.tree import DepthFirstTreeBuilder, BestSplitter, Tree, MSE
 
 
