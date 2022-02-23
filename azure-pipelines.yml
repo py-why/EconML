@@ -307,7 +307,7 @@ jobs:
   parameters:
     package: '-e .[tf,plt]'
     job:
-      job: Tests_serial
+      job: Tests_cate_dml
       dependsOn: 'EvalChanges'
       condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
       displayName: 'Run tests (CATE/DML)'
@@ -334,7 +334,7 @@ jobs:
   parameters:
     package: '-e .[tf,plt]'
     job:
-      job: Tests_serial
+      job: Tests_cate
       dependsOn: 'EvalChanges'
       condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
       displayName: 'Run tests (CATE)'
