@@ -26,6 +26,7 @@ from econml.sklearn_extensions.linear_model import StatsModels2SLS
 from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
 
 
+@pytest.mark.serial
 class StatsModelsOLS:
     """
     Helper class to wrap a StatsModels OLS model to conform to the sklearn API.
