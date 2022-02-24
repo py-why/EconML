@@ -1,31 +1,31 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-import numpy as np
-import pytest
-from econml.dml import DML, LinearDML, NonParamDML
-from econml.dr import LinearDRLearner
-from econml.iv.dr import LinearDRIV
-from econml.iv.dml import DMLIV
-from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
-from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
-from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
-from econml.iv.dr._dr import _DummyCATE
-from statsmodels.regression.linear_model import WLS
-from statsmodels.tools.tools import add_constant
-from statsmodels.sandbox.regression.gmm import IV2SLS
-from sklearn.dummy import DummyClassifier
-from sklearn.linear_model import LinearRegression, LogisticRegression, LassoCV, Lasso, MultiTaskLassoCV
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.model_selection import KFold, StratifiedKFold
-import scipy.special
-import time
-from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression as OLS
-from econml.sklearn_extensions.linear_model import StatsModels2SLS
 import unittest
 import joblib
-from sklearn.preprocessing import PolynomialFeatures
+
+import numpy as np
+import pytest
+
+import scipy.special
 from sklearn.base import clone
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.linear_model import LinearRegression, LogisticRegression, LassoCV, Lasso, MultiTaskLassoCV
+from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.preprocessing import PolynomialFeatures
+from statsmodels.regression.linear_model import WLS
+from statsmodels.sandbox.regression.gmm import IV2SLS
+from statsmodels.tools.tools import add_constant
+
+from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
+from econml.dml import DML, LinearDML, NonParamDML
+from econml.dr import LinearDRLearner
+from econml.iv.dml import DMLIV
+from econml.iv.dr import LinearDRIV
+from econml.iv.dr._dr import _DummyCATE
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
+from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
 
 
 class StatsModelsOLS:
