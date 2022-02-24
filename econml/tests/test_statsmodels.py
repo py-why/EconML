@@ -2,28 +2,24 @@
 # Licensed under the MIT License.
 
 import unittest
-import joblib
 
 import numpy as np
 import pytest
 
 import scipy.special
 from sklearn.base import clone
-from sklearn.dummy import DummyClassifier
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.linear_model import LinearRegression, LogisticRegression, LassoCV, Lasso, MultiTaskLassoCV
-from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.preprocessing import PolynomialFeatures
 from statsmodels.regression.linear_model import WLS
 from statsmodels.sandbox.regression.gmm import IV2SLS
 from statsmodels.tools.tools import add_constant
 
 from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
-from econml.dml import DML, LinearDML, NonParamDML
+from econml.dml import LinearDML, NonParamDML
 from econml.dr import LinearDRLearner
 from econml.iv.dml import DMLIV
 from econml.iv.dr import LinearDRIV
-from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression as OLS
 from econml.sklearn_extensions.linear_model import StatsModels2SLS
