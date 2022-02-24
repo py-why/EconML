@@ -25,6 +25,8 @@ from econml.iv.dml import DMLIV
 from econml.iv.dr import LinearDRIV
 from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression as OLS
+from econml.sklearn_extensions.linear_model import StatsModels2SLS
 from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
 
 
