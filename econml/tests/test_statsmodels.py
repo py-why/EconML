@@ -1097,10 +1097,8 @@ class TestStatsModels(unittest.TestCase):
 
     def test_dml_multi_dim_treatment_outcome(self):
         """ Testing that the summarized and unsummarized version of DML gives the correct (known results). """
-        from econml.dml import LinearDML
-        from econml.inference import StatsModelsInference
         np.random.seed(123)
-        n = 100000
+        n = 50000
         precision = .01
         precision_int = .0001
         with np.printoptions(formatter={'float': '{:.4f}'.format}, suppress=True):
