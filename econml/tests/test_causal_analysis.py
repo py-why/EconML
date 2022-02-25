@@ -788,7 +788,7 @@ class TestCausalAnalysis(unittest.TestCase):
                         self.assertEqual(ca.trained_feature_indices_, [0, 1, 2, 3])  # can't handle last two
                         self.assertEqual(ca.untrained_feature_indices_, [(4, 'cat_limit'),
                                                                          (5, 'cat_limit')])
-                    
+
                     del ca
                     gc.collect()
 
