@@ -674,10 +674,10 @@ class TestCausalAnalysis(unittest.TestCase):
         cats = [2, 3]
         hinds = [0, 3]
 
-        for n_model, h_model, classification in itertools.product(
-                                                        ['linear', 'automl'],
-                                                        ['linear', 'forest'],
-                                                        [True, False]):
+        for n_model, h_model, classification in\
+            itertools.product(['linear', 'automl'],
+                              ['linear', 'forest'],
+                              [True, False]):
 
             ca = CausalAnalysis(inds, cats, hinds, classification=classification,
                                 nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
@@ -685,7 +685,7 @@ class TestCausalAnalysis(unittest.TestCase):
             glo = ca.global_causal_effect()
 
             ca2 = CausalAnalysis(inds, cats, hinds, classification=classification,
-                                    nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
+                                 nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
             ca2.fit(X, y)
             glo2 = ca.global_causal_effect()
 
