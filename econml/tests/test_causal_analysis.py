@@ -2,11 +2,14 @@
 # Licensed under the MIT License.
 
 import unittest
+
+from contextlib import ExitStack
+import itertools
 import numpy as np
 from numpy.core.fromnumeric import squeeze
 import pandas as pd
-from contextlib import ExitStack
 import pytest
+
 from econml.solutions.causal_analysis import CausalAnalysis
 from econml.solutions.causal_analysis._causal_analysis import _CausalInsightsConstants
 
@@ -670,21 +673,24 @@ class TestCausalAnalysis(unittest.TestCase):
         inds = [0, 1, 2, 3]
         cats = [2, 3]
         hinds = [0, 3]
-        for n_model in ['linear', 'automl']:
-            for h_model in ['linear', 'forest']:
-                for classification in [True, False]:
-                    ca = CausalAnalysis(inds, cats, hinds, classification=classification,
-                                        nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
-                    ca.fit(X, y)
-                    glo = ca.global_causal_effect()
 
-                    ca2 = CausalAnalysis(inds, cats, hinds, classification=classification,
-                                         nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
-                    ca2.fit(X, y)
-                    glo2 = ca.global_causal_effect()
+        for n_model, h_model, classification in itertools.product(
+                                                        ['linear', 'automl'],
+                                                        ['linear', 'forest'],
+                                                        [True, False]):
 
-                    np.testing.assert_equal(glo.point.values, glo2.point.values)
-                    np.testing.assert_equal(glo.stderr.values, glo2.stderr.values)
+            ca = CausalAnalysis(inds, cats, hinds, classification=classification,
+                                nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
+            ca.fit(X, y)
+            glo = ca.global_causal_effect()
+
+            ca2 = CausalAnalysis(inds, cats, hinds, classification=classification,
+                                    nuisance_models=n_model, heterogeneity_model=h_model, random_state=123)
+            ca2.fit(X, y)
+            glo2 = ca.global_causal_effect()
+
+            np.testing.assert_equal(glo.point.values, glo2.point.values)
+            np.testing.assert_equal(glo.stderr.values, glo2.stderr.values)
 
     def test_can_set_categories(self):
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
