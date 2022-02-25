@@ -3,11 +3,9 @@
 
 import gc
 import unittest
-import resource
 
 from contextlib import ExitStack
 import itertools
-from memory_profiler import profile
 import numpy as np
 from numpy.core.fromnumeric import squeeze
 import pandas as pd
