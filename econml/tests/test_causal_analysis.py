@@ -1,10 +1,13 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import gc
 import unittest
+import resource
 
 from contextlib import ExitStack
 import itertools
+from memory_profiler import profile
 import numpy as np
 from numpy.core.fromnumeric import squeeze
 import pandas as pd
@@ -692,6 +695,9 @@ class TestCausalAnalysis(unittest.TestCase):
             np.testing.assert_equal(glo.point.values, glo2.point.values)
             np.testing.assert_equal(glo.stderr.values, glo2.stderr.values)
 
+            del ca, glo, ca2, glo2
+            gc.collect()
+
     def test_can_set_categories(self):
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
         X = pd.DataFrame({'a': np.random.normal(size=500),
@@ -784,6 +790,9 @@ class TestCausalAnalysis(unittest.TestCase):
                         self.assertEqual(ca.trained_feature_indices_, [0, 1, 2, 3])  # can't handle last two
                         self.assertEqual(ca.untrained_feature_indices_, [(4, 'cat_limit'),
                                                                          (5, 'cat_limit')])
+                    
+                    del ca
+                    gc.collect()
 
     # Add tests that guarantee that the reliance on DML feature order is not broken, such as
     # Creare a transformer that zeros out all variables after the first n_x variables, so it zeros out W
