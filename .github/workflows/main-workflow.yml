@@ -138,7 +138,7 @@ jobs:
       - name: Unit Tests
         run: python setup.py pytest
         env: 
-          PYTEST_ADDOPT: '-m "notebook"'
+          PYTEST_ADDOPTS: '-m "notebook"'
           NOTEBOOK_DIR_PATTERN: 'CustomerScenarios'
   
   noncustomer_notebooks:
@@ -168,7 +168,7 @@ jobs:
       - name: Unit Tests
         run: python setup.py pytest
         env: 
-          PYTEST_ADDOPT: '-m "notebook"'
+          PYTEST_ADDOPTS: '-m "notebook"'
           NOTEBOOK_DIR_PATTERN: '(?!CustomerScenarios)'
   
   unit_tests:
