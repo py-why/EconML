@@ -165,6 +165,9 @@ jobs:
         run: pip install -U shap~=0.40.0
       - name: Install test dependencies
         run: pip install pytest pytest-runner jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+      # Install graphviz programmatically on Linux
+      - name: Install graphviz
+        run: sudo apt-get -yq install graphviz
       - name: Unit Tests
         run: python setup.py pytest
         env: 
