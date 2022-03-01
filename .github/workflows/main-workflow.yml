@@ -298,4 +298,4 @@ jobs:
 
         # Profile memory usage on causal tests
         - name: Run Unit Tests
-          run: python -m memory_profiler econml/tests/test_causal_analysis_memprof.py 
+          run: python -m memory_profiler econml/tests/causal_analysis_memprof.py 
