@@ -16,6 +16,7 @@ from econml.solutions.causal_analysis._causal_analysis import _CausalInsightsCon
 def assert_less_close(arr1, arr2):
     assert np.all(np.logical_or(arr1 <= arr2, np.isclose(arr1, arr2)))
 
+
 @pytest.mark.causal
 class TestCausalAnalysis(unittest.TestCase):
 
@@ -412,12 +413,12 @@ class TestCausalAnalysis(unittest.TestCase):
             for classification in [False, True]:
                 ca = CausalAnalysis(inds, cats, hinds, classification=classification, heterogeneity_model=h_model)
                 ca.fit(X, y)
-                _ = ca.global_causal_effect() #glo
-                _ = ca.cohort_causal_effect(X[:2]) #coh
-                _ = ca.local_causal_effect(X[:2]) #loc
-                _ = ca._global_causal_effect_dict() #glo_dict
-                _ = ca._cohort_causal_effect_dict(X[:2]) #coh_dict
-                _ = ca._local_causal_effect_dict(X[:2]) #loc_dict
+                _ = ca.global_causal_effect()  # glo
+                _ = ca.cohort_causal_effect(X[:2]) # coh
+                _ = ca.local_causal_effect(X[:2])  # loc
+                _ = ca._global_causal_effect_dict()  # glo_dict
+                _ = ca._cohort_causal_effect_dict(X[:2])  # coh_dict
+                _ = ca._local_causal_effect_dict(X[:2])  # loc_dict
 
                 ca._policy_tree_output(X, 1)
                 ca._heterogeneity_tree_output(X, 1)
@@ -453,9 +454,6 @@ class TestCausalAnalysis(unittest.TestCase):
         with self.assertRaises(AssertionError):
             ca = CausalAnalysis(inds, cats, hinds, classification=classification, heterogeneity_model='other')
             ca.fit(X, y)
-
-        del ca
-        gc.collect()
 
     @profile
     def test_forest_with_pandas(self):
