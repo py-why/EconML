@@ -274,7 +274,7 @@ jobs:
         - name: Setup Python
           uses: actions/setup-python@v2
           with:
-            python-version: ${{ matrix.python }}
+            python-version: 3.9
 
         # Upgrade pip and ...
         - name: Upgrade pip and setuptools
@@ -282,7 +282,6 @@ jobs:
           
         # Install OpenMP on Mac to support lightgbm
         - name: Install OpenML on Mac
-          if: ${{ matrix.image == 'macOS-10.15' }}
           run: brew install libomp
           
         # Install EconML package
