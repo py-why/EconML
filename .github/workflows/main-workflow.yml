@@ -261,8 +261,6 @@ jobs:
           path: coverage.xml
 
  causal_profile:
-    strategy:
-      fail-fast: false
     name: Profiles causal tests on MacOS w/ Python3.9
     runs-on: macOS-10.15
     needs: eval_changes

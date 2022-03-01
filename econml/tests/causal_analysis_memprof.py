@@ -414,7 +414,7 @@ class TestCausalAnalysis(unittest.TestCase):
                 ca = CausalAnalysis(inds, cats, hinds, classification=classification, heterogeneity_model=h_model)
                 ca.fit(X, y)
                 _ = ca.global_causal_effect()  # glo
-                _ = ca.cohort_causal_effect(X[:2]) # coh
+                _ = ca.cohort_causal_effect(X[:2])  # coh
                 _ = ca.local_causal_effect(X[:2])  # loc
                 _ = ca._global_causal_effect_dict()  # glo_dict
                 _ = ca._cohort_causal_effect_dict(X[:2])  # coh_dict
@@ -868,8 +868,11 @@ class TestCausalAnalysis(unittest.TestCase):
 
             # np.testing.assert_allclose(loc1.point.values, theta.flatten(), rtol=1e-1)
 
+
 if __name__ == '__main__':
-    @profile
+    fp=open('memory_profiler.log','w+')
+
+    @profile(stream=fp)
     def memory_summary():
         """Runs all unit tests to generate a single memory profile summary."""
         tests = TestCausalAnalysis()
@@ -892,3 +895,5 @@ if __name__ == '__main__':
         tests.test_scaling_transforms()
     
     memory_summary()
+
+    fp.close()
