@@ -870,9 +870,9 @@ class TestCausalAnalysis(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    fp=open('memory_profiler.log','w+')
+    # fp=open('memory_profiler.log', 'w+')
 
-    @profile(stream=fp)
+    @profile
     def memory_summary():
         """Runs all unit tests to generate a single memory profile summary."""
         tests = TestCausalAnalysis()
@@ -896,4 +896,4 @@ if __name__ == '__main__':
     
     memory_summary()
 
-    fp.close()
+    # fp.close()
