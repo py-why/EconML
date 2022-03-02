@@ -260,42 +260,4 @@ jobs:
           name: code-coverage-report
           path: coverage.xml
 
-  causal_profile:
-      name: Profiles causal tests on MacOS w/ Python3.9
-      runs-on: macOS-10.15
-      needs: eval_changes
-      if: ${{ needs.eval_changes.outputs.code_changes }}
-      steps:
-        # Checkout EconML code
-        - name: Checkout code
-          uses: actions/checkout@v2
-        
-        # Setup Python (including pip)
-        - name: Setup Python
-          uses: actions/setup-python@v2
-          with:
-            python-version: 3.9
-
-        # Upgrade pip and ...
-        - name: Upgrade pip and setuptools
-          run: python -m pip install --upgrade pip && pip install --upgrade setuptools wheel Cython
-          
-        # Install OpenMP on Mac to support lightgbm
-        - name: Install OpenML on Mac
-          run: brew install libomp
-          
-        # Install EconML package
-        - name: Install EconML
-          run: pip install -e .[tf,plt]
-
-        # Install test dependencies
-        - name: Install Dependencies
-          run: pip install pytest pytest-runner
-
-        # Install memory profiler
-        - name: Install memory profiler
-          run: pip install memory-profiler
-
-        # Profile memory usage on causal tests
-        - name: Run Unit Tests
-          run: python -m memory_profiler econml/tests/causal_analysis_memprof.py 
+ 
