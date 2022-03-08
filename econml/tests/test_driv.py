@@ -127,12 +127,12 @@ class TestDRIV(unittest.TestCase):
 
                     # TODO: serializing/deserializing for every combination -- is this necessary?
                     # ensure we can serialize unfit estimator
-                    # pickle.dumps(est)
+                    pickle.dumps(est)
 
                     est.fit(y, T, Z=Z, X=X, W=W)
 
                     # ensure we can serialize fit estimator
-                    # pickle.dumps(est)
+                    pickle.dumps(est)
 
                     # expected effect size
                     exp_const_marginal_effect_shape = const_marg_eff_shape(n, d_x, binary_T)
