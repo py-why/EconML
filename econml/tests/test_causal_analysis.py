@@ -1,7 +1,6 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-import gc
 import unittest
 
 from contextlib import ExitStack
@@ -19,7 +18,7 @@ def assert_less_close(arr1, arr2):
     assert np.all(np.logical_or(arr1 <= arr2, np.isclose(arr1, arr2)))
 
 
-@pytest.mark.causal
+@pytest.mark.serial
 class TestCausalAnalysis(unittest.TestCase):
 
     def test_basic_array(self):
@@ -693,9 +692,6 @@ class TestCausalAnalysis(unittest.TestCase):
             np.testing.assert_equal(glo.point.values, glo2.point.values)
             np.testing.assert_equal(glo.stderr.values, glo2.stderr.values)
 
-            del ca, glo, ca2, glo2
-            gc.collect()
-
     def test_can_set_categories(self):
         y = pd.Series(np.random.choice([0, 1], size=(500,)))
         X = pd.DataFrame({'a': np.random.normal(size=500),
@@ -789,14 +785,12 @@ class TestCausalAnalysis(unittest.TestCase):
                         self.assertEqual(ca.untrained_feature_indices_, [(4, 'cat_limit'),
                                                                          (5, 'cat_limit')])
 
-                    del ca
-                    gc.collect()
-
     # Add tests that guarantee that the reliance on DML feature order is not broken, such as
     # Creare a transformer that zeros out all variables after the first n_x variables, so it zeros out W
     # Pass an example where W is irrelevant and X is confounder
     # As long as DML doesnt change the order of the inputs, then things should be good. Otherwise X would be
     # zeroed out and the test will fail
+
     def test_scaling_transforms(self):
         # shouldn't matter if X is scaled much larger or much smaller than W, we should still get good estimates
         n = 2000

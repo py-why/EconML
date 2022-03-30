@@ -258,9 +258,6 @@ class TestTree(unittest.TestCase):
         np.testing.assert_array_almost_equal(tree.value.flatten(), .4 * np.ones(len(tree.value)))
 
     def test_noisy_instance(self):
-        """
-        The purpose of this test
-        """
 
         # initialize parameters
         n_samples = 5000
