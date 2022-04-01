@@ -643,7 +643,7 @@ class CausalForestDML(_BaseDML):
             The tuned causal forest object. This is the same object (not a copy) as the original one, but where
             all parameters of the object have been set to the best performing parameters from the tuning grid.
         """
-        from ..score import RScorer
+        from ..score import RScorer # import here to avoid circular import issue
         Y, T, X, W, sample_weight, groups = check_input_arrays(Y, T, X, W, sample_weight, groups)
 
         if params == 'auto':
