@@ -511,7 +511,6 @@ class CausalForestDML(_BaseDML):
                  random_state=None,
                  verbose=0):
 
-
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.drate = drate
