@@ -327,6 +327,25 @@ class TestStatsModels(unittest.TestCase):
             assert np.all(np.abs(est.intercept_ - lr.intercept_) <
                           1e-12), "{}, {}".format(est.intercept_, lr.intercept_)
 
+    def test_o_dtype(self):
+        """ Testing that the models still work when the np arrays are of O dtype """
+        np.random.seed(123)
+        n = 1000
+        d = 3
+        
+        X = np.random.normal(size=(n, d)).astype('O')
+        y = np.random.normal(size=n).astype('O')
+
+        est = OLS().fit(X, y)
+        lr = LinearRegression().fit(X, y)
+        assert np.all(np.abs(est.coef_ - lr.coef_) < 1e-12), "{}, {}".format(est.coef_, lr.coef_)
+        assert np.all(np.abs(est.intercept_ - lr.intercept_) < 1e-12), "{}, {}".format(est.coef_, lr.intercept_)
+
+        est = OLS(fit_intercept=False).fit(X, y)
+        lr = LinearRegression(fit_intercept=False).fit(X, y)
+        assert np.all(np.abs(est.coef_ - lr.coef_) < 1e-12), "{}, {}".format(est.coef_, lr.coef_)
+        assert np.all(np.abs(est.intercept_ - lr.intercept_) < 1e-12), "{}, {}".format(est.coef_, lr.intercept_)
+
     def test_inference(self):
         """ Testing that we recover the expected standard errors and confidence intervals in a known example """
 
