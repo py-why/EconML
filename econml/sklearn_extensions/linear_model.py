@@ -1684,7 +1684,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         """Check dimensions and other assertions."""
 
         X, y, sample_weight, freq_weight, sample_var = check_input_arrays(
-            X, y, sample_weight, freq_weight, sample_var, dtype = 'numeric') 
+            X, y, sample_weight, freq_weight, sample_var, dtype='numeric')
         if X is None:
             X = np.empty((y.shape[0], 0))
         if self.fit_intercept:

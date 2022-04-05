@@ -532,7 +532,7 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
         Whether to allow inf and nan in input arrays.
 
     dtype : 'numeric', type, list of type or None (default=None)
-        Argument passed to sklearn.utils.check_array. 
+        Argument passed to sklearn.utils.check_array.
         Specifies data type of result. If None, the dtype of the input is preserved.
         If "numeric", dtype is preserved unless array.dtype is object.
         If dtype is a list of types, conversion on the first type is only

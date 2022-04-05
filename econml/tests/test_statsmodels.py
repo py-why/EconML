@@ -332,7 +332,7 @@ class TestStatsModels(unittest.TestCase):
         np.random.seed(123)
         n = 1000
         d = 3
-        
+
         X = np.random.normal(size=(n, d)).astype('O')
         y = np.random.normal(size=n).astype('O')
 
