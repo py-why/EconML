@@ -181,7 +181,9 @@ class TestShap(unittest.TestCase):
 
         # test shap could generate the plot from the shap_values
         heatmap(shap_values1["Y0"]["orange"], show=False)
-        waterfall(shap_values1["Y0"]["orange"][6], show=False)
+        if shap.__version__ != "0.40.0":
+            # waterfall is broken in this version, fixed by https://github.com/slundberg/shap/pull/2444
+            waterfall(shap_values1["Y0"]["orange"][6], show=False)
         scatter(shap_values1["Y0"]["orange"][:, "A"], show=False)
         bar(shap_values1["Y0"]["orange"], show=False)
         beeswarm(shap_values1["Y0"]["orange"], show=False)
