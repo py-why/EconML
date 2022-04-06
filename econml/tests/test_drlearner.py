@@ -1,29 +1,31 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-import numpy as np
-import unittest
-import pytest
+from contextlib import ExitStack
 import pickle
-from sklearn.base import TransformerMixin
+import unittest
+
+import numpy as np
 from numpy.random import normal, multivariate_normal, binomial
+import pytest
+
+import scipy.special
+from sklearn.base import TransformerMixin
+from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
 from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from sklearn.model_selection import KFold, GroupKFold
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
+
 from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
-from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
-from contextlib import ExitStack
-from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from econml.utilities import shape, hstack, vstack, reshape, cross_product
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
-import scipy.special
 import econml.tests.utilities  # bugfix for assertWarns
 
 
+@pytest.mark.serial
 class TestDRLearner(unittest.TestCase):
 
     @classmethod

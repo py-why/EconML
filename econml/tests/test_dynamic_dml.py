@@ -16,7 +16,7 @@ import econml.tests.utilities  # bugfix for assertWarns
 from econml.tests.dgp import DynamicPanelDGP
 
 
-@pytest.mark.dml
+@pytest.mark.cate_api
 class TestDynamicDML(unittest.TestCase):
 
     def test_cate_api(self):
