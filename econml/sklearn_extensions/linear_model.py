@@ -19,7 +19,7 @@ import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
 from econml.sklearn_extensions.model_selection import WeightedKFold, WeightedStratifiedKFold
-from econml.utilities import ndim, shape, reshape, _safe_norm_ppf
+from econml.utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.metrics import r2_score
@@ -1683,6 +1683,8 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
     def _check_input(self, X, y, sample_weight, freq_weight, sample_var):
         """Check dimensions and other assertions."""
 
+        X, y, sample_weight, freq_weight, sample_var = check_input_arrays(
+            X, y, sample_weight, freq_weight, sample_var, dtype='numeric')
         if X is None:
             X = np.empty((y.shape[0], 0))
         if self.fit_intercept:
