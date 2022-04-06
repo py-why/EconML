@@ -1,161 +1,177 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
-import unittest
-import pytest
-import pickle
-import numpy as np
-from scipy import special
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from econml.iv.dr import (DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV,)
 from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
-from sklearn.preprocessing import PolynomialFeatures
 from econml.utilities import shape
-from econml.iv.dr import (DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV,)
+
+import itertools
+import numpy as np
+import pytest
+import pickle
+from scipy import special
+from sklearn.preprocessing import PolynomialFeatures
+import unittest
 
 
+@pytest.mark.cate_api
 class TestDRIV(unittest.TestCase):
     def test_cate_api(self):
         def const_marg_eff_shape(n, d_x, binary_T):
+            """Constant marginal effect shape."""
             return (n if d_x else 1,) + ((1,) if binary_T else ())
 
         def marg_eff_shape(n, binary_T):
+            """Marginal effect shape."""
             return (n,) + ((1,) if binary_T else ())
 
         def eff_shape(n, d_x):
+            "Effect shape."
             return (n if d_x else 1,)
 
-        n = 1000
+        n = 500
         y = np.random.normal(size=(n,))
 
-        for d_w in [None, 10]:
+        # parameter combinations to test
+        for d_w, d_x, binary_T, binary_Z, projection, featurizer\
+            in itertools.product(
+                [None, 10],     # d_w
+                [None, 3],      # d_x
+                [True, False],  # binary_T
+                [True, False],  # binary_Z
+                [True, False],  # projection
+                [None, PolynomialFeatures(degree=2, include_bias=False), ]):    # featurizer
+
             if d_w is None:
                 W = None
             else:
                 W = np.random.normal(size=(n, d_w))
-            for d_x in [None, 3]:
-                if d_x is None:
-                    X = None
-                else:
-                    X = np.random.normal(size=(n, d_x))
-                for binary_T in [True, False]:
-                    if binary_T:
-                        T = np.random.choice(["a", "b"], size=(n,))
-                    else:
-                        T = np.random.normal(size=(n,))
-                    for binary_Z in [True, False]:
-                        if binary_Z:
-                            Z = np.random.choice(["c", "d"], size=(n,))
-                        else:
-                            Z = np.random.normal(size=(n,))
-                        for projection in [True, False]:
-                            for featurizer in [
-                                None,
-                                PolynomialFeatures(degree=2, include_bias=False),
-                            ]:
-                                est_list = [
-                                    DRIV(
-                                        flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
-                                        model_final=StatsModelsLinearRegression(
-                                            fit_intercept=False
-                                        ),
-                                        fit_cate_intercept=True,
-                                        projection=projection,
-                                        discrete_instrument=binary_Z,
-                                        discrete_treatment=binary_T,
-                                        featurizer=featurizer,
-                                    ),
-                                    LinearDRIV(
-                                        flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
-                                        fit_cate_intercept=True,
-                                        projection=projection,
-                                        discrete_instrument=binary_Z,
-                                        discrete_treatment=binary_T,
-                                        featurizer=featurizer,
-                                    ),
-                                    SparseLinearDRIV(
-                                        flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
-                                        fit_cate_intercept=True,
-                                        projection=projection,
-                                        discrete_instrument=binary_Z,
-                                        discrete_treatment=binary_T,
-                                        featurizer=featurizer,
-                                    ),
-                                    ForestDRIV(
-                                        flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
-                                        projection=projection,
-                                        discrete_instrument=binary_Z,
-                                        discrete_treatment=binary_T,
-                                        featurizer=featurizer,
-                                    ),
-                                ]
 
-                                if X is None:
-                                    est_list = est_list[:-1]
+            if d_x is None:
+                X = None
+            else:
+                X = np.random.normal(size=(n, d_x))
 
-                                if binary_T and binary_Z:
-                                    est_list += [
-                                        IntentToTreatDRIV(
-                                            flexible_model_effect=StatsModelsLinearRegression(
-                                                fit_intercept=False
-                                            ),
-                                            fit_cate_intercept=True,
-                                            featurizer=featurizer,
-                                        ),
-                                        LinearIntentToTreatDRIV(
-                                            flexible_model_effect=StatsModelsLinearRegression(
-                                                fit_intercept=False
-                                            ),
-                                            featurizer=featurizer,
-                                        ),
-                                    ]
+            if binary_T:
+                T = np.random.choice(["a", "b"], size=(n,))
+            else:
+                T = np.random.normal(size=(n,))
 
-                                for est in est_list:
-                                    with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T, binary_Z=binary_Z,
-                                                      projection=projection, featurizer=featurizer,
-                                                      est=est):
+            if binary_Z:
+                Z = np.random.choice(["c", "d"], size=(n,))
+            else:
+                Z = np.random.normal(size=(n,))
 
-                                        # ensure we can serialize unfit estimator
-                                        pickle.dumps(est)
+            est_list = [
+                DRIV(
+                    flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+                    model_final=StatsModelsLinearRegression(
+                        fit_intercept=False
+                    ),
+                    fit_cate_intercept=True,
+                    projection=projection,
+                    discrete_instrument=binary_Z,
+                    discrete_treatment=binary_T,
+                    featurizer=featurizer,
+                ),
+                LinearDRIV(
+                    flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+                    fit_cate_intercept=True,
+                    projection=projection,
+                    discrete_instrument=binary_Z,
+                    discrete_treatment=binary_T,
+                    featurizer=featurizer,
+                ),
+                SparseLinearDRIV(
+                    flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+                    fit_cate_intercept=True,
+                    projection=projection,
+                    discrete_instrument=binary_Z,
+                    discrete_treatment=binary_T,
+                    featurizer=featurizer,
+                ),
+                ForestDRIV(
+                    flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+                    projection=projection,
+                    discrete_instrument=binary_Z,
+                    discrete_treatment=binary_T,
+                    featurizer=featurizer,
+                ),
+            ]
 
-                                        est.fit(y, T, Z=Z, X=X, W=W)
+            if X is None:
+                est_list = est_list[:-1]
 
-                                        # ensure we can serialize fit estimator
-                                        pickle.dumps(est)
+            if binary_T and binary_Z:
+                est_list += [
+                    IntentToTreatDRIV(
+                        flexible_model_effect=StatsModelsLinearRegression(
+                            fit_intercept=False
+                        ),
+                        fit_cate_intercept=True,
+                        featurizer=featurizer,
+                    ),
+                    LinearIntentToTreatDRIV(
+                        flexible_model_effect=StatsModelsLinearRegression(
+                            fit_intercept=False
+                        ),
+                        featurizer=featurizer,
+                    ),
+                ]
 
-                                        # expected effect size
-                                        const_marginal_effect_shape = const_marg_eff_shape(n, d_x, binary_T)
-                                        marginal_effect_shape = marg_eff_shape(n, binary_T)
-                                        effect_shape = eff_shape(n, d_x)
-                                        # test effect
-                                        const_marg_eff = est.const_marginal_effect(X)
-                                        self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
-                                        marg_eff = est.marginal_effect(T, X)
-                                        self.assertEqual(shape(marg_eff), marginal_effect_shape)
-                                        T0 = "a" if binary_T else 0
-                                        T1 = "b" if binary_T else 1
-                                        eff = est.effect(X, T0=T0, T1=T1)
-                                        self.assertEqual(shape(eff), effect_shape)
+            for est in est_list:
+                with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T,
+                                  binary_Z=binary_Z, projection=projection, featurizer=featurizer,
+                                  est=est):
 
-                                        # test inference
-                                        const_marg_eff_int = est.const_marginal_effect_interval(X)
-                                        marg_eff_int = est.marginal_effect_interval(T, X)
-                                        eff_int = est.effect_interval(X, T0=T0, T1=T1)
-                                        self.assertEqual(shape(const_marg_eff_int), (2,) + const_marginal_effect_shape)
-                                        self.assertEqual(shape(marg_eff_int), (2,) + marginal_effect_shape)
-                                        self.assertEqual(shape(eff_int), (2,) + effect_shape)
+                    # TODO: serializing/deserializing for every combination -- is this necessary?
+                    # ensure we can serialize unfit estimator
+                    pickle.dumps(est)
 
-                                        # test can run score
-                                        est.score(y, T, Z=Z, X=X, W=W)
+                    est.fit(y, T, Z=Z, X=X, W=W)
 
-                                        if X is not None:
-                                            # test cate_feature_names
-                                            expect_feat_len = featurizer.fit(
-                                                X).n_output_features_ if featurizer else d_x
-                                            self.assertEqual(len(est.cate_feature_names()), expect_feat_len)
+                    # ensure we can serialize fit estimator
+                    pickle.dumps(est)
 
-                                            # test can run shap values
-                                            shap_values = est.shap_values(X[:10])
+                    # expected effect size
+                    exp_const_marginal_effect_shape = const_marg_eff_shape(n, d_x, binary_T)
+                    marginal_effect_shape = marg_eff_shape(n, binary_T)
+                    effect_shape = eff_shape(n, d_x)
+
+                    # assert calculated constant marginal effect shape is expected
+                    # const_marginal effect is defined in LinearCateEstimator class
+                    const_marg_eff = est.const_marginal_effect(X)
+                    self.assertEqual(shape(const_marg_eff), exp_const_marginal_effect_shape)
+
+                    # assert calculated marginal effect shape is expected
+                    marg_eff = est.marginal_effect(T, X)
+                    self.assertEqual(shape(marg_eff), marginal_effect_shape)
+
+                    T0 = "a" if binary_T else 0
+                    T1 = "b" if binary_T else 1
+                    eff = est.effect(X, T0=T0, T1=T1)
+                    self.assertEqual(shape(eff), effect_shape)
+
+                    # test inference
+                    const_marg_eff_int = est.const_marginal_effect_interval(X)
+                    marg_eff_int = est.marginal_effect_interval(T, X)
+                    eff_int = est.effect_interval(X, T0=T0, T1=T1)
+                    self.assertEqual(shape(const_marg_eff_int), (2,) + exp_const_marginal_effect_shape)
+                    self.assertEqual(shape(marg_eff_int), (2,) + marginal_effect_shape)
+                    self.assertEqual(shape(eff_int), (2,) + effect_shape)
+
+                    # test can run score
+                    est.score(y, T, Z=Z, X=X, W=W)
+
+                    if X is not None:
+                        # test cate_feature_names
+                        expect_feat_len = featurizer.fit(
+                            X).n_output_features_ if featurizer else d_x
+                        self.assertEqual(len(est.cate_feature_names()), expect_feat_len)
+
+                        # test can run shap values
+                        _ = est.shap_values(X[:10])
 
     def test_accuracy(self):
         np.random.seed(123)

@@ -15,5 +15,6 @@ markers = [
     "notebook",
     "automl",
     "dml",
-    "causal"
+    "serial",
+    "cate_api"
 ]
