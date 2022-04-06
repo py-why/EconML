@@ -514,7 +514,7 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     return Y, T, X, W
 
 
-def check_input_arrays(*args, validate_len=True, force_all_finite=True):
+def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=None):
     """Cast input sequences into numpy arrays.
 
     Only inputs that are sequence-like will be converted, all other inputs will be left as is.
@@ -531,6 +531,13 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True):
     force_all_finite : bool (default=True)
         Whether to allow inf and nan in input arrays.
 
+    dtype : 'numeric', type, list of type or None (default=None)
+        Argument passed to sklearn.utils.check_array.
+        Specifies data type of result. If None, the dtype of the input is preserved.
+        If "numeric", dtype is preserved unless array.dtype is object.
+        If dtype is a list of types, conversion on the first type is only
+        performed if the dtype of the input is not in the list.
+
     Returns
     -------
     args: array-like
@@ -541,7 +548,7 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True):
     args = list(args)
     for i, arg in enumerate(args):
         if np.ndim(arg) > 0:
-            new_arg = check_array(arg, dtype=None, ensure_2d=False, accept_sparse=True,
+            new_arg = check_array(arg, dtype=dtype, ensure_2d=False, accept_sparse=True,
                                   force_all_finite=force_all_finite)
             if not force_all_finite:
                 # For when checking input values is disabled
