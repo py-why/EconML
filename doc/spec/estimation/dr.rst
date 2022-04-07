@@ -28,7 +28,7 @@ opposed to just the controls. Then the method combines these two predictive mode
 model of the heterogeneous treatment effect. The approach allows for *arbitrary Machine Learning algorithms* to be
 used for the two predictive tasks, while maintaining many favorable statistical properties related to the final
 model (e.g. small mean squared error, asymptotic normality, construction of confidence intervals). The latter
-favorable statsitical properties hold if either the first or the second of the two predictive tasks achieves small mean
+favorable statistical properties hold if either the first or the second of the two predictive tasks achieves small mean
 squared error (hence the name doubly robust).
 
 Our package offers several variants for the final model estimation. Many of these variants also
