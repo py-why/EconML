@@ -99,7 +99,7 @@ treatment :math:`t=0`, i.e.:
 
 One way to estimate :math:`\theta_t(X)` is the *Direct Method* (DM) approach,
 where we simply estimate a regression,
-regresstin :math:`Y` on :math:`T, X, W` to learn a model
+regressing :math:`Y` on :math:`T, X, W` to learn a model
 of :math:`g_T(X, W) = \E[Y | T, X, W]` and then evaluate :math:`\theta_t(X)` by regressing
 
 .. math::
