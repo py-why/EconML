@@ -50,7 +50,7 @@ When should you use it?
 Suppose you have observational (or experimental from an A/B test) historical data, where some treatment/intervention/action
 :math:`T` from among a finite set of treatments was chosen and some outcome(s) :math:`Y` was observed and all the variables :math:`W` that could have
 potentially gone into the choice of :math:`T`, and simultaneously could have had a direct effect on the outcome
-:math:`Y` (aka controls or confounders) are also recorder in the dataset.
+:math:`Y` (aka controls or confounders) are also recorded in the dataset.
 
 If your goal is to understand what was the effect of each of the treatments on the outcome as a function of a set of observable
 characteristics :math:`X` of the treated samples, then one can use this method. For instance call:
@@ -79,7 +79,7 @@ This way an optimal treatment policy can be learned, by simply inspecting for wh
 Overview of Formal Methodology
 ==================================
 
-The model's assumpitons are better explained in the language of potential outcomes. If we denote with :math:`Y^{(t)}` the potential outcome that
+The model's assumptions are better explained in the language of potential outcomes. If we denote with :math:`Y^{(t)}` the potential outcome that
 we would have observed had we treated the sample with treatment :math:`T=t`, then the approach assumes that:
 
 .. math::
