@@ -106,7 +106,7 @@ of :math:`g_T(X, W) = \E[Y | T, X, W]` and then evaluate :math:`\theta_t(X)` by 
 
     Y_{i, t}^{DM} = g_t(X_i, W_i) - g_0(X_i, W_i)
 
-on :math:`X`. The main problem with this approach is that it is heavily dependend
+on :math:`X`. The main problem with this approach is that it is heavily dependent
 on the model-based extrapolation that is implicitly done via the model that is fitted in the regression. Essentially,
 when we evaluate :math:`g_t(X, W)` on a sample with features :math:`X, W` for which we gave some other treatment
 :math:`T=t'`, then we are extrapolating from other samples with similar :math:`X, W`, which received the treatment
