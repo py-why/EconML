@@ -25,10 +25,10 @@ It reduces the problem to first estimating *two predictive tasks*:
 
 Thus unlike Double Machine Learning the first model predicts the outcome from both the treatment and the controls as
 opposed to just the controls. Then the method combines these two predictive models in a final stage estimation so as to create a
-model of the heterogeneous treatment efffect. The approach allows for *arbitrary Machine Learning algorithms* to be
+model of the heterogeneous treatment effect. The approach allows for *arbitrary Machine Learning algorithms* to be
 used for the two predictive tasks, while maintaining many favorable statistical properties related to the final
 model (e.g. small mean squared error, asymptotic normality, construction of confidence intervals). The latter
-favorable statsitical properties hold if either the first or the second of the two predictive tasks achieves small mean
+favorable statistical properties hold if either the first or the second of the two predictive tasks achieves small mean
 squared error (hence the name doubly robust).
 
 Our package offers several variants for the final model estimation. Many of these variants also
@@ -50,7 +50,7 @@ When should you use it?
 Suppose you have observational (or experimental from an A/B test) historical data, where some treatment/intervention/action
 :math:`T` from among a finite set of treatments was chosen and some outcome(s) :math:`Y` was observed and all the variables :math:`W` that could have
 potentially gone into the choice of :math:`T`, and simultaneously could have had a direct effect on the outcome
-:math:`Y` (aka controls or confounders) are also recorder in the dataset.
+:math:`Y` (aka controls or confounders) are also recorded in the dataset.
 
 If your goal is to understand what was the effect of each of the treatments on the outcome as a function of a set of observable
 characteristics :math:`X` of the treated samples, then one can use this method. For instance call:
@@ -79,7 +79,7 @@ This way an optimal treatment policy can be learned, by simply inspecting for wh
 Overview of Formal Methodology
 ==================================
 
-The model's assumpitons are better explained in the language of potential outcomes. If we denote with :math:`Y^{(t)}` the potential outcome that
+The model's assumptions are better explained in the language of potential outcomes. If we denote with :math:`Y^{(t)}` the potential outcome that
 we would have observed had we treated the sample with treatment :math:`T=t`, then the approach assumes that:
 
 .. math::
@@ -99,14 +99,14 @@ treatment :math:`t=0`, i.e.:
 
 One way to estimate :math:`\theta_t(X)` is the *Direct Method* (DM) approach,
 where we simply estimate a regression,
-regresstin :math:`Y` on :math:`T, X, W` to learn a model
+regressing :math:`Y` on :math:`T, X, W` to learn a model
 of :math:`g_T(X, W) = \E[Y | T, X, W]` and then evaluate :math:`\theta_t(X)` by regressing
 
 .. math::
 
     Y_{i, t}^{DM} = g_t(X_i, W_i) - g_0(X_i, W_i)
 
-on :math:`X`. The main problem with this approach is that it is heavily dependend
+on :math:`X`. The main problem with this approach is that it is heavily dependent
 on the model-based extrapolation that is implicitly done via the model that is fitted in the regression. Essentially,
 when we evaluate :math:`g_t(X, W)` on a sample with features :math:`X, W` for which we gave some other treatment
 :math:`T=t'`, then we are extrapolating from other samples with similar :math:`X, W`, which received the treatment
