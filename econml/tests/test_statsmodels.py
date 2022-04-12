@@ -1,31 +1,29 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import unittest
+
 import numpy as np
 import pytest
-from econml.dml import DML, LinearDML, NonParamDML
-from econml.dr import LinearDRLearner
-from econml.iv.dr import LinearDRIV
-from econml.iv.dml import DMLIV
-from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
-from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
-from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
-from econml.iv.dr._dr import _DummyCATE
-from statsmodels.regression.linear_model import WLS
-from statsmodels.tools.tools import add_constant
-from statsmodels.sandbox.regression.gmm import IV2SLS
-from sklearn.dummy import DummyClassifier
-from sklearn.linear_model import LinearRegression, LogisticRegression, LassoCV, Lasso, MultiTaskLassoCV
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-from sklearn.model_selection import KFold, StratifiedKFold
+
 import scipy.special
-import time
+from sklearn.base import clone
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.preprocessing import PolynomialFeatures
+from statsmodels.regression.linear_model import WLS
+from statsmodels.sandbox.regression.gmm import IV2SLS
+from statsmodels.tools.tools import add_constant
+
+from econml.inference import StatsModelsInference, StatsModelsInferenceDiscrete
+from econml.dml import LinearDML, NonParamDML
+from econml.dr import LinearDRLearner
+from econml.iv.dml import DMLIV
+from econml.iv.dr import LinearDRIV
+from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsLinearRegression
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression as OLS
 from econml.sklearn_extensions.linear_model import StatsModels2SLS
-import unittest
-import joblib
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.base import clone
+from econml.utilities import (ndim, transpose, shape, reshape, hstack, WeightedModelWrapper)
 
 
 class StatsModelsOLS:
@@ -267,6 +265,7 @@ def _compare_dr_classes(est, lr, X_test, alpha=.05, tol=1e-10):
         "{}, {}".format(est.effect_interval(X_test, alpha=alpha), lr.effect_interval(X_test, alpha=alpha))
 
 
+@pytest.mark.serial
 class TestStatsModels(unittest.TestCase):
 
     def test_comp_with_lr(self):
@@ -327,6 +326,25 @@ class TestStatsModels(unittest.TestCase):
             assert np.all(np.abs(est.coef_ - lr.coef_) < 1e-12), "{}, {}".format(est.coef_, lr.coef_)
             assert np.all(np.abs(est.intercept_ - lr.intercept_) <
                           1e-12), "{}, {}".format(est.intercept_, lr.intercept_)
+
+    def test_o_dtype(self):
+        """ Testing that the models still work when the np arrays are of O dtype """
+        np.random.seed(123)
+        n = 1000
+        d = 3
+
+        X = np.random.normal(size=(n, d)).astype('O')
+        y = np.random.normal(size=n).astype('O')
+
+        est = OLS().fit(X, y)
+        lr = LinearRegression().fit(X, y)
+        assert np.all(np.abs(est.coef_ - lr.coef_) < 1e-12), "{}, {}".format(est.coef_, lr.coef_)
+        assert np.all(np.abs(est.intercept_ - lr.intercept_) < 1e-12), "{}, {}".format(est.coef_, lr.intercept_)
+
+        est = OLS(fit_intercept=False).fit(X, y)
+        lr = LinearRegression(fit_intercept=False).fit(X, y)
+        assert np.all(np.abs(est.coef_ - lr.coef_) < 1e-12), "{}, {}".format(est.coef_, lr.coef_)
+        assert np.all(np.abs(est.intercept_ - lr.intercept_) < 1e-12), "{}, {}".format(est.coef_, lr.intercept_)
 
     def test_inference(self):
         """ Testing that we recover the expected standard errors and confidence intervals in a known example """
@@ -1099,8 +1117,6 @@ class TestStatsModels(unittest.TestCase):
 
     def test_dml_multi_dim_treatment_outcome(self):
         """ Testing that the summarized and unsummarized version of DML gives the correct (known results). """
-        from econml.dml import LinearDML
-        from econml.inference import StatsModelsInference
         np.random.seed(123)
         n = 100000
         precision = .01
