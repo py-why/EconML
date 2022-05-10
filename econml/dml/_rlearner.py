@@ -145,6 +145,9 @@ class _RLearner(_OrthoLearner):
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional, default None
+        Dummy documentation for treatment featurizer
+
     categories: 'auto' or list
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -265,8 +268,10 @@ class _RLearner(_OrthoLearner):
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
     """
 
-    def __init__(self, *, discrete_treatment, categories, cv, random_state, mc_iters=None, mc_agg='mean'):
+    def __init__(self, *, discrete_treatment, treatment_featurizer, categories,
+                 cv, random_state, mc_iters=None, mc_agg='mean'):
         super().__init__(discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
                          cv=cv,

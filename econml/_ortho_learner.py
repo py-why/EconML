@@ -256,6 +256,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional, default None
+        Dummy documentation for treatment featurizer
+
     discrete_instrument: bool
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
@@ -427,10 +430,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
 
     def __init__(self, *,
-                 discrete_treatment, discrete_instrument, categories, cv, random_state,
+                 discrete_treatment, treatment_featurizer, 
+                 discrete_instrument, categories, cv, random_state,
                  mc_iters=None, mc_agg='mean'):
         self.cv = cv
         self.discrete_treatment = discrete_treatment
+        self.treatment_featurizer = treatment_featurizer
         self.discrete_instrument = discrete_instrument
         self.random_state = random_state
         self.categories = categories
@@ -602,6 +607,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         if not only_final:
 
+            assert not (self.discrete_treatment and self.treatment_featurizer), "Cannot pass both \
+                discrete_treatment and treatment_featurizer!"
             if self.discrete_treatment:
                 categories = self.categories
                 if categories != 'auto':
@@ -609,6 +616,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
+            elif self.treatment_featurizer:
+                self.transformer = self.treatment_featurizer
+                self.transformer.fit(reshape(T, (-1, 1)))
+                self._d_t = None  # TODO: What is _d_t in this case?.
             else:
                 self.transformer = None
 
@@ -675,7 +686,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             # _d_t is altered by fit nuisances to what prefit does. So we need to perform the same
             # alteration even when we only want to fit_final.
             if self.transformer is not None:
-                self._d_t = (len(self.transformer.categories_[0]) - 1,)
+                if self.discrete_treatment:
+                    self._d_t = (len(self.transformer.categories_[0]) - 1,)
+                else:
+                    pass
+                    # TODO: What is _d_t when transformer is treatment featurizer?
 
         self._fit_final(Y=Y,
                         T=self.transformer.transform(T.reshape((-1, 1))) if self.transformer is not None else T,
@@ -733,7 +748,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if strata is None:
             strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
 
-        if self.discrete_treatment:
+        if self.transformer:
             T = self.transformer.transform(reshape(T, (-1, 1)))
 
         if self.discrete_instrument:

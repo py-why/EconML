@@ -360,6 +360,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
+    treatment_featurizer : :term:`transformer`, optional, default None
+        Dummy documentation for treatment featurizer
+
     fit_cate_intercept : bool, optional, default True
         Whether the linear CATE model should have a constant term.
 
@@ -452,6 +455,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     def __init__(self, *,
                  model_y, model_t, model_final,
                  featurizer=None,
+                 treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=False,
                  discrete_treatment=False,
@@ -465,10 +469,12 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self.fit_cate_intercept = fit_cate_intercept
         self.linear_first_stages = linear_first_stages
         self.featurizer = clone(featurizer, safe=False)
+        # do I need to clone a treatment featurizer here too?
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.model_final = clone(model_final, safe=False)
         super().__init__(discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -585,6 +591,9 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
+    treatment_featurizer : :term:`transformer`, optional, default None
+        Dummy documentation for treatment featurizer
+
     fit_cate_intercept : bool, optional, default True
         Whether the linear CATE model should have a constant term.
 
@@ -670,6 +679,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     def __init__(self, *,
                  model_y='auto', model_t='auto',
                  featurizer=None,
+                 treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
                  discrete_treatment=False,
@@ -682,6 +692,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          model_t=model_t,
                          model_final=None,
                          featurizer=featurizer,
+                         treatment_featurizer=treatment_featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
