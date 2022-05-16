@@ -829,8 +829,8 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     def _set_transformed_treatment_names(self):
         """Works with sklearn OHEs"""
         if hasattr(self, "_input_names"):
-            self._input_names["treatment_names"] = self.transformer.get_feature_names(
-                self._input_names["treatment_names"]).tolist()
+            self._input_names["treatment_names"] = list(self.transformer.get_feature_names(
+                self._input_names["treatment_names"]))
 
     def cate_treatment_names(self, treatment_names=None):
         """
