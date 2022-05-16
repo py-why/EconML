@@ -619,7 +619,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             elif self.treatment_featurizer:
                 self.transformer = self.treatment_featurizer
                 self.transformer.fit(reshape(T, (-1, 1)))
-                self._d_t = None  # TODO: What is _d_t in this case?.
+                self._d_t = (len(self.transformer.get_feature_names()),)
             else:
                 self.transformer = None
 
@@ -689,7 +689,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 if self.discrete_treatment:
                     self._d_t = (len(self.transformer.categories_[0]) - 1,)
                 else:
-                    pass
+                    self._d_t = (len(self.transformer.get_feature_names()),)
                     # TODO: What is _d_t when transformer is treatment featurizer?
 
         self._fit_final(Y=Y,
