@@ -227,6 +227,9 @@ class CausalForestDML(_BaseDML):
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
+    treatment_featurizer : :term:`transformer`, optional, default None
+        Dummy documentation for treatment featurizer
+
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
@@ -513,6 +516,7 @@ class CausalForestDML(_BaseDML):
                  model_y='auto',
                  model_t='auto',
                  featurizer=None,
+                 treatment_featurizer=None,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -567,6 +571,7 @@ class CausalForestDML(_BaseDML):
         self.n_jobs = n_jobs
         self.verbose = verbose
         super().__init__(discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
