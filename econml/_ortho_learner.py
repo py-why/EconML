@@ -430,7 +430,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
 
     def __init__(self, *,
-                 discrete_treatment, treatment_featurizer, 
+                 discrete_treatment, treatment_featurizer,
                  discrete_instrument, categories, cv, random_state,
                  mc_iters=None, mc_agg='mean'):
         self.cv = cv

@@ -1120,7 +1120,7 @@ class KernelDML(DML):
     """
 
     def __init__(self, model_y='auto', model_t='auto',
-                 discrete_treatment=False, 
+                 discrete_treatment=False,
                  treatment_featurizer=None,
                  categories='auto',
                  fit_cate_intercept=True,
@@ -1317,6 +1317,7 @@ class NonParamDML(_BaseDML):
         self.featurizer = clone(featurizer, safe=False)
         self.model_final = clone(model_final, safe=False)
         super().__init__(discrete_treatment=discrete_treatment,
+                         treatment_featurizer=None,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
