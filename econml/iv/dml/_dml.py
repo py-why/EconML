@@ -1142,6 +1142,7 @@ class DMLIV(_BaseDMLIV):
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(discrete_treatment=discrete_treatment,
+                         treatment_featurizer=None,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
                          cv=cv,
@@ -1509,6 +1510,7 @@ class NonParamDMLIV(_BaseDMLIV):
         self.featurizer = clone(featurizer, safe=False)
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
+                         treatment_featurizer=None,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,

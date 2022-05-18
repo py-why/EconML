@@ -315,6 +315,7 @@ class _BaseDRIV(_OrthoLearner):
         self.opt_reweighted = opt_reweighted
         super().__init__(discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         treatment_featurizer=None,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
