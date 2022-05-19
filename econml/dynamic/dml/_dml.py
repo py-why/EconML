@@ -469,6 +469,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         super().__init__(discrete_treatment=discrete_treatment,
+                         treatment_featurizer=None,
                          discrete_instrument=False,
                          categories=categories,
                          cv=GroupKFold(cv) if isinstance(cv, int) else cv,
