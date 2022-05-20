@@ -39,7 +39,7 @@ The variables :math:`X_i` can also be thought of as *control* variables, but the
 they are a subset of the controls with respect to which we want to measure treatment effect heterogeneity. 
 We will refer to them as *features*.
 
-Finally, some times we might not only be interested in the effect but also in the actual *counterfactual prediction*, i.e. estimating the quatity: 
+Finally, some times we might not only be interested in the effect but also in the actual *counterfactual prediction*, i.e. estimating the quantity: 
 
 .. math ::
     \mu(\vec{t}, \vec{x}) = \E\left[Y(\vec{t}) | X=\vec{x}\right] \tag{counterfactual prediction}
