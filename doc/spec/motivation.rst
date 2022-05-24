@@ -36,7 +36,7 @@ Customer Targeting
 
 An important problem in modern business analytics is building automated tools to prioritize customer
 acquisition and personalize customer interactions to increase sales and revenue. Typically businesses
-will offer personalize incentives to customers to increase spend or increase the level of
+will offer personalized incentives to customers to increase spend or increase the level of
 engagement via more human resources. Any such personalized intervention corresponds to a monetary
 investment and the main question that business analytics are called to answer is: what is the return
 on investment (ROI)? 
