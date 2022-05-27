@@ -1143,13 +1143,13 @@ class TestDML(unittest.TestCase):
         # test nested grouping
         class NestedModel(LassoCV):
             def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
-                         precompute='auto', max_iter=1000, tol=1e-4, normalize=False,
+                         precompute='auto', max_iter=1000, tol=1e-4,
                          copy_X=True, cv=None, verbose=False, n_jobs=None,
                          positive=False, random_state=None, selection='cyclic'):
 
                 super().__init__(
                     eps=eps, n_alphas=n_alphas, alphas=alphas,
-                    fit_intercept=fit_intercept, normalize=normalize,
+                    fit_intercept=fit_intercept,
                     precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
                     cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
                     random_state=random_state, selection=selection)
