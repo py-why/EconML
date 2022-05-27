@@ -105,7 +105,7 @@ class WeightedModelMixin:
             X, y, X_offset, y_offset, X_scale = self._preprocess_data(
                 X, y, fit_intercept=self.fit_intercept, normalize=False,
                 copy=self.copy_X, check_input=check_input if check_input is not None else True,
-                sample_weight=sample_weight, return_mean=True)
+                sample_weight=sample_weight)
             # Weight inputs
             normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
             sqrt_weights = np.sqrt(normalized_weights)
@@ -207,7 +207,7 @@ class WeightedLasso(WeightedModelMixin, Lasso):
                  random_state=None, selection='cyclic'):
         super().__init__(
             alpha=alpha, fit_intercept=fit_intercept,
-            normalize=False, precompute=precompute, copy_X=copy_X,
+            precompute=precompute, copy_X=copy_X,
             max_iter=max_iter, tol=tol, warm_start=warm_start,
             positive=positive, random_state=random_state,
             selection=selection)
@@ -297,11 +297,11 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
 
     """
 
-    def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
+    def __init__(self, alpha=1.0, fit_intercept=True,
                  copy_X=True, max_iter=1000, tol=1e-4, warm_start=False,
                  random_state=None, selection='cyclic'):
         super().__init__(
-            alpha=alpha, fit_intercept=fit_intercept, normalize=False,
+            alpha=alpha, fit_intercept=fit_intercept,
             copy_X=copy_X, max_iter=max_iter, tol=tol, warm_start=warm_start,
             random_state=random_state, selection=selection)
 
@@ -407,13 +407,13 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
     """
 
     def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
-                 precompute='auto', max_iter=1000, tol=1e-4, normalize=False,
+                 precompute='auto', max_iter=1000, tol=1e-4,
                  copy_X=True, cv=None, verbose=False, n_jobs=None,
                  positive=False, random_state=None, selection='cyclic'):
 
         super().__init__(
             eps=eps, n_alphas=n_alphas, alphas=alphas,
-            fit_intercept=fit_intercept, normalize=False,
+            fit_intercept=fit_intercept,
             precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
             cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
             random_state=random_state, selection=selection)
@@ -518,13 +518,13 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
     """
 
     def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
-                 normalize=False, max_iter=1000, tol=1e-4,
+                 max_iter=1000, tol=1e-4,
                  copy_X=True, cv=None, verbose=False, n_jobs=None,
                  random_state=None, selection='cyclic'):
 
         super().__init__(
             eps=eps, n_alphas=n_alphas, alphas=alphas,
-            fit_intercept=fit_intercept, normalize=False,
+            fit_intercept=fit_intercept,
             max_iter=max_iter, tol=tol, copy_X=copy_X,
             cv=cv, verbose=verbose, n_jobs=n_jobs,
             random_state=random_state, selection=selection)
@@ -733,7 +733,7 @@ class DebiasedLasso(WeightedLasso):
         # Center X, y
         X, y, X_offset, y_offset, X_scale = self._preprocess_data(
             X, y, fit_intercept=self.fit_intercept, normalize=False,
-            copy=self.copy_X, check_input=check_input, sample_weight=sample_weight, return_mean=True)
+            copy=self.copy_X, check_input=check_input, sample_weight=sample_weight)
 
         # Calculate quantities that will be used later on. Account for centered data
         y_pred = self.predict(X) - self.intercept_
