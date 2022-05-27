@@ -800,8 +800,8 @@ class LinearCateEstimator(BaseCateEstimator):
 
 class TreatmentExpansionMixin(BaseCateEstimator):
     """
-        Mixin which automatically handles promotions of scalar treatments to the appropriate shape, 
-        as well as treatment featurization for discrete treatments and user-specified treatment transformers 
+        Mixin which automatically handles promotions of scalar treatments to the appropriate shape,
+        as well as treatment featurization for discrete treatments and user-specified treatment transformers
     """
 
     transformer = None
