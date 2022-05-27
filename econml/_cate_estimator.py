@@ -534,7 +534,10 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
 
 class LinearCateEstimator(BaseCateEstimator):
-    """Base class for all CATE estimators with linear treatment effects in this package."""
+    """
+        Base class for all CATE estimators in this package where the outcome is linear given
+        some user-defined treatment featurization.
+    """
 
     @abc.abstractmethod
     def const_marginal_effect(self, X=None):
@@ -551,10 +554,11 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Returns
         -------
-        theta: (m, d_y, d_t) matrix or (d_y, d_t) matrix if X is None
-            Constant marginal CATE of each treatment on each outcome for each sample X[i].
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
+        theta: (m, d_y, d_f_t) matrix or (d_y, d_f_t) matrix if X is None where d_f_t is
+                the dimension of the featurized treatment. If treatment_featurizer is None, d_f_t = d_t.
+            Constant marginal CATE of each featurized treatment on each outcome for each sample X[i].
+            Note that when Y or featurized-T (or T if treatment_featurizer is None) is a vector
+            rather than a 2-dimensional array, the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         pass
@@ -607,7 +611,8 @@ class LinearCateEstimator(BaseCateEstimator):
 
         The marginal effect is calculated around a base treatment
         point conditional on a vector of features on a set of m test samples :math:`\\{T_i, X_i\\}`.
-        Since this class assumes a linear model, the base treatment is ignored in this calculation.
+        If treatment_featurizer is None, the base treatment is ignored in this calculation and the result
+        is equivalent to const_marginal_effect.
 
         Parameters
         ----------
@@ -697,11 +702,12 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Returns
         -------
-        theta: (d_y, d_t) matrix
+        theta: (d_y, d_f_t) matrix where d_f_t is the dimension of the featurized treatment. \
+            If treatment_featurizer is None, d_f_t = d_t.
             Average constant marginal CATE of each treatment on each outcome.
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will be a scalar)
+            Note that when Y or featurized-T (or T if treatment_featurizer is None) is a vector
+            rather than a 2-dimensional array, the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         return np.mean(self.const_marginal_effect(X=X), axis=0)
 
@@ -769,7 +775,7 @@ class LinearCateEstimator(BaseCateEstimator):
         feature_names: optional None or list of strings of length X.shape[1] (Default=None)
             The names of input features.
         treatment_names: optional None or list (Default=None)
-            The name of treatment. In discrete treatment scenario, the name should not include the name of
+            The name of featurized treatment. In discrete treatment scenario, the name should not include the name of
             the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
         output_names:  optional None or list (Default=None)
             The name of the outcome.
@@ -793,7 +799,10 @@ class LinearCateEstimator(BaseCateEstimator):
 
 
 class TreatmentExpansionMixin(BaseCateEstimator):
-    """Mixin which automatically handles promotions of scalar treatments to the appropriate shape."""
+    """
+        Mixin which automatically handles promotions of scalar treatments to the appropriate shape, 
+        as well as treatment featurization for discrete treatments and user-specified treatment transformers 
+    """
 
     transformer = None
 
@@ -827,7 +836,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         return (X,) + tuple(outTs)
 
     def _set_transformed_treatment_names(self):
-        """Works with sklearn OHEs"""
+        """Works with sklearn OHE and PolynomialFeaturizers"""
         if hasattr(self, "_input_names"):
             self._input_names["treatment_names"] = list(self.transformer.get_feature_names(
                 self._input_names["treatment_names"]))
@@ -836,7 +845,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         """
         Get treatment names.
 
-        If the treatment is discrete, it will return expanded treatment names.
+        If the treatment is discrete or featurized, it will return expanded treatment names.
 
         Parameters
         ----------
