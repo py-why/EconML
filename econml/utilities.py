@@ -9,6 +9,7 @@ import scipy.sparse
 import sparse as sp
 import itertools
 import inspect
+import types
 from operator import getitem
 from collections import defaultdict, Counter
 from sklearn import clone
@@ -17,6 +18,7 @@ from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLass
 from functools import reduce, wraps
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.validation import assert_all_finite
+from sklearn.preprocessing import PolynomialFeatures
 import warnings
 from warnings import warn
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
@@ -1389,6 +1391,74 @@ class _RegressionWrapper:
         X : features
         """
         return self._clf.predict_proba(X)[:, 1:]
+
+
+def jacify_featurizer(featurizer):
+    """
+    Adds a method to an instance of a featurizer class that calculates the jacobian on a given input.
+    Will return the original featurizer if a 'jac' method already exists.
+    Includes special handling for when the input featurizer is of type PolynomialFeatures.
+
+    Parameters
+    ----------
+    featurizer: term:`transformer`
+        Featurizer to add a 'jac' method to
+
+    Returns
+    -------
+    featurizer: term:`transformer`
+        Featurizer with a bound 'jac' method
+    """
+
+    if hasattr(featurizer, 'jac'):
+        return featurizer
+
+    elif (isinstance(featurizer, PolynomialFeatures)):
+        def jac(self, X):
+            self.fit(X)
+            powers = self.powers_
+            result = np.zeros(X.shape + (self.n_output_features_,))
+            for i in range(X.shape[1]):
+                p = powers.copy()
+                c = powers[:, i]
+                p[:, i] -= 1
+                M = np.float_power(X[:, np.newaxis, :], p[np.newaxis, :, :])
+                result[:, i, :] = c[np.newaxis, :] * np.prod(M, axis=-1)
+            return result
+        featurizer.jac = types.MethodType(jac, featurizer)
+
+    else:
+        def jac(self, X):
+            n = X.shape[0]
+            d_t = X.shape[-1]
+
+            X_out = self.fit_transform(X)
+            d_f_t = X_out.shape[-1]
+
+            epsilon = 0.001
+
+            jacob = np.zeros((n, d_t, d_f_t))
+
+            for m in range(X.shape[0]):
+                for j in range(d_f_t):
+                    for k in range(d_t):
+                        X_in_plus = X[[m]]
+                        X_in_plus[0][k] += epsilon
+                        X_out_plus = self.transform(X_in_plus)
+
+                        X_in_minus = X[[m]]
+                        X_in_minus[0][k] -= epsilon
+                        X_out_minus = self.transform(X_in_minus)
+
+                        diff = X_out_plus[0][j] - X_out_minus[0][j]
+                        deriv = diff / (2*epsilon)
+
+                        jacob[m][k][j] = deriv
+
+            return jacob
+        featurizer.jac = types.MethodType(jac, featurizer)
+
+    return featurizer
 
 
 @deprecated("This class will be removed from a future version of this package; "

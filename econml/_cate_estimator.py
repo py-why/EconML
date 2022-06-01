@@ -10,7 +10,7 @@ from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
-                        inverse_onehot, Summary, get_input_columns, check_input_arrays)
+                        inverse_onehot, Summary, get_input_columns, check_input_arrays, jacify_featurizer)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
@@ -629,9 +629,18 @@ class LinearCateEstimator(BaseCateEstimator):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        X, T = self._expand_treatments(X, T)
+        X, T = self._expand_treatments(X, T, transform=False)
         eff = self.const_marginal_effect(X)
-        return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
+
+        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
+            self.treatment_featurizer = jacify_featurizer(self.treatment_featurizer)
+            jac_T = self.treatment_featurizer.jac(T)
+
+            einsum_str = 'myf, mtf->myt'
+            return np.einsum(einsum_str, eff, jac_T)
+
+        else:
+            return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
         X, T = self._expand_treatments(X, T)
@@ -817,7 +826,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         if self.transformer:
             self._set_transformed_treatment_names()
 
-    def _expand_treatments(self, X=None, *Ts):
+    def _expand_treatments(self, X=None, *Ts, transform=True):
         X, *Ts = check_input_arrays(X, *Ts)
         n_rows = 1 if X is None else shape(X)[0]
         outTs = []
@@ -829,7 +838,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
             if ndim(T) == 0:
                 T = np.full((n_rows,) + self._d_t_in, T)
 
-            if self.transformer:
+            if self.transformer and transform:
                 T = self.transformer.transform(reshape(T, (-1, 1)))
             outTs.append(T)
 
