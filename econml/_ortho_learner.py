@@ -618,8 +618,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
             elif self.treatment_featurizer:
                 self.transformer = self.treatment_featurizer
-                self.transformer.fit(reshape(T, (-1, 1)))
-                self._d_t = (len(self.transformer.get_feature_names()),)
+                output_T = self.transformer.fit_transform(T)
+                self._d_t = (1,) if ndim(output_T) == 1 else (output_T.shape[-1],)
             else:
                 self.transformer = None
 
@@ -689,11 +689,17 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 if self.discrete_treatment:
                     self._d_t = (len(self.transformer.categories_[0]) - 1,)
                 else:
-                    self._d_t = (len(self.transformer.get_feature_names()),)
-                    # TODO: What is _d_t when transformer is treatment featurizer?
+                    output_T = self.transformer.fit_transform(T)
+                    self._d_t = (1,) if ndim(output_T) == 1 else (output_T.shape[-1],)
 
+        final_T = T
+        if self.transformer:
+            if (self.discrete_treatment):
+                final_T = final_T.reshape(-1, 1)
+
+            final_T = self.transformer.transform(final_T)
         self._fit_final(Y=Y,
-                        T=self.transformer.transform(T.reshape((-1, 1))) if self.transformer is not None else T,
+                        T=final_T,
                         X=X, W=W, Z=Z,
                         nuisances=nuisances,
                         sample_weight=sample_weight,
@@ -749,7 +755,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
 
         if self.transformer:
-            T = self.transformer.transform(reshape(T, (-1, 1)))
+            T = self.transformer.transform(reshape(T, (-1, 1)) if self.discrete_treatment else T)
 
         if self.discrete_instrument:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))

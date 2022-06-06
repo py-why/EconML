@@ -817,7 +817,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
             The mean value of the metric you'd like to test under null hypothesis.
         decimals: optinal int (default=3)
             Number of decimal places to round each column to.
-        tol:  optinal float (default=0.001)
+        tol:  optional float (default=0.001)
             The stopping criterion. The iterations will stop when the outcome is less than ``tol``
         output_names: optional list of strings or None (default is None)
             The names of the outputs

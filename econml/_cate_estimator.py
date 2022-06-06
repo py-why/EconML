@@ -632,15 +632,27 @@ class LinearCateEstimator(BaseCateEstimator):
         X, T = self._expand_treatments(X, T, transform=False)
         eff = self.const_marginal_effect(X)
 
+        feat_T = self.treatment_featurizer.fit_transform(T)
+
+        if X is None:
+            eff = np.repeat(eff, shape(T)[0], axis=0)
+
         if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
             self.treatment_featurizer = jacify_featurizer(self.treatment_featurizer)
             jac_T = self.treatment_featurizer.jac(T)
 
             einsum_str = 'myf, mtf->myt'
+
+            if ndim(T) == 1:
+                einsum_str = einsum_str.replace('t', '')
+            if ndim(feat_T) == 1:
+                einsum_str = einsum_str.replace('f', '')
+            if (ndim(eff) == ndim(feat_T)):
+                einsum_str = einsum_str.replace('y', '')
             return np.einsum(einsum_str, eff, jac_T)
 
         else:
-            return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
+            return eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
         X, T = self._expand_treatments(X, T)
@@ -814,6 +826,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     """
 
     transformer = None
+    discrete_treatment = None
 
     def _prefit(self, Y, T, *args, **kwargs):
         super()._prefit(Y, T, *args, **kwargs)
@@ -839,7 +852,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
                 T = np.full((n_rows,) + self._d_t_in, T)
 
             if self.transformer and transform:
-                T = self.transformer.transform(reshape(T, (-1, 1)))
+                T = self.transformer.transform(reshape(T, (-1, 1)) if self.discrete_treatment else T)
             outTs.append(T)
 
         return (X,) + tuple(outTs)
@@ -847,8 +860,11 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     def _set_transformed_treatment_names(self):
         """Works with sklearn OHE and PolynomialFeaturizers"""
         if hasattr(self, "_input_names"):
-            self._input_names["treatment_names"] = list(self.transformer.get_feature_names(
-                self._input_names["treatment_names"]))
+            if hasattr(self.transformer, "get_feature_names"):
+                self._input_names["treatment_names"] = list(self.transformer.get_feature_names(
+                    self._input_names["treatment_names"]))
+            else:
+                self._input_names["treatment_names"] = ['T' + str(i) for i in range(self._d_t[0])]
 
     def cate_treatment_names(self, treatment_names=None):
         """

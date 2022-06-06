@@ -1429,33 +1429,46 @@ def jacify_featurizer(featurizer):
 
     else:
         def jac(self, X):
+            squeeze = []
+
             n = X.shape[0]
-            d_t = X.shape[-1]
+
+            d_t = X.shape[-1] if ndim(X) > 1 else 1
 
             X_out = self.fit_transform(X)
-            d_f_t = X_out.shape[-1]
+            d_f_t = X_out.shape[-1] if ndim(X_out) > 1 else 1
 
             epsilon = 0.001
 
             jacob = np.zeros((n, d_t, d_f_t))
+
+            if ndim(X) == 1:
+                squeeze.append(1)
+                X = X[:, np.newaxis]
+            if ndim(X_out) == 1:
+                squeeze.append(2)
 
             for m in range(X.shape[0]):
                 for j in range(d_f_t):
                     for k in range(d_t):
                         X_in_plus = X[[m]]
                         X_in_plus[0][k] += epsilon
+                        X_in_plus = X_in_plus.squeeze(axis=1) if 1 in squeeze else X_in_plus
                         X_out_plus = self.transform(X_in_plus)
+                        X_out_plus = X_out_plus[:, np.newaxis] if 2 in squeeze else X_out_plus
 
                         X_in_minus = X[[m]]
                         X_in_minus[0][k] -= epsilon
+                        X_in_minus = X_in_minus.squeeze(axis=1) if 1 in squeeze else X_in_minus
                         X_out_minus = self.transform(X_in_minus)
+                        X_out_minus = X_out_minus[:, np.newaxis] if 2 in squeeze else X_out_minus
 
                         diff = X_out_plus[0][j] - X_out_minus[0][j]
-                        deriv = diff / (2*epsilon)
+                        deriv = diff / (2 * epsilon)
 
                         jacob[m][k][j] = deriv
 
-            return jacob
+            return jacob.squeeze(axis=tuple(squeeze))
         featurizer.jac = types.MethodType(jac, featurizer)
 
     return featurizer
