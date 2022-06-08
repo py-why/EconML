@@ -553,8 +553,8 @@ Usage FAQs
         from econml.dml import DML
         from sklearn.linear_model import ElasticNetCV
         from sklearn.ensemble import RandomForestRegressor
-        est = DML(model_y=RandomForestRegressor(oob_score=True),
-                  model_t=RandomForestRegressor(oob_score=True),
+        est = DML(model_y=RandomForestRegressor(),
+                  model_t=RandomForestRegressor(),
                   model_final=ElasticNetCV(fit_intercept=False), featurizer=PolynomialFeatures(degree=1))
         est.fit(y, T, X=X, W=W)
         est.score_
