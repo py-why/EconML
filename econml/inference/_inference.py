@@ -342,11 +342,13 @@ class LinearModelFinalInference(GenericModelFinalInference):
         d_t = self._d_t[0] if self._d_t else 1
 
         # mean std error
-        XT = cross_product(X, feat_T)
-        mean_XT = XT.mean(axis=0, keepdims=True)
-        mean_pred_stderr = self._prediction_stderr(mean_XT)  # shape[0] will always be 1 here
-        # squeeze the first axis
-        mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0) if mean_pred_stderr is not None else None
+        X_mean, T_mean = broadcast_unit_treatments(X.mean(axis=0).reshape(1, -1), self.d_t)
+        mean_XT = cross_product(X_mean, T_mean)
+        mean_pred_stderr = self._prediction_stderr(mean_XT)
+        if mean_pred_stderr is not None:
+            mean_pred_stderr = reshape_treatmentwise_effects(mean_pred_stderr,
+                                                             self._d_t, self._d_y)  # shape[0] will always be 1 here
+            mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0)
 
         jac_mean_T = self._est.treatment_featurizer.jac(T.mean(axis=0, keepdims=True)).squeeze(axis=0)
 
