@@ -52,7 +52,7 @@ jobs:
 
 - template: azure-pipelines-steps.yml
   parameters:
-    versions: ['3.6']
+    versions: ['3.8']
     images: ['ubuntu-18.04']
     package: '-e .[all]'
     job:

@@ -89,7 +89,7 @@ root_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = "en"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -219,7 +219,7 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'sklearn': ('https://scikit-learn.org/stable/', None),
                        'matplotlib': ('https://matplotlib.org/', None),
                        'shap': ('https://shap.readthedocs.io/en/stable/', None),
-                       'dowhy': ('https://microsoft.github.io/dowhy/', None)}
+                       'dowhy': ('https://py-why.github.io/dowhy/', None)}
 
 
 # -- Options for todo extension ----------------------------------------------
