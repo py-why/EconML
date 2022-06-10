@@ -619,7 +619,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             elif self.treatment_featurizer:
                 self.transformer = self.treatment_featurizer
                 output_T = self.transformer.fit_transform(T)
-                self._d_t = (1,) if ndim(output_T) == 1 else (output_T.shape[-1],)
+                self._d_t = np.shape(T)[1:]
             else:
                 self.transformer = None
 
@@ -690,7 +690,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                     self._d_t = (len(self.transformer.categories_[0]) - 1,)
                 else:
                     output_T = self.transformer.fit_transform(T)
-                    self._d_t = (1,) if ndim(output_T) == 1 else (output_T.shape[-1],)
+                    self._d_t = np.shape(T)[1:]
 
         final_T = T
         if self.transformer:

@@ -654,6 +654,7 @@ class LinearCateEstimator(BaseCateEstimator):
         else:
             return eff
 
+    @BaseCateEstimator._defer_to_inference
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
         X, T = self._expand_treatments(X, T)
         effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
@@ -662,6 +663,7 @@ class LinearCateEstimator(BaseCateEstimator):
         return effs
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
+    @BaseCateEstimator._defer_to_inference
     def marginal_effect_inference(self, T, X=None):
         X, T = self._expand_treatments(X, T)
         cme_inf = self.const_marginal_effect_inference(X=X)
@@ -864,7 +866,8 @@ class TreatmentExpansionMixin(BaseCateEstimator):
                 self._input_names["treatment_names"] = list(self.transformer.get_feature_names(
                     self._input_names["treatment_names"]))
             else:
-                self._input_names["treatment_names"] = ['T' + str(i) for i in range(self._d_t[0])]
+                if self._d_t:
+                    self._input_names["treatment_names"] = ['T' + str(i) for i in range(self._d_t[0])]
 
     def cate_treatment_names(self, treatment_names=None):
         """

@@ -15,7 +15,7 @@ from ._bootstrap import BootstrapEstimator
 from ..sklearn_extensions.linear_model import StatsModelsLinearRegression
 from ..utilities import (Summary, _safe_norm_ppf, broadcast_unit_treatments,
                          cross_product, inverse_onehot, ndim,
-                         parse_final_model_params,
+                         parse_final_model_params, jacify_featurizer,
                          reshape_treatmentwise_effects, shape, filter_none_kwargs)
 
 """Options for performing inference in estimators."""
@@ -201,6 +201,42 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
                                       feature_names=self._est.cate_feature_names(),
                                       output_names=self._est.cate_output_names())
 
+    def marginal_effect_inference(self, T, X):
+        X, T = self._est._expand_treatments(X, T, transform=False)
+
+        cme_inf = self.const_marginal_effect_inference(X)
+        if self._est.treatment_featurizer is None:
+            return cme_inf
+
+        feat_T = self._est.treatment_featurizer.fit_transform(T)
+
+        cme_pred = cme_inf.point_estimate
+        cme_stderr = cme_inf.stderr
+
+        self._est.treatment_featurizer = jacify_featurizer(self._est.treatment_featurizer)
+        jac_T = self._est.treatment_featurizer.jac(T)
+
+        einsum_str = 'myf, mtf->myt'  # y is a vector, rather than a 2D array
+        if ndim(T) == 1:
+            einsum_str = einsum_str.replace('t', '')
+        if ndim(feat_T) == 1:
+            einsum_str = einsum_str.replace('f', '')
+        if (ndim(cme_pred) == ndim(feat_T)):
+            einsum_str = einsum_str.replace('y', '')
+        e_pred = np.einsum(einsum_str, cme_pred, jac_T)
+        e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(jac_T)) if cme_stderr is not None else None
+        d_y = self._d_y[0] if self._d_y else 1
+        d_t = self._d_t[0] if self._d_t else 1
+
+        # d_t=None here since we measure the effect across all Ts
+        return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=e_pred,
+                                      pred_stderr=e_stderr, mean_pred_stderr=None, inf_type='effect',
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names())
+
+    def marginal_effect_interval(self, T, X, *, alpha=0.05):
+        return self.marginal_effect_inference(T, X).conf_int(alpha=alpha)
+
 
 class LinearModelFinalInference(GenericModelFinalInference):
     """
@@ -273,6 +309,57 @@ class LinearModelFinalInference(GenericModelFinalInference):
                                                              self._d_t, self._d_y)  # shape[0] will always be 1 here
             inf_res.mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0)
         return inf_res
+
+    def marginal_effect_inference(self, T, X):
+        X, T = self._est._expand_treatments(X, T, transform=False)
+        cme_inf = self.const_marginal_effect_inference(X)
+        if self._est.treatment_featurizer is None:
+            return cme_inf
+
+        if X is None:
+            X = np.ones((T.shape[0], 1))
+        elif self.featurizer is not None:
+            X = self.featurizer.transform(X)
+
+        feat_T = self._est.treatment_featurizer.fit_transform(T)
+
+        cme_pred = cme_inf.point_estimate
+        cme_stderr = cme_inf.stderr
+
+        self._est.treatment_featurizer = jacify_featurizer(self._est.treatment_featurizer)
+        jac_T = self._est.treatment_featurizer.jac(T)
+
+        einsum_str = 'myf, mtf->myt'  # y is a vector, rather than a 2D array
+        if ndim(T) == 1:
+            einsum_str = einsum_str.replace('t', '')
+        if ndim(feat_T) == 1:
+            einsum_str = einsum_str.replace('f', '')
+        if (ndim(cme_pred) == ndim(feat_T)):
+            einsum_str = einsum_str.replace('y', '')
+        e_pred = np.einsum(einsum_str, cme_pred, jac_T)
+        e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(jac_T)) if cme_stderr is not None else None
+        d_y = self._d_y[0] if self._d_y else 1
+        d_t = self._d_t[0] if self._d_t else 1
+
+        # mean std error
+        XT = cross_product(X, feat_T)
+        mean_XT = XT.mean(axis=0, keepdims=True)
+        mean_pred_stderr = self._prediction_stderr(mean_XT)  # shape[0] will always be 1 here
+        # squeeze the first axis
+        mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0) if mean_pred_stderr is not None else None
+
+        jac_mean_T = self._est.treatment_featurizer.jac(T.mean(axis=0, keepdims=True)).squeeze(axis=0)
+
+        einsum_str = einsum_str.replace('m', '')
+        mean_pred_stderr = np.einsum(einsum_str, mean_pred_stderr, np.abs(jac_mean_T)) if mean_pred_stderr is not None else None
+
+        return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=e_pred,
+                                      pred_stderr=e_stderr, mean_pred_stderr=mean_pred_stderr, inf_type='effect',
+                                      feature_names=self._est.cate_feature_names(),
+                                      output_names=self._est.cate_output_names())
+
+    def marginal_effect_interval(self, T, X, *, alpha=0.05):
+        return self.marginal_effect_inference(T, X).conf_int(alpha=alpha)
 
     def coef__interval(self, *, alpha=0.05):
         lo, hi = self.model_final.coef__interval(alpha)
