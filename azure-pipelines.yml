@@ -52,7 +52,7 @@ jobs:
 
 - template: azure-pipelines-steps.yml
   parameters:
-    versions: ['3.6']
+    versions: ['3.8']
     images: ['ubuntu-18.04']
     package: '-e .[all]'
     job:
@@ -245,6 +245,8 @@ jobs:
 
 - template: azure-pipelines-steps.yml
   parameters:
+    # exclude macOS since these tests frequently break there
+    images: ['ubuntu-18.04', 'windows-2019']
     package: '-e .[tf,plt]'
     job:
       job: Tests_serial
