@@ -193,8 +193,10 @@ def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights
                 np.average(moments[len(split_inds[0]):], axis=0, weights=slice_weights_two)
             )
         U = np.vstack(slice_weighted_moment_one + slice_weighted_moment_two)
-        inverse_grad = np.linalg.inv(mean_grad)
-        cov_mat = inverse_grad.T @ U.T @ U @ inverse_grad / (2 * n_slices)
+        # inverse_grad = np.linalg.inv(mean_grad)
+        # cov_mat = inverse_grad.T @ U.T @ U @ inverse_grad / (2 * n_slices)
+        M = np.linalg.solve(mean_grad.T, U.T)  # equiv. to inverse_grad.T @ U.T
+        cov_mat = M @ M.T / (2 * n_slices)
         return parameter_estimate, cov_mat
     return parameter_estimate
 
