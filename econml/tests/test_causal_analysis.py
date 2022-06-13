@@ -85,6 +85,8 @@ class TestCausalAnalysis(unittest.TestCase):
                     # policy value should exceed always treating with any treatment
                     assert_less_close(np.array(list(always_trt.values())), policy_val)
 
+                    ind_pol = ca.individualized_policy(X, inds[idx])
+
                 # global shape is (d_y, sum(d_t))
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
                 assert loc_point_est.shape == (2,) + glo_point_est.shape
@@ -218,6 +220,8 @@ class TestCausalAnalysis(unittest.TestCase):
                         # policy value should exceed always treating with any treatment
                         assert_less_close(np.array(list(always_trt.values())), policy_val)
 
+                        ind_pol = ca.individualized_policy(X, inds[idx])
+
                     if not classification:
                         # ExitStack can be used as a "do nothing" ContextManager
                         cm = ExitStack()
@@ -299,6 +303,8 @@ class TestCausalAnalysis(unittest.TestCase):
 
                 # policy value should exceed always treating with any treatment
                 assert_less_close(np.array(list(always_trt.values())), policy_val)
+
+                ind_pol = ca.individualized_policy(X, inds[idx])
 
             # global shape is (d_y, sum(d_t))
             assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -442,6 +448,8 @@ class TestCausalAnalysis(unittest.TestCase):
                     # policy value should exceed always treating with any treatment
                     assert_less_close(np.array(list(always_trt.values())), policy_val)
 
+                    ind_pol = ca.individualized_policy(X, inds[idx])
+
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
                     cm = ExitStack()
@@ -531,6 +539,8 @@ class TestCausalAnalysis(unittest.TestCase):
 
             # policy value should exceed always treating with any treatment
             assert_less_close(np.array(list(always_trt.values())), policy_val)
+
+            ind_pol = ca.individualized_policy(X, inds[idx])
 
     def test_warm_start(self):
         for classification in [True, False]:
