@@ -85,6 +85,8 @@ class TestCausalAnalysis(unittest.TestCase):
                     # policy value should exceed always treating with any treatment
                     assert_less_close(np.array(list(always_trt.values())), policy_val)
 
+                    ind_pol = ca.individualized_policy(X, inds[idx])
+
                 # global shape is (d_y, sum(d_t))
                 assert glo_point_est.shape == coh_point_est.shape == (1, 5)
                 assert loc_point_est.shape == (2,) + glo_point_est.shape
@@ -128,113 +130,121 @@ class TestCausalAnalysis(unittest.TestCase):
 
     def test_basic_pandas(self):
         for classification in [False, True]:
-            y = pd.Series(np.random.choice([0, 1], size=(500,)))
-            X = pd.DataFrame({'a': np.random.normal(size=500),
-                              'b': np.random.normal(size=500),
-                              'c': np.random.choice([0, 1], size=500),
-                              'd': np.random.choice(['a', 'b', 'c'], size=500)})
-            n_inds = [0, 1, 2, 3]
-            t_inds = ['a', 'b', 'c', 'd']
-            n_cats = [2, 3]
-            t_cats = ['c', 'd']
-            n_hinds = [0, 3]
-            t_hinds = ['a', 'd']
-            for (inds, cats, hinds) in [(n_inds, n_cats, n_hinds), (t_inds, t_cats, t_hinds)]:
-                ca = CausalAnalysis(inds, cats, hinds, classification=classification)
-                ca.fit(X, y)
-                glo = ca.global_causal_effect()
-                coh = ca.cohort_causal_effect(X[:2])
-                loc = ca.local_causal_effect(X[:2])
+            for category in [False, True]:
+                y = pd.Series(np.random.choice([0, 1], size=(500,)))
+                X = pd.DataFrame({'a': np.random.normal(size=500),
+                                  'b': np.random.normal(size=500),
+                                  'c': np.random.choice([0, 1], size=500),
+                                  'd': np.random.choice(['a', 'b', 'c'], size=500)})
 
-                # global and cohort data should have exactly the same structure, but different values
-                assert glo.index.equals(coh.index)
+                if category:
+                    X['c'] = X['c'].astype('category')
+                    X['d'] = X['d'].astype('category')
 
-                # local index should have as many times entries as global as there were rows passed in
-                assert len(loc.index) == 2 * len(glo.index)
-
-                assert glo.index.names == ['feature', 'feature_value']
-                assert loc.index.names == ['sample'] + glo.index.names
-
-                # features; for categoricals they should appear #cats-1 times each
-                fts = ['a', 'b', 'c', 'd', 'd']
-
-                for i in range(len(fts)):
-                    assert fts[i] == glo.index[i][0] == loc.index[i][1] == loc.index[len(fts) + i][1]
-
-                glo_dict = ca._global_causal_effect_dict()
-                glo_dict2 = ca._global_causal_effect_dict(row_wise=True)
-
-                coh_dict = ca._cohort_causal_effect_dict(X[:2])
-                coh_dict2 = ca._cohort_causal_effect_dict(X[:2], row_wise=True)
-
-                loc_dict = ca._local_causal_effect_dict(X[:2])
-                loc_dict2 = ca._local_causal_effect_dict(X[:2], row_wise=True)
-
-                glo_point_est = np.array(glo_dict[_CausalInsightsConstants.PointEstimateKey])
-                coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
-                loc_point_est = np.array(loc_dict[_CausalInsightsConstants.PointEstimateKey])
-
-                # global shape is (d_y, sum(d_t))
-                assert glo_point_est.shape == coh_point_est.shape == (1, 5)
-                assert loc_point_est.shape == (2,) + glo_point_est.shape
-
-                # global and cohort row-wise dicts have d_y * d_t entries
-                assert len(
-                    glo_dict2[_CausalInsightsConstants.RowData]) == len(
-                    coh_dict2[_CausalInsightsConstants.RowData]) == 5
-                # local dictionary is flattened to n_rows * d_y * d_t
-                assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
-
-                pto = ca._policy_tree_output(X, inds[1])
-                ca._heterogeneity_tree_output(X, inds[1])
-                ca._heterogeneity_tree_output(X, inds[3])
-
-                # continuous treatments have typical treatment values equal to
-                # the mean of the absolute value of non-zero entries
-                np.testing.assert_allclose(ca.typical_treatment_value(inds[0]), np.mean(np.abs(X['a'])))
-                np.testing.assert_allclose(ca.typical_treatment_value(inds[1]), np.mean(np.abs(X['b'])))
-                # discrete treatments have typical treatment value 1
-                assert ca.typical_treatment_value(inds[2]) == ca.typical_treatment_value(inds[3]) == 1
-
-                # Make sure we handle continuous, binary, and multi-class treatments
-                # For multiple discrete treatments, one "always treat" value per non-default treatment
-                for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
-                    pto = ca._policy_tree_output(X, inds[idx])
-                    policy_val = pto.policy_value
-                    always_trt = pto.always_treat
-                    assert isinstance(pto.control_name, str)
-                    assert isinstance(always_trt, dict)
-                    assert np.array(policy_val).shape == ()
-                    assert len(always_trt) == length
-                    for val in always_trt.values():
-                        assert np.array(val).shape == ()
-
-                    # policy value should exceed always treating with any treatment
-                    assert_less_close(np.array(list(always_trt.values())), policy_val)
-
-                if not classification:
-                    # ExitStack can be used as a "do nothing" ContextManager
-                    cm = ExitStack()
-                else:
-                    cm = self.assertRaises(Exception)
-                with cm:
-                    inf = ca.whatif(X[:2], np.ones(shape=(2,)), inds[1], y[:2])
-                    assert np.shape(inf.point_estimate) == np.shape(y[:2])
-                    inf = ca.whatif(X[:2], np.ones(shape=(2,)), inds[2], y[:2])
-                    assert np.shape(inf.point_estimate) == np.shape(y[:2])
-
-                    ca._whatif_dict(X[:2], np.ones(shape=(2,)), inds[1], y[:2])
-                    ca._whatif_dict(X[:2], np.ones(shape=(2,)), inds[1], y[:2], row_wise=True)
-
-            badargs = [
-                (n_inds, n_cats, [4]),  # hinds out of range
-                (n_inds, n_cats, ["test"])  # hinds out of range
-            ]
-
-            for args in badargs:
-                with self.assertRaises(Exception):
-                    ca = CausalAnalysis(*args)
+                n_inds = [0, 1, 2, 3]
+                t_inds = ['a', 'b', 'c', 'd']
+                n_cats = [2, 3]
+                t_cats = ['c', 'd']
+                n_hinds = [0, 3]
+                t_hinds = ['a', 'd']
+                for (inds, cats, hinds) in [(n_inds, n_cats, n_hinds), (t_inds, t_cats, t_hinds)]:
+                    ca = CausalAnalysis(inds, cats, hinds, classification=classification)
                     ca.fit(X, y)
+                    glo = ca.global_causal_effect()
+                    coh = ca.cohort_causal_effect(X[:2])
+                    loc = ca.local_causal_effect(X[:2])
+
+                    # global and cohort data should have exactly the same structure, but different values
+                    assert glo.index.equals(coh.index)
+
+                    # local index should have as many times entries as global as there were rows passed in
+                    assert len(loc.index) == 2 * len(glo.index)
+
+                    assert glo.index.names == ['feature', 'feature_value']
+                    assert loc.index.names == ['sample'] + glo.index.names
+
+                    # features; for categoricals they should appear #cats-1 times each
+                    fts = ['a', 'b', 'c', 'd', 'd']
+
+                    for i in range(len(fts)):
+                        assert fts[i] == glo.index[i][0] == loc.index[i][1] == loc.index[len(fts) + i][1]
+
+                    glo_dict = ca._global_causal_effect_dict()
+                    glo_dict2 = ca._global_causal_effect_dict(row_wise=True)
+
+                    coh_dict = ca._cohort_causal_effect_dict(X[:2])
+                    coh_dict2 = ca._cohort_causal_effect_dict(X[:2], row_wise=True)
+
+                    loc_dict = ca._local_causal_effect_dict(X[:2])
+                    loc_dict2 = ca._local_causal_effect_dict(X[:2], row_wise=True)
+
+                    glo_point_est = np.array(glo_dict[_CausalInsightsConstants.PointEstimateKey])
+                    coh_point_est = np.array(coh_dict[_CausalInsightsConstants.PointEstimateKey])
+                    loc_point_est = np.array(loc_dict[_CausalInsightsConstants.PointEstimateKey])
+
+                    # global shape is (d_y, sum(d_t))
+                    assert glo_point_est.shape == coh_point_est.shape == (1, 5)
+                    assert loc_point_est.shape == (2,) + glo_point_est.shape
+
+                    # global and cohort row-wise dicts have d_y * d_t entries
+                    assert len(
+                        glo_dict2[_CausalInsightsConstants.RowData]) == len(
+                        coh_dict2[_CausalInsightsConstants.RowData]) == 5
+                    # local dictionary is flattened to n_rows * d_y * d_t
+                    assert len(loc_dict2[_CausalInsightsConstants.RowData]) == 10
+
+                    pto = ca._policy_tree_output(X, inds[1])
+                    ca._heterogeneity_tree_output(X, inds[1])
+                    ca._heterogeneity_tree_output(X, inds[3])
+
+                    # continuous treatments have typical treatment values equal to
+                    # the mean of the absolute value of non-zero entries
+                    np.testing.assert_allclose(ca.typical_treatment_value(inds[0]), np.mean(np.abs(X['a'])))
+                    np.testing.assert_allclose(ca.typical_treatment_value(inds[1]), np.mean(np.abs(X['b'])))
+                    # discrete treatments have typical treatment value 1
+                    assert ca.typical_treatment_value(inds[2]) == ca.typical_treatment_value(inds[3]) == 1
+
+                    # Make sure we handle continuous, binary, and multi-class treatments
+                    # For multiple discrete treatments, one "always treat" value per non-default treatment
+                    for (idx, length) in [(0, 1), (1, 1), (2, 1), (3, 2)]:
+                        pto = ca._policy_tree_output(X, inds[idx])
+                        policy_val = pto.policy_value
+                        always_trt = pto.always_treat
+                        assert isinstance(pto.control_name, str)
+                        assert isinstance(always_trt, dict)
+                        assert np.array(policy_val).shape == ()
+                        assert len(always_trt) == length
+                        for val in always_trt.values():
+                            assert np.array(val).shape == ()
+
+                        # policy value should exceed always treating with any treatment
+                        assert_less_close(np.array(list(always_trt.values())), policy_val)
+
+                        ind_pol = ca.individualized_policy(X, inds[idx])
+
+                    if not classification:
+                        # ExitStack can be used as a "do nothing" ContextManager
+                        cm = ExitStack()
+                    else:
+                        cm = self.assertRaises(Exception)
+                    with cm:
+                        inf = ca.whatif(X[:2], np.ones(shape=(2,)), inds[1], y[:2])
+                        assert np.shape(inf.point_estimate) == np.shape(y[:2])
+                        inf = ca.whatif(X[:2], np.ones(shape=(2,)), inds[2], y[:2])
+                        assert np.shape(inf.point_estimate) == np.shape(y[:2])
+
+                        ca._whatif_dict(X[:2], np.ones(shape=(2,)), inds[1], y[:2])
+                        ca._whatif_dict(X[:2], np.ones(shape=(2,)), inds[1], y[:2], row_wise=True)
+
+                badargs = [
+                    (n_inds, n_cats, [4]),  # hinds out of range
+                    (n_inds, n_cats, ["test"])  # hinds out of range
+                ]
+
+                for args in badargs:
+                    with self.assertRaises(Exception):
+                        ca = CausalAnalysis(*args)
+                        ca.fit(X, y)
 
     def test_automl_first_stage(self):
         d_y = (1,)
@@ -293,6 +303,8 @@ class TestCausalAnalysis(unittest.TestCase):
 
                 # policy value should exceed always treating with any treatment
                 assert_less_close(np.array(list(always_trt.values())), policy_val)
+
+                ind_pol = ca.individualized_policy(X, inds[idx])
 
             # global shape is (d_y, sum(d_t))
             assert glo_point_est.shape == coh_point_est.shape == (1, 5)
@@ -436,6 +448,8 @@ class TestCausalAnalysis(unittest.TestCase):
                     # policy value should exceed always treating with any treatment
                     assert_less_close(np.array(list(always_trt.values())), policy_val)
 
+                    ind_pol = ca.individualized_policy(X, inds[idx])
+
                 if not classification:
                     # ExitStack can be used as a "do nothing" ContextManager
                     cm = ExitStack()
@@ -525,6 +539,8 @@ class TestCausalAnalysis(unittest.TestCase):
 
             # policy value should exceed always treating with any treatment
             assert_less_close(np.array(list(always_trt.values())), policy_val)
+
+            ind_pol = ca.individualized_policy(X, inds[idx])
 
     def test_warm_start(self):
         for classification in [True, False]:

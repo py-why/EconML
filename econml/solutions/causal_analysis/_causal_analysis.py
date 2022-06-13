@@ -1701,6 +1701,8 @@ class CausalAnalysis:
             effect = result.estimator.effect_inference(Xtest, T0=orig_df['Current treatment'], T1=rec)
             # we now need to construct the delta in the cost between the two treatments and translate the effect
             current_treatment = orig_df['Current treatment'].values
+            if isinstance(current_treatment, pd.core.arrays.categorical.Categorical):
+                current_treatment = current_treatment.to_numpy()
             if np.ndim(treatment_costs) >= 2:
                 # remove third dimenions potentially added
                 if multi_y:  # y was an array, not a vector
