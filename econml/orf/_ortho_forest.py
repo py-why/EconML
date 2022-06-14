@@ -40,8 +40,8 @@ from ._causal_tree import CausalTree
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
 from ..utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
-                         cross_product, inverse_onehot, check_input_arrays,
-                         _RegressionWrapper, deprecated)
+                         cross_product, inverse_onehot, check_input_arrays, jacify_featurizer,
+                         _RegressionWrapper, deprecated, ndim)
 from sklearn.model_selection import check_cv
 # TODO: consider working around relying on sklearn implementation details
 from ..sklearn_extensions.model_selection import _cross_val_predict
@@ -209,6 +209,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                  second_stage_parameter_estimator,
                  moment_and_mean_gradient_estimator,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  n_trees=500,
                  min_leaf_size=10, max_depth=10,
@@ -244,6 +245,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         # Fit check
         self.model_is_fitted = False
         self.discrete_treatment = discrete_treatment
+        self.treatment_featurizer = treatment_featurizer
         self.backend = backend
         self.verbose = verbose
         self.batch_size = batch_size
@@ -501,6 +503,9 @@ class DMLOrthoForest(BaseOrthoForest):
         one-hot-encoded and the model_T is treated as a classifier that must have a predict_proba
         method.
 
+    treatment_featurizer : :term:`transformer`, optional, default None
+        Dummy documentation for treatment featurizer
+
     categories : array like or 'auto', optional (default='auto')
         A list of pre-specified treatment categories. If 'auto' then categories are automatically
         recognized at fit time.
@@ -540,6 +545,7 @@ class DMLOrthoForest(BaseOrthoForest):
                  global_residualization=False,
                  global_res_cv=2,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  n_jobs=-1,
                  backend='loky',
@@ -567,6 +573,7 @@ class DMLOrthoForest(BaseOrthoForest):
         self.random_state = check_random_state(random_state)
         self.global_residualization = global_residualization
         self.global_res_cv = global_res_cv
+        self.treatment_featurizer = treatment_featurizer
         # Define nuisance estimators
         nuisance_estimator = _DMLOrthoForest_nuisance_estimator_generator(
             self.model_T, self.model_Y, self.random_state, second_stage=False,
@@ -596,6 +603,7 @@ class DMLOrthoForest(BaseOrthoForest):
             verbose=verbose,
             batch_size=batch_size,
             discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
             categories=categories,
             random_state=self.random_state)
 
@@ -635,6 +643,9 @@ class DMLOrthoForest(BaseOrthoForest):
         """
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
+
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Cannot pass both \
+            discrete_treatment and treatment_featurizer!"
         if self.discrete_treatment:
             categories = self.categories
             if categories != 'auto':
@@ -643,6 +654,11 @@ class DMLOrthoForest(BaseOrthoForest):
             d_t_in = T.shape[1:]
             T = self.transformer.fit_transform(T.reshape(-1, 1))
             self._d_t = T.shape[1:]
+        elif self.treatment_featurizer:
+            self.transformer = self.treatment_featurizer
+            d_t_in = T.shape[1:]
+            T = self.transformer.fit_transform(T)
+            self._d_t = np.shape(T)[1:]
 
         if self.global_residualization:
             cv = check_cv(self.global_res_cv, y=T, classifier=self.discrete_treatment)
@@ -654,7 +670,7 @@ class DMLOrthoForest(BaseOrthoForest):
 
         # weirdness of wrap_fit. We need to store d_t_in. But because wrap_fit decorates the parent
         # fit, we need to set explicitly d_t_in here after super fit is called.
-        if self.discrete_treatment:
+        if self.discrete_treatment or self.treatment_featurizer:
             self._d_t_in = d_t_in
         return self
 
@@ -1162,6 +1178,10 @@ class BLBInference(Inference):
         This is called after the estimator's fit.
         """
         self._estimator = estimator
+        self._d_t = estimator._d_t
+        self._d_y = estimator._d_y
+        self.d_t = self._d_t[0] if self._d_t else 1
+        self.d_y = self._d_y[0] if self._d_y else 1
         # Test whether the input estimator is supported
         if not hasattr(self._estimator, "_predict"):
             raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
@@ -1299,6 +1319,40 @@ class BLBInference(Inference):
                                       feature_names=self._estimator.cate_feature_names(),
                                       output_names=self._estimator.cate_output_names(),
                                       treatment_names=self._estimator.cate_treatment_names())
+
+    def marginal_effect_inference(self, T, X):
+        X, T = self._estimator._expand_treatments(X, T, transform=False)
+        cme_inf = self.const_marginal_effect_inference(X)
+        if self._estimator.treatment_featurizer is None:
+            return cme_inf
+
+        feat_T = self._estimator.treatment_featurizer.fit_transform(T)
+
+        cme_pred = cme_inf.point_estimate
+        cme_stderr = cme_inf.stderr
+
+        self._estimator.treatment_featurizer = jacify_featurizer(self._estimator.treatment_featurizer)
+        jac_T = self._estimator.treatment_featurizer.jac(T)
+
+        einsum_str = 'myf, mtf->myt'  # y is a vector, rather than a 2D array
+        if ndim(T) == 1:
+            einsum_str = einsum_str.replace('t', '')
+        if ndim(feat_T) == 1:
+            einsum_str = einsum_str.replace('f', '')
+        if (ndim(cme_pred) == ndim(feat_T)):
+            einsum_str = einsum_str.replace('y', '')
+        e_pred = np.einsum(einsum_str, cme_pred, jac_T)
+        e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(jac_T)) if cme_stderr is not None else None
+        d_y = self._d_y[0] if self._d_y else 1
+        d_t = self._d_t[0] if self._d_t else 1
+
+        return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=e_pred,
+                                      pred_stderr=e_stderr, mean_pred_stderr=None, inf_type='effect',
+                                      feature_names=self._estimator.cate_feature_names(),
+                                      output_names=self._estimator.cate_output_names())
+
+    def marginal_effect_interval(self, T, X, *, alpha=0.05):
+        return self.marginal_effect_inference(T, X).conf_int(alpha=alpha)
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)

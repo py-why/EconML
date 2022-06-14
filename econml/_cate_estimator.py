@@ -632,12 +632,11 @@ class LinearCateEstimator(BaseCateEstimator):
         X, T = self._expand_treatments(X, T, transform=False)
         eff = self.const_marginal_effect(X)
 
-        feat_T = self.treatment_featurizer.fit_transform(T)
-
         if X is None:
             eff = np.repeat(eff, shape(T)[0], axis=0)
 
         if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
+            feat_T = self.treatment_featurizer.fit_transform(T)
             self.treatment_featurizer = jacify_featurizer(self.treatment_featurizer)
             jac_T = self.treatment_featurizer.jac(T)
 
