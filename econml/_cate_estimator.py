@@ -653,22 +653,26 @@ class LinearCateEstimator(BaseCateEstimator):
         else:
             return eff
 
-    @BaseCateEstimator._defer_to_inference
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
-        X, T = self._expand_treatments(X, T)
-        effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
-        if X is None:  # need to repeat by the number of rows of T to ensure the right shape
-            effs = tuple(np.repeat(eff, shape(T)[0], axis=0) for eff in effs)
-        return effs
+        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
+            return BaseCateEstimator._defer_to_inference(self.marginal_effect_interval)(T, X, alpha=alpha)
+        else:
+            X, T = self._expand_treatments(X, T)
+            effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
+            if X is None:  # need to repeat by the number of rows of T to ensure the right shape
+                effs = tuple(np.repeat(eff, shape(T)[0], axis=0) for eff in effs)
+            return effs
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
-    @BaseCateEstimator._defer_to_inference
     def marginal_effect_inference(self, T, X=None):
-        X, T = self._expand_treatments(X, T)
-        cme_inf = self.const_marginal_effect_inference(X=X)
-        if X is None:
-            cme_inf = cme_inf._expand_outputs(shape(T)[0])
-        return cme_inf
+        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
+            return BaseCateEstimator._defer_to_inference(self.marginal_effect_interval)(T, X)
+        else:
+            X, T = self._expand_treatments(X, T)
+            cme_inf = self.const_marginal_effect_inference(X=X)
+            if X is None:
+                cme_inf = cme_inf._expand_outputs(shape(T)[0])
+            return cme_inf
     marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
     @BaseCateEstimator._defer_to_inference
