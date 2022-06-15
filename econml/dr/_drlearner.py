@@ -1433,6 +1433,56 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False)
+    
+    @classmethod
+    def search_space(cls) -> dict:
+        """
+        Specify the hyperparameter search space for FLAML
+
+        Returns
+        -------
+        A FLAML-compatible search space for __init__ args we want to search over
+        """
+        return {
+            "min_propensity": tune.loguniform(1e-6, 1e-1),
+            # "mc_iters": tune.randint(0, 10), # is this worth searching over?
+            "n_estimators": tune.randint(2, 200),
+            # "max_depth": is tune.choice([None, tune.randint(2, 1000)]) the right syntax?
+            "min_samples_split": tune.randint(2, 20),
+            "min_samples_leaf": tune.randint(1, 25),
+            "min_weight_fraction_leaf": tune.uniform(0, 0.5),
+            "max_features": tune.choice(["auto", "sqrt", "log2", None]),
+            "min_impurity_decrease": tune.uniform(0, 10),
+            "max_samples": tune.uniform(0, 0.5),
+            "min_balancedness_tol": tune.uniform(0, 0.5),
+            "honest": tune.choice([0, 1]),
+            "subforest_size": tune.randint(2, 10),
+        }
+
+    @classmethod
+    def search_start(cls) -> dict:
+        """
+        Specify the default start point for hyperparameter search
+
+        Returns
+        -------
+        A dict of hyperparameter values consistent with the output from search_space()
+        """
+
+        return {
+            "min_propensity": 1e-6,
+            "n_estimators": 100,  # default is 1000 but that seems excessive
+            "min_samples_split": 5,
+            "min_samples_leaf": 5,
+            "min_weight_fraction_leaf": 0.0,
+            "max_features": "auto",
+            "min_impurity_decrease": 0.0,
+            "max_samples": 0.45,
+            "min_balancedness_tol": 0.45,
+            "honest": True,
+            "subforest_size": 4,
+        }
+
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, groups=None,
             cache_values=False, inference='auto'):
