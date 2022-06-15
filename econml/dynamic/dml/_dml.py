@@ -706,7 +706,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             return feature_names
         return get_feature_names_or_default(self.original_featurizer, feature_names)
 
-    def _expand_treatments(self, X, *Ts):
+    def _expand_treatments(self, X, *Ts, transform=True):
         # Expand treatments for each time period
         outTs = []
         base_expand_treatments = super()._expand_treatments
