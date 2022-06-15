@@ -857,7 +857,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
                 T = np.full((n_rows,) + self._d_t_in, T)
 
             if self.transformer and transform:
-                if self.discrete_treatment:
+                if not (hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None):
                     T = T.reshape(-1, 1)
                 T = self.transformer.transform(T)
             outTs.append(T)
