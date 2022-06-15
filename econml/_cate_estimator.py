@@ -655,7 +655,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
         if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
-            return BaseCateEstimator._defer_to_inference(self.marginal_effect_interval)(T, X, alpha=alpha)
+            return BaseCateEstimator._defer_to_inference(self.marginal_effect_interval)(self, T, X, alpha=alpha)
         else:
             X, T = self._expand_treatments(X, T)
             effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
@@ -666,7 +666,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
     def marginal_effect_inference(self, T, X=None):
         if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
-            return BaseCateEstimator._defer_to_inference(self.marginal_effect_interval)(T, X)
+            return BaseCateEstimator._defer_to_inference(self.marginal_effect_inference)(self, T, X)
         else:
             X, T = self._expand_treatments(X, T)
             cme_inf = self.const_marginal_effect_inference(X=X)
@@ -857,7 +857,9 @@ class TreatmentExpansionMixin(BaseCateEstimator):
                 T = np.full((n_rows,) + self._d_t_in, T)
 
             if self.transformer and transform:
-                T = self.transformer.transform(reshape(T, (-1, 1)) if self.discrete_treatment else T)
+                if self.discrete_treatment:
+                    T = T.reshape(-1, 1)
+                T = self.transformer.transform(T)
             outTs.append(T)
 
         return (X,) + tuple(outTs)
