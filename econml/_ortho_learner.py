@@ -340,8 +340,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         np.random.seed(123)
         X = np.random.normal(size=(100, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
-        est = OrthoLearner(cv=2, discrete_treatment=False, discrete_instrument=False,
-                           categories='auto', random_state=None)
+        est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=False, 
+                           discrete_instrument=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
