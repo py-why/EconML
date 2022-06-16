@@ -353,7 +353,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
         jac_mean_T = self._est.treatment_featurizer.jac(T.mean(axis=0, keepdims=True)).squeeze(axis=0)
 
         einsum_str = einsum_str.replace('m', '')
-        mean_pred_stderr = np.einsum(einsum_str, mean_pred_stderr, np.abs(jac_mean_T)) if mean_pred_stderr is not None else None
+        mean_pred_stderr = np.einsum(
+            einsum_str, mean_pred_stderr, np.abs(jac_mean_T)) if mean_pred_stderr is not None else None
 
         return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=e_pred,
                                       pred_stderr=e_stderr, mean_pred_stderr=mean_pred_stderr, inf_type='effect',
