@@ -221,7 +221,7 @@ class _RLearner(_OrthoLearner):
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
-        est = RLearner(cv=2, discrete_treatment=False, 
+        est = RLearner(cv=2, discrete_treatment=False,
                        treatment_featurizer=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
 
