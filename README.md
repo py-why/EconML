@@ -46,17 +46,11 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-**March 11, 2022:** Call for Content
-
-Hello everyone, Microsoft will be hosting a workshop to explore current and future applications for our EconML and DoWhy packages on Tuesday, May 3, 2022. So far, our goal has been to make cutting-edge methods for causal treatment effect estimation as accessible as machine learning models for prediction or classification.  We’re charting the course for future development of EconML and need your help.
-
-What more would you like to see in the library? New kinds of tasks, better functionality for the core tasks? Let us know!
-We are also looking for stories of problems you have solved using DoWhy and/or EconML to highlight in the workshop. If you have one,
-please reach out to econml@microsoft.com.
-
-**January 31, 2022:** Release v0.13.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.13.0)
+**June 17, 2022:** Release v0.13.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.13.1)
 
 <details><summary>Previous releases</summary>
+
+**January 31, 2022:** Release v0.13.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.13.0)
 
 **August 13, 2021:** Release v0.12.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0)
 
