@@ -312,9 +312,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
 
     def marginal_effect_inference(self, T, X):
         X, T = self._est._expand_treatments(X, T, transform=False)
-        cme_inf = self.const_marginal_effect_inference(X)
         if self._est.treatment_featurizer is None:
-            return cme_inf
+            return self.const_marginal_effect_inference(X)
 
         if X is None:
             X = np.ones((T.shape[0], 1))
@@ -323,41 +322,51 @@ class LinearModelFinalInference(GenericModelFinalInference):
 
         feat_T = self._est.treatment_featurizer.fit_transform(T)
 
-        cme_pred = cme_inf.point_estimate
-        cme_stderr = cme_inf.stderr
-
         self._est.treatment_featurizer = jacify_featurizer(self._est.treatment_featurizer)
         jac_T = self._est.treatment_featurizer.jac(T)
 
-        einsum_str = 'myf, mtf->myt'  # y is a vector, rather than a 2D array
-        if ndim(T) == 1:
-            einsum_str = einsum_str.replace('t', '')
-        if ndim(feat_T) == 1:
-            einsum_str = einsum_str.replace('f', '')
-        if (ndim(cme_pred) == ndim(feat_T)):
-            einsum_str = einsum_str.replace('y', '')
-        e_pred = np.einsum(einsum_str, cme_pred, jac_T)
-        e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(jac_T)) if cme_stderr is not None else None
+        d_t_orig = T.shape[1:]
+        d_t_orig = d_t_orig[0] if d_t_orig else 1
+
         d_y = self._d_y[0] if self._d_y else 1
         d_t = self._d_t[0] if self._d_t else 1
 
-        # mean std error
-        X_mean, T_mean = broadcast_unit_treatments(X.mean(axis=0).reshape(1, -1), self.d_t)
-        mean_XT = cross_product(X_mean, T_mean)
-        mean_pred_stderr = self._prediction_stderr(mean_XT)
-        if mean_pred_stderr is not None:
-            mean_pred_stderr = reshape_treatmentwise_effects(mean_pred_stderr,
-                                                             self._d_t, self._d_y)  # shape[0] will always be 1 here
-            mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0)
+        output_shape = [X.shape[0]]
+        if self._d_y:
+            output_shape.append(self._d_y[0])
+        if T.shape[1:]:
+            output_shape.append(T.shape[1])
+        me_pred = np.zeros(shape=output_shape)
+        me_stderr = np.zeros(shape=output_shape)
+        mean_pred_stderr_res = np.zeros(shape=output_shape[1:])
+        for i in range(d_t_orig):
+            # conditionally index multiple dimensions depending on shapes of T, Y and feat_T
+            jac_index = [slice(None)]
+            me_index = [slice(None)]
+            if self._d_y:
+                me_index.append(slice(None))
+            if T.shape[1:]:
+                jac_index.append(i)
+                me_index.append(i)
+            if feat_T.shape[1:]:  # if featurized T is not a vector
+                jac_index.append(slice(None))
 
-        jac_mean_T = self._est.treatment_featurizer.jac(T.mean(axis=0, keepdims=True)).squeeze(axis=0)
+            XT = cross_product(X, jac_T[tuple(jac_index)])
+            e_pred = self._predict(XT)
+            e_stderr = self._prediction_stderr(XT)
 
-        einsum_str = einsum_str.replace('m', '')
-        mean_pred_stderr = np.einsum(
-            einsum_str, mean_pred_stderr, np.abs(jac_mean_T)) if mean_pred_stderr is not None else None
+            mean_XT = XT.mean(axis=0, keepdims=True)
+            mean_pred_stderr = self._prediction_stderr(mean_XT)  # shape[0] will always be 1 here
+            # squeeze the first axis
+            mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0) if mean_pred_stderr is not None else None
+            if mean_pred_stderr:
+                mean_pred_stderr_res[tuple(me_index[1:])] = mean_pred_stderr
 
-        return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, mean_pred_stderr=mean_pred_stderr, inf_type='effect',
+            me_pred[tuple(me_index)] = e_pred
+            me_stderr[tuple(me_index)] = e_stderr
+
+        return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=me_pred,
+                                      pred_stderr=me_stderr, mean_pred_stderr=mean_pred_stderr_res, inf_type='effect',
                                       feature_names=self._est.cate_feature_names(),
                                       output_names=self._est.cate_output_names())
 
