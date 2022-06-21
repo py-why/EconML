@@ -22,6 +22,7 @@ from econml.sklearn_extensions.model_selection import WeightedKFold, WeightedStr
 from econml.utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
+from sklearn.linear_model._base import _preprocess_data
 from sklearn.metrics import r2_score
 from sklearn.model_selection import KFold, StratifiedKFold
 # TODO: consider working around relying on sklearn implementation details
@@ -102,7 +103,7 @@ class WeightedModelMixin:
                     )
 
             # Normalize inputs
-            X, y, X_offset, y_offset, X_scale = self._preprocess_data(
+            X, y, X_offset, y_offset, X_scale = _preprocess_data(
                 X, y, fit_intercept=self.fit_intercept, normalize=False,
                 copy=self.copy_X, check_input=check_input if check_input is not None else True,
                 sample_weight=sample_weight)
@@ -731,7 +732,7 @@ class DebiasedLasso(WeightedLasso):
         # Fit weighted lasso with user input
         super().fit(X, y, sample_weight, check_input)
         # Center X, y
-        X, y, X_offset, y_offset, X_scale = self._preprocess_data(
+        X, y, X_offset, y_offset, X_scale = _preprocess_data(
             X, y, fit_intercept=self.fit_intercept, normalize=False,
             copy=self.copy_X, check_input=check_input, sample_weight=sample_weight)
 
