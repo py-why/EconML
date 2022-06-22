@@ -88,4 +88,4 @@ placed on that page position and the response is whether the user clicked on it.
 More Use Cases
 ----------------------------
 
-You can find more use cases on the Microsoft EconML project page `here <https://www.microsoft.com/en-us/research/project/econml/use-cases/>`_: 
+You can find more use cases on the Microsoft EconML project page `here <https://www.microsoft.com/en-us/research/project/econml/use-cases/>`_: Ë
