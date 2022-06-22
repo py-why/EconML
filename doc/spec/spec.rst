@@ -23,6 +23,7 @@ The EconML Python SDK, developed by the ALICE team at MSR New England, incorpora
     inference
     interpretability
     references
+    faq
 
 .. todo::
     benchmark

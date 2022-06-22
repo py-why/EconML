@@ -83,3 +83,9 @@ data can help guide correct A/B tests to run. Heterogeneous treatment effect est
 can provide estimates of the click-through-rate of page components from
 observational data. In this setting, the treatment is simply whether the component is
 placed on that page position and the response is whether the user clicked on it.
+
+
+More Use Cases
+----------------------------
+
+You can find more use cases on the Microsoft EconML project page `here <https://www.microsoft.com/en-us/research/project/econml/use-cases/>`_: 
