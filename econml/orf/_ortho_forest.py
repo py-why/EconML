@@ -1320,36 +1320,55 @@ class BLBInference(Inference):
                                       output_names=self._estimator.cate_output_names(),
                                       treatment_names=self._estimator.cate_treatment_names())
 
-    def marginal_effect_inference(self, T, X):
-        X, T = self._estimator._expand_treatments(X, T, transform=False)
-        cme_inf = self.const_marginal_effect_inference(X)
+    def _marginal_effect_inference_helper(self, T, X):
         if self._estimator.treatment_featurizer is None:
-            return cme_inf
+            return self.const_marginal_effect_inference(X)
+
+        X, T = check_input_arrays(X, T)
+        X, T = self._estimator._expand_treatments(X, T, transform=False)
 
         feat_T = self._estimator.treatment_featurizer.fit_transform(T)
-
-        cme_pred = cme_inf.point_estimate
-        cme_stderr = cme_inf.stderr
 
         self._estimator.treatment_featurizer = jacify_featurizer(self._estimator.treatment_featurizer)
         jac_T = self._estimator.treatment_featurizer.jac(T)
 
-        einsum_str = 'myf, mtf->myt'  # y is a vector, rather than a 2D array
+        params, cov = zip(*(self._predict_wrapper(X)))
+        params = np.array(params)
+        cov = np.array(cov)
+
+        eff_einsum_str = 'mf, mtf-> mt'
+        err_einsum_str = 'mtf, mff, mtf -> mt'
+
+        # conditionally expand jacobian dimensions to align with einsum str
+        jac_index = [slice(None), slice(None), slice(None)]
         if ndim(T) == 1:
-            einsum_str = einsum_str.replace('t', '')
+            jac_index[1] = None
         if ndim(feat_T) == 1:
-            einsum_str = einsum_str.replace('f', '')
-        if (ndim(cme_pred) == ndim(feat_T)):
-            einsum_str = einsum_str.replace('y', '')
-        e_pred = np.einsum(einsum_str, cme_pred, jac_T)
-        e_stderr = np.einsum(einsum_str, cme_stderr, np.abs(jac_T)) if cme_stderr is not None else None
+            jac_index[2] = None
+        jac_T = jac_T[tuple(jac_index)]
+
+        eff = np.einsum(eff_einsum_str, params, jac_T)
+        scales = np.sqrt(np.einsum(err_einsum_str, jac_T, cov, jac_T))
+
+        eff = eff.reshape((-1,) + self._d_y + T.shape[1:])
+        scales = scales.reshape((-1,) + self._d_y + T.shape[1:])
+
+        return eff, scales
+
+    def marginal_effect_inference(self, T, X):
+        if self._estimator.treatment_featurizer is None:
+            return self.const_marginal_effect_inference(X)
+
+        eff, scales = self._marginal_effect_inference_helper(T, X)
+
         d_y = self._d_y[0] if self._d_y else 1
         d_t = self._d_t[0] if self._d_t else 1
 
-        return NormalInferenceResults(d_t=d_t, d_y=d_y, pred=e_pred,
-                                      pred_stderr=e_stderr, mean_pred_stderr=None, inf_type='effect',
+        return NormalInferenceResults(d_t=d_t, d_y=d_y,
+                                      pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',
                                       feature_names=self._estimator.cate_feature_names(),
-                                      output_names=self._estimator.cate_output_names())
+                                      output_names=self._estimator.cate_output_names(),
+                                      treatment_names=self._estimator.cate_treatment_names())
 
     def marginal_effect_interval(self, T, X, *, alpha=0.05):
         return self.marginal_effect_inference(T, X).conf_int(alpha=alpha)
