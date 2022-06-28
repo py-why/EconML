@@ -1337,7 +1337,6 @@ class BLBInference(Inference):
         cov = np.array(cov)
 
         eff_einsum_str = 'mf, mtf-> mt'
-        err_einsum_str = 'mtf, mff, mtf -> mt'
 
         # conditionally expand jacobian dimensions to align with einsum str
         jac_index = [slice(None), slice(None), slice(None)]
@@ -1345,14 +1344,39 @@ class BLBInference(Inference):
             jac_index[1] = None
         if ndim(feat_T) == 1:
             jac_index[2] = None
-        jac_T = jac_T[tuple(jac_index)]
 
-        eff = np.einsum(eff_einsum_str, params, jac_T)
-        scales = np.sqrt(np.einsum(err_einsum_str, jac_T, cov, jac_T))
+        # Calculate the effects
+        eff = np.einsum(eff_einsum_str, params, jac_T[tuple(jac_index)])
+
+        # Calculate the standard deviations for the effects
+        d_t_orig = T.shape[1:]
+        d_t_orig = d_t_orig[0] if d_t_orig else 1
+        output_shape = [X.shape[0]]
+        if T.shape[1:]:
+            output_shape.append(T.shape[1])
+        scales = np.zeros(shape=output_shape)
+
+        for i in range(d_t_orig):
+            # conditionally index multiple dimensions depending on shapes of T, Y and feat_T
+            jac_index = [slice(None)]
+            me_index = [slice(None)]
+            if T.shape[1:]:
+                jac_index.append(i)
+                me_index.append(i)
+
+            if feat_T.shape[1:]:  # if featurized T is not a vector
+                jac_index.append(slice(None))
+            else:
+                jac_index.append(None)
+
+            print(jac_T.shape)
+            print(jac_T[tuple(jac_index)].shape)
+            mid = np.einsum('mj, mjk -> mk', jac_T[tuple(jac_index)], cov) 
+            final = np.einsum('mk, mk -> m', mid, jac_T[tuple(jac_index)])
+            scales[tuple(me_index)] = final
 
         eff = eff.reshape((-1,) + self._d_y + T.shape[1:])
         scales = scales.reshape((-1,) + self._d_y + T.shape[1:])
-
         return eff, scales
 
     def marginal_effect_inference(self, T, X):
