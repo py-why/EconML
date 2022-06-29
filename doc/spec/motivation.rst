@@ -31,61 +31,61 @@ python API.
 Motivating Examples
 ===================
 
-Customer Targeting
-------------------
+Recommendation A/B testing
+-----------------------------
 
-An important problem in modern business analytics is building automated tools to prioritize customer
-acquisition and personalize customer interactions to increase sales and revenue. Typically businesses
-will offer personalized incentives to customers to increase spend or increase the level of
-engagement via more human resources. Any such personalized intervention corresponds to a monetary
-investment and the main question that business analytics are called to answer is: what is the return
-on investment (ROI)? 
+Interpret experiments with imperfect compliance
 
-Analyzing the ROI is inherently a treatment effect question: what was the effect of any investment
-on a particular customer on its spend? Understanding how these return on investment varies across
-customers can enable more targeted investment policies and increased ROI via better targeting. Using historical
-data from deployed investments, and estimating the heterogeneous treatment effect via any of
-the proposed methods, business analysts can learn in an automated manner, data-driven
-customer targeting and prioritization policies.
+Question: A travel website would like to know whether joining a membership program
+causes users to spend more time engaging with the website. 
 
-Personalized Pricing
---------------------
+Problem: They can’t look directly at existing data, comparing members and non-members,
+because the customers who chose to become members are likely already more engaged than other users.
+Nor can they run a direct A/B test because they can’t force users to sign up for membership. 
 
-Personalized discounts have become very widespread in the digital economy. To set the optimal
-personalized discount policy a business needs to understand what is the effect
-of a drop in price on the demand of a customer for a product as a function of customer
-characteristics. The estimation of such personalized demand elasticities can also be
-phrased in the language of heterogeneous treatment effects, where the treatment 
-is the price (or typically log of price) on the demand (or typically log of demand)
-as a function of observable features of the customer. Hence, estimation of heterogeneous
-treatment effects can lead to optimal pricing policies.
+Solution: The company had run an earlier experiment to test the value of a new,
+faster sign-up process. EconML’s DRIV estimator uses this experimental nudge towards membership
+as an instrument that generates random variation in the likelihood of membership. 
+The DRIV model adjusts for the fact that not every customer who was offered the easier sign-up
+became a member and returns the effect of membership rather than the effect of receiving the quick sign-up.
 
+You can find the jupyter notebook 
+`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Recommendation%20AB%20Testing%20at%20An%20Online%20Travel%20Company.ipynb>`_
 
-Stratification in Clinical Trials
-----------------------------------------
+Customer Segmentation
+----------------------
 
-Which patients should be selected for a clinical trial? If we want to demonstrate
-that a clinical treatment has an effect on at least some subset of a population, then
-fully randomized clinical trials are inappropriate as they will solely estimate
-average effects. Using heterogeneous treatment effect techniques, we can use
-observational data to come up with estimates of these effects and identify
-good candidate patients for a clinical trial that our model estimates have high
-treatment effects.
+Estimate individualized responses to incentives
 
-Learning Click-Through-Rates
-----------------------------
+Question: A media subscription service would like to offer targeted discounts
+through a personalized pricing plan. 
 
-In the design of a page layout and more importantly in ad placement, it is important
-to understand the click-through-rate of page components (e.g. ads) on different positions
-of a page. Even though the modern approach is to run multiple A/B tests, when such
-page components involve revenue considerations (such as ad placement), then observational
-data can help guide correct A/B tests to run. Heterogeneous treatment effect estimation
-can provide estimates of the click-through-rate of page components from
-observational data. In this setting, the treatment is simply whether the component is
-placed on that page position and the response is whether the user clicked on it.
+Problem: They observe many features of their customers,
+but are not sure which customers will respond most to a lower price. 
 
+Solution: EconML’s DML estimator uses price variations in existing data, 
+along with a rich set of user features, to estimate heterogeneous price sensitivities
+that vary with multiple customer features. 
+The tree interpreter provides a presentation-ready summary of the key features
+that explain the biggest differences in responsiveness to a discount.
 
-More Use Cases
-----------------------------
+You can find the jupyter notebook 
+`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Customer%20Segmentation%20at%20An%20Online%20Media%20Company.ipynb>`_
 
-You can find more use cases on the Microsoft EconML project page `here <https://www.microsoft.com/en-us/research/project/econml/use-cases/>`_: �
+Multi-investment Attribution
+-----------------------------
+Distinguish the effects of multiple outreach efforts
+
+Question: A startup would like to know the most effective approach for recruiting new customers: 
+price discounts, technical support to ease adoption, or a combination of the two. 
+
+Problem: The risk of losing customers makes experiments across outreach efforts too expensive. 
+So far, customers have been offered incentives strategically, 
+for example larger businesses are more likely to get technical support. 
+
+Solution: EconML’s Doubly Robust Learner model jointly estimates the effects of multiple discrete treatments. 
+The model uses flexible functions of observed customer features to filter out confounding correlations
+in existing data and deliver the causal effect of each effort on revenue.
+
+You can find the jupyter notebook 
+`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Multi-investment%20Attribution%20at%20A%20Software%20Company.ipynb>`_
