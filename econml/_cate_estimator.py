@@ -780,15 +780,17 @@ class LinearCateEstimator(BaseCateEstimator):
         pass
 
     def marginal_ate(self, T, X=None):
-        return self.const_marginal_ate(X=X)
+        return np.mean(self.marginal_effect(T, X=X), axis=0)
     marginal_ate.__doc__ = BaseCateEstimator.marginal_ate.__doc__
 
+    @BaseCateEstimator._defer_to_inference
     def marginal_ate_interval(self, T, X=None, *, alpha=0.05):
-        return self.const_marginal_ate_interval(X=X, alpha=alpha)
+        pass
     marginal_ate_interval.__doc__ = BaseCateEstimator.marginal_ate_interval.__doc__
 
+    @BaseCateEstimator._defer_to_inference
     def marginal_ate_inference(self, T, X=None):
-        return self.const_marginal_ate_inference(X=X)
+        pass
     marginal_ate_inference.__doc__ = BaseCateEstimator.marginal_ate_inference.__doc__
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
