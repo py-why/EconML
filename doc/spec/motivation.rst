@@ -50,7 +50,7 @@ The DRIV model adjusts for the fact that not every customer who was offered the 
 became a member and returns the effect of membership rather than the effect of receiving the quick sign-up.
 
 You can find the jupyter notebook 
-`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Recommendation%20AB%20Testing%20at%20An%20Online%20Travel%20Company.ipynb>`_
+`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Recommendation%20AB%20Testing%20at%20An%20Online%20Travel%20Company.ipynb>`__
 
 Customer Segmentation
 ----------------------
@@ -70,7 +70,7 @@ The tree interpreter provides a presentation-ready summary of the key features
 that explain the biggest differences in responsiveness to a discount.
 
 You can find the jupyter notebook 
-`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Customer%20Segmentation%20at%20An%20Online%20Media%20Company.ipynb>`_
+`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Customer%20Segmentation%20at%20An%20Online%20Media%20Company.ipynb>`__
 
 Multi-investment Attribution
 -----------------------------
@@ -88,4 +88,4 @@ The model uses flexible functions of observed customer features to filter out co
 in existing data and deliver the causal effect of each effort on revenue.
 
 You can find the jupyter notebook 
-`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Multi-investment%20Attribution%20at%20A%20Software%20Company.ipynb>`_
+`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Multi-investment%20Attribution%20at%20A%20Software%20Company.ipynb>`__
