@@ -1371,7 +1371,7 @@ class BLBInference(Inference):
 
             print(jac_T.shape)
             print(jac_T[tuple(jac_index)].shape)
-            mid = np.einsum('mj, mjk -> mk', jac_T[tuple(jac_index)], cov) 
+            mid = np.einsum('mj, mjk -> mk', jac_T[tuple(jac_index)], cov)
             final = np.einsum('mk, mk -> m', mid, jac_T[tuple(jac_index)])
             scales[tuple(me_index)] = final
 
