@@ -51,6 +51,11 @@ class TestLassoExtensions(unittest.TestCase):
         cls.y_2D_consistent = np.concatenate((TestLassoExtensions.y_simple.reshape(-1, 1),
                                               TestLassoExtensions.y2_full.reshape(-1, 1)), axis=1)
 
+    def test_can_clone(self):
+        for model in [WeightedLasso(), WeightedLassoCV(), WeightedMultiTaskLassoCV(),
+                      WeightedLassoCVWrapper(), DebiasedLasso(), MultiOutputDebiasedLasso()]:
+            clone(model)
+
     #################
     # WeightedLasso #
     #################

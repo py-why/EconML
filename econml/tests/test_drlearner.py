@@ -13,8 +13,8 @@ import scipy.special
 from sklearn.base import TransformerMixin
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
 from sklearn.exceptions import DataConversionWarning
-from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression
-from sklearn.model_selection import KFold, GroupKFold
+from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
+from sklearn.model_selection import KFold, GroupKFold, check_cv
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
 
@@ -799,27 +799,37 @@ class TestDRLearner(unittest.TestCase):
         est.fit(y, t, W=w, groups=groups)
 
         # test nested grouping
-        class NestedModel(LassoCV):
-            def __init__(self, eps=1e-3, n_alphas=100, alphas=None, fit_intercept=True,
-                         precompute='auto', max_iter=1000, tol=1e-4,
-                         copy_X=True, cv=None, verbose=False, n_jobs=None,
-                         positive=False, random_state=None, selection='cyclic'):
+        class NestedModel:
+            def __init__(self, cv):
+                self.model = LassoCV(cv=cv)
 
-                super().__init__(
-                    eps=eps, n_alphas=n_alphas, alphas=alphas,
-                    fit_intercept=fit_intercept,
-                    precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
-                    cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
-                    random_state=random_state, selection=selection)
+            # DML nested CV works via a 'cv' attribute
+            @property
+            def cv(self):
+                return self.model.cv
+
+            @cv.setter
+            def cv(self, value):
+                self.model.cv = value
 
             def fit(self, X, y):
-                # ensure that the grouping has worked correctly and we get all 10 copies of the items in
-                # whichever groups we saw
-                (yvals, cts) = np.unique(y, return_counts=True)
-                for (yval, ct) in zip(yvals, cts):
-                    if ct != 10:
-                        raise Exception("Grouping failed; received {0} copies of {1} instead of 10".format(ct, yval))
-                return super().fit(X, y)
+                for (train, test) in check_cv(self.cv, y).split(X, y):
+                    (yvals, cts) = np.unique(y[train], return_counts=True)
+                    # with 2-fold outer and 2-fold inner grouping, and six total groups,
+                    # should get 1 or 2 groups per split
+                    if len(yvals) > 2:
+                        raise Exception(f"Grouping failed: received {len(yval)} groups instead of at most 2")
+
+                    # ensure that the grouping has worked correctly and we get all 10 copies of the items in
+                    # whichever groups we see
+                    for (yval, ct) in zip(yvals, cts):
+                        if ct != 10:
+                            raise Exception(f"Grouping failed; received {ct} copies of {yval} instead of 10")
+                self.model.fit(X, y)
+                return self
+
+            def predict(self, X):
+                return self.model.predict(X)
 
         # test nested grouping
         est = LinearDRLearner(model_propensity=LogisticRegression(),
@@ -829,7 +839,9 @@ class TestDRLearner(unittest.TestCase):
         # by default, we use 5 split cross-validation for our T and Y models
         # but we don't have enough groups here to split both the outer and inner samples with grouping
         # TODO: does this imply we should change some defaults to make this more likely to succeed?
-        est = LinearDRLearner(cv=GroupKFold(2))
+        est = LinearDRLearner(model_propensity=LogisticRegressionCV(cv=5),
+                              model_regression=LassoCV(cv=5),
+                              cv=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, W=w, groups=groups)
 
