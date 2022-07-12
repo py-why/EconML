@@ -43,7 +43,7 @@ When should you use it?
 
 Suppose you have observational (or experimental from an A/B test) historical data, where some treatment(s)/intervention(s)/action(s) 
 :math:`T` were chosen and some outcome(s) :math:`Y` were observed and all the variables :math:`W` that could have
-potentially gone into the choice of :math:`T`, and simultaneously could have had a direct effect on the outcome :math:`Y` (aka controls or confounders) are also recorder in the dataset.
+potentially gone into the choice of :math:`T`, and simultaneously could have had a direct effect on the outcome :math:`Y` (aka controls or confounders) are also recorded in the dataset.
 
 If your goal is to understand what was the effect of the treatment on the outcome as a function of a set of observable
 characteristics :math:`X` of the treated samples, then one can use this method. For instance call:
