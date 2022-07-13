@@ -9,11 +9,11 @@ Causal machine learning applies the power of machine learning techniques to answ
 
 * Existing solutions to answer what-if questions are expensive. Decision-makers can engage in active experimentation like A/B testing or employ highly trained economists who use traditional statistical models to infer causal effects from previously collected data. 
 
-The EconML Python SDK, developed by the ALICE team at MSR New England, incorporates individual machine learning steps into interpretable causal models. By reducing the need for expert judgment, these innovations improve the reliability of what-if predictions and empower data scientists without extensive economic training to conduct causal analysis using existing data. 
-
+EconML is a Python package that applies the power of machine learning techniques to estimate individualized causal responses from observational or experimental data. The suite of estimation methods provided in EconML represents the latest advances in causal machine learning. By incorporating individual machine learning steps into interpretable causal models, these methods improve the reliability of what-if predictions and make causal analysis quicker and easier for a broad set of users.
 
 .. toctree::
     motivation
+    causal_intro
     api
     flowchart
     comparison
