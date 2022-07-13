@@ -34,58 +34,62 @@ Motivating Examples
 Recommendation A/B testing
 -----------------------------
 
-Interpret experiments with imperfect compliance
+*Interpret experiments with imperfect compliance*
 
-Question: A travel website would like to know whether joining a membership program
+**Question**: A travel website would like to know whether joining a membership program
 causes users to spend more time engaging with the website. 
 
-Problem: They can’t look directly at existing data, comparing members and non-members,
+**Problem**: They can’t look directly at existing data, comparing members and non-members,
 because the customers who chose to become members are likely already more engaged than other users.
 Nor can they run a direct A/B test because they can’t force users to sign up for membership. 
 
-Solution: The company had run an earlier experiment to test the value of a new,
+**Solution**: The company had run an earlier experiment to test the value of a new,
 faster sign-up process. EconML’s DRIV estimator uses this experimental nudge towards membership
 as an instrument that generates random variation in the likelihood of membership. 
 The DRIV model adjusts for the fact that not every customer who was offered the easier sign-up
 became a member and returns the effect of membership rather than the effect of receiving the quick sign-up.
 
-You can find the jupyter notebook 
-`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Recommendation%20AB%20Testing%20at%20An%20Online%20Travel%20Company.ipynb>`__
+Link to jupyter notebook: 
+`Recommendation A/B Testing <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Recommendation%20AB%20Testing%20at%20An%20Online%20Travel%20Company.ipynb>`__
+
+More details:
+`Trip Advisor Case Study <https://www.microsoft.com/en-us/research/uploads/prod/2020/04/MSR_ALICE_casestudy_2020.pdf>`__
+
 
 Customer Segmentation
 ----------------------
 
-Estimate individualized responses to incentives
+*Estimate individualized responses to incentives*
 
-Question: A media subscription service would like to offer targeted discounts
+**Question**: A media subscription service would like to offer targeted discounts
 through a personalized pricing plan. 
 
-Problem: They observe many features of their customers,
+**Problem**: They observe many features of their customers,
 but are not sure which customers will respond most to a lower price. 
 
-Solution: EconML’s DML estimator uses price variations in existing data, 
+**Solution**: EconML’s DML estimator uses price variations in existing data, 
 along with a rich set of user features, to estimate heterogeneous price sensitivities
 that vary with multiple customer features. 
 The tree interpreter provides a presentation-ready summary of the key features
 that explain the biggest differences in responsiveness to a discount.
 
-You can find the jupyter notebook 
-`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Customer%20Segmentation%20at%20An%20Online%20Media%20Company.ipynb>`__
+Link to jupyter notebook: 
+`Customer Segmentation <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Customer%20Segmentation%20at%20An%20Online%20Media%20Company.ipynb>`__.
 
 Multi-investment Attribution
 -----------------------------
-Distinguish the effects of multiple outreach efforts
+*Distinguish the effects of multiple outreach efforts*
 
-Question: A startup would like to know the most effective approach for recruiting new customers: 
+**Question**: A startup would like to know the most effective approach for recruiting new customers: 
 price discounts, technical support to ease adoption, or a combination of the two. 
 
-Problem: The risk of losing customers makes experiments across outreach efforts too expensive. 
+**Problem**: The risk of losing customers makes experiments across outreach efforts too expensive. 
 So far, customers have been offered incentives strategically, 
 for example larger businesses are more likely to get technical support. 
 
-Solution: EconML’s Doubly Robust Learner model jointly estimates the effects of multiple discrete treatments. 
+**Solution**: EconML’s Doubly Robust Learner model jointly estimates the effects of multiple discrete treatments. 
 The model uses flexible functions of observed customer features to filter out confounding correlations
 in existing data and deliver the causal effect of each effort on revenue.
 
-You can find the jupyter notebook 
-`here <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Multi-investment%20Attribution%20at%20A%20Software%20Company.ipynb>`__
+Link to jupyter notebook: 
+`Multi-investment Attribution <https://github.com/microsoft/EconML/blob/main/notebooks/CustomerScenarios/Case%20Study%20-%20Multi-investment%20Attribution%20at%20A%20Software%20Company.ipynb>`__.
