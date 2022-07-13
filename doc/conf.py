@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath('econml'))
 # -- Project information -----------------------------------------------------
 
 project = 'econml'
-copyright = '2019, Microsoft Research'
+copyright = '2022, Microsoft Research'
 author = 'Microsoft Research'
 version = econml.__version__
 release = econml.__version__
