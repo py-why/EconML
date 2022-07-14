@@ -359,7 +359,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
             mean_pred_stderr = self._prediction_stderr(mean_XT)  # shape[0] will always be 1 here
             # squeeze the first axis
             mean_pred_stderr = np.squeeze(mean_pred_stderr, axis=0) if mean_pred_stderr is not None else None
-            if mean_pred_stderr:
+            if mean_pred_stderr is not None:
                 mean_pred_stderr_res[tuple(me_index[1:])] = mean_pred_stderr
 
             me_pred[tuple(me_index)] = e_pred
