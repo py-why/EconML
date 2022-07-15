@@ -205,16 +205,15 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         X, T = self._est._expand_treatments(X, T, transform=False)
 
         cme_inf = self.const_marginal_effect_inference(X)
-        if self._est.treatment_featurizer is None:
+        if not self._est.treatment_featurizer:
             return cme_inf
 
-        feat_T = self._est.treatment_featurizer.fit_transform(T)
+        feat_T = self._est.transformer.transform(T)
 
         cme_pred = cme_inf.point_estimate
         cme_stderr = cme_inf.stderr
 
-        self._est.treatment_featurizer = jacify_featurizer(self._est.treatment_featurizer)
-        jac_T = self._est.treatment_featurizer.jac(T)
+        jac_T = self._est.transformer.jac(T)
 
         einsum_str = 'myf, mtf->myt'  # y is a vector, rather than a 2D array
         if ndim(T) == 1:
@@ -312,7 +311,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
 
     def marginal_effect_inference(self, T, X):
         X, T = self._est._expand_treatments(X, T, transform=False)
-        if self._est.treatment_featurizer is None:
+        if not self._est.treatment_featurizer:
             return self.const_marginal_effect_inference(X)
 
         if X is None:
@@ -320,10 +319,9 @@ class LinearModelFinalInference(GenericModelFinalInference):
         elif self.featurizer is not None:
             X = self.featurizer.transform(X)
 
-        feat_T = self._est.treatment_featurizer.fit_transform(T)
+        feat_T = self._est.transformer.transform(T)
 
-        self._est.treatment_featurizer = jacify_featurizer(self._est.treatment_featurizer)
-        jac_T = self._est.treatment_featurizer.jac(T)
+        jac_T = self._est.transformer.jac(T)
 
         d_t_orig = T.shape[1:]
         d_t_orig = d_t_orig[0] if d_t_orig else 1

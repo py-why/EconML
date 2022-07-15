@@ -1435,7 +1435,7 @@ def jacify_featurizer(featurizer):
 
             d_t = X.shape[-1] if ndim(X) > 1 else 1
 
-            X_out = self.fit_transform(X)
+            X_out = self.transform(X)
             d_f_t = X_out.shape[-1] if ndim(X_out) > 1 else 1
 
             epsilon = 0.001

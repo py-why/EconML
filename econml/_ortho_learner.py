@@ -44,7 +44,7 @@ from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
 from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, check_input_arrays,
                         cross_product, filter_none_kwargs,
-                        inverse_onehot, ndim, reshape, shape, transpose)
+                        inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
 
 
 def _crossfit(model, folds, *args, **kwargs):
@@ -441,6 +441,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.categories = categories
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Cannot pass both \
+            discrete_treatment and treatment_featurizer!"
         super().__init__()
 
     @abstractmethod
@@ -607,8 +609,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         if not only_final:
 
-            assert not (self.discrete_treatment and self.treatment_featurizer), "Cannot pass both \
-                discrete_treatment and treatment_featurizer!"
             if self.discrete_treatment:
                 categories = self.categories
                 if categories != 'auto':
@@ -617,7 +617,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
             elif self.treatment_featurizer:
-                self.transformer = self.treatment_featurizer
+                self.transformer = jacify_featurizer(self.treatment_featurizer)
                 output_T = self.transformer.fit_transform(T)
                 self._d_t = np.shape(output_T)[1:]
             else:

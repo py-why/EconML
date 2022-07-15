@@ -635,10 +635,9 @@ class LinearCateEstimator(BaseCateEstimator):
         if X is None:
             eff = np.repeat(eff, shape(T)[0], axis=0)
 
-        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
-            feat_T = self.treatment_featurizer.fit_transform(T)
-            self.treatment_featurizer = jacify_featurizer(self.treatment_featurizer)
-            jac_T = self.treatment_featurizer.jac(T)
+        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer:
+            feat_T = self.transformer.transform(T)
+            jac_T = self.transformer.jac(T)
 
             einsum_str = 'myf, mtf->myt'
 
@@ -654,7 +653,7 @@ class LinearCateEstimator(BaseCateEstimator):
             return eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
-        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
+        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer:
             return BaseCateEstimator._defer_to_inference(self.marginal_effect_interval)(self, T, X, alpha=alpha)
         else:
             X, T = self._expand_treatments(X, T)
@@ -665,7 +664,7 @@ class LinearCateEstimator(BaseCateEstimator):
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
     def marginal_effect_inference(self, T, X=None):
-        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer is not None:
+        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer:
             return BaseCateEstimator._defer_to_inference(self.marginal_effect_inference)(self, T, X)
         else:
             X, T = self._expand_treatments(X, T)

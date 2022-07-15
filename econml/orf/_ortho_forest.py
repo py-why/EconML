@@ -587,6 +587,9 @@ class DMLOrthoForest(BaseOrthoForest):
             self.lambda_reg)
         # Define
         moment_and_mean_gradient_estimator = _DMLOrthoForest_moment_and_mean_gradient_estimator_func
+
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Cannot pass both \
+            discrete_treatment and treatment_featurizer!"
         super().__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -644,8 +647,6 @@ class DMLOrthoForest(BaseOrthoForest):
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
 
-        assert not (self.discrete_treatment and self.treatment_featurizer), "Cannot pass both \
-            discrete_treatment and treatment_featurizer!"
         if self.discrete_treatment:
             categories = self.categories
             if categories != 'auto':
@@ -655,7 +656,7 @@ class DMLOrthoForest(BaseOrthoForest):
             T = self.transformer.fit_transform(T.reshape(-1, 1))
             self._d_t = T.shape[1:]
         elif self.treatment_featurizer:
-            self.transformer = self.treatment_featurizer
+            self.transformer = jacify_featurizer(self.treatment_featurizer)
             d_t_in = T.shape[1:]
             T = self.transformer.fit_transform(T)
             self._d_t = np.shape(T)[1:]
@@ -1327,10 +1328,9 @@ class BLBInference(Inference):
         X, T = check_input_arrays(X, T)
         X, T = self._estimator._expand_treatments(X, T, transform=False)
 
-        feat_T = self._estimator.treatment_featurizer.fit_transform(T)
+        feat_T = self._estimator.transformer.transform(T)
 
-        self._estimator.treatment_featurizer = jacify_featurizer(self._estimator.treatment_featurizer)
-        jac_T = self._estimator.treatment_featurizer.jac(T)
+        jac_T = self._estimator.transformer.jac(T)
 
         params, cov = zip(*(self._predict_wrapper(X)))
         params = np.array(params)
