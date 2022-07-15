@@ -220,67 +220,72 @@ class TestOrthoForest(unittest.TestCase):
         lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
         assert lb.shape == (3, 1, 2), "Marginal Effect interval dimension incorrect"
 
+        def identify_featurization(x):
+            return x
+        from sklearn.preprocessing import FunctionTransformer
         from sklearn.dummy import DummyClassifier, DummyRegressor
         for global_residualization in [False, True]:
-            est = DMLOrthoForest(n_trees=10, model_Y=DummyRegressor(strategy='mean'),
-                                 model_T=DummyRegressor(strategy='mean'),
-                                 global_residualization=global_residualization,
-                                 n_jobs=1)
-            est.fit(y.reshape(-1, 1), T.reshape(-1, 1), X=X)
-            assert est.const_marginal_effect(X[:3]).shape == (3, 1, 1), "Const Marginal Effect dimension incorrect"
-            assert est.marginal_effect(1, X[:3]).shape == (3, 1, 1), "Marginal Effect dimension incorrect"
-            assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
-            assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
-            assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
-            lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
-            assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-            lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
-            assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-            lb, _ = est.const_marginal_effect_interval(X[:3])
-            assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
-            lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
-            assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
-            lb, _ = est.marginal_effect_interval(1, X[:3])
-            assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
-            lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
-            assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
-            est.fit(y.reshape(-1, 1), T, X=X)
-            assert est.const_marginal_effect(X[:3]).shape == (3, 1), "Const Marginal Effect dimension incorrect"
-            assert est.marginal_effect(1, X[:3]).shape == (3, 1), "Marginal Effect dimension incorrect"
-            assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
-            assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
-            assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
-            lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
-            assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-            lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
-            assert lb.shape == (3, 1), "Effect interval dimension incorrect"
-            lb, _ = est.const_marginal_effect_interval(X[:3])
-            print(lb.shape)
-            assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
-            lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
-            assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
-            lb, _ = est.marginal_effect_interval(1, X[:3])
-            assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
-            lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
-            assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
-            est.fit(y, T, X=X)
-            assert est.const_marginal_effect(X[:3]).shape == (3,), "Const Marginal Effect dimension incorrect"
-            assert est.marginal_effect(1, X[:3]).shape == (3,), "Marginal Effect dimension incorrect"
-            assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
-            assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
-            assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
-            lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
-            assert lb.shape == (3,), "Effect interval dimension incorrect"
-            lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
-            assert lb.shape == (3,), "Effect interval dimension incorrect"
-            lb, _ = est.const_marginal_effect_interval(X[:3])
-            assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
-            lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
-            assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
-            lb, _ = est.marginal_effect_interval(1, X[:3])
-            assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
-            lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
-            assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
+            for treatment_featurization in [None, FunctionTransformer(identify_featurization)]:
+                est = DMLOrthoForest(n_trees=10, model_Y=DummyRegressor(strategy='mean'),
+                                     model_T=DummyRegressor(strategy='mean'),
+                                     global_residualization=global_residualization,
+                                     treatment_featurizer=treatment_featurization,
+                                     n_jobs=1)
+                est.fit(y.reshape(-1, 1), T.reshape(-1, 1), X=X)
+                assert est.const_marginal_effect(X[:3]).shape == (3, 1, 1), "Const Marginal Effect dimension incorrect"
+                assert est.marginal_effect(1, X[:3]).shape == (3, 1, 1), "Marginal Effect dimension incorrect"
+                assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
+                assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
+                assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
+                lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+                assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+                lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+                assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+                lb, _ = est.const_marginal_effect_interval(X[:3])
+                assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
+                lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+                assert lb.shape == (3, 1, 1), "Const Marginal Effect interval dimension incorrect"
+                lb, _ = est.marginal_effect_interval(1, X[:3])
+                assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
+                lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
+                assert lb.shape == (3, 1, 1), "Marginal Effect interval dimension incorrect"
+                est.fit(y.reshape(-1, 1), T, X=X)
+                assert est.const_marginal_effect(X[:3]).shape == (3, 1), "Const Marginal Effect dimension incorrect"
+                assert est.marginal_effect(1, X[:3]).shape == (3, 1), "Marginal Effect dimension incorrect"
+                assert est.effect(X[:3]).shape == (3, 1), "Effect dimension incorrect"
+                assert est.effect(X[:3], T0=0, T1=2).shape == (3, 1), "Effect dimension incorrect"
+                assert est.effect(X[:3], T0=1, T1=2).shape == (3, 1), "Effect dimension incorrect"
+                lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+                assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+                lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+                assert lb.shape == (3, 1), "Effect interval dimension incorrect"
+                lb, _ = est.const_marginal_effect_interval(X[:3])
+                print(lb.shape)
+                assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
+                lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+                assert lb.shape == (3, 1), "Const Marginal Effect interval dimension incorrect"
+                lb, _ = est.marginal_effect_interval(1, X[:3])
+                assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
+                lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
+                assert lb.shape == (3, 1), "Marginal Effect interval dimension incorrect"
+                est.fit(y, T, X=X)
+                assert est.const_marginal_effect(X[:3]).shape == (3,), "Const Marginal Effect dimension incorrect"
+                assert est.marginal_effect(1, X[:3]).shape == (3,), "Marginal Effect dimension incorrect"
+                assert est.effect(X[:3]).shape == (3,), "Effect dimension incorrect"
+                assert est.effect(X[:3], T0=0, T1=2).shape == (3,), "Effect dimension incorrect"
+                assert est.effect(X[:3], T0=1, T1=2).shape == (3,), "Effect dimension incorrect"
+                lb, _ = est.effect_interval(X[:3], T0=1, T1=2)
+                assert lb.shape == (3,), "Effect interval dimension incorrect"
+                lb, _ = est.effect_inference(X[:3], T0=1, T1=2).conf_int()
+                assert lb.shape == (3,), "Effect interval dimension incorrect"
+                lb, _ = est.const_marginal_effect_interval(X[:3])
+                assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
+                lb, _ = est.const_marginal_effect_inference(X[:3]).conf_int()
+                assert lb.shape == (3,), "Const Marginal Effect interval dimension incorrect"
+                lb, _ = est.marginal_effect_interval(1, X[:3])
+                assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
+                lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
+                assert lb.shape == (3,), "Marginal Effect interval dimension incorrect"
 
     def test_nuisance_model_has_weights(self):
         """Test whether the correct exception is being raised if model_final doesn't have weights."""
