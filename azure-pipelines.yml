@@ -54,13 +54,17 @@ jobs:
   parameters:
     versions: ['3.8']
     images: ['ubuntu-18.04']
-    package: '-e .[all]'
+    # don't install package, just build dependencies
+    package: 'oldest-supported-numpy scipy cython'
     job:
       job: 'Docs'
       displayName: 'Build documentation'  
       dependsOn: 'EvalChanges'
       condition: eq(dependencies.EvalChanges.outputs['output.buildDocs'], 'True')
       steps:
+      - script: 'pip install "scipy>1.4.0" "scikit-learn>0.22.0" sparse "joblib>=0.13.0" "statsmodels>=0.10" pandas "shap>=0.38.1,<0.40.0" "dowhy<0.8" lightgbm'
+        displayName: 'Install dependencies'
+        
       - script: 'sudo apt-get -yq install graphviz'
         displayName: 'Install graphviz'
 
@@ -70,17 +74,17 @@ jobs:
       - script: 'pip install git+https://github.com/slundberg/shap.git@d1d2700acc0259f211934373826d5ff71ad514de'
         displayName: 'Install specific version of shap'  
 
-      - script: 'pip install sphinx sphinx_rtd_theme'
+      - script: 'pip install sphinx sphinx_rtd_theme sphinx_multiversion'
         displayName: 'Install sphinx'
 
-      - script: 'python setup.py build_sphinx -W'
+      - script: 'sphinx-multiversion doc build/sphinx'
         displayName: 'Build documentation'
 
       - publish: 'build/sphinx/html'
         artifact: 'Documentation'
         displayName: 'Publish documentation as artifact'
 
-      - script: 'python setup.py build_sphinx -b doctest'
+      - script: 'pip install matplotlib & python setup.py build_sphinx -b doctest'
         displayName: 'Run doctests'
 
 

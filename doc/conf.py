@@ -14,7 +14,8 @@
 #
 import os
 import sys
-import econml
+import re
+
 sys.path.insert(0, os.path.abspath('econml'))
 
 
@@ -23,8 +24,15 @@ sys.path.insert(0, os.path.abspath('econml'))
 project = 'econml'
 copyright = '2019, Microsoft Research'
 author = 'Microsoft Research'
-version = econml.__version__
-release = econml.__version__
+
+# TODO: this seems much hackier than if we could just import econml and access the version directly
+#       but with sphinx-multiversion we can't do that
+with open(os.path.join(os.path.dirname(__file__), '..', "econml", "_version.py")) as file:
+    for line in file:
+        m = re.fullmatch("__version__ = '([^']+)'\n", line)
+        if m:
+            version = m.group(1)
+            release = version
 
 # -- General configuration ---------------------------------------------------
 
@@ -46,6 +54,7 @@ extensions = [
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.inheritance_diagram',
+    "sphinx_multiversion"
 ]
 inheritance_graph_attrs = dict(rankdir="TB", size='"7.0, 10.0"',
                                fontsize=12, ratio='auto',
@@ -99,6 +108,11 @@ exclude_patterns = []
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
 
+# sphinx_multiversion configuration
+smv_tag_whitelist = r'^v0\.(12\.0|13\.0)$'
+smv_branch_whitelist = '^main$'
+smv_latest_version = 'v0.13.0'
+smv_released_pattern = '^refs/tags/.+$'
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -215,7 +229,7 @@ epub_exclude_files = ['search.html']
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+                       'numpy': ('https://numpy.org/doc/stable/', None),
                        'sklearn': ('https://scikit-learn.org/stable/', None),
                        'matplotlib': ('https://matplotlib.org/', None),
                        'shap': ('https://shap.readthedocs.io/en/stable/', None),
@@ -244,5 +258,13 @@ def exclude_entity(app, what, name, obj, skip, opts):
 
 
 def setup(app):
+    # HACK: ensure that we build extensions in place first
+    # Will not be necessary if one of the PRs addressing https://github.com/Holzhaus/sphinx-multiversion/issues/45
+    # is merged into sphinx-multiversion
+    import subprocess
+    print("Building extensions")
+    subprocess.call(["python", "setup.py", "build_ext", "-i"])
+
+    # Hook up our method for skipping entities
     app.connect('autodoc-skip-member', exclude_entity)
     ()
