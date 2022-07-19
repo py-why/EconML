@@ -1393,31 +1393,35 @@ class _RegressionWrapper:
         return self._clf.predict_proba(X)[:, 1:]
 
 
-def jacify_featurizer(featurizer):
-    """
-    Adds a method to an instance of a featurizer class that calculates the jacobian on a given input.
-    Will return the original featurizer if a 'jac' method already exists.
-    Includes special handling for when the input featurizer is of type PolynomialFeatures.
+class _TransformerWrapper:
+    """Wrapper that takes a featurizer as input and adds jacobian calculation functionality"""
 
-    Parameters
-    ----------
-    featurizer: term:`transformer`
-        Featurizer to add a 'jac' method to
+    def __init__(self, featurizer):
+        pass
+        self.featurizer = featurizer
 
-    Returns
-    -------
-    featurizer: term:`transformer`
-        Featurizer with a bound 'jac' method
-    """
+    def fit(self, X):
+        return self.featurizer.fit(X)
 
-    if hasattr(featurizer, 'jac'):
-        return featurizer
+    def transform(self, X):
+        return self.featurizer.transform(X)
 
-    elif (isinstance(featurizer, PolynomialFeatures)):
-        def jac(self, X):
-            self.fit(X)
-            powers = self.powers_
-            result = np.zeros(X.shape + (self.n_output_features_,))
+    def fit_transform(self, X):
+        return self.featurizer.fit_transform(X)
+
+    def get_feature_names(self, X):
+        if hasattr(self.featurizer, 'get_feature_names'):
+            return self.featurizer.get_feature_names(X)
+
+        return []
+
+    def jac(self, X):
+        if hasattr(self.featurizer, 'jac'):
+            return self.featurizer.jac(X)
+        elif (isinstance(self.featurizer, PolynomialFeatures)):
+            self.featurizer.fit(X)
+            powers = self.featurizer.powers_
+            result = np.zeros(X.shape + (self.featurizer.n_output_features_,))
             for i in range(X.shape[1]):
                 p = powers.copy()
                 c = powers[:, i]
@@ -1425,10 +1429,8 @@ def jacify_featurizer(featurizer):
                 M = np.float_power(X[:, np.newaxis, :], p[np.newaxis, :, :])
                 result[:, i, :] = c[np.newaxis, :] * np.prod(M, axis=-1)
             return result
-        featurizer.jac = types.MethodType(jac, featurizer)
 
-    else:
-        def jac(self, X):
+        else:
             squeeze = []
 
             n = X.shape[0]
@@ -1469,9 +1471,10 @@ def jacify_featurizer(featurizer):
                         jacob[m][k][j] = deriv
 
             return jacob.squeeze(axis=tuple(squeeze))
-        featurizer.jac = types.MethodType(jac, featurizer)
 
-    return featurizer
+
+def jacify_featurizer(featurizer):
+    return _TransformerWrapper(featurizer)
 
 
 @deprecated("This class will be removed from a future version of this package; "

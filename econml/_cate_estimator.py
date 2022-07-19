@@ -871,7 +871,8 @@ class TreatmentExpansionMixin(BaseCateEstimator):
             if hasattr(self.transformer, "get_feature_names"):
                 self._input_names["treatment_names"] = list(self.transformer.get_feature_names(
                     self._input_names["treatment_names"]))
-            else:
+
+            if not (hasattr(self.transformer, "get_feature_names") and self._input_names["treatment_names"]):
                 if self._d_t:
                     self._input_names["treatment_names"] = ['T' + str(i) for i in range(self._d_t[0])]
 
