@@ -31,10 +31,15 @@ python API.
 Motivating Examples
 ===================
 
+EconML is designed to measure the causal effect of some treatment variable(s) T on an outcome variable Y, controlling for a set of features X. Use cases include:
+
 Recommendation A/B testing
 -----------------------------
 
 *Interpret experiments with imperfect compliance*
+
+.. image:: https://www.microsoft.com/en-us/research/uploads/prod/2020/05/Recomendation.png
+  :alt: Recommendation A/B testing logo
 
 **Question**: A travel website would like to know whether joining a membership program
 causes users to spend more time engaging with the website. 
@@ -61,6 +66,9 @@ Customer Segmentation
 
 *Estimate individualized responses to incentives*
 
+.. image:: https://www.microsoft.com/en-us/research/uploads/prod/2020/05/Segmentation.png
+  :alt: Customer Segmentation logo
+
 **Question**: A media subscription service would like to offer targeted discounts
 through a personalized pricing plan. 
 
@@ -79,6 +87,9 @@ Link to jupyter notebook:
 Multi-investment Attribution
 -----------------------------
 *Distinguish the effects of multiple outreach efforts*
+
+.. image:: https://www.microsoft.com/en-us/research/uploads/prod/2020/05/Attribution.png
+  :alt: Multi-investment Attribution logo
 
 **Question**: A startup would like to know the most effective approach for recruiting new customers: 
 price discounts, technical support to ease adoption, or a combination of the two. 

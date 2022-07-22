@@ -47,7 +47,7 @@ Be aware of some remaining bias when using these estimates.
 How can I test whether I'm identifying the causal effect?
 ------------------------------------------------------------
 You are identifying a valid causal effect if and only if the underlying assumptions of the causal model
-assumed by the estimation routine are correct. Those are often hard to test (though the DoWhy package may help).
+assumed by the estimation routine are correct. Those are often hard to test (though the `DoWhy <https://py-why.github.io/dowhy/>`__ package may help).
 Having made those assumptions, the EconML package allows you to fit the best causal model you can.
 Many models will store a final stage fit metric that can be used to validate how well the causal model predicts out of sample, 
 which is a good diagnostic as to the quality of your model.
