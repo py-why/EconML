@@ -10,7 +10,6 @@ __pycache__/
 *.log
 *.out
 *.synctex.gz
-*.pdf
 
 # C extensions
 *.so
