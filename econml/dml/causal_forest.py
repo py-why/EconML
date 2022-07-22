@@ -197,6 +197,61 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
 
+    def marginal_effect_inference(self, T, X):
+        if X is None:
+            raise ValueError("This inference method currently does not support X=None!")
+        if not self._est.treatment_featurizer:
+            return self.const_marginal_effect_inference(X)
+        X, T = self._est._expand_treatments(X, T, transform=False)
+        if self.featurizer is not None:
+            X = self.featurizer.transform(X)
+
+        feat_T = self._est.transformer.transform(T)
+        jac_T = self._est.transformer.jac(T)
+
+        d_t_orig = T.shape[1:]
+        d_t_orig = d_t_orig[0] if d_t_orig else 1
+
+        d_y = self._d_y[0] if self._d_y else 1
+        d_t = self._d_t[0] if self._d_t else 1
+
+        output_shape = [X.shape[0]]
+        if self._d_y:
+            output_shape.append(self._d_y[0])
+        if T.shape[1:]:
+            output_shape.append(T.shape[1])
+        me_pred = np.zeros(shape=output_shape)
+        me_stderr = np.zeros(shape=output_shape)
+
+        for i in range(d_t_orig):
+            # conditionally index multiple dimensions depending on shapes of T, Y and feat_T
+            jac_index = [slice(None)]
+            me_index = [slice(None)]
+            if self._d_y:
+                me_index.append(slice(None))
+            if T.shape[1:]:
+                jac_index.append(i)
+                me_index.append(i)
+            if feat_T.shape[1:]:  # if featurized T is not a vector
+                jac_index.append(slice(None))
+
+            jac_slice = jac_T[tuple(jac_index)]
+            if jac_slice.ndim == 1:
+                jac_slice.reshape((-1, 1))
+
+            e_pred, e_var = self.model_final.predict_projection_and_var(X, jac_slice)
+            e_stderr = np.sqrt(e_var)
+
+            if not self._d_y:
+                e_pred = e_pred.squeeze(axis=1)
+                e_stderr = e_stderr.squeeze(axis=1)
+
+            me_pred[tuple(me_index)] = e_pred
+            me_stderr[tuple(me_index)] = e_stderr
+
+        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=me_pred,
+                                      pred_stderr=me_stderr, mean_pred_stderr=None, inf_type='effect')
+
 
 class CausalForestDML(_BaseDML):
     """A Causal Forest [cfdml1]_ combined with double machine learning based residualization of the treatment
