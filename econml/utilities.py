@@ -1431,6 +1431,7 @@ class _TransformerWrapper:
             return result
 
         else:
+
             squeeze = []
 
             n = X.shape[0]
@@ -1449,28 +1450,29 @@ class _TransformerWrapper:
                 X = X[:, np.newaxis]
             if ndim(X_out) == 1:
                 squeeze.append(2)
+                        
+            # for every dimension of the treatment add some epsilon and observe change in featurized treatment
+            for k in range(d_t):
+                eps_matrix = np.zeros(shape = X.shape)
+                eps_matrix[:, k] = epsilon
 
-            for m in range(X.shape[0]):
-                for j in range(d_f_t):
-                    for k in range(d_t):
-                        X_in_plus = X[[m]]
-                        X_in_plus[0][k] += epsilon
-                        X_in_plus = X_in_plus.squeeze(axis=1) if 1 in squeeze else X_in_plus
-                        X_out_plus = self.transform(X_in_plus)
-                        X_out_plus = X_out_plus[:, np.newaxis] if 2 in squeeze else X_out_plus
+                X_in_plus = X + eps_matrix       
+                X_in_plus = X_in_plus.squeeze(axis=1) if 1 in squeeze else X_in_plus
+                X_out_plus = self.transform(X_in_plus)
+                X_out_plus = X_out_plus[:, np.newaxis] if 2 in squeeze else X_out_plus
 
-                        X_in_minus = X[[m]]
-                        X_in_minus[0][k] -= epsilon
-                        X_in_minus = X_in_minus.squeeze(axis=1) if 1 in squeeze else X_in_minus
-                        X_out_minus = self.transform(X_in_minus)
-                        X_out_minus = X_out_minus[:, np.newaxis] if 2 in squeeze else X_out_minus
+                X_in_minus = X - eps_matrix
+                X_in_minus = X_in_minus.squeeze(axis=1) if 1 in squeeze else X_in_minus
+                X_out_minus = self.transform(X_in_minus)
+                X_out_minus = X_out_minus[:, np.newaxis] if 2 in squeeze else X_out_minus
 
-                        diff = X_out_plus[0][j] - X_out_minus[0][j]
-                        deriv = diff / (2 * epsilon)
+                diff = X_out_plus - X_out_minus
+                deriv = diff / (2*epsilon)
 
-                        jacob[m][k][j] = deriv
+                jacob[:, k, :] = deriv
 
             return jacob.squeeze(axis=tuple(squeeze))
+
 
 
 def jacify_featurizer(featurizer):
