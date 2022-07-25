@@ -588,8 +588,9 @@ class DMLOrthoForest(BaseOrthoForest):
         # Define
         moment_and_mean_gradient_estimator = _DMLOrthoForest_moment_and_mean_gradient_estimator_func
 
-        assert not (self.discrete_treatment and self.treatment_featurizer), "Cannot pass both \
-            discrete_treatment and treatment_featurizer!"
+        assert not (discrete_treatment and self.treatment_featurizer), "Cannot pass both " \
+            "discrete_treatment and treatment_featurizer!"
+
         super().__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,

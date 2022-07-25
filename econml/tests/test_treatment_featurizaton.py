@@ -9,7 +9,9 @@ from sklearn.linear_model import LinearRegression, LogisticRegression
 # from sklearn.model_selection import train_test_split
 from joblib import Parallel, delayed
 
+from econml._ortho_learner import _OrthoLearner
 from econml.dml import LinearDML, SparseLinearDML, KernelDML, CausalForestDML
+from econml.orf import DMLOrthoForest
 # from econml.metalearners import XLearner, TLearner, SLearner, DomainAdaptationLearner
 # from econml.dr import DRLearner
 # from econml.score import RScorer
@@ -208,7 +210,6 @@ class TestTreatmentFeaturization(unittest.TestCase):
 
                     for Est in estimators:
                         est = Est(treatment_featurizer=config['treatment_featurizer'])
-
                         est.fit(Y, T=T, X=X)
 
                         #  test that treatment names are assigned for the featurized treatment
@@ -221,6 +222,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         expected_eff_shape = (config['DGP_params']['n'],) + Y.shape[1:]
                         expected_cme_shape = (config['DGP_params']['n'],) + Y.shape[1:] + feat_T.shape[1:]
                         expected_me_shape = (config['DGP_params']['n'],) + Y.shape[1:] + T.shape[1:]
+                        expected_marginal_ate_shape = expected_me_shape[1:]
 
                         # check effects
                         eff = est.effect(X=X, T0=5, T1=10)
@@ -235,32 +237,36 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         assert(me.shape == expected_me_shape)
                         actual_me = config['actual_marginal'](T).reshape(me.shape)
 
+                        # ate
+                        m_ate = est.marginal_ate(T, X=X)
+                        assert(m_ate.shape == expected_marginal_ate_shape)
+
                         # loose inference checks
                         if isinstance(est, KernelDML):
                             continue
 
+                        # effect inference
                         eff_inf = est.effect_inference(X=X, T0=5, T1=10)
                         eff_lb, eff_ub = eff_inf.conf_int(alpha=0.01)
                         assert(eff.shape == eff_lb.shape)
                         proportion_in_interval = ((eff_lb < actual_eff) & (actual_eff < eff_ub)).mean()
                         np.testing.assert_array_less(0.50, proportion_in_interval)
+                        np.testing.assert_almost_equal(eff, eff_inf.point_estimate)
 
-                        if (not isinstance(est, CausalForestDML)):
-                            me_inf = est.marginal_effect_inference(T, X=X)
-                            me_lb, me_ub = me_inf.conf_int(alpha=0.01)
-                            assert(me.shape == me_lb.shape)
-                            proportion_in_interval = ((me_lb < actual_me) & (actual_me < me_ub)).mean()
-                            np.testing.assert_array_less(0.50, proportion_in_interval)
-                            np.testing.assert_almost_equal(me, me_inf.point_estimate)
+                        # marginal effect inference
+                        me_inf = est.marginal_effect_inference(T, X=X)
+                        me_lb, me_ub = me_inf.conf_int(alpha=0.01)
+                        assert(me.shape == me_lb.shape)
+                        proportion_in_interval = ((me_lb < actual_me) & (actual_me < me_ub)).mean()
+                        np.testing.assert_array_less(0.50, proportion_in_interval)
+                        np.testing.assert_almost_equal(me, me_inf.point_estimate)
 
+                        # const marginal effect inference
                         cme_inf = est.const_marginal_effect_inference(X=X)
                         cme_lb, cme_ub = cme_inf.conf_int(alpha=0.01)
                         assert(cme.shape == cme_lb.shape)
                         proportion_in_interval = ((cme_lb < actual_cme) & (actual_cme < cme_ub)).mean()
                         np.testing.assert_array_less(0.50, proportion_in_interval)
-
-                        # assert point estimate same as point estimate from inference
-                        np.testing.assert_almost_equal(eff, eff_inf.point_estimate)
                         np.testing.assert_almost_equal(cme, cme_inf.point_estimate)
 
     def test_jac(self):
@@ -286,3 +292,43 @@ class TestTreatmentFeaturization(unittest.TestCase):
             jacified_featurizer = jacify_featurizer(treatment_featurizer)
             jac_T = jacified_featurizer.jac(T)
             np.testing.assert_almost_equal(jac_T, expected_jac)
+
+    def test_fail_discrete_treatment_and_treatment_featurizer(self):
+        class OrthoLearner(_OrthoLearner):
+            def _gen_ortho_learner_model_nuisance(self):
+                pass
+
+            def _gen_ortho_learner_model_final(self):
+                pass
+
+        est_and_params = [
+            {
+                'estimator': OrthoLearner,
+                'params': {
+                    'cv': 2,
+                    'discrete_treatment': False,
+                    'treatment_featurizer': None,
+                    'discrete_instrument': False,
+                    'categories': 'auto',
+                    'random_state': None
+                }
+            },
+            {'estimator': LinearDML, 'params': {}},
+            {'estimator': CausalForestDML, 'params': {}},
+            {'estimator': SparseLinearDML, 'params': {}},
+            {'estimator': KernelDML, 'params': {}},
+            {'estimator': DMLOrthoForest, 'params': {}}
+
+        ]
+
+        for est_and_param in est_and_params:
+            try:
+                params = est_and_param['params']
+                params['discrete_treatment'] = True
+                params['treatment_featurizer'] = True
+                est_and_param['estimator'](**params)
+                raise ValueError(
+                    'Estimator initializaiton did not fail when passed '
+                    'both discrete treatment and treatment featurizer')
+            except AssertionError:
+                pass

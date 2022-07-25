@@ -197,6 +197,9 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
         return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=pred,
                                       pred_stderr=pred_stderr, mean_pred_stderr=None, inf_type='effect')
 
+    def marginal_effect_interval(self, T, X, alpha=0.05):
+        return self.marginal_effect_inference(T, X).conf_int(alpha=alpha)
+
     def marginal_effect_inference(self, T, X):
         if X is None:
             raise ValueError("This inference method currently does not support X=None!")
