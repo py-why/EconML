@@ -35,6 +35,7 @@ jobs:
         foreach ($file in $editedFiles) {
           switch -Wildcard ($file) {
             "README.md" { Continue }
+            ".gitignore" { Continue }
             "econml/_version.py" { Continue }
             "prototypes/*" { Continue }
             "images/*" { Continue }

@@ -38,7 +38,7 @@ Recommendation A/B testing
 
 *Interpret experiments with imperfect compliance*
 
-.. image:: https://www.microsoft.com/en-us/research/uploads/prod/2020/05/Recomendation.png
+.. image:: img/Recommendation.png
   :alt: Recommendation A/B testing logo
 
 **Question**: A travel website would like to know whether joining a membership program
@@ -66,7 +66,7 @@ Customer Segmentation
 
 *Estimate individualized responses to incentives*
 
-.. image:: https://www.microsoft.com/en-us/research/uploads/prod/2020/05/Segmentation.png
+.. image:: img/Segmentation.png
   :alt: Customer Segmentation logo
 
 **Question**: A media subscription service would like to offer targeted discounts
@@ -88,7 +88,7 @@ Multi-investment Attribution
 -----------------------------
 *Distinguish the effects of multiple outreach efforts*
 
-.. image:: https://www.microsoft.com/en-us/research/uploads/prod/2020/05/Attribution.png
+.. image:: img/Attribution.png
   :alt: Multi-investment Attribution logo
 
 **Question**: A startup would like to know the most effective approach for recruiting new customers: 
