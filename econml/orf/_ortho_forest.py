@@ -1351,7 +1351,8 @@ class BLBInference(Inference):
 
         # Calculate the standard deviations for the effects
         d_t_orig = T.shape[1:]
-        self.d_t_orig = d_t_orig[0] if d_t_orig else 1
+        d_t_orig = d_t_orig[0] if d_t_orig else 1
+        self.d_t_orig = d_t_orig
         output_shape = [X.shape[0]]
         if T.shape[1:]:
             output_shape.append(T.shape[1])
