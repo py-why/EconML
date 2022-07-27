@@ -16,5 +16,6 @@ markers = [
     "automl",
     "dml",
     "serial",
-    "cate_api"
+    "cate_api",
+    "treatment_featurization"
 ]
