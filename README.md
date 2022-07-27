@@ -489,7 +489,7 @@ See the <a href="#references">References</a> section for more details.
   <summary>Causal model selection with the `RScorer` (click to expand)</summary>
 
   ```Python
-  from econml.score import Rscorer
+  from econml.score import RScorer
 
   # split data in train-validation
   X_train, X_val, T_train, T_val, Y_train, Y_val = train_test_split(X, T, y, test_size=.4)
