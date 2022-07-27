@@ -1351,7 +1351,7 @@ class BLBInference(Inference):
 
         # Calculate the standard deviations for the effects
         d_t_orig = T.shape[1:]
-        d_t_orig = d_t_orig[0] if d_t_orig else 1
+        self.d_t_orig = d_t_orig[0] if d_t_orig else 1
         output_shape = [X.shape[0]]
         if T.shape[1:]:
             output_shape.append(T.shape[1])
@@ -1387,7 +1387,7 @@ class BLBInference(Inference):
         d_y = self._d_y[0] if self._d_y else 1
         d_t = self._d_t[0] if self._d_t else 1
 
-        return NormalInferenceResults(d_t=d_t_orig, d_y=d_y,
+        return NormalInferenceResults(d_t=self.d_t_orig, d_y=d_y,
                                       pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',
                                       feature_names=self._estimator.cate_feature_names(),
                                       output_names=self._estimator.cate_output_names(),
