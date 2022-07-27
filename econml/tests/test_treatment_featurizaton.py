@@ -5,21 +5,17 @@ import unittest
 import numpy as np
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression
-# import matplotlib.pyplot as plt
-# from sklearn.model_selection import train_test_split
 from joblib import Parallel, delayed
 
 from econml._ortho_learner import _OrthoLearner
 from econml.dml import LinearDML, SparseLinearDML, KernelDML, CausalForestDML
 from econml.orf import DMLOrthoForest
-# from econml.metalearners import XLearner, TLearner, SLearner, DomainAdaptationLearner
-# from econml.dr import DRLearner
-# from econml.score import RScorer
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 
 from econml.utilities import jacify_featurizer
 from econml.iv.sieve import DPolynomialFeatures
 
+from econml.tests.test_dml import TestDML
 
 class DGP():
     def __init__(self,
@@ -131,7 +127,7 @@ def poly_func_transform(x):
 polynomial_treatment_featurizer = FunctionTransformer(func=poly_func_transform)
 
 
-@pytest.mark.dml
+@pytest.mark.treatment_featurization
 class TestTreatmentFeaturization(unittest.TestCase):
 
     def test_featurization(self):
@@ -332,3 +328,6 @@ class TestTreatmentFeaturization(unittest.TestCase):
                     'both discrete treatment and treatment featurizer')
             except AssertionError:
                 pass
+
+    def test_identity_feat_with_cate_api(self):
+        TestDML().test_cate_api_treatment_featurization()

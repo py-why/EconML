@@ -1450,13 +1450,13 @@ class _TransformerWrapper:
                 X = X[:, np.newaxis]
             if ndim(X_out) == 1:
                 squeeze.append(2)
-                        
+
             # for every dimension of the treatment add some epsilon and observe change in featurized treatment
             for k in range(d_t):
-                eps_matrix = np.zeros(shape = X.shape)
+                eps_matrix = np.zeros(shape=X.shape)
                 eps_matrix[:, k] = epsilon
 
-                X_in_plus = X + eps_matrix       
+                X_in_plus = X + eps_matrix
                 X_in_plus = X_in_plus.squeeze(axis=1) if 1 in squeeze else X_in_plus
                 X_out_plus = self.transform(X_in_plus)
                 X_out_plus = X_out_plus[:, np.newaxis] if 2 in squeeze else X_out_plus
@@ -1467,12 +1467,11 @@ class _TransformerWrapper:
                 X_out_minus = X_out_minus[:, np.newaxis] if 2 in squeeze else X_out_minus
 
                 diff = X_out_plus - X_out_minus
-                deriv = diff / (2*epsilon)
+                deriv = diff / (2 * epsilon)
 
                 jacob[:, k, :] = deriv
 
             return jacob.squeeze(axis=tuple(squeeze))
-
 
 
 def jacify_featurizer(featurizer):

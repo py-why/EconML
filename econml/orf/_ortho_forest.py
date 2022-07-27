@@ -1387,7 +1387,7 @@ class BLBInference(Inference):
         d_y = self._d_y[0] if self._d_y else 1
         d_t = self._d_t[0] if self._d_t else 1
 
-        return NormalInferenceResults(d_t=d_t, d_y=d_y,
+        return NormalInferenceResults(d_t=d_t_orig, d_y=d_y,
                                       pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',
                                       feature_names=self._estimator.cate_feature_names(),
                                       output_names=self._estimator.cate_output_names(),

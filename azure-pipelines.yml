@@ -301,3 +301,32 @@ jobs:
         inputs:
           codeCoverageTool: Cobertura
           summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'
+
+- template: azure-pipelines-steps.yml
+  parameters:
+    package: '-e .[tf,plt]'
+    job:
+      job: Tests_treatment_featurization
+      dependsOn: 'EvalChanges'
+      condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
+      displayName: 'Run tests (Treatment Featurization)'
+      steps:
+      - script: 'pip install pytest pytest-runner'
+        displayName: 'Install pytest'
+      - script: 'python setup.py pytest'
+        displayName: 'Treatment Featurization Unit tests'
+        env:
+          PYTEST_ADDOPTS: '-m "treatment_featurization" -n auto'
+          COVERAGE_PROCESS_START: 'setup.cfg'
+      - task: PublishTestResults@2
+        displayName: 'Publish Test Results **/test-results.xml'
+        inputs:
+          testResultsFiles: '**/test-results.xml'
+          testRunTitle: 'Python $(python.version), image $(imageName)'
+        condition: succeededOrFailed()
+
+      - task: PublishCodeCoverageResults@1
+        displayName: 'Publish Code Coverage Results'
+        inputs:
+          codeCoverageTool: Cobertura
+          summaryFileLocation: '$(System.DefaultWorkingDirectory)/**/coverage.xml'

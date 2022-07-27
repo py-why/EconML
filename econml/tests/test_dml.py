@@ -45,6 +45,16 @@ def identity_transformation(x):
 class TestDML(unittest.TestCase):
 
     def test_cate_api(self):
+        treatment_featurizations = [None]
+        self._test_cate_api(treatment_featurizations)
+
+    # skip because tested in treatment_featurization module
+    @pytest.mark.skip
+    def test_cate_api_treatment_featurization(self):
+        treatment_featurizations = [FunctionTransformer(identity_transformation)]
+        self._test_cate_api(treatment_featurizations)
+
+    def _test_cate_api(self, treatment_featurizations):
         """Test that we correctly implement the CATE API."""
         n_c = 20  # number of rows for continuous models
         n_d = 30  # number of rows for discrete models
@@ -68,7 +78,7 @@ class TestDML(unittest.TestCase):
 
         for d_t in [2, 1, -1]:
             for is_discrete in [True, False] if d_t <= 1 else [False]:
-                for treatment_featurizer in [None, FunctionTransformer(identity_transformation)]:
+                for treatment_featurizer in treatment_featurizations:
                     for d_y in [3, 1, -1]:
                         for d_x in [2, None]:
                             for d_w in [2, None]:

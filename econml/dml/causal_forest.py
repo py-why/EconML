@@ -252,7 +252,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
             me_pred[tuple(me_index)] = e_pred
             me_stderr[tuple(me_index)] = e_stderr
 
-        return NormalInferenceResults(d_t=None, d_y=self.d_y, pred=me_pred,
+        return NormalInferenceResults(d_t=d_t_orig, d_y=self.d_y, pred=me_pred,
                                       pred_stderr=me_stderr, mean_pred_stderr=None, inf_type='effect')
 
 
