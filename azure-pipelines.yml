@@ -311,7 +311,7 @@ jobs:
       condition: eq(dependencies.EvalChanges.outputs['output.testCode'], 'True')
       displayName: 'Run tests (Treatment Featurization)'
       steps:
-      - script: 'pip install pytest pytest-runner "coverage<6.4.1;python_version==''3.6''" "coverage;python_version>''3.6''" && python setup.py pytest'
+      - script: 'pip install pytest pytest-runner "coverage<6.4.1;python_version==''3.6''" "coverage;python_version>''3.6''"'
         displayName: 'Install pytest'
       - script: 'python setup.py pytest'
         displayName: 'Treatment Featurization Unit tests'
