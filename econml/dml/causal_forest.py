@@ -286,7 +286,9 @@ class CausalForestDML(_BaseDML):
         If featurizer=None, then CATE is trained on X.
 
     treatment_featurizer : :term:`transformer`, optional, default None
-        Dummy documentation for treatment featurizer
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
 
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities

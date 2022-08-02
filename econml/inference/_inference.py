@@ -215,11 +215,12 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
 
         jac_T = self._est.transformer.jac(T)
 
-        einsum_str = 'myf, mtf->myt'  # y is a vector, rather than a 2D array
+        einsum_str = 'myf, mtf->myt'
         if ndim(T) == 1:
             einsum_str = einsum_str.replace('t', '')
         if ndim(feat_T) == 1:
             einsum_str = einsum_str.replace('f', '')
+        # y is a vector, rather than a 2D array
         if (ndim(cme_pred) == ndim(feat_T)):
             einsum_str = einsum_str.replace('y', '')
         e_pred = np.einsum(einsum_str, cme_pred, jac_T)
