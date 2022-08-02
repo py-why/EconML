@@ -210,7 +210,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         est.fit(Y, T=T, X=X)
 
                         #  test that treatment names are assigned for the featurized treatment
-                        assert(est.cate_treatment_names() is not None)
+                        assert (est.cate_treatment_names() is not None)
 
                         if hasattr(est, 'summary'):
                             est.summary()
@@ -223,20 +223,20 @@ class TestTreatmentFeaturization(unittest.TestCase):
 
                         # check effects
                         eff = est.effect(X=X, T0=5, T1=10)
-                        assert(eff.shape == expected_eff_shape)
+                        assert (eff.shape == expected_eff_shape)
                         actual_eff = actual_effect(config['DGP_params']['y_of_t'], 5, 10)
 
                         cme = est.const_marginal_effect(X=X)
-                        assert(cme.shape == expected_cme_shape)
+                        assert (cme.shape == expected_cme_shape)
                         actual_cme = config['actual_cme']()
 
                         me = est.marginal_effect(T=T, X=X)
-                        assert(me.shape == expected_me_shape)
+                        assert (me.shape == expected_me_shape)
                         actual_me = config['actual_marginal'](T).reshape(me.shape)
 
                         # ate
                         m_ate = est.marginal_ate(T, X=X)
-                        assert(m_ate.shape == expected_marginal_ate_shape)
+                        assert (m_ate.shape == expected_marginal_ate_shape)
 
                         # loose inference checks
                         if isinstance(est, KernelDML):
@@ -245,7 +245,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         # effect inference
                         eff_inf = est.effect_inference(X=X, T0=5, T1=10)
                         eff_lb, eff_ub = eff_inf.conf_int(alpha=0.01)
-                        assert(eff.shape == eff_lb.shape)
+                        assert (eff.shape == eff_lb.shape)
                         proportion_in_interval = ((eff_lb < actual_eff) & (actual_eff < eff_ub)).mean()
                         np.testing.assert_array_less(0.50, proportion_in_interval)
                         np.testing.assert_almost_equal(eff, eff_inf.point_estimate)
@@ -253,7 +253,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         # marginal effect inference
                         me_inf = est.marginal_effect_inference(T, X=X)
                         me_lb, me_ub = me_inf.conf_int(alpha=0.01)
-                        assert(me.shape == me_lb.shape)
+                        assert (me.shape == me_lb.shape)
                         proportion_in_interval = ((me_lb < actual_me) & (actual_me < me_ub)).mean()
                         np.testing.assert_array_less(0.50, proportion_in_interval)
                         np.testing.assert_almost_equal(me, me_inf.point_estimate)
@@ -261,7 +261,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         # const marginal effect inference
                         cme_inf = est.const_marginal_effect_inference(X=X)
                         cme_lb, cme_ub = cme_inf.conf_int(alpha=0.01)
-                        assert(cme.shape == cme_lb.shape)
+                        assert (cme.shape == cme_lb.shape)
                         proportion_in_interval = ((cme_lb < actual_cme) & (actual_cme < cme_ub)).mean()
                         np.testing.assert_array_less(0.50, proportion_in_interval)
                         np.testing.assert_almost_equal(cme, cme_inf.point_estimate)

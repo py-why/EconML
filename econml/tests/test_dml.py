@@ -110,7 +110,7 @@ class TestDML(unittest.TestCase):
                                     # since T isn't passed to const_marginal_effect, defaults to one row if X is None
                                     const_marginal_effect_shape = ((n if d_x else 1,) +
                                                                    ((d_y,) if d_y > 0 else ()) +
-                                                                   ((d_t_final,) if d_t_final > 0 else()))
+                                                                   ((d_t_final,) if d_t_final > 0 else ()))
                                     const_marginal_effect_summaryframe_shape = (
                                         (n if d_x else 1) * (d_y if d_y > 0 else 1) *
                                         (d_t_final if d_t_final > 0 else 1), 6)
@@ -183,7 +183,7 @@ class TestDML(unittest.TestCase):
                                          True,
                                          ['auto', 'blb'])]:
 
-                                        if not(multi) and d_y > 1:
+                                        if not (multi) and d_y > 1:
                                             continue
 
                                         if X is None and isinstance(est, CausalForestDML):
@@ -350,7 +350,7 @@ class TestDML(unittest.TestCase):
 
                                                 if isinstance(est, CausalForestDML):
                                                     np.testing.assert_array_equal(est.feature_importances_.shape,
-                                                                                  ((d_y,) if d_y > 0 else()) + fd_x)
+                                                                                  ((d_y,) if d_y > 0 else ()) + fd_x)
 
                                                 # make sure we can call effect with implied scalar treatments,
                                                 # no matter the dimensions of T, and also that we warn when there
@@ -361,7 +361,7 @@ class TestDML(unittest.TestCase):
                                                     # ExitStack can be used as a "do nothing" ContextManager
                                                     cm = ExitStack()
                                                 with cm:
-                                                    effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
+                                                    effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else ())
                                                     eff = est.effect(X) if not is_discrete else est.effect(
                                                         X, T0='a', T1='b')
                                                     self.assertEqual(shape(eff), effect_shape2)
