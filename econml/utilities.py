@@ -1397,7 +1397,6 @@ class _TransformerWrapper:
     """Wrapper that takes a featurizer as input and adds jacobian calculation functionality"""
 
     def __init__(self, featurizer):
-        pass
         self.featurizer = featurizer
 
     def fit(self, X):
@@ -1419,7 +1418,6 @@ class _TransformerWrapper:
         if hasattr(self.featurizer, 'jac'):
             return self.featurizer.jac(X)
         elif (isinstance(self.featurizer, PolynomialFeatures)):
-            self.featurizer.fit(X)
             powers = self.featurizer.powers_
             result = np.zeros(X.shape + (self.featurizer.n_output_features_,))
             for i in range(X.shape[1]):
@@ -1475,6 +1473,10 @@ class _TransformerWrapper:
 
 
 def jacify_featurizer(featurizer):
+    """
+       Function that takes a featurizer as input and returns a wrapper class that includes
+       a function for calculating the jacobian   
+    """
     return _TransformerWrapper(featurizer)
 
 

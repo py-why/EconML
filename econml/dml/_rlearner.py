@@ -145,7 +145,7 @@ class _RLearner(_OrthoLearner):
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    treatment_featurizer : :term:`transformer`, optional, default None
+    treatment_featurizer : :term:`transformer` or None
         Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
@@ -224,7 +224,7 @@ class _RLearner(_OrthoLearner):
         X = np.random.normal(size=(1000, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
         est = RLearner(cv=2, discrete_treatment=False,
-                       treatment_featurizer=False, categories='auto', random_state=None)
+                       treatment_featurizer=None, categories='auto', random_state=None)
         est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
 
     >>> est.const_marginal_effect(np.ones((1,1)))

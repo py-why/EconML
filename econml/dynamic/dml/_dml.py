@@ -712,7 +712,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         base_expand_treatments = super()._expand_treatments
         for T in Ts:
             if ndim(T) == 0:
-                one_T = base_expand_treatments(X, T)[1]
+                one_T = base_expand_treatments(X, T, transform=transform)[1]
                 one_T = one_T.reshape(-1, 1) if ndim(one_T) == 1 else one_T
                 T = np.tile(one_T, (1, self._n_periods, ))
             else:
@@ -722,7 +722,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                     T = np.hstack([
                         base_expand_treatments(
                             X, T[:, [t]])[1] for t in range(self._n_periods)
-                    ])
+                    ], transform=transform)
             outTs.append(T)
         return (X,) + tuple(outTs)
 

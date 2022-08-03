@@ -420,7 +420,7 @@ class DRLearner(_OrthoLearner):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          discrete_treatment=True,
-                         treatment_featurizer=None,
+                         treatment_featurizer=None,  # treatment featurization not supported with discrete treatment
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
                          random_state=random_state)

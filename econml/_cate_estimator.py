@@ -20,6 +20,7 @@ from .dowhy import DoWhyWrapper
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
     """Base class for all CATE estimators in this package."""
+    treatment_featurizer = None
 
     def _get_inference_options(self):
         """
@@ -732,7 +733,7 @@ class LinearCateEstimator(BaseCateEstimator):
             Average constant marginal CATE of each treatment on each outcome.
             Note that when Y or featurized-T (or T if treatment_featurizer is None) is a vector
             rather than a 2-dimensional array, the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will also be a vector)
+            (e.g. if both are vectors, then the output of this method will also be a scalar)
         """
         return np.mean(self.const_marginal_effect(X=X), axis=0)
 
@@ -832,7 +833,6 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     """
 
     transformer = None
-    discrete_treatment = None
 
     def _prefit(self, Y, T, *args, **kwargs):
         super()._prefit(Y, T, *args, **kwargs)
@@ -866,7 +866,10 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         return (X,) + tuple(outTs)
 
     def _set_transformed_treatment_names(self):
-        """Works with sklearn OHE and PolynomialFeaturizers"""
+        """
+           Extracts treatment names from sklearn OHE and PolynomialFeaturizers.
+           Or, if transformer does not have a get_feature_names method, sets default treatment names.
+        """
         if hasattr(self, "_input_names"):
             if hasattr(self.transformer, "get_feature_names"):
                 self._input_names["treatment_names"] = list(self.transformer.get_feature_names(

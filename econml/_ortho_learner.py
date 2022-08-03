@@ -256,7 +256,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
-    treatment_featurizer : :term:`transformer`, optional, default None
+    treatment_featurizer : :term:`transformer` or None
         Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
@@ -443,8 +443,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.categories = categories
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
-        assert not (self.discrete_treatment and self.treatment_featurizer), "Cannot pass both " \
-            "discrete_treatment and treatment_featurizer!"
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
+            "is not supported when treatment is discrete"
         super().__init__()
 
     @abstractmethod
@@ -697,9 +697,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         final_T = T
         if self.transformer:
             if (self.discrete_treatment):
-                final_T = final_T.reshape(-1, 1)
+                final_T = self.transformer.transform(final_T.reshape(-1, 1))
+            else:  # treatment featurizer case
+                final_T = output_T
 
-            final_T = self.transformer.transform(final_T)
         self._fit_final(Y=Y,
                         T=final_T,
                         X=X, W=W, Z=Z,
