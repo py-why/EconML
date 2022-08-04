@@ -1408,9 +1408,10 @@ class _TransformerWrapper:
     def fit_transform(self, X):
         return self.featurizer.fit_transform(X)
 
-    def get_feature_names(self, X):
-        if hasattr(self.featurizer, 'get_feature_names'):
-            return self.featurizer.get_feature_names(X)
+    def get_feature_names(self, feature_names):
+        ret = get_feature_names_or_default(self.featurizer, feature_names)
+        if ret is not None:
+            return ret
 
         return []
 

@@ -285,9 +285,11 @@ class TestTreatmentFeaturization(unittest.TestCase):
         T = np.random.normal(size=(n, d_t))
 
         for treatment_featurizer in treatment_featurizers:
+            # fit a dummy estimator first so the featurizer can be fit to the treatment
+            dummy_est = LinearDML(treatment_featurizer=treatment_featurizer)
+            dummy_est.fit(Y=T, T=T, X=T)
             expected_jac = calc_expected_jacobian(T)
-            jacified_featurizer = jacify_featurizer(treatment_featurizer)
-            jac_T = jacified_featurizer.jac(T)
+            jac_T = dummy_est.transformer.jac(T)
             np.testing.assert_almost_equal(jac_T, expected_jac)
 
     def test_fail_discrete_treatment_and_treatment_featurizer(self):
