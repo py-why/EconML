@@ -1476,7 +1476,7 @@ class _TransformerWrapper:
 def jacify_featurizer(featurizer):
     """
        Function that takes a featurizer as input and returns a wrapper class that includes
-       a function for calculating the jacobian   
+       a function for calculating the jacobian
     """
     return _TransformerWrapper(featurizer)
 

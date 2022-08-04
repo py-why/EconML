@@ -721,8 +721,8 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                 if self.transformer:
                     T = np.hstack([
                         base_expand_treatments(
-                            X, T[:, [t]])[1] for t in range(self._n_periods)
-                    ], transform=transform)
+                            X, T[:, [t]], transform=transform)[1] for t in range(self._n_periods)
+                    ])
             outTs.append(T)
         return (X,) + tuple(outTs)
 
