@@ -320,14 +320,18 @@ class TestTreatmentFeaturization(unittest.TestCase):
 
         ]
 
+        dummy_vec = np.random.normal(size=(100, 1))
+
         for est_and_param in est_and_params:
+            params = est_and_param['params']
+            params['discrete_treatment'] = True
+            params['treatment_featurizer'] = True
+            est = est_and_param['estimator'](**params)
             try:
-                params = est_and_param['params']
-                params['discrete_treatment'] = True
-                params['treatment_featurizer'] = True
-                est_and_param['estimator'](**params)
+                est.fit(Y=dummy_vec, T=dummy_vec, X=dummy_vec)
+
                 raise ValueError(
-                    'Estimator initializaiton did not fail when passed '
+                    'Estimator fit did not fail when passed '
                     'both discrete treatment and treatment featurizer')
             except AssertionError:
                 pass

@@ -443,8 +443,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.categories = categories
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
-        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
-            "is not supported when treatment is discrete"
         super().__init__()
 
     @abstractmethod
@@ -604,6 +602,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._random_state = check_random_state(self.random_state)
         assert (freq_weight is None) == (
             sample_var is None), "Sample variances and frequency weights must be provided together!"
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
+            "is not supported when treatment is discrete"
         if check_input:
             Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
                 Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
@@ -618,6 +618,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
+                self.transformer = jacify_featurizer(self.transformer)
             elif self.treatment_featurizer:
                 self.transformer = jacify_featurizer(self.treatment_featurizer)
                 output_T = self.transformer.fit_transform(T)
@@ -758,7 +759,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
 
         if self.transformer:
-            T = self.transformer.transform(reshape(T, (-1, 1)) if self.discrete_treatment else T)
+            if self.discrete_treatment:
+                T = reshape(T, (-1, 1))
+            T = self.transformer.transform(T)
 
         if self.discrete_instrument:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))

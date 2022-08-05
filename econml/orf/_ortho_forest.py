@@ -590,9 +590,6 @@ class DMLOrthoForest(BaseOrthoForest):
         # Define
         moment_and_mean_gradient_estimator = _DMLOrthoForest_moment_and_mean_gradient_estimator_func
 
-        assert not (discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
-            "is not supported when treatment is discrete"
-
         super().__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -649,6 +646,8 @@ class DMLOrthoForest(BaseOrthoForest):
         """
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
+            "is not supported when treatment is discrete"
 
         if self.discrete_treatment:
             categories = self.categories
@@ -1373,8 +1372,8 @@ class BLBInference(Inference):
             else:
                 jac_index.append(None)
 
-            mid = np.einsum('mj, mjk -> mk', jac_T[tuple(jac_index)], cov)
-            final = np.einsum('mk, mk -> m', mid, jac_T[tuple(jac_index)])
+            jac = jac_T[tuple(jac_index)]
+            final = np.einsum('mj, mjk, mk -> m', jac, cov, jac)
             scales[tuple(me_index)] = final
 
         eff = eff.reshape((-1,) + self._d_y + T.shape[1:])
