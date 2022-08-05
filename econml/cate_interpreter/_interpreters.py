@@ -4,6 +4,7 @@
 import abc
 import numbers
 import numpy as np
+import sklearn
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier
 from sklearn.utils import check_array
 from ..policy import PolicyTree
@@ -149,7 +150,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         self.include_uncertainty = include_model_uncertainty
         self.uncertainty_level = uncertainty_level
         self.uncertainty_only_on_leaves = uncertainty_only_on_leaves
-        self.criterion = "mse"
+        self.criterion = "squared_error" if sklearn.__version__ >= "1.0" else "mse"
         self.splitter = splitter
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
