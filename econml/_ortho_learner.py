@@ -618,7 +618,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
-                self.transformer = jacify_featurizer(self.transformer)
             elif self.treatment_featurizer:
                 self.transformer = jacify_featurizer(self.treatment_featurizer)
                 output_T = self.transformer.fit_transform(T)
