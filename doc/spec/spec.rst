@@ -12,6 +12,7 @@ EconML User Guide
     estimation_iv
     estimation_dynamic
     inference
+    scoring
     interpretability
     references
     faq
