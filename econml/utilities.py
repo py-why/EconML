@@ -605,7 +605,7 @@ def get_input_columns(X, prefix="X"):
     return [f"{prefix}{i}" for i in range(len_X)]
 
 
-def get_feature_names_or_default(featurizer, feature_names):
+def get_feature_names_or_default(featurizer, feature_names, prefix="feat(X)"):
     # Prefer sklearn 1.0's get_feature_names_out method to deprecated get_feature_names method
     if hasattr(featurizer, "get_feature_names_out"):
         try:
@@ -624,7 +624,7 @@ def get_feature_names_or_default(featurizer, feature_names):
     try:
         # Get feature names using featurizer
         dummy_X = np.ones((1, len(feature_names)))
-        return get_input_columns(featurizer.transform(dummy_X), prefix="feat(X)")
+        return get_input_columns(featurizer.transform(dummy_X), prefix=prefix)
     except Exception:
         # All attempts at retrieving transformed feature names have failed
         # Delegate handling to downstream logic
@@ -1409,7 +1409,7 @@ class _TransformerWrapper:
         return self.featurizer.fit_transform(X)
 
     def get_feature_names(self, feature_names):
-        ret = get_feature_names_or_default(self.featurizer, feature_names)
+        ret = get_feature_names_or_default(self.featurizer, feature_names, prefix="feat(T)")
         if ret is not None:
             return ret
 

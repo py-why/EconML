@@ -237,6 +237,11 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
@@ -338,6 +343,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  featurizer=None,
                  fit_cate_intercept=True,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  discrete_instrument=False,
                  categories='auto',
                  cv=2,
@@ -354,7 +360,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         super().__init__(discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
-                         treatment_featurizer=None,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -1040,6 +1046,11 @@ class DMLIV(_BaseDMLIV):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -1130,6 +1141,7 @@ class DMLIV(_BaseDMLIV):
                  featurizer=None,
                  fit_cate_intercept=True,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  discrete_instrument=False,
                  categories='auto',
                  cv=2,
@@ -1143,7 +1155,7 @@ class DMLIV(_BaseDMLIV):
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(discrete_treatment=discrete_treatment,
-                         treatment_featurizer=None,
+                         treatment_featurizer=treatment_featurizer,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
                          cv=cv,
@@ -1405,6 +1417,11 @@ class NonParamDMLIV(_BaseDMLIV):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
@@ -1497,6 +1514,7 @@ class NonParamDMLIV(_BaseDMLIV):
                  model_t_xwz="auto",
                  model_final,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  discrete_instrument=False,
                  featurizer=None,
                  categories='auto',
@@ -1511,7 +1529,7 @@ class NonParamDMLIV(_BaseDMLIV):
         self.featurizer = clone(featurizer, safe=False)
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
-                         treatment_featurizer=None,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,

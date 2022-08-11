@@ -503,7 +503,7 @@ class DMLOrthoForest(BaseOrthoForest):
         one-hot-encoded and the model_T is treated as a classifier that must have a predict_proba
         method.
 
-    treatment_featurizer : :term:`transformer`, optional, default None
+    treatment_featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
