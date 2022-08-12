@@ -8,8 +8,8 @@ from contextlib import ExitStack
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
 from sklearn.linear_model import (LinearRegression, LassoCV, Lasso, MultiTaskLasso,
                                   MultiTaskLassoCV, LogisticRegression)
-from econml.dynamic.dml import DynamicDML
-from econml.dynamic.dml._dml import _get_groups_period_filter
+from econml.panel.dml import DynamicDML
+from econml.panel.dml._dml import _get_groups_period_filter
 from econml.inference import BootstrapInference, EmpiricalInferenceResults, NormalInferenceResults
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
 import econml.tests.utilities  # bugfix for assertWarns

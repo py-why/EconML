@@ -46,7 +46,7 @@ characteristics :math:`X` of the treated samples, then one can use this method. 
 
 .. testcode::
 
-    from econml.dynamic.dml import DynamicDML
+    from econml.panel.dml import DynamicDML
     est = DynamicDML()
     est.fit(y_dyn, T_dyn, X=X_dyn, W=W_dyn, groups=groups)
 
@@ -57,7 +57,7 @@ Class Hierarchy Structure
 In this library we implement variants of several of the approaches mentioned in the last section. The hierarchy
 structure of the implemented CATE estimators is as follows.
 
-    .. inheritance-diagram:: econml.dynamic.dml.DynamicDML
+    .. inheritance-diagram:: econml.panel.dml.DynamicDML
         :parts: 1
         :private-bases:
         :top-classes: econml._OrthoLearner, econml._cate_estimator.LinearModelFinalCateEstimatorMixin
@@ -83,7 +83,7 @@ Below we give a brief description of each of these classes:
 
       .. testcode::
 
-        from econml.dynamic.dml import DynamicDML
+        from econml.panel.dml import DynamicDML
         est = DynamicDML()
         est.fit(y_dyn, T_dyn, X=X_dyn, W=W_dyn, groups=groups)
 

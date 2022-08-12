@@ -108,10 +108,10 @@ Sieve Methods
     econml.iv.sieve.HermiteFeatures
     econml.iv.sieve.DPolynomialFeatures
 
-.. _dynamic_api:
+.. _panel_api:
 
-Estimators for Dynamic Treatment Regimes
-----------------------------------------
+Estimators for Panel Data
+-------------------------
 
 .. _dynamicdml_api:
 
@@ -121,7 +121,7 @@ Dynamic Double Machine Learning
 .. autosummary::
     :toctree: _autosummary
 
-    econml.dynamic.dml.DynamicDML
+    econml.panel.dml.DynamicDML
 
 .. _policy_api:
 
