@@ -658,6 +658,7 @@ class DMLOrthoForest(BaseOrthoForest):
             T = self.transformer.fit_transform(T.reshape(-1, 1))
             self._d_t = T.shape[1:]
         elif self.treatment_featurizer:
+            self._original_treatment_featurizer = clone(self.treatment_featurizer, safe=False)
             self.transformer = jacify_featurizer(self.treatment_featurizer)
             d_t_in = T.shape[1:]
             T = self.transformer.fit_transform(T)

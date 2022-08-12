@@ -471,7 +471,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self.fit_cate_intercept = fit_cate_intercept
         self.linear_first_stages = linear_first_stages
         self.featurizer = clone(featurizer, safe=False)
-        # do I need to clone a treatment featurizer here too?
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.model_final = clone(model_final, safe=False)

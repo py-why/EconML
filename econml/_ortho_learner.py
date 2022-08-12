@@ -619,6 +619,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
             elif self.treatment_featurizer:
+                self._original_treatment_featurizer = clone(self.treatment_featurizer, safe=False)
                 self.transformer = jacify_featurizer(self.treatment_featurizer)
                 output_T = self.transformer.fit_transform(T)
                 self._d_t = np.shape(output_T)[1:]

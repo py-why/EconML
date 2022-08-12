@@ -321,14 +321,16 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         return (X,) + Ts
 
+    def _use_inference_method(self, name, *args, **kwargs):
+        if self._inference is not None:
+            return getattr(self._inference, name)(*args, **kwargs)
+        else:
+            raise AttributeError("Can't call '%s' because 'inference' is None" % name)
+
     def _defer_to_inference(m):
         @wraps(m)
         def call(self, *args, **kwargs):
-            name = m.__name__
-            if self._inference is not None:
-                return getattr(self._inference, name)(*args, **kwargs)
-            else:
-                raise AttributeError("Can't call '%s' because 'inference' is None" % name)
+            return self._use_inference_method(m.__name__, *args, **kwargs)
         return call
 
     @_defer_to_inference
@@ -636,7 +638,7 @@ class LinearCateEstimator(BaseCateEstimator):
         if X is None:
             eff = np.repeat(eff, shape(T)[0], axis=0)
 
-        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer:
+        if hasattr(self, 'treatment_featurizer') and self._original_treatment_featurizer:
             feat_T = self.transformer.transform(T)
             jac_T = self.transformer.jac(T)
 
@@ -654,8 +656,8 @@ class LinearCateEstimator(BaseCateEstimator):
             return eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
-        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer:
-            return BaseCateEstimator._defer_to_inference(self.marginal_effect_interval)(self, T, X, alpha=alpha)
+        if hasattr(self, 'treatment_featurizer') and self._original_treatment_featurizer:
+            return self._use_inference_method('marginal_effect_interval', T, X)
         else:
             X, T = self._expand_treatments(X, T)
             effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
@@ -665,8 +667,8 @@ class LinearCateEstimator(BaseCateEstimator):
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
     def marginal_effect_inference(self, T, X=None):
-        if hasattr(self, 'treatment_featurizer') and self.treatment_featurizer:
-            return BaseCateEstimator._defer_to_inference(self.marginal_effect_inference)(self, T, X)
+        if hasattr(self, 'treatment_featurizer') and self._original_treatment_featurizer:
+            return self._use_inference_method('marginal_effect_inference', T, X)
         else:
             X, T = self._expand_treatments(X, T)
             cme_inf = self.const_marginal_effect_inference(X=X)
@@ -858,7 +860,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
                 T = np.full((n_rows,) + self._d_t_in, T)
 
             if self.transformer and transform:
-                if not (hasattr(self, 'treatment_featurizer') and self.treatment_featurizer):
+                if not hasattr(self, 'treatment_featurizer') and self._original_treatment_featurizer:
                     T = T.reshape(-1, 1)
                 T = self.transformer.transform(T)
             outTs.append(T)
