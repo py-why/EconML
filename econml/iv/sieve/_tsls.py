@@ -90,7 +90,7 @@ class HermiteFeatures(TransformerMixin):
 class DPolynomialFeatures(TransformerMixin):
     """
     Featurizer that returns the derivatives of :class:`~sklearn.preprocessing.PolynomialFeatures` features in
-    a way that's compativle with the expectations of :class:`.NonparametricTwoStageLeastSquares`'s
+    a way that's compatible with the expectations of :class:`.SieveTSLS`'s
     `dt_featurizer` parameter.
 
     If the input has shape `(n, x)` and

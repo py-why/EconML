@@ -5,7 +5,7 @@
 
 import unittest
 from sklearn.linear_model import LinearRegression, LogisticRegression
-from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, ForestDML)
+from econml.dml import (DML, LinearDML, SparseLinearDML, KernelDML, NonParamDML, CausalForestDML)
 from econml.dr import (DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner)
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr import (IntentToTreatDRIV, LinearIntentToTreatDRIV)
@@ -56,7 +56,7 @@ class TestMonteCarlo(unittest.TestCase):
                       mc_iters=2, mc_agg='median')
             assert est.mc_iters == 2
             assert est.mc_agg == 'median'
-        for gen in [LinearDML, SparseLinearDML, KernelDML, ForestDML]:
+        for gen in [LinearDML, SparseLinearDML, KernelDML, CausalForestDML]:
             est = gen(model_y=LinearRegression(), model_t=LinearRegression(),
                       mc_iters=2, mc_agg='median')
             assert est.mc_iters == 2

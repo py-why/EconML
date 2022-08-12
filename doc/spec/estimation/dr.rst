@@ -306,10 +306,10 @@ Below we give a brief description of each of these classes:
             point = est.effect(X, T0=T0, T1=T1)
             lb, ub = est.effect_interval(X, T0=T0, T1=T1, alpha=0.05)
 
-          This method is related to the :class:`.DiscreteTreatmentOrthoForest` and you can check [Oprescu2019]_ for more technical details;
+          This method is related to the :class:`.DROrthoForest` and you can check [Oprescu2019]_ for more technical details;
           the main difference being how the nuisance models are being constructed for the CATE estimation at some
           target :math:`X=x`. Check out :ref:`Forest Estimators User Guide <orthoforestuserguide>` for more information on forest based CATE models and other
-          alternatives to the :class:`.ForestDML`.
+          alternatives to the :class:`.CausalForestDML`.
 
 
 Usage FAQs

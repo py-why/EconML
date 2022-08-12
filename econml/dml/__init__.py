@@ -35,7 +35,7 @@ References
 """
 
 from .dml import (DML, LinearDML, SparseLinearDML,
-                  KernelDML, NonParamDML, ForestDML)
+                  KernelDML, NonParamDML)
 from .causal_forest import CausalForestDML
 
 __all__ = ["DML",
@@ -43,5 +43,4 @@ __all__ = ["DML",
            "SparseLinearDML",
            "KernelDML",
            "NonParamDML",
-           "ForestDML",
            "CausalForestDML"]

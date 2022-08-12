@@ -7,7 +7,7 @@ Detailed estimator comparison
 | Estimator                                   | | Treatment  | | Requires   | | Delivers Conf. | | Linear    | | Linear        | | Mulitple | | Multiple   | | High-Dimensional |
 |                                             | | Type       | | Instrument | | Intervals      | | Treatment | | Heterogeneity | | Outcomes | | Treatments | | Features         |
 +=============================================+==============+==============+==================+=============+=================+============+==============+====================+
-| :class:`.NonparametricTwoStageLeastSquares` | Any          | Yes          |                  | Yes         | Assumed         | Yes        | Yes          |                    |
+| :class:`.SieveTSLS`                         | Any          | Yes          |                  | Yes         | Assumed         | Yes        | Yes          |                    |
 +---------------------------------------------+--------------+--------------+------------------+-------------+-----------------+------------+--------------+--------------------+
 | :class:`.DeepIV`                            | Any          | Yes          |                  |             |                 | Yes        | Yes          |                    |
 +---------------------------------------------+--------------+--------------+------------------+-------------+-----------------+------------+--------------+--------------------+
