@@ -20,7 +20,7 @@ from .dowhy import DoWhyWrapper
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
     """Base class for all CATE estimators in this package."""
-    treatment_featurizer = None
+    _original_treatment_featurizer = None
 
     def _get_inference_options(self):
         """
