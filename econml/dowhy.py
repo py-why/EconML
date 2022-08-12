@@ -14,8 +14,14 @@ import inspect
 import pandas as pd
 import numpy as np
 import warnings
-from dowhy import CausalModel
-from econml.utilities import check_input_arrays, reshape_arrays_2dim, get_input_columns
+from econml.utilities import check_input_arrays, reshape_arrays_2dim, get_input_columns, MissingModule
+try:
+    import dowhy
+    from dowhy import CausalModel
+except ImportError as exn:
+    dowhy = CausalModel = MissingModule("dowhy is no longer a dependency of the main econml "
+                                        "package; install econml[dowhy] or econml[all] to require it, or install "
+                                        "dowhy separately to use dowhy from econml", exn)
 
 
 class DoWhyWrapper:
@@ -30,6 +36,9 @@ class DoWhyWrapper:
     """
 
     def __init__(self, cate_estimator):
+        from pkg_resources import parse_version
+        if parse_version(dowhy.__version__) >= parse_version('0.9'):
+            warnings.warn("econml has not been tested with dowhy versions >= 0.9")
         self._cate_estimator = cate_estimator
 
     def _get_params(self):
