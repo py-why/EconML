@@ -408,7 +408,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     .. testcode::
 
-        from econml.dynamic.dml import DynamicDML
+        from econml.panel.dml import DynamicDML
 
         np.random.seed(123)
 
