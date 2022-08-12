@@ -1434,15 +1434,3 @@ class BLBInference(Inference):
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)
-
-
-@deprecated("The ContinuousTreatmentOrthoForest class has been renamed to DMLOrthoForest; "
-            "an upcoming release will remove support for the old name")
-class ContinuousTreatmentOrthoForest(DMLOrthoForest):
-    pass
-
-
-@deprecated("The DiscreteTreatmentOrthoForest class has been renamed to DROrthoForest; "
-            "an upcoming release will remove support for the old name")
-class DiscreteTreatmentOrthoForest(DROrthoForest):
-    pass

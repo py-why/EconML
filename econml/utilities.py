@@ -1503,31 +1503,3 @@ def jacify_featurizer(featurizer):
        a function for calculating the jacobian
     """
     return _TransformerWrapper(featurizer)
-
-
-@deprecated("This class will be removed from a future version of this package; "
-            "please use econml.sklearn_extensions.linear_model.WeightedLassoCV instead.")
-class LassoCVWrapper:
-    """Helper class to wrap either LassoCV or MultiTaskLassoCV depending on the shape of the target."""
-
-    def __init__(self, *args, **kwargs):
-        self.args = args
-        self.kwargs = kwargs
-
-    def fit(self, X, Y):
-        assert shape(X)[0] == shape(Y)[0]
-        assert ndim(Y) <= 2
-        self.needs_unravel = False
-        if ndim(Y) == 2 and shape(Y)[1] > 1:
-            self.model = MultiTaskLassoCV(*self.args, **self.kwargs)
-        else:
-            if ndim(Y) == 2 and shape(Y)[1] == 1:
-                Y = np.ravel(Y)
-                self.needs_unravel = True
-            self.model = LassoCV(*self.args, **self.kwargs)
-        self.model.fit(X, Y)
-        return self
-
-    def predict(self, X):
-        predictions = self.model.predict(X)
-        return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions

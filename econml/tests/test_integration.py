@@ -12,9 +12,9 @@ try:
 except ImportError:
     keras_installed = False
 
-from econml.drlearner import LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
-from econml.dml import LinearDML, SparseLinearDML, ForestDML
-from econml.ortho_forest import DMLOrthoForest, DROrthoForest
+from econml.dr import LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
+from econml.dml import LinearDML, SparseLinearDML, CausalForestDML
+from econml.orf import DMLOrthoForest, DROrthoForest
 from econml.sklearn_extensions.linear_model import WeightedLasso
 from econml.metalearners import XLearner, SLearner, TLearner
 from sklearn.compose import ColumnTransformer
@@ -22,7 +22,7 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 from sklearn.linear_model import LinearRegression, MultiTaskLasso, LassoCV
 from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
 from econml.iv.dr import LinearIntentToTreatDRIV
-from econml.deepiv import DeepIVEstimator
+from econml.iv.nnet import DeepIV
 
 
 class TestPandasIntegration(unittest.TestCase):
@@ -98,7 +98,7 @@ class TestPandasIntegration(unittest.TestCase):
         lb, ub = est.effect_interval(X, alpha=0.05)
         self._check_input_names(est.summary())  # Check that names propagate as expected
         # Test ForestDML
-        est = ForestDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
+        est = CausalForestDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor())
         est.fit(Y, T, X=X, W=W, inference='blb')
         treatment_effects = est.effect(X)
         lb, ub = est.effect_interval(X, alpha=0.05)
@@ -229,11 +229,11 @@ class TestPandasIntegration(unittest.TestCase):
                                            keras.layers.Dense(32, activation='relu'),
                                            keras.layers.Dropout(0.17),
                                            keras.layers.Dense(1)])
-        est = DeepIVEstimator(n_components=10,  # Number of gaussians in the mixture density networks)
-                              m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),  # Treatment model
-                              h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # Response model
-                              n_samples=1  # Number of samples used to estimate the response
-                              )
+        est = DeepIV(n_components=10,  # Number of gaussians in the mixture density networks)
+                     m=lambda z, x: treatment_model(keras.layers.concatenate([z, x])),  # Treatment model
+                     h=lambda t, x: response_model(keras.layers.concatenate([t, x])),  # Response model
+                     n_samples=1  # Number of samples used to estimate the response
+                     )
         est.fit(Y, T, X=X, Z=Z)
         treatment_effects = est.effect(X)
 
