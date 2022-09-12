@@ -1412,7 +1412,6 @@ class _TransformerWrapper:
         ret = get_feature_names_or_default(self.featurizer, feature_names, prefix="feat(T)")
         if ret is not None:
             return ret
-
         return []
 
     def jac(self, X, epsilon=0.001):
