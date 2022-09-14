@@ -1990,8 +1990,9 @@ class StatsModels2SLS(_StatsModelsWrapper):
         if Z.shape[1] < T.shape[1]:
             raise AssertionError("The number of treatments couldn't be larger than the number of instruments!" +
                                  " If you are using a treatment featurizer, make sure the number of featurized" +
-                                 " treatments is less than or equal to the number of instruments. Alternatively," +
-                                 " consider using projection = True, which will try to use efficient instruments.")
+                                 " treatments is less than or equal to the number of instruments. You can either" +
+                                 " featurize the instrument yourself, or consider using projection = True" +
+                                 " along with a flexible model_t_xwz.")
 
         # weight X and y
         weighted_Z = Z * np.sqrt(sample_weight).reshape(-1, 1)

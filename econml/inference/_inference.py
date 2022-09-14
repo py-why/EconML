@@ -351,8 +351,8 @@ class LinearModelFinalInference(GenericModelFinalInference):
                 jac_index.append(slice(None))
 
             XT = cross_product(X, jac_T[tuple(jac_index)])
-            e_pred = self._predict(XT)
-            e_stderr = self._prediction_stderr(XT)
+            e_pred = self._predict(XT).reshape(X.shape[:1] + self._d_y)  # enforce output shape
+            e_stderr = self._prediction_stderr(XT).reshape(X.shape[:1] + self._d_y)
 
             mean_XT = XT.mean(axis=0, keepdims=True)
             mean_pred_stderr = self._prediction_stderr(mean_XT)  # shape[0] will always be 1 here
