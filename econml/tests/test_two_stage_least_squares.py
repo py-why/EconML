@@ -31,13 +31,13 @@ class Test2SLS(unittest.TestCase):
         # first polynomials are 1, x, x*x-1, x*x*x-3*x
         ones = np.ones(shape(inputs))
         polys = np.hstack([ones, inputs, inputs * inputs - ones, inputs * inputs * inputs - 3 * inputs])
-        assert(np.allclose(hf, polys * np.exp(-inputs * inputs / 2)))
+        assert (np.allclose(hf, polys * np.exp(-inputs * inputs / 2)))
 
         for j in [True, False]:
             hf = HermiteFeatures(1, shift=1, joint=j).fit_transform(inputs)
             # first derivatives are -x, -x^2+1 (since there's just one column, joint-ness doesn't matter)
             polys = np.hstack([-inputs, -inputs * inputs + ones])
-            assert(np.allclose(hf, reshape(polys * np.exp(-inputs * inputs / 2), (5, 1, 2))))
+            assert (np.allclose(hf, reshape(polys * np.exp(-inputs * inputs / 2), (5, 1, 2))))
 
     @pytest.mark.slow
     def test_hermite_approx(self):
@@ -87,7 +87,7 @@ class Test2SLS(unittest.TestCase):
                             effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
                             marginal_effect_shape = ((n if d_x else 1,) +
                                                      ((d_y,) if d_y > 0 else ()) +
-                                                     ((d_t,) if d_t > 0 else()))
+                                                     ((d_t,) if d_t > 0 else ()))
 
                             self.assertEqual(shape(marg_eff), marginal_effect_shape)
                             self.assertEqual(shape(eff), effect_shape)
