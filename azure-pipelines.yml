@@ -10,7 +10,7 @@ jobs:
 - job: 'EvalChanges'
   displayName: 'Analyze changed files to determine which job to run'
   pool:
-    vmImage: 'macOS-10.15'
+    vmImage: 'macos-12'
   steps:
   # We want to enforce the following rules for PRs:
   # * if all modifications are to README.md
@@ -180,7 +180,7 @@ jobs:
 - template: azure-pipelines-steps.yml
   parameters:
     versions: ['3.8']
-    images: ['macOS-10.15']
+    images: ['macos-12']
     job:
       job: 'Linting'
       dependsOn: 'EvalChanges'
