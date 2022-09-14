@@ -10,7 +10,7 @@ jobs:
 - job: 'EvalChanges'
   displayName: 'Analyze changed files to determine which job to run'
   pool:
-    vmImage: 'macOS-10.15'
+    vmImage: 'macos-12'
   steps:
   # We want to enforce the following rules for PRs:
   # * if all modifications are to README.md
@@ -54,7 +54,7 @@ jobs:
 - template: azure-pipelines-steps.yml
   parameters:
     versions: ['3.8']
-    images: ['ubuntu-18.04']
+    images: ['ubuntu-20.04']
     package: '-e .[all]'
     job:
       job: 'Docs'
@@ -88,7 +88,7 @@ jobs:
 - template: azure-pipelines-steps.yml
   parameters:
     versions: ['3.8']
-    images: ['ubuntu-18.04']
+    images: ['ubuntu-20.04']
     package: '-e .[tf,plt,dowhy]'
     job:
       job: 'Notebooks_cust'
@@ -116,7 +116,7 @@ jobs:
 - template: azure-pipelines-steps.yml
   parameters:
     versions: ['3.8']
-    images: ['ubuntu-18.04']
+    images: ['ubuntu-20.04']
     package: '-e .[tf,plt]'
     job:
       job: 'Notebooks_noncust'
@@ -148,7 +148,7 @@ jobs:
 #   variables:
 #     python.version: '3.6'
 #   pool:
-#     vmImage: 'ubuntu-18.04'
+#     vmImage: 'ubuntu-20.04'
 #   steps:
 #   - template: azure-pipelines-steps.yml
 #     parameters:
@@ -180,7 +180,7 @@ jobs:
 - template: azure-pipelines-steps.yml
   parameters:
     versions: ['3.8']
-    images: ['macOS-10.15']
+    images: ['macos-12']
     job:
       job: 'Linting'
       dependsOn: 'EvalChanges'
@@ -247,7 +247,7 @@ jobs:
 - template: azure-pipelines-steps.yml
   parameters:
     # exclude macOS since these tests frequently break there
-    images: ['ubuntu-18.04', 'windows-2019']
+    images: ['ubuntu-20.04', 'windows-2019']
     package: '-e .[tf,plt]'
     job:
       job: Tests_serial

@@ -85,8 +85,8 @@ def setAutomatedMLWorkspace(create_workspace=False,
         ws.write_config()
         print("Workspace configuration has succeeded.")
     except ProjectSystemException:
-        if(create_workspace):
-            if(create_resource_group):
+        if (create_workspace):
+            if (create_resource_group):
                 print("Workspace not accessible. Creating a new workspace and \
                 resource group.")
                 ws = Workspace.create(name=workspace_name,
@@ -351,9 +351,9 @@ class EconAutoMLConfig(AutoMLConfig):
             whitelist_models = list(LINEAR_MODELS_SET.intersection(SAMPLE_WEIGHTS_MODELS_SET))
 
         else:
-            if(linear_model_required):
+            if (linear_model_required):
                 whitelist_models = list(LINEAR_MODELS_SET)
-            if(sample_weights_required):
+            if (sample_weights_required):
                 whitelist_models = list(SAMPLE_WEIGHTS_MODELS_SET)
 
         kwargs['whitelist_models'] = whitelist_models

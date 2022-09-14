@@ -208,7 +208,7 @@ def response_loss_model(h, p, d_z, d_x, d_y, samples=1, use_upper_bound=False, g
     A Keras model that takes as inputs z, x, and y and generates a single output containing the loss.
 
     """
-    assert not(use_upper_bound and gradient_samples)
+    assert not (use_upper_bound and gradient_samples)
 
     # sample: (() -> Layer, int) -> Layer
     def sample(f, n):

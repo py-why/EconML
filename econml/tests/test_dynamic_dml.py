@@ -65,7 +65,7 @@ class TestDynamicDML(unittest.TestCase):
                                 # since T isn't passed to const_marginal_effect, defaults to one row if X is None
                                 const_marginal_effect_shape = ((n if d_x else 1,) +
                                                                ((d_y,) if d_y > 0 else ()) +
-                                                               ((d_t_final,) if d_t_final > 0 else()))
+                                                               ((d_t_final,) if d_t_final > 0 else ()))
                                 const_marginal_effect_summaryframe_shape = (
                                     (n if d_x else 1) * (d_y if d_y > 0 else 1) *
                                     (d_t_final if d_t_final > 0 else 1), 6)
@@ -247,7 +247,7 @@ class TestDynamicDML(unittest.TestCase):
                                             # ExitStack can be used as a "do nothing" ContextManager
                                             cm = ExitStack()
                                         with cm:
-                                            effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else())
+                                            effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else ())
                                             eff = est.effect(X) if not is_discrete else est.effect(
                                                 X, T0='a', T1='b')
                                             self.assertEqual(shape(eff), effect_shape2)

@@ -219,7 +219,7 @@ intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'sklearn': ('https://scikit-learn.org/stable/', None),
                        'matplotlib': ('https://matplotlib.org/', None),
                        'shap': ('https://shap.readthedocs.io/en/stable/', None),
-                       'dowhy': ('https://py-why.github.io/dowhy/', None)}
+                       'dowhy': ('https://py-why.github.io/dowhy/v0.8/', None)}
 
 
 # -- Options for todo extension ----------------------------------------------
