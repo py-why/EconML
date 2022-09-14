@@ -453,10 +453,10 @@ def reshape_Y_T(Y, T):
         Reshaped treatment policy.
 
     """
-    assert(len(Y) == len(T))
-    assert(Y.ndim <= 2)
+    assert (len(Y) == len(T))
+    assert (Y.ndim <= 2)
     if Y.ndim == 2:
-        assert(Y.shape[1] == 1)
+        assert (Y.shape[1] == 1)
         Y = Y.flatten()
     if T.ndim == 1:
         T = T.reshape(-1, 1)
