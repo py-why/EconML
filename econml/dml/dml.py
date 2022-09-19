@@ -403,6 +403,36 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with discrete treatment and a linear model_final (equivalent to LinearDML):
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.dml import DML
+        from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
+        from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = DML(
+            model_y=RandomForestRegressor(),
+            model_t=RandomForestClassifier(),
+            model_final=StatsModelsLinearRegression(fit_intercept=False),
+            linear_first_stages=False,
+            discrete_treatment=True
+        )
+        est.fit(y, T, X=X, W=None)
     """
 
     def __init__(self, *,
@@ -583,6 +613,28 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models and discrete treatment:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.dml import LinearDML
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = LinearDML(discrete_treatment=True)
+        est.fit(y, T, X=X, W=None)
     """
 
     def __init__(self, *,
@@ -771,6 +823,28 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models and discrete treatment:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.dml import SparseLinearDML
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = SparseLinearDML(discrete_treatment=True)
+        est.fit(y, T, X=X, W=None)
     """
 
     def __init__(self, *,
@@ -1101,6 +1175,33 @@ class NonParamDML(_BaseDML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with a discrete treatment:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.dml import NonParamDML
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = NonParamDML(
+            model_y=RandomForestRegressor(min_samples_leaf=20),
+            model_t=RandomForestClassifier(min_samples_leaf=20),
+            model_final=RandomForestRegressor(min_samples_leaf=20),
+            discrete_treatment=True
+        )
+        est.fit(y, T, X=X, W=None)
     """
 
     def __init__(self, *,

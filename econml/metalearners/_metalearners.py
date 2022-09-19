@@ -33,6 +33,28 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
+
+    Examples
+    --------
+    A simple example:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.metalearners import TLearner
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = TLearner(models=LinearRegression())
+        est.fit(y, T, X=X)
     """
 
     def __init__(self, *,
@@ -120,6 +142,28 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
+
+    Examples
+    --------
+    A simple example:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.metalearners import SLearner
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = SLearner(overall_model=RandomForestRegressor())
+        est.fit(y, T, X=X)
     """
 
     def __init__(self, *,
@@ -223,6 +267,28 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
+
+    Examples
+    --------
+    A simple example:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.metalearners import XLearner
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = XLearner(models=LinearRegression())
+        est.fit(y, T, X=X)
     """
 
     def __init__(self, *,
@@ -348,6 +414,31 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
+
+    Examples
+    --------
+    A simple example:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.metalearners import DomainAdaptationLearner
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = DomainAdaptationLearner(
+            models=RandomForestRegressor(),
+            final_models=LinearRegression()
+        )
+        est.fit(y, T, X=X)
     """
 
     def __init__(self, *,
