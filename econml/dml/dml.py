@@ -1241,6 +1241,11 @@ class NonParamDML(_BaseDML):
     discrete_treatment: bool, optional (default is ``False``)
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -1311,6 +1316,7 @@ class NonParamDML(_BaseDML):
                  model_y, model_t, model_final,
                  featurizer=None,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -1324,7 +1330,7 @@ class NonParamDML(_BaseDML):
         self.featurizer = clone(featurizer, safe=False)
         self.model_final = clone(model_final, safe=False)
         super().__init__(discrete_treatment=discrete_treatment,
-                         treatment_featurizer=None,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
