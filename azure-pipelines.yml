@@ -89,7 +89,7 @@ jobs:
   parameters:
     versions: ['3.8']
     images: ['ubuntu-20.04']
-    package: '-e .[tf,plt]'
+    package: '-e .[tf,plt,dowhy]'
     job:
       job: 'Notebooks_cust'
       dependsOn: 'EvalChanges'
@@ -192,7 +192,7 @@ jobs:
 
 - template: azure-pipelines-steps.yml
   parameters:
-    package: '-e .[tf,plt]'
+    package: '-e .[tf,plt,dowhy]'
     job:
       job: Tests_main
       dependsOn: 'EvalChanges'
