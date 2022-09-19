@@ -1190,6 +1190,7 @@ class NonParamDML(_BaseDML):
     .. testcode::
 
         from econml.dml import NonParamDML
+        from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 
         np.random.seed(123)
         X = np.random.normal(size=(1000, 5))

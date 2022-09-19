@@ -47,7 +47,8 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     .. testcode::
 
-        from econml.metalearners import TLearner
+        from econml.metalearners import TLearnerz
+        from sklearn.linear_model import LinearRegression
 
         np.random.seed(123)
         X = np.random.normal(size=(1000, 5))
@@ -157,6 +158,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
     .. testcode::
 
         from econml.metalearners import SLearner
+        from sklearn.ensemble import RandomForestRegressor
 
         np.random.seed(123)
         X = np.random.normal(size=(1000, 5))
@@ -282,6 +284,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
     .. testcode::
 
         from econml.metalearners import XLearner
+        from sklearn.linear_model import LinearRegression
 
         np.random.seed(123)
         X = np.random.normal(size=(1000, 5))
@@ -429,6 +432,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
     .. testcode::
 
         from econml.metalearners import DomainAdaptationLearner
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.linear_model import LinearRegression
 
         np.random.seed(123)
         X = np.random.normal(size=(1000, 5))
