@@ -766,6 +766,45 @@ class DRIV(_DRIV):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dr import DRIV
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = DRIV(discrete_treatment=True, discrete_instrument=True)
+        est.fit(Y=y, T=T, Z=Z, X=X)
     """
 
     def __init__(self, *,
@@ -1168,6 +1207,45 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dr import LinearDRIV
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = LinearDRIV(discrete_treatment=True, discrete_instrument=True)
+        est.fit(Y=y, T=T, Z=Z, X=X)
     """
 
     def __init__(self, *,
@@ -1430,6 +1508,45 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dr import SparseLinearDRIV
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = SparseLinearDRIV(discrete_treatment=True, discrete_instrument=True)
+        est.fit(Y=y, T=T, Z=Z, X=X)
     """
 
     def __init__(self, *,
@@ -1780,6 +1897,45 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dr import ForestDRIV
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = ForestDRIV(discrete_treatment=True, discrete_instrument=True)
+        est.fit(Y=y, T=T, Z=Z, X=X)
     """
 
     def __init__(self, *,
@@ -2195,6 +2351,45 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dr import IntentToTreatDRIV
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = IntentToTreatDRIV()
+        est.fit(Y=y, T=T, Z=Z, X=X)
     """
 
     def __init__(self, *,
@@ -2426,6 +2621,45 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dr import LinearIntentToTreatDRIV
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = LinearIntentToTreatDRIV()
+        est.fit(Y=y, T=T, Z=Z, X=X)
     """
 
     def __init__(self, *,
