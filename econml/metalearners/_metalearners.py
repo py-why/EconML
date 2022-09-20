@@ -47,7 +47,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     .. testcode::
 
-        from econml.metalearners import TLearnerz
+        from econml.metalearners import TLearner
         from sklearn.linear_model import LinearRegression
 
         np.random.seed(123)
