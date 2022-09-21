@@ -56,6 +56,9 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = TLearner(models=LinearRegression())
         est.fit(y, T, X=X)
+
+    >>> est.effect(X[:3])
+    array([0.58547..., 1.82860..., 0.78379...])
     """
 
     def __init__(self, *,
@@ -166,6 +169,9 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = SLearner(overall_model=RandomForestRegressor())
         est.fit(y, T, X=X)
+
+    >>> est.effect(X[:3])
+    array([0.23577..., 1.62784... , 0.45946...])
     """
 
     def __init__(self, *,
@@ -292,6 +298,9 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = XLearner(models=LinearRegression())
         est.fit(y, T, X=X)
+
+    >>> est.effect(X[:3])
+    array([0.58547..., 1.82860..., 0.78379...])
     """
 
     def __init__(self, *,
@@ -444,6 +453,9 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             final_models=LinearRegression()
         )
         est.fit(y, T, X=X)
+
+    >>> est.effect(X[:3])
+    array([0.74145..., 1.88386... , 0.89571...])
     """
 
     def __init__(self, *,

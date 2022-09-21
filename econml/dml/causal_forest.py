@@ -473,6 +473,12 @@ class CausalForestDML(_BaseDML):
         est = CausalForestDML(discrete_treatment=True)
         est.fit(y, T, X=X, W=None)
 
+    >>> est.effect(X[:3])
+    array([0.76625..., 1.52176..., 0.73679...])
+    >>> est.effect_interval(X[:3])
+    (array([0.39668..., 1.08245... , 0.16566...]),
+    array([1.13581..., 1.96107..., 1.30791...]))
+
     Attributes
     ----------
     ate_ : ndarray of shape (n_outcomes, n_treatments)

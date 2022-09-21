@@ -433,6 +433,20 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             discrete_treatment=True
         )
         est.fit(y, T, X=X, W=None)
+
+    >>> est.effect(X[:3])
+    array([0.63382..., 1.78225..., 0.71859...])
+    >>> est.effect_interval(X[:3])
+    (array([0.27937..., 1.27619..., 0.42091...]),...([0.98827... , 2.28831..., 1.01628...]))
+    >>> est.coef_
+    array([ 0.42857...,  0.04488..., -0.03317...,  0.02258..., -0.14875...])
+    >>> est.coef__interval()
+    (array([ 0.25179..., -0.10558..., -0.16723... , -0.11916..., -0.28759...]),
+    array([ 0.60535...,  0.19536...,  0.10088...,  0.16434..., -0.00990...]))
+    >>> est.intercept_
+    1.01166...
+    >>> est.intercept__interval()
+    (0.87125..., 1.15207...)
     """
 
     def __init__(self, *,
@@ -639,7 +653,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     >>> est.effect(X[:3])
     array([0.59252... , 1.74657..., 0.77384...])
     >>> est.effect_interval(X[:3])
-    (array([0.25503..., 1.24556..., 0.48440...]), array([0.93002... , 2.24757..., 1.06328... ]))
+    (array([0.25503..., 1.24556..., 0.48440...]), 
+    array([0.93002... , 2.24757..., 1.06328... ]))
     >>> est.coef_
     array([ 0.39746..., -0.00313...,  0.01346...,  0.01402..., -0.09071...])
     >>> est.coef__interval()
@@ -649,7 +664,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     0.99197...
     >>> est.intercept__interval()
     (0.85855..., 1.12539...)
-    
+
     """
 
     def __init__(self, *,
@@ -860,6 +875,21 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = SparseLinearDML(discrete_treatment=True)
         est.fit(y, T, X=X, W=None)
+
+    >>> est.effect(X[:3])
+    array([0.59401..., 1.74717..., 0.77105...])
+    >>> est.effect_interval(X[:3])
+    (array([0.26608..., 1.26369..., 0.48690...]), 
+    array([0.92195..., 2.23066..., 1.05520...]))
+    >>> est.coef_
+    array([ 0.39857..., -0.00101... ,  0.01112...,  0.01457..., -0.09117...])
+    >>> est.coef__interval()
+    (array([ 0.24285..., -0.13728..., -0.12351..., -0.11585..., -0.22974...]),
+    array([0.55430..., 0.13526..., 0.14576..., 0.14501... , 0.04738...]))
+    >>> est.intercept_
+    0.99378...
+    >>> est.intercept__interval()
+    (0.86045..., 1.12711...)
     """
 
     def __init__(self, *,
@@ -1218,6 +1248,9 @@ class NonParamDML(_BaseDML):
             discrete_treatment=True
         )
         est.fit(y, T, X=X, W=None)
+
+    >>> est.effect(X[:3])
+    array([0.31120..., 1.14272..., 1.08265...])
     """
 
     def __init__(self, *,
