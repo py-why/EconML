@@ -449,13 +449,13 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = DomainAdaptationLearner(
-            models=RandomForestRegressor(),
+            models=RandomForestRegressor(random_state=123),
             final_models=LinearRegression()
         )
         est.fit(y, T, X=X)
 
     >>> est.effect(X[:3])
-    array([0.74145..., 1.88386... , 0.89571...])
+    array([0.76926..., 1.83313... , 0.90796...])
     """
 
     def __init__(self, *,
