@@ -441,7 +441,6 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
     .. testcode::
 
         from econml.metalearners import DomainAdaptationLearner
-        from sklearn.ensemble import RandomForestRegressor
         from sklearn.linear_model import LinearRegression
 
         np.random.seed(123)
@@ -449,13 +448,13 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = DomainAdaptationLearner(
-            models=RandomForestRegressor(random_state=123),
+            models=LinearRegression(),
             final_models=LinearRegression()
         )
         est.fit(y, T, X=X)
 
     >>> est.effect(X[:3])
-    array([0.76926..., 1.83313... , 0.90796...])
+    array([0.51238..., 1.99864..., 0.68553...])
     """
 
     def __init__(self, *,
