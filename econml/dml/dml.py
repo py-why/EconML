@@ -635,6 +635,21 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
         est = LinearDML(discrete_treatment=True)
         est.fit(y, T, X=X, W=None)
+
+    >>> est.effect(X[:3])
+    array([0.59252... , 1.74657..., 0.77384...])
+    >>> est.effect_interval(X[:3])
+    (array([0.25503..., 1.24556..., 0.48440...]), array([0.93002... , 2.24757..., 1.06328... ]))
+    >>> est.coef_
+    array([ 0.39746..., -0.00313...,  0.01346...,  0.01402..., -0.09071...])
+    >>> est.coef__interval()
+    (array([ 0.23709..., -0.13618... , -0.11712..., -0.11954..., -0.22782...]), 
+    array([0.55783..., 0.12991..., 0.14405..., 0.14758..., 0.04640...]))
+    >>> est.intercept_
+    0.99197...
+    >>> est.intercept__interval()
+    (0.85855..., 1.12539...)
+    
     """
 
     def __init__(self, *,
