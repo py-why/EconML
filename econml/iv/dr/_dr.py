@@ -1261,9 +1261,9 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     (array([ 3.64471..., -0.48678..., -0.99551... , -1.16740..., -1.24289...]),
     array([6.20316..., 2.02898..., 1.53090..., 1.06748..., 1.39788...]))
     >>> est.intercept_
-    −0.35292...
+    -0.35292...
     >>> est.intercept__interval()
-    (−1.54654..., 0.84069...)
+    (-1.54654..., 0.84069...)
     """
 
     def __init__(self, *,
@@ -1577,9 +1577,9 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
     (array([ 3.71131... , -0.45763..., -1.00739..., -1.20516..., -1.15926...]),
     array([6.11713..., 1.97678..., 1.47661..., 1.16347..., 1.33023...]))
     >>> est.intercept_
-    −0.30389...
+    -0.30389...
     >>> est.intercept__interval()
-    (−1.50685..., 0.89906...)
+    (-1.50685..., 0.89906...)
     """
 
     def __init__(self, *,
@@ -2714,9 +2714,9 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
     (array([ 3.52057... , -0.72550..., -0.72653..., -1.50040... , -1.52896...]),
     array([6.51816..., 2.16527..., 2.37861..., 1.33656..., 1.47854...]))
     >>> est.intercept_
-    −0.45176...
+    -0.45176...
     >>> est.intercept__interval()
-    (−1.93313..., 1.02959...)
+    (-1.93313..., 1.02959...)
     """
 
     def __init__(self, *,
