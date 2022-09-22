@@ -805,6 +805,9 @@ class DRIV(_DRIV):
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
         est = DRIV(discrete_treatment=True, discrete_instrument=True)
         est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-4.45223...,  6.03803..., -2.97548...])
     """
 
     def __init__(self, *,
@@ -1246,6 +1249,21 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
         est = LinearDRIV(discrete_treatment=True, discrete_instrument=True)
         est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-4.82328...,  5.66220..., -3.37199...])
+    >>> est.effect_interval(X[:3])
+    (array([-7.73320...,  1.47710..., -6.00997...]),
+    array([-1.91335...,  9.84730..., -0.73402...]))
+    >>> est.coef_
+    array([ 4.92394...,  0.77110...,  0.26769..., -0.04996...,  0.07749...])
+    >>> est.coef__interval()
+    (array([ 3.64471..., -0.48678..., -0.99551... , -1.16740..., -1.24289...]),
+    array([6.20316..., 2.02898..., 1.53090..., 1.06748..., 1.39788...]))
+    >>> est.intercept_
+    −0.35292...
+    >>> est.intercept__interval()
+    (−1.54654..., 0.84069...)
     """
 
     def __init__(self, *,
@@ -1547,6 +1565,21 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
         est = SparseLinearDRIV(discrete_treatment=True, discrete_instrument=True)
         est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-4.83304...,  5.76728..., -3.38677...])
+    >>> est.effect_interval(X[:3])
+    (array([-7.73949... ,  1.62799..., -5.92335... ]),
+    array([-1.92659...,  9.90657..., -0.85020...]))
+    >>> est.coef_
+    array([ 4.91422... ,  0.75957...,  0.23460..., -0.02084...,  0.08548...])
+    >>> est.coef__interval()
+    (array([ 3.71131... , -0.45763..., -1.00739..., -1.20516..., -1.15926...]),
+    array([6.11713..., 1.97678..., 1.47661..., 1.16347..., 1.33023...]))
+    >>> est.intercept_
+    −0.30389...
+    >>> est.intercept__interval()
+    (−1.50685..., 0.89906...)
     """
 
     def __init__(self, *,
@@ -1936,6 +1969,12 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
         est = ForestDRIV(discrete_treatment=True, discrete_instrument=True)
         est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-1.89742...,  5.89860..., -2.66305...  ])
+    >>> est.effect_interval(X[:3])
+    (array([-5.22782...,  1.90437..., -5.38223...]),
+    array([1.43297..., 9.89284..., 0.05612...]))
     """
 
     def __init__(self, *,
@@ -2390,6 +2429,9 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
         est = IntentToTreatDRIV()
         est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-4.29282...,  6.08590..., -2.11608...])
     """
 
     def __init__(self, *,
@@ -2660,6 +2702,21 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
         est = LinearIntentToTreatDRIV()
         est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-4.81123...,  5.65430..., -2.63204...])
+    >>> est.effect_interval(X[:3])
+    (array([-8.42669...,  0.36538... , -5.82840...]),
+    array([-1.19578... , 10.94323...,  0.56430...]))
+    >>> est.coef_
+    array([ 5.01936...,  0.71988...,  0.82603..., -0.08192... , -0.02520...])
+    >>> est.coef__interval()
+    (array([ 3.52057... , -0.72550..., -0.72653..., -1.50040... , -1.52896...]),
+    array([6.51816..., 2.16527..., 2.37861..., 1.33656..., 1.47854...]))
+    >>> est.intercept_
+    −0.45176...
+    >>> est.intercept__interval()
+    (−1.93313..., 1.02959...)
     """
 
     def __init__(self, *,

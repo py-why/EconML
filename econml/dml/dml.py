@@ -1073,6 +1073,31 @@ class KernelDML(DML):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models and discrete treatment:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.dml import KernelDML
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = KernelDML(discrete_treatment=True, dim=10, bw=5)
+        est.fit(y, T, X=X, W=None)
+
+    >>> est.effect(X[:3])
+    array([0.59341..., 1.54740..., 0.69454... ])
     """
 
     def __init__(self, model_y='auto', model_t='auto',
