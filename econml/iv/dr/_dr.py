@@ -1967,14 +1967,14 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
 
         np.random.seed(123)
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
-        est = ForestDRIV(discrete_treatment=True, discrete_instrument=True)
+        est = ForestDRIV(discrete_treatment=True, discrete_instrument=True, random_state=123)
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-1.89742...,  5.89860..., -2.66305...  ])
+    array([-2.40650...,  6.03247..., -2.46690...])
     >>> est.effect_interval(X[:3])
-    (array([-5.22782...,  1.90437..., -5.38223...]),
-    array([1.43297..., 9.89284..., 0.05612...]))
+    (array([-6.77859..., -0.05394..., -4.48171...]),
+    array([ 1.96558..., 12.11890..., -0.45210... ]))
     """
 
     def __init__(self, *,
