@@ -5,10 +5,12 @@ import unittest
 import numpy as np
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.ensemble import RandomForestRegressor
 from joblib import Parallel, delayed
 
 from econml._ortho_learner import _OrthoLearner
 from econml.dml import LinearDML, SparseLinearDML, KernelDML, CausalForestDML
+from econml.iv.dml import OrthoIV, DMLIV
 from econml.orf import DMLOrthoForest
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 
@@ -17,6 +19,8 @@ from econml.iv.sieve import DPolynomialFeatures
 
 from econml.tests.test_dml import TestDML
 
+from copy import deepcopy
+
 
 class DGP():
     def __init__(self,
@@ -24,10 +28,12 @@ class DGP():
                  d_t=1,
                  d_y=1,
                  d_x=5,
+                 d_z=None,
                  squeeze_T=False,
                  squeeze_Y=False,
                  nuisance_Y=None,
                  nuisance_T=None,
+                 nuisance_TZ=None,
                  theta=None,
                  y_of_t=None,
                  x_eps=1,
@@ -38,12 +44,14 @@ class DGP():
         self.d_t = d_t
         self.d_y = d_y
         self.d_x = d_x
+        self.d_z = d_z
 
         self.squeeze_T = squeeze_T
         self.squeeze_Y = squeeze_Y
 
         self.nuisance_Y = nuisance_Y if nuisance_Y else lambda X: 0
         self.nuisance_T = nuisance_T if nuisance_T else lambda X: 0
+        self.nuisance_TZ = nuisance_TZ if nuisance_TZ else lambda X: 0
         self.theta = theta if theta else lambda X: 1
         self.y_of_t = y_of_t if y_of_t else lambda X: 0
 
@@ -63,11 +71,22 @@ class DGP():
     def gen_T(self):
         noise = np.random.normal(size=(self.n, self.d_t), scale=self.t_eps)
         self.T_noise = noise
-        self.T = noise + self.nuisance_T(self.X)
+        self.T = noise + self.nuisance_T(self.X) + self.nuisance_TZ(self.Z)
         return self.T
+    
+    def gen_Z(self):
+        if self.d_z:
+            Z_noise = np.random.normal(size=(self.n, self.d_z), loc=3, scale=3)
+            self.Z = Z_noise
+            return self.Z
+        
+        else:
+            self.Z = None
+            return self.Z
 
     def gen_data(self):
         X = self.gen_X()
+        Z = self.gen_Z()
         T = self.gen_T()
         Y = self.gen_Y()
 
@@ -76,7 +95,16 @@ class DGP():
         if self.squeeze_Y:
             Y = Y.squeeze()
 
-        return Y, T, X
+        data_dict = {
+            'Y': Y,
+            'T': T,
+            'X': X
+        }
+        
+        if self.d_z:
+            data_dict['Z'] = Z
+            
+        return data_dict
 
 
 def actual_effect(y_of_t, T0, T1):
@@ -134,7 +162,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
     def test_featurization(self):
         identity_config = {
             'DGP_params': {
-                'n': 10000,
+                'n': 2000,
                 'd_t': 1,
                 'd_y': 1,
                 'd_x': 5,
@@ -153,12 +181,18 @@ class TestTreatmentFeaturization(unittest.TestCase):
             'actual_marginal': identity_actual_marginal,
             'actual_cme': identity_actual_cme,
             'squeeze_Ts': [False, True],
-            'squeeze_Ys': [False, True]
+            'squeeze_Ys': [False, True],
+            'est_dicts': [
+                {'class': LinearDML, 'init_args': {}},
+                {'class': CausalForestDML, 'init_args': {}},
+                {'class': SparseLinearDML, 'init_args': {}},
+                {'class': KernelDML, 'init_args': {}},
+            ]
         }
 
         poly_config = {
             'DGP_params': {
-                'n': 10000,
+                'n': 2000,
                 'd_t': 1,
                 'd_y': 1,
                 'd_x': 5,
@@ -177,23 +211,32 @@ class TestTreatmentFeaturization(unittest.TestCase):
             'actual_marginal': poly_actual_marginal,
             'actual_cme': poly_actual_cme,
             'squeeze_Ts': [False, True],
-            'squeeze_Ys': [False, True]
+            'squeeze_Ys': [False, True],
+            'est_dicts': [
+                {'class': LinearDML, 'init_args': {}},
+                {'class': CausalForestDML, 'init_args': {}},
+                {'class': SparseLinearDML, 'init_args': {}},
+                {'class': KernelDML, 'init_args': {}},
+            ]
         }
 
-        poly_config_scikit = poly_config.copy()
-        poly_config['treatment_featurizer'] = PolynomialFeatures(degree=2, include_bias=False)
-        poly_config['squeeze_Ts'] = [False]
+        poly_config_scikit = deepcopy(poly_config)
+        poly_config_scikit['treatment_featurizer'] = PolynomialFeatures(degree=2, include_bias=False)
+        poly_config_scikit['squeeze_Ts'] = [False]
+
+        poly_IV_config = deepcopy(poly_config)
+        poly_IV_config['DGP_params']['d_z'] = 1    
+        poly_IV_config['DGP_params']['nuisance_TZ'] = lambda Z: Z
+        poly_IV_config['est_dicts'] = [
+            {'class': OrthoIV, 'init_args': {'model_t_xwz': RandomForestRegressor(), 'projection': True}},
+            {'class': DMLIV, 'init_args': {'model_t_xwz': RandomForestRegressor()}},
+        ]
 
         configs = [
             identity_config,
             poly_config,
-            poly_config_scikit
-        ]
-        estimators = [
-            LinearDML,
-            CausalForestDML,
-            SparseLinearDML,
-            KernelDML
+            poly_config_scikit,
+            poly_IV_config
         ]
 
         for config in configs:
@@ -202,12 +245,21 @@ class TestTreatmentFeaturization(unittest.TestCase):
                     config['DGP_params']['squeeze_Y'] = squeeze_Y
                     config['DGP_params']['squeeze_T'] = squeeze_T
                     dgp = DGP(**config['DGP_params'])
-                    Y, T, X = dgp.gen_data()
+                    data_dict = dgp.gen_data()
+                    Y = data_dict['Y']
+                    T = data_dict['T']
+                    X = data_dict['X']
                     feat_T = config['treatment_featurizer'].fit_transform(T)
+                    
+                    est_dicts = config['est_dicts']
 
-                    for Est in estimators:
-                        est = Est(treatment_featurizer=config['treatment_featurizer'])
-                        est.fit(Y, T=T, X=X)
+                    for est_dict in est_dicts:
+                        estClass = est_dict['class']
+                        init_args = est_dict['init_args']
+                        init_args['treatment_featurizer'] = config['treatment_featurizer']
+                        
+                        est = estClass(**init_args)
+                        est.fit(**data_dict)
 
                         #  test that treatment names are assigned for the featurized treatment
                         assert (est.cate_treatment_names() is not None)
@@ -240,6 +292,9 @@ class TestTreatmentFeaturization(unittest.TestCase):
 
                         # loose inference checks
                         if isinstance(est, KernelDML):
+                            continue
+                            
+                        if est._inference is None:
                             continue
 
                         # effect inference
