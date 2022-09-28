@@ -9,7 +9,7 @@ from functools import wraps
 from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
-from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
+from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params, get_feature_names_or_default,
                         inverse_onehot, Summary, get_input_columns, check_input_arrays, jacify_featurizer)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
@@ -872,10 +872,11 @@ class TreatmentExpansionMixin(BaseCateEstimator):
            Extracts treatment names from sklearn OHE and PolynomialFeaturizers.
            Or, if transformer does not have a get_feature_names method, sets default treatment names.
         """
-        if hasattr(self, "_input_names"):
-            if hasattr(self.transformer, "get_feature_names"):
-                self._input_names["treatment_names"] = list(self.transformer.get_feature_names(
-                    self._input_names["treatment_names"]))
+
+        if hasattr(self.transformer, "get_feature_names"):
+            self._input_names["treatment_names"] = list(
+                get_feature_names_or_default(self.transformer, self._input_names["treatment_names"])
+            )
 
             if not (hasattr(self.transformer, "get_feature_names") and self._input_names["treatment_names"]):
                 _d_t = self._d_t[0] if self._d_t else 1
