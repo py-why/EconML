@@ -451,6 +451,34 @@ class CausalForestDML(_BaseDML):
     verbose : int, default=0
         Controls the verbosity when fitting and predicting.
 
+    Examples
+    --------
+    A simple example with the default models and discrete treatment:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.dml import CausalForestDML
+
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        est = CausalForestDML(discrete_treatment=True)
+        est.fit(y, T, X=X, W=None)
+
+    >>> est.effect(X[:3])
+    array([0.76625..., 1.52176..., 0.73679...])
+    >>> est.effect_interval(X[:3])
+    (array([0.39668..., 1.08245... , 0.16566...]),
+    array([1.13581..., 1.96107..., 1.30791...]))
+
     Attributes
     ----------
     ate_ : ndarray of shape (n_outcomes, n_treatments)

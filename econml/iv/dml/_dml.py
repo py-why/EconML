@@ -273,6 +273,60 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example with the default models:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dml import OrthoIV
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = OrthoIV(discrete_treatment=True, discrete_instrument=True)
+        est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-4.57086...,  6.06523..., -3.02513...])
+    >>> est.effect_interval(X[:3])
+    (array([-7.45472...,  1.85334..., -5.47322...]),
+    array([-1.68700... , 10.27712..., -0.57704...]))
+    >>> est.coef_
+    array([ 5.11260... ,  0.71353...,  0.38242..., -0.23891..., -0.07036...])
+    >>> est.coef__interval()
+    (array([ 3.76773..., -0.42532..., -0.78145..., -1.36996..., -1.22505...]),
+    array([6.45747..., 1.85239..., 1.54631..., 0.89213..., 1.08432...]))
+    >>> est.intercept_
+    -0.24090...
+    >>> est.intercept__interval()
+    (-1.39053..., 0.90872...)
     """
 
     def __init__(self, *,
@@ -1018,6 +1072,53 @@ class DMLIV(_BaseDMLIV):
     mc_agg: {'mean', 'median'}, optional (default='mean')
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
+
+    Examples
+    --------
+    A simple example with the default models:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dml import DMLIV
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = DMLIV(discrete_treatment=True, discrete_instrument=True)
+        est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-4.47392...,  5.74626..., -3.08471...])
+    >>> est.coef_
+    array([ 5.00993...,  0.86981...,  0.35110..., -0.11390... , -0.17933...])
+    >>> est.intercept_
+    -0.27719...
+
     """
 
     def __init__(self, *,
@@ -1338,6 +1439,53 @@ class NonParamDMLIV(_BaseDMLIV):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    Examples
+    --------
+    A simple example:
+
+    .. testcode::
+        :hide:
+
+        import numpy as np
+        import scipy.special
+        np.set_printoptions(suppress=True)
+
+    .. testcode::
+
+        from econml.iv.dml import NonParamDMLIV
+        from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
+
+        # Define the data generation functions
+        def dgp(n, p, true_fn):
+            X = np.random.normal(0, 1, size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            nu = np.random.uniform(0, 10, size=(n,))
+            coef_Z = 0.8
+            C = np.random.binomial(
+                1, coef_Z * scipy.special.expit(0.4 * X[:, 0] + nu)
+            )  # Compliers when recomended
+            C0 = np.random.binomial(
+                1, 0.06 * np.ones(X.shape[0])
+            )  # Non-compliers when not recommended
+            T = C * Z + C0 * (1 - Z)
+            y = true_fn(X) * T + 2 * nu + 5 * (X[:, 3] > 0) + 0.1 * np.random.uniform(0, 1, size=(n,))
+            return y, T, Z, X
+
+        def true_heterogeneity_function(X):
+            return 5 * X[:, 0]
+
+        np.random.seed(123)
+        y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
+        est = NonParamDMLIV(
+            model_final=StatsModelsLinearRegression(),
+            discrete_treatment=True, discrete_instrument=True,
+            cv=5
+        )
+        est.fit(Y=y, T=T, Z=Z, X=X)
+
+    >>> est.effect(X[:3])
+    array([-5.52240...,  7.86930..., -3.57966...])
 
     """
 
