@@ -250,9 +250,9 @@ class TestTreatmentFeaturization(unittest.TestCase):
         poly_1d_config['treatment_featurizer'] = polynomial_1d_treatment_featurizer
         poly_1d_config['actual_cme'] = poly_1d_actual_cme
         poly_1d_config['est_dicts'].append({
-            'class': NonParamDML, 
+            'class': NonParamDML,
             'init_args': {
-                'model_y': LinearRegression(), 
+                'model_y': LinearRegression(),
                 'model_t': LinearRegression(),
                 'model_final': StatsModelsLinearRegression()}})
 
@@ -328,7 +328,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         assert (m_ate.shape == expected_marginal_ate_shape)
 
                         # loose inference checks
-                        # temporarily skep LinearDRIV and SparseLinearDRIV for 
+                        # temporarily skip LinearDRIV and SparseLinearDRIV for weird effect shape reasons
                         if isinstance(est, (KernelDML, LinearDRIV, SparseLinearDRIV)):
                             continue
 
