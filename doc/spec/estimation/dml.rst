@@ -529,6 +529,18 @@ Usage FAQs
     You can create composite treatments and add them as extra treatment variables (see above). This would require
     imposing a particular form of non-linearity.
 
+    Alternatively, you can pass a featurizer directly to an estimator that supports the `treatment_featurizer` init argument.
+
+    .. testcode::
+
+        from econml.dml import LinearDML
+        from sklearn.preprocessing import PolynomialFeatures
+        poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
+        est = LinearDML(treatment_featurizer=poly)
+        est.fit(y, T, X=X, W=W)
+        point = est.const_marginal_effect(X)
+        est.effect(X, T0=T0, T1=T1) 
+
 - **What if my treatment is categorical/binary?**
 
     You can simply set `discrete_treatment=True` in the parameters of the class. Then use any classifier for 
@@ -699,6 +711,16 @@ Then we could expand the treatment vector to contain also polynomial features:
     import numpy as np
     est = LinearDML()
     est.fit(y, np.concatenate((T, T**2), axis=1), X=X, W=W)
+
+One can also do the above by passing in a `treatment_featurizer` directly to the estimator:
+
+.. testcode::
+
+    from econml.dml import LinearDML
+    from sklearn.preprocessing import PolynomialFeatures
+    poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
+    est = LinearDML(treatment_featurizer=poly)
+    est.fit(y, T, X=X, W=W)
 
 .. rubric:: Multiple Outcome, Multiple Treatments
 
