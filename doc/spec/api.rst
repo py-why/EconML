@@ -167,6 +167,9 @@ The base class of all the methods in our API has the following signature:
 Linear in Treatment CATE Estimators
 -----------------------------------
 
+.. rubric::
+    Constant Marginal Effects
+
 In many settings, we might want to make further structural assumptions on the form of the data generating process.
 One particular prevalent assumption is that the outcome :math:`y` is linear in the treatment vector and therefore that the marginal effect is constant across treatments, i.e.:
 
@@ -188,13 +191,45 @@ Hence, the marginal CATE is independent of :math:`\vec{t}`. In these settings, w
 .. math ::
     \theta(\vec{x}) = \E[H(X, W) | X=\vec{x}] \tag{constant marginal CATE}
 
+.. rubric::
+    Marginal Effects Given Treatment Featurization
+
+Additionally, we may be interested in cases where the outcome depends linearly on a transformation of the treatment vector (via some featurizer :math:`\phi`). 
+Some estimators provide support for passing such a featurizer :math:`\phi` directly to the estimator, in which case the outcome would be modeled as follows: 
+
+.. math ::
+    
+    Y = H(X, W) \cdot \phi(T) + g(X, W, \epsilon)
+
+We can then get constant marginal effects in the featurized treatment space:
+
+.. math ::
+
+    \tau(\phi(\vec{t_0}), \phi(\vec{t_1}), \vec{x}) =~& \E[H(X, W) | X=\vec{x}] \cdot (\phi(\vec{t_1}) - \phi(\vec{t_0}))
+
+    \partial \tau(\phi(\vec{t}), \vec{x}) =~& \E[H(X, W) | X=\vec{x}]
+
+    \theta(\vec{x}) =~& \E[H(X, W) | X=\vec{x}] 
+    
+
+Finally, we can recover the marginal effect with respect to the original treatment space by multiplying the constant marginal effect (which is in featurized treatment space) with the jacobian of the treatment featurizer at :math:`\vec{t}`.
+
+.. math ::
+    \partial \tau(\vec{t}, \vec{x}) = \theta(\vec{x}) \nabla \phi(\vec{t}) \tag{marginal CATE}
+
+where :math:`\nabla \phi(\vec{t})` is the :math:`d_{ft} \times d_{t}` jacobian matrix, and :math:`d_{ft}` and :math:`d_{t}` are the dimensions of the featurized treatment and the original treatment, respectively.
+
+.. rubric::
+    API for Linear in Treatment CATE Estimators
+
 Given the prevalence of linear treatment effect assumptions, we will create a generic LinearCateEstimator, which will support a method that returns the constant marginal CATE 
-and constant marginal CATE interval at any target feature vector :math:`\vec{x}`.
+and constant marginal CATE interval at any target feature vector :math:`\vec{x}`, as well as calculating marginal effects in the original treatment space when a treatment featurizer is provided.
 
 .. code-block:: python3
     :caption: Linear CATE Estimator Class
 
     class LinearCateEstimator(BaseCateEstimator):
+        self.treatment_featurizer = None
         
         def const_marginal_effect(self, X=None):
             ''' Calculates the constant marginal CATE θ(·) conditional on a vector of
@@ -204,8 +239,9 @@ and constant marginal CATE interval at any target feature vector :math:`\vec{x}`
             X: optional (m × d_x) matrix of features for each sample
         
             Returns:
-            theta: (m × d_y × d_t) matrix of constant marginal CATE of each treatment
-            on each outcome	for each sample
+            theta: (m × d_y × d_f_t) matrix of constant marginal CATE of each treatment on each outcome	
+            for each sample, where d_f_t is the dimension of the featurized treatment. 
+            If treatment_featurizer is None, d_f_t = d_t
             '''
         
         def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
@@ -222,13 +258,25 @@ and constant marginal CATE interval at any target feature vector :math:`\vec{x}`
             '''
         
         def effect(self,  X=None, *, T0, T1,):
-            return const_marginal_effect(X) * (T1 - T0)
+            if self.treatment_featurizer:
+                return const_marginal_effect(X) * (T1 - T0)
+            else:
+                dt = self.treatment_featurizer.transform(T1) - self.treatment_featurizer.transform(T0)
+                return const_marginal_effect(X) * dt
         
         def marginal_effect(self, T, X=None)
-            return const_marginal_effect(X)
+            if self.treatment_featurizer is None:
+                return const_marginal_effect(X)
+            else:
+                # for every observation X_i, T_i, 
+                # calculate jacobian at T_i and multiply with const_marginal_effect at X_i
         
         def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
-            return const_marginal_effect_interval(X, alpha=alpha)
+            if self.treatment_featurizer is None:
+                return const_marginal_effect_interval(X, alpha=alpha)
+            else:
+                # perform separate treatment featurization inference logic
+        
         
 
 

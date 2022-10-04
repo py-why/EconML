@@ -508,7 +508,32 @@ Usage FAQs
     The method is going to assume that each of these treatments enters linearly into the model. So it cannot capture complementarities or substitutabilities
     of the different treatments. For that you can also create composite treatments that look like the product 
     of two base treatments. Then these product will enter in the model and an effect for that product will be estimated.
-    This effect will be the substitute/complement effect of both treatments being present, i.e.:
+    This effect will be the substitute/complement effect of both treatments being present. See below for more examples.
+
+- **What if my treatments are continuous and don't have a linear effect on the outcome?**
+
+    You can impose a particular form of non-linearity by specifying a `treatment_featurizer` to the estimator. 
+    For example, one can use the sklearn `PolynomialFeatures` transformer as a `treatment_featurizer` in order to learn 
+    higher-order polynomial treatment effects.
+
+    Using the `treatment_featurizer` argument additionally has the benefit of calculating marginal effects with respect to the original treatment dimension, 
+    as opposed to featurizing the treatment yourself before passing to the estimator.
+
+    .. testcode::
+
+        from econml.dml import LinearDML
+        from sklearn.preprocessing import PolynomialFeatures
+        poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
+        est = LinearDML(treatment_featurizer=poly)
+        est.fit(y, T, X=X, W=W)
+        point = est.const_marginal_effect(X)
+        est.effect(X, T0=T0, T1=T1)
+        est.marginal_effect(T, X)
+
+    If the dimension of your featurized treatment is very high, then you can use the :class:`.SparseLinearDML`. However,
+    this method will essentially impose a regularization that only a small subset of your featurized treatments has any effect.
+
+    In the case where treatment featurization is not available, you can still create composite treatments and add them as extra treatment variables:
 
     .. testcode::
 
@@ -520,26 +545,6 @@ Usage FAQs
         est.fit(y, T_composite, X=X, W=W)
         point = est.const_marginal_effect(X)
         est.effect(X, T0=poly.transform(T0), T1=poly.transform(T1)) 
-
-    If your treatments are too many, then you can use the :class:`.SparseLinearDML`. However,
-    this method will essentially impose a regularization that only a small subset of them has any effect.
-
-- **What if my treatments are continuous and don't have a linear effect on the outcome?**
-
-    You can create composite treatments and add them as extra treatment variables (see above). This would require
-    imposing a particular form of non-linearity.
-
-    Alternatively, you can pass a featurizer directly to an estimator that supports the `treatment_featurizer` init argument.
-
-    .. testcode::
-
-        from econml.dml import LinearDML
-        from sklearn.preprocessing import PolynomialFeatures
-        poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
-        est = LinearDML(treatment_featurizer=poly)
-        est.fit(y, T, X=X, W=W)
-        point = est.const_marginal_effect(X)
-        est.effect(X, T0=T0, T1=T1) 
 
 - **What if my treatment is categorical/binary?**
 
@@ -703,24 +708,15 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
 
 .. rubric:: Single Outcome, Multiple Treatments
 
-Suppose that we believed that our treatment was affecting the outcome in a non-linear manner. 
-Then we could expand the treatment vector to contain also polynomial features:
+Suppose we want to estimate treatment effects for multiple continuous treatments at the same time. 
+Then we can simply concatenate them before passing them to the estimator.
 
 .. testcode::
 
     import numpy as np
     est = LinearDML()
-    est.fit(y, np.concatenate((T, T**2), axis=1), X=X, W=W)
+    est.fit(y, np.concatenate((T0, T1), axis=1), X=X, W=W)
 
-One can also do the above by passing in a `treatment_featurizer` directly to the estimator:
-
-.. testcode::
-
-    from econml.dml import LinearDML
-    from sklearn.preprocessing import PolynomialFeatures
-    poly = PolynomialFeatures(degree=2, interaction_only=True, include_bias=False)
-    est = LinearDML(treatment_featurizer=poly)
-    est.fit(y, T, X=X, W=W)
 
 .. rubric:: Multiple Outcome, Multiple Treatments
 
