@@ -314,7 +314,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
 
         Returns
         -------
-        Theta : matrix , shape (n, d_t)
+        Theta : matrix , shape (n, d_f_t) where d_f_t is \
+            the dimension of the featurized treatment. If treatment_featurizer is None, d_f_t = d_t
             Constant marginal CATE of each treatment for each sample.
         """
         # TODO: Check performance
@@ -1016,11 +1017,41 @@ class DROrthoForest(BaseOrthoForest):
         return self
 
     def const_marginal_effect(self, X):
+        """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
+
+        Parameters
+        ----------
+        X : array-like, shape (n, d_x)
+            Feature vector that captures heterogeneity.
+
+        Returns
+        -------
+        Theta : matrix , shape (n, d_t)
+            Constant marginal CATE of each treatment for each sample.
+        """
         X = check_array(X)
         # Override to flatten output if T is flat
         effects = super().const_marginal_effect(X=X)
         return effects.reshape((-1,) + self._d_y + self._d_t)
-    const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
+
+    def const_marginal_ate(self, X=None):
+        """
+        Calculate the average constant marginal CATE :math:`E_X[\\theta(X)]`.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
+
+        Returns
+        -------
+        theta: (d_y, d_t) matrix
+            Average constant marginal CATE of each treatment on each outcome.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
+        return super().const_marginal_ate(X=X)
 
     @staticmethod
     def nuisance_estimator_generator(propensity_model, model_Y, random_state=None, second_stage=False):

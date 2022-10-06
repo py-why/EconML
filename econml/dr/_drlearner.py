@@ -44,7 +44,7 @@ from sklearn.linear_model import (LassoCV, LinearRegression,
 from sklearn.ensemble import RandomForestRegressor
 
 from .._ortho_learner import _OrthoLearner
-from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin,
+from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, BaseCateEstimator,
                                ForestModelFinalCateEstimatorDiscreteMixin,
                                StatsModelsCateEstimatorDiscreteMixin, LinearCateEstimator)
 from ..inference import GenericModelFinalInferenceDiscrete
@@ -424,6 +424,47 @@ class DRLearner(_OrthoLearner):
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
                          random_state=random_state)
+
+    def const_marginal_effect(self, X=None):
+        """
+        Calculate the constant marginal CATE :math:`\\theta(·)`.
+
+        The marginal effect is conditional on a vector of
+        features on a set of m test samples X[i].
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
+
+        Returns
+        -------
+        theta: (m, d_y, d_t) matrix or (d_y, d_t) matrix if X is None
+            Constant marginal CATE of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        return super().const_marginal_effect(X=X)
+
+    def const_marginal_ate(self, X=None):
+        """
+        Calculate the average constant marginal CATE :math:`E_X[\\theta(X)]`.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
+
+        Returns
+        -------
+        theta: (d_y, d_t) matrix
+            Average constant marginal CATE of each treatment on each outcome.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
+        return super().const_marginal_ate(X=X)
 
     def _get_inference_options(self):
         options = super()._get_inference_options()

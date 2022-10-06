@@ -557,8 +557,8 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Returns
         -------
-        theta: (m, d_y, d_f_t) matrix or (d_y, d_f_t) matrix if X is None where d_f_t is
-                the dimension of the featurized treatment. If treatment_featurizer is None, d_f_t = d_t.
+        theta: (m, d_y, d_f_t) matrix or (d_y, d_f_t) matrix if X is None where d_f_t is \
+            the dimension of the featurized treatment. If treatment_featurizer is None, d_f_t = d_t.
             Constant marginal CATE of each featurized treatment on each outcome for each sample X[i].
             Note that when Y or featurized-T (or T if treatment_featurizer is None) is a vector
             rather than a 2-dimensional array, the corresponding singleton dimensions in the output will be collapsed
