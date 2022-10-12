@@ -869,18 +869,14 @@ class TreatmentExpansionMixin(BaseCateEstimator):
 
     def _set_transformed_treatment_names(self):
         """
-           Extracts treatment names from sklearn OHE and PolynomialFeaturizers.
+           Extracts treatment names from sklearn transformers.
            Or, if transformer does not have a get_feature_names method, sets default treatment names.
         """
 
-        if hasattr(self.transformer, "get_feature_names"):
+        if hasattr(self, "_input_names"):
             self._input_names["treatment_names"] = list(
                 get_feature_names_or_default(self.transformer, self._input_names["treatment_names"])
             )
-
-            if not (hasattr(self.transformer, "get_feature_names") and self._input_names["treatment_names"]):
-                _d_t = self._d_t[0] if self._d_t else 1
-                self._input_names["treatment_names"] = ['T' + str(i) for i in range(_d_t)]
 
     def cate_treatment_names(self, treatment_names=None):
         """
@@ -901,7 +897,8 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         """
         if treatment_names is not None:
             if self.transformer:
-                return self.transformer.get_feature_names(treatment_names).tolist()
+                return list(get_feature_names_or_default(self.transformer, treatment_names))
+                # return self.transformer.get_feature_names(treatment_names).tolist()
             return treatment_names
         # Treatment names is None, default to BaseCateEstimator
         return super().cate_treatment_names()

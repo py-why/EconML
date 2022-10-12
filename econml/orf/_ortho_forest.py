@@ -1016,6 +1016,7 @@ class DROrthoForest(BaseOrthoForest):
         self._d_t_in = d_t_in
         return self
 
+    # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_effect(self, X):
         """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
 
@@ -1034,6 +1035,7 @@ class DROrthoForest(BaseOrthoForest):
         effects = super().const_marginal_effect(X=X)
         return effects.reshape((-1,) + self._d_y + self._d_t)
 
+    # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_ate(self, X=None):
         """
         Calculate the average constant marginal CATE :math:`E_X[\\theta(X)]`.

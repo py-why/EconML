@@ -425,6 +425,7 @@ class DRLearner(_OrthoLearner):
                          categories=categories,
                          random_state=random_state)
 
+    # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_effect(self, X=None):
         """
         Calculate the constant marginal CATE :math:`\\theta(·)`.
@@ -447,6 +448,7 @@ class DRLearner(_OrthoLearner):
         """
         return super().const_marginal_effect(X=X)
 
+    # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_ate(self, X=None):
         """
         Calculate the average constant marginal CATE :math:`E_X[\\theta(X)]`.

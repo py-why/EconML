@@ -22,6 +22,7 @@ from econml.iv.sieve import DPolynomialFeatures
 from econml.tests.test_dml import TestDML
 
 from copy import deepcopy
+from econml.tests.test_dml import TestDML
 
 
 class DGP():
@@ -134,7 +135,7 @@ def identity_actual_cme():
     return 1
 
 
-identity_treatment_featurizer = FunctionTransformer(func=lambda x: x)
+identity_treatment_featurizer = FunctionTransformer()
 
 
 # polynomial featurization effect functions
@@ -420,14 +421,10 @@ class TestTreatmentFeaturization(unittest.TestCase):
             params['discrete_treatment'] = True
             params['treatment_featurizer'] = True
             est = est_and_param['estimator'](**params)
-            try:
+            with self.assertRaises(AssertionError, msg='Estimator fit did not fail when passed '
+                                   'both discrete treatment and treatment featurizer'):
                 est.fit(Y=dummy_vec, T=dummy_vec, X=dummy_vec)
 
-                raise ValueError(
-                    'Estimator fit did not fail when passed '
-                    'both discrete treatment and treatment featurizer')
-            except AssertionError:
-                pass
-
     def test_identity_feat_with_cate_api(self):
-        TestDML().test_cate_api_treatment_featurization()
+        treatment_featurizations = [FunctionTransformer()]
+        TestDML()._test_cate_api(treatment_featurizations)

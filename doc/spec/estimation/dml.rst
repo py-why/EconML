@@ -510,6 +510,9 @@ Usage FAQs
     of two base treatments. Then these product will enter in the model and an effect for that product will be estimated.
     This effect will be the substitute/complement effect of both treatments being present. See below for more examples.
 
+    If you have too many treatments, then you can use the :class:`.SparseLinearDML`. However,
+    this method will essentially impose a regularization that only a small subset of your featurized treatments has any effect.
+
 - **What if my treatments are continuous and don't have a linear effect on the outcome?**
 
     You can impose a particular form of non-linearity by specifying a `treatment_featurizer` to the estimator. 
@@ -530,10 +533,8 @@ Usage FAQs
         est.effect(X, T0=T0, T1=T1)
         est.marginal_effect(T, X)
 
-    If the dimension of your featurized treatment is very high, then you can use the :class:`.SparseLinearDML`. However,
-    this method will essentially impose a regularization that only a small subset of your featurized treatments has any effect.
 
-    In the case where treatment featurization is not available, you can still create composite treatments and add them as extra treatment variables:
+    Alternatively, you can still create composite treatments and add them as extra treatment variables:
 
     .. testcode::
 

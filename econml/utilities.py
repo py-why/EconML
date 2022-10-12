@@ -606,6 +606,22 @@ def get_input_columns(X, prefix="X"):
 
 
 def get_feature_names_or_default(featurizer, feature_names, prefix="feat(X)"):
+    """
+    Extract feature names from sklearn transformers.
+
+    Designed to be compatible with old and new sklearn versions.
+
+    Parameters
+    ----------
+    featurizer ： featurizer to extract feature names from
+    feature_names : input features
+    prefix : output prefix in the event where we assign default feature names
+
+    Returns
+    ----------
+    feature_names_out : a list of strings (feature names)
+
+    """
     # Prefer sklearn 1.0's get_feature_names_out method to deprecated get_feature_names method
     if hasattr(featurizer, "get_feature_names_out"):
         try:
@@ -1408,7 +1424,7 @@ class _TransformerWrapper:
     def fit_transform(self, X):
         return self.featurizer.fit_transform(X)
 
-    def get_feature_names(self, feature_names):
+    def get_feature_names_out(self, feature_names):
         ret = get_feature_names_or_default(self.featurizer, feature_names, prefix="feat(T)")
         if ret is not None:
             return ret

@@ -220,12 +220,10 @@ class TestOrthoForest(unittest.TestCase):
         lb, _ = est.marginal_effect_inference(1, X[:3]).conf_int()
         assert lb.shape == (3, 1, 2), "Marginal Effect interval dimension incorrect"
 
-        def identify_featurization(x):
-            return x
         from sklearn.preprocessing import FunctionTransformer
         from sklearn.dummy import DummyClassifier, DummyRegressor
         for global_residualization in [False, True]:
-            for treatment_featurization in [None, FunctionTransformer(identify_featurization)]:
+            for treatment_featurization in [None, FunctionTransformer()]:
                 est = DMLOrthoForest(n_trees=10, model_Y=DummyRegressor(strategy='mean'),
                                      model_T=DummyRegressor(strategy='mean'),
                                      global_residualization=global_residualization,

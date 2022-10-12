@@ -22,7 +22,6 @@ from econml.tests.test_statsmodels import _summarize
 import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.multioutput import MultiOutputRegressor
-from sklearn.preprocessing import FunctionTransformer
 from econml.grf import MultiOutputGRF
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
@@ -37,21 +36,11 @@ def rand_sol(A, b):
     return x + (np.eye(x.shape[0]) - A_plus @ A) @ np.random.normal(size=x.shape)
 
 
-def identity_transformation(x):
-    return x
-
-
 @pytest.mark.dml
 class TestDML(unittest.TestCase):
 
     def test_cate_api(self):
         treatment_featurizations = [None]
-        self._test_cate_api(treatment_featurizations)
-
-    # skip because tested in treatment_featurization module
-    @pytest.mark.skip
-    def test_cate_api_treatment_featurization(self):
-        treatment_featurizations = [FunctionTransformer(identity_transformation)]
         self._test_cate_api(treatment_featurizations)
 
     def _test_cate_api(self, treatment_featurizations):
