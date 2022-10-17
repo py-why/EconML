@@ -1196,3 +1196,38 @@ class TestDML(unittest.TestCase):
         est = LinearDML(model_y=LassoCV(cv=5), model_t=LassoCV(cv=5), cv=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, groups=groups)
+
+    def test_treatment_names(self):
+        Y = np.random.normal(size=(100, 1))
+        T = np.random.binomial(n=1, p=0.5, size=(100, 1))
+        X = Y = np.random.normal(size=(100, 3))
+
+        Ts = [
+            T,
+            pd.DataFrame(T, columns=[0])
+        ]
+
+        init_args_list = [
+            {'discrete_treatment': True},
+            {'treatment_featurizer': PolynomialFeatures(degree=2, include_bias=False)},
+            {'treatment_featurizer': FunctionTransformer(lambda x: np.hstack([x, np.sqrt(x)]))},
+        ]
+
+        for T in Ts:
+            for init_args in init_args_list:
+                est = LinearDML(**init_args).fit(Y=Y, T=T, X=X)
+                t_name = '0' if isinstance(T, pd.DataFrame) else 'T0'  # default treatment name
+                postfixes = ['_1'] if 'discrete_treatment' in init_args else ['', '^2']  # transformer postfixes
+
+                # Try default, integer, and new user-passed treatment name
+                for new_treatment_name in [None, [999], ['NewTreatmentName']]:
+
+                    # FunctionTransformers are agnostic to passed treatment names
+                    if isinstance(init_args.get('treatment_featurizer'), FunctionTransformer):
+                        assert (est.cate_treatment_names(new_treatment_name) == ['feat(T)0', 'feat(T)1'])
+
+                    # Expected treatment names are the string sums of user-passed prefixes and transformer-specific postfixes
+                    else:
+                        expected_prefix = str(new_treatment_name[0]) if new_treatment_name is not None else t_name
+                        assert (est.cate_treatment_names(new_treatment_name) == [
+                                expected_prefix + postfix for postfix in postfixes])

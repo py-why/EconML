@@ -600,14 +600,21 @@ def get_input_columns(X, prefix="X"):
         pd.Series: lambda x: [x.name]
     }
     if type(X) in type_to_func:
-        return type_to_func[type(X)](X)
+        column_names = type_to_func[type(X)](X)
+
+        # if not all column names are strings
+        if not all(isinstance(item, str) for item in column_names):
+            warnings.warn("Not all column names are strings. Coercing to strings for now.", UserWarning)
+
+        return [str(item) for item in column_names]
+
     len_X = 1 if np.ndim(X) == 1 else np.asarray(X).shape[1]
     return [f"{prefix}{i}" for i in range(len_X)]
 
 
 def get_feature_names_or_default(featurizer, feature_names, prefix="feat(X)"):
     """
-    Extract feature names from sklearn transformers.
+    Extract feature names from sklearn transformers. Otherwise attempts to assign default feature names.
 
     Designed to be compatible with old and new sklearn versions.
 
@@ -622,6 +629,12 @@ def get_feature_names_or_default(featurizer, feature_names, prefix="feat(X)"):
     feature_names_out : a list of strings (feature names)
 
     """
+
+    # coerce feature names to be strings
+    if not all(isinstance(item, str) for item in feature_names):
+        warnings.warn("Not all feature names are strings. Coercing to strings for now.", UserWarning)
+    feature_names = [str(item) for item in feature_names]
+
     # Prefer sklearn 1.0's get_feature_names_out method to deprecated get_feature_names method
     if hasattr(featurizer, "get_feature_names_out"):
         try:
@@ -1425,10 +1438,7 @@ class _TransformerWrapper:
         return self.featurizer.fit_transform(X)
 
     def get_feature_names_out(self, feature_names):
-        ret = get_feature_names_or_default(self.featurizer, feature_names, prefix="feat(T)")
-        if ret is not None:
-            return ret
-        return []
+        return get_feature_names_or_default(self.featurizer, feature_names, prefix="feat(T)")
 
     def jac(self, X, epsilon=0.001):
         if hasattr(self.featurizer, 'jac'):

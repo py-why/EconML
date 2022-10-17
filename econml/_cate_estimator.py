@@ -20,7 +20,6 @@ from .dowhy import DoWhyWrapper
 
 class BaseCateEstimator(metaclass=abc.ABCMeta):
     """Base class for all CATE estimators in this package."""
-    _original_treatment_featurizer = None
 
     def _get_inference_options(self):
         """
@@ -541,7 +540,8 @@ class LinearCateEstimator(BaseCateEstimator):
         Base class for all CATE estimators in this package where the outcome is linear given
         some user-defined treatment featurization.
     """
-
+    _original_treatment_featurizer = None
+    
     @abc.abstractmethod
     def const_marginal_effect(self, X=None):
         """
@@ -638,7 +638,7 @@ class LinearCateEstimator(BaseCateEstimator):
         if X is None:
             eff = np.repeat(eff, shape(T)[0], axis=0)
 
-        if hasattr(self, 'treatment_featurizer') and self._original_treatment_featurizer:
+        if self._original_treatment_featurizer:
             feat_T = self.transformer.transform(T)
             jac_T = self.transformer.jac(T)
 
@@ -656,7 +656,7 @@ class LinearCateEstimator(BaseCateEstimator):
             return eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
-        if hasattr(self, 'treatment_featurizer') and self._original_treatment_featurizer:
+        if self._original_treatment_featurizer:
             return self._use_inference_method('marginal_effect_interval', T, X)
         else:
             X, T = self._expand_treatments(X, T)
@@ -667,7 +667,7 @@ class LinearCateEstimator(BaseCateEstimator):
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
     def marginal_effect_inference(self, T, X=None):
-        if hasattr(self, 'treatment_featurizer') and self._original_treatment_featurizer:
+        if self._original_treatment_featurizer:
             return self._use_inference_method('marginal_effect_inference', T, X)
         else:
             X, T = self._expand_treatments(X, T)
@@ -835,6 +835,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
     """
 
     transformer = None
+    _original_treatment_featurizer = None
 
     def _prefit(self, Y, T, *args, **kwargs):
         super()._prefit(Y, T, *args, **kwargs)
@@ -860,7 +861,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
                 T = np.full((n_rows,) + self._d_t_in, T)
 
             if self.transformer and transform:
-                if not (hasattr(self, 'treatment_featurizer') and self._original_treatment_featurizer):
+                if not self._original_treatment_featurizer:
                     T = T.reshape(-1, 1)
                 T = self.transformer.transform(T)
             outTs.append(T)
@@ -875,7 +876,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
 
         if hasattr(self, "_input_names"):
             self._input_names["treatment_names"] = list(
-                get_feature_names_or_default(self.transformer, self._input_names["treatment_names"])
+                get_feature_names_or_default(self.transformer, self._input_names["treatment_names"], prefix='feat(T)')
             )
 
     def cate_treatment_names(self, treatment_names=None):
@@ -898,7 +899,6 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         if treatment_names is not None:
             if self.transformer:
                 return list(get_feature_names_or_default(self.transformer, treatment_names))
-                # return self.transformer.get_feature_names(treatment_names).tolist()
             return treatment_names
         # Treatment names is None, default to BaseCateEstimator
         return super().cate_treatment_names()
