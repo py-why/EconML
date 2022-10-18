@@ -1200,7 +1200,7 @@ class TestDML(unittest.TestCase):
     def test_treatment_names(self):
         Y = np.random.normal(size=(100, 1))
         T = np.random.binomial(n=1, p=0.5, size=(100, 1))
-        X = Y = np.random.normal(size=(100, 3))
+        X = np.random.normal(size=(100, 3))
 
         Ts = [
             T,
@@ -1226,7 +1226,7 @@ class TestDML(unittest.TestCase):
                     if isinstance(init_args.get('treatment_featurizer'), FunctionTransformer):
                         assert (est.cate_treatment_names(new_treatment_name) == ['feat(T)0', 'feat(T)1'])
 
-                    # Expected treatment names are the string sums of user-passed prefixes and transformer-specific postfixes
+                    # Expected treatment names are the sums of user-passed prefixes and transformer-specific postfixes
                     else:
                         expected_prefix = str(new_treatment_name[0]) if new_treatment_name is not None else t_name
                         assert (est.cate_treatment_names(new_treatment_name) == [

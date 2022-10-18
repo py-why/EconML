@@ -541,7 +541,7 @@ class LinearCateEstimator(BaseCateEstimator):
         some user-defined treatment featurization.
     """
     _original_treatment_featurizer = None
-    
+
     @abc.abstractmethod
     def const_marginal_effect(self, X=None):
         """
