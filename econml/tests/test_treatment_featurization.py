@@ -425,6 +425,29 @@ class TestTreatmentFeaturization(unittest.TestCase):
                                    'both discrete treatment and treatment featurizer'):
                 est.fit(Y=dummy_vec, T=dummy_vec, X=dummy_vec)
 
+    def test_cate_treatment_names_edge_cases(self):
+        Y = np.random.normal(size=(100, 1))
+        T = np.random.binomial(n=2, p=0.5, size=(100, 1))
+        X = np.random.normal(size=(100, 3))
+
+        # edge case with transformer that only takes a vector treatment
+        # so far will always return None for cate_treatment_names
+        def weird_func(x):
+            assert np.ndim(x) == 1
+            return x
+        est = LinearDML(treatment_featurizer=FunctionTransformer(weird_func)).fit(Y=Y, T=T.squeeze(), X=X)
+        assert est.cate_treatment_names() is None
+        assert est.cate_treatment_names(['too', 'many', 'feature_names']) is None
+
+        # assert proper handling of improper feature names passed to certain transformers
+        est = LinearDML(discrete_treatment=True).fit(Y=Y, T=T, X=X)
+        assert est.cate_treatment_names() == ['T0_1', 'T0_2']
+        assert est.cate_treatment_names(['too', 'many', 'feature_names']) is None
+
+        est = LinearDML(treatment_featurizer=PolynomialFeatures(degree=2, include_bias=False)).fit(Y=Y, T=T, X=X)
+        assert est.cate_treatment_names() == ['T0', 'T0^2']
+        assert est.cate_treatment_names(['too', 'many', 'feature_names']) is None
+
     def test_identity_feat_with_cate_api(self):
         treatment_featurizations = [FunctionTransformer()]
         TestDML()._test_cate_api(treatment_featurizations)

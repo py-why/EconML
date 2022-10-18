@@ -875,9 +875,8 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         """
 
         if hasattr(self, "_input_names"):
-            self._input_names["treatment_names"] = list(
-                get_feature_names_or_default(self.transformer, self._input_names["treatment_names"], prefix='feat(T)')
-            )
+            ret = get_feature_names_or_default(self.transformer, self._input_names["treatment_names"], prefix='T')
+            self._input_names["treatment_names"] = list(ret) if ret is not None else ret
 
     def cate_treatment_names(self, treatment_names=None):
         """
@@ -898,7 +897,8 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         """
         if treatment_names is not None:
             if self.transformer:
-                return list(get_feature_names_or_default(self.transformer, treatment_names))
+                ret = get_feature_names_or_default(self.transformer, treatment_names)
+                return list(ret) if ret is not None else None
             return treatment_names
         # Treatment names is None, default to BaseCateEstimator
         return super().cate_treatment_names()
