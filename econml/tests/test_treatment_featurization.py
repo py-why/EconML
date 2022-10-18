@@ -446,7 +446,8 @@ class TestTreatmentFeaturization(unittest.TestCase):
 
         est = LinearDML(treatment_featurizer=PolynomialFeatures(degree=2, include_bias=False)).fit(Y=Y, T=T, X=X)
         assert est.cate_treatment_names() == ['T0', 'T0^2']
-        assert est.cate_treatment_names(['too', 'many', 'feature_names']) is None
+        # depending on sklearn version, bad feature names either throws error or only uses first relevant name
+        assert est.cate_treatment_names(['too', 'many', 'feature_names']) in [None, ['too', 'too^2']]
 
     def test_identity_feat_with_cate_api(self):
         treatment_featurizations = [FunctionTransformer()]

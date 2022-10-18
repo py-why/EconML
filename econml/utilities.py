@@ -651,7 +651,7 @@ def get_feature_names_or_default(featurizer, feature_names, prefix="feat(X)"):
             elif arg_no == 2:
                 return featurizer.get_feature_names(feature_names)
         except Exception:
-            # Handles cases where the passed feature names create issues 
+            # Handles cases where the passed feature names create issues
             pass
     # Featurizer doesn't have 'get_feature_names' or has atypical 'get_feature_names'
     try:
