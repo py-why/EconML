@@ -171,6 +171,35 @@ def poly_1d_func_transform(x):
 polynomial_1d_treatment_featurizer = FunctionTransformer(func=poly_1d_func_transform)
 
 
+# 2d-to-1d featurization functions
+
+def sum_y_of_t(T):
+    return 0.5 * T.sum(axis=1, keepdims=True)
+
+
+def sum_actual_cme():
+    return 0.5
+
+
+def sum_actual_marginal(t):
+    return np.ones(shape=t.shape) * 0.5
+
+
+def sum_func_transform(x):
+    return x.sum(axis=1, keepdims=True)
+
+
+sum_treatment_featurizer = FunctionTransformer(func=sum_func_transform)
+
+
+# 2d-to-1d vector featurization functions
+def sum_squeeze_func_transform(x):
+    return x.sum(axis=1, keepdims=False)
+
+
+sum_squeeze_treatment_featurizer = FunctionTransformer(func=sum_squeeze_func_transform)
+
+
 @pytest.mark.treatment_featurization
 class TestTreatmentFeaturization(unittest.TestCase):
 
@@ -268,13 +297,61 @@ class TestTreatmentFeaturization(unittest.TestCase):
             {'class': ForestDRIV, 'init_args': {}},
         ]
 
+        sum_IV_config = {
+            'DGP_params': {
+                'n': 2000,
+                'd_t': 2,
+                'd_y': 1,
+                'd_x': 5,
+                'd_z': 1,
+                'squeeze_T': False,
+                'squeeze_Y': False,
+                'nuisance_Y': nuisance_Y,
+                'nuisance_T': nuisance_T,
+                'nuisance_TZ': lambda Z: Z,
+                'theta': None,
+                'y_of_t': sum_y_of_t,
+                'x_eps': 1,
+                'y_eps': 1,
+                't_eps': 1
+            },
+
+            'treatment_featurizer': sum_treatment_featurizer,
+            'actual_marginal': sum_actual_marginal,
+            'actual_cme': sum_actual_cme,
+            'squeeze_Ts': [False],
+            'squeeze_Ys': [False, True],
+            'est_dicts': [
+                {'class': NonParamDMLIV, 'init_args': {'model_final': StatsModelsLinearRegression()}},
+                {'class': DRIV, 'init_args': {'fit_cate_intercept': True}},
+                {'class': LinearDRIV, 'init_args': {}},
+                {'class': SparseLinearDRIV, 'init_args': {}},
+                {'class': ForestDRIV, 'init_args': {}},
+            ]
+        }
+
+        sum_squeeze_IV_config = deepcopy(sum_IV_config)
+        sum_squeeze_IV_config['treatment_featurizer'] = sum_squeeze_treatment_featurizer
+
+        sum_config = deepcopy(sum_IV_config)
+        sum_config['DGP_params']['d_z'] = None
+        sum_config['DGP_params']['nuisance_TZ'] = None
+        sum_config['est_dicts'] = deepcopy(poly_1d_config['est_dicts'])
+
+        sum_squeeze_config = deepcopy(sum_config)
+        sum_squeeze_config['treatment_featurizer'] = sum_squeeze_treatment_featurizer
+
         configs = [
             identity_config,
             poly_config,
             poly_config_scikit,
             poly_IV_config,
             poly_1d_config,
-            poly_1d_IV_config
+            poly_1d_IV_config,
+            sum_IV_config,
+            sum_squeeze_IV_config,
+            sum_config,
+            sum_squeeze_config
         ]
 
         for config in configs:
@@ -312,9 +389,11 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         expected_marginal_ate_shape = expected_me_shape[1:]
 
                         # check effects
-                        eff = est.effect(X=X, T0=5, T1=10)
+                        T0 = np.ones(shape=T.shape) * 5
+                        T1 = np.ones(shape=T.shape) * 10
+                        eff = est.effect(X=X, T0=T0, T1=T1)
                         assert (eff.shape == expected_eff_shape)
-                        actual_eff = actual_effect(config['DGP_params']['y_of_t'], 5, 10)
+                        actual_eff = actual_effect(config['DGP_params']['y_of_t'], T0, T1)
 
                         cme = est.const_marginal_effect(X=X)
                         assert (cme.shape == expected_cme_shape)
@@ -337,7 +416,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                             continue
 
                         # effect inference
-                        eff_inf = est.effect_inference(X=X, T0=5, T1=10)
+                        eff_inf = est.effect_inference(X=X, T0=T0, T1=T1)
                         eff_lb, eff_ub = eff_inf.conf_int(alpha=0.01)
                         assert (eff.shape == eff_lb.shape)
                         proportion_in_interval = ((eff_lb < actual_eff) & (actual_eff < eff_ub)).mean()

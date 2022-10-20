@@ -48,7 +48,7 @@ class IdentityFeatures(TransformerMixin):
 
 def parse_final_model_params(coef, intercept, d_y, d_t, d_t_in, bias_part_of_coef, fit_cate_intercept):
     dt = d_t
-    if (d_t_in != d_t) and (d_t[0] == 1):  # binary treatment
+    if (d_t_in != d_t) and (d_t and d_t[0] == 1):  # binary treatment or single dim featurized treatment
         dt = ()
     cate_intercept = None
     if bias_part_of_coef:

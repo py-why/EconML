@@ -346,6 +346,8 @@ class _BaseDRIV(_OrthoLearner):
         if len(T1.shape) > 1 and T1.shape[1] > 1:
             if self.discrete_treatment:
                 raise AttributeError("DRIV only supports binary treatments")
+            elif self.treatment_featurizer:  # defer possible failure to downstream logic
+                pass
             else:
                 raise AttributeError("DRIV only supports single-dimensional continuous treatments")
         if len(Z1.shape) > 1 and Z1.shape[1] > 1:
