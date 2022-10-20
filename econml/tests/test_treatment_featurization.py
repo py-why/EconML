@@ -407,6 +407,9 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         m_ate = est.marginal_ate(T, X=X)
                         assert (m_ate.shape == expected_marginal_ate_shape)
 
+                        if isinstance(est, (LinearDML, SparseLinearDML, LinearDRIV, SparseLinearDRIV)):
+                            est.coef__inference().summary_frame()
+
                         # loose inference checks
                         # temporarily skip LinearDRIV and SparseLinearDRIV for weird effect shape reasons
                         if isinstance(est, (KernelDML, LinearDRIV, SparseLinearDRIV)):
