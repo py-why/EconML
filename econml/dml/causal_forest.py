@@ -203,7 +203,7 @@ class _GenericSingleOutcomeModelFinalWithCovInference(Inference):
     def marginal_effect_inference(self, T, X):
         if X is None:
             raise ValueError("This inference method currently does not support X=None!")
-        if not self._est.treatment_featurizer:
+        if not self._est._original_treatment_featurizer:
             return self.const_marginal_effect_inference(X)
         X, T = self._est._expand_treatments(X, T, transform=False)
         if self.featurizer is not None:

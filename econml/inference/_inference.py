@@ -205,7 +205,7 @@ class GenericSingleTreatmentModelFinalInference(GenericModelFinalInference):
         X, T = self._est._expand_treatments(X, T, transform=False)
 
         cme_inf = self.const_marginal_effect_inference(X)
-        if not self._est.treatment_featurizer:
+        if not self._est._original_treatment_featurizer:
             return cme_inf
 
         feat_T = self._est.transformer.transform(T)
@@ -312,7 +312,7 @@ class LinearModelFinalInference(GenericModelFinalInference):
 
     def marginal_effect_inference(self, T, X):
         X, T = self._est._expand_treatments(X, T, transform=False)
-        if not self._est.treatment_featurizer:
+        if not self._est._original_treatment_featurizer:
             return self.const_marginal_effect_inference(X)
 
         if X is None:

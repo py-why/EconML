@@ -1358,7 +1358,7 @@ class BLBInference(Inference):
                                       treatment_names=self._estimator.cate_treatment_names())
 
     def _marginal_effect_inference_helper(self, T, X):
-        if self._estimator.treatment_featurizer is None:
+        if not self._estimator._original_treatment_featurizer:
             return self.const_marginal_effect_inference(X)
 
         X, T = check_input_arrays(X, T)
@@ -1415,7 +1415,7 @@ class BLBInference(Inference):
         return eff, scales
 
     def marginal_effect_inference(self, T, X):
-        if self._estimator.treatment_featurizer is None:
+        if self._estimator._original_treatment_featurizer is None:
             return self.const_marginal_effect_inference(X)
 
         eff, scales = self._marginal_effect_inference_helper(T, X)
