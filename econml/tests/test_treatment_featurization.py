@@ -408,7 +408,14 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         assert (m_ate.shape == expected_marginal_ate_shape)
 
                         if isinstance(est, (LinearDML, SparseLinearDML, LinearDRIV, SparseLinearDRIV)):
-                            est.coef__inference().summary_frame()
+                            d_f_t = feat_T.shape[1] if feat_T.shape[1:] else 1
+                            expected_coef_inference_shape = (
+                                config['DGP_params']['d_y'] * config['DGP_params']['d_x'] * d_f_t, 6)
+                            assert est.coef__inference().summary_frame().shape == expected_coef_inference_shape
+
+                            expected_intercept_inf_shape = (
+                                config['DGP_params']['d_y'] * d_f_t, 6)
+                            assert est.intercept__inference().summary_frame().shape == expected_intercept_inf_shape
 
                         # loose inference checks
                         # temporarily skip LinearDRIV and SparseLinearDRIV for weird effect shape reasons
