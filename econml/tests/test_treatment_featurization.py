@@ -272,8 +272,9 @@ class TestTreatmentFeaturization(unittest.TestCase):
         poly_IV_config['DGP_params']['d_z'] = 1
         poly_IV_config['DGP_params']['nuisance_TZ'] = lambda Z: Z
         poly_IV_config['est_dicts'] = [
-            {'class': OrthoIV, 'init_args': {'model_t_xwz': RandomForestRegressor(), 'projection': True}},
-            {'class': DMLIV, 'init_args': {'model_t_xwz': RandomForestRegressor()}},
+            {'class': OrthoIV, 'init_args': {
+                'model_t_xwz': RandomForestRegressor(random_state=1), 'projection': True}},
+            {'class': DMLIV, 'init_args': {'model_t_xwz': RandomForestRegressor(random_state=1)}},
         ]
 
         poly_1d_config = deepcopy(poly_config)
@@ -366,15 +367,24 @@ class TestTreatmentFeaturization(unittest.TestCase):
                     X = data_dict['X']
                     feat_T = config['treatment_featurizer'].fit_transform(T)
 
+                    data_dict_outside_feat = deepcopy(data_dict)
+                    data_dict_outside_feat['T'] = feat_T
+
                     est_dicts = config['est_dicts']
 
                     for est_dict in est_dicts:
                         estClass = est_dict['class']
-                        init_args = est_dict['init_args']
+                        init_args = deepcopy(est_dict['init_args'])
                         init_args['treatment_featurizer'] = config['treatment_featurizer']
+                        init_args['random_state'] = 1
 
                         est = estClass(**init_args)
                         est.fit(**data_dict)
+
+                        init_args_outside_feat = deepcopy(est_dict['init_args'])
+                        init_args_outside_feat['random_state'] = 1
+                        est_outside_feat = estClass(**init_args_outside_feat)
+                        est_outside_feat.fit(**data_dict_outside_feat)
 
                         #  test that treatment names are assigned for the featurized treatment
                         assert (est.cate_treatment_names() is not None)
@@ -393,10 +403,16 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         T1 = np.ones(shape=T.shape) * 10
                         eff = est.effect(X=X, T0=T0, T1=T1)
                         assert (eff.shape == expected_eff_shape)
+                        outside_feat = config['treatment_featurizer']
+                        eff_outside_feat = est_outside_feat.effect(
+                            X=X, T0=outside_feat.fit_transform(T0), T1=outside_feat.fit_transform(T1))
+                        np.testing.assert_almost_equal(eff, eff_outside_feat)
                         actual_eff = actual_effect(config['DGP_params']['y_of_t'], T0, T1)
 
                         cme = est.const_marginal_effect(X=X)
                         assert (cme.shape == expected_cme_shape)
+                        cme_outside_feat = est_outside_feat.const_marginal_effect(X=X)
+                        np.testing.assert_almost_equal(cme, cme_outside_feat)
                         actual_cme = config['actual_cme']()
 
                         me = est.marginal_effect(T=T, X=X)
@@ -448,6 +464,8 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         proportion_in_interval = ((cme_lb < actual_cme) & (actual_cme < cme_ub)).mean()
                         np.testing.assert_array_less(0.50, proportion_in_interval)
                         np.testing.assert_almost_equal(cme, cme_inf.point_estimate)
+
+    # def test_equal_to_outside_featuriz
 
     def test_jac(self):
         def func_transform(x):
@@ -537,6 +555,22 @@ class TestTreatmentFeaturization(unittest.TestCase):
         assert est.cate_treatment_names() == ['T0', 'T0^2']
         # depending on sklearn version, bad feature names either throws error or only uses first relevant name
         assert est.cate_treatment_names(['too', 'many', 'feature_names']) in [None, ['too', 'too^2']]
+
+    def test_alpha_passthrough(self):
+        X = np.random.normal(size=(100, 3))
+        T = np.random.normal(size=(100, 1)) + X[:, [0]]
+        Y = np.random.normal(size=(100, 1)) + T + X[:, [0]]
+
+        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(),
+                        treatment_featurizer=FunctionTransformer())
+        est.fit(Y=Y, T=T, X=X)
+
+        # ensure alpha is passed
+        lb, ub = est.marginal_effect_interval(T, X, alpha=1)
+        assert (lb == ub).all()
+
+        lb, ub = est.marginal_effect_interval(T, X)
+        assert (lb != ub).all()
 
     def test_identity_feat_with_cate_api(self):
         treatment_featurizations = [FunctionTransformer()]

@@ -657,7 +657,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
         if self._original_treatment_featurizer:
-            return self._use_inference_method('marginal_effect_interval', T, X)
+            return self._use_inference_method('marginal_effect_interval', T, X, alpha=alpha)
         else:
             X, T = self._expand_treatments(X, T)
             effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
@@ -938,6 +938,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         Whether the CATE model's intercept is contained in the final model's ``coef_`` rather
         than as a separate ``intercept_``
     """
+    featurizer = None
 
     def _get_inference_options(self):
         options = super()._get_inference_options()
@@ -1077,14 +1078,31 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         output_names = self.cate_output_names(output_names)
         # Summary
         smry = Summary()
-        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
-                            "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
-                            "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:",
-                            "$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$",
-                            "where $\\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
-                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
-                            "each outcome $i$ and treatment $j$. "
-                            "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
+
+        T_eq = "\\psi(T)" if self._original_treatment_featurizer else "T"
+
+        extra_txt = ["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
+                     "$Y = \\Theta(X)\\cdot " + T_eq + " + g(X, W) + \\epsilon$"]
+        if self._original_treatment_featurizer:
+            extra_txt.append("where $\\psi(T)$ is the output of the `treatment_featurizer")
+            extra_txt.append(
+                "and for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+        else:
+            extra_txt.append(
+                "where for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+
+        if self.featurizer:
+            extra_txt.append("$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$")
+            extra_txt.append("where $\\phi(X)$ is the output of the `featurizer`")
+        else:
+            extra_txt.append("$\\Theta_{ij}(X) = X' coef_{ij} + cate\\_intercept_{ij}$")
+
+        extra_txt.append("Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                         "each outcome $i$ and treatment $j$. "
+                         "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>")
+
+        smry.add_extra_txt(extra_txt)
+
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
         try:

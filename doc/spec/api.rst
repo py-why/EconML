@@ -192,7 +192,7 @@ Hence, the marginal CATE is independent of :math:`\vec{t}`. In these settings, w
     \theta(\vec{x}) = \E[H(X, W) | X=\vec{x}] \tag{constant marginal CATE}
 
 .. rubric::
-    Marginal Effects Given Treatment Featurization
+    Constant Marginal Effects and Marginal Effects Given Treatment Featurization
 
 Additionally, we may be interested in cases where the outcome depends linearly on a transformation of the treatment vector (via some featurizer :math:`\phi`). 
 Some estimators provide support for passing such a featurizer :math:`\phi` directly to the estimator, in which case the outcome would be modeled as follows: 
