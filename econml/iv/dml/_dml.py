@@ -1296,14 +1296,30 @@ class DMLIV(_BaseDMLIV):
         feature_names = self.cate_feature_names(feature_names)
         # Summary
         smry = Summary()
-        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
-                            "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
-                            "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:",
-                            "$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$",
-                            "where $\\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
-                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
-                            "each outcome $i$ and treatment $j$. "
-                            "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
+
+        extra_txt = ["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:"]
+
+        if self._original_treatment_featurizer:
+            extra_txt.append("$Y = \\Theta(X)\\cdot \\psi(T) + g(X, W) + \\epsilon$")
+            extra_txt.append("where $\\psi(T)$ is the output of the `treatment_featurizer")
+            extra_txt.append(
+                "and for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+        else:
+            extra_txt.append("$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$")
+            extra_txt.append(
+                "where for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+
+        if self.featurizer:
+            extra_txt.append("$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$")
+            extra_txt.append("where $\\phi(X)$ is the output of the `featurizer`")
+        else:
+            extra_txt.append("$\\Theta_{ij}(X) = X' coef_{ij} + cate\\_intercept_{ij}$")
+
+        extra_txt.append("Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                         "each outcome $i$ and treatment $j$. "
+                         "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>")
+
+        smry.add_extra_txt(extra_txt)
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
 

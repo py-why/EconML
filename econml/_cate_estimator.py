@@ -1079,15 +1079,15 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         # Summary
         smry = Summary()
 
-        T_eq = "\\psi(T)" if self._original_treatment_featurizer else "T"
+        extra_txt = ["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:"]
 
-        extra_txt = ["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
-                     "$Y = \\Theta(X)\\cdot " + T_eq + " + g(X, W) + \\epsilon$"]
         if self._original_treatment_featurizer:
+            extra_txt.append("$Y = \\Theta(X)\\cdot \\psi(T) + g(X, W) + \\epsilon$")
             extra_txt.append("where $\\psi(T)$ is the output of the `treatment_featurizer")
             extra_txt.append(
                 "and for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
         else:
+            extra_txt.append("$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$")
             extra_txt.append(
                 "where for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
 
