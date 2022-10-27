@@ -465,7 +465,6 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         np.testing.assert_array_less(0.50, proportion_in_interval)
                         np.testing.assert_almost_equal(cme, cme_inf.point_estimate)
 
-    # def test_equal_to_outside_featuriz
 
     def test_jac(self):
         def func_transform(x):

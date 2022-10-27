@@ -1307,7 +1307,7 @@ class DMLIV(_BaseDMLIV):
         else:
             extra_txt.append("$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$")
             extra_txt.append(
-                "where for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+                "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
 
         if self.featurizer:
             extra_txt.append("$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$")
