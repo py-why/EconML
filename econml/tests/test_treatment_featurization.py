@@ -465,7 +465,6 @@ class TestTreatmentFeaturization(unittest.TestCase):
                         np.testing.assert_array_less(0.50, proportion_in_interval)
                         np.testing.assert_almost_equal(cme, cme_inf.point_estimate)
 
-
     def test_jac(self):
         def func_transform(x):
             x = x.reshape(-1, 1)
@@ -570,6 +569,11 @@ class TestTreatmentFeaturization(unittest.TestCase):
 
         lb, ub = est.marginal_effect_interval(T, X)
         assert (lb != ub).all()
+
+        lb1, ub1 = est.marginal_effect_interval(T, X, alpha=0.01)
+        lb2, ub2 = est.marginal_effect_interval(T, X, alpha=0.1)
+
+        assert (lb1 < lb2).all() and (ub1 > ub2).all()
 
     def test_identity_feat_with_cate_api(self):
         treatment_featurizations = [FunctionTransformer()]
