@@ -469,12 +469,56 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         super().__init__(discrete_treatment=discrete_treatment,
+                         treatment_featurizer=None,
                          discrete_instrument=False,
                          categories=categories,
                          cv=GroupKFold(cv) if isinstance(cv, int) else cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
+
+    # override only so that we can exclude treatment featurization verbiage in docstring
+    def const_marginal_effect(self, X=None):
+        """
+        Calculate the constant marginal CATE :math:`\\theta(·)`.
+
+        The marginal effect is conditional on a vector of
+        features on a set of m test samples X[i].
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
+
+        Returns
+        -------
+        theta: (m, d_y, d_t) matrix or (d_y, d_t) matrix if X is None
+            Constant marginal CATE of each treatment on each outcome for each sample X[i].
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a vector)
+        """
+        return super().const_marginal_effect(X=X)
+
+    # override only so that we can exclude treatment featurization verbiage in docstring
+    def const_marginal_ate(self, X=None):
+        """
+        Calculate the average constant marginal CATE :math:`E_X[\\theta(X)]`.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
+
+        Returns
+        -------
+        theta: (d_y, d_t) matrix
+            Average constant marginal CATE of each treatment on each outcome.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
+        return super().const_marginal_ate(X=X)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -705,13 +749,13 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             return feature_names
         return get_feature_names_or_default(self.original_featurizer, feature_names)
 
-    def _expand_treatments(self, X, *Ts):
+    def _expand_treatments(self, X, *Ts, transform=True):
         # Expand treatments for each time period
         outTs = []
         base_expand_treatments = super()._expand_treatments
         for T in Ts:
             if ndim(T) == 0:
-                one_T = base_expand_treatments(X, T)[1]
+                one_T = base_expand_treatments(X, T, transform=transform)[1]
                 one_T = one_T.reshape(-1, 1) if ndim(one_T) == 1 else one_T
                 T = np.tile(one_T, (1, self._n_periods, ))
             else:
@@ -720,7 +764,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                 if self.transformer:
                     T = np.hstack([
                         base_expand_treatments(
-                            X, T[:, [t]])[1] for t in range(self._n_periods)
+                            X, T[:, [t]], transform=transform)[1] for t in range(self._n_periods)
                     ])
             outTs.append(T)
         return (X,) + tuple(outTs)

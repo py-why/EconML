@@ -44,7 +44,7 @@ from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
 from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, check_input_arrays,
                         cross_product, filter_none_kwargs,
-                        inverse_onehot, ndim, reshape, shape, transpose)
+                        inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
 
 
 def _crossfit(model, folds, *args, **kwargs):
@@ -256,6 +256,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer` or None
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     discrete_instrument: bool
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
@@ -337,8 +342,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         np.random.seed(123)
         X = np.random.normal(size=(100, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
-        est = OrthoLearner(cv=2, discrete_treatment=False, discrete_instrument=False,
-                           categories='auto', random_state=None)
+        est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None,
+                           discrete_instrument=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
     >>> est.score_
@@ -396,7 +401,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         T = np.random.binomial(1, scipy.special.expit(W[:, 0]))
         y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
         est = OrthoLearner(cv=2, discrete_treatment=True, discrete_instrument=False,
-                           categories='auto', random_state=None)
+                           treatment_featurizer=None, categories='auto', random_state=None)
         est.fit(y, T, W=W)
 
     >>> est.score_
@@ -427,10 +432,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
 
     def __init__(self, *,
-                 discrete_treatment, discrete_instrument, categories, cv, random_state,
+                 discrete_treatment, treatment_featurizer,
+                 discrete_instrument, categories, cv, random_state,
                  mc_iters=None, mc_agg='mean'):
         self.cv = cv
         self.discrete_treatment = discrete_treatment
+        self.treatment_featurizer = treatment_featurizer
         self.discrete_instrument = discrete_instrument
         self.random_state = random_state
         self.categories = categories
@@ -595,6 +602,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self._random_state = check_random_state(self.random_state)
         assert (freq_weight is None) == (
             sample_var is None), "Sample variances and frequency weights must be provided together!"
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
+            "is not supported when treatment is discrete"
         if check_input:
             Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
                 Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
@@ -609,6 +618,11 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
                 self.transformer.fit(reshape(T, (-1, 1)))
                 self._d_t = (len(self.transformer.categories_[0]) - 1,)
+            elif self.treatment_featurizer:
+                self._original_treatment_featurizer = clone(self.treatment_featurizer, safe=False)
+                self.transformer = jacify_featurizer(self.treatment_featurizer)
+                output_T = self.transformer.fit_transform(T)
+                self._d_t = np.shape(output_T)[1:]
             else:
                 self.transformer = None
 
@@ -675,10 +689,21 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             # _d_t is altered by fit nuisances to what prefit does. So we need to perform the same
             # alteration even when we only want to fit_final.
             if self.transformer is not None:
-                self._d_t = (len(self.transformer.categories_[0]) - 1,)
+                if self.discrete_treatment:
+                    self._d_t = (len(self.transformer.categories_[0]) - 1,)
+                else:
+                    output_T = self.transformer.fit_transform(T)
+                    self._d_t = np.shape(output_T)[1:]
+
+        final_T = T
+        if self.transformer:
+            if (self.discrete_treatment):
+                final_T = self.transformer.transform(final_T.reshape(-1, 1))
+            else:  # treatment featurizer case
+                final_T = output_T
 
         self._fit_final(Y=Y,
-                        T=self.transformer.transform(T.reshape((-1, 1))) if self.transformer is not None else T,
+                        T=final_T,
                         X=X, W=W, Z=Z,
                         nuisances=nuisances,
                         sample_weight=sample_weight,
@@ -733,8 +758,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if strata is None:
             strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
 
-        if self.discrete_treatment:
-            T = self.transformer.transform(reshape(T, (-1, 1)))
+        if self.transformer:
+            if self.discrete_treatment:
+                T = reshape(T, (-1, 1))
+            T = self.transformer.transform(T)
 
         if self.discrete_instrument:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))

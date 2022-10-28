@@ -9,8 +9,8 @@ from functools import wraps
 from copy import deepcopy
 from warnings import warn
 from .inference import BootstrapInference
-from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params,
-                        inverse_onehot, Summary, get_input_columns, check_input_arrays)
+from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params, get_feature_names_or_default,
+                        inverse_onehot, Summary, get_input_columns, check_input_arrays, jacify_featurizer)
 from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
     LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
     GenericModelFinalInferenceDiscrete
@@ -320,14 +320,16 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         return (X,) + Ts
 
+    def _use_inference_method(self, name, *args, **kwargs):
+        if self._inference is not None:
+            return getattr(self._inference, name)(*args, **kwargs)
+        else:
+            raise AttributeError("Can't call '%s' because 'inference' is None" % name)
+
     def _defer_to_inference(m):
         @wraps(m)
         def call(self, *args, **kwargs):
-            name = m.__name__
-            if self._inference is not None:
-                return getattr(self._inference, name)(*args, **kwargs)
-            else:
-                raise AttributeError("Can't call '%s' because 'inference' is None" % name)
+            return self._use_inference_method(m.__name__, *args, **kwargs)
         return call
 
     @_defer_to_inference
@@ -534,7 +536,11 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
 
 class LinearCateEstimator(BaseCateEstimator):
-    """Base class for all CATE estimators with linear treatment effects in this package."""
+    """
+        Base class for all CATE estimators in this package where the outcome is linear given
+        some user-defined treatment featurization.
+    """
+    _original_treatment_featurizer = None
 
     @abc.abstractmethod
     def const_marginal_effect(self, X=None):
@@ -551,10 +557,11 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Returns
         -------
-        theta: (m, d_y, d_t) matrix or (d_y, d_t) matrix if X is None
-            Constant marginal CATE of each treatment on each outcome for each sample X[i].
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
+        theta: (m, d_y, d_f_t) matrix or (d_y, d_f_t) matrix if X is None where d_f_t is \
+            the dimension of the featurized treatment. If treatment_featurizer is None, d_f_t = d_t.
+            Constant marginal CATE of each featurized treatment on each outcome for each sample X[i].
+            Note that when Y or featurized-T (or T if treatment_featurizer is None) is a vector
+            rather than a 2-dimensional array, the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
         pass
@@ -607,7 +614,8 @@ class LinearCateEstimator(BaseCateEstimator):
 
         The marginal effect is calculated around a base treatment
         point conditional on a vector of features on a set of m test samples :math:`\\{T_i, X_i\\}`.
-        Since this class assumes a linear model, the base treatment is ignored in this calculation.
+        If treatment_featurizer is None, the base treatment is ignored in this calculation and the result
+        is equivalent to const_marginal_effect.
 
         Parameters
         ----------
@@ -624,24 +632,49 @@ class LinearCateEstimator(BaseCateEstimator):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        X, T = self._expand_treatments(X, T)
+        X, T = self._expand_treatments(X, T, transform=False)
         eff = self.const_marginal_effect(X)
-        return np.repeat(eff, shape(T)[0], axis=0) if X is None else eff
+
+        if X is None:
+            eff = np.repeat(eff, shape(T)[0], axis=0)
+
+        if self._original_treatment_featurizer:
+            feat_T = self.transformer.transform(T)
+            jac_T = self.transformer.jac(T)
+
+            einsum_str = 'myf, mtf->myt'
+
+            if ndim(T) == 1:
+                einsum_str = einsum_str.replace('t', '')
+            if ndim(feat_T) == 1:
+                einsum_str = einsum_str.replace('f', '')
+            if (ndim(eff) == ndim(feat_T)):
+                einsum_str = einsum_str.replace('y', '')
+            return np.einsum(einsum_str, eff, jac_T)
+
+        else:
+            return eff
 
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
-        X, T = self._expand_treatments(X, T)
-        effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
-        if X is None:  # need to repeat by the number of rows of T to ensure the right shape
-            effs = tuple(np.repeat(eff, shape(T)[0], axis=0) for eff in effs)
-        return effs
+        if self._original_treatment_featurizer:
+            return self._use_inference_method('marginal_effect_interval', T, X, alpha=alpha)
+        else:
+            X, T = self._expand_treatments(X, T)
+            effs = self.const_marginal_effect_interval(X=X, alpha=alpha)
+            if X is None:  # need to repeat by the number of rows of T to ensure the right shape
+                effs = tuple(np.repeat(eff, shape(T)[0], axis=0) for eff in effs)
+            return effs
     marginal_effect_interval.__doc__ = BaseCateEstimator.marginal_effect_interval.__doc__
 
     def marginal_effect_inference(self, T, X=None):
-        X, T = self._expand_treatments(X, T)
-        cme_inf = self.const_marginal_effect_inference(X=X)
-        if X is None:
-            cme_inf = cme_inf._expand_outputs(shape(T)[0])
-        return cme_inf
+        if self._original_treatment_featurizer:
+            return self._use_inference_method('marginal_effect_inference', T, X)
+        else:
+            X, T = self._expand_treatments(X, T)
+            cme_inf = self.const_marginal_effect_inference(X=X)
+            if X is None:
+                cme_inf = cme_inf._expand_outputs(shape(T)[0])
+            return cme_inf
     marginal_effect_inference.__doc__ = BaseCateEstimator.marginal_effect_inference.__doc__
 
     @BaseCateEstimator._defer_to_inference
@@ -697,11 +730,12 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Returns
         -------
-        theta: (d_y, d_t) matrix
+        theta: (d_y, d_f_t) matrix where d_f_t is the dimension of the featurized treatment. \
+            If treatment_featurizer is None, d_f_t = d_t.
             Average constant marginal CATE of each treatment on each outcome.
-            Note that when Y or T is a vector rather than a 2-dimensional array,
-            the corresponding singleton dimensions in the output will be collapsed
-            (e.g. if both are vectors, then the output of this method will be a scalar)
+            Note that when Y or featurized-T (or T if treatment_featurizer is None) is a vector
+            rather than a 2-dimensional array, the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will also be a scalar)
         """
         return np.mean(self.const_marginal_effect(X=X), axis=0)
 
@@ -748,15 +782,17 @@ class LinearCateEstimator(BaseCateEstimator):
         pass
 
     def marginal_ate(self, T, X=None):
-        return self.const_marginal_ate(X=X)
+        return np.mean(self.marginal_effect(T, X=X), axis=0)
     marginal_ate.__doc__ = BaseCateEstimator.marginal_ate.__doc__
 
+    @BaseCateEstimator._defer_to_inference
     def marginal_ate_interval(self, T, X=None, *, alpha=0.05):
-        return self.const_marginal_ate_interval(X=X, alpha=alpha)
+        pass
     marginal_ate_interval.__doc__ = BaseCateEstimator.marginal_ate_interval.__doc__
 
+    @BaseCateEstimator._defer_to_inference
     def marginal_ate_inference(self, T, X=None):
-        return self.const_marginal_ate_inference(X=X)
+        pass
     marginal_ate_inference.__doc__ = BaseCateEstimator.marginal_ate_inference.__doc__
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
@@ -769,7 +805,7 @@ class LinearCateEstimator(BaseCateEstimator):
         feature_names: optional None or list of strings of length X.shape[1] (Default=None)
             The names of input features.
         treatment_names: optional None or list (Default=None)
-            The name of treatment. In discrete treatment scenario, the name should not include the name of
+            The name of featurized treatment. In discrete treatment scenario, the name should not include the name of
             the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
         output_names:  optional None or list (Default=None)
             The name of the outcome.
@@ -793,9 +829,13 @@ class LinearCateEstimator(BaseCateEstimator):
 
 
 class TreatmentExpansionMixin(BaseCateEstimator):
-    """Mixin which automatically handles promotions of scalar treatments to the appropriate shape."""
+    """
+        Mixin which automatically handles promotions of scalar treatments to the appropriate shape,
+        as well as treatment featurization for discrete treatments and user-specified treatment transformers
+    """
 
     transformer = None
+    _original_treatment_featurizer = None
 
     def _prefit(self, Y, T, *args, **kwargs):
         super()._prefit(Y, T, *args, **kwargs)
@@ -808,7 +848,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         if self.transformer:
             self._set_transformed_treatment_names()
 
-    def _expand_treatments(self, X=None, *Ts):
+    def _expand_treatments(self, X=None, *Ts, transform=True):
         X, *Ts = check_input_arrays(X, *Ts)
         n_rows = 1 if X is None else shape(X)[0]
         outTs = []
@@ -820,23 +860,29 @@ class TreatmentExpansionMixin(BaseCateEstimator):
             if ndim(T) == 0:
                 T = np.full((n_rows,) + self._d_t_in, T)
 
-            if self.transformer:
-                T = self.transformer.transform(reshape(T, (-1, 1)))
+            if self.transformer and transform:
+                if not self._original_treatment_featurizer:
+                    T = T.reshape(-1, 1)
+                T = self.transformer.transform(T)
             outTs.append(T)
 
         return (X,) + tuple(outTs)
 
     def _set_transformed_treatment_names(self):
-        """Works with sklearn OHEs"""
+        """
+           Extracts treatment names from sklearn transformers.
+           Or, if transformer does not have a get_feature_names method, sets default treatment names.
+        """
+
         if hasattr(self, "_input_names"):
-            self._input_names["treatment_names"] = self.transformer.get_feature_names(
-                self._input_names["treatment_names"]).tolist()
+            ret = get_feature_names_or_default(self.transformer, self._input_names["treatment_names"], prefix='T')
+            self._input_names["treatment_names"] = list(ret) if ret is not None else ret
 
     def cate_treatment_names(self, treatment_names=None):
         """
         Get treatment names.
 
-        If the treatment is discrete, it will return expanded treatment names.
+        If the treatment is discrete or featurized, it will return expanded treatment names.
 
         Parameters
         ----------
@@ -851,7 +897,8 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         """
         if treatment_names is not None:
             if self.transformer:
-                return self.transformer.get_feature_names(treatment_names).tolist()
+                ret = get_feature_names_or_default(self.transformer, treatment_names)
+                return list(ret) if ret is not None else None
             return treatment_names
         # Treatment names is None, default to BaseCateEstimator
         return super().cate_treatment_names()
@@ -891,6 +938,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         Whether the CATE model's intercept is contained in the final model's ``coef_`` rather
         than as a separate ``intercept_``
     """
+    featurizer = None
 
     def _get_inference_options(self):
         options = super()._get_inference_options()
@@ -1030,14 +1078,31 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         output_names = self.cate_output_names(output_names)
         # Summary
         smry = Summary()
-        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
-                            "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
-                            "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:",
-                            "$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$",
-                            "where $\\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
-                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
-                            "each outcome $i$ and treatment $j$. "
-                            "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
+
+        extra_txt = ["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:"]
+
+        if self._original_treatment_featurizer:
+            extra_txt.append("$Y = \\Theta(X)\\cdot \\psi(T) + g(X, W) + \\epsilon$")
+            extra_txt.append("where $\\psi(T)$ is the output of the `treatment_featurizer")
+            extra_txt.append(
+                "and for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+        else:
+            extra_txt.append("$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$")
+            extra_txt.append(
+                "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+
+        if self.featurizer:
+            extra_txt.append("$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$")
+            extra_txt.append("where $\\phi(X)$ is the output of the `featurizer`")
+        else:
+            extra_txt.append("$\\Theta_{ij}(X) = X' coef_{ij} + cate\\_intercept_{ij}$")
+
+        extra_txt.append("Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                         "each outcome $i$ and treatment $j$. "
+                         "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>")
+
+        smry.add_extra_txt(extra_txt)
+
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
         try:

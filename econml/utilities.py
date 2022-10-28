@@ -9,6 +9,7 @@ import scipy.sparse
 import sparse as sp
 import itertools
 import inspect
+import types
 from operator import getitem
 from collections import defaultdict, Counter
 from sklearn import clone
@@ -17,6 +18,7 @@ from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLass
 from functools import reduce, wraps
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.validation import assert_all_finite
+from sklearn.preprocessing import PolynomialFeatures
 import warnings
 from warnings import warn
 from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
@@ -46,7 +48,7 @@ class IdentityFeatures(TransformerMixin):
 
 def parse_final_model_params(coef, intercept, d_y, d_t, d_t_in, bias_part_of_coef, fit_cate_intercept):
     dt = d_t
-    if (d_t_in != d_t) and (d_t[0] == 1):  # binary treatment
+    if (d_t_in != d_t) and (d_t and d_t[0] == 1):  # binary treatment or single dim featurized treatment
         dt = ()
     cate_intercept = None
     if bias_part_of_coef:
@@ -598,12 +600,41 @@ def get_input_columns(X, prefix="X"):
         pd.Series: lambda x: [x.name]
     }
     if type(X) in type_to_func:
-        return type_to_func[type(X)](X)
+        column_names = type_to_func[type(X)](X)
+
+        # if not all column names are strings
+        if not all(isinstance(item, str) for item in column_names):
+            warnings.warn("Not all column names are strings. Coercing to strings for now.", UserWarning)
+
+        return [str(item) for item in column_names]
+
     len_X = 1 if np.ndim(X) == 1 else np.asarray(X).shape[1]
     return [f"{prefix}{i}" for i in range(len_X)]
 
 
-def get_feature_names_or_default(featurizer, feature_names):
+def get_feature_names_or_default(featurizer, feature_names, prefix="feat(X)"):
+    """
+    Extract feature names from sklearn transformers. Otherwise attempts to assign default feature names.
+
+    Designed to be compatible with old and new sklearn versions.
+
+    Parameters
+    ----------
+    featurizer ： featurizer to extract feature names from
+    feature_names : input features
+    prefix : output prefix in the event where we assign default feature names
+
+    Returns
+    ----------
+    feature_names_out : a list of strings (feature names)
+
+    """
+
+    # coerce feature names to be strings
+    if not all(isinstance(item, str) for item in feature_names):
+        warnings.warn("Not all feature names are strings. Coercing to strings for now.", UserWarning)
+    feature_names = [str(item) for item in feature_names]
+
     # Prefer sklearn 1.0's get_feature_names_out method to deprecated get_feature_names method
     if hasattr(featurizer, "get_feature_names_out"):
         try:
@@ -612,17 +643,21 @@ def get_feature_names_or_default(featurizer, feature_names):
             # Some featurizers will throw, such as a pipeline with a transformer that doesn't itself support names
             pass
     if hasattr(featurizer, 'get_feature_names'):
-        # Get number of arguments, some sklearn featurizer don't accept feature_names
-        arg_no = len(inspect.getfullargspec(featurizer.get_feature_names).args)
-        if arg_no == 1:
-            return featurizer.get_feature_names()
-        elif arg_no == 2:
-            return featurizer.get_feature_names(feature_names)
+        try:
+            # Get number of arguments, some sklearn featurizer don't accept feature_names
+            arg_no = len(inspect.getfullargspec(featurizer.get_feature_names).args)
+            if arg_no == 1:
+                return featurizer.get_feature_names()
+            elif arg_no == 2:
+                return featurizer.get_feature_names(feature_names)
+        except Exception:
+            # Handles cases where the passed feature names create issues
+            pass
     # Featurizer doesn't have 'get_feature_names' or has atypical 'get_feature_names'
     try:
         # Get feature names using featurizer
         dummy_X = np.ones((1, len(feature_names)))
-        return get_input_columns(featurizer.transform(dummy_X), prefix="feat(X)")
+        return get_input_columns(featurizer.transform(dummy_X), prefix=prefix)
     except Exception:
         # All attempts at retrieving transformed feature names have failed
         # Delegate handling to downstream logic
@@ -1389,6 +1424,85 @@ class _RegressionWrapper:
         X : features
         """
         return self._clf.predict_proba(X)[:, 1:]
+
+
+class _TransformerWrapper:
+    """Wrapper that takes a featurizer as input and adds jacobian calculation functionality"""
+
+    def __init__(self, featurizer):
+        self.featurizer = featurizer
+
+    def fit(self, X):
+        return self.featurizer.fit(X)
+
+    def transform(self, X):
+        return self.featurizer.transform(X)
+
+    def fit_transform(self, X):
+        return self.featurizer.fit_transform(X)
+
+    def get_feature_names_out(self, feature_names):
+        return get_feature_names_or_default(self.featurizer, feature_names, prefix="feat(T)")
+
+    def jac(self, X, epsilon=0.001):
+        if hasattr(self.featurizer, 'jac'):
+            return self.featurizer.jac(X)
+        elif (isinstance(self.featurizer, PolynomialFeatures)):
+            powers = self.featurizer.powers_
+            result = np.zeros(X.shape + (self.featurizer.n_output_features_,))
+            for i in range(X.shape[1]):
+                p = powers.copy()
+                c = powers[:, i]
+                p[:, i] -= 1
+                M = np.float_power(X[:, np.newaxis, :], p[np.newaxis, :, :])
+                result[:, i, :] = c[np.newaxis, :] * np.prod(M, axis=-1)
+            return result
+
+        else:
+            squeeze = []
+
+            n = X.shape[0]
+            d_t = X.shape[-1] if ndim(X) > 1 else 1
+            X_out = self.transform(X)
+            d_f_t = X_out.shape[-1] if ndim(X_out) > 1 else 1
+
+            jacob = np.zeros((n, d_t, d_f_t))
+
+            if ndim(X) == 1:
+                squeeze.append(1)
+                X = X[:, np.newaxis]
+            if ndim(X_out) == 1:
+                squeeze.append(2)
+
+            # for every dimension of the treatment add some epsilon and observe change in featurized treatment
+            for k in range(d_t):
+                eps_matrix = np.zeros(shape=X.shape)
+                eps_matrix[:, k] = epsilon
+
+                X_in_plus = X + eps_matrix
+                X_in_plus = X_in_plus.squeeze(axis=1) if 1 in squeeze else X_in_plus
+                X_out_plus = self.transform(X_in_plus)
+                X_out_plus = X_out_plus[:, np.newaxis] if 2 in squeeze else X_out_plus
+
+                X_in_minus = X - eps_matrix
+                X_in_minus = X_in_minus.squeeze(axis=1) if 1 in squeeze else X_in_minus
+                X_out_minus = self.transform(X_in_minus)
+                X_out_minus = X_out_minus[:, np.newaxis] if 2 in squeeze else X_out_minus
+
+                diff = X_out_plus - X_out_minus
+                deriv = diff / (2 * epsilon)
+
+                jacob[:, k, :] = deriv
+
+            return jacob.squeeze(axis=tuple(squeeze))
+
+
+def jacify_featurizer(featurizer):
+    """
+       Function that takes a featurizer as input and returns a wrapper class that includes
+       a function for calculating the jacobian
+    """
+    return _TransformerWrapper(featurizer)
 
 
 @deprecated("This class will be removed from a future version of this package; "

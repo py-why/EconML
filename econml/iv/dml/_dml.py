@@ -237,6 +237,11 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
@@ -338,6 +343,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  featurizer=None,
                  fit_cate_intercept=True,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  discrete_instrument=False,
                  categories='auto',
                  cv=2,
@@ -354,6 +360,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         super().__init__(discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -1039,6 +1046,11 @@ class DMLIV(_BaseDMLIV):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -1129,6 +1141,7 @@ class DMLIV(_BaseDMLIV):
                  featurizer=None,
                  fit_cate_intercept=True,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  discrete_instrument=False,
                  categories='auto',
                  cv=2,
@@ -1142,6 +1155,7 @@ class DMLIV(_BaseDMLIV):
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
                          cv=cv,
@@ -1282,14 +1296,30 @@ class DMLIV(_BaseDMLIV):
         feature_names = self.cate_feature_names(feature_names)
         # Summary
         smry = Summary()
-        smry.add_extra_txt(["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:",
-                            "$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$",
-                            "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:",
-                            "$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$",
-                            "where $\\phi(X)$ is the output of the `featurizer` or $X$ if `featurizer`=None. "
-                            "Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
-                            "each outcome $i$ and treatment $j$. "
-                            "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>"])
+
+        extra_txt = ["<sub>A linear parametric conditional average treatment effect (CATE) model was fitted:"]
+
+        if self._original_treatment_featurizer:
+            extra_txt.append("$Y = \\Theta(X)\\cdot \\psi(T) + g(X, W) + \\epsilon$")
+            extra_txt.append("where $\\psi(T)$ is the output of the `treatment_featurizer")
+            extra_txt.append(
+                "and for every outcome $i$ and featurized treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+        else:
+            extra_txt.append("$Y = \\Theta(X)\\cdot T + g(X, W) + \\epsilon$")
+            extra_txt.append(
+                "where for every outcome $i$ and treatment $j$ the CATE $\\Theta_{ij}(X)$ has the form:")
+
+        if self.featurizer:
+            extra_txt.append("$\\Theta_{ij}(X) = \\phi(X)' coef_{ij} + cate\\_intercept_{ij}$")
+            extra_txt.append("where $\\phi(X)$ is the output of the `featurizer`")
+        else:
+            extra_txt.append("$\\Theta_{ij}(X) = X' coef_{ij} + cate\\_intercept_{ij}$")
+
+        extra_txt.append("Coefficient Results table portrays the $coef_{ij}$ parameter vector for "
+                         "each outcome $i$ and treatment $j$. "
+                         "Intercept Results table portrays the $cate\\_intercept_{ij}$ parameter.</sub>")
+
+        smry.add_extra_txt(extra_txt)
         d_t = self._d_t[0] if self._d_t else 1
         d_y = self._d_y[0] if self._d_y else 1
 
@@ -1403,6 +1433,11 @@ class NonParamDMLIV(_BaseDMLIV):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     discrete_instrument: bool, optional, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
@@ -1495,6 +1530,7 @@ class NonParamDMLIV(_BaseDMLIV):
                  model_t_xwz="auto",
                  model_final,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  discrete_instrument=False,
                  featurizer=None,
                  categories='auto',
@@ -1509,6 +1545,7 @@ class NonParamDMLIV(_BaseDMLIV):
         self.featurizer = clone(featurizer, safe=False)
         super().__init__(discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,

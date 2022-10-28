@@ -303,6 +303,7 @@ class _BaseDRIV(_OrthoLearner):
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -315,6 +316,7 @@ class _BaseDRIV(_OrthoLearner):
         self.opt_reweighted = opt_reweighted
         super().__init__(discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -344,6 +346,8 @@ class _BaseDRIV(_OrthoLearner):
         if len(T1.shape) > 1 and T1.shape[1] > 1:
             if self.discrete_treatment:
                 raise AttributeError("DRIV only supports binary treatments")
+            elif self.treatment_featurizer:  # defer possible failure to downstream logic
+                pass
             else:
                 raise AttributeError("DRIV only supports single-dimensional continuous treatments")
         if len(Z1.shape) > 1 and Z1.shape[1] > 1:
@@ -548,6 +552,7 @@ class _DRIV(_BaseDRIV):
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -567,6 +572,7 @@ class _DRIV(_BaseDRIV):
                          opt_reweighted=opt_reweighted,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -733,6 +739,11 @@ class DRIV(_DRIV):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -828,6 +839,7 @@ class DRIV(_DRIV):
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -855,6 +867,7 @@ class DRIV(_DRIV):
                          opt_reweighted=opt_reweighted,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -1177,6 +1190,11 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -1283,6 +1301,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -1305,6 +1324,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                          opt_reweighted=opt_reweighted,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -1493,6 +1513,11 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -1606,6 +1631,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -1635,6 +1661,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          opt_reweighted=opt_reweighted,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,
@@ -1897,6 +1924,11 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
     discrete_treatment: bool, optional, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
@@ -2006,6 +2038,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  opt_reweighted=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  cv=2,
                  mc_iters=None,
@@ -2041,6 +2074,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          opt_reweighted=opt_reweighted,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
+                         treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
                          mc_iters=mc_iters,

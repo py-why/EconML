@@ -40,6 +40,10 @@ def rand_sol(A, b):
 class TestDML(unittest.TestCase):
 
     def test_cate_api(self):
+        treatment_featurizations = [None]
+        self._test_cate_api(treatment_featurizations)
+
+    def _test_cate_api(self, treatment_featurizations):
         """Test that we correctly implement the CATE API."""
         n_c = 20  # number of rows for continuous models
         n_d = 30  # number of rows for discrete models
@@ -63,284 +67,293 @@ class TestDML(unittest.TestCase):
 
         for d_t in [2, 1, -1]:
             for is_discrete in [True, False] if d_t <= 1 else [False]:
-                for d_y in [3, 1, -1]:
-                    for d_x in [2, None]:
-                        for d_w in [2, None]:
-                            n = n_d if is_discrete else n_c
-                            W, X, Y, T = [make_random(n, is_discrete, d)
-                                          for is_discrete, d in [(False, d_w),
-                                                                 (False, d_x),
-                                                                 (False, d_y),
-                                                                 (is_discrete, d_t)]]
+                for treatment_featurizer in treatment_featurizations:
+                    for d_y in [3, 1, -1]:
+                        for d_x in [2, None]:
+                            for d_w in [2, None]:
+                                n = n_d if is_discrete else n_c
+                                W, X, Y, T = [make_random(n, is_discrete, d)
+                                              for is_discrete, d in [(False, d_w),
+                                                                     (False, d_x),
+                                                                     (False, d_y),
+                                                                     (is_discrete, d_t)]]
 
-                            for featurizer, fit_cate_intercept in\
-                                [(None, True),
-                                 (PolynomialFeatures(degree=2, include_bias=False), True),
-                                 (PolynomialFeatures(degree=2, include_bias=True), False)]:
+                                for featurizer, fit_cate_intercept in\
+                                    [(None, True),
+                                     (PolynomialFeatures(degree=2, include_bias=False), True),
+                                     (PolynomialFeatures(degree=2, include_bias=True), False)]:
 
-                                d_t_final = 2 if is_discrete else d_t
-
-                                effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
-                                effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1), 6)
-                                marginal_effect_shape = ((n,) +
-                                                         ((d_y,) if d_y > 0 else ()) +
-                                                         ((d_t_final,) if d_t_final > 0 else ()))
-                                marginal_effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1) *
-                                                                      (d_t_final if d_t_final > 0 else 1), 6)
-
-                                # since T isn't passed to const_marginal_effect, defaults to one row if X is None
-                                const_marginal_effect_shape = ((n if d_x else 1,) +
-                                                               ((d_y,) if d_y > 0 else ()) +
-                                                               ((d_t_final,) if d_t_final > 0 else ()))
-                                const_marginal_effect_summaryframe_shape = (
-                                    (n if d_x else 1) * (d_y if d_y > 0 else 1) *
-                                    (d_t_final if d_t_final > 0 else 1), 6)
-
-                                fd_x = featurizer.fit_transform(X).shape[1:] if featurizer and d_x\
-                                    else ((d_x,) if d_x else (0,))
-                                coef_shape = Y.shape[1:] + (T.shape[1:] if not is_discrete else (2,)) + fd_x
-
-                                coef_summaryframe_shape = (
-                                    (d_y if d_y > 0 else 1) * (fd_x[0] if fd_x[0] >
-                                                               0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
-                                intercept_shape = Y.shape[1:] + (T.shape[1:] if not is_discrete else (2,))
-                                intercept_summaryframe_shape = (
-                                    (d_y if d_y > 0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
-
-                                model_t = LogisticRegression() if is_discrete else Lasso()
-
-                                all_infs = [None, 'auto', BootstrapInference(2)]
-
-                                for est, multi, infs in\
-                                    [(DML(model_y=Lasso(),
-                                          model_t=model_t,
-                                          model_final=Lasso(alpha=0.1, fit_intercept=False),
-                                          featurizer=featurizer,
-                                          fit_cate_intercept=fit_cate_intercept,
-                                          discrete_treatment=is_discrete),
-                                      True,
-                                      [None] +
-                                      ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
-                                     (DML(model_y=Lasso(),
-                                          model_t=model_t,
-                                          model_final=StatsModelsRLM(fit_intercept=False),
-                                          featurizer=featurizer,
-                                          fit_cate_intercept=fit_cate_intercept,
-                                          discrete_treatment=is_discrete),
-                                      True,
-                                      ['auto']),
-                                     (LinearDML(model_y=Lasso(),
-                                                model_t='auto',
-                                                featurizer=featurizer,
-                                                fit_cate_intercept=fit_cate_intercept,
-                                                discrete_treatment=is_discrete),
-                                      True,
-                                      all_infs),
-                                     (SparseLinearDML(model_y=WeightedLasso(),
-                                                      model_t=model_t,
-                                                      featurizer=featurizer,
-                                                      fit_cate_intercept=fit_cate_intercept,
-                                                      discrete_treatment=is_discrete),
-                                      True,
-                                      [None, 'auto'] +
-                                      ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
-                                     (KernelDML(model_y=WeightedLasso(),
-                                                model_t=model_t,
-                                                fit_cate_intercept=fit_cate_intercept,
-                                                discrete_treatment=is_discrete),
-                                      False,
-                                      [None]),
-                                     (CausalForestDML(model_y=WeightedLasso(),
-                                                      model_t=model_t,
-                                                      featurizer=featurizer,
-                                                      n_estimators=4,
-                                                      n_jobs=1,
-                                                      discrete_treatment=is_discrete),
-                                      True,
-                                      ['auto', 'blb'])]:
-
-                                    if not (multi) and d_y > 1:
+                                    if is_discrete and treatment_featurizer:
                                         continue
 
-                                    if X is None and isinstance(est, CausalForestDML):
-                                        continue
+                                    d_t_final = 2 if is_discrete else d_t
 
-                                    # ensure we can serialize the unfit estimator
-                                    pickle.dumps(est)
+                                    effect_shape = (n,) + ((d_y,) if d_y > 0 else ())
+                                    effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1), 6)
+                                    marginal_effect_shape = ((n,) +
+                                                             ((d_y,) if d_y > 0 else ()) +
+                                                             ((d_t_final,) if d_t_final > 0 else ()))
+                                    marginal_effect_summaryframe_shape = (n * (d_y if d_y > 0 else 1) *
+                                                                          (d_t_final if d_t_final > 0 else 1), 6)
 
-                                    for inf in infs:
-                                        with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
-                                                          is_discrete=is_discrete, est=est, inf=inf):
+                                    # since T isn't passed to const_marginal_effect, defaults to one row if X is None
+                                    const_marginal_effect_shape = ((n if d_x else 1,) +
+                                                                   ((d_y,) if d_y > 0 else ()) +
+                                                                   ((d_t_final,) if d_t_final > 0 else ()))
+                                    const_marginal_effect_summaryframe_shape = (
+                                        (n if d_x else 1) * (d_y if d_y > 0 else 1) *
+                                        (d_t_final if d_t_final > 0 else 1), 6)
 
-                                            if X is None and (not fit_cate_intercept):
-                                                with pytest.raises(AttributeError):
-                                                    est.fit(Y, T, X=X, W=W, inference=inf)
-                                                continue
+                                    fd_x = featurizer.fit_transform(X).shape[1:] if featurizer and d_x\
+                                        else ((d_x,) if d_x else (0,))
+                                    coef_shape = Y.shape[1:] + (T.shape[1:] if not is_discrete else (2,)) + fd_x
 
-                                            est.fit(Y, T, X=X, W=W, inference=inf)
+                                    coef_summaryframe_shape = (
+                                        (d_y if d_y > 0 else 1) * (fd_x[0] if fd_x[0] >
+                                                                   0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
+                                    intercept_shape = Y.shape[1:] + (T.shape[1:] if not is_discrete else (2,))
+                                    intercept_summaryframe_shape = (
+                                        (d_y if d_y > 0 else 1) * (d_t_final if d_t_final > 0 else 1), 6)
 
-                                            # ensure we can pickle the fit estimator
-                                            pickle.dumps(est)
+                                    model_t = LogisticRegression() if is_discrete else Lasso()
 
-                                            # make sure we can call the marginal_effect and effect methods
-                                            const_marg_eff = est.const_marginal_effect(X)
-                                            marg_eff = est.marginal_effect(T, X)
-                                            self.assertEqual(shape(marg_eff), marginal_effect_shape)
-                                            self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
+                                    all_infs = [None, 'auto', BootstrapInference(2)]
 
-                                            np.testing.assert_allclose(
-                                                marg_eff if d_x else marg_eff[0:1], const_marg_eff)
+                                    for est, multi, infs in\
+                                        [(DML(model_y=Lasso(),
+                                              model_t=model_t,
+                                              model_final=Lasso(alpha=0.1, fit_intercept=False),
+                                              featurizer=featurizer,
+                                              fit_cate_intercept=fit_cate_intercept,
+                                              discrete_treatment=is_discrete,
+                                              treatment_featurizer=treatment_featurizer),
+                                         True,
+                                         [None] +
+                                         ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
+                                         (DML(model_y=Lasso(),
+                                              model_t=model_t,
+                                              model_final=StatsModelsRLM(fit_intercept=False),
+                                              featurizer=featurizer,
+                                              fit_cate_intercept=fit_cate_intercept,
+                                              discrete_treatment=is_discrete,
+                                              treatment_featurizer=treatment_featurizer),
+                                         True,
+                                         ['auto']),
+                                         (LinearDML(model_y=Lasso(),
+                                                    model_t='auto',
+                                                    featurizer=featurizer,
+                                                    fit_cate_intercept=fit_cate_intercept,
+                                                    discrete_treatment=is_discrete,
+                                                    treatment_featurizer=treatment_featurizer),
+                                         True,
+                                         all_infs),
+                                         (SparseLinearDML(model_y=WeightedLasso(),
+                                                          model_t=model_t,
+                                                          featurizer=featurizer,
+                                                          fit_cate_intercept=fit_cate_intercept,
+                                                          discrete_treatment=is_discrete,
+                                                          treatment_featurizer=treatment_featurizer),
+                                         True,
+                                         [None, 'auto'] +
+                                         ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
+                                         (KernelDML(model_y=WeightedLasso(),
+                                                    model_t=model_t,
+                                                    fit_cate_intercept=fit_cate_intercept,
+                                                    discrete_treatment=is_discrete,
+                                                    treatment_featurizer=treatment_featurizer),
+                                         False,
+                                         [None]),
+                                         (CausalForestDML(model_y=WeightedLasso(),
+                                                          model_t=model_t,
+                                                          featurizer=featurizer,
+                                                          n_estimators=4,
+                                                          n_jobs=1,
+                                                          discrete_treatment=is_discrete),
+                                         True,
+                                         ['auto', 'blb'])]:
 
-                                            assert isinstance(est.score_, float)
-                                            for score_list in est.nuisance_scores_y:
-                                                for score in score_list:
-                                                    assert isinstance(score, float)
-                                            for score_list in est.nuisance_scores_t:
-                                                for score in score_list:
-                                                    assert isinstance(score, float)
+                                        if not (multi) and d_y > 1:
+                                            continue
 
-                                            T0 = np.full_like(T, 'a') if is_discrete else np.zeros_like(T)
-                                            eff = est.effect(X, T0=T0, T1=T)
-                                            self.assertEqual(shape(eff), effect_shape)
+                                        if X is None and isinstance(est, CausalForestDML):
+                                            continue
 
-                                            if ((not isinstance(est, KernelDML)) and
-                                                    (not isinstance(est, CausalForestDML))):
-                                                self.assertEqual(shape(est.coef_), coef_shape)
-                                                if fit_cate_intercept:
-                                                    self.assertEqual(shape(est.intercept_), intercept_shape)
-                                                else:
+                                        # ensure we can serialize the unfit estimator
+                                        pickle.dumps(est)
+
+                                        for inf in infs:
+                                            with self.subTest(d_w=d_w, d_x=d_x, d_y=d_y, d_t=d_t,
+                                                              is_discrete=is_discrete, est=est, inf=inf):
+
+                                                if X is None and (not fit_cate_intercept):
                                                     with pytest.raises(AttributeError):
-                                                        self.assertEqual(shape(est.intercept_), intercept_shape)
+                                                        est.fit(Y, T, X=X, W=W, inference=inf)
+                                                    continue
 
-                                            if inf is not None:
-                                                const_marg_eff_int = est.const_marginal_effect_interval(X)
-                                                marg_eff_int = est.marginal_effect_interval(T, X)
-                                                self.assertEqual(shape(marg_eff_int),
-                                                                 (2,) + marginal_effect_shape)
-                                                self.assertEqual(shape(const_marg_eff_int),
-                                                                 (2,) + const_marginal_effect_shape)
-                                                self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
-                                                                 (2,) + effect_shape)
+                                                est.fit(Y, T, X=X, W=W, inference=inf)
+
+                                                # ensure we can pickle the fit estimator
+                                                pickle.dumps(est)
+
+                                                # make sure we can call the marginal_effect and effect methods
+                                                const_marg_eff = est.const_marginal_effect(X)
+                                                marg_eff = est.marginal_effect(T, X)
+                                                self.assertEqual(shape(marg_eff), marginal_effect_shape)
+                                                self.assertEqual(shape(const_marg_eff), const_marginal_effect_shape)
+
+                                                np.testing.assert_allclose(
+                                                    marg_eff if d_x else marg_eff[0:1], const_marg_eff)
+
+                                                assert isinstance(est.score_, float)
+                                                for score_list in est.nuisance_scores_y:
+                                                    for score in score_list:
+                                                        assert isinstance(score, float)
+                                                for score_list in est.nuisance_scores_t:
+                                                    for score in score_list:
+                                                        assert isinstance(score, float)
+
+                                                T0 = np.full_like(T, 'a') if is_discrete else np.zeros_like(T)
+                                                eff = est.effect(X, T0=T0, T1=T)
+                                                self.assertEqual(shape(eff), effect_shape)
+
                                                 if ((not isinstance(est, KernelDML)) and
                                                         (not isinstance(est, CausalForestDML))):
-                                                    self.assertEqual(shape(est.coef__interval()),
-                                                                     (2,) + coef_shape)
+                                                    self.assertEqual(shape(est.coef_), coef_shape)
                                                     if fit_cate_intercept:
-                                                        self.assertEqual(shape(est.intercept__interval()),
-                                                                         (2,) + intercept_shape)
+                                                        self.assertEqual(shape(est.intercept_), intercept_shape)
                                                     else:
                                                         with pytest.raises(AttributeError):
+                                                            self.assertEqual(shape(est.intercept_), intercept_shape)
+
+                                                if inf is not None:
+                                                    const_marg_eff_int = est.const_marginal_effect_interval(X)
+                                                    marg_eff_int = est.marginal_effect_interval(T, X)
+                                                    self.assertEqual(shape(marg_eff_int),
+                                                                     (2,) + marginal_effect_shape)
+                                                    self.assertEqual(shape(const_marg_eff_int),
+                                                                     (2,) + const_marginal_effect_shape)
+                                                    self.assertEqual(shape(est.effect_interval(X, T0=T0, T1=T)),
+                                                                     (2,) + effect_shape)
+                                                    if ((not isinstance(est, KernelDML)) and
+                                                            (not isinstance(est, CausalForestDML))):
+                                                        self.assertEqual(shape(est.coef__interval()),
+                                                                         (2,) + coef_shape)
+                                                        if fit_cate_intercept:
                                                             self.assertEqual(shape(est.intercept__interval()),
                                                                              (2,) + intercept_shape)
+                                                        else:
+                                                            with pytest.raises(AttributeError):
+                                                                self.assertEqual(shape(est.intercept__interval()),
+                                                                                 (2,) + intercept_shape)
 
-                                                const_marg_effect_inf = est.const_marginal_effect_inference(X)
-                                                T1 = np.full_like(T, 'b') if is_discrete else T
-                                                effect_inf = est.effect_inference(X, T0=T0, T1=T1)
-                                                marg_effect_inf = est.marginal_effect_inference(T, X)
-                                                # test const marginal inference
-                                                self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
-                                                                 const_marginal_effect_summaryframe_shape)
-                                                self.assertEqual(shape(const_marg_effect_inf.point_estimate),
-                                                                 const_marginal_effect_shape)
-                                                self.assertEqual(shape(const_marg_effect_inf.stderr),
-                                                                 const_marginal_effect_shape)
-                                                self.assertEqual(shape(const_marg_effect_inf.var),
-                                                                 const_marginal_effect_shape)
-                                                self.assertEqual(shape(const_marg_effect_inf.pvalue()),
-                                                                 const_marginal_effect_shape)
-                                                self.assertEqual(shape(const_marg_effect_inf.zstat()),
-                                                                 const_marginal_effect_shape)
-                                                self.assertEqual(shape(const_marg_effect_inf.conf_int()),
-                                                                 (2,) + const_marginal_effect_shape)
-                                                np.testing.assert_array_almost_equal(
-                                                    const_marg_effect_inf.conf_int()[0],
-                                                    const_marg_eff_int[0], decimal=5)
-                                                const_marg_effect_inf.population_summary()._repr_html_()
+                                                    const_marg_effect_inf = est.const_marginal_effect_inference(X)
+                                                    T1 = np.full_like(T, 'b') if is_discrete else T
+                                                    effect_inf = est.effect_inference(X, T0=T0, T1=T1)
+                                                    marg_effect_inf = est.marginal_effect_inference(T, X)
+                                                    # test const marginal inference
+                                                    self.assertEqual(shape(const_marg_effect_inf.summary_frame()),
+                                                                     const_marginal_effect_summaryframe_shape)
+                                                    self.assertEqual(shape(const_marg_effect_inf.point_estimate),
+                                                                     const_marginal_effect_shape)
+                                                    self.assertEqual(shape(const_marg_effect_inf.stderr),
+                                                                     const_marginal_effect_shape)
+                                                    self.assertEqual(shape(const_marg_effect_inf.var),
+                                                                     const_marginal_effect_shape)
+                                                    self.assertEqual(shape(const_marg_effect_inf.pvalue()),
+                                                                     const_marginal_effect_shape)
+                                                    self.assertEqual(shape(const_marg_effect_inf.zstat()),
+                                                                     const_marginal_effect_shape)
+                                                    self.assertEqual(shape(const_marg_effect_inf.conf_int()),
+                                                                     (2,) + const_marginal_effect_shape)
+                                                    np.testing.assert_array_almost_equal(
+                                                        const_marg_effect_inf.conf_int()[0],
+                                                        const_marg_eff_int[0], decimal=5)
+                                                    const_marg_effect_inf.population_summary()._repr_html_()
 
-                                                # test effect inference
-                                                self.assertEqual(shape(effect_inf.summary_frame()),
-                                                                 effect_summaryframe_shape)
-                                                self.assertEqual(shape(effect_inf.point_estimate),
-                                                                 effect_shape)
-                                                self.assertEqual(shape(effect_inf.stderr),
-                                                                 effect_shape)
-                                                self.assertEqual(shape(effect_inf.var),
-                                                                 effect_shape)
-                                                self.assertEqual(shape(effect_inf.pvalue()),
-                                                                 effect_shape)
-                                                self.assertEqual(shape(effect_inf.zstat()),
-                                                                 effect_shape)
-                                                self.assertEqual(shape(effect_inf.conf_int()),
-                                                                 (2,) + effect_shape)
-                                                np.testing.assert_array_almost_equal(
-                                                    effect_inf.conf_int()[0],
-                                                    est.effect_interval(X, T0=T0, T1=T1)[0], decimal=5)
-                                                effect_inf.population_summary()._repr_html_()
+                                                    # test effect inference
+                                                    self.assertEqual(shape(effect_inf.summary_frame()),
+                                                                     effect_summaryframe_shape)
+                                                    self.assertEqual(shape(effect_inf.point_estimate),
+                                                                     effect_shape)
+                                                    self.assertEqual(shape(effect_inf.stderr),
+                                                                     effect_shape)
+                                                    self.assertEqual(shape(effect_inf.var),
+                                                                     effect_shape)
+                                                    self.assertEqual(shape(effect_inf.pvalue()),
+                                                                     effect_shape)
+                                                    self.assertEqual(shape(effect_inf.zstat()),
+                                                                     effect_shape)
+                                                    self.assertEqual(shape(effect_inf.conf_int()),
+                                                                     (2,) + effect_shape)
+                                                    np.testing.assert_array_almost_equal(
+                                                        effect_inf.conf_int()[0],
+                                                        est.effect_interval(X, T0=T0, T1=T1)[0], decimal=5)
+                                                    effect_inf.population_summary()._repr_html_()
 
-                                                # test marginal effect inference
-                                                self.assertEqual(shape(marg_effect_inf.summary_frame()),
-                                                                 marginal_effect_summaryframe_shape)
-                                                self.assertEqual(shape(marg_effect_inf.point_estimate),
-                                                                 marginal_effect_shape)
-                                                self.assertEqual(shape(marg_effect_inf.stderr),
-                                                                 marginal_effect_shape)
-                                                self.assertEqual(shape(marg_effect_inf.var),
-                                                                 marginal_effect_shape)
-                                                self.assertEqual(shape(marg_effect_inf.pvalue()),
-                                                                 marginal_effect_shape)
-                                                self.assertEqual(shape(marg_effect_inf.zstat()),
-                                                                 marginal_effect_shape)
-                                                self.assertEqual(shape(marg_effect_inf.conf_int()),
-                                                                 (2,) + marginal_effect_shape)
-                                                np.testing.assert_array_almost_equal(
-                                                    marg_effect_inf.conf_int()[0], marg_eff_int[0], decimal=5)
-                                                marg_effect_inf.population_summary()._repr_html_()
+                                                    # test marginal effect inference
+                                                    self.assertEqual(shape(marg_effect_inf.summary_frame()),
+                                                                     marginal_effect_summaryframe_shape)
+                                                    self.assertEqual(shape(marg_effect_inf.point_estimate),
+                                                                     marginal_effect_shape)
+                                                    self.assertEqual(shape(marg_effect_inf.stderr),
+                                                                     marginal_effect_shape)
+                                                    self.assertEqual(shape(marg_effect_inf.var),
+                                                                     marginal_effect_shape)
+                                                    self.assertEqual(shape(marg_effect_inf.pvalue()),
+                                                                     marginal_effect_shape)
+                                                    self.assertEqual(shape(marg_effect_inf.zstat()),
+                                                                     marginal_effect_shape)
+                                                    self.assertEqual(shape(marg_effect_inf.conf_int()),
+                                                                     (2,) + marginal_effect_shape)
+                                                    np.testing.assert_array_almost_equal(
+                                                        marg_effect_inf.conf_int()[0], marg_eff_int[0], decimal=5)
+                                                    marg_effect_inf.population_summary()._repr_html_()
 
-                                                # test coef__inference and intercept__inference
-                                                if ((not isinstance(est, KernelDML)) and
-                                                        (not isinstance(est, CausalForestDML))):
-                                                    if X is not None:
-                                                        self.assertEqual(
-                                                            shape(est.coef__inference().summary_frame()),
-                                                            coef_summaryframe_shape)
-                                                        np.testing.assert_array_almost_equal(
-                                                            est.coef__inference().conf_int()
-                                                            [0], est.coef__interval()[0], decimal=5)
+                                                    # test coef__inference and intercept__inference
+                                                    if ((not isinstance(est, KernelDML)) and
+                                                            (not isinstance(est, CausalForestDML))):
+                                                        if X is not None:
+                                                            self.assertEqual(
+                                                                shape(est.coef__inference().summary_frame()),
+                                                                coef_summaryframe_shape)
+                                                            np.testing.assert_array_almost_equal(
+                                                                est.coef__inference().conf_int()
+                                                                [0], est.coef__interval()[0], decimal=5)
 
-                                                    if fit_cate_intercept:
-                                                        cm = ExitStack()
-                                                        # ExitStack can be used as a "do nothing" ContextManager
-                                                    else:
-                                                        cm = pytest.raises(AttributeError)
-                                                    with cm:
-                                                        self.assertEqual(shape(est.intercept__inference().
-                                                                               summary_frame()),
-                                                                         intercept_summaryframe_shape)
-                                                        np.testing.assert_array_almost_equal(
-                                                            est.intercept__inference().conf_int()
-                                                            [0], est.intercept__interval()[0], decimal=5)
+                                                        if fit_cate_intercept:
+                                                            cm = ExitStack()
+                                                            # ExitStack can be used as a "do nothing" ContextManager
+                                                        else:
+                                                            cm = pytest.raises(AttributeError)
+                                                        with cm:
+                                                            self.assertEqual(shape(est.intercept__inference().
+                                                                                   summary_frame()),
+                                                                             intercept_summaryframe_shape)
+                                                            np.testing.assert_array_almost_equal(
+                                                                est.intercept__inference().conf_int()
+                                                                [0], est.intercept__interval()[0], decimal=5)
 
-                                                    est.summary()
+                                                        est.summary()
 
-                                            est.score(Y, T, X, W)
+                                                est.score(Y, T, X, W)
 
-                                            if isinstance(est, CausalForestDML):
-                                                np.testing.assert_array_equal(est.feature_importances_.shape,
-                                                                              ((d_y,) if d_y > 0 else ()) + fd_x)
+                                                if isinstance(est, CausalForestDML):
+                                                    np.testing.assert_array_equal(est.feature_importances_.shape,
+                                                                                  ((d_y,) if d_y > 0 else ()) + fd_x)
 
-                                            # make sure we can call effect with implied scalar treatments,
-                                            # no matter the dimensions of T, and also that we warn when there
-                                            # are multiple treatments
-                                            if d_t > 1:
-                                                cm = self.assertWarns(Warning)
-                                            else:
-                                                # ExitStack can be used as a "do nothing" ContextManager
-                                                cm = ExitStack()
-                                            with cm:
-                                                effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else ())
-                                                eff = est.effect(X) if not is_discrete else est.effect(
-                                                    X, T0='a', T1='b')
-                                                self.assertEqual(shape(eff), effect_shape2)
+                                                # make sure we can call effect with implied scalar treatments,
+                                                # no matter the dimensions of T, and also that we warn when there
+                                                # are multiple treatments
+                                                if d_t > 1:
+                                                    cm = self.assertWarns(Warning)
+                                                else:
+                                                    # ExitStack can be used as a "do nothing" ContextManager
+                                                    cm = ExitStack()
+                                                with cm:
+                                                    effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else ())
+                                                    eff = est.effect(X) if not is_discrete else est.effect(
+                                                        X, T0='a', T1='b')
+                                                    self.assertEqual(shape(eff), effect_shape2)
 
     def test_cate_api_nonparam(self):
         """Test that we correctly implement the CATE API."""
@@ -1183,3 +1196,38 @@ class TestDML(unittest.TestCase):
         est = LinearDML(model_y=LassoCV(cv=5), model_t=LassoCV(cv=5), cv=GroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, groups=groups)
+
+    def test_treatment_names(self):
+        Y = np.random.normal(size=(100, 1))
+        T = np.random.binomial(n=1, p=0.5, size=(100, 1))
+        X = np.random.normal(size=(100, 3))
+
+        Ts = [
+            T,
+            pd.DataFrame(T, columns=[0])
+        ]
+
+        init_args_list = [
+            {'discrete_treatment': True},
+            {'treatment_featurizer': PolynomialFeatures(degree=2, include_bias=False)},
+            {'treatment_featurizer': FunctionTransformer(lambda x: np.hstack([x, np.sqrt(x)]))},
+        ]
+
+        for T in Ts:
+            for init_args in init_args_list:
+                est = LinearDML(**init_args).fit(Y=Y, T=T, X=X)
+                t_name = '0' if isinstance(T, pd.DataFrame) else 'T0'  # default treatment name
+                postfixes = ['_1'] if 'discrete_treatment' in init_args else ['', '^2']  # transformer postfixes
+
+                # Try default, integer, and new user-passed treatment name
+                for new_treatment_name in [None, [999], ['NewTreatmentName']]:
+
+                    # FunctionTransformers are agnostic to passed treatment names
+                    if isinstance(init_args.get('treatment_featurizer'), FunctionTransformer):
+                        assert (est.cate_treatment_names(new_treatment_name) == ['feat(T)0', 'feat(T)1'])
+
+                    # Expected treatment names are the sums of user-passed prefixes and transformer-specific postfixes
+                    else:
+                        expected_prefix = str(new_treatment_name[0]) if new_treatment_name is not None else t_name
+                        assert (est.cate_treatment_names(new_treatment_name) == [
+                                expected_prefix + postfix for postfix in postfixes])

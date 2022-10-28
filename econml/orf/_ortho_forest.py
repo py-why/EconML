@@ -40,8 +40,8 @@ from ._causal_tree import CausalTree
 from ..inference import NormalInferenceResults
 from ..inference._inference import Inference
 from ..utilities import (reshape, reshape_Y_T, MAX_RAND_SEED, check_inputs, _deprecate_positional,
-                         cross_product, inverse_onehot, check_input_arrays,
-                         _RegressionWrapper, deprecated)
+                         cross_product, inverse_onehot, check_input_arrays, jacify_featurizer,
+                         _RegressionWrapper, deprecated, ndim)
 from sklearn.model_selection import check_cv
 # TODO: consider working around relying on sklearn implementation details
 from ..sklearn_extensions.model_selection import _cross_val_predict
@@ -209,6 +209,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                  second_stage_parameter_estimator,
                  moment_and_mean_gradient_estimator,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  n_trees=500,
                  min_leaf_size=10, max_depth=10,
@@ -244,6 +245,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         # Fit check
         self.model_is_fitted = False
         self.discrete_treatment = discrete_treatment
+        self.treatment_featurizer = treatment_featurizer
         self.backend = backend
         self.verbose = verbose
         self.batch_size = batch_size
@@ -312,7 +314,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
 
         Returns
         -------
-        Theta : matrix , shape (n, d_t)
+        Theta : matrix , shape (n, d_f_t) where d_f_t is \
+            the dimension of the featurized treatment. If treatment_featurizer is None, d_f_t = d_t
             Constant marginal CATE of each treatment for each sample.
         """
         # TODO: Check performance
@@ -501,6 +504,11 @@ class DMLOrthoForest(BaseOrthoForest):
         one-hot-encoded and the model_T is treated as a classifier that must have a predict_proba
         method.
 
+    treatment_featurizer : :term:`transformer`, optional
+        Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
+        The final CATE will be trained on the outcome of featurizer.fit_transform(T).
+        If featurizer=None, then CATE is trained on T.
+
     categories : array like or 'auto', optional (default='auto')
         A list of pre-specified treatment categories. If 'auto' then categories are automatically
         recognized at fit time.
@@ -540,6 +548,7 @@ class DMLOrthoForest(BaseOrthoForest):
                  global_residualization=False,
                  global_res_cv=2,
                  discrete_treatment=False,
+                 treatment_featurizer=None,
                  categories='auto',
                  n_jobs=-1,
                  backend='loky',
@@ -567,6 +576,7 @@ class DMLOrthoForest(BaseOrthoForest):
         self.random_state = check_random_state(random_state)
         self.global_residualization = global_residualization
         self.global_res_cv = global_res_cv
+        self.treatment_featurizer = treatment_featurizer
         # Define nuisance estimators
         nuisance_estimator = _DMLOrthoForest_nuisance_estimator_generator(
             self.model_T, self.model_Y, self.random_state, second_stage=False,
@@ -580,6 +590,7 @@ class DMLOrthoForest(BaseOrthoForest):
             self.lambda_reg)
         # Define
         moment_and_mean_gradient_estimator = _DMLOrthoForest_moment_and_mean_gradient_estimator_func
+
         super().__init__(
             nuisance_estimator,
             second_stage_nuisance_estimator,
@@ -596,6 +607,7 @@ class DMLOrthoForest(BaseOrthoForest):
             verbose=verbose,
             batch_size=batch_size,
             discrete_treatment=discrete_treatment,
+            treatment_featurizer=treatment_featurizer,
             categories=categories,
             random_state=self.random_state)
 
@@ -635,6 +647,9 @@ class DMLOrthoForest(BaseOrthoForest):
         """
         self._set_input_names(Y, T, X, set_flag=True)
         Y, T, X, W = check_inputs(Y, T, X, W)
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
+            "is not supported when treatment is discrete"
+
         if self.discrete_treatment:
             categories = self.categories
             if categories != 'auto':
@@ -643,6 +658,12 @@ class DMLOrthoForest(BaseOrthoForest):
             d_t_in = T.shape[1:]
             T = self.transformer.fit_transform(T.reshape(-1, 1))
             self._d_t = T.shape[1:]
+        elif self.treatment_featurizer:
+            self._original_treatment_featurizer = clone(self.treatment_featurizer, safe=False)
+            self.transformer = jacify_featurizer(self.treatment_featurizer)
+            d_t_in = T.shape[1:]
+            T = self.transformer.fit_transform(T)
+            self._d_t = np.shape(T)[1:]
 
         if self.global_residualization:
             cv = check_cv(self.global_res_cv, y=T, classifier=self.discrete_treatment)
@@ -654,7 +675,7 @@ class DMLOrthoForest(BaseOrthoForest):
 
         # weirdness of wrap_fit. We need to store d_t_in. But because wrap_fit decorates the parent
         # fit, we need to set explicitly d_t_in here after super fit is called.
-        if self.discrete_treatment:
+        if self.discrete_treatment or self.treatment_featurizer:
             self._d_t_in = d_t_in
         return self
 
@@ -995,12 +1016,44 @@ class DROrthoForest(BaseOrthoForest):
         self._d_t_in = d_t_in
         return self
 
+    # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_effect(self, X):
+        """Calculate the constant marginal CATE θ(·) conditional on a vector of features X.
+
+        Parameters
+        ----------
+        X : array-like, shape (n, d_x)
+            Feature vector that captures heterogeneity.
+
+        Returns
+        -------
+        Theta : matrix , shape (n, d_t)
+            Constant marginal CATE of each treatment for each sample.
+        """
         X = check_array(X)
         # Override to flatten output if T is flat
         effects = super().const_marginal_effect(X=X)
         return effects.reshape((-1,) + self._d_y + self._d_t)
-    const_marginal_effect.__doc__ = BaseOrthoForest.const_marginal_effect.__doc__
+
+    # override only so that we can exclude treatment featurization verbiage in docstring
+    def const_marginal_ate(self, X=None):
+        """
+        Calculate the average constant marginal CATE :math:`E_X[\\theta(X)]`.
+
+        Parameters
+        ----------
+        X: optional (m, d_x) matrix or None (Default=None)
+            Features for each sample.
+
+        Returns
+        -------
+        theta: (d_y, d_t) matrix
+            Average constant marginal CATE of each treatment on each outcome.
+            Note that when Y or T is a vector rather than a 2-dimensional array,
+            the corresponding singleton dimensions in the output will be collapsed
+            (e.g. if both are vectors, then the output of this method will be a scalar)
+        """
+        return super().const_marginal_ate(X=X)
 
     @staticmethod
     def nuisance_estimator_generator(propensity_model, model_Y, random_state=None, second_stage=False):
@@ -1162,6 +1215,10 @@ class BLBInference(Inference):
         This is called after the estimator's fit.
         """
         self._estimator = estimator
+        self._d_t = estimator._d_t
+        self._d_y = estimator._d_y
+        self.d_t = self._d_t[0] if self._d_t else 1
+        self.d_y = self._d_y[0] if self._d_y else 1
         # Test whether the input estimator is supported
         if not hasattr(self._estimator, "_predict"):
             raise TypeError("Unsupported estimator of type {}.".format(self._estimator.__class__.__name__) +
@@ -1299,6 +1356,81 @@ class BLBInference(Inference):
                                       feature_names=self._estimator.cate_feature_names(),
                                       output_names=self._estimator.cate_output_names(),
                                       treatment_names=self._estimator.cate_treatment_names())
+
+    def _marginal_effect_inference_helper(self, T, X):
+        if not self._estimator._original_treatment_featurizer:
+            return self.const_marginal_effect_inference(X)
+
+        X, T = check_input_arrays(X, T)
+        X, T = self._estimator._expand_treatments(X, T, transform=False)
+
+        feat_T = self._estimator.transformer.transform(T)
+
+        jac_T = self._estimator.transformer.jac(T)
+
+        params, cov = zip(*(self._predict_wrapper(X)))
+        params = np.array(params)
+        cov = np.array(cov)
+
+        eff_einsum_str = 'mf, mtf-> mt'
+
+        # conditionally expand jacobian dimensions to align with einsum str
+        jac_index = [slice(None), slice(None), slice(None)]
+        if ndim(T) == 1:
+            jac_index[1] = None
+        if ndim(feat_T) == 1:
+            jac_index[2] = None
+
+        # Calculate the effects
+        eff = np.einsum(eff_einsum_str, params, jac_T[tuple(jac_index)])
+
+        # Calculate the standard deviations for the effects
+        d_t_orig = T.shape[1:]
+        d_t_orig = d_t_orig[0] if d_t_orig else 1
+        self.d_t_orig = d_t_orig
+        output_shape = [X.shape[0]]
+        if T.shape[1:]:
+            output_shape.append(T.shape[1])
+        scales = np.zeros(shape=output_shape)
+
+        for i in range(d_t_orig):
+            # conditionally index multiple dimensions depending on shapes of T, Y and feat_T
+            jac_index = [slice(None)]
+            me_index = [slice(None)]
+            if T.shape[1:]:
+                jac_index.append(i)
+                me_index.append(i)
+
+            if feat_T.shape[1:]:  # if featurized T is not a vector
+                jac_index.append(slice(None))
+            else:
+                jac_index.append(None)
+
+            jac = jac_T[tuple(jac_index)]
+            final = np.einsum('mj, mjk, mk -> m', jac, cov, jac)
+            scales[tuple(me_index)] = final
+
+        eff = eff.reshape((-1,) + self._d_y + T.shape[1:])
+        scales = scales.reshape((-1,) + self._d_y + T.shape[1:])
+        return eff, scales
+
+    def marginal_effect_inference(self, T, X):
+        if self._estimator._original_treatment_featurizer is None:
+            return self.const_marginal_effect_inference(X)
+
+        eff, scales = self._marginal_effect_inference_helper(T, X)
+
+        d_y = self._d_y[0] if self._d_y else 1
+        d_t = self._d_t[0] if self._d_t else 1
+
+        return NormalInferenceResults(d_t=self.d_t_orig, d_y=d_y,
+                                      pred=eff, pred_stderr=scales, mean_pred_stderr=None, inf_type='effect',
+                                      feature_names=self._estimator.cate_feature_names(),
+                                      output_names=self._estimator.cate_output_names(),
+                                      treatment_names=self._estimator.cate_treatment_names())
+
+    def marginal_effect_interval(self, T, X, *, alpha=0.05):
+        return self.marginal_effect_inference(T, X).conf_int(alpha=alpha)
 
     def _predict_wrapper(self, X=None):
         return self._estimator._predict(X, stderr=True)

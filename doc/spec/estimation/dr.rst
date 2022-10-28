@@ -511,8 +511,8 @@ Usage FAQs
 
 
 
-Usage FAQs
-==========
+Usage Examples
+==============
 
 Check out the following Jupyter notebooks:
 
