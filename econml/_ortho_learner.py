@@ -60,7 +60,7 @@ def _crossfit(model, folds, *args, **kwargs):
         function estimates a model of the nuisance function, based on the input
         data to fit. Predict evaluates the fitted nuisance function on the input
         data to predict.
-    folds : list of tuples or None
+    folds : list of tuple or None
         The crossfitting fold structure. Every entry in the list is a tuple whose
         first element are the training indices of the args and kwargs data and
         the second entry are the test indices. If the union of the test indices
@@ -79,11 +79,11 @@ def _crossfit(model, folds, *args, **kwargs):
 
     Returns
     -------
-    nuisances : tuple of numpy matrices
+    nuisances : tuple of array_like
         Each entry in the tuple is a nuisance parameter matrix. Each row i-th in the
         matrix corresponds to the value of the nuisance parameter for the i-th input
         sample.
-    model_list : list of objects of same type as input model
+    model_list : list of object of same type as input model
         The cloned and fitted models for each fold. Can be used for inspection of the
         variability of the fitted models across folds.
     fitted_inds : np array1d
@@ -291,10 +291,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
@@ -427,7 +427,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         If the model_final has a score method, then `score_` contains the outcome of the final model
         score when evaluated on the fitted nuisances from the first stage. Represents goodness of fit,
         of the final CATE model.
-    nuisance_scores_ : tuple of nested lists of floats or None
+    nuisance_scores_ : tuple of list of list of float or None
         The out-of-sample scores from training each nuisance model
     """
 
@@ -562,19 +562,19 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional (n, d_x) matrix or None (Default=None)
+        X: (n, d_x) matrix, optional
             Features for each sample
-        W: optional (n, d_w) matrix or None (Default=None)
+        W: (n, d_w) matrix, optional
             Controls for each sample
-        Z: optional (n, d_z) matrix or None (Default=None)
+        Z: (n, d_z) matrix, optional
             Instruments for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n, ) array like of integers, default None
+        freq_weight: (n, ) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
+        sample_var : {(n,), (n, d_y)} nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -583,7 +583,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache the inputs and computed nuisances, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`).
         only_final: bool, defaul False
@@ -859,13 +859,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional (n, d_x) matrix or None (Default=None)
+        X: (n, d_x) matrix, optional
             Features for each sample
-        W: optional (n, d_w) matrix or None (Default=None)
+        W: (n, d_w) matrix, optional
             Controls for each sample
-        Z: optional (n, d_z) matrix or None (Default=None)
+        Z: (n, d_z) matrix, optional
             Instruments for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
+        sample_weight:(n,) vector, optional
             Weights for each samples
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.

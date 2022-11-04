@@ -74,17 +74,17 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         Parameters
         ----------
-        Y : array-like, shape (n, ) or (n, d_y)
+        Y : array_like, shape (n, ) or (n, d_y)
             Outcome(s) for the treatment policy.
 
-        T : array-like, shape (n, ) or (n, 1)
+        T : array_like, shape (n, ) or (n, 1)
             Treatment policy. Only binary treatments are accepted as input.
             T will be flattened if shape is (n, 1).
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        inference : string, :class:`.Inference` instance, or None
+        inference : str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`)
 
@@ -187,17 +187,17 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         Parameters
         ----------
-        Y : array-like, shape (n, ) or (n, d_y)
+        Y : array_like, shape (n, ) or (n, d_y)
             Outcome(s) for the treatment policy.
 
-        T : array-like, shape (n, ) or (n, 1)
+        T : array_like, shape (n, ) or (n, 1)
             Treatment policy. Only binary treatments are accepted as input.
             T will be flattened if shape is (n, 1).
 
-        X : array-like, shape (n, d_x), optional
+        X : array_like, shape (n, d_x), optional
             Feature vector that captures heterogeneity.
 
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`)
 
@@ -320,17 +320,17 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         Parameters
         ----------
-        Y : array-like, shape (n, ) or (n, d_y)
+        Y : array_like, shape (n, ) or (n, d_y)
             Outcome(s) for the treatment policy.
 
-        T : array-like, shape (n, ) or (n, 1)
+        T : array_like, shape (n, ) or (n, 1)
             Treatment policy. Only binary treatments are accepted as input.
             T will be flattened if shape is (n, 1).
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        inference : string, :class:`.Inference` instance, or None
+        inference : str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`)
 
@@ -474,17 +474,17 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         Parameters
         ----------
-        Y : array-like, shape (n, ) or (n, d_y)
+        Y : array_like, shape (n, ) or (n, d_y)
             Outcome(s) for the treatment policy.
 
-        T : array-like, shape (n, ) or (n, 1)
+        T : array_like, shape (n, ) or (n, 1)
             Treatment policy. Only binary treatments are accepted as input.
             T will be flattened if shape is (n, 1).
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        inference : string, :class:`.Inference` instance, or None
+        inference : str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`)
 

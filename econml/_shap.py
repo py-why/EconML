@@ -34,16 +34,16 @@ def _shap_explain_cme(cme_model, X, d_t, d_y,
         Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
-    feature_names: optional None or list of strings of length X.shape[1] (Default=None)
+    feature_names:  list of str of length X.shape[1], optional
         The names of raw input features.
-    treatment_names: optional None or list (Default=None)
+    treatment_names:  list, optional
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
-    output_names:  optional None or list (Default=None)
+    output_names:  list, optional
         The name of the outcome.
     input_names: dictionary or None
         The parsed names of variables at fit input time of cate estimators
-    background_samples: int or None, (Default=100)
+    background_samples: int , default 100
         How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
@@ -106,18 +106,18 @@ def _shap_explain_model_cate(cme_model, models, X, d_t, d_y, featurizer=None, fe
         Tuple of number of treatment (exclude control in discrete treatment scenario.
     d_y: tuple of int
         Tuple of number of outcome.
-    featurizer: optional None or instance of featurizer
+    featurizer: featurizer, optional
         Fitted Featurizer of feature X.
-    feature_names: optional None or list of strings of length X.shape[1] (Default=None)
+    feature_names:  list of str of length X.shape[1], optional
         The names of raw input features.
-    treatment_names: optional None or list (Default=None)
+    treatment_names:  list, optional
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
-    output_names:  optional None or list (Default=None)
+    output_names:  list, optional
         The name of the outcome.
     input_names: dictionary or None
         The parsed names of variables at fit input time of cate estimators
-    background_samples: int or None, (Default=100)
+    background_samples: int , default 100
         How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
@@ -199,17 +199,17 @@ def _shap_explain_joint_linear_model_cate(model_final, X, d_t, d_y, fit_cate_int
     fit_cate_intercept: bool
         Whether the first entry of the coefficient of the joint linear model associated with
         each treatment, is an intercept.
-    feature_names: optional None or list of strings of length X.shape[1] or X.shape[1]-1 (Default=None)
+    feature_names:  list of str of length X.shape[1] or X.shape[1]-1, optional
         The name of featurized X (exclude intercept). Length is X.shape[1] if fit_cate_intercpet=False, otherwise
         length is X.shape[1]-1.
-    treatment_names: optional None or list (Default=None)
+    treatment_names:  list, optional
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
-    output_names:  optional None or list (Default=None)
+    output_names:  list, optional
         The name of the outcome.
     input_names: dictionary or None
         The parsed names of variables at fit input time of cate estimators
-    background_samples: int or None, (Default=100)
+    background_samples: int , default 100
         How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
@@ -283,18 +283,18 @@ def _shap_explain_multitask_model_cate(cme_model, multitask_model_cate, X, d_t, 
         Tuple of number of treatment (exclude control in discrete treatment scenario).
     d_y: tuple of int
         Tuple of number of outcome.
-    featurizer: optional None or instance of featurizer
+    featurizer: featurizer, optional
         Fitted Featurizer of feature X.
-    feature_names: optional None or list of strings of length X.shape[1] (Default=None)
+    feature_names:  list of str of length X.shape[1], optional
         The names of raw input features.
-    treatment_names: optional None or list (Default=None)
+    treatment_names:  list, optional
         The name of treatment. In discrete treatment scenario, the name should not include the name of
         the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
-    output_names:  optional None or list (Default=None)
+    output_names:  list, optional
         The name of the outcome.
     input_names: dictionary or None
         The parsed names of variables at fit input time of cate estimators
-    background_samples: int or None, (Default=100)
+    background_samples: int , default 100
         How many samples to use to compute the baseline effect. If None then all samples are used.
 
     Returns
@@ -374,7 +374,7 @@ def _define_names(d_t, d_y, treatment_names, output_names, feature_names, input_
         The user provided names of the features
     input_names: dicitionary
         The names of the features, outputs and treatments parsed from the fit input at fit time.
-    featurizer: optional None or instance of featurizer
+    featurizer: sfeaturizer, optional
         Fitted Featurizer of feature X.
 
     Returns

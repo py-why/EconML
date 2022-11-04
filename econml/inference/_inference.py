@@ -62,10 +62,10 @@ class BootstrapInference(Inference):
 
     Parameters
     ----------
-    n_bootstrap_samples : int, optional (default 100)
+    n_bootstrap_samples : int, default 100
         How many draws to perform.
 
-    n_jobs: int, optional (default -1)
+    n_jobs: int, default -1
         The maximum number of concurrently running jobs, as in joblib.Parallel.
 
     verbose: int, default: 0
@@ -461,7 +461,7 @@ class StatsModelsInference(LinearModelFinalInference):
 
     Parameters
     ----------
-    cov_type : string, optional (default 'HC1')
+    cov_type : str, default 'HC1'
         The type of covariance estimation method to use.  Supported values are 'nonrobust',
         'HC0', 'HC1'.
     """
@@ -655,7 +655,7 @@ class StatsModelsInferenceDiscrete(LinearModelFinalInferenceDiscrete):
 
     Parameters
     ----------
-    cov_type : string, optional (default 'HC1')
+    cov_type : str, default 'HC1'
         The type of covariance estimation method to use.  Supported values are 'nonrobust',
         'HC0', 'HC1'.
     """
@@ -684,12 +684,12 @@ class InferenceResults(metaclass=abc.ABCMeta):
         Number of treatments
     d_y: int
         Number of outputs
-    pred : array-like, shape (m, d_y, d_t) or (m, d_y)
+    pred : array_like, shape (m, d_y, d_t) or (m, d_y)
         The prediction of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    inf_type: string
+    inf_type: str
         The type of inference result.
         It could be either 'effect', 'coefficient' or 'intercept'.
     fname_transformer: None or predefined function
@@ -716,7 +716,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        prediction : array-like, shape (m, d_y, d_t) or (m, d_y)
+        prediction : array_like, shape (m, d_y, d_t) or (m, d_y)
             The point estimate of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -732,7 +732,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
+        stderr : array_like, shape (m, d_y, d_t) or (m, d_y)
             The standard error of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -747,7 +747,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Returns
         -------
-        var : array-like, shape (m, d_y, d_t) or (m, d_y)
+        var : array_like, shape (m, d_y, d_t) or (m, d_y)
             The variance of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -764,13 +764,13 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
-        lower, upper: tuple of arrays, shape (m, d_y, d_t) or (m, d_y)
+        lower, upper: tuple of array, shape (m, d_y, d_t) or (m, d_y)
             The lower and the upper bounds of the confidence interval for each quantity.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -785,12 +785,12 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
-        pvalue : array-like, shape (m, d_y, d_t) or (m, d_y)
+        pvalue : array_like, shape (m, d_y, d_t) or (m, d_y)
             The p value of the z test of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -804,12 +804,12 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
-        zstat : array-like, shape (m, d_y, d_t) or (m, d_y)
+        zstat : array_like, shape (m, d_y, d_t) or (m, d_y)
             The z statistic of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -826,23 +826,23 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
+        decimals: int, default 3
             Number of decimal places to round each column to.
-        feature_names: optional list of strings or None (default is None)
+        feature_names: list of str, optional
             The names of the features X
-        output_names: optional list of strings or None (default is None)
+        output_names: list of str, optional
             The names of the outputs
-        treatment_names: optional list of strings or None (default is None)
+        treatment_names: list of str, optional
             The names of the treatments
 
         Returns
         -------
-        output: pandas dataframe
+        output: DataFrame
             The output dataframe includes point estimate, standard error, z score, p value and confidence intervals
             of the estimated metric of each treatment on each outcome for each sample X[i]
         """
@@ -908,18 +908,18 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
+        decimals: int, default 3
             Number of decimal places to round each column to.
-        tol:  optional float (default=0.001)
+        tol:  float, default 0.001
             The stopping criterion. The iterations will stop when the outcome is less than ``tol``
-        output_names: optional list of strings or None (default is None)
+        output_names: list of str, optional
             The names of the outputs
-        treatment_names: optional list of strings or None (default is None)
+        treatment_names: list of str, optional
             The names of the treatments
 
         Returns
@@ -971,7 +971,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        offset: array-like
+        offset: array_like
             The offset by which to translate these results
         """
         # Use broadcast to ensure that the shape of pred isn't being changed due to broadcasting the other direction
@@ -985,7 +985,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        factor: array-like
+        factor: array_like
             The factor by which to scale these results
         """
         # Use broadcast to ensure that the shape of pred isn't being changed due to broadcasting the other direction
@@ -1003,21 +1003,21 @@ class NormalInferenceResults(InferenceResults):
         Number of treatments
     d_y: int
         Number of outputs
-    pred : array-like, shape (m, d_y, d_t) or (m, d_y)
+    pred : array_like, shape (m, d_y, d_t) or (m, d_y)
         The prediction of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    pred_stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
+    pred_stderr : array_like, shape (m, d_y, d_t) or (m, d_y)
         The prediction standard error of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    mean_pred_stderr: None or array-like or scaler, shape (d_y, d_t) or (d_y,)
+    mean_pred_stderr: None or array_like or scaler, shape (d_y, d_t) or (d_y,)
         The standard error of the mean point estimate, this is derived from coefficient stderr when final
         stage is linear model, otherwise it's None.
         This is the exact standard error of the mean, which is not conservative.
-    inf_type: string
+    inf_type: str
         The type of inference result.
         It could be either 'effect', 'coefficient' or 'intercept'.
     fname_transformer: None or predefined function
@@ -1038,7 +1038,7 @@ class NormalInferenceResults(InferenceResults):
 
         Returns
         -------
-        stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
+        stderr : array_like, shape (m, d_y, d_t) or (m, d_y)
             The standard error of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1052,13 +1052,13 @@ class NormalInferenceResults(InferenceResults):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
-        lower, upper: tuple of arrays, shape (m, d_y, d_t) or (m, d_y)
+        lower, upper: tuple of array, shape (m, d_y, d_t) or (m, d_y)
             The lower and the upper bounds of the confidence interval for each quantity.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1081,12 +1081,12 @@ class NormalInferenceResults(InferenceResults):
 
         Parameters
         ----------
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
-        pvalue : array-like, shape (m, d_y, d_t) or (m, d_y)
+        pvalue : array_like, shape (m, d_y, d_t) or (m, d_y)
             The p value of the z test of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1130,9 +1130,9 @@ class EmpiricalInferenceResults(InferenceResults):
 
     Parameters
     ----------
-    pred : array-like, shape (m, d_y, d_t) or (m, d_y)
+    pred : array_like, shape (m, d_y, d_t) or (m, d_y)
         the point estimates of the metric using the full sample
-    pred_dist : array-like, shape (b, m, d_y, d_t) or (b, m, d_y)
+    pred_dist : array_like, shape (b, m, d_y, d_t) or (b, m, d_y)
         the raw predictions of the metric sampled b times.
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
@@ -1140,7 +1140,7 @@ class EmpiricalInferenceResults(InferenceResults):
         Number of treatments
     d_y: int
         Number of outputs
-    inf_type: string
+    inf_type: str
         The type of inference result.
         It could be either 'effect', 'coefficient' or 'intercept'.
     fname_transformer: None or predefined function
@@ -1159,7 +1159,7 @@ class EmpiricalInferenceResults(InferenceResults):
 
         Returns
         -------
-        stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
+        stderr : array_like, shape (m, d_y, d_t) or (m, d_y)
             The standard error of the metric of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1173,13 +1173,13 @@ class EmpiricalInferenceResults(InferenceResults):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
-        lower, upper: tuple of arrays, shape (m, d_y, d_t) or (m, d_y)
+        lower, upper: tuple of array, shape (m, d_y, d_t) or (m, d_y)
             The lower and the upper bounds of the confidence interval for each quantity.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1195,12 +1195,12 @@ class EmpiricalInferenceResults(InferenceResults):
 
         Parameters
         ----------
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
-        pvalue : array-like, shape (m, d_y, d_t) or (m, d_y)
+        pvalue : array_like, shape (m, d_y, d_t) or (m, d_y)
             The p value of of each treatment on each outcome for each sample X[i].
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1247,17 +1247,17 @@ class PopulationSummaryResults:
         Number of treatments
     d_y: int
         Number of outputs
-    pred : array-like, shape (m, d_y, d_t) or (m, d_y)
+    pred : array_like, shape (m, d_y, d_t) or (m, d_y)
         The prediction of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    pred_stderr : array-like, shape (m, d_y, d_t) or (m, d_y)
+    pred_stderr : array_like, shape (m, d_y, d_t) or (m, d_y)
         The prediction standard error of the metric for each sample X[i].
         Note that when Y or T is a vector rather than a 2-dimensional array,
         the corresponding singleton dimensions should be collapsed
         (e.g. if both are vectors, then the input of this argument will also be a vector)
-    mean_pred_stderr: None or array-like or scalar, shape (d_y, d_t) or (d_y,)
+    mean_pred_stderr: None or array_like or scalar, shape (d_y, d_t) or (d_y,)
         The standard error of the mean point estimate, this is derived from coefficient stderr when final
         stage is linear model, otherwise it's None.
         This is the exact standard error of the mean, which is not conservative.
@@ -1270,9 +1270,9 @@ class PopulationSummaryResults:
         Number of decimal places to round each column to.
     tol: float, default 0.001
         The stopping criterion. The iterations will stop when the outcome is less than ``tol``
-    output_names: optional list of strings or None (default is None)
+    output_names: list of str, optional
             The names of the outputs
-    treatment_names: optional list of strings or None (default is None)
+    treatment_names: list of str, optional
         The names of the treatments
 
     """
@@ -1307,7 +1307,7 @@ class PopulationSummaryResults:
 
         Returns
         -------
-        mean_point : array-like, shape (d_y, d_t)
+        mean_point : array_like, shape (d_y, d_t)
             The point estimate of each treatment on each outcome for sample X.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1323,7 +1323,7 @@ class PopulationSummaryResults:
 
         Returns
         -------
-        stderr_mean : array-like, shape (d_y, d_t)
+        stderr_mean : array_like, shape (d_y, d_t)
             The standard error of the mean point estimate of each treatment on each outcome for sample X.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1341,12 +1341,12 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        value: optional float
+        value:  float, optional
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
-        zstat : array-like, shape (d_y, d_t)
+        zstat : array_like, shape (d_y, d_t)
             The z statistic of the mean point estimate of each treatment on each outcome for sample X.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1362,12 +1362,12 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        value: optional float
+        value:  float, optional
             The mean value of the metric you'd like to test under null hypothesis.
 
         Returns
         -------
-        pvalue : array-like, shape (d_y, d_t)
+        pvalue : array_like, shape (d_y, d_t)
             The p value of the z test of each treatment on each outcome for sample X.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1383,13 +1383,13 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha: optional float in [0, 1]
+        alpha:  float in [0, 1], optional
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
-        lower, upper: tuple of arrays, shape (d_y, d_t)
+        lower, upper: tuple of array, shape (d_y, d_t)
             The lower and the upper bounds of the confidence interval for each quantity.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1414,7 +1414,7 @@ class PopulationSummaryResults:
 
         Returns
         -------
-        std_point : array-like, shape (d_y, d_t)
+        std_point : array_like, shape (d_y, d_t)
             The standard deviation of the point estimate of each treatment on each outcome for sample X.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1428,13 +1428,13 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
-        lower, upper: tuple of arrays, shape (d_y, d_t)
+        lower, upper: tuple of array, shape (d_y, d_t)
             The lower and the upper bounds of the confidence interval for each quantity.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1451,7 +1451,7 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha: optional float in [0, 1]
+        alpha:  float in [0, 1], optional
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
         tol:  optinal float
@@ -1459,7 +1459,7 @@ class PopulationSummaryResults:
 
         Returns
         -------
-        lower, upper: tuple of arrays, shape (d_y, d_t)
+        lower, upper: tuple of array, shape (d_y, d_t)
             The lower and the upper bounds of the confidence interval for each quantity.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1480,7 +1480,7 @@ class PopulationSummaryResults:
 
         Returns
         -------
-        stderr_point : array-like, shape (d_y, d_t)
+        stderr_point : array_like, shape (d_y, d_t)
             The standard error of the point estimate of each treatment on each outcome for sample X.
             Note that when Y or T is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
@@ -1494,18 +1494,18 @@ class PopulationSummaryResults:
 
         Parameters
         ----------
-        alpha: optional float in [0, 1]
+        alpha:  float in [0, 1], optional
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optional float
+        value:  float, optional
             The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optional int
+        decimals:  int, optional
             Number of decimal places to round each column to.
-        tol:  optional float
+        tol:  float, optional
             The stopping criterion. The iterations will stop when the outcome is less than ``tol``
-        output_names: optional list of strings or None (default is None)
+        output_names: list of str, optional
                 The names of the outputs
-        treatment_names: optional list of strings or None (default is None)
+        treatment_names: list of str, optional
             The names of the treatments
 
         Returns

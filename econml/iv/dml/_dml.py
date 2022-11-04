@@ -222,19 +222,19 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous instrument.
 
-    projection: bool, optional, default False
+    projection: bool, default False
         If True, we fit a slight variant of OrthoIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
         model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default False
+    fit_cate_intercept : bool, default False
         Whether the linear CATE model should have a constant term.
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -242,14 +242,14 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
 
-    discrete_instrument: bool, optional, default False
+    discrete_instrument: bool, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -266,14 +266,15 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -442,17 +443,17 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
+        sample_var : {(n,), (n, d_y)} nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -461,7 +462,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string,:class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`) and 'auto'
             (or an instance of :class:`.LinearModelFinalInference`)
@@ -500,13 +501,13 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        Z: optional(n, d_z) matrix
+        Z: (n, d_z) matrix, optional
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
+        sample_weight:(n,) vector, optional
             Weights for each samples
 
 
@@ -543,13 +544,13 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         Parameters
         ----------
-        feature_names: list of strings of length X.shape[1] or None
+        feature_names: list of str of length X.shape[1] or None
             The names of the input features. If None and X is a dataframe, it defaults to the column names
             from the dataframe.
 
         Returns
         -------
-        out_feature_names: list of strings or None
+        out_feature_names: list of str or None
             The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
             final CATE model for each treatment is linear. It is the names of the features that are associated
             with each entry of the :meth:`coef_` parameter. Available only when the featurizer is not None and has
@@ -796,17 +797,17 @@ class _BaseDMLIV(_OrthoLearner):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional (n, d_w) matrix or None (Default=None)
+        W: (n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
+        sample_var : {(n,), (n, d_y)} nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -815,7 +816,7 @@ class _BaseDMLIV(_OrthoLearner):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`)
 
@@ -844,11 +845,11 @@ class _BaseDMLIV(_OrthoLearner):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
+        sample_weight:(n,) vector, optional
             Weights for each samples
 
 
@@ -972,13 +973,13 @@ class _BaseDMLIV(_OrthoLearner):
 
         Parameters
         ----------
-        feature_names: list of strings of length X.shape[1] or None
+        feature_names: list of str of length X.shape[1] or None
             The names of the input features. If None and X is a dataframe, it defaults to the column names
             from the dataframe.
 
         Returns
         -------
-        out_feature_names: list of strings or None
+        out_feature_names: list of str or None
             The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
             final constant marginal CATE model is linear. It is the names of the features that are associated
             with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
@@ -1037,13 +1038,13 @@ class DMLIV(_BaseDMLIV):
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    discrete_instrument: bool, optional, default False
+    discrete_instrument: bool, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -1055,7 +1056,7 @@ class DMLIV(_BaseDMLIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1072,16 +1073,17 @@ class DMLIV(_BaseDMLIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
@@ -1238,7 +1240,7 @@ class DMLIV(_BaseDMLIV):
 
         Returns
         -------
-        coef: (n_x,) or (n_t, n_x) or (n_y, n_t, n_x) array like
+        coef: (n_x,) or (n_t, n_x) or (n_y, n_t, n_x) array_like
             Where n_x is the number of features that enter the final model (either the
             dimension of X or the dimension of featurizer.fit_transform(X) if the CATE
             estimator has a featurizer.), n_t is the number of treatments, n_y is
@@ -1257,7 +1259,7 @@ class DMLIV(_BaseDMLIV):
 
         Returns
         -------
-        intercept: float or (n_y,) or (n_y, n_t) array like
+        intercept: float or (n_y,) or (n_y, n_t) array_like
             Where n_t is the number of treatments, n_y is
             the number of outcomes. Dimensions are omitted if the original input was
             a vector and not a 2D array. For binary treatment the n_t dimension is
@@ -1275,13 +1277,13 @@ class DMLIV(_BaseDMLIV):
 
         Parameters
         ----------
-        decimals: optinal int (default=3)
+        decimals: int, default 3
             Number of decimal places to round each column to.
-        feature_names: optional list of strings or None (default is None)
+        feature_names: list of str, optional
             The input of the feature names
-        treatment_names: optional list of strings or None (default is None)
+        treatment_names: list of str, optional
             The names of the treatments
-        output_names: optional list of strings or None (default is None)
+        output_names: list of str, optional
             The names of the outputs
 
         Returns
@@ -1430,7 +1432,7 @@ class NonParamDMLIV(_BaseDMLIV):
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -1438,14 +1440,14 @@ class NonParamDMLIV(_BaseDMLIV):
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
 
-    discrete_instrument: bool, optional, default False
+    discrete_instrument: bool, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1462,14 +1464,15 @@ class NonParamDMLIV(_BaseDMLIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used

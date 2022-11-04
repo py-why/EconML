@@ -180,7 +180,7 @@ class _RLearner(_OrthoLearner):
     mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
@@ -345,17 +345,17 @@ class _RLearner(_OrthoLearner):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n, ) array like of integers, default None
+        freq_weight: (n, ) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
+        sample_var : {(n,), (n, d_y)} nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -364,7 +364,7 @@ class _RLearner(_OrthoLearner):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string,:class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`).
 
@@ -393,11 +393,11 @@ class _RLearner(_OrthoLearner):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
+        sample_weight:(n,) vector, optional
             Weights for each samples
 
 

@@ -45,14 +45,14 @@ class RScorer:
         The estimator for fitting the treatment to the features. Must implement
         `fit` and `predict` methods.
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -69,14 +69,15 @@ class RScorer:
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -123,11 +124,11 @@ class RScorer:
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X:  (n × dₓ) matrix, optional
             Features for each sample
-        W: optional (n × d_w) matrix
+        W:  (n × d_w) matrix, optional
             Controls for each sample
-        sample_weight: optional (n,) vector
+        sample_weight:  (n,) vector, optional
             Weights for each row
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
@@ -185,8 +186,8 @@ class RScorer:
 
         Parameters
         ----------
-        cate_models : list of instances of fitted BaseCateEstimator
-        return_scores : bool, optional (default=False)
+        cate_models : list of instance of fitted BaseCateEstimator
+        return_scores : bool, default False
             Whether to return the list scores of each model
         Returns
         -------
@@ -209,10 +210,10 @@ class RScorer:
 
         Parameters
         ----------
-        cate_models : list of instances of fitted BaseCateEstimator
-        eta : double, optional (default=1000)
+        cate_models : list of instance of fitted BaseCateEstimator
+        eta : double, default 1000
             The soft-max parameter for the ensemble
-        return_scores : bool, optional (default=False)
+        return_scores : bool, default False
             Whether to return the list scores of each model
         Returns
         -------

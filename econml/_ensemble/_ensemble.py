@@ -76,16 +76,16 @@ class BaseEnsemble(BaseEstimator, metaclass=ABCMeta):
     ----------
     base_estimator : object
         The base estimator from which the ensemble is built.
-    n_estimators : int, default=10
+    n_estimators : int, default 10
         The number of estimators in the ensemble.
-    estimator_params : list of str, default=tuple()
+    estimator_params : list of str, default tuple()
         The list of attributes to use as parameters when instantiating a
         new base estimator. If none are given, default parameters are used.
     Attributes
     ----------
     base_estimator_ : estimator
         The base estimator from which the ensemble is grown.
-    estimators_ : list of estimators
+    estimators_ : list of estimator
         The collection of fitted base estimators.
     """
 

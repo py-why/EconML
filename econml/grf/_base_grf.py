@@ -139,7 +139,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
@@ -162,7 +162,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
@@ -193,18 +193,18 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The training input samples. Internally, its dtype will be converted
             to ``dtype=np.float64``.
-        T : array-like of shape (n_samples, n_treatments)
+        T : array_like of shape (n_samples, n_treatments)
             The treatment vector for each sample
-        y : array-like of shape (n_samples,) or (n_samples, n_outcomes)
+        y : array_like of shape (n_samples,) or (n_samples, n_outcomes)
             The outcome values for each sample.
-        sample_weight : array-like of shape (n_samples,), default=None
+        sample_weight : array_like of shape (n_samples,), default None
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
-        **kwargs : dictionary of array-like items of shape (n_samples, d_var)
+        **kwargs : dictionary of array_like items of shape (n_samples, d_var)
             Auxiliary random variables that go into the moment function (e.g. instrument, censoring etc)
             Any of these variables will be passed on as is to the `get_pointJ` and
             `get_alpha` method of the children classes.
@@ -428,9 +428,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        max_depth : int, default=4
+        max_depth : int, default 4
             Splits of depth larger than `max_depth` are not used in this calculation
-        depth_decay_exponent: double, default=2.0
+        depth_decay_exponent: double, default 2.0
             The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0.
         Returns
         -------
@@ -470,13 +470,13 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
         Returns
         -------
-        theta(X) : array-like of shape (n_samples, n_outputs)
+        theta(X) : array_like of shape (n_samples, n_outputs)
             The estimated relevant parameters for each row of X
         """
 
@@ -508,13 +508,13 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
         Returns
         -------
-        theta(X)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
+        theta(X)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs)
             The estimated relevant parameters for each row of X
         """
         y_hat = self.predict_tree_average_full(X)
@@ -540,23 +540,23 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        parameter : array-like of shape (n_samples, n_outputs)
+        parameter : array_like of shape (n_samples, n_outputs)
             An estimate of the parameter theta(x) for each sample x in X
-        slice : list of int or None, default=None
+        slice : list of int or None, default None
             If not None, then only the trees with index in slice, will be used to calculate the mean
             and the variance.
-        parallel : bool , default=True
+        parallel : bool , default True
             Whether the averaging should happen using parallelism or not. Parallelism adds some overhead
             but makes it faster with many trees.
 
         Returns
         -------
-        moment : array-like of shape (n_samples, n_outputs)
+        moment : array_like of shape (n_samples, n_outputs)
             The estimated conditional moment M(x; theta(x)) for each sample x in X
-        moment_var : array-like of shape (n_samples, n_outputs)
+        moment_var : array_like of shape (n_samples, n_outputs)
             The variance of the conditional moment Var(M_tree(x; theta(x))) across trees for each sample x
         """
         check_is_fitted(self)
@@ -601,21 +601,21 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        slice : list of int or None, default=None
+        slice : list of int or None, default None
             If not None, then only the trees with index in slice, will be used to calculate the mean
             and the variance.
-        parallel : bool , default=True
+        parallel : bool , default True
             Whether the averaging should happen using parallelism or not. Parallelism adds some overhead
             but makes it faster with many trees.
 
         Returns
         -------
-        alpha : array-like of shape (n_samples, n_outputs)
+        alpha : array_like of shape (n_samples, n_outputs)
             The estimated conditional A, alpha(x) for each sample x in X
-        jac : array-like of shape (n_samples, n_outputs, n_outputs)
+        jac : array_like of shape (n_samples, n_outputs, n_outputs)
             The estimated conditional J, jac(x) for each sample x in X
         """
         check_is_fitted(self)
@@ -652,19 +652,19 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        full : bool, default=False
+        full : bool, default False
             Whether to return the full estimated parameter or only the relevant part
-        point : bool, default=True
+        point : bool, default True
             Whether to return the point estimate theta(x)
-        var : bool, default=False
+        var : bool, default False
             Whether to return the co-variance of the point estimate V(theta(x))
-        project : bool, default=False
+        project : bool, default False
             Whether to project the point estimate using an inner product with a projector, and also
             return the variance of the projection
-        projector : array-like of shape (n_samples, n_outputs)
+        projector : array_like of shape (n_samples, n_outputs)
             The projection vector for each sample. The point estimate theta(x) for each sample will
             be projected and return the inner produce <theta(x), projector(x)> for each sample x.
             Also the variance information will be about the inner product as opposed to the parameter
@@ -672,12 +672,12 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Returns
         -------
-        point : array-like of shape (n_samples, x)
+        point : array_like of shape (n_samples, x)
             The point estimate of the parameter theta(x) or its inner product with projector(x) for each
             sample x in X.
             If `point=False`, this return value is omitted. If `project=True`, then `x=1`. If `project=False`
             and `full=True`, then `x=n_outputs`. If `project=False` and `full=False`, then `x=n_relevant_outputs`.
-        var : array-like of shape (n_samples, x, x) or (n_samples, 1)
+        var : array_like of shape (n_samples, x, x) or (n_samples, 1)
             The covariance of the parameter theta(x) or its inner product with projector(x) for each sample x in X.
             If `var=False`, this return value is omitted. If `project=True`, then return is of shape (n_samples, 1).
             If `project=False` and `full=True`, then `x=n_outputs`. If `project=False` and `full=False`,
@@ -774,20 +774,20 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        interval : bool, default=False
+        interval : bool, default False
             Whether to return a confidence interval too
-        alpha : float in (0, 1), default=0.05
+        alpha : float in (0, 1), default 0.05
             The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
             confidence interval.
 
         Returns
         -------
-        theta(x) : array-like of shape (n_samples, n_outputs)
+        theta(x) : array_like of shape (n_samples, n_outputs)
             The estimated relevant parameters for each row x of X
-        lb(x), ub(x) : array-like of shape (n_samples, n_outputs)
+        lb(x), ub(x) : array_like of shape (n_samples, n_outputs)
             The lower and upper end of the confidence interval for each parameter. Return value is omitted if
             `interval=False`.
         """
@@ -811,20 +811,20 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        interval : bool, default=False
+        interval : bool, default False
             Whether to return a confidence interval too
-        alpha : float in (0, 1), default=0.05
+        alpha : float in (0, 1), default 0.05
             The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
             confidence interval.
 
         Returns
         -------
-        theta(X)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
+        theta(X)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs)
             The estimated relevant parameters for each row of X
-        lb(x), ub(x) : array-like of shape (n_samples, n_relevant_outputs)
+        lb(x), ub(x) : array_like of shape (n_samples, n_relevant_outputs)
             The lower and upper end of the confidence interval for each parameter. Return value is omitted if
             `interval=False`.
         """
@@ -846,16 +846,16 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        alpha : float in (0, 1), default=0.05
+        alpha : float in (0, 1), default 0.05
             The confidence level of the confidence interval. Returns a symmetric (alpha/2, 1-alpha/2)
             confidence interval.
 
         Returns
         -------
-        lb(x), ub(x) : array-like of shape (n_samples, n_relevant_outputs)
+        lb(x), ub(x) : array_like of shape (n_samples, n_relevant_outputs)
             The lower and upper end of the confidence interval for each parameter. Return value is omitted if
             `interval=False`.
         """
@@ -868,15 +868,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
         Returns
         -------
-        theta(x)[1, .., n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
+        theta(x)[1, .., n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs)
             The estimated relevant parameters for each row of X
-        var(theta(x)) : array-like of shape (n_samples, n_relevant_outputs, n_relevant_outputs)
+        var(theta(x)) : array_like of shape (n_samples, n_relevant_outputs, n_relevant_outputs)
             The covariance of theta(x)[1, .., n_relevant_outputs]
         """
         return self._predict_point_and_var(X, full=False, point=True, var=True)
@@ -887,13 +887,13 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
         Returns
         -------
-        var(theta(x)) : array-like of shape (n_samples, n_relevant_outputs, n_relevant_outputs)
+        var(theta(x)) : array_like of shape (n_samples, n_relevant_outputs, n_relevant_outputs)
             The covariance of theta(x)[1, .., n_relevant_outputs]
         """
         return self._predict_point_and_var(X, full=False, point=False, var=True)
@@ -904,13 +904,13 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
         Returns
         -------
-        std(theta(x)) : array-like of shape (n_samples, n_relevant_outputs)
+        std(theta(x)) : array_like of shape (n_samples, n_relevant_outputs)
             The standard deviation of each theta(x)[i] for i in {1, .., n_relevant_outputs}
         """
         return np.sqrt(np.diagonal(self.predict_var(X), axis1=1, axis2=2))
@@ -936,17 +936,17 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        projector : array-like of shape (n_samples, n_relevant_outputs)
+        projector : array_like of shape (n_samples, n_relevant_outputs)
             The projector vector for each sample x in X
 
         Returns
         -------
-        mu(x) : array-like of shape (n_samples, 1)
+        mu(x) : array_like of shape (n_samples, 1)
             The estimated inner product of the relevant parameters with the projector for each row x of X
-        var(mu(x)) : array-like of shape (n_samples, 1)
+        var(mu(x)) : array_like of shape (n_samples, 1)
             The variance of the estimated inner product
         """
         X, projector = self._check_projector(X, projector)
@@ -961,15 +961,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        projector : array-like of shape (n_samples, n_relevant_outputs)
+        projector : array_like of shape (n_samples, n_relevant_outputs)
             The projector vector for each sample x in X
 
         Returns
         -------
-        mu(x) : array-like of shape (n_samples, 1)
+        mu(x) : array_like of shape (n_samples, 1)
             The estimated inner product of the relevant parameters with the projector for each row x of X
         """
         X, projector = self._check_projector(X, projector)
@@ -984,15 +984,15 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        projector : array-like of shape (n_samples, n_relevant_outputs)
+        projector : array_like of shape (n_samples, n_relevant_outputs)
             The projector vector for each sample x in X
 
         Returns
         -------
-        var(mu(x)) : array-like of shape (n_samples, 1)
+        var(mu(x)) : array_like of shape (n_samples, 1)
             The variance of the estimated inner product
         """
         X, projector = self._check_projector(X, projector)

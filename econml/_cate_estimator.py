@@ -25,7 +25,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         """
         Produce a dictionary mapping string names to :class:`.Inference` types.
 
-        This is used by the :meth:`fit` method when a string is passed rather than an :class:`.Inference` type.
+        This is used by the :meth:`fit` method when a str is passed rather than an :class:`.Inference` type.
         """
         return {'bootstrap': BootstrapInference}
 
@@ -102,13 +102,13 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Outcomes for each sample
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample
-        X: optional (n, d_x) matrix
+        X:  (n, d_x) matrix, optional
             Features for each sample
-        W: optional (n, d_w) matrix
+        W:  (n, d_w) matrix, optional
             Controls for each sample
-        Z: optional (n, d_z) matrix
+        Z:  (n, d_z) matrix, optional
             Instruments for each sample
-        inference: optional string, :class:`.Inference` instance, or None
+        inference: str or :class:`.Inference` instance, optional
             Method for performing inference.  All estimators support ``'bootstrap'``
             (or an instance of :class:`.BootstrapInference`), some support other methods as well.
 
@@ -150,7 +150,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Base treatments for each sample
         T1: (m, d_t) matrix or vector of length m
             Target treatments for each sample
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -174,7 +174,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         ----------
         T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -200,7 +200,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Base treatments for each sample
         T1: (m, d_t) matrix or vector of length m
             Target treatments for each sample
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -218,13 +218,13 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        feature_names: list of strings of length X.shape[1] or None
+        feature_names: list of str of length X.shape[1] or None
             The names of the input features. If None and X is a dataframe, it defaults to the column names
             from the dataframe.
 
         Returns
         -------
-        out_feature_names: list of strings or None
+        out_feature_names: list of str or None
             Returns feature names.
         """
         if feature_names is not None:
@@ -241,13 +241,13 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        output_names: list of strings of length Y.shape[1] or None
+        output_names: list of str of length Y.shape[1] or None
             The names of the outcomes. If None and the Y passed to fit was a dataframe,
             it defaults to the column names from the dataframe.
 
         Returns
         -------
-        output_names: list of strings
+        output_names: list of str
             Returns output names.
         """
         if output_names is not None:
@@ -264,13 +264,13 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        treatment_names: list of strings of length T.shape[1] or None
+        treatment_names: list of str of length T.shape[1] or None
             The names of the treatments. If None and the T passed to fit was a dataframe,
             it defaults to the column names from the dataframe.
 
         Returns
         -------
-        treatment_names: list of strings
+        treatment_names: list of str
             Returns treatment names.
         """
         if treatment_names is not None:
@@ -290,7 +290,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         ----------
         T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -309,7 +309,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample, or None
         Ts: sequence of (m, d_t) matrices
             Base treatments for each sample
@@ -340,13 +340,13 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
-        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+        T0:  (m, d_t) matrix or vector of length m, default 0
             Base treatments for each sample
-        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+        T1:  (m, d_t) matrix or vector of length m, default 1
             Target treatments for each sample
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -365,11 +365,11 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
-        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+        T0:  (m, d_t) matrix or vector of length m, default 0
             Base treatments for each sample
-        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+        T1:  (m, d_t) matrix or vector of length m, default 1
             Target treatments for each sample
 
         Returns
@@ -391,9 +391,9 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         ----------
         T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -415,7 +415,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         ----------
         T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -435,13 +435,13 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
-        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+        T0:  (m, d_t) matrix or vector of length m, default 0
             Base treatments for each sample
-        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+        T1:  (m, d_t) matrix or vector of length m, default 1
             Target treatments for each sample
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -460,11 +460,11 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
-        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+        T0:  (m, d_t) matrix or vector of length m, default 0
             Base treatments for each sample
-        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+        T1:  (m, d_t) matrix or vector of length m, default 1
             Target treatments for each sample
 
         Returns
@@ -486,9 +486,9 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         ----------
         T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -510,7 +510,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         ----------
         T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -552,7 +552,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample.
 
         Returns
@@ -581,7 +581,7 @@ class LinearCateEstimator(BaseCateEstimator):
             Base treatments for each sample
         T1: (m, d_t) matrix
             Target treatments for each sample
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -621,7 +621,7 @@ class LinearCateEstimator(BaseCateEstimator):
         ----------
         T: (m, d_t) matrix
             Base treatments for each sample
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -685,9 +685,9 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -707,7 +707,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -725,7 +725,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample.
 
         Returns
@@ -747,9 +747,9 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -769,7 +769,7 @@ class LinearCateEstimator(BaseCateEstimator):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -802,14 +802,14 @@ class LinearCateEstimator(BaseCateEstimator):
         ----------
         X: (m, d_x) matrix
             Features for each sample. Should be in the same shape of fitted X in final stage.
-        feature_names: optional None or list of strings of length X.shape[1] (Default=None)
+        feature_names:  list of str of length X.shape[1], optional
             The names of input features.
-        treatment_names: optional None or list (Default=None)
+        treatment_names:  list, optional
             The name of featurized treatment. In discrete treatment scenario, the name should not include the name of
             the baseline treatment (i.e. the control treatment, which by default is the alphabetically smaller)
-        output_names:  optional None or list (Default=None)
+        output_names:  list, optional
             The name of the outcome.
-        background_samples: int or None, (Default=100)
+        background_samples: int , default 100
             How many samples to use to compute the baseline effect. If None then all samples are used.
 
         Returns
@@ -886,13 +886,13 @@ class TreatmentExpansionMixin(BaseCateEstimator):
 
         Parameters
         ----------
-        treatment_names: list of strings of length T.shape[1] or None
+        treatment_names:  list of str of length T.shape[1], optional
             The names of the treatments. If None and the T passed to fit was a dataframe,
             it defaults to the column names from the dataframe.
 
         Returns
         -------
-        out_treatment_names: list of strings
+        out_treatment_names: list of str
             Returns (possibly expanded) treatment names.
         """
         if treatment_names is not None:
@@ -956,7 +956,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
         Returns
         -------
-        coef: (n_x,) or (n_t, n_x) or (n_y, n_t, n_x) array like
+        coef: (n_x,) or (n_t, n_x) or (n_y, n_t, n_x) array_like
             Where n_x is the number of features that enter the final model (either the
             dimension of X or the dimension of featurizer.fit_transform(X) if the CATE
             estimator has a featurizer.), n_t is the number of treatments, n_y is
@@ -975,7 +975,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
         Returns
         -------
-        intercept: float or (n_y,) or (n_y, n_t) array like
+        intercept: float or (n_y,) or (n_y, n_t) array_like
             Where n_t is the number of treatments, n_y is
             the number of outcomes. Dimensions are omitted if the original input was
             a vector and not a 2D array. For binary treatment the n_t dimension is
@@ -994,7 +994,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1024,7 +1024,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1053,18 +1053,18 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
+        decimals: int, default 3
             Number of decimal places to round each column to.
-        feature_names: optional list of strings or None (default is None)
+        feature_names: list of str, optional
             The input of the feature names
-        treatment_names: optional list of strings or None (default is None)
+        treatment_names: list of str, optional
             The names of the treatments
-        output_names: optional list of strings or None (default is None)
+        output_names: list of str, optional
             The names of the outputs
 
         Returns
@@ -1226,7 +1226,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        coef: (n_x,) or (n_y, n_x) array like
+        coef: (n_x,) or (n_y, n_x) array_like
             Where n_x is the number of features that enter the final model (either the
             dimension of X or the dimension of featurizer.fit_transform(X) if the CATE
             estimator has a featurizer.)
@@ -1247,7 +1247,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Returns
         -------
-        intercept: float or (n_y,) array like
+        intercept: float or (n_y,) array_like
         """
         if not self.fit_cate_intercept_:
             raise AttributeError("No intercept was fitted!")
@@ -1265,7 +1265,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         ----------
         T: alphanumeric
             The input treatment for which we want the coefficients.
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1302,7 +1302,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         ----------
         T: alphanumeric
             The input treatment for which we want the coefficients.
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1338,18 +1338,18 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
+        decimals: int, default 3
             Number of decimal places to round each column to.
-        feature_names: optional list of strings or None (default is None)
+        feature_names: list of str, optional
             The input of the feature names
-        treatment_names: optional list of strings or None (default is None)
+        treatment_names: list of str, optional
             The names of the treatments
-        output_names: optional list of strings or None (default is None)
+        output_names: list of str, optional
             The names of the outputs
 
         Returns

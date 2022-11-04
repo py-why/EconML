@@ -52,7 +52,18 @@ inheritance_graph_attrs = dict(rankdir="TB", size='"7.0, 10.0"',
                                bgcolor='"#ffffff"', center='true', style='solid')
 inheritance_node_attrs = dict(shape='ellipse', fontsize=12,
                               fontname="monspace", height=0.75)
+
 napoleon_use_param = False
+# TODO: enable type aliases
+# napoleon_preprocess_types = True  # needed for type aliases to work
+# napoleon_type_aliases = {
+#     "array_like": ":term:`array_like`",
+#     "ndarray": "~numpy.ndarray",
+#     "RandomState": ":class:`~numpy.random.RandomState`",
+#     "DataFrame": ":class:`~pandas.DataFrame`",
+#     "Series": ":class:`~pandas.Series`",
+# }
+
 autosummary_generate = True
 autodoc_default_options = {'members': None,
                            'show-inheritance': None,
@@ -76,7 +87,7 @@ mathjax3_config = {
 templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
-# You can specify multiple suffix as a list of string:
+# You can specify multiple suffix as a list of strings:
 #
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
@@ -215,11 +226,12 @@ epub_exclude_files = ['search.html']
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+                       'numpy': ('https://numpy.org/doc/stable/', None),
                        'sklearn': ('https://scikit-learn.org/stable/', None),
-                       'matplotlib': ('https://matplotlib.org/', None),
+                       'matplotlib': ('https://matplotlib.org/stable/', None),
                        'shap': ('https://shap.readthedocs.io/en/stable/', None),
-                       'dowhy': ('https://py-why.github.io/dowhy/v0.8/', None)}
+                       'dowhy': ('https://www.pywhy.org/dowhy/v0.8/', None),
+                       'statsmodels': ('https://www.statsmodels.org/stable/', None)}
 
 
 # -- Options for todo extension ----------------------------------------------

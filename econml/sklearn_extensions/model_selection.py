@@ -97,18 +97,18 @@ class WeightedKFold:
 
     Parameters
     ----------
-    n_splits : int, default=3
+    n_splits : int, default 3
         Number of folds. Must be at least 2.
 
-    n_trials : int, default=10
+    n_trials : int, default 10
         Number of times to try sklearn.model_selection.KFold before falling back to another
         weight stratification algorithm.
 
-    shuffle : boolean, optional
+    shuffle : bool, optional
         Whether to shuffle the data before splitting into batches.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default=None
-        If int, random_state is the seed used by the random number generator;
+    random_state : int, RandomState instance, or None, default None
+            If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`. Used when ``shuffle`` == True.
@@ -125,14 +125,14 @@ class WeightedKFold:
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : array_like, shape (n_samples, n_features)
             Training data, where n_samples is the number of samples
             and n_features is the number of features.
 
-        y : array-like, shape (n_samples,)
+        y : array_like, shape (n_samples,)
             The target variable for supervised learning problems.
 
-        sample_weight : array-like, shape (n_samples,)
+        sample_weight : array_like, shape (n_samples,)
             Weights associated with the training data.
         """
         return _split_weighted_sample(self, X, y, sample_weight, is_stratified=False)
@@ -179,18 +179,18 @@ class WeightedStratifiedKFold(WeightedKFold):
 
     Parameters
     ----------
-    n_splits : int, default=3
+    n_splits : int, default 3
         Number of folds. Must be at least 2.
 
-    n_trials : int, default=10
+    n_trials : int, default 10
         Number of times to try sklearn.model_selection.StratifiedKFold before falling back to another
         weight stratification algorithm.
 
-    shuffle : boolean, optional
+    shuffle : bool, optional
         Whether to shuffle the data before splitting into batches.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default=None
-        If int, random_state is the seed used by the random number generator;
+    random_state : int, RandomState instance, or None, default None
+            If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`. Used when ``shuffle`` == True.
@@ -201,14 +201,14 @@ class WeightedStratifiedKFold(WeightedKFold):
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : array_like, shape (n_samples, n_features)
             Training data, where n_samples is the number of samples
             and n_features is the number of features.
 
-        y : array-like, shape (n_samples,)
+        y : array_like, shape (n_samples,)
             The target variable for supervised learning problems.
 
-        sample_weight : array-like, shape (n_samples,)
+        sample_weight : array_like, shape (n_samples,)
             Weights associated with the training data.
         """
         return _split_weighted_sample(self, X, y, sample_weight, is_stratified=True)
@@ -282,20 +282,20 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
     estimator : estimator object implementing 'fit' and 'predict'
         The object to use to fit the data.
 
-    X : array-like of shape (n_samples, n_features)
+    X : array_like of shape (n_samples, n_features)
         The data to fit. Can be, for example a list, or an array at least 2d.
 
-    y : array-like of shape (n_samples,) or (n_samples, n_outputs), \
+    y : array_like of shape (n_samples,) or (n_samples, n_outputs), \
             default=None
         The target variable to try to predict in the case of
         supervised learning.
 
-    groups : array-like of shape (n_samples,), default=None
+    groups : array_like of shape (n_samples,), optional
         Group labels for the samples used while splitting the dataset into
         train/test set. Only used in conjunction with a "Group" :term:`cv`
         instance (e.g., :class:`GroupKFold`).
 
-    cv : int, cross-validation generator or an iterable, default=None
+    cv : int, cross-validation generator or an iterable, default None
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -314,19 +314,19 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
         .. versionchanged:: 0.22
             ``cv`` default value if None changed from 3-fold to 5-fold.
 
-    n_jobs : int, default=None
+    n_jobs : int, default None
         The number of CPUs to use to do the computation.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
 
-    verbose : int, default=0
+    verbose : int, default 0
         The verbosity level.
 
     fit_params : dict, defualt=None
         Parameters to pass to the fit method of the estimator.
 
-    pre_dispatch : int or str, default='2*n_jobs'
+    pre_dispatch : int or str, default '2*n_jobs'
         Controls the number of jobs that get dispatched during parallel
         execution. Reducing this number can be useful to avoid an
         explosion of memory consumption when more jobs get dispatched
@@ -343,12 +343,12 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
             - A str, giving an expression as a function of n_jobs,
               as in '2*n_jobs'
 
-    method : str, default='predict'
+    method : str, default 'predict'
         Invokes the passed method name of the passed estimator. For
         method='predict_proba', the columns correspond to the classes
         in sorted order.
 
-    safe : bool, default=True
+    safe : bool, default True
         Whether to clone with safe option.
 
     Returns

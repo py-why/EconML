@@ -251,7 +251,7 @@ class _PolicyTreeMixin(_TreeExporter):
 
     Parameters
     ----------
-    treatment_names : list of strings, optional, default None
+    treatment_names : list of str, optional
         The names of the two treatments
     """
 
@@ -343,32 +343,32 @@ class _PolicyTreeMPLExporter(_PolicyTreeMixin, _MPLExporter):
 
     Parameters
     ----------
-    treatment_names : list of strings, optional, default None
+    treatment_names : list of str, optional
         The names of the treatments
 
-    title : string, optional, default None
+    title : str, optional
         A title for the final figure to be printed at the top of the page.
 
-    feature_names : list of strings, optional, default None
+    feature_names : list of str, optional
         Names of each of the features.
 
-    max_depth: int or None, optional, default None
+    max_depth: int, optional
         The maximum tree depth to plot
 
-    filled : bool, optional, default False
+    filled : bool, default False
         When set to ``True``, paint nodes to indicate majority class for
         classification, extremity of values for regression, or purity of node
         for multi-output.
 
-    rounded : bool, optional, default False
+    rounded : bool, default False
         When set to ``True``, draw node boxes with rounded corners and use
         Helvetica fonts instead of Times-Roman.
 
-    precision : int, optional, default 3
+    precision : int, default 3
         Number of digits of precision for floating point in the values of
         impurity, threshold and value attributes of each node.
 
-    fontsize : int, optional, default None
+    fontsize : int, optional
         Fontsize for text
     """
 
@@ -396,32 +396,32 @@ class _CateTreeMPLExporter(_CateTreeMixin, _MPLExporter):
     uncertainty_level: float
         the confidence level of the confidence interval included in the tree
 
-    title : string, optional, default None
+    title : str, optional
         A title for the final figure to be printed at the top of the page.
 
-    feature_names : list of strings, optional, default None
+    feature_names : list of str, optional
         Names of each of the features.
 
-    treatment_names : list of strings, optional, default None
+    treatment_names : list of str, optional
         The names of the treatments
 
-    max_depth: int or None, optional, default None
+    max_depth: int, optional
         The maximum tree depth to plot
 
-    filled : bool, optional, default False
+    filled : bool, default False
         When set to ``True``, paint nodes to indicate majority class for
         classification, extremity of values for regression, or purity of node
         for multi-output.
 
-    rounded : bool, optional, default False
+    rounded : bool, default False
         When set to ``True``, draw node boxes with rounded corners and use
         Helvetica fonts instead of Times-Roman.
 
-    precision : int, optional, default 3
+    precision : int, default 3
         Number of digits of precision for floating point in the values of
         impurity, threshold and value attributes of each node.
 
-    fontsize : int, optional, default None
+    fontsize : int, optional
         Fontsize for text
     """
 
@@ -445,42 +445,42 @@ class _PolicyTreeDOTExporter(_PolicyTreeMixin, _DOTExporter):
 
     Parameters
     ----------
-    out_file : file object or string, optional, default None
+    out_file : file object or str, optional
         Handle or name of the output file. If ``None``, the result is
         returned as a string.
 
-    title : string, optional, default None
+    title : str, optional
         A title for the final figure to be printed at the top of the page.
 
-    feature_names : list of strings, optional, default None
+    feature_names : list of str, optional
         Names of each of the features.
 
-    treatment_names : list of strings, optional, default None
+    treatment_names : list of str, optional
         The names of the treatments
 
-    max_depth: int or None, optional, default None
+    max_depth: int, optional
         The maximum tree depth to plot
 
-    filled : bool, optional, default False
+    filled : bool, default False
         When set to ``True``, paint nodes to indicate majority class for
         classification, extremity of values for regression, or purity of node
         for multi-output.
 
-    leaves_parallel : bool, optional, default False
+    leaves_parallel : bool, default False
         When set to ``True``, draw all leaf nodes at the bottom of the tree.
 
-    rotate : bool, optional, default False
+    rotate : bool, default False
         When set to ``True``, orient tree left to right rather than top-down.
 
-    rounded : bool, optional, default False
+    rounded : bool, default False
         When set to ``True``, draw node boxes with rounded corners and use
         Helvetica fonts instead of Times-Roman.
 
-    special_characters : bool, optional, default False
+    special_characters : bool, default False
         When set to ``False``, ignore special characters for PostScript
         compatibility.
 
-    precision : int, optional, default 3
+    precision : int, default 3
         Number of digits of precision for floating point in the values of
         impurity, threshold and value attributes of each node.
     """
@@ -508,42 +508,42 @@ class _CateTreeDOTExporter(_CateTreeMixin, _DOTExporter):
     uncertainty_level: float
         the confidence level of the confidence interval included in the tree
 
-    out_file : file object or string, optional, default None
+    out_file : file object or str, optional
         Handle or name of the output file. If ``None``, the result is
         returned as a string.
 
-    title : string, optional, default None
+    title : str, optional
         A title for the final figure to be printed at the top of the page.
 
-    feature_names : list of strings, optional, default None
+    feature_names : list of str, optional
         Names of each of the features.
 
-    treatment_names : list of strings, optional, default None
+    treatment_names : list of str, optional
         The names of the treatments
 
-    max_depth: int or None, optional, default None
+    max_depth: int, optional
         The maximum tree depth to plot
 
-    filled : bool, optional, default False
+    filled : bool, default False
         When set to ``True``, paint nodes to indicate majority class for
         classification, extremity of values for regression, or purity of node
         for multi-output.
 
-    leaves_parallel : bool, optional, default False
+    leaves_parallel : bool, default False
         When set to ``True``, draw all leaf nodes at the bottom of the tree.
 
-    rotate : bool, optional, default False
+    rotate : bool, default False
         When set to ``True``, orient tree left to right rather than top-down.
 
-    rounded : bool, optional, default False
+    rounded : bool, default False
         When set to ``True``, draw node boxes with rounded corners and use
         Helvetica fonts instead of Times-Roman.
 
-    special_characters : bool, optional, default False
+    special_characters : bool, default False
         When set to ``False``, ignore special characters for PostScript
         compatibility.
 
-    precision : int, optional, default 3
+    precision : int, default 3
         Number of digits of precision for floating point in the values of
         impurity, threshold and value attributes of each node.
     """
@@ -578,15 +578,15 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         out_file : file object
             Handle to write to.
 
-        feature_names : list of strings
+        feature_names : list of str
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments, starting with a name for the baseline/control treatment
             (alphanumerically smallest in case of discrete treatment or the all-zero treatment
             in the case of continuous)
 
-        max_depth: int or None, optional, default None
+        max_depth: int, optional
             The maximum tree depth to plot
 
         filled : bool
@@ -622,16 +622,16 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        title : string
+        title : str
             A title for the final figure to be printed at the top of the page.
 
-        feature_names : list of strings
+        feature_names : list of str
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments
 
-        max_depth: int or None, optional, default None
+        max_depth: int, optional
             The maximum tree depth to plot
 
         filled : bool
@@ -661,39 +661,39 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        out_file : file object or string, optional, default None
+        out_file : file object or str, optional
             Handle or name of the output file. If ``None``, the result is
             returned as a string.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments
 
-        max_depth: int or None, optional, default None
+        max_depth: int, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        leaves_parallel : bool, optional, default True
+        leaves_parallel : bool, default True
             When set to ``True``, draw all leaf nodes at the bottom of the tree.
 
-        rotate : bool, optional, default False
+        rotate : bool, default False
             When set to ``True``, orient tree left to right rather than top-down.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        special_characters : bool, optional, default False
+        special_characters : bool, default False
             When set to ``False``, ignore special characters for PostScript
             compatibility.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
@@ -735,41 +735,41 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         ----------
         out_file : file name to save to
 
-        format : string, optional, default 'pdf'
+        format : str, default 'pdf'
             The file format to render to; must be supported by graphviz
 
-        view : bool, optional, default True
+        view : bool, default True
             Whether to open the rendered result with the default application.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments
 
-        max_depth: int or None, optional, default None
+        max_depth: int, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        leaves_parallel : bool, optional, default True
+        leaves_parallel : bool, default True
             When set to ``True``, draw all leaf nodes at the bottom of the tree.
 
-        rotate : bool, optional, default False
+        rotate : bool, default False
             When set to ``True``, orient tree left to right rather than top-down.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        special_characters : bool, optional, default False
+        special_characters : bool, default False
             When set to ``False``, ignore special characters for PostScript
             compatibility.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
@@ -789,35 +789,35 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        ax : :class:`matplotlib.axes.Axes`, optional, default None
+        ax : :class:`matplotlib.axes.Axes`, optional
             The axes on which to plot
 
-        title : string, optional, default None
+        title : str, optional
             A title for the final figure to be printed at the top of the page.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments
 
-        max_depth: int or None, optional, default None
+        max_depth: int, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
 
-        fontsize : int, optional, default None
+        fontsize : int, optional
             Font size for text
         """
         check_is_fitted(self.tree_model_, 'tree_')

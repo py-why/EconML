@@ -160,10 +160,10 @@ def _pointwise_effect(X_single, Y, T, X, W, w_nonzero, split_inds, slice_weights
 
     Parameters
     ----------
-    X_single : array-like, shape (d_x, )
+    X_single : array_like, shape (d_x, )
         Feature vector that captures heterogeneity for one sample.
 
-    stderr : boolean (default=False)
+    stderr : bool, default False
         Whether to calculate the covariance matrix via bootstrap-of-little-bags.
     """
     # Crossfitting
@@ -258,19 +258,19 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
 
         Parameters
         ----------
-        Y : array-like, shape (n, )
+        Y : array_like, shape (n, )
             Outcome for the treatment policy.
 
-        T : array-like, shape (n, d_t)
+        T : array_like, shape (n, d_t)
             Treatment policy.
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        W : array-like, shape (n, d_w) or None (default=None)
+        W : array_like, shape (n, d_w), optional
             High-dimensional controls.
 
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'blb' (or an instance of :class:`BLBInference`)
 
@@ -309,7 +309,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
 
         Parameters
         ----------
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
         Returns
@@ -449,57 +449,57 @@ class DMLOrthoForest(BaseOrthoForest):
 
     Parameters
     ----------
-    n_trees : integer, optional (default=500)
+    n_trees : int, default 500
         Number of causal estimators in the forest.
 
-    min_leaf_size : integer, optional (default=10)
+    min_leaf_size : int, default 10
         The minimum number of samples in a leaf.
 
-    max_depth : integer, optional (default=10)
+    max_depth : int, default 10
         The maximum number of splits to be performed when expanding the tree.
 
-    subsample_ratio : float, optional (default=0.7)
+    subsample_ratio : float, default 0.7
         The ratio of the total sample to be used when training a causal tree.
         Values greater than 1.0 will be considered equal to 1.0.
         Parameter is ignored when bootstrap=True.
 
-    bootstrap : boolean, optional (default=False)
+    bootstrap : bool, default False
         Whether to use bootstrap subsampling.
 
-    lambda_reg : float, optional (default=0.01)
+    lambda_reg : float, default 0.01
         The regularization coefficient in the ell_2 penalty imposed on the
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
-    model_T : estimator, optional (default=sklearn.linear_model.LassoCV(cv=3))
+    model_T : estimator, default sklearn.linear_model.LassoCV(cv=3)
         The estimator for residualizing the continuous treatment at each leaf.
         Must implement `fit` and `predict` methods.
 
-    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV(cv=3)
+    model_Y :  estimator, default sklearn.linear_model.LassoCV(cv=3)
         The estimator for residualizing the outcome at each leaf. Must implement
         `fit` and `predict` methods.
 
-    model_T_final : estimator, optional (default=None)
+    model_T_final : estimator, optional
         The estimator for residualizing the treatment at prediction time. Must implement
         `fit` and `predict` methods. If parameter is set to ``None``, it defaults to the
         value of `model_T` parameter.
 
-    model_Y_final : estimator, optional (default=None)
+    model_Y_final : estimator, optional
         The estimator for residualizing the outcome at prediction time. Must implement
         `fit` and `predict` methods. If parameter is set to ``None``, it defaults to the
         value of `model_Y` parameter.
 
-    global_residualization : bool, optional (default=False)
+    global_residualization : bool, default False
         Whether to perform a prior residualization of Y and T using the model_Y_final and model_T_final
         estimators, or whether to perform locally weighted residualization at each target point.
         Global residualization is computationally less intensive, but could lose some statistical
         power, especially when W is not None.
 
-    global_res_cv : int, cross-validation generator or an iterable, optional (default=2)
+    global_res_cv : int, cross-validation generator or an iterable, default 2
         The specification of the CV splitter to be used for cross-fitting, when constructing
         the global residuals of Y and T.
 
-    discrete_treatment : bool, optional (default=False)
+    discrete_treatment : bool, default False
         Whether the treatment should be treated as categorical. If True, then the treatment T is
         one-hot-encoded and the model_T is treated as a classifier that must have a predict_proba
         method.
@@ -509,25 +509,25 @@ class DMLOrthoForest(BaseOrthoForest):
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
 
-    categories : array like or 'auto', optional (default='auto')
+    categories : array_like or 'auto', default 'auto'
         A list of pre-specified treatment categories. If 'auto' then categories are automatically
         recognized at fit time.
 
-    n_jobs : int, optional (default=-1)
+    n_jobs : int, default -1
         The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
         ``-1`` means using all processors. Since OrthoForest methods are
         computationally heavy, it is recommended to set `n_jobs` to -1.
 
-    backend : 'threading' or 'loky', optional (default='loky')
+    backend : 'threading' or 'loky', default 'loky'
         What backend should be used for parallelization with the joblib library.
 
-    verbose : int, optional (default=3)
+    verbose : int, default 3
         Verbosity level
 
-    batch_size : int or 'auto', optional (default='auto')
+    batch_size : int or 'auto', default 'auto'
         Batch_size of jobs for parallelism
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -625,19 +625,19 @@ class DMLOrthoForest(BaseOrthoForest):
 
         Parameters
         ----------
-        Y : array-like, shape (n, )
+        Y : array_like, shape (n, )
             Outcome for the treatment policy.
 
-        T : array-like, shape (n, d_t)
+        T : array_like, shape (n, d_t)
             Treatment policy.
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        W : array-like, shape (n, d_w) or None (default=None)
+        W : array_like, shape (n, d_w), optional
             High-dimensional controls.
 
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'blb' (or an instance of :class:`BLBInference`)
 
@@ -835,46 +835,46 @@ class DROrthoForest(BaseOrthoForest):
 
     Parameters
     ----------
-    n_trees : integer, optional (default=500)
+    n_trees : int, default 500
         Number of causal estimators in the forest.
 
-    min_leaf_size : integer, optional (default=10)
+    min_leaf_size : int, default 10
         The minimum number of samples in a leaf.
 
-    max_depth : integer, optional (default=10)
+    max_depth : int, default 10
         The maximum number of splits to be performed when expanding the tree.
 
-    subsample_ratio : float, optional (default=0.7)
+    subsample_ratio : float, default 0.7
         The ratio of the total sample to be used when training a causal tree.
         Values greater than 1.0 will be considered equal to 1.0.
         Parameter is ignored when bootstrap=True.
 
-    bootstrap : boolean, optional (default=False)
+    bootstrap : bool, default False
         Whether to use bootstrap subsampling.
 
-    lambda_reg : float, optional (default=0.01)
+    lambda_reg : float, default 0.01
         The regularization coefficient in the ell_2 penalty imposed on the
         locally linear part of the second stage fit. This is not applied to
         the local intercept, only to the coefficient of the linear component.
 
-    propensity_model : estimator, optional (default=sklearn.linear_model.LogisticRegression(penalty='l1',\
-                                                                                             solver='saga',\
-                                                                                             multi_class='auto'))
+    propensity_model : estimator, default sklearn.linear_model.LogisticRegression(penalty='l1', \
+                                                                                  solver='saga', \
+                                                                                  multi_class='auto')
         Model for estimating propensity of treatment at each leaf.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
 
-    model_Y :  estimator, optional (default=sklearn.linear_model.LassoCV(cv=3))
+    model_Y :  estimator, default sklearn.linear_model.LassoCV(cv=3)
         Estimator for learning potential outcomes at each leaf.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
         If different models per treatment arm are desired, see the :class:`.MultiModelWrapper`
         helper class. The model(s) must implement `fit` and `predict` methods.
 
-    propensity_model_final : estimator, optional (default=None)
+    propensity_model_final : estimator, optional
         Model for estimating propensity of treatment at at prediction time.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
         If parameter is set to ``None``, it defaults to the value of `propensity_model` parameter.
 
-    model_Y_final : estimator, optional (default=None)
+    model_Y_final : estimator, optional
         Estimator for learning potential outcomes at prediction time.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
         If different models per treatment arm are desired, see the :class:`.MultiModelWrapper`
@@ -885,21 +885,21 @@ class DROrthoForest(BaseOrthoForest):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    n_jobs : int, optional (default=-1)
+    n_jobs : int, default -1
         The number of jobs to run in parallel for both :meth:`fit` and :meth:`effect`.
         ``-1`` means using all processors. Since OrthoForest methods are
         computationally heavy, it is recommended to set `n_jobs` to -1.
 
-    backend : 'threading' or 'loky', optional (default='loky')
+    backend : 'threading' or 'loky', default 'loky'
         What backend should be used for parallelization with the joblib library.
 
-    verbose : int, optional (default=3)
+    verbose : int, default 3
         Verbosity level
 
-    batch_size : int or 'auto', optional (default='auto')
+    batch_size : int or 'auto', default 'auto'
         Batch_size of jobs for parallelism
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -971,21 +971,21 @@ class DROrthoForest(BaseOrthoForest):
 
         Parameters
         ----------
-        Y : array-like, shape (n, )
+        Y : array_like, shape (n, )
             Outcome for the treatment policy. Must be a vector.
 
-        T : array-like, shape (n, )
+        T : array_like, shape (n, )
             Discrete treatment policy vector. The treatment policy should be a set of consecutive integers
             starting with `0`, where `0` denotes the control group. Otherwise, the treatment policies
             will be ordered lexicographically, with the smallest value being considered the control group.
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        W : array-like, shape (n, d_w) or None (default=None)
+        W : array_like, shape (n, d_w), optional
             High-dimensional controls.
 
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'blb' (or an instance of :class:`BLBInference`)
 
@@ -1022,7 +1022,7 @@ class DROrthoForest(BaseOrthoForest):
 
         Parameters
         ----------
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
         Returns
@@ -1042,7 +1042,7 @@ class DROrthoForest(BaseOrthoForest):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample.
 
         Returns
@@ -1232,10 +1232,10 @@ class BLBInference(Inference):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
 
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1265,7 +1265,7 @@ class BLBInference(Inference):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample
 
         Returns
@@ -1305,13 +1305,13 @@ class BLBInference(Inference):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
-        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+        T0:  (m, d_t) matrix or vector of length m, default 0
             Base treatments for each sample
-        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+        T1:  (m, d_t) matrix or vector of length m, default 1
             Target treatments for each sample
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
@@ -1334,11 +1334,11 @@ class BLBInference(Inference):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix
+        X:  (m, d_x) matrix, optional
             Features for each sample
-        T0: optional (m, d_t) matrix or vector of length m (Default=0)
+        T0:  (m, d_t) matrix or vector of length m, default 0
             Base treatments for each sample
-        T1: optional (m, d_t) matrix or vector of length m (Default=1)
+        T1:  (m, d_t) matrix or vector of length m, default 1
             Target treatments for each sample
 
         Returns

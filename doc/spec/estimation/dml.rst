@@ -331,7 +331,7 @@ Usage FAQs
     potential approach one could take is simply run a big linear regression, regressing :math:`Y` on
     :math:`T, X, W` and then looking at the coefficient associated with the :math:`T` variable and
     the corresponding confidence interval (e.g. using statistical packages like
-    :class:`~statsmodels.api.OLS`). However, this will not work if:
+    :class:`~statsmodels.regression.linear_model.OLS`). However, this will not work if:
 
         1) The number of control variables :math:`X, W` that you have is large and comparable
         to the number of samples. This could for instance arise if one wants to control for

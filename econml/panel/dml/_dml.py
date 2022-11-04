@@ -338,38 +338,38 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', optional (default is 'auto')
+    model_y: estimator or 'auto', default 'auto'
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t: estimator or 'auto', optional (default is 'auto')
+    model_t: estimator or 'auto', default 'auto'
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be applied for discrete treatment,
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -383,14 +383,15 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         Unless an iterable is used, we call `split(X, T, groups)` to generate the splits.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -487,7 +488,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample.
 
         Returns
@@ -507,7 +508,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         Parameters
         ----------
-        X: optional (m, d_x) matrix or None (Default=None)
+        X: (m, d_x) matrix, optional
             Features for each sample.
 
         Returns
@@ -610,15 +611,15 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             Outcomes for each sample (required: n = n_groups * n_periods)
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample (required: n = n_groups * n_periods)
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample (Required: n = n_groups * n_periods). Only first
             period features from each unit are used for heterogeneity, the rest are
             used as time-varying controls together with W
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample (Required: n = n_groups * n_periods)
-        sample_weight: optional(n,) vector or None (Default=None)
+        sample_weight:(n,) vector, optional
             Weights for each samples
-        sample_var: optional(n,) vector or None (Default=None)
+        sample_var:(n,) vector, optional
             Sample variance for each sample
         groups: (n,) vector, required
             All rows corresponding to the same group will be kept together during splitting.
@@ -626,7 +627,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string,:class:`.Inference` instance, or None
+        inference: str,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
             (or an instance of :class:`.LinearModelFinalInference`).
@@ -659,9 +660,9 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             Outcomes for each sample (required: n = n_groups * n_periods)
         T: (n, d_t) matrix or vector of length n
             Treatments for each sample (required: n = n_groups * n_periods)
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample (Required: n = n_groups * n_periods)
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample (Required: n = n_groups * n_periods)
         groups: (n,) vector, required
             All rows corresponding to the same group will be kept together during splitting.
@@ -707,13 +708,13 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         Parameters
         ----------
-        treatment_names: list of strings of length T.shape[1] or None
+        treatment_names: list of str of length T.shape[1] or None
             The names of the treatments. If None and the T passed to fit was a dataframe,
             it defaults to the column names from the dataframe.
 
         Returns
         -------
-        out_treatment_names: list of strings
+        out_treatment_names: list of str
             Returns (possibly expanded) treatment names.
         """
         slice_treatment_names = super().cate_treatment_names(treatment_names)
@@ -728,13 +729,13 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
         Parameters
         ----------
-        feature_names: list of strings of length X.shape[1] or None
+        feature_names: list of str of length X.shape[1] or None
             The names of the input features. If None and X is a dataframe, it defaults to the column names
             from the dataframe.
 
         Returns
         -------
-        out_feature_names: list of strings or None
+        out_feature_names: list of str or None
             The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
             final constant marginal CATE model is linear. It is the names of the features that are associated
             with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
