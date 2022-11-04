@@ -370,17 +370,17 @@ class _BaseDRIV(_OrthoLearner):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : (n,) nd array like, default None
+        sample_var : (n,) nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -389,7 +389,7 @@ class _BaseDRIV(_OrthoLearner):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
             (or an instance of :class:`.GenericSingleTreatmentModelFinalInference`)
@@ -425,11 +425,11 @@ class _BaseDRIV(_OrthoLearner):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
+        sample_weight:(n,) vector, optional
             Weights for each samples
 
 
@@ -466,13 +466,13 @@ class _BaseDRIV(_OrthoLearner):
 
         Parameters
         ----------
-        feature_names: list of strings of length X.shape[1] or None
+        feature_names: list of str of length X.shape[1] or None
             The names of the input features. If None and X is a dataframe, it defaults to the column names
             from the dataframe.
 
         Returns
         -------
-        out_feature_names: list of strings or None
+        out_feature_names: list of str or None
             The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
             final CATE model for each treatment is linear. It is the names of the features that are associated
             with each entry of the :meth:`coef_` parameter. Available only when the featurizer is not None and has
@@ -700,43 +700,43 @@ class DRIV(_DRIV):
     model_final : estimator, optional
         a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
 
-    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
+    prel_cate_approach : one of {'driv', 'dmliv'}, default 'driv'
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
 
-    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+    prel_cv : int, cross-validation generator or an iterable, default 1
         Determines the cross-validation splitting strategy for the preliminary effect model.
 
-    prel_opt_reweighted : bool, optional, default True
+    prel_opt_reweighted : bool, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
 
-    projection: bool, optional, default False
+    projection: bool, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
         model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default False
+    fit_cate_intercept : bool, default False
         Whether the linear CATE model should have a constant term.
 
-    cov_clip : float, optional, default 0.1
+    cov_clip : float, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    opt_reweighted : bool, optional, default False
+    opt_reweighted : bool, default False
         Whether to reweight the samples to minimize variance. If True then
         model_final.fit must accept sample_weight as a kw argument. If True then
         assumes the model_final is flexible enough to fit the true CATE model. Otherwise,
         it method will return a biased projection to the model_final space, biased
         to give more weight on parts of the feature space where the instrument is strong.
 
-    discrete_instrument: bool, optional, default False
+    discrete_instrument: bool, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -748,7 +748,7 @@ class DRIV(_DRIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -765,14 +765,15 @@ class DRIV(_DRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -931,17 +932,17 @@ class DRIV(_DRIV):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : (n,) nd array like, default None
+        sample_var : (n,) nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -950,7 +951,7 @@ class DRIV(_DRIV):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
             (or an instance of :class:`.GenericSingleTreatmentModelFinalInference`)
@@ -1151,43 +1152,43 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
         If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
 
-    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
+    prel_cate_approach : one of {'driv', 'dmliv'}, default 'driv'
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
 
-    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+    prel_cv : int, cross-validation generator or an iterable, default 1
         Determines the cross-validation splitting strategy for the preliminary effect model.
 
-    prel_opt_reweighted : bool, optional, default True
+    prel_opt_reweighted : bool, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
 
-    projection: bool, optional, default False
+    projection: bool, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
         model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    cov_clip : float, optional, default 0.1
+    cov_clip : float, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    opt_reweighted : bool, optional, default False
+    opt_reweighted : bool, default False
         Whether to reweight the samples to minimize variance. If True then
         model_final.fit must accept sample_weight as a kw argument. If True then
         assumes the model_final is flexible enough to fit the true CATE model. Otherwise,
         it method will return a biased projection to the model_final space, biased
         to give more weight on parts of the feature space where the instrument is strong.
 
-    discrete_instrument: bool, optional, default False
+    discrete_instrument: bool, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -1199,7 +1200,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1216,14 +1217,15 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -1347,17 +1349,17 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : (n,) nd array like, default None
+        sample_var : (n,) nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -1366,7 +1368,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports ``'bootstrap'``
             (or an instance of :class:`.BootstrapInference`) and ``'statsmodels'``
             (or an instance of :class:`.StatsModelsInferenceDiscrete`).
@@ -1444,73 +1446,73 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
         If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
 
-    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
+    prel_cate_approach : one of {'driv', 'dmliv'}, default 'driv'
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
 
-    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+    prel_cv : int, cross-validation generator or an iterable, default 1
         Determines the cross-validation splitting strategy for the preliminary effect model.
 
-    prel_opt_reweighted : bool, optional, default True
+    prel_opt_reweighted : bool, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
 
-    projection: bool, optional, default False
+    projection: bool, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
         model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    alpha: string | float, optional., default 'auto'.
+    alpha: str | float, optional., default 'auto'.
         CATE L1 regularization applied through the debiased lasso in the final model.
         'auto' corresponds to a CV form of the :class:`DebiasedLasso`.
 
-    n_alphas : int, optional, default 100
+    n_alphas : int, default 100
         How many alphas to try if alpha='auto'
 
-    alpha_cov : string | float, optional, default 'auto'
+    alpha_cov : str | float, default 'auto'
         The regularization alpha that is used when constructing the pseudo inverse of
         the covariance matrix Theta used to for correcting the final state lasso coefficient
         in the debiased lasso. Each such regression corresponds to the regression of one feature
         on the remainder of the features.
 
-    n_alphas_cov : int, optional, default 10
+    n_alphas_cov : int, default 10
         How many alpha_cov to try if alpha_cov='auto'.
 
-    max_iter : int, optional, default 1000
+    max_iter : int, default 1000
         The maximum number of iterations in the Debiased Lasso
 
-    tol : float, optional, default 1e-4
+    tol : float, default 1e-4
         The tolerance for the optimization: if the updates are
         smaller than ``tol``, the optimization code checks the
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    n_jobs : int or None, optional (default=None)
+    n_jobs : int or None, optional
         The number of jobs to run in parallel for both `fit` and `predict`.
         ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
         ``-1`` means using all processors.
 
-    cov_clip : float, optional, default 0.1
+    cov_clip : float, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    opt_reweighted : bool, optional, default False
+    opt_reweighted : bool, default False
         Whether to reweight the samples to minimize variance. If True then
         model_final.fit must accept sample_weight as a kw argument. If True then
         assumes the model_final is flexible enough to fit the true CATE model. Otherwise,
         it method will return a biased projection to the model_final space, biased
         to give more weight on parts of the feature space where the instrument is strong.
 
-    discrete_instrument: bool, optional, default False
+    discrete_instrument: bool, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -1522,7 +1524,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1539,14 +1541,15 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -1692,11 +1695,11 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
@@ -1704,7 +1707,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports ``'bootstrap'``
             (or an instance of :class:`.BootstrapInference`) and ``'debiasedlasso'``
             (or an instance of :class:`.LinearModelInferenceDiscrete`).
@@ -1783,37 +1786,37 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
         If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
 
-    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
+    prel_cate_approach : one of {'driv', 'dmliv'}, default 'driv'
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
 
-    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+    prel_cv : int, cross-validation generator or an iterable, default 1
         Determines the cross-validation splitting strategy for the preliminary effect model.
 
-    prel_opt_reweighted : bool, optional, default True
+    prel_opt_reweighted : bool, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
 
-    projection: bool, optional, default False
+    projection: bool, default False
         If True, we fit a slight variant of DRIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
         model_z_xw will be disabled; If False, model_t_xwz will be disabled.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    n_estimators : integer, optional (default=100)
+    n_estimators : int, default 100
         The total number of trees in the forest. The forest consists of a
         forest of sqrt(n_estimators) sub-forests, where each sub-forest
         contains sqrt(n_estimators) trees.
 
-    max_depth : integer or None, optional (default=None)
+    max_depth : int or None, optional
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional (default=2)
+    min_samples_split : int, float, default 2
         The minimum number of splitting samples required to split an internal node.
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -1821,7 +1824,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional (default=1)
+    min_samples_leaf : int, float, default 1
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` splitting samples in each of the left and
@@ -1835,7 +1838,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional (default=0.)
+    min_weight_fraction_leaf : float, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         splitting samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided. After construction
@@ -1843,7 +1846,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         of the estimation samples contained in each leaf node is at
         least min_weight_fraction_leaf
 
-    max_features : int, float, string or None, optional (default="auto")
+    max_features : int, float, str, or None, default "auto"
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -1859,7 +1862,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    min_impurity_decrease : float, optional (default=0.)
+    min_impurity_decrease : float, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -1875,14 +1878,14 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    max_samples : int or float in (0, .5], default=.45,
+    max_samples : int or float in (0, .5], default .45,
         The number of samples to use for each subsample that is used to train each tree:
 
         - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
         - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
           from all the samples.
 
-    min_balancedness_tol: float in [0, .5], default=.45
+    min_balancedness_tol: float in [0, .5], default .45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
         of the total weight of samples, when sample_weight is not None. Default value, ensures
@@ -1890,38 +1893,38 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
 
-    honest : boolean, optional (default=True)
+    honest : bool, default True
         Whether to use honest trees, i.e. half of the samples are used for
         creating the tree structure and the other half for the estimation at
         the leafs. If False, then all samples are used for both parts.
 
-    subforest_size : int, default=4,
+    subforest_size : int, default 4,
         The number of trees in each sub-forest that is used in the bootstrap-of-little-bags calculation.
         The parameter `n_estimators` must be divisible by `subforest_size`. Should typically be a small constant.
 
-    n_jobs : int or None, optional (default=-1)
+    n_jobs : int or None, default -1
         The number of jobs to run in parallel for both `fit` and `predict`.
         ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
 
-    verbose : int, optional (default=0)
+    verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
-    cov_clip : float, optional, default 0.1
+    cov_clip : float, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    opt_reweighted : bool, optional, default False
+    opt_reweighted : bool, default False
         Whether to reweight the samples to minimize variance. If True then
         model_final.fit must accept sample_weight as a kw argument. If True then
         assumes the model_final is flexible enough to fit the true CATE model. Otherwise,
         it method will return a biased projection to the model_final space, biased
         to give more weight on parts of the feature space where the instrument is strong.
 
-    discrete_instrument: bool, optional, default False
+    discrete_instrument: bool, default False
         Whether the instrument values should be treated as categorical, rather than continuous, quantities
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -1933,7 +1936,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1950,14 +1953,15 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -2112,11 +2116,11 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
             Treatments for each sample
         Z: (n, d_z) matrix
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
@@ -2124,7 +2128,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, `Inference` instance, or None
+        inference: str, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'blb'
             (for Bootstrap-of-Little-Bags based inference)
@@ -2356,34 +2360,34 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
     model_final : estimator, optional
         a final model for the CATE and projections. If None, then flexible_model_effect is also used as a final model
 
-    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
+    prel_cate_approach : one of {'driv', 'dmliv'}, default 'driv'
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
 
-    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+    prel_cv : int, cross-validation generator or an iterable, default 1
         Determines the cross-validation splitting strategy for the preliminary effect model.
 
-    prel_opt_reweighted : bool, optional, default True
+    prel_opt_reweighted : bool, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
 
-    z_propensity: float or "auto", optional, default "auto"
+    z_propensity: float or "auto", default "auto"
         The ratio of the A/B test in treatment group. If "auto", we assume that the instrument is fully randomized
         and independent of any other variables. It's calculated as the proportion of Z=1 in the overall population;
         If input a ratio, it has to be a float between 0 to 1.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default False
+    fit_cate_intercept : bool, default False
         Whether the linear CATE model should have a constant term.
 
-    cov_clip : float, optional, default 0.1
+    cov_clip : float, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    cv: int, cross-validation generator or an iterable, optional, default 3
+    cv: int, cross-validation generator or an iterable, default 3
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -2400,14 +2404,14 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    opt_reweighted : bool, optional, default False
+    opt_reweighted : bool, default False
         Whether to reweight the samples to minimize variance. If True then
         final_model_effect.fit must accept sample_weight as a kw argument (WeightWrapper from
         utilities can be used for any linear model to enable sample_weights). If True then
@@ -2419,7 +2423,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -2629,34 +2634,34 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
         If 'auto', :class:`.StatsModelsLinearRegression` will be applied.
 
-    prel_cate_approach : one of {'driv', 'dmliv'}, optional (default='driv')
+    prel_cate_approach : one of {'driv', 'dmliv'}, default 'driv'
         model that estimates a preliminary version of the CATE.
         If 'driv', :class:`._DRIV` will be used.
         If 'dmliv', :class:`.NonParamDMLIV` will be used
 
-    prel_cv : int, cross-validation generator or an iterable, optional, default 1
+    prel_cv : int, cross-validation generator or an iterable, default 1
         Determines the cross-validation splitting strategy for the preliminary effect model.
 
-    prel_opt_reweighted : bool, optional, default True
+    prel_opt_reweighted : bool, default True
         Whether to reweight the samples to minimize variance for the preliminary effect model.
 
-    z_propensity: float or "auto", optional, default "auto"
+    z_propensity: float or "auto", default "auto"
         The ratio of the A/B test in treatment group. If "auto", we assume that the instrument is fully randomized
         and independent of any other variables. It's calculated as the proportion of Z=1 in the overall population;
         If input a ratio, it has to be a float between 0 to 1.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    cov_clip : float, optional, default 0.1
+    cov_clip : float, default 0.1
         clipping of the covariate for regions with low "overlap", to reduce variance
 
-    cv: int, cross-validation generator or an iterable, optional, default 3
+    cv: int, cross-validation generator or an iterable, default 3
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -2673,14 +2678,14 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    opt_reweighted : bool, optional, default False
+    opt_reweighted : bool, default False
         Whether to reweight the samples to minimize variance. If True then
         final_model_effect.fit must accept sample_weight as a kw argument (WeightWrapper from
         utilities can be used for any linear model to enable sample_weights). If True then
@@ -2692,7 +2697,8 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -2805,17 +2811,17 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             Treatments for each sample
         Z: (n, d_z) matrix or vector of length n
             Instruments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like or None
+        sample_weight : (n,) array_like or None
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : (n,) nd array like, default None
+        sample_var : (n,) nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -2824,7 +2830,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string,:class:`.Inference` instance, or None
+        inference: str,:class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of:class:`.BootstrapInference`) and 'statsmodels'
             (or an instance of :class:`.StatsModelsInference`).

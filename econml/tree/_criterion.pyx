@@ -54,13 +54,13 @@ cdef class Criterion:
 
         Parameters
         ----------
-        y : array-like, dtype=DOUBLE_t
+        y : array_like, dtype=DOUBLE_t
             y is a buffer that can store values for variables required for parameter/value estimation
-        sample_weight : array-like, dtype=DOUBLE_t
+        sample_weight : array_like, dtype=DOUBLE_t
             The weight of each sample in y
         weighted_n_samples : double
             The total weight of all the samples whose indices are contained in the samples array
-        samples : array-like, dtype=SIZE_t
+        samples : array_like, dtype=SIZE_t
             Indices of the samples in X and y, where samples[start:end]
             correspond to the samples in this node
         """

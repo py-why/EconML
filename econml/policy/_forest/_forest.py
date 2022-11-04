@@ -41,20 +41,20 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
     Parameters
     ----------
-    n_estimators : integer, optional (default=100)
+    n_estimators : int, default 100
         The total number of trees in the forest. The forest consists of a
         forest of sqrt(n_estimators) sub-forests, where each sub-forest
         contains sqrt(n_estimators) trees.
 
-    criterion : {``'neg_welfare'``}, default='neg_welfare'
+    criterion : {``'neg_welfare'``}, default 'neg_welfare'
         The criterion type
 
-    max_depth : int, default=None
+    max_depth : int, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int or float, default=10
+    min_samples_split : int or float, default 10
         The minimum number of samples required to split an internal node:
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -62,7 +62,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int or float, default=5
+    min_samples_leaf : int or float, default 5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -74,12 +74,12 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, default=0.0
+    min_weight_fraction_leaf : float, default 0.0
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    max_features : int, float or {"auto", "sqrt", "log2"}, default=None
+    max_features : int, float, {"auto", "sqrt", "log2"}, or None, default None
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -95,7 +95,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    min_impurity_decrease : float, default=0.0
+    min_impurity_decrease : float, default 0.0
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
@@ -109,14 +109,14 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    max_samples : int or float in (0, 1], default=.5,
+    max_samples : int or float in (0, 1], default .5,
         The number of samples to use for each subsample that is used to train each tree:
 
         - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
         - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
           from all the samples.
 
-    min_balancedness_tol: float in [0, .5], default=.45
+    min_balancedness_tol: float in [0, .5], default .45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
         of the total weight of samples, when sample_weight is not None. Default value, ensures
@@ -124,27 +124,28 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
 
-    honest: bool, default=True
+    honest: bool, default True
         Whether the data should be split in two equally sized samples, such that the one half-sample
         is used to determine the optimal split at each node and the other sample is used to determine
         the value of every node.
 
-    n_jobs : int or None, optional (default=-1)
+    n_jobs : int or None, default -1
         The number of jobs to run in parallel for both `fit` and `predict`.
         ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
 
-    verbose : int, optional (default=0)
+    verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
-    warm_start : bool, default=False
+    warm_start : bool, default False
         When set to ``True``, reuse the solution of the previous call to fit
         and add more estimators to the ensemble, otherwise, just fit a whole
         new forest.
@@ -202,7 +203,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
@@ -225,7 +226,7 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
@@ -256,16 +257,16 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The training input samples. Internally, its dtype will be converted
             to ``dtype=np.float64``.
-        y : array-like of shape (n_samples,) or (n_samples, n_treatments)
+        y : array_like of shape (n_samples,) or (n_samples, n_treatments)
             The outcome values for each sample and for each treatment.
-        sample_weight : array-like of shape (n_samples,), default=None
+        sample_weight : array_like of shape (n_samples,), default None
             Sample weights. If None, then samples are equally weighted. Splits
             that would create child nodes with net zero or negative weight are
             ignored while searching for a split in each node.
-        **kwargs : dictionary of array-like items of shape (n_samples, d_var)
+        **kwargs : dictionary of array_like items of shape (n_samples, d_var)
             Auxiliary random variables
 
         Returns
@@ -385,9 +386,9 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        max_depth : int, default=4
+        max_depth : int, default 4
             Splits of depth larger than `max_depth` are not used in this calculation
-        depth_decay_exponent: double, default=2.0
+        depth_decay_exponent: double, default 2.0
             The contribution of each split to the total score is re-weighted by 1 / (1 + `depth`)**2.0.
 
         Returns
@@ -425,13 +426,13 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
         Returns
         -------
-        welfare : array-like of shape (n_samples, n_treatments)
+        welfare : array_like of shape (n_samples, n_treatments)
             The conditional average welfare for each treatment for the group of each sample defined by the tree
         """
 
@@ -460,16 +461,16 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        treatment_proba : array-like of shape (n_samples, n_treatments)
+        treatment_proba : array_like of shape (n_samples, n_treatments)
             The probability of each treatment recommendation
         """
         check_is_fitted(self)
@@ -497,13 +498,13 @@ class PolicyForest(BaseEnsemble, metaclass=ABCMeta):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
 
         Returns
         -------
-        treatment : array-like of shape (n_samples)
+        treatment : array_like of shape (n_samples)
             The recommded treatment, i.e. the treatment index most often predicted to have the highest reward
             for each sample. Recommended treatments are aggregated from each tree in the ensemble and the treatment
             that receives the most votes is returned. Use `predict_proba` to get the fraction of trees in the ensemble

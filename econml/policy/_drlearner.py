@@ -64,11 +64,11 @@ class _BaseDRPolicyLearner(PolicyLearner):
             Outcomes for each sample
         T: (n,) vector of length n
             Treatments for each sample
-        X: optional(n, d_x) matrix or None (Default=None)
+        X:(n, d_x) matrix, optional
             Features for each sample
-        W: optional(n, d_w) matrix or None (Default=None)
+        W:(n, d_w) matrix, optional
             Controls for each sample
-        sample_weight: optional(n,) vector or None (Default=None)
+        sample_weight:(n,) vector, optional
             Weights for each samples
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
@@ -88,12 +88,12 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The training input samples.
 
         Returns
         -------
-        values : array-like of shape (n_samples, n_treatments - 1)
+        values : array_like of shape (n_samples, n_treatments - 1)
             The predicted average value for each sample and for each non-baseline treatment, as compared
             to the baseline treatment value and based on the feature neighborhoods defined by the trees.
         """
@@ -104,12 +104,12 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The input samples.
 
         Returns
         -------
-        treatment_proba : array-like of shape (n_samples, n_treatments)
+        treatment_proba : array_like of shape (n_samples, n_treatments)
             The probability of each treatment recommendation
         """
         X, = check_input_arrays(X)
@@ -122,12 +122,12 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples, n_features)
+        X : array_like of shape (n_samples, n_features)
             The training input samples.
 
         Returns
         -------
-        treatment : array-like of shape (n_samples,)
+        treatment : array_like of shape (n_samples,)
             The index of the recommended treatment in the same order as in categories, or in
             lexicographic order if `categories='auto'`. 0 corresponds to the baseline/control treatment.
             For ensemble policy models, recommended treatments are aggregated from each model in the ensemble
@@ -142,13 +142,13 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
         Parameters
         ----------
-        feature_names: list of strings of length X.shape[1] or None
+        feature_names: list of str of length X.shape[1] or None
             The names of the input features. If None and X is a dataframe, it defaults to the column names
             from the dataframe.
 
         Returns
         -------
-        out_feature_names: list of strings or None
+        out_feature_names: list of str or None
             The names of the output features on which the policy model is fitted.
         """
         return self.drlearner_.cate_feature_names(feature_names=feature_names)
@@ -159,13 +159,13 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
         Parameters
         ----------
-        treatment_names: list of strings of length n_categories
+        treatment_names: list of str of length n_categories
             The names of the treatments (including the baseling). If None then values are auto-generated
             based on input metadata.
 
         Returns
         -------
-        out_treatment_names: list of strings
+        out_treatment_names: list of str
             The names of the treatments including the baseline/control treatment.
         """
         if treatment_names is not None:
@@ -181,9 +181,9 @@ class _BaseDRPolicyLearner(PolicyLearner):
 
         Parameters
         ----------
-        max_depth : int, default=4
+        max_depth : int, default 4
             Splits of depth larger than `max_depth` are not used in this calculation
-        depth_decay_exponent: double, default=2.0
+        depth_decay_exponent: double, default 2.0
             The contribution of each split to the total score is re-weighted by ``1 / (1 + `depth`)**2.0``.
 
         Returns
@@ -239,32 +239,32 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier or 'auto', optional (default='auto')
+    model_propensity : scikit-learn classifier or 'auto', default 'auto'
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
         Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
         where T is a shape (n, ) array.
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor or 'auto', optional (default='auto')
+    model_regression : scikit-learn regressor or 'auto', default 'auto'
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`.MultiModelWrapper` helper class.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    min_propensity : float, optional, default ``1e-6``
+    min_propensity : float, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (default is 2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -281,19 +281,19 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    max_depth : integer or None, optional (default=None)
+    max_depth : int or None, optional
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional (default=10)
+    min_samples_split : int, float, default 10
         The minimum number of splitting samples required to split an internal node.
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -301,7 +301,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional (default=5)
+    min_samples_leaf : int, float, default 5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` splitting samples in each of the left and
@@ -315,7 +315,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional (default=0.)
+    min_weight_fraction_leaf : float, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         splitting samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided. After construction
@@ -323,7 +323,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         of the estimation samples contained in each leaf node is at
         least min_weight_fraction_leaf
 
-    max_features : int, float, string or None, optional (default="auto")
+    max_features : int, float, str, or None, default "auto"
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -339,7 +339,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    min_impurity_decrease : float, optional (default=0.)
+    min_impurity_decrease : float, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -355,7 +355,7 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    min_balancedness_tol: float in [0, .5], default=.45
+    min_balancedness_tol: float in [0, .5], default .45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
         of the total weight of samples, when sample_weight is not None. Default value, ensures
@@ -363,12 +363,13 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
 
-    honest : boolean, optional (default=True)
+    honest : bool, default True
         Whether to use honest trees, i.e. half of the samples are used for
         creating the tree structure and the other half for the estimation at
         the leafs. If False, then all samples are used for both parts.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -439,35 +440,35 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
         Parameters
         ----------
-        ax : :class:`matplotlib.axes.Axes`, optional, default None
+        ax : :class:`matplotlib.axes.Axes`, optional
             The axes on which to plot
 
-        title : string, optional, default None
+        title : str, optional
             A title for the final figure to be printed at the top of the page.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments including the baseline/control
 
-        max_depth: int or None, optional, default None
+        max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
 
-        fontsize : int, optional, default None
+        fontsize : int, optional
             Font size for text
         """
         return self.policy_model_.plot(feature_names=self.policy_feature_names(feature_names=feature_names),
@@ -489,39 +490,39 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
         Parameters
         ----------
-        out_file : file object or string, optional, default None
+        out_file : file object or str, optional
             Handle or name of the output file. If ``None``, the result is
             returned as a string.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments, including the baseline treatment
 
-        max_depth: int or None, optional, default None
+        max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        leaves_parallel : bool, optional, default True
+        leaves_parallel : bool, default True
             When set to ``True``, draw all leaf nodes at the bottom of the tree.
 
-        rotate : bool, optional, default False
+        rotate : bool, default False
             When set to ``True``, orient tree left to right rather than top-down.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        special_characters : bool, optional, default False
+        special_characters : bool, default False
             When set to ``False``, ignore special characters for PostScript
             compatibility.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
@@ -548,41 +549,41 @@ class DRPolicyTree(_BaseDRPolicyLearner):
         ----------
         out_file : file name to save to
 
-        format : string, optional, default 'pdf'
+        format : str, default 'pdf'
             The file format to render to; must be supported by graphviz
 
-        view : bool, optional, default True
+        view : bool, default True
             Whether to open the rendered result with the default application.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments, including the baseline/control
 
-        max_depth: int or None, optional, default None
+        max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        leaves_parallel : bool, optional, default True
+        leaves_parallel : bool, default True
             When set to ``True``, draw all leaf nodes at the bottom of the tree.
 
-        rotate : bool, optional, default False
+        rotate : bool, default False
             When set to ``True``, orient tree left to right rather than top-down.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        special_characters : bool, optional, default False
+        special_characters : bool, default False
             When set to ``False``, ignore special characters for PostScript
             compatibility.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
@@ -634,32 +635,32 @@ class DRPolicyForest(_BaseDRPolicyLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier or 'auto', optional (default='auto')
+    model_propensity : scikit-learn classifier or 'auto', default 'auto'
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
         Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
         where T is a shape (n, ) array.
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor or 'auto', optional (default='auto')
+    model_regression : scikit-learn regressor or 'auto', default 'auto'
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
         `predict` methods. If different models per treatment arm are desired, see the
         :class:`.MultiModelWrapper` helper class.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    min_propensity : float, optional, default ``1e-6``
+    min_propensity : float, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (default is 2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -676,24 +677,24 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    n_estimators : integer, optional (default=100)
+    n_estimators : int, default 100
         The total number of trees in the forest. The forest consists of a
         forest of sqrt(n_estimators) sub-forests, where each sub-forest
         contains sqrt(n_estimators) trees.
 
-    max_depth : integer or None, optional (default=None)
+    max_depth : int or None, optional
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int, float, optional (default=10)
+    min_samples_split : int, float, default 10
         The minimum number of splitting samples required to split an internal node.
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -701,7 +702,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int, float, optional (default=5)
+    min_samples_leaf : int, float, default 5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` splitting samples in each of the left and
@@ -715,7 +716,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, optional (default=0.)
+    min_weight_fraction_leaf : float, default 0.
         The minimum weighted fraction of the sum total of weights (of all
         splitting samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided. After construction
@@ -723,7 +724,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         of the estimation samples contained in each leaf node is at
         least min_weight_fraction_leaf
 
-    max_features : int, float, string or None, optional (default="auto")
+    max_features : int, float, str, or None, default "auto"
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -739,7 +740,7 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    min_impurity_decrease : float, optional (default=0.)
+    min_impurity_decrease : float, default 0.
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
 
@@ -755,14 +756,14 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    max_samples : int or float in (0, 1], default=.5,
+    max_samples : int or float in (0, 1], default .5,
         The number of samples to use for each subsample that is used to train each tree:
 
         - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
         - If float, then train each tree on ceil(`max_samples` * `n_samples`), sampled without replacement
           from all the samples.
 
-    min_balancedness_tol: float in [0, .5], default=.45
+    min_balancedness_tol: float in [0, .5], default .45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
         of the total weight of samples, when sample_weight is not None. Default value, ensures
@@ -770,21 +771,22 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
 
-    honest : boolean, optional (default=True)
+    honest : bool, default True
         Whether to use honest trees, i.e. half of the samples are used for
         creating the tree structure and the other half for the estimation at
         the leafs. If False, then all samples are used for both parts.
 
-    n_jobs : int or None, optional (default=-1)
+    n_jobs : int or None, default -1
         The number of jobs to run in parallel for both `fit` and `predict`.
         ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
 
-    verbose : int, optional (default=0)
+    verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -870,36 +872,36 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         tree_id : int
             The id of the tree of the forest to plot
 
-        ax : :class:`matplotlib.axes.Axes`, optional, default None
+        ax : :class:`matplotlib.axes.Axes`, optional
             The axes on which to plot
 
-        title : string, optional, default None
+        title : str, optional
             A title for the final figure to be printed at the top of the page.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments, starting with a name for the baseline/control treatment
             (alphanumerically smallest)
 
-        max_depth: int or None, optional, default None
+        max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
 
-        fontsize : int, optional, default None
+        fontsize : int, optional
             Font size for text
         """
         return self.policy_model_[tree_id].plot(feature_names=self.policy_feature_names(feature_names=feature_names),
@@ -925,40 +927,40 @@ class DRPolicyForest(_BaseDRPolicyLearner):
         tree_id : int
             The id of the tree of the forest to plot
 
-        out_file : file object or string, optional, default None
+        out_file : file object or str, optional
             Handle or name of the output file. If ``None``, the result is
             returned as a string.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments, starting with a name for the baseline/control/None treatment
             (alphanumerically smallest in case of discrete treatment)
 
-        max_depth: int or None, optional, default None
+        max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        leaves_parallel : bool, optional, default True
+        leaves_parallel : bool, default True
             When set to ``True``, draw all leaf nodes at the bottom of the tree.
 
-        rotate : bool, optional, default False
+        rotate : bool, default False
             When set to ``True``, orient tree left to right rather than top-down.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        special_characters : bool, optional, default False
+        special_characters : bool, default False
             When set to ``False``, ignore special characters for PostScript
             compatibility.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
@@ -991,42 +993,42 @@ class DRPolicyForest(_BaseDRPolicyLearner):
 
         out_file : file name to save to
 
-        format : string, optional, default 'pdf'
+        format : str, default 'pdf'
             The file format to render to; must be supported by graphviz
 
-        view : bool, optional, default True
+        view : bool, default True
             Whether to open the rendered result with the default application.
 
-        feature_names : list of strings, optional, default None
+        feature_names : list of str, optional
             Names of each of the features.
 
-        treatment_names : list of strings, optional, default None
+        treatment_names : list of str, optional
             Names of each of the treatments, starting with a name for the baseline/control treatment
             (alphanumerically smallest in case of discrete treatment)
 
-        max_depth: int or None, optional, default None
+        max_depth: int or None, optional
             The maximum tree depth to plot
 
-        filled : bool, optional, default False
+        filled : bool, default False
             When set to ``True``, paint nodes to indicate majority class for
             classification, extremity of values for regression, or purity of node
             for multi-output.
 
-        leaves_parallel : bool, optional, default True
+        leaves_parallel : bool, default True
             When set to ``True``, draw all leaf nodes at the bottom of the tree.
 
-        rotate : bool, optional, default False
+        rotate : bool, default False
             When set to ``True``, orient tree left to right rather than top-down.
 
-        rounded : bool, optional, default True
+        rounded : bool, default True
             When set to ``True``, draw node boxes with rounded corners and use
             Helvetica fonts instead of Times-Roman.
 
-        special_characters : bool, optional, default False
+        special_characters : bool, default False
             When set to ``False``, ignore special characters for PostScript
             compatibility.
 
-        precision : int, optional, default 3
+        precision : int, default 3
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """

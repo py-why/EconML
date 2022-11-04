@@ -36,6 +36,7 @@ from sklearn.linear_model import LassoCV, Lasso
 from residualizer import dml, second_order_dml
 from causal_tree import CausalTree
 
+
 def _build_tree_in_parallel(W, x, T, Y, min_leaf_size, max_splits, residualizer, model_T, model_Y):
     tree = OrthoTree(min_leaf_size=min_leaf_size, max_splits=max_splits, residualizer=residualizer,
                      model_T=model_T, model_Y=model_Y)
@@ -50,10 +51,10 @@ class OrthoTree(object):
     ----------
     min_leaf_size : integer, optional (default=20)
         The minimum number of samples in a leaf.
-    
+
     max_splits : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree. 
-    
+
     residualizer : class, optional (default=dml)
         The residualizer to be used at the leafs to for removing confounding effects.
         Two out of the box options provided: `dml` (double machine learning) and
@@ -68,25 +69,26 @@ class OrthoTree(object):
     model_Y : estimator, optional (default=sklearn.linear_model.LassoCV())
         The estimator for residualizing the outcome at the leaf. Must implement
         `fit` and `predict` methods.
-    """ 
+    """
+
     def __init__(self, min_leaf_size=20, max_splits=10, residualizer=dml,
-                             model_T=LassoCV(),
-                             model_Y=LassoCV()):
+                 model_T=LassoCV(),
+                 model_Y=LassoCV()):
         self.min_leaf_size = min_leaf_size
         self.max_splits = max_splits
         self.residualizer = residualizer
         self.model_T = model_T
         self.model_Y = model_Y
-    
+
     def fit(self, W, x, T, Y):
         """Build a causal tree from a training set (W, x, T, Y)
 
         Parameters
         ----------
-        W : array-like, shape [n_samples, n_controls]
+        W : array_like, shape [n_samples, n_controls]
             High-dimensional controls.
 
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
 
         T : array_like, shape [n_samples]
@@ -96,20 +98,20 @@ class OrthoTree(object):
             Outcome for the treatment policy.
         """
         # Initialize causal tree parameters
-        self.ct = CausalTree(W, x, T, Y, self.model_T, self.model_Y, 
+        self.ct = CausalTree(W, x, T, Y, self.model_T, self.model_Y,
                              min_leaf_size=self.min_leaf_size, max_splits=self.max_splits,
                              residualizer=self.residualizer)
         # Create splits of causal tree
         self.ct.create_splits()
         # Estimate treatment effects at the leafs
         self.ct.estimate()
-    
+
     def predict(self, x):
         """Predict treatment effects for features x.
 
         Parameters
         ----------
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
         """
         # Compute heterogeneous treatement effect for x's in x_list by finding
@@ -133,10 +135,10 @@ class BaseOrthoForest(object):
 
     min_leaf_size : integer, optional (default=20)
         The minimum number of samples in a leaf.
-    
+
     max_splits : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree. 
-    
+
     residualizer : class, optional (default=dml)
         The residualizer to be used at the leafs to for removing confounding effects.
         Two out of the box options provided: `dml` (double machine learning) and
@@ -151,12 +153,13 @@ class BaseOrthoForest(object):
     model_Y : estimator, optional (default=sklearn.linear_model.LassoCV())
         The estimator for residualizing the outcome at the leaf. Must implement
         `fit` and `predict` methods.
-    """ 
-    def __init__(self, n_trees=10, min_leaf_size=20, max_splits=10, 
-                            subsample_ratio=1.0, bootstrap=True, 
-                            residualizer=dml,
-                            model_T=LassoCV(),
-                            model_Y=LassoCV()):
+    """
+
+    def __init__(self, n_trees=10, min_leaf_size=20, max_splits=10,
+                 subsample_ratio=1.0, bootstrap=True,
+                 residualizer=dml,
+                 model_T=LassoCV(),
+                 model_Y=LassoCV()):
         self.n_trees = n_trees
         self.min_leaf_size = min_leaf_size
         self.max_splits = max_splits
@@ -179,22 +182,22 @@ class BaseOrthoForest(object):
             for t in range(self.n_trees):
                 subsample_ind[t] = np.random.choice(W.shape[0], size=subsample_size, replace=False)
             subsample_ind = subsample_ind.astype(int)
-        
+
         return subsample_ind, Parallel(n_jobs=-1, verbose=3)(
-                        delayed(_build_tree_in_parallel)(
-                            W[s], x[s], T[s], Y[s],
-                            self.min_leaf_size, self.max_splits, self.residualizer, 
-                            clone(self.model_T), clone(self.model_Y)) for s in subsample_ind)
-    
+            delayed(_build_tree_in_parallel)(
+                W[s], x[s], T[s], Y[s],
+                self.min_leaf_size, self.max_splits, self.residualizer,
+                clone(self.model_T), clone(self.model_Y)) for s in subsample_ind)
+
     def fit(self, W, x, T, Y):
         """Build an orthogonal random forest from a training set (W, x, T, Y)
 
         Parameters
         ----------
-        W : array-like, shape [n_samples, n_controls]
+        W : array_like, shape [n_samples, n_controls]
             High-dimensional controls.
 
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
 
         T : array_like, shape [n_samples]
@@ -204,13 +207,13 @@ class BaseOrthoForest(object):
             Outcome for the treatment policy.
         """
         self.subsample_ind, self.trees = self.fit_forest(W, x, T, Y)
-    
+
     def predict(self, x):
         """Predict treatment effects for features x.
 
         Parameters
         ----------
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
         """
         out_tau = np.zeros((x.shape[0], self.n_trees))
@@ -223,7 +226,7 @@ class BaseOrthoForest(object):
 
         Parameters
         ----------
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
 
         lower : float, optional (default=5)
@@ -238,7 +241,7 @@ class BaseOrthoForest(object):
             out_tau[:, t] = tree.predict(x)
         return np.percentile(out_tau, lower, axis=1), np.percentile(out_tau, upper, axis=1)
 
-    
+
 class DishonestOrthoForest(BaseOrthoForest):
     """A one-forest approach for learning treatment effects with
         kernel two stage estimation for predicting treatment effects.
@@ -250,7 +253,7 @@ class DishonestOrthoForest(BaseOrthoForest):
 
     min_leaf_size : integer, optional (default=20)
         The minimum number of samples in a leaf.
-    
+
     max_splits : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree. 
 
@@ -261,7 +264,7 @@ class DishonestOrthoForest(BaseOrthoForest):
 
     bootstrap : boolean, optional (default=True)
         Whether to use bootstrap subsampling. 
-    
+
     residualizer : class, optional (default=dml)
         The residualizer to be used at the leafs to for removing confounding effects.
         Two out of the box options provided: `dml` (double machine learning) and
@@ -286,37 +289,38 @@ class DishonestOrthoForest(BaseOrthoForest):
     The estimator for residualizing the outcome at prediction time. Must implement
         `fit` and `predict` methods. If parameter is set to `None`, it defaults to the
         value of `model_Y` parameter.
-    """ 
-    def __init__(self, n_trees=10, min_leaf_size=20, max_splits=10, 
-                        subsample_ratio=1.0, bootstrap=True, 
-                        residualizer=dml,
-                        model_T=LassoCV(),
-                        model_Y=LassoCV(),
-                        model_T_final=None,
-                        model_Y_final=None):
+    """
+
+    def __init__(self, n_trees=10, min_leaf_size=20, max_splits=10,
+                 subsample_ratio=1.0, bootstrap=True,
+                 residualizer=dml,
+                 model_T=LassoCV(),
+                 model_Y=LassoCV(),
+                 model_T_final=None,
+                 model_Y_final=None):
         super(DishonestOrthoForest, self).__init__(n_trees=n_trees,
-                                                min_leaf_size=min_leaf_size,
-                                                max_splits=max_splits,
-                                                subsample_ratio=subsample_ratio, bootstrap=bootstrap,
-                                                residualizer=residualizer,
-                                                model_T=model_T,
-                                                model_Y=model_Y)
+                                                   min_leaf_size=min_leaf_size,
+                                                   max_splits=max_splits,
+                                                   subsample_ratio=subsample_ratio, bootstrap=bootstrap,
+                                                   residualizer=residualizer,
+                                                   model_T=model_T,
+                                                   model_Y=model_Y)
         self.model_T_final = model_T_final
         self.model_Y_final = model_Y_final
         if self.model_T_final is None:
             self.model_T_final = clone(self.model_T)
         if self.model_Y_final is None:
             self.model_Y_final = clone(self.model_Y)
-    
+
     def fit(self, W, x, T, Y):
         """Build an orthogonal random forest from a training set (W, x, T, Y)
 
         Parameters
         ----------
-        W : array-like, shape [n_samples, n_controls]
+        W : array_like, shape [n_samples, n_controls]
             High-dimensional controls.
 
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
 
         T : array_like, shape [n_samples]
@@ -335,23 +339,23 @@ class DishonestOrthoForest(BaseOrthoForest):
 
         Parameters
         ----------
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
         """
         return self._predict(x)
-    
+
     def predict_with_weights(self, x):
         """Predict treatment effects for features x.
             Returns both treatment effects and the weights on the training points. 
 
         Parameters
         ----------
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
         """
         return self._predict(x, weights=True)
 
-    def _predict(self, x,  weights=False):
+    def _predict(self, x, weights=False):
         results = Parallel(n_jobs=-1, verbose=3)(
             delayed(self._point_predict)(x_out, weights) for x_out in x)
         if weights:
@@ -435,7 +439,7 @@ class OrthoForest(DishonestOrthoForest):
 
     min_leaf_size : integer, optional (default=20)
         The minimum number of samples in a leaf.
-    
+
     max_splits : integer, optional (default=10)
         The maximum number of splits to be performed when expanding the tree. 
 
@@ -446,7 +450,7 @@ class OrthoForest(DishonestOrthoForest):
 
     bootstrap : boolean, optional (default=True)
         Whether to use bootstrap subsampling. 
-    
+
     residualizer : class, optional (default=dml)
         The residualizer to be used at the leafs to for removing confounding effects.
         Two out of the box options provided: `dml` (double machine learning) and
@@ -471,33 +475,34 @@ class OrthoForest(DishonestOrthoForest):
     The estimator for residualizing the outcome at prediction time. Must implement
         `fit` and `predict` methods. If parameter is set to `None`, it defaults to the
         value of `model_Y` parameter.
-    """ 
-    def __init__(self, n_trees=10, min_leaf_size=20, max_splits=10, 
-                        subsample_ratio=1.0, bootstrap=True, 
-                        residualizer=dml,
-                        model_T=LassoCV(),
-                        model_Y=LassoCV(),
-                        model_T_final=None,
-                        model_Y_final=None):
+    """
+
+    def __init__(self, n_trees=10, min_leaf_size=20, max_splits=10,
+                 subsample_ratio=1.0, bootstrap=True,
+                 residualizer=dml,
+                 model_T=LassoCV(),
+                 model_Y=LassoCV(),
+                 model_T_final=None,
+                 model_Y_final=None):
         super(OrthoForest, self).__init__(n_trees=n_trees,
-                                                min_leaf_size=min_leaf_size,
-                                                max_splits=max_splits,
-                                                subsample_ratio=subsample_ratio, bootstrap=bootstrap,
-                                                residualizer=residualizer,
-                                                model_T=model_T,
-                                                model_Y=model_Y,
-                                                model_T_final=model_T_final,
-                                                model_Y_final=model_Y_final)
+                                          min_leaf_size=min_leaf_size,
+                                          max_splits=max_splits,
+                                          subsample_ratio=subsample_ratio, bootstrap=bootstrap,
+                                          residualizer=residualizer,
+                                          model_T=model_T,
+                                          model_Y=model_Y,
+                                          model_T_final=model_T_final,
+                                          model_Y_final=model_Y_final)
 
     def fit(self, W, x, T, Y):
         """Build an orthogonal random forest from a training set (W, x, T, Y)
 
         Parameters
         ----------
-        W : array-like, shape [n_samples, n_controls]
+        W : array_like, shape [n_samples, n_controls]
             High-dimensional controls.
 
-        x : array-like, shape [n_samples, n_features]
+        x : array_like, shape [n_samples, n_features]
             Feature vector that captures heterogeneity.
 
         T : array_like, shape [n_samples]
@@ -506,7 +511,7 @@ class OrthoForest(DishonestOrthoForest):
         Y : array_like, shape [n_samples]
             Outcome for the treatment policy.
         """
-        n = int(W.shape[0]/2)
+        n = int(W.shape[0] / 2)
         self.W_one = W[:n]
         self.W_two = W[n:]
         self.T_one = T[:n]
@@ -515,8 +520,10 @@ class OrthoForest(DishonestOrthoForest):
         self.Y_two = Y[n:]
         self.x_one = x[:n]
         self.x_two = x[n:]
-        self.forest_one_subsample_ind, self.forest_one_trees = self.fit_forest(W=self.W_one, x=self.x_one, T=self.T_one, Y=self.Y_one)
-        self.forest_two_subsample_ind, self.forest_two_trees = self.fit_forest(W=self.W_two, x=self.x_two, T=self.T_two, Y=self.Y_two)
+        self.forest_one_subsample_ind, self.forest_one_trees = self.fit_forest(
+            W=self.W_one, x=self.x_one, T=self.T_one, Y=self.Y_one)
+        self.forest_two_subsample_ind, self.forest_two_trees = self.fit_forest(
+            W=self.W_two, x=self.x_two, T=self.T_two, Y=self.Y_two)
 
     def _predict(self, x, weights=False):
         results = Parallel(n_jobs=-1, verbose=3)(
@@ -584,13 +591,14 @@ class ModelWrapper(object):
             to the normalized weights and creates a dataset larger than the original.
 
         """
+
     def __init__(self, model_instance, sample_type="weighted"):
         self.model_instance = model_instance
         if sample_type == "weighted":
             self.data_transform = self._weighted_inputs
         else:
-            warnings.warn("The model provided does not support sample weights. " +  
-                        "Manual weighted sampling may icrease the variance in the results.")
+            warnings.warn("The model provided does not support sample weights. " +
+                          "Manual weighted sampling may icrease the variance in the results.")
             self.data_transform = self._sampled_inputs
 
     def __getattr__(self, name):
@@ -599,7 +607,7 @@ class ModelWrapper(object):
             return self._fit(func)
         else:
             return func
-    
+
     def _fit(self, func):
         def fit(X, y, sample_weight=None):
             if sample_weight is None:
@@ -607,15 +615,15 @@ class ModelWrapper(object):
             X, y = self.data_transform(X, y, sample_weight)
             return func(X, y)
         return fit
-        
+
     def _weighted_inputs(self, X, y, sample_weight):
         normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
         sqrt_weights = np.sqrt(normalized_weights)
         return (X.T * sqrt_weights).T, sqrt_weights * y
-    
+
     def _sampled_inputs(self, X, y, sample_weight):
         # normalize weights
         normalized_weights = sample_weight / np.sum(sample_weight)
         data_length = int(min(1 / np.min(normalized_weights[normalized_weights > 0]), 10) * X.shape[0])
         data_indices = np.random.choice(X.shape[0], size=data_length, p=normalized_weights)
-        return X[data_indices], y[data_indices]    
+        return X[data_indices], y[data_indices]

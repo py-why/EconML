@@ -268,19 +268,19 @@ class CausalForestDML(_BaseDML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', optional (default is 'auto')
+    model_y: estimator or 'auto', default 'auto'
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t: estimator or 'auto', optional (default is 'auto')
+    model_t: estimator or 'auto', default 'auto'
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be applied for discrete treatment,
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
@@ -290,14 +290,14 @@ class CausalForestDML(_BaseDML):
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -313,22 +313,22 @@ class CausalForestDML(_BaseDML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    drate : bool, default=True
+    drate : bool, default True
         Whether to calculate doubly robust average treatment effect estimate on training data at fit time.
         This happens only if `discrete_treatment=True`. Doubly robust ATE estimation on the training data
         is not available for continuous treatments.
 
-    n_estimators : int, default=100
+    n_estimators : int, default 100
         Number of trees
 
-    criterion : {``"mse"``, ``"het"``}, default="mse"
+    criterion : {``"mse"``, ``"het"``}, default "mse"
         The function to measure the quality of a split. Supported criteria
         are ``"mse"`` for the mean squared error in a linear moment estimation tree and ``"het"`` for
         heterogeneity score.
@@ -372,19 +372,19 @@ class CausalForestDML(_BaseDML):
 
           as outlined in [cfdml1]_
 
-    max_depth : int, default=None
+    max_depth : int, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int or float, default=10
+    min_samples_split : int or float, default 10
         The minimum number of samples required to split an internal node:
 
         - If int, then consider `min_samples_split` as the minimum number.
         - If float, then `min_samples_split` is a fraction and `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int or float, default=5
+    min_samples_leaf : int or float, default 5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -395,12 +395,12 @@ class CausalForestDML(_BaseDML):
         - If float, then `min_samples_leaf` is a fraction and `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, default=0.0
+    min_weight_fraction_leaf : float, default 0.0
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    min_var_fraction_leaf : None or float in (0, 1], default=None
+    min_var_fraction_leaf : None or float in (0, 1], default None
         A constraint on some proxy of the variation of the treatment vector that should be contained within each
         leaf as a percentage of the total variance of the treatment vector on the whole sample. This avoids
         performing splits where either the variance of the treatment is small and hence the local parameter
@@ -424,7 +424,7 @@ class CausalForestDML(_BaseDML):
         extra constraint primarily has bite in the case of more than two input treatments and also avoids
         leafs where the parameter estimate has large variance due to local co-linearities of the treatments.
 
-    min_var_leaf_on_val : bool, default=False
+    min_var_leaf_on_val : bool, default False
         Whether the `min_var_fraction_leaf` constraint should also be enforced to hold on the validation set of the
         honest split too. If ``min_var_leaf=None`` then this flag does nothing. Setting this to True should
         be done with caution, as this partially violates the honesty structure, since the treatment variable
@@ -432,7 +432,7 @@ class CausalForestDML(_BaseDML):
         dependence as it only uses local correlation structure of the treatment T to decide whether
         a split is feasible.
 
-    max_features : int, float or {"auto", "sqrt", "log2"}, default=None
+    max_features : int, float, {"auto", "sqrt", "log2"}, or None, default None
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -447,7 +447,7 @@ class CausalForestDML(_BaseDML):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    min_impurity_decrease : float, default=0.0
+    min_impurity_decrease : float, default 0.0
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
@@ -461,7 +461,7 @@ class CausalForestDML(_BaseDML):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    max_samples : int or float in (0, 1], default=.45,
+    max_samples : int or float in (0, 1], default .45,
         The number of samples to use for each subsample that is used to train each tree:
 
         - If int, then train each tree on `max_samples` samples, sampled without replacement from all the samples
@@ -471,7 +471,7 @@ class CausalForestDML(_BaseDML):
         If ``inference=True``, then `max_samples` must either be an integer smaller than `n_samples//2` or a float
         less than or equal to .5.
 
-    min_balancedness_tol: float in [0, .5], default=.45
+    min_balancedness_tol: float in [0, .5], default .45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
         of the total weight of samples, when sample_weight is not None. Default value, ensures
@@ -479,29 +479,29 @@ class CausalForestDML(_BaseDML):
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
 
-    honest : bool, default=True
+    honest : bool, default True
         Whether each tree should be trained in an honest manner, i.e. the training set is split into two equal
         sized subsets, the train and the val set. All samples in train are used to create the split structure
         and all samples in val are used to calculate the value of each node in the tree.
 
-    inference : bool, default=True
+    inference : bool, default True
         Whether inference (i.e. confidence interval construction and uncertainty quantification of the estimates)
         should be enabled. If ``inference=True``, then the estimator uses a bootstrap-of-little-bags approach
         to calculate the covariance of the parameter vector, with am objective Bayesian debiasing correction
         to ensure that variance quantities are positive.
 
-    fit_intercept : bool, default=True
+    fit_intercept : bool, default True
         Whether we should fit an intercept nuisance parameter beta(x).
 
-    subforest_size : int, default=4,
+    subforest_size : int, default 4,
         The number of trees in each sub-forest that is used in the bootstrap-of-little-bags calculation.
         The parameter `n_estimators` must be divisible by `subforest_size`. Should typically be a small constant.
 
-    n_jobs : int or None, default=-1
+    n_jobs : int or None, default -1
         The number of parallel jobs to be used for parallelism; follows joblib semantics.
         `n_jobs=-1` means all available cpu cores. `n_jobs=None` means no parallelism.
 
-    random_state : int, RandomState instance or None, default=None
+    random_state : int, RandomState instance, or None, default None
         Controls the randomness of the estimator. The features are always
         randomly permuted at each split. When ``max_features < n_features``, the algorithm will
         select ``max_features`` at random at each split before finding the best
@@ -511,7 +511,7 @@ class CausalForestDML(_BaseDML):
         split has to be selected at random. To obtain a deterministic behaviour
         during fitting, ``random_state`` has to be fixed to an integer.
 
-    verbose : int, default=0
+    verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
     Examples
@@ -717,15 +717,15 @@ class CausalForestDML(_BaseDML):
             Treatments for each sample
         X: (n × dₓ) matrix
             Features for each sample
-        W: optional (n × d_w) matrix
+        W:  (n × d_w) matrix, optional
             Controls for each sample
-        sample_weight: optional (n,) vector
+        sample_weight:  (n,) vector, optional
             Weights for each row
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
             If groups is not None, the `cv` argument passed to this class's initializer
             must support a 'groups' argument to its split method.
-        params: dict or 'auto', optional (default='auto')
+        params: dict or 'auto', default 'auto'
             A dictionary that contains the grid of hyperparameters to try, i.e.
             {'param1': [value1, value2, ...], 'param2': [value1, value2, ...], ...}
             If `params='auto'`, then a default grid is used.
@@ -810,9 +810,9 @@ class CausalForestDML(_BaseDML):
             Treatments for each sample
         X: (n × dₓ) matrix
             Features for each sample
-        W: optional (n × d_w) matrix
+        W:  (n × d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like or None
+        sample_weight : (n,) array_like or None
             Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
@@ -820,7 +820,7 @@ class CausalForestDML(_BaseDML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`), 'blb' or 'auto'
             (for Bootstrap-of-Little-Bags based inference)
@@ -850,18 +850,18 @@ class CausalForestDML(_BaseDML):
 
         Parameters
         ----------
-        alpha: optional float in [0, 1] (default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
-        value: optinal float (default=0)
+        value: float, default 0
             The mean value of the metric you'd like to test under null hypothesis.
-        decimals: optinal int (default=3)
+        decimals: int, default 3
             Number of decimal places to round each column to.
-        feature_names: optional list of strings or None (default is None)
+        feature_names: list of str, optional
             The input of the feature names
-        treatment_names: optional list of strings or None (default is None)
+        treatment_names: list of str, optional
             The names of the treatments
-        output_names: optional list of strings or None (default is None)
+        output_names: list of str, optional
             The names of the outputs
 
         Returns

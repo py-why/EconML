@@ -14,21 +14,21 @@ def ihdp_surface_A(random_state=None):
 
         Parameters
         ----------
-        random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
-            If int, random_state is the seed used by the random number generator;
+        random_state : int, RandomState instance, or None, default None
+                If int, random_state is the seed used by the random number generator;
             If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
             If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
             by :mod:`np.random<numpy.random>`.
 
         Returns
         -------
-        Y : array-like, shape (n, d_y)
+        Y : array_like, shape (n, d_y)
             Outcome for the treatment policy.
 
-        T : array-like, shape (n, d_t)
+        T : array_like, shape (n, d_t)
             Binary treatment policy.
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
     """
     # Remove children with nonwhite mothers from the treatment group
@@ -48,21 +48,21 @@ def ihdp_surface_B(random_state=None):
 
         Parameters
         ----------
-        random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
-            If int, random_state is the seed used by the random number generator;
+        random_state : int, RandomState instance, or None, default None
+                If int, random_state is the seed used by the random number generator;
             If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
             If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
             by :mod:`np.random<numpy.random>`.
 
         Returns
         -------
-        Y : array-like, shape (n, d_y)
+        Y : array_like, shape (n, d_y)
             Outcome for the treatment policy.
 
-        T : array-like, shape (n, d_t)
+        T : array_like, shape (n, d_t)
             Binary treatment policy.
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
     """
     T, X = _process_ihdp_sim_data()

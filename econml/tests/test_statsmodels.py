@@ -54,7 +54,7 @@ class StatsModelsOLS:
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : array_like, shape (n_samples, n_features)
             Training data
         y : array_like, shape (n_samples, 1) or (n_samples,)
             Target values
@@ -82,7 +82,7 @@ class StatsModelsOLS:
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : array_like, shape (n_samples, n_features)
             Samples.
 
         Returns
@@ -100,7 +100,7 @@ class StatsModelsOLS:
 
         Parameters
         ----------
-        X : array-like
+        X : array_like
             The features at which to predict
         alpha : float
             The significance level to use for the interval

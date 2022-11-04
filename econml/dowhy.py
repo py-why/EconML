@@ -73,37 +73,37 @@ class DoWhyWrapper:
             Outcomes for each sample
         T: vector of length n
             Treatments for each sample
-        X: optional (n, d_x) matrix (Default=None)
+        X: (n, d_x) matrix, optional
             Features for each sample
-        W: optional (n, d_w) matrix (Default=None)
+        W: (n, d_w) matrix, optional
             Controls for each sample
-        Z: optional (n, d_z) matrix (Default=None)
+        Z: (n, d_z) matrix, optional
             Instruments for each sample
-        outcome_names: optional list (Default=None)
+        outcome_names: list, optional
             Name of the outcome
-        treatment_names: optional list (Default=None)
+        treatment_names: list, optional
             Name of the treatment
-        feature_names: optional list (Default=None)
+        feature_names: list, optional
             Name of the features
-        confounder_names: optional list (Default=None)
+        confounder_names: list, optional
             Name of the confounders
-        instrument_names: optional list (Default=None)
+        instrument_names: list, optional
             Name of the instruments
-        graph: optional
+        graph:  str, optional
             Path to DOT file containing a DAG or a string containing a DAG specification in DOT format
-        estimand_type: optional string
+        estimand_type:  str, optional
             Type of estimand requested (currently only "nonparametric-ate" is supported).
             In the future, may support other specific parametric forms of identification
-        proceed_when_unidentifiable: optional bool (Default=True)
+        proceed_when_unidentifiable: bool, default True
             Whether the identification should proceed by ignoring potential unobserved confounders
-        missing_nodes_as_confounders: optional bool (Default=False)
+        missing_nodes_as_confounders: bool, default False
             Whether variables in the dataframe that are not included in the causal graph should be automatically
             included as confounder nodes
-        control_value: optional scalar (Default=0)
+        control_value: scalar, default 0
             Value of the treatment in the control group, for effect estimation
-        treatment_value: optional scalar (Default=1)
+        treatment_value: scalar, default 1
             Value of the treatment in the treated group, for effect estimation
-        target_units: optional (Default="ate")
+        target_units: str or obj, default "ate"
             The units for which the treatment effect should be estimated.
             This can be of three types:
 
@@ -112,7 +112,7 @@ class DoWhyWrapper:
             3. A new DataFrame that contains values of the effect_modifiers and effect will be estimated
                only for this new data
 
-        kwargs: optional
+        kwargs:  dict, optional
             Other keyword arguments from fit method for CATE estimator
 
         Returns
@@ -200,9 +200,9 @@ class DoWhyWrapper:
 
         Parameters
         ----------
-        method_name: string
+        method_name: str
             Name of the refutation method
-        kwargs: optional
+        kwargs:  dict, optional
             Additional arguments that are passed directly to the refutation method.
             Can specify a random seed here to ensure reproducible results ('random_seed' parameter).
             For method-specific parameters, consult the documentation for the specific method.

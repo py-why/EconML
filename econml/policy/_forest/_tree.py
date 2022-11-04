@@ -47,19 +47,19 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
     Parameters
     ----------
-    criterion : {``'neg_welfare'``}, default='neg_welfare'
+    criterion : {``'neg_welfare'``}, default 'neg_welfare'
         The criterion type
 
-    splitter : {"best"}, default="best"
+    splitter : {"best"}, default "best"
         The strategy used to choose the split at each node. Supported
         strategies are "best" to choose the best split.
 
-    max_depth : int, default=None
+    max_depth : int, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int or float, default=10
+    min_samples_split : int or float, default 10
         The minimum number of samples required to split an internal node:
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -67,7 +67,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int or float, default=5
+    min_samples_leaf : int or float, default 5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -79,12 +79,12 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, default=0.0
+    min_weight_fraction_leaf : float, default 0.0
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    max_features : int, float or {"auto", "sqrt", "log2"}, default=None
+    max_features : int, float, {"auto", "sqrt", "log2"}, or None, default None
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -100,7 +100,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    random_state : int, RandomState instance or None, default=None
+    random_state : int, RandomState instance, or None, default None
         Controls the randomness of the estimator. The features are always
         randomly permuted at each split, even if ``splitter`` is set to
         ``"best"``. When ``max_features < n_features``, the algorithm will
@@ -111,7 +111,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         split has to be selected at random. To obtain a deterministic behaviour
         during fitting, ``random_state`` has to be fixed to an integer.
 
-    min_impurity_decrease : float, default=0.0
+    min_impurity_decrease : float, default 0.0
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
@@ -125,7 +125,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    min_balancedness_tol: float in [0, .5], default=.45
+    min_balancedness_tol: float in [0, .5], default .45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
         of the total weight of samples, when sample_weight is not None. Default value, ensures
@@ -133,7 +133,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
 
-    honest: bool, default=True
+    honest: bool, default True
         Whether the data should be split in two equally sized samples, such that the one half-sample
         is used to determine the optimal split at each node and the other sample is used to determine
         the value of every node.
@@ -212,7 +212,7 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
         y : (n, n_treatments) array
             The reward for each of the m treatments (including baseline treatment)
 
-        sample_weight : (n,) array, default=None
+        sample_weight : (n,) array, default None
             The sample weights
 
         check_input : bool, defaul=True
@@ -244,16 +244,16 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        treatment : array-like of shape (n_samples)
+        treatment : array_like of shape (n_samples)
             The recommded treatment, i.e. the treatment index with the largest reward for each sample
         """
         check_is_fitted(self)
@@ -266,16 +266,16 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        treatment_proba : array-like of shape (n_samples, n_treatments)
+        treatment_proba : array_like of shape (n_samples, n_treatments)
             The probability of each treatment recommendation
         """
         check_is_fitted(self)
@@ -290,16 +290,16 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        welfare : array-like of shape (n_samples, n_treatments)
+        welfare : array_like of shape (n_samples, n_treatments)
             The conditional average welfare for each treatment for the group of each sample defined by the tree
         """
         check_is_fitted(self)
@@ -312,9 +312,9 @@ class PolicyTree(_SingleTreeExporterMixin, BaseTree):
 
         Parameters
         ----------
-        max_depth : int, default=4
+        max_depth : int, default 4
             Splits of depth larger than `max_depth` are not used in this calculation
-        depth_decay_exponent: double, default=2.0
+        depth_decay_exponent: double, default 2.0
             The contribution of each split to the total score is re-weighted by ``1 / (1 + `depth`)**2.0``.
 
         Returns

@@ -8,12 +8,12 @@ def long(x):
 
     Parameters
     ----------
-    x : array-like
+    x : array_like
         Panel data in multi-dimensional format (n_units, n_periods, d_x) or (n_units, n_periods)
 
     Returns
     -------
-    arr : array-like
+    arr : array_like
         Reshaped panel data in long format"""
     n_units = x.shape[0]
     n_periods = x.shape[1]
@@ -30,12 +30,12 @@ def wide(x):
 
     Parameters
     ----------
-    x : array-like
+    x : array_like
         Panel data in multi-dimensional format (n_units, n_periods, d_x) or (n_units, n_periods).
 
     Returns
     -------
-    arr : array-like
+    arr : array_like
         Reshaped panel data in wide format"""
     n_units = x.shape[0]
     return x.reshape(n_units, -1)

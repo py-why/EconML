@@ -99,14 +99,14 @@ class DPolynomialFeatures(TransformerMixin):
 
     Parameters
     ----------
-    degree: integer, default = 2
+    degree: int, default = 2
         The degree of the polynomial features.
 
-    interaction_only: boolean, default = False
+    interaction_only: bool, default = False
         If true, only derivatives of interaction features are produced: features that are products of at most degree
         distinct input features (so not `x[1] ** 2`, `x[0] * x[2] ** 3`, etc.).
 
-    include_bias: boolean, default = True
+    include_bias: bool, default = True
         If True (default), then include the derivative of a bias column, the feature in which all polynomial powers
         are zero.
     """
@@ -120,7 +120,7 @@ class DPolynomialFeatures(TransformerMixin):
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : array_like, shape (n_samples, n_features)
             The data.
         y : array, optional
             Not used
@@ -137,12 +137,12 @@ class DPolynomialFeatures(TransformerMixin):
 
         Parameters
         ----------
-        X: array-like, shape (n_samples, n_features)
+        X: array_like, shape (n_samples, n_features)
             The data to transform, row by row.
 
         Returns
         -------
-        XP: array-like, shape (n_samples, n_features, n_output_features)
+        XP: array_like, shape (n_samples, n_features, n_output_features)
             The matrix of features, where `n_output_features` is the number of features that
             would be returned from :class:`~sklearn.preprocessing.PolynomialFeatures`.
         """
@@ -219,13 +219,13 @@ class SieveTSLS(BaseCateEstimator):
             Outcomes for each sample
         T: (n × dₜ) matrix
             Treatments for each sample
-        X: optional(n × dₓ) matrix
+        X: (n × dₓ) matrix, optional
             Features for each sample
-        W: optional(n × d_w) matrix
+        W: (n × d_w) matrix, optional
             Controls for each sample
-        Z: optional(n × d_z) matrix
+        Z: (n × d_z) matrix, optional
             Instruments for each sample
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`)
 
@@ -280,7 +280,7 @@ class SieveTSLS(BaseCateEstimator):
             Base treatments for each sample
         T1: (m × dₜ) matrix or vector of length m
             Target treatments for each sample
-        X: optional (m × dₓ) matrix
+        X:  (m × dₓ) matrix, optional
             Features for each sample
 
         Returns
@@ -323,7 +323,7 @@ class SieveTSLS(BaseCateEstimator):
         ----------
         T: (m × dₜ) matrix
             Base treatments for each sample
-        X: optional(m × dₓ) matrix
+        X: (m × dₓ) matrix, optional
             Features for each sample
 
         Returns

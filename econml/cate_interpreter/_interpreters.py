@@ -24,7 +24,7 @@ class _SingleTreeInterpreter(_SingleTreeExporterMixin, metaclass=abc.ABCMeta):
         cate_estimator : :class:`.LinearCateEstimator`
             The fitted estimator to interpret
 
-        X : array-like
+        X : array_like
             The features against which to interpret the estimator;
             must be compatible shape-wise with the features used to fit
             the estimator
@@ -55,12 +55,12 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         If False, then interpretation can be slightly slower, especially for cate
         models that have a computationally expensive inference method.
 
-    splitter : string, default "best"
+    splitter : str, default "best"
         The strategy used to choose the split at each node. Supported
         strategies are "best" to choose the best split and "random" to choose
         the best random split.
 
-    max_depth : int or None, default None
+    max_depth : int, optional
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
@@ -90,7 +90,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    max_features : int, float or {"auto", "sqrt", "log2"}, default=None
+    max_features : int, float, {"auto", "sqrt", "log2"}, or None, default None
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -106,13 +106,13 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    random_state : int, RandomState instance or None, default None
+    random_state : int, RandomState instance, or None, default None
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
         by `np.random`.
 
-    max_leaf_nodes : int or None, default None
+    max_leaf_nodes : int, optional
         Grow a tree with ``max_leaf_nodes`` in best-first fashion.
         Best nodes are defined as relative reduction in impurity.
         If None then unlimited number of leaf nodes.
@@ -169,7 +169,7 @@ class SingleTreeCateInterpreter(_SingleTreeInterpreter):
         cate_estimator : :class:`.LinearCateEstimator`
             The fitted estimator to interpret
 
-        X : array-like
+        X : array_like
             The features against which to interpret the estimator;
             must be compatible shape-wise with the features used to fit
             the estimator
@@ -255,7 +255,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         If False, then interpretation can be slightly slower, especially for cate
         models that have a computationally expensive inference method.
 
-    risk_level : float or None (default=None)
+    risk_level : float, optional
         If None then the point estimate of the CATE of every point will be used as the
         effect of treatment. If any float alpha and risk_seeking=False (default), then the
         lower end point of an alpha confidence interval of the CATE will be used.
@@ -266,7 +266,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         Whether to use an optimistic or pessimistic value for the effect estimate at a
         sample point. Used only when risk_level is not None.
 
-    max_depth : int or None, default None
+    max_depth : int, optional
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
@@ -296,7 +296,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    max_features : int, float or {"auto", "sqrt", "log2"}, default=None
+    max_features : int, float, {"auto", "sqrt", "log2"}, or None, default None
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -312,7 +312,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    min_balancedness_tol: float in [0, .5], default=.45
+    min_balancedness_tol: float in [0, .5], default .45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
         of the total weight of samples, when sample_weight is not None. Default value, ensures
@@ -335,7 +335,7 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    random_state : int, RandomState instance or None, default None
+    random_state : int, RandomState instance, or None, default None
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
@@ -389,12 +389,12 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
         cate_estimator : :class:`.LinearCateEstimator`
             The fitted estimator to interpret
 
-        X : array-like
+        X : array_like
             The features against which to interpret the estimator;
             must be compatible shape-wise with the features used to fit
             the estimator
 
-        sample_treatment_costs : array-like, optional
+        sample_treatment_costs : array_like, optional
             The cost of treatment.  Can be a scalar or have dimension (n_samples, n_treatments)
             or (n_samples,) if T is a vector
 
@@ -482,13 +482,13 @@ class SingleTreePolicyInterpreter(_SingleTreeInterpreter):
 
         Parameters
         ----------
-        X : array-like
+        X : array_like
             The features for the units to treat;
             must be compatible shape-wise with the features used during interpretation
 
         Returns
         -------
-        T : array-like
+        T : array_like
             The treatments implied by the policy learned by the interpreter, with treatment 0, meaning
             no treatment, and treatment 1 meains the first treatment, etc.
         """

@@ -97,10 +97,10 @@ The base class of all the methods in our API has the following signature:
             Parameters:
             Y: (n × d_y) matrix of outcomes for each sample
             T: (n × d_t) matrix of treatments for each sample
-            X: optional (n × d_x) matrix of features for each sample
-            W: optional (n × d_w) matrix of controls for each sample
-            Z: optional (n × d_z) matrix of instruments for each sample
-            inference: optional string, `Inference` instance, or None
+            X: (n × d_x) matrix of features for each sample, optional
+            W: (n × d_w) matrix of controls for each sample, optional
+            Z: (n × d_z) matrix of instruments for each sample, optional
+            inference: str or `Inference` instance, optional
                 Method for performing inference.  All estimators support 'bootstrap'
                 (or an instance of `BootstrapInference`), some support other methods as well.
             '''
@@ -112,7 +112,7 @@ The base class of all the methods in our API has the following signature:
             Parameters:
             T0: (m × d_t) matrix of base treatments for each sample
             T1: (m × d_t) matrix of target treatments for each sample
-            X: optional (m × d_x) matrix of features for each sample
+            X:  (m × d_x) matrix of features for each sample, optional
         
             Returns:
             tau: (m × d_y) matrix of heterogeneous treatment effects on each outcome
@@ -125,7 +125,7 @@ The base class of all the methods in our API has the following signature:
         
             Parameters:
             T: (m × d_t) matrix of base treatments for each sample
-            X: optional (m × d_x) matrix of features for each sample
+            X:  (m × d_x) matrix of features for each sample, optional
         
             Returns:
             grad_tau: (m × d_y × d_t) matrix of heterogeneous marginal effects on each outcome
@@ -137,10 +137,10 @@ The base class of all the methods in our API has the following signature:
             Available only when inference is not None, when calling the fit method.
 
             Parameters:
-            X: optional (m, d_x) matrix of features for each sample
-            T0: optional (m, d_t) matrix of base treatments for each sample
-            T1: optional (m, d_t) matrix of target treatments for each sample
-            alpha: optional float in [0, 1] of the (1-alpha) level of confidence
+            X:  (m, d_x) matrix of features for each sample, optional
+            T0: (m, d_t) matrix of base treatments for each sample, optional
+            T1: (m, d_t) matrix of target treatments for each sample, optional
+            alpha: float in [0, 1] of the (1-alpha) level of confidence, optional
 
             Returns:
             lower, upper : tuple of the lower and the upper bounds of the confidence interval 
@@ -153,8 +153,8 @@ The base class of all the methods in our API has the following signature:
 
             Parameters:
             T: (m, d_t) matrix of base treatments for each sample
-            X: optional (m, d_x) matrix of features for each sample
-            alpha: optional float in [0, 1] of the (1-alpha) level of confidence
+            X: (m, d_x) matrix of features for each sample, optional
+            alpha: float in [0, 1] of the (1-alpha) level of confidence, optional
 
             Returns:
             lower, upper : tuple of the lower and the upper bounds of the confidence interval 
@@ -236,7 +236,7 @@ and constant marginal CATE interval at any target feature vector :math:`\vec{x}`
             features on a set of m test samples {X_i}
         
             Parameters:
-            X: optional (m × d_x) matrix of features for each sample
+            X: (m × d_x) matrix of features for each sample, optional
         
             Returns:
             theta: (m × d_y × d_f_t) matrix of constant marginal CATE of each treatment on each outcome	
@@ -249,8 +249,8 @@ and constant marginal CATE interval at any target feature vector :math:`\vec{x}`
             Available only when inference is not None, when calling the fit method.
 
             Parameters:
-            X: optional (m, d_x) matrix of features for each sample
-            alpha: optional float in [0, 1] of the (1-alpha) level of confidence
+            X: (m, d_x) matrix of features for each sample, optional
+            alpha: float in [0, 1] of the (1-alpha) level of confidence, optional
 
             Returns:
             lower, upper : tuple of the lower and the upper bounds of the confidence interval 

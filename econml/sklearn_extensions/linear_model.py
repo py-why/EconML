@@ -189,18 +189,18 @@ class WeightedLasso(WeightedModelMixin, Lasso):
         reasons, using ``alpha = 0`` with Lasso is not advised.
         Given this, you should use the :class:`LinearRegression` object.
 
-    fit_intercept : boolean, optional, default True
+    fit_intercept : bool, default True
         Whether to calculate the intercept for this model. If set
         to False, no intercept will be used in calculations
         (e.g. data is expected to be already centered).
 
-    precompute : True | False | array-like, default=False
+    precompute : True | False | array_like, default False
         Whether to use a precomputed Gram matrix to speed up
         calculations. If set to ``'auto'`` let us decide. The Gram
         matrix can also be passed as argument. For sparse input
         this option is always ``True`` to preserve sparsity.
 
-    copy_X : boolean, optional, default True
+    copy_X : bool, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
     max_iter : int, optional
@@ -220,8 +220,8 @@ class WeightedLasso(WeightedModelMixin, Lasso):
     positive : bool, optional
         When set to ``True``, forces the coefficients to be positive.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default None
-        The seed of the pseudo random number generator that selects a random
+    random_state : int, RandomState instance, or None, default None
+            The seed of the pseudo random number generator that selects a random
         feature to update.  If int, random_state is the seed used by the random
         number generator; If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random
         number generator; If None, the random number generator is the
@@ -242,7 +242,7 @@ class WeightedLasso(WeightedModelMixin, Lasso):
     intercept_ : float | array, shape (n_targets,)
         independent term in decision function.
 
-    n_iter_ : int | array-like, shape (n_targets,)
+    n_iter_ : int | array_like, shape (n_targets,)
         number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
 
@@ -274,7 +274,7 @@ class WeightedLasso(WeightedModelMixin, Lasso):
                         Individual weights for each sample.
                         The weights will be normalized internally.
 
-        check_input : boolean, (default=True)
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
         """
@@ -295,12 +295,12 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
         reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
         Given this, you should use the :class:`LinearRegression` object.
 
-    fit_intercept : boolean, optional, default True
+    fit_intercept : bool, default True
         Whether to calculate the intercept for this model. If set
         to False, no intercept will be used in calculations
         (e.g. data is expected to be already centered).
 
-    copy_X : boolean, optional, default True
+    copy_X : bool, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
     max_iter : int, optional
@@ -317,8 +317,8 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
         initialization, otherwise, just erase the previous solution.
         See :term:`the Glossary <warm_start>`.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default None
-        The seed of the pseudo random number generator that selects a random
+    random_state : int, RandomState instance, or None, default None
+            The seed of the pseudo random number generator that selects a random
         feature to update.  If int, random_state is the seed used by the random
         number generator; If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random
         number generator; If None, the random number generator is the
@@ -339,7 +339,7 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
     intercept_ : float | array, shape (n_targets,)
         independent term in decision function.
 
-    n_iter_ : int | array-like, shape (n_targets,)
+    n_iter_ : int | array_like, shape (n_targets,)
         number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
 
@@ -394,12 +394,12 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         List of alphas where to compute the models.
         If ``None`` alphas are set automatically
 
-    fit_intercept : boolean, default True
+    fit_intercept : bool, default True
         whether to calculate the intercept for this model. If set
         to false, no intercept will be used in calculations
         (e.g. data is expected to be already centered).
 
-    precompute : True | False | 'auto' | array-like
+    precompute : True | False | 'auto' | array_like
         Whether to use a precomputed Gram matrix to speed up
         calculations. If set to ``'auto'`` let us decide. The Gram
         matrix can also be passed as argument.
@@ -413,10 +413,10 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    copy_X : boolean, optional, default True
+    copy_X : bool, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
-    cv : int, cross-validation generator or an iterable, optional (default=None)
+    cv : int, cross-validation generator or an iterable, optional
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
         - None, to use the default 3-fold weighted cross-validation,
@@ -427,10 +427,10 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
 
         If None then 5 folds are used.
 
-    verbose : bool or integer
+    verbose : bool or int
         Amount of verbosity.
 
-    n_jobs : int or None, optional (default=None)
+    n_jobs : int or None, optional
         Number of CPUs to use during the cross validation.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
@@ -439,8 +439,8 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
     positive : bool, optional
         If positive, restrict regression coefficients to be positive
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default None
-        The seed of the pseudo random number generator that selects a random
+    random_state : int, RandomState instance, or None, default None
+            The seed of the pseudo random number generator that selects a random
         feature to update.  If int, random_state is the seed used by the random
         number generator; If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random
         number generator; If None, the random number generator is the
@@ -509,11 +509,11 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
     n_alphas : int, optional
         Number of alphas along the regularization path
 
-    alphas : array-like, optional
+    alphas : array_like, optional
         List of alphas where to compute the models.
         If not provided, set automatically.
 
-    fit_intercept : boolean
+    fit_intercept : bool
         whether to calculate the intercept for this model. If set
         to false, no intercept will be used in calculations
         (e.g. data is expected to be already centered).
@@ -527,10 +527,10 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    copy_X : boolean, optional, default True
+    copy_X : bool, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
-    cv : int, cross-validation generator or an iterable, optional (default = None)
+    cv : int, cross-validation generator or an iterable, optional
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
         - None, to use the default 3-fold weighted cross-validation,
@@ -541,18 +541,18 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
 
         If None then 5-folds are used.
 
-    verbose : bool or integer
+    verbose : bool or int
         Amount of verbosity.
 
-    n_jobs : int or None, optional (default=None)
+    n_jobs : int or None, optional
         Number of CPUs to use during the cross validation. Note that this is
         used only if multiple values for l1_ratio are given.
         ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
         ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
         for more details.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default None
-        The seed of the pseudo random number generator that selects a random
+    random_state : int, RandomState instance, or None, default None
+            The seed of the pseudo random number generator that selects a random
         feature to update.  If int, random_state is the seed used by the random
         number generator; If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random
         number generator; If None, the random number generator is the
@@ -646,37 +646,37 @@ class DebiasedLasso(WeightedLasso):
 
     Parameters
     ----------
-    alpha : string | float, optional, default 'auto'.
+    alpha : str | float, default 'auto'.
         Constant that multiplies the L1 term. Defaults to 'auto'.
         ``alpha = 0`` is equivalent to an ordinary least square, solved
         by the :class:`LinearRegression` object. For numerical
         reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
         Given this, you should use the :class:`.LinearRegression` object.
 
-    n_alphas : int, optional, default 100
+    n_alphas : int, default 100
         How many alphas to try if alpha='auto'
 
-    alpha_cov : string | float, optional, default 'auto'
+    alpha_cov : str | float, default 'auto'
         The regularization alpha that is used when constructing the pseudo inverse of
         the covariance matrix Theta used to for correcting the lasso coefficient. Each
         such regression corresponds to the regression of one feature on the remainder
         of the features.
 
-    n_alphas_cov : int, optional, default 10
+    n_alphas_cov : int, default 10
         How many alpha_cov to try if alpha_cov='auto'.
 
-    fit_intercept : boolean, optional, default True
+    fit_intercept : bool, default True
         Whether to calculate the intercept for this model. If set
         to False, no intercept will be used in calculations
         (e.g. data is expected to be already centered).
 
-    precompute : True | False | array-like, default False
+    precompute : True | False | array_like, default False
         Whether to use a precomputed Gram matrix to speed up
         calculations. If set to ``'auto'`` let us decide. The Gram
         matrix can also be passed as argument. For sparse input
         this option is always ``True`` to preserve sparsity.
 
-    copy_X : boolean, optional, default True
+    copy_X : bool, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
     max_iter : int, optional
@@ -693,8 +693,8 @@ class DebiasedLasso(WeightedLasso):
         initialization, otherwise, just erase the previous solution.
         See :term:`the Glossary <warm_start>`.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default None
-        The seed of the pseudo random number generator that selects a random
+    random_state : int, RandomState instance, or None, default None
+            The seed of the pseudo random number generator that selects a random
         feature to update.  If int, random_state is the seed used by the random
         number generator; If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random
         number generator; If None, the random number generator is the
@@ -707,7 +707,7 @@ class DebiasedLasso(WeightedLasso):
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
 
-    n_jobs : int or None, default None
+    n_jobs : int, optional
         How many jobs to use whenever parallelism is invoked
 
     Attributes
@@ -718,7 +718,7 @@ class DebiasedLasso(WeightedLasso):
     intercept_ : float
         Independent term in decision function.
 
-    n_iter_ : int | array-like, shape (n_targets,)
+    n_iter_ : int | array_like, shape (n_targets,)
         Number of iterations run by the coordinate descent solver to reach
         the specified tolerance.
 
@@ -763,7 +763,7 @@ class DebiasedLasso(WeightedLasso):
                         Individual weights for each sample.
                         The weights will be normalized internally.
 
-        check_input : boolean, (default=True)
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
         """
@@ -831,7 +831,7 @@ class DebiasedLasso(WeightedLasso):
 
         Returns
         -------
-        prediction_stderr : array like, shape (n_samples, )
+        prediction_stderr : array_like, shape (n_samples, )
             The standard error of each coordinate of the output at each point we predict
         """
         # Note that in the case of no intercept, X_offset is 0
@@ -852,13 +852,13 @@ class DebiasedLasso(WeightedLasso):
         X : ndarray or scipy.sparse matrix, (n_samples, n_features)
             Samples.
 
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha:  float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
-        (y_lower, y_upper) : tuple of arrays, shape (n_samples, )
+        (y_lower, y_upper) : tuple of array, shape (n_samples, )
             Returns lower and upper interval endpoints.
         """
         lower = alpha / 2
@@ -885,7 +885,7 @@ class DebiasedLasso(WeightedLasso):
 
         Returns
         -------
-        (coef_lower, coef_upper) : tuple of arrays, shape (n_coefs, )
+        (coef_lower, coef_upper) : tuple of array, shape (n_coefs, )
             Returns lower and upper interval endpoints for the coefficients.
         """
         lower = alpha / 2
@@ -987,37 +987,37 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
     Parameters
     ----------
-    alpha : string | float, optional. Default='auto'.
+    alpha : str | float, optional. Default 'auto'.
         Constant that multiplies the L1 term. Defaults to 'auto'.
         ``alpha = 0`` is equivalent to an ordinary least square, solved
         by the :class:`LinearRegression` object. For numerical
         reasons, using ``alpha = 0`` with the ``Lasso`` object is not advised.
         Given this, you should use the :class:`LinearRegression` object.
 
-    n_alphas : int, optional, default 100
+    n_alphas : int, default 100
         How many alphas to try if alpha='auto'
 
-    alpha_cov : string | float, optional, default 'auto'
+    alpha_cov : str | float, default 'auto'
         The regularization alpha that is used when constructing the pseudo inverse of
         the covariance matrix Theta used to for correcting the lasso coefficient. Each
         such regression corresponds to the regression of one feature on the remainder
         of the features.
 
-    n_alphas_cov : int, optional, default 10
+    n_alphas_cov : int, default 10
         How many alpha_cov to try if alpha_cov='auto'.
 
-    fit_intercept : boolean, optional, default True
+    fit_intercept : bool, default True
         Whether to calculate the intercept for this model. If set
         to False, no intercept will be used in calculations
         (e.g. data is expected to be already centered).
 
-    precompute : True | False | array-like, default=False
+    precompute : True | False | array_like, default False
         Whether to use a precomputed Gram matrix to speed up
         calculations. If set to ``'auto'`` let us decide. The Gram
         matrix can also be passed as argument. For sparse input
         this option is always ``True`` to preserve sparsity.
 
-    copy_X : boolean, optional, default True
+    copy_X : bool, default True
         If ``True``, X will be copied; else, it may be overwritten.
 
     max_iter : int, optional
@@ -1034,8 +1034,8 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         initialization, otherwise, just erase the previous solution.
         See :term:`the Glossary <warm_start>`.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional, default None
-        The seed of the pseudo random number generator that selects a random
+    random_state : int, RandomState instance, or None, default None
+            The seed of the pseudo random number generator that selects a random
         feature to update.  If int, random_state is the seed used by the random
         number generator; If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random
         number generator; If None, the random number generator is the
@@ -1048,7 +1048,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         (setting to 'random') often leads to significantly faster convergence
         especially when tol is higher than 1e-4.
 
-    n_jobs : int or None, default None
+    n_jobs : int, optional
         How many jobs to use whenever parallelism is invoked
 
     Attributes
@@ -1130,7 +1130,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
         Returns
         -------
-        prediction : array like, shape (n_samples, ) or (n_samples, n_targets)
+        prediction : array_like, shape (n_samples, ) or (n_samples, n_targets)
             The prediction at each point.
 
         """
@@ -1149,7 +1149,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
         Returns
         -------
-        prediction_stderr : array like, shape (n_samples, ) or (n_samples, n_targets)
+        prediction_stderr : array_like, shape (n_samples, ) or (n_samples, n_targets)
             The standard error of each coordinate of the output at each point we predict
         """
         n_estimators = len(self.estimators_)
@@ -1169,13 +1169,13 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         X : ndarray or scipy.sparse matrix, (n_samples, n_features)
             Samples.
 
-        alpha: optional float in [0, 1] (Default=0.05)
+        alpha: float in [0, 1], default 0.05
             The overall level of confidence of the reported interval.
             The alpha/2, 1-alpha/2 confidence interval is reported.
 
         Returns
         -------
-        (y_lower, y_upper) : tuple of arrays, shape (n_samples, n_targets) or (n_samples, )
+        (y_lower, y_upper) : tuple of array, shape (n_samples, n_targets) or (n_samples, )
             Returns lower and upper interval endpoints.
         """
         n_estimators = len(self.estimators_)
@@ -1200,7 +1200,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
         Returns
         -------
-        (coef_lower, coef_upper) : tuple of arrays, shape (n_targets, n_coefs) or (n_coefs, )
+        (coef_lower, coef_upper) : tuple of array, shape (n_targets, n_coefs) or (n_coefs, )
             Returns lower and upper interval endpoints for the coefficients.
         """
         n_estimators = len(self.estimators_)
@@ -1224,7 +1224,7 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
 
         Returns
         -------
-        (intercept_lower, intercept_upper) : tuple of arrays of size (n_targets, ) or tuple of floats
+        (intercept_lower, intercept_upper) : tuple of array of size (n_targets, ) or tuple of floats
             Returns lower and upper interval endpoints for the intercept.
         """
         if len(self.estimators_) == 1:
@@ -1361,7 +1361,7 @@ class SelectiveRegularization:
         and last indices being penalized.
     penalized_model : :term:`regressor`
         A penalized linear regression model
-    fit_intercept : bool, optional, default True
+    fit_intercept : bool, default True
         Whether to fit an intercept; the intercept will not be penalized if it is fit
 
     Attributes
@@ -1388,11 +1388,11 @@ class SelectiveRegularization:
 
         Parameters
         ----------
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             The features to regress against
-        y : array-like, shape (n,) or (n, d_y)
+        y : array_like, shape (n,) or (n, d_y)
             The regression target
-        sample_weight : array-like, shape (n,), optional, default None
+        sample_weight : array_like, shape (n,), optional
             Relative weights for each sample
         """
         X, y = check_X_y(X, y, multi_output=True, estimator=self)
@@ -1450,12 +1450,12 @@ class SelectiveRegularization:
 
         Parameters
         ----------
-        X : array-like, shape (m, d_x)
+        X : array_like, shape (m, d_x)
             The samples whose targets to predict
 
         Output
         ------
-        arr : array-like, shape (m,) or (m, d_y)
+        arr : array_like, shape (m,) or (m, d_y)
             The predicted targets
         """
         check_is_fitted(self, "coef_")
@@ -1469,9 +1469,9 @@ class SelectiveRegularization:
 
         Parameters
         ----------
-        X : array-like, shape (m, d_x)
+        X : array_like, shape (m, d_x)
             The samples to predict
-        y : array-like, shape (m,) or (m, d_y)
+        y : array_like, shape (m,) or (m, d_y)
             The ground truth targets
 
         Output
@@ -1528,7 +1528,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
         Parameters
         ----------
-        X : (n, d) array like
+        X : (n, d) array_like
             The covariates on which to predict
 
         Returns
@@ -1549,7 +1549,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
         Returns
         -------
-        coef_ : {(d,), (p, d)} nd array like
+        coef_ : {(d,), (p, d)} nd array_like
             The coefficients of the variables in the linear regression. If label y
             was p-dimensional, then the result is a matrix of coefficents, whose p-th
             row containts the coefficients corresponding to the p-th coordinate of the label.
@@ -1572,7 +1572,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
         Returns
         -------
-        intercept_ : float or (p,) nd array like
+        intercept_ : float or (p,) nd array_like
             The intercept of the linear regresion. If label y was p-dimensional, then the result is a vector
             whose p-th entry containts the intercept corresponding to the p-th coordinate of the label.
         """
@@ -1585,7 +1585,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
         Returns
         -------
-        _param_stderr : {(d (+1),) (d (+1), p)} nd array like
+        _param_stderr : {(d (+1),) (d (+1), p)} nd array_like
             The standard error of each parameter that was estimated.
         """
         if self._n_out == 0:
@@ -1600,7 +1600,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
         Returns
         -------
-        coef_stderr_ : {(d,), (p, d)} nd array like
+        coef_stderr_ : {(d,), (p, d)} nd array_like
             The standard error of the coefficients
         """
         return self._param_stderr[1:].T if self.fit_intercept else self._param_stderr.T
@@ -1612,7 +1612,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
         Returns
         -------
-        intercept_stderr_ : float or (p,) nd array like
+        intercept_stderr_ : float or (p,) nd array_like
             The standard error of the intercept(s)
         """
         return self._param_stderr[0] if self.fit_intercept else (0 if self._n_out == 0 else np.zeros(self._n_out))
@@ -1623,12 +1623,12 @@ class _StatsModelsWrapper(BaseEstimator):
 
         Parameters
         ----------
-        X : (n, d) array like
+        X : (n, d) array_like
             The covariates at which to predict
 
         Returns
         -------
-        prediction_stderr : (n, p) array like
+        prediction_stderr : (n, p) array_like
             The standard error of each coordinate of the output at each point we predict
         """
         if X is None:
@@ -1695,7 +1695,7 @@ class _StatsModelsWrapper(BaseEstimator):
 
         Parameters
         ----------
-        X : (n, d) array like
+        X : (n, d) array_like
             The covariates on which to predict
         alpha : float, default 0.05
             The confidence level. Will calculate the alpha/2-quantile and the (1-alpha/2)-quantile
@@ -1721,9 +1721,9 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
     Parameters
     ----------
-    fit_intercept : bool (optional, default=True)
+    fit_intercept : bool, default True
         Whether to fit an intercept in this model
-    fit_args : dict (optional, default=`{}`)
+    fit_args : dict, default {}
         The statsmodels-style fit arguments; keys can include 'cov_type'
     """
 
@@ -1804,17 +1804,17 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         Parameters
         ----------
-        X : (N, d) nd array like
+        X : (N, d) nd array_like
             co-variates
-        y : {(N,), (N, p)} nd array like
+        y : {(N,), (N, p)} nd array_like
             output variable(s)
-        sample_weight : (N,) array like or None
+        sample_weight : (N,) array_like or None
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (N, ) array like of integers or None
+        freq_weight: (N, ) array_like of int or None
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(N,), (N, p)} nd array like or None
+        sample_var : {(N,), (N, p)} nd array_like or None
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
 
@@ -1888,15 +1888,15 @@ class StatsModelsRLM(_StatsModelsWrapper):
 
     Parameters
     ----------
-    t : float (optional, default=1.345)
+    t : float, default 1.345
         The tuning constant for Huber’s t function
-    maxiter : int (optional, default=50)
+    maxiter : int, default 50
         The maximum number of iterations to try
-    tol : float (optional, default=1e-08)
+    tol : float, default 1e-08
         The convergence tolerance of the estimate
-    fit_intercept : bool (optional, default=True)
+    fit_intercept : bool, default True
         Whether to fit an intercept in this model
-    cov_type : one of {'H1', 'H2', or 'H3'} (optional, default='H1')
+    cov_type : {'H1', 'H2', or 'H3'}, default 'H1'
         Indicates how the covariance matrix is estimated. See statsmodels.robust.robust_linear_model.RLMResults
         for more information.
     """
@@ -1928,9 +1928,9 @@ class StatsModelsRLM(_StatsModelsWrapper):
 
         Parameters
         ----------
-        X : (N, d) nd array like
+        X : (N, d) nd array_like
             co-variates
-        y : (N,) nd array like or (N, p) array like
+        y : (N,) nd array_like or (N, p) array_like
             output variable
 
         Returns
@@ -1967,7 +1967,7 @@ class StatsModels2SLS(_StatsModelsWrapper):
 
     Parameters
     ----------
-    cov_type : one of {'HC0', 'HC1', 'nonrobust' or None} (optional, default='HC0')
+    cov_type : {'HC0', 'HC1', 'nonrobust', or None}, default 'HC0'
         Indicates how the covariance matrix is estimated.
     """
 
@@ -2009,19 +2009,19 @@ class StatsModels2SLS(_StatsModelsWrapper):
 
         Parameters
         ----------
-        Z :  {(N, p)} nd array like
+        Z :  {(N, p)} nd array_like
             instrumental variables
-        T :  {(N, p)} nd array like
+        T :  {(N, p)} nd array_like
             treatment variables
-        y :  {(N,), (N, p)} nd array like
+        y :  {(N,), (N, p)} nd array_like
             output variables
-        sample_weight : (N,) array like or None
+        sample_weight : (N,) array_like or None
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (N, ) array like of integers or None
+        freq_weight: (N, ) array_like of int or None
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(N,), (N, p)} nd array like or None
+        sample_var : {(N,), (N, p)} nd array_like or None
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
 

@@ -292,9 +292,9 @@ class _PolicyOutput:
         The policy tree represented as a dictionary,
     policy_value:float
         The average value of applying the recommended policy (over using the control),
-    always_treat:dict of string to float
+    always_treat:dict of str to float
         A dictionary mapping each non-control treatment to the value of always treating with it (over control),
-    control_name:string
+    control_name:str
         The name of the control treatment
     """
 
@@ -512,13 +512,13 @@ class CausalAnalysis:
 
     Parameters
     ----------
-    feature_inds: array-like of int, str, or bool
+    feature_inds: array_like of int, str, or bool
         The features for which to estimate causal effects, expressed as either column indices,
         column names, or boolean flags indicating which columns to pick
-    categorical: array-like of int, str, or bool
+    categorical: array_like of int, str, or bool
         The features which are categorical in nature, expressed as either column indices,
         column names, or boolean flags indicating which columns to pick
-    heterogeneity_inds: array-like of int, str, or bool, or None or list of array-like elements or None, default None
+    heterogeneity_inds: array_like of int, str, or bool, or None or list of array_like elements or None, default None
         If a 1d array, then whenever estimating a heterogeneous (local) treatment effect
         model, then only the features in this array will be used for heterogeneity. If a 2d
         array then its first dimension should be len(feature_inds) and whenever estimating
@@ -528,7 +528,7 @@ class CausalAnalysis:
         heterogeneity_inds[i]=[] then no features will be used for heterogeneity. If heterogeneity_ind=None
         then all features are used for heterogeneity for all features, and if heterogeneity_inds=[] then
         no features will be.
-    feature_names: list of str, default None
+    feature_names: list of str, optional
         The names for all of the features in the data.  Not necessary if the input will be a dataframe.
         If None and the input is a plain numpy array, generated feature names will be ['X1', 'X2', ...].
     upper_bound_on_cat_expansion: int, default 5
@@ -558,7 +558,7 @@ class CausalAnalysis:
         against which other values are compared.
     n_jobs: int, default -1
         Degree of parallelism to use when training models via joblib.Parallel
-    verbose : int, default=0
+    verbose : int, default 0
         Controls the verbosity when fitting and predicting.
     cv: int, cross-validation generator or an iterable, default 5
         Determines the strategy for cross-fitting used when training causal models for each feature.
@@ -578,7 +578,7 @@ class CausalAnalysis:
         By default, categorical features need to have several instances of each category in order for a model to be
         fit robustly. Setting this to True will skip these checks (although at least 2 instances will always be
         required for linear heterogeneity models, and 4 for forest heterogeneity models even in that case).
-    random_state : int, RandomState instance or None, default=None
+    random_state : int, RandomState instance, or None, default None
         Controls the randomness of the estimator. The features are always
         randomly permuted at each split. When ``max_features < n_features``, the algorithm will
         select ``max_features`` at random at each split before finding the best
@@ -590,15 +590,15 @@ class CausalAnalysis:
 
     Attributes
     ----------
-    nuisance_models_: string
+    nuisance_models_: str
         The nuisance models setting used for the most recent call to fit
-    heterogeneity_model: string
+    heterogeneity_model: str
         The heterogeneity model setting used for the most recent call to fit
-    feature_names_: list of string
+    feature_names_: list of str
         The list of feature names from the data in the most recent call to fit
     trained_feature_indices_: list of int
         The list of feature indices where models were trained successfully
-    untrained_feature_indices_: list of tuple of (int, string or Exception)
+    untrained_feature_indices_: list of tuple of (int, str or Exception)
         The list of indices that were requested but not able to be trained succesfully,
         along with either a reason or caught Exception for each
     """
@@ -629,13 +629,13 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        X : array-like
+        X : array_like
             Feature data
-        y : array-like of shape (n,) or (n,1)
+        y : array_like of shape (n,) or (n,1)
             Outcome. If classification=True, then y should take two values. Otherwise an error is raised
             that only binary classification is implemented for now.
             TODO. enable multi-class classification for y (post-MVP)
-        warm_start : boolean, default False
+        warm_start : bool, default False
             If False, train models for each feature in `feature_inds`.
             If True, train only models for features in `feature_inds` that had not already been trained by
             the previous call to `fit`, and for which neither the corresponding heterogeneity_inds, nor the
@@ -654,14 +654,14 @@ class CausalAnalysis:
 
         assert np.ndim(X) == 2, f"X must be a 2-dimensional array, but here had shape {np.shape(X)}"
 
-        assert iterable(self.feature_inds), f"feature_inds should be array-like, but got {self.feature_inds}"
-        assert iterable(self.categorical), f"categorical should be array-like, but got {self.categorical}"
+        assert iterable(self.feature_inds), f"feature_inds should be array_like, but got {self.feature_inds}"
+        assert iterable(self.categorical), f"categorical should be array_like, but got {self.categorical}"
         assert self.heterogeneity_inds is None or iterable(self.heterogeneity_inds), (
-            f"heterogeneity_inds should be None or array-like, but got {self.heterogeneity_inds}")
+            f"heterogeneity_inds should be None or array_like, but got {self.heterogeneity_inds}")
         assert self.feature_names is None or iterable(self.feature_names), (
-            f"feature_names should be None or array-like, but got {self.feature_names}")
+            f"feature_names should be None or array_like, but got {self.feature_names}")
         assert self.categories == 'auto' or iterable(self.categories), (
-            f"categories should be 'auto' or array-like, but got {self.categories}")
+            f"categories should be 'auto' or array_like, but got {self.categories}")
 
         # TODO: check compatibility of X and Y lengths
 
@@ -991,13 +991,13 @@ class CausalAnalysis:
         ----------
         get_inference : lambda
             Method to get the relevant inference results from each result object
-        props : list of (string, string or lambda)
+        props : list of (string, str or lambda)
             Set of column names and ways to get the corresponding values from the inference object
         n : int
             The number of samples in the dataset
-        expand_arr : boolean, default False
+        expand_arr : bool, default False
             Whether to add a synthetic sample dimension to the result arrays when performing internal computations
-        keep_all_levels : boolean, default False
+        keep_all_levels : bool, default False
             Whether to keep all levels, even when they don't take on more than one value;
             Note that regardless of this argument the "sample" level will only be present if expand_arr is False
         """
@@ -1046,15 +1046,15 @@ class CausalAnalysis:
             Method to get the relevant inference results from each result object
         n : int
             The number of samples in the dataset
-        props : list of (string, string or lambda)
+        props : list of (string, str or lambda)
             Set of column names and ways to get the corresponding values from the inference object
-        kind : string
+        kind : str
             The kind of inference results to get (e.g. 'global', 'local', or 'cohort')
-        drop_sample : boolean, default False
+        drop_sample : bool, default False
             Whether to drop the sample dimension from each array
-        expand_arr : boolean, default False
+        expand_arr : bool, default False
             Whether to add an initial sample dimension to the result arrays
-        row_wise : boolean, default False
+        row_wise : bool, default False
             Whether to return a list of dictionaries (one dictionary per row) instead of
             a dictionary of lists (one list per column)
         """
@@ -1110,7 +1110,7 @@ class CausalAnalysis:
 
         Returns
         -------
-        global_effects : pandas Dataframe
+        global_effects : DataFrame
             DataFrame with the following structure:
 
             :Columns: ['point', 'stderr', 'zstat', 'pvalue', 'ci_lower', 'ci_upper']
@@ -1157,7 +1157,7 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        Xtest : array-like
+        Xtest : array_like
             The cohort samples for which to return the average causal effects within cohort
         alpha : float, default 0.05
             The confidence level of the confidence interval
@@ -1167,7 +1167,7 @@ class CausalAnalysis:
 
         Returns
         -------
-        cohort_effects : pandas Dataframe
+        cohort_effects : DataFrame
             DataFrame with the following structure:
 
             :Columns: ['point', 'stderr', 'zstat', 'pvalue', 'ci_lower', 'ci_upper']
@@ -1218,7 +1218,7 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        Xtest : array-like
+        Xtest : array_like
             The samples for which to return the causal effects
         alpha : float, default 0.05
             The confidence level of the confidence interval
@@ -1227,7 +1227,7 @@ class CausalAnalysis:
             even if there was only a single value for that level; by default single-valued levels are dropped.
         Returns
         -------
-        global_effect : pandas Dataframe
+        global_effect : DataFrame
             DataFrame with the following structure:
 
             :Columns: ['point', 'stderr', 'zstat', 'pvalue', 'ci_lower', 'ci_upper']
@@ -1322,14 +1322,14 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        X: array-like
+        X: array_like
             Features
-        Xnew: array-like
+        Xnew: array_like
             New values of a single column of X
-        feature_index: int or string
+        feature_index: int or str
             The index of the feature being varied to Xnew, either as a numeric index or
             the string name if the input is a dataframe
-        y: array-like
+        y: array_like
             Observed labels or outcome of a predictive model for baseline y values
         alpha : float in [0, 1], default 0.05
             Confidence level of the confidence intervals displayed in the leaf nodes.
@@ -1350,19 +1350,19 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        X: array-like
+        X: array_like
             Features
-        Xnew: array-like
+        Xnew: array_like
             New values of a single column of X
-        feature_index: int or string
+        feature_index: int or str
             The index of the feature being varied to Xnew, either as a numeric index or
             the string name if the input is a dataframe
-        y: array-like
+        y: array_like
             Observed labels or outcome of a predictive model for baseline y values
         alpha : float in [0, 1], default 0.05
             Confidence level of the confidence intervals displayed in the leaf nodes.
             A (1-alpha)*100% confidence interval is displayed.
-        row_wise : boolean, default False
+        row_wise : bool, default False
             Whether to return a list of dictionaries (one dictionary per row) instead of
             a dictionary of lists (one list per column)
         Returns
@@ -1457,11 +1457,11 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        X : array-like
+        X : array_like
             Features
         feature_index
             Index of the feature to be considered as treament
-        treatment_costs: array-like, default 0
+        treatment_costs: array_like, default 0
             Cost of treatment, as a scalar value or per-sample. For continuous features this is the marginal cost per
             unit of treatment; for discrete features, this is the difference in cost between each of the non-default
             values and the default value (i.e., if non-scalar the array should have shape (n,d_t-1))
@@ -1500,11 +1500,11 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        X : array-like
+        X : array_like
             Features
         feature_index
             Index of the feature to be considered as treament
-        treatment_costs: array-like, default 0
+        treatment_costs: array_like, default 0
             Cost of treatment, as a scalar value or per-sample. For continuous features this is the marginal cost per
             unit of treatment; for discrete features, this is the difference in cost between each of the non-default
             values and the default value (i.e., if non-scalar the array should have shape (n,d_t-1))
@@ -1550,7 +1550,7 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        X : array-like
+        X : array_like
             Features
         feature_index
             Index of the feature to be considered as treament
@@ -1585,15 +1585,15 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        X : array-like
+        X : array_like
             Features
         feature_index
             Index of the feature to be considered as treament
-        max_depth : int, optional (default=3)
+        max_depth : int, default 3
             maximum depth of the tree
-        min_samples_leaf : int, optional (default=2)
+        min_samples_leaf : int, default 2
             minimum number of samples on each leaf
-        min_impurity_decrease : float, optional (default=1e-4)
+        min_impurity_decrease : float, default 1e-4
             The minimum decrease in the impurity/uniformity of the causal effect that a split needs to
             achieve to construct it
         include_model_uncertainty : bool, default False
@@ -1624,13 +1624,13 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        Xtest: array-like
+        Xtest: array_like
             Features
-        feature_index: int or string
+        feature_index: int or str
             Index of the feature to be considered as treatment
         n_rows: int, optional
             How many rows to return (all rows by default)
-        treatment_costs: array-like, default 0
+        treatment_costs: array_like, default 0
             Cost of treatment, as a scalar value or per-sample. For continuous features this is the marginal cost per
             unit of treatment; for discrete features, this is the difference in cost between each of the non-default
             values and the default value (i.e., if non-scalar the array should have shape (n,d_t-1))
@@ -1753,13 +1753,13 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        Xtest: array-like
+        Xtest: array_like
             Features
-        feature_index: int or string
+        feature_index: int or str
             Index of the feature to be considered as treatment
         n_rows: int, optional
             How many rows to return (all rows by default)
-        treatment_costs: array-like, default 0
+        treatment_costs: array_like, default 0
             Cost of treatment, as a scalar value or per-sample
         alpha: float in [0, 1], default 0.05
             Confidence level of the confidence intervals
@@ -1781,7 +1781,7 @@ class CausalAnalysis:
 
         Parameters
         ----------
-        feature_index: int or string
+        feature_index: int or str
             The index of the feature to be considered as treatment
 
         Returns

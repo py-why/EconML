@@ -164,7 +164,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
             The indices of the samples in X to be used for calculating the node values of the tree (val set).
         sample_weight : (n,) np.array of type np.float64
             The weight of each sample
-        store_jac : bool, optional (default=False)
+        store_jac : bool, default False
             Whether jacobian information should be stored in the tree nodes by calling the node_jacobian_val
             and node_precond_val of the splitter. This is related to trees that solve linear moment equations
             of the form: J(x) * theta(x) - precond(x) = 0. If store_jac=True, then J(x) and precond(x) are also
@@ -450,10 +450,10 @@ cdef class Tree:
             Number of features X at train time
         n_outputs : int
             How many parameters/outputs are stored/estimated at each node
-        n_relevant_outputs : int, optional (default=-1)
+        n_relevant_outputs : int, default -1
             Which prefix of the parameters do we care about. The remainder are nuisance parameters.
             If `n_relevant_outputs=-1`, then all parameters are relevant.
-        store_jac : bool, optional (default=False)
+        store_jac : bool, default False
             Whether we will be storing jacobian and precond of linear moments information at each node.
         """
         self.n_features = n_features
@@ -794,11 +794,11 @@ cdef class Tree:
         
         Parameters
         ----------
-        normalize : bool, optional (default=True)
+        normalize : bool, default True
             Whether to normalize importances to sum to 1
-        max_depth : int or None, optional (default=None)
+        max_depth : int or None, optional
             The max depth of a split to consider when calculating importance
-        depth_decay : float, optional (default=.0)
+        depth_decay : float, default .0
             The decay of the importance of a split as a function of depth. The split importance is
             re-weighted by 1 / (1 + depth)**depth_decay.
         """
@@ -854,11 +854,11 @@ cdef class Tree:
         
         Parameters
         ----------
-        normalize : bool, optional (default=True)
+        normalize : bool, default True
             Whether to normalize importances to sum to 1
-        max_depth : int or None, optional (default=None)
+        max_depth : int or None, optional
             The max depth of a split to consider when calculating importance
-        depth_decay : float, optional (default=.0)
+        depth_decay : float, default .0
             The decay of the importance of a split as a function of depth. The split importance is
             re-weighted by 1 / (1 + depth)**depth_decay.
         """

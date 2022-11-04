@@ -45,7 +45,7 @@ class GRFTree(BaseTree):
 
     Parameters
     ----------
-    criterion : {``'mse'``, ``'het'``}, default='mse'
+    criterion : {``'mse'``, ``'het'``}, default 'mse'
         The function to measure the quality of a split. Supported criteria
         are ``'mse'`` for the mean squared error in a linear moment estimation tree and ``'het'`` for
         heterogeneity score. These criteria solve any linear moment problem of the form::
@@ -100,16 +100,16 @@ class GRFTree(BaseTree):
 
           as outlined in [grftree1]_
 
-    splitter : {"best"}, default="best"
+    splitter : {"best"}, default "best"
         The strategy used to choose the split at each node. Supported
         strategies are "best" to choose the best split.
 
-    max_depth : int, default=None
+    max_depth : int, default None
         The maximum depth of the tree. If None, then nodes are expanded until
         all leaves are pure or until all leaves contain less than
         min_samples_split samples.
 
-    min_samples_split : int or float, default=10
+    min_samples_split : int or float, default 10
         The minimum number of samples required to split an internal node:
 
         - If int, then consider `min_samples_split` as the minimum number.
@@ -117,7 +117,7 @@ class GRFTree(BaseTree):
           `ceil(min_samples_split * n_samples)` are the minimum
           number of samples for each split.
 
-    min_samples_leaf : int or float, default=5
+    min_samples_leaf : int or float, default 5
         The minimum number of samples required to be at a leaf node.
         A split point at any depth will only be considered if it leaves at
         least ``min_samples_leaf`` training samples in each of the left and
@@ -129,12 +129,12 @@ class GRFTree(BaseTree):
           `ceil(min_samples_leaf * n_samples)` are the minimum
           number of samples for each node.
 
-    min_weight_fraction_leaf : float, default=0.0
+    min_weight_fraction_leaf : float, default 0.0
         The minimum weighted fraction of the sum total of weights (of all
         the input samples) required to be at a leaf node. Samples have
         equal weight when sample_weight is not provided.
 
-    min_var_leaf : None or double in (0, infinity), default=None
+    min_var_leaf : None or double in (0, infinity), default None
         A constraint on the minimum degree of identification of the parameter of interest. This avoids performing
         splits where either the variance of the treatment is small or the correlation of the instrument with the
         treatment is small, or the variance of the instrument is small. Generically for any linear moment problem
@@ -173,7 +173,7 @@ class GRFTree(BaseTree):
           constraint also enforces that no two pairs of treatments be very co-linear within a leaf. This
           extra constraint primarily has bite in the case of more than two input treatments.
 
-    min_var_leaf_on_val : bool, default=False
+    min_var_leaf_on_val : bool, default False
         Whether the `min_var_leaf` constraint should also be enforced to hold on the validation set of the
         honest split too. If `min_var_leaf=None` then this flag does nothing. Setting this to True should
         be done with caution, as this partially violates the honesty structure, since parts of the variables
@@ -182,7 +182,7 @@ class GRFTree(BaseTree):
         in a causal tree or an IV tree does not use the label y. It only uses the treatment T and the instrument
         Z and their local correlation structures to decide whether a split is feasible.
 
-    max_features : int, float or {"auto", "sqrt", "log2"}, default=None
+    max_features : int, float, {"auto", "sqrt", "log2"}, or None, default None
         The number of features to consider when looking for the best split:
 
         - If int, then consider `max_features` features at each split.
@@ -198,7 +198,7 @@ class GRFTree(BaseTree):
         valid partition of the node samples is found, even if it requires to
         effectively inspect more than ``max_features`` features.
 
-    random_state : int, RandomState instance or None, default=None
+    random_state : int, RandomState instance, or None, default None
         Controls the randomness of the estimator. The features are always
         randomly permuted at each split, even if ``splitter`` is set to
         ``"best"``. When ``max_features < n_features``, the algorithm will
@@ -209,7 +209,7 @@ class GRFTree(BaseTree):
         split has to be selected at random. To obtain a deterministic behaviour
         during fitting, ``random_state`` has to be fixed to an integer.
 
-    min_impurity_decrease : float, default=0.0
+    min_impurity_decrease : float, default 0.0
         A node will be split if this split induces a decrease of the impurity
         greater than or equal to this value.
         The weighted impurity decrease equation is the following::
@@ -223,7 +223,7 @@ class GRFTree(BaseTree):
         ``N``, ``N_t``, ``N_t_R`` and ``N_t_L`` all refer to the weighted sum,
         if ``sample_weight`` is passed.
 
-    min_balancedness_tol: float in [0, .5], default=.45
+    min_balancedness_tol: float in [0, .5], default .45
         How imbalanced a split we can tolerate. This enforces that each split leaves at least
         (.5 - min_balancedness_tol) fraction of samples on each side of the split; or fraction
         of the total weight of samples, when sample_weight is not None. Default value, ensures
@@ -231,7 +231,7 @@ class GRFTree(BaseTree):
         balancedness and to .5 for perfectly balanced splits. For the formal inference theory
         to be valid, this has to be any positive constant bounded away from zero.
 
-    honest: bool, default=True
+    honest: bool, default True
         Whether the data should be split in two equally sized samples, such that the one half-sample
         is used to determine the optimal split at each node and the other sample is used to determine
         the value of every node.
@@ -355,7 +355,7 @@ class GRFTree(BaseTree):
               in row contiguous format. The first n_relevant_outputs parameters of the linear moment
               are the ones that we care about. The rest are nuisance parameters.
 
-        sample_weight : (n,) array, default=None
+        sample_weight : (n,) array, default None
             The sample weights
 
         check_input : bool, defaul=True
@@ -372,16 +372,16 @@ class GRFTree(BaseTree):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        theta(X)[:n_relevant_outputs] : array-like of shape (n_samples, n_relevant_outputs)
+        theta(X)[:n_relevant_outputs] : array_like of shape (n_samples, n_relevant_outputs)
             The estimated relevant parameters for each row of X
         """
         check_is_fitted(self)
@@ -394,16 +394,16 @@ class GRFTree(BaseTree):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``.
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        theta(X) : array-like of shape (n_samples, n_outputs)
+        theta(X) : array_like of shape (n_samples, n_outputs)
             All the estimated parameters for each row of X
         """
         check_is_fitted(self)
@@ -417,18 +417,18 @@ class GRFTree(BaseTree):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        alpha : array-like of shape (n_samples, n_outputs)
+        alpha : array_like of shape (n_samples, n_outputs)
             The local alpha E[A | X=x] for each sample x
-        jac : array-like of shape (n_samples, n_outputs * n_outputs)
+        jac : array_like of shape (n_samples, n_outputs * n_outputs)
             The local jacobian E[J | X=x] flattened in a C contiguous format
         """
         check_is_fitted(self)
@@ -443,18 +443,18 @@ class GRFTree(BaseTree):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``
-        parameter : {array-like} of shape (n_samples, n_outputs)
+        parameter : {array_like} of shape (n_samples, n_outputs)
             A parameter estimate for each sample
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        moment : array-like of shape (n_samples, n_outputs)
+        moment : array_like of shape (n_samples, n_outputs)
             The local moment E[J | X=x] theta(x) - E[A | X=x] for each sample x
         """
         alpha, jac = self.predict_alpha_and_jac(X)
@@ -473,9 +473,9 @@ class GRFTree(BaseTree):
 
         Parameters
         ----------
-        max_depth : int, default=4
+        max_depth : int, default 4
             Splits of depth larger than `max_depth` are not used in this calculation
-        depth_decay_exponent: double, default=2.0
+        depth_decay_exponent: double, default 2.0
             The contribution of each split to the total score is re-weighted by ``1 / (1 + `depth`)**2.0``.
 
         Returns

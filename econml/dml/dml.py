@@ -256,13 +256,13 @@ class _BaseDML(_RLearner):
 
         Parameters
         ----------
-        feature_names: list of strings of length X.shape[1] or None
+        feature_names: list of str of length X.shape[1] or None
             The names of the input features. If None and X is a dataframe, it defaults to the column names
             from the dataframe.
 
         Returns
         -------
-        out_feature_names: list of strings or None
+        out_feature_names: list of str or None
             The names of the output features :math:`\\phi(X)`, i.e. the features with respect to which the
             final constant marginal CATE model is linear. It is the names of the features that are associated
             with each entry of the :meth:`coef_` parameter. Not available when the featurizer is not None and
@@ -336,7 +336,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', optional (default is 'auto')
+    model_y: estimator or 'auto', default 'auto'
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
@@ -355,31 +355,31 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         The estimator for fitting the response residuals to the treatment residuals. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
-    featurizer: :term:`transformer`, optional, default None
+    featurizer: :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    treatment_featurizer : :term:`transformer`, optional, default None
+    treatment_featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional, default False
+    discrete_treatment: bool, default False
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional, default 2
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -396,14 +396,15 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -523,17 +524,17 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X:  (n × dₓ) matrix, optional
             Features for each sample
-        W: optional (n × d_w) matrix
+        W:  (n × d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
+        sample_var : {(n,), (n, d_y)} nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -542,7 +543,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
             (or an instance of :class:`.LinearModelFinalInference`)
@@ -575,19 +576,19 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', optional (default is 'auto')
+    model_y: estimator or 'auto', default 'auto'
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t: estimator or 'auto', optional (default is 'auto')
+    model_t: estimator or 'auto', default 'auto'
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be applied for discrete treatment,
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
@@ -597,21 +598,21 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -627,14 +628,15 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -720,17 +722,17 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X:  (n × dₓ) matrix, optional
             Features for each sample
-        W: optional (n × d_w) matrix
+        W:  (n × d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
+        sample_var : {(n,), (n, d_y)} nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -739,7 +741,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'statsmodels'
             (or an instance of :class:`.StatsModelsInference`)
@@ -775,12 +777,12 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', optional (default is 'auto')
+    model_y: estimator or 'auto', default 'auto'
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t: estimator or 'auto', optional (default is 'auto')
+    model_t: estimator or 'auto', default 'auto'
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods, and must be a
         linear model for correctness;
@@ -790,61 +792,61 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         :class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
-    alpha: string | float, optional. Default='auto'.
+    alpha: str or float, default 'auto'
         CATE L1 regularization applied through the debiased lasso in the final model.
         'auto' corresponds to a CV form of the :class:`MultiOutputDebiasedLasso`.
 
-    n_alphas : int, optional, default 100
+    n_alphas : int, default 100
         How many alphas to try if alpha='auto'
 
-    alpha_cov : string | float, optional, default 'auto'
+    alpha_cov : str | float, default 'auto'
         The regularization alpha that is used when constructing the pseudo inverse of
         the covariance matrix Theta used to for correcting the final state lasso coefficient
         in the debiased lasso. Each such regression corresponds to the regression of one feature
         on the remainder of the features.
 
-    n_alphas_cov : int, optional, default 10
+    n_alphas_cov : int, default 10
         How many alpha_cov to try if alpha_cov='auto'.
 
-    max_iter : int, optional, default=1000
+    max_iter : int, default 1000
         The maximum number of iterations in the Debiased Lasso
 
-    tol : float, optional, default=1e-4
+    tol : float, default 1e-4
         The tolerance for the optimization: if the updates are
         smaller than ``tol``, the optimization code checks the
         dual gap for optimality and continues until it is smaller
         than ``tol``.
 
-    n_jobs : int or None, optional (default=None)
+    n_jobs : int or None, optional
         The number of jobs to run in parallel for both `fit` and `predict`.
         ``None`` means 1 unless in a :func:`joblib.parallel_backend` context.
         ``-1`` means using all processors.
 
-    featurizer : :term:`transformer`, optional, default None
+    featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
         If featurizer=None, then CATE is trained on X.
 
-    treatment_featurizer : :term:`transformer`, optional, default None
+    treatment_featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite treatment in the final CATE regression.
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -860,14 +862,15 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -973,11 +976,11 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X:  (n × dₓ) matrix, optional
             Features for each sample
-        W: optional (n × d_w) matrix
+        W:  (n × d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like or None
+        sample_weight : (n,) array_like or None
             Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
@@ -985,7 +988,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, `Inference` instance, or None
+        inference: str, `Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'debiasedlasso'
             (or an instance of :class:`.LinearModelFinalInference`)
@@ -1036,12 +1039,12 @@ class KernelDML(DML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', optional (default is 'auto')
+    model_y: estimator or 'auto', default 'auto'
         The estimator for fitting the response to the features. Must implement
         `fit` and `predict` methods.
         If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
 
-    model_t: estimator or 'auto', optional (default is 'auto')
+    model_t: estimator or 'auto', default 'auto'
         The estimator for fitting the treatment to the features.
         If estimator, it must implement `fit` and `predict` methods;
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
@@ -1050,16 +1053,16 @@ class KernelDML(DML):
         :class:`.WeightedMultiTaskLassoCV`
         will be applied for continuous treatment.
 
-    fit_cate_intercept : bool, optional, default True
+    fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    dim: int, optional (default is 20)
+    dim: int, default 20
         The number of random Fourier features to generate
 
-    bw: float, optional (default is 1.0)
+    bw: float, default 1.0
         The bandwidth of the Gaussian used to generate features
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -1071,7 +1074,7 @@ class KernelDML(DML):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1087,14 +1090,15 @@ class KernelDML(DML):
 
         Unless an iterable is used, we call `split(X,T)` to generate the splits.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -1168,11 +1172,11 @@ class KernelDML(DML):
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X:  (n × dₓ) matrix, optional
             Features for each sample
-        W: optional (n × d_w) matrix
+        W:  (n × d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like or None
+        sample_weight : (n,) array_like or None
             Individual weights for each sample. If None, it assumes equal weight.
         groups: (n,) vector, optional
             All rows corresponding to the same group will be kept together during splitting.
@@ -1180,7 +1184,7 @@ class KernelDML(DML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
             (or an instance of :class:`.LinearModelFinalInference`)
@@ -1238,7 +1242,7 @@ class NonParamDML(_BaseDML):
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
-    discrete_treatment: bool, optional (default is ``False``)
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     treatment_featurizer : :term:`transformer`, optional
@@ -1250,7 +1254,7 @@ class NonParamDML(_BaseDML):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
-    cv: int, cross-validation generator or an iterable, optional (Default=2)
+    cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
 
@@ -1267,14 +1271,15 @@ class NonParamDML(_BaseDML):
         Unless an iterable is used, we call `split(concat[W, X], T)` to generate the splits. If all
         W, X are None, then we call `split(ones((T.shape[0], 1)), T)`.
 
-    mc_iters: int, optional (default=None)
+    mc_iters: int, optional
         The number of times to rerun the first stage models to reduce the variance of the nuisances.
 
-    mc_agg: {'mean', 'median'}, optional (default='mean')
+    mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
-    random_state: int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
+    random_state : int, RandomState instance, or None, default None
+
         If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
@@ -1373,17 +1378,17 @@ class NonParamDML(_BaseDML):
             Outcomes for each sample
         T: (n × dₜ) matrix or vector of length n
             Treatments for each sample
-        X: optional (n × dₓ) matrix
+        X:  (n × dₓ) matrix, optional
             Features for each sample
-        W: optional (n × d_w) matrix
+        W:  (n × d_w) matrix, optional
             Controls for each sample
-        sample_weight : (n,) array like, default None
+        sample_weight : (n,) array_like, optional
             Individual weights for each sample. If None, it assumes equal weight.
-        freq_weight: (n,) array like of integers, default None
+        freq_weight: (n,) array_like of int, optional
             Weight for the observation. Observation i is treated as the mean
             outcome of freq_weight[i] independent observations.
             When ``sample_var`` is not None, this should be provided.
-        sample_var : {(n,), (n, d_y)} nd array like, default None
+        sample_var : {(n,), (n, d_y)} nd array_like, optional
             Variance of the outcome(s) of the original freq_weight[i] observations that were used to
             compute the mean outcome represented by observation i.
         groups: (n,) vector, optional
@@ -1392,7 +1397,7 @@ class NonParamDML(_BaseDML):
             must support a 'groups' argument to its split method.
         cache_values: bool, default False
             Whether to cache inputs and first stage results, which will allow refitting a different final model
-        inference: string, :class:`.Inference` instance, or None
+        inference: str, :class:`.Inference` instance, or None
             Method for performing inference.  This estimator supports 'bootstrap'
             (or an instance of :class:`.BootstrapInference`) and 'auto'
             (or an instance of :class:`.GenericSingleTreatmentModelFinalInference`)

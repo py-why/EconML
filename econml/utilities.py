@@ -110,7 +110,7 @@ def issparse(X):
 
     Parameters
     ----------
-    X : array-like
+    X : array_like
         The input to check
 
     Returns
@@ -127,7 +127,7 @@ def iscoo(X):
 
     Parameters
     ----------
-    X : array-like
+    X : array_like
         The input to check
 
     Returns
@@ -207,7 +207,7 @@ def reshape(X, shape):
     X : array_like
         The array to reshape
 
-    shape : tuple of ints
+    shape : tuple of int
         The desired shape of the output array
 
     Returns
@@ -358,7 +358,7 @@ def hstack(XS):
 
     Parameters
     ----------
-    XS : sequence of ndarrays
+    XS : sequence of ndarray
         The arrays must have the same shape along all but the second axis.
 
     Returns
@@ -379,7 +379,7 @@ def vstack(XS):
 
     Parameters
     ----------
-    XS : sequence of ndarrays
+    XS : sequence of ndarray
         The arrays must have the same shape along all but the first axis.
         1-D arrays must have the same length.
 
@@ -400,7 +400,7 @@ def transpose(X, axes=None):
     ----------
     X : array_like
         Input array.
-    axes :  list of ints, optional
+    axes :  list of int, optional
             By default, reverse the dimensions, otherwise permute the axes according to the values given
 
     Returns
@@ -423,7 +423,7 @@ def add_intercept(X):
 
     Parameters
     ----------
-    X : array-like
+    X : array_like
         Input array.  Must be 2D.
 
     Returns
@@ -482,10 +482,10 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     T : array_like, shape (n, ) or (n, d_t)
         Treatment policy.
 
-    X : array-like, shape (n, d_x)
+    X : array_like, shape (n, d_x)
         Feature vector that captures heterogeneity.
 
-    W : array-like, shape (n, d_w) or None (default=None)
+    W : array_like, shape (n, d_w), optional
         High-dimensional controls.
 
     multi_output_T : bool
@@ -502,10 +502,10 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     T : array_like, shape (n, ) or (n, d_t)
         Converted and validated T.
 
-    X : array-like, shape (n, d_x)
+    X : array_like, shape (n, d_x)
         Converted and validated X.
 
-    W : array-like, shape (n, d_w) or None (default=None)
+    W : array_like, shape (n, d_w), optional
         Converted and validated W.
 
     """
@@ -527,13 +527,13 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
     args : scalar or array_like
         Inputs to be checked.
 
-    validate_len : bool (default=True)
+    validate_len : bool, default True
         Whether to check if the input arrays have the same length.
 
-    force_all_finite : bool (default=True)
+    force_all_finite : bool, default True
         Whether to allow inf and nan in input arrays.
 
-    dtype : 'numeric', type, list of type or None (default=None)
+    dtype : 'numeric', type, list of type, optional
         Argument passed to sklearn.utils.check_array.
         Specifies data type of result. If None, the dtype of the input is preserved.
         If "numeric", dtype is preserved unless array.dtype is object.
@@ -542,7 +542,7 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
 
     Returns
     -------
-    args: array-like
+    args: array_like
         List of inputs where sequence-like objects have been cast to numpy arrays.
 
     """
@@ -579,13 +579,13 @@ def get_input_columns(X, prefix="X"):
     X : array_like or None
         Input array with column names to be extracted.
 
-    prefix: string or None
+    prefix: str, default "X"
         If input array doesn't have column names, a default using the naming scheme
         "{prefix}{column number}" will be returned.
 
     Returns
     -------
-    cols: array-like or None
+    cols: array_like or None
         List of columns corresponding to the dataframe-like object.
         None if the input array is not in the supported types.
     """
@@ -593,7 +593,7 @@ def get_input_columns(X, prefix="X"):
         return None
     if np.ndim(X) == 0:
         raise ValueError(
-            f"Expected array-like object for imput with prefix {prefix} but got '{X}' object instead.")
+            f"Expected array_like object for imput with prefix {prefix} but got '{X}' object instead.")
     # Type to column extraction function
     type_to_func = {
         pd.DataFrame: lambda x: x.columns.tolist(),
@@ -621,13 +621,15 @@ def get_feature_names_or_default(featurizer, feature_names, prefix="feat(X)"):
     Parameters
     ----------
     featurizer ： featurizer to extract feature names from
-    feature_names : input features
-    prefix : output prefix in the event where we assign default feature names
+    feature_names : sequence of str
+        input features
+    prefix : str, default "feat(X)"
+        output prefix in the event where we assign default feature names
 
     Returns
     ----------
-    feature_names_out : a list of strings (feature names)
-
+    feature_names_out : list of str
+        The feature names
     """
 
     # coerce feature names to be strings
@@ -672,13 +674,13 @@ def check_models(models, n):
 
     Parameters
     ----------
-    models ： estimator or a list/tuple of estimators
+    models ： estimator or list or tuple of estimators
     n : int
         Number of models needed
 
     Returns
     ----------
-    models : a list/tuple of estimators
+    models : list or tuple of estimator
 
     """
     if isinstance(models, (tuple, list)):
@@ -759,7 +761,7 @@ def einsum_sparse(subscripts, *arrs):
         Specifies the subscripts for summation.
         Unlike `np.eisnum` elipses are not supported and the output must be explicitly included
 
-    arrs : list of COO arrays
+    arrs : list of `sparse.COO`
         These are the sparse arrays for the operation.
 
     Returns
@@ -906,11 +908,11 @@ def fit_with_groups(model, X, y, groups=None, **kwargs):
     ----------
     model : estimator
         The model to fit
-    X : array-like
+    X : array_like
         The features to fit against
-    y : array-like
+    y : array_like
         The target to fit against
-    groups : array-like, optional
+    groups : array_like, optional
         The set of groupings that should be kept together when splitting rows for
         cross-validation
     kwargs : dict
@@ -969,7 +971,7 @@ class WeightedModelWrapper:
     model_instance : estimator
         Model that requires weights.
 
-    sample_type : string, optional (default=`weighted`)
+    sample_type : str, default `weighted`
         Method for adding weights to the model. `weighted` for linear regression models
         where the weights can be incorporated in the matrix multiplication,
         `sampled` for other models. `sampled` samples the training set according
@@ -991,10 +993,10 @@ class WeightedModelWrapper:
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features)
+        X : array_like, shape (n_samples, n_features)
             Training data.
 
-        y : array-like, shape (n_samples, n_outcomes)
+        y : array_like, shape (n_samples, n_outcomes)
             Target values.
 
         Returns
@@ -1010,7 +1012,7 @@ class WeightedModelWrapper:
 
         Parameters
         ----------
-        X : array-like or sparse matrix, shape (n_samples, n_features)
+        X : array_like or sparse matrix, shape (n_samples, n_features)
             Samples.
 
         Returns
@@ -1041,7 +1043,7 @@ class MultiModelWrapper:
 
     Parameters
     ----------
-    model_list : array-like, shape (n_T, )
+    model_list : array_like, shape (n_T, )
         List of models to be trained separately for each treatment group.
     """
 
@@ -1054,10 +1056,10 @@ class MultiModelWrapper:
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features + n_treatments)
+        X : array_like, shape (n_samples, n_features + n_treatments)
             Training data. The last n_T columns should be a one-hot encoding of the treatment assignment.
 
-        y : array-like, shape (n_samples, )
+        y : array_like, shape (n_samples, )
             Target values.
 
         Returns
@@ -1081,7 +1083,7 @@ class MultiModelWrapper:
 
         Parameters
         ----------
-        X : array-like, shape (n_samples, n_features + n_treatments)
+        X : array_like, shape (n_samples, n_features + n_treatments)
             Samples. The last n_T columns should be a one-hot encoding of the treatment assignment.
 
         Returns
@@ -1117,7 +1119,7 @@ class Summary:
 
     Attributes
     ----------
-    tables : list of tables
+    tables : list of table
         Contains the list of SimpleTable instances, horizontally concatenated
         tables are not saved separately.
     extra_txt : str
@@ -1253,9 +1255,9 @@ def deprecated(message, category=FutureWarning):
 
     Parameters
     ----------
-    message: string
+    message: str
         The deprecation message to use
-    category: optional :class:`type`, default :class:`FutureWarning`
+    category:  :class:`type`, default :class:`FutureWarning`
         The warning category to use
     """
     def decorator(to_wrap):
@@ -1288,11 +1290,11 @@ def _deprecate_positional(message, bad_args, category=FutureWarning):
 
     Parameters
     ----------
-    message: string
+    message: str
         The deprecation message to use
-    bad_args : list of string
+    bad_args : list of str
         The positional arguments that will be keyword-only in the future
-    category: optional :class:`type`, default :class:`FutureWarning`
+    category:  :class:`type`, default :class:`FutureWarning`
         The warning category to use
     """
     def decorator(to_wrap):
@@ -1319,7 +1321,7 @@ class MissingModule:
 
     Parameters
     ----------
-    msg:string
+    msg:str
         The message to display when an attempt to access a module memeber is made
     exn:ImportError
         The original ImportError to pass as the source of the exception
@@ -1370,12 +1372,12 @@ def reshape_arrays_2dim(length, *args):
     ----------
     length: scalar
         Number of samples
-    args: arrays
+    args: tuple of array_like
         Inputs to be reshaped
 
     Returns
     -------
-    new_args: arrays
+    new_args: list of array
         Output of reshaped arrays
     """
     new_args = []

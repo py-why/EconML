@@ -78,6 +78,7 @@ jobs:
         displayName: 'Build documentation'
 
       - publish: 'build/sphinx/html'
+        condition: 'succeededOrFailed()'
         artifact: 'Documentation'
         displayName: 'Publish documentation as artifact'
 

@@ -16,10 +16,10 @@ class Node:
 
     Parameters
     ----------
-    sample_inds : array-like, shape (n, )
+    sample_inds : array_like, shape (n, )
         Indices defining the sample that the split criterion will be computed on.
 
-    estimate_inds : array-like, shape (n, )
+    estimate_inds : array_like, shape (n, )
         Indices defining the sample used for calculating balance criteria.
 
     """
@@ -39,7 +39,7 @@ class Node:
 
         Parameters
         ----------
-        value : array-like, shape (d_x,)
+        value : array_like, shape (d_x,)
             Feature vector whose node we want to find.
         """
         if self.feature == -1:
@@ -68,25 +68,25 @@ class CausalTree:
         Takes in (Y, T, X, W, nuisance_estimates, parameter_estimate) and returns
         the moments and the mean moment gradient.
 
-    min_leaf_size : integer, optional (default=10)
+    min_leaf_size : int, default 10
         The minimum number of samples in a leaf.
 
-    max_depth : integer, optional (default=10)
+    max_depth : int, default 10
         The maximum number of splits to be performed when expanding the tree.
 
-    n_proposals :  int, optional (default=1000)
+    n_proposals :  int, default 1000
         Number of split proposals to be considered. A smaller number will improve
         execution time, but might reduce accuracy of prediction.
 
-    balancedness_tol : float, optional (default=.3)
+    balancedness_tol : float, default .3
         Tolerance for balance between child nodes in a split. A smaller value
         will result in an unbalanced tree prone to overfitting. Has to lie
         between 0 and .5 as it is used to control both directions of imbalancedness.
         With the default value we guarantee that each child of a split contains
         at least 20% and at most 80% of the data of the parent node.
 
-    random_state : int, :class:`~numpy.random.mtrand.RandomState` instance or None, optional (default=None)
-        If int, random_state is the seed used by the random number generator;
+random_state : int, RandomState instance, or None, default None
+            If int, random_state is the seed used by the random number generator;
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
@@ -114,16 +114,16 @@ class CausalTree:
 
         Parameters
         ----------
-        Y : array-like, shape (n, d_y)
+        Y : array_like, shape (n, d_y)
                 Outcome for the treatment policy.
 
-        T : array-like, shape (n, d_t)
+        T : array_like, shape (n, d_t)
             Treatment policy.
 
-        X : array-like, shape (n, d_x)
+        X : array_like, shape (n, d_x)
             Feature vector that captures heterogeneity.
 
-        W : array-like, shape (n, d_w) or None (default=None)
+        W : array_like, shape (n, d_w), optional
             High-dimensional controls.
         """
         # No need for a random split since the data is already

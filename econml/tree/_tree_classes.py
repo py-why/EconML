@@ -310,16 +310,16 @@ class BaseTree(BaseEstimator):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
         Returns
         -------
-        X_leaves : array-like of shape (n_samples,)
+        X_leaves : array_like of shape (n_samples,)
             For each datapoint x in X, return the index of the leaf x
             ends up in. Leaves are numbered within
             ``[0; self.tree_.node_count)``, possibly with gaps in the
@@ -334,10 +334,10 @@ class BaseTree(BaseEstimator):
 
         Parameters
         ----------
-        X : {array-like} of shape (n_samples, n_features)
+        X : {array_like} of shape (n_samples, n_features)
             The input samples. Internally, it will be converted to
             ``dtype=np.float64``
-        check_input : bool, default=True
+        check_input : bool, default True
             Allow to bypass several input checking.
             Don't use this parameter unless you know what you do.
 
