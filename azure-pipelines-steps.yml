@@ -6,7 +6,7 @@
 parameters:
   package: '-e .'
   images: ['ubuntu-20.04', 'macOS-12', 'windows-2019']
-  versions: ['3.6', '3.7', '3.8', '3.9']
+  versions: ['3.7', '3.8', '3.9', '3.10']
   job: 
     job: Job
   
