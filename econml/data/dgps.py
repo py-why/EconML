@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import check_random_state
+from scipy.special import expit
 
 _ihdp_sim_file = os.path.join(os.path.dirname(__file__), "ihdp", "sim.csv")
 _ihdp_sim_data = pd.read_csv(_ihdp_sim_file)
@@ -93,3 +94,182 @@ def _process_ihdp_sim_data():
     # Append a column of ones as intercept
     X = np.insert(X, 0, np.ones(X.shape[0]), axis=1)
     return T, X
+
+
+class StandardDGP():
+    def __init__(self,
+                 n=1000,
+                 d_t=1,
+                 d_y=1,
+                 d_x=5,
+                 d_z=None,
+                 discrete_treatment=False,
+                 discrete_instrument=False,
+                 squeeze_T=False,
+                 squeeze_Y=False,
+                 nuisance_Y=None,
+                 nuisance_T=None,
+                 nuisance_TZ=None,
+                 theta=None,
+                 y_of_t=None,
+                 x_eps=1,
+                 y_eps=1,
+                 t_eps=1
+                 ):
+        self.n = n
+        self.d_t = d_t
+        self.d_y = d_y
+        self.d_x = d_x
+        self.d_z = d_z
+
+        self.discrete_treatment = discrete_treatment
+        self.discrete_instrument = discrete_instrument
+        self.squeeze_T = squeeze_T
+        self.squeeze_Y = squeeze_Y
+
+        if callable(nuisance_Y):
+            self.nuisance_Y = nuisance_Y
+        else:  # else must be dict
+            if nuisance_Y is None:
+                nuisance_Y = {'support': self.d_x, 'degree': 1}
+            nuisance_Y['k'] = self.d_x
+            self.nuisance_Y, self.nuisance_Y_coefs = self.gen_nuisance(**nuisance_Y)
+
+        if callable(nuisance_T):
+            self.nuisance_T = nuisance_T
+        else:  # else must be dict
+            if nuisance_T is None:
+                nuisance_T = {'support': self.d_x, 'degree': 1}
+            nuisance_T['k'] = self.d_x
+            self.nuisance_T, self.nuisance_T_coefs = self.gen_nuisance(**nuisance_T)
+
+        if self.d_z:
+            if callable(nuisance_TZ):
+                self.nuisance_TZ = nuisance_TZ
+            else:  # else must be dict
+                if nuisance_TZ is None:
+                    nuisance_TZ = {'support': self.d_z, 'degree': 1}
+                nuisance_TZ['k'] = self.d_z
+                self.nuisance_TZ, self.nuisance_TZ_coefs = self.gen_nuisance(**nuisance_TZ)
+        else:
+            self.nuisance_TZ = lambda x: 0
+
+        if callable(theta):
+            self.theta = theta
+        else:  # else must be dict
+            if theta is None:
+                theta = {'support': self.d_x, 'degree': 1, 'bounds': [1, 2], 'intercept': True}
+            theta['k'] = self.d_x
+            self.theta, self.theta_coefs = self.gen_nuisance(**theta)
+
+        if callable(y_of_t):
+            self.y_of_t = y_of_t
+        else:  # else must be dict
+            if y_of_t is None:
+                y_of_t = {'support': self.d_t, 'degree': 1, 'bounds': [1, 1]}
+            y_of_t['k'] = self.d_t
+            self.y_of_t, self.y_of_t_coefs = self.gen_nuisance(**y_of_t)
+
+        self.x_eps = x_eps
+        self.y_eps = y_eps
+        self.t_eps = t_eps
+
+    def gen_Y(self):
+        self.y_noise = np.random.normal(size=(self.n, self.d_y), scale=self.y_eps)
+        self.Y = self.theta(self.X) * self.y_of_t(self.T) + self.nuisance_Y(self.X) + self.y_noise
+        return self.Y
+
+    def gen_X(self):
+        self.X = np.random.normal(size=(self.n, self.d_x), scale=self.x_eps)
+        return self.X
+
+    def gen_T(self):
+        noise = np.random.normal(size=(self.n, self.d_t), scale=self.t_eps)
+        self.T_noise = noise
+
+        if self.discrete_treatment:
+            prob_T = expit(self.nuisance_T(self.X) + self.nuisance_TZ(self.Z) + self.T_noise)
+            self.T = np.random.binomial(1, prob_T)
+            return self.T
+
+        else:
+            self.T = self.nuisance_T(self.X) + self.nuisance_TZ(self.Z) + self.T_noise
+            return self.T
+
+    def gen_Z(self):
+        if self.d_z:
+            if self.discrete_instrument:
+                # prob_Z = expit(np.random.normal(size=(self.n, self.d_z)))
+                # self.Z = np.random.binomial(1, prob_Z, size=(self.n, 1))
+                # self.Z = np.random.binomial(1, prob_Z)
+                self.Z = np.random.binomial(1, 0.5, size=(self.n, self.d_z))
+                return self.Z
+
+            else:
+                Z_noise = np.random.normal(size=(self.n, self.d_z), loc=3, scale=3)
+                self.Z = Z_noise
+                return self.Z
+
+        else:
+            self.Z = None
+            return self.Z
+
+    def gen_nuisance(self, k=None, support=1, bounds=[-1, 1], degree=1, intercept=False):
+        if not k:
+            k = self.d_x
+
+        coefs = np.random.uniform(low=bounds[0], high=bounds[1], size=k)
+        supports = np.random.choice(k, size=support, replace=False)
+        mask = np.zeros(shape=k)
+        mask[supports] = 1
+        coefs = coefs * mask
+
+        # orders = np.random.randint(1, degree, k) if degree!=1 else np.ones(shape=(k,))
+        orders = np.ones(shape=(k,)) * degree  # enforce all to be the degree for now
+
+        if intercept:
+            intercept = np.random.uniform(low=1, high=2)
+        else:
+            intercept = 0
+
+        def calculate_nuisance(W):
+            W2 = np.copy(W)
+            for i in range(0, k):
+                W2[:, i] = W[:, i]**orders[i]
+            out = W2.dot(coefs)
+            return out.reshape(-1, 1) + intercept
+
+        return calculate_nuisance, coefs
+
+    def effect(self, X, T0, T1):
+        if T0 is None or T0 == 0:
+            T0 = np.zeros(shape=(T1.shape[0], self.d_t))
+
+        effect_t1 = self.theta(X) * self.y_of_t(T1)
+        effect_t0 = self.theta(X) * self.y_of_t(T0)
+        return effect_t1 - effect_t0
+
+    def const_marginal_effect(self, X):
+        return self.theta(X)
+
+    def gen_data(self):
+        X = self.gen_X()
+        Z = self.gen_Z()
+        T = self.gen_T()
+        Y = self.gen_Y()
+
+        if self.squeeze_T:
+            T = T.squeeze()
+        if self.squeeze_Y:
+            Y = Y.squeeze()
+
+        data_dict = {
+            'Y': Y,
+            'T': T,
+            'X': X
+        }
+
+        if self.d_z:
+            data_dict['Z'] = Z
+
+        return data_dict
