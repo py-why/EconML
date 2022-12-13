@@ -1360,7 +1360,9 @@ def transpose_dictionary(d):
     for key1, value in d.items():
         for key2, val in value.items():
             output[key2][key1] = val
-    return output
+
+    # return plain dictionary so that erroneous accesses don't half work (see e.g. #708)
+    return dict(output)
 
 
 def reshape_arrays_2dim(length, *args):
