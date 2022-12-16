@@ -96,7 +96,74 @@ def _process_ihdp_sim_data():
     return T, X
 
 
-class StandardDGP():
+class StandardDGP:
+    """
+    A class to generate synthetic causal datasets
+
+    Parameters
+    ----------
+    n: int
+        Number of observations to generate
+
+    d_t: int
+        Dimensionality of treatment
+
+    d_y: int
+        Dimensionality of outcome
+
+    d_x: int
+        Dimensionality of features
+
+    d_z: int
+        Dimensionality of instrument
+
+    discrete_treatment: bool
+        Dimensionality of treatment
+
+    discrete_isntrument: bool
+        Dimensionality of instrument
+
+    squeeze_T: bool
+        Whether to squeeze the final T array on output
+
+    squeeze_Y: bool
+        Whether to squeeze the final Y array on output
+
+    nuisance_Y: func or dict
+        Nuisance function. Describes how the covariates affect the outcome. 
+        If a function, this function will be used on features X to partially generate Y. 
+        If a dict, must include 'support' and 'degree' keys.
+
+    nuisance_T: func or dict
+        Nuisance function. Describes how the covariates affect the treatment.
+        If a function, this function will be used on features X to partially generate T. 
+        If a dict, must include 'support' and 'degree' keys.
+
+    nuisance_TZ: func or dict
+        Nuisance function. Describes how the instrument affects the treatment.
+        If a function, this function will be used on instrument Z to partially generate T. 
+        If a dict, must include 'support' and 'degree' keys.
+
+    theta: func or dict
+        Describes how the features affects the treatment effect heterogenity.
+        If a function, this function will be used on features X to calculate treatment effect heterogenity. 
+        If a dict, must include 'support' and 'degree' keys.
+
+    y_of_t: func or dict
+        Describes how the treatment affects the outcome.
+        If a function, this function will be used directly. 
+        If a dict, must include 'support' and 'degree' keys.
+
+    x_eps: float
+        Noise parameter for feature generation
+
+    y_eps: func or dict
+        Noise parameter for outcome generation
+
+    t_eps: func or dict
+        Noise parameter for treatment generation
+
+    """
     def __init__(self,
                  n=1000,
                  d_t=1,
@@ -114,7 +181,8 @@ class StandardDGP():
                  y_of_t=None,
                  x_eps=1,
                  y_eps=1,
-                 t_eps=1
+                 t_eps=1,
+                 random_state=None
                  ):
         self.n = n
         self.d_t = d_t
@@ -132,7 +200,7 @@ class StandardDGP():
         else:  # else must be dict
             if nuisance_Y is None:
                 nuisance_Y = {'support': self.d_x, 'degree': 1}
-            nuisance_Y['k'] = self.d_x
+            assert isinstance(nuisance_Y, dict), f"nuisance_Y must be a callable or dict, but got {type(nuisance_Y)}"
             self.nuisance_Y, self.nuisance_Y_coefs = self.gen_nuisance(**nuisance_Y)
 
         if callable(nuisance_T):
@@ -140,7 +208,7 @@ class StandardDGP():
         else:  # else must be dict
             if nuisance_T is None:
                 nuisance_T = {'support': self.d_x, 'degree': 1}
-            nuisance_T['k'] = self.d_x
+            assert isinstance(nuisance_T, dict), f"nuisance_T must be a callable or dict, but got {type(nuisance_T)}"
             self.nuisance_T, self.nuisance_T_coefs = self.gen_nuisance(**nuisance_T)
 
         if self.d_z:
@@ -149,7 +217,9 @@ class StandardDGP():
             else:  # else must be dict
                 if nuisance_TZ is None:
                     nuisance_TZ = {'support': self.d_z, 'degree': 1}
-                nuisance_TZ['k'] = self.d_z
+                assert isinstance(
+                    nuisance_TZ, dict), f"nuisance_TZ must be a callable or dict, but got {type(nuisance_TZ)}"
+                nuisance_TZ = {**nuisance_TZ, 'k': self.d_z}
                 self.nuisance_TZ, self.nuisance_TZ_coefs = self.gen_nuisance(**nuisance_TZ)
         else:
             self.nuisance_TZ = lambda x: 0
@@ -159,7 +229,7 @@ class StandardDGP():
         else:  # else must be dict
             if theta is None:
                 theta = {'support': self.d_x, 'degree': 1, 'bounds': [1, 2], 'intercept': True}
-            theta['k'] = self.d_x
+            assert isinstance(theta, dict), f"theta must be a callable or dict, but got {type(theta)}"
             self.theta, self.theta_coefs = self.gen_nuisance(**theta)
 
         if callable(y_of_t):
@@ -167,6 +237,7 @@ class StandardDGP():
         else:  # else must be dict
             if y_of_t is None:
                 y_of_t = {'support': self.d_t, 'degree': 1, 'bounds': [1, 1]}
+            assert isinstance(y_of_t, dict), f"y_of_t must be a callable or dict, but got {type(y_of_t)}"
             y_of_t['k'] = self.d_t
             self.y_of_t, self.y_of_t_coefs = self.gen_nuisance(**y_of_t)
 
@@ -199,9 +270,6 @@ class StandardDGP():
     def gen_Z(self):
         if self.d_z:
             if self.discrete_instrument:
-                # prob_Z = expit(np.random.normal(size=(self.n, self.d_z)))
-                # self.Z = np.random.binomial(1, prob_Z, size=(self.n, 1))
-                # self.Z = np.random.binomial(1, prob_Z)
                 self.Z = np.random.binomial(1, 0.5, size=(self.n, self.d_z))
                 return self.Z
 
@@ -224,7 +292,6 @@ class StandardDGP():
         mask[supports] = 1
         coefs = coefs * mask
 
-        # orders = np.random.randint(1, degree, k) if degree!=1 else np.ones(shape=(k,))
         orders = np.ones(shape=(k,)) * degree  # enforce all to be the degree for now
 
         if intercept:
