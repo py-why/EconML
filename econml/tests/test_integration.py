@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+from econml.utilities import get_feature_names_or_default
 import numpy as np
 import pandas as pd
 import unittest
@@ -76,7 +77,7 @@ class TestPandasIntegration(unittest.TestCase):
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
         self._check_input_names(
             est.summary(),
-            feat_comp=est.original_featurizer.get_feature_names(X.columns))
+            feat_comp=get_feature_names_or_default(est.original_featurizer, X.columns))
         est.featurizer = FunctionTransformer()
         est.fit(Y, T, X=X, W=W, inference='statsmodels')
         self._check_input_names(

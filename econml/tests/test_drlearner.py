@@ -20,7 +20,7 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, Polynomial
 
 from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
-from econml.utilities import shape, hstack, vstack, reshape, cross_product
+from econml.utilities import get_feature_names_or_default, shape, hstack, vstack, reshape, cross_product
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 import econml.tests.utilities  # bugfix for assertWarns
 
@@ -451,10 +451,10 @@ class TestDRLearner(unittest.TestCase):
                                         feature_names = ['A', 'B', 'C']
                                         out_feat_names = feature_names
                                         if featurizer is not None:
-                                            out_feat_names = featurizer.fit(
-                                                X).get_feature_names(feature_names)
+                                            out_feat_names = get_feature_names_or_default(featurizer.fit(X),
+                                                                                          feature_names)
                                             np.testing.assert_array_equal(
-                                                est.featurizer_.n_input_features_, 3)
+                                                est.featurizer_.n_features_in_, 3)
                                         np.testing.assert_array_equal(est.cate_feature_names(feature_names),
                                                                       out_feat_names)
 
@@ -631,10 +631,10 @@ class TestDRLearner(unittest.TestCase):
                                     out_feat_names = feature_names
                                     if X is not None:
                                         if (featurizer is not None):
-                                            out_feat_names = featurizer.fit(
-                                                X).get_feature_names(feature_names)
+                                            out_feat_names = get_feature_names_or_default(featurizer.fit(X),
+                                                                                          feature_names)
                                             np.testing.assert_array_equal(
-                                                est.featurizer_.n_input_features_, 2)
+                                                est.featurizer_.n_features_in_, 2)
                                         np.testing.assert_array_equal(est.cate_feature_names(feature_names),
                                                                       out_feat_names)
 

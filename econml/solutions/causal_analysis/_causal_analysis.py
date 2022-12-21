@@ -25,7 +25,7 @@ from ...dml import LinearDML, CausalForestDML
 from ...inference import NormalInferenceResults
 from ...sklearn_extensions.linear_model import WeightedLasso
 from ...sklearn_extensions.model_selection import GridSearchCVList
-from ...utilities import _RegressionWrapper, inverse_onehot
+from ...utilities import _RegressionWrapper, get_feature_names_or_default, inverse_onehot
 
 # TODO: this utility is documented but internal; reimplement?
 from sklearn.utils import _safe_indexing
@@ -220,13 +220,16 @@ class _ColumnTransformer(TransformerMixin):
         else:
             return rest
 
+    # TODO: remove once older sklearn support is no longer needed
     def get_feature_names(self, names=None):
+        return self.get_feature_names_out(names)
+
+    def get_feature_names_out(self, names=None):
         if names is None:
             names = [f"x{i}" for i in range(self.d_x)]
         rest = _safe_indexing(names, self.passthrough, axis=0)
         if self.has_cats:
-            cats = self.one_hot_encoder.get_feature_names(
-                _safe_indexing(names, self.categorical, axis=0))
+            cats = get_feature_names_or_default(self.one_hot_encoder, _safe_indexing(names, self.categorical, axis=0))
             return np.concatenate((rest, cats))
         else:
             return rest
@@ -1445,7 +1448,7 @@ class CausalAnalysis:
             intrp.interpret(result.estimator, Xtest)
             policy_values = None
 
-        return intrp, result.X_transformer.get_feature_names(self.feature_names_), treatment_names, policy_values
+        return intrp, result.X_transformer.get_feature_names_out(self.feature_names_), treatment_names, policy_values
 
     # TODO: it seems like it would be better to just return the tree itself rather than plot it;
     #       however, the tree can't store the feature and treatment names we compute here...
