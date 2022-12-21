@@ -137,6 +137,27 @@ class WeightedKFold:
         """
         return _split_weighted_sample(self, X, y, sample_weight, is_stratified=False)
 
+    def get_n_splits(self, X, y, groups=None):
+        """Return the number of splitting iterations in the cross-validator.
+
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+
+        y : object
+            Always ignored, exists for compatibility.
+
+        groups : object
+            Always ignored, exists for compatibility.
+
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return self.n_splits
+
     def _get_folds_from_splits(self, splits, sample_size):
         folds = []
         sample_indices = np.arange(sample_size)
@@ -212,6 +233,27 @@ class WeightedStratifiedKFold(WeightedKFold):
             Weights associated with the training data.
         """
         return _split_weighted_sample(self, X, y, sample_weight, is_stratified=True)
+
+    def get_n_splits(self, X, y, groups=None):
+        """Return the number of splitting iterations in the cross-validator.
+
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+
+        y : object
+            Always ignored, exists for compatibility.
+
+        groups : object
+            Always ignored, exists for compatibility.
+
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return self.n_splits
 
 
 class GridSearchCVList(BaseEstimator):
