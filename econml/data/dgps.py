@@ -228,7 +228,7 @@ class StandardDGP:
             self.theta = theta
         else:  # else must be dict
             if theta is None:
-                theta = {'support': self.d_x, 'degree': 1, 'bounds': [1, 2], 'intercept': True}
+                theta = {'support': self.d_x, 'degree': 1, 'bounds': [1, 2], 'intercept': [1, 2]}
             assert isinstance(theta, dict), f"theta must be a callable or dict, but got {type(theta)}"
             self.theta, self.theta_coefs = self.gen_nuisance(**theta)
 
@@ -283,6 +283,26 @@ class StandardDGP:
             return self.Z
 
     def gen_nuisance(self, k=None, support=1, bounds=[-1, 1], degree=1, intercept=False):
+        """
+        A function to generate nuisance functions. Returns a nuisance function and corresponding coefs. 
+
+        Parameters
+        ----------
+        k: int
+            Dimension of input for nuisance function
+
+        support: int
+            Number of non-zero coefficients
+
+        bounds: int list
+            Bounds for coefficients which will be generated uniformly. Represented as [low, high]
+
+        degree: int
+            Input will be raised to this degree before multiplying with coefficients
+
+        intercept:
+            Bounds for intercept which will be generated uniformly. Represented as [low, high]
+        """
         if not k:
             k = self.d_x
 
@@ -295,7 +315,8 @@ class StandardDGP:
         orders = np.ones(shape=(k,)) * degree  # enforce all to be the degree for now
 
         if intercept:
-            intercept = np.random.uniform(low=1, high=2)
+            assert len(intercept)==2, 'intercept must be a list of 2 numbers, representing lower and upper bounds'
+            intercept = np.random.uniform(low=intercept[0], high=intercept[1])
         else:
             intercept = 0
 
