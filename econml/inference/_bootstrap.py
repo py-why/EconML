@@ -56,12 +56,14 @@ class BootstrapEstimator:
     def __init__(self, wrapped,
                  n_bootstrap_samples=100,
                  n_jobs=None,
+                 only_final=True,
                  verbose=0,
                  compute_means=True,
                  bootstrap_type='pivot'):
         self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
+        self._only_final = only_final
         self._verbose = verbose
         self._compute_means = compute_means
         self._bootstrap_type = bootstrap_type
@@ -87,26 +89,9 @@ class BootstrapEstimator:
         """
         from .._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
 
-        index_chunks = None
-        if isinstance(self._instances[0], BaseCateEstimator):
-            index_chunks = self._instances[0]._strata(*args, **named_args)
-            if index_chunks is not None:
-                index_chunks = self.__stratified_indices(index_chunks)
-        if index_chunks is None:
-            n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
-            index_chunks = [np.arange(n_samples)]  # one chunk with all indices
-
-        indices = []
-        for chunk in index_chunks:
-            n_samples = len(chunk)
-            indices.append(chunk[np.random.choice(n_samples,
-                                                  size=(self._n_bootstrap_samples, n_samples),
-                                                  replace=True)])
-
-        indices = np.hstack(indices)
-
         def fit(x, *args, **kwargs):
             x.fit(*args, **kwargs)
+            print(x.coef_)
             return x  # Explicitly return x in case fit fails to return its target
 
         def convertArg(arg, inds):
@@ -118,12 +103,38 @@ class BootstrapEstimator:
             else:  # arg was a scalar, so we shouldn't have converted it
                 return arg
 
-        self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-            delayed(fit)(obj,
-                         *[convertArg(arg, inds) for arg in args],
-                         **{arg: convertArg(named_args[arg], inds) for arg in named_args})
-            for obj, inds in zip(self._instances, indices)
-        )
+        if not self._only_final:
+            index_chunks = None
+            if isinstance(self._instances[0], BaseCateEstimator):
+                index_chunks = self._instances[0]._strata(*args, **named_args)
+                if index_chunks is not None:
+                    index_chunks = self.__stratified_indices(index_chunks)
+            if index_chunks is None:
+                n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
+                index_chunks = [np.arange(n_samples)]  # one chunk with all indices
+
+            indices = []
+            for chunk in index_chunks:
+                n_samples = len(chunk)
+                indices.append(chunk[np.random.choice(n_samples,
+                                                    size=(self._n_bootstrap_samples, n_samples),
+                                                    replace=True)])
+
+            indices = np.hstack(indices)
+
+            self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
+                delayed(fit)(obj,
+                            *[convertArg(arg, inds) for arg in args],
+                            **{arg: convertArg(named_args[arg], inds) for arg in named_args})
+                for obj, inds in zip(self._instances, indices)
+            )
+        else:
+            self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
+                delayed(fit)(obj,
+                             *args,
+                             **named_args)
+                for obj in self._instances
+            )
         return self
 
     def __getattr__(self, name):

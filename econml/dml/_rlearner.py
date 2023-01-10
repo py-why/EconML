@@ -335,7 +335,7 @@ class _RLearner(_OrthoLearner):
         return _ModelFinal(self._gen_rlearner_model_final())
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None):
+            cache_values=False, inference=None, only_final=False):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
@@ -375,6 +375,7 @@ class _RLearner(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                           only_final=only_final,
                            cache_values=cache_values,
                            inference=inference)
 
