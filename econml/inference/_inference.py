@@ -71,7 +71,7 @@ class BootstrapInference(Inference):
     verbose: int, default: 0
         Verbosity level
 
-    final_only : bool, default True
+    only_final : bool, default True
         Whether to bootstrap only the final model, for estimators that do cross-fitting.
         Ignored for estimators where this does not apply.
 
@@ -91,11 +91,6 @@ class BootstrapInference(Inference):
         self._verbose = verbose
 
     def fit(self, estimator, *args, **kwargs):
-        if self._only_final:
-            prev_cache_values = kwargs["cache_values"]
-            kwargs["cache_values"] = True
-            estimator.fit(*args, **kwargs)
-            kwargs["cache_values"] = prev_cache_values
         est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, self._only_final, compute_means=False,
                                  bootstrap_type=self._bootstrap_type, verbose=self._verbose)
         kwargs["only_final"] = self._only_final

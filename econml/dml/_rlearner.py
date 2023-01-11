@@ -375,7 +375,6 @@ class _RLearner(_OrthoLearner):
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                           only_final=only_final,
                            cache_values=cache_values,
                            inference=inference)
 

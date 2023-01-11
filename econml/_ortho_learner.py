@@ -195,7 +195,7 @@ def _crossfit(model, folds, *args, **kwargs):
 
 CachedValues = namedtuple('CachedValues', ['nuisances',
                                            'Y', 'T', 'X', 'W', 'Z', 'sample_weight', 'freq_weight',
-                                           'sample_var', 'groups'])
+                                           'sample_var', 'groups', 'output_T'])
 
 
 class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
@@ -550,6 +550,105 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         super()._prefit(Y, T, *args, **kwargs)
 
+    def _fit_compute_final_T(self, cached_values):
+        final_T = cached_values.T
+        if self.transformer:
+            if (self.discrete_treatment):
+                final_T = self.transformer.transform(final_T.reshape(-1, 1))
+            else:  # treatment featurizer case
+                final_T = cached_values.output_T
+        return cached_values._replace(T=final_T)
+
+    def _fit_cached_values(self, Y, T, *, X=None, W=None, Z=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None, 
+                           cache_values=False, inference=None, only_final=False, check_input=True):
+        if check_input:
+            Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
+                Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
+            self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
+        output_T = None
+        if self.discrete_treatment:
+            categories = self.categories
+            if categories != 'auto':
+                categories = [categories]  # OneHotEncoder expects a 2D array with features per column
+            self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
+            self.transformer.fit(reshape(T, (-1, 1)))
+            self._d_t = (len(self.transformer.categories_[0]) - 1,)
+        elif self.treatment_featurizer:
+            self._original_treatment_featurizer = clone(self.treatment_featurizer, safe=False)
+            self.transformer = jacify_featurizer(self.treatment_featurizer)
+            output_T = self.transformer.fit_transform(T)
+            self._d_t = np.shape(output_T)[1:]
+        else:
+            self.transformer = None
+
+        if self.discrete_instrument:
+            self.z_transformer = OneHotEncoder(categories='auto', sparse=False, drop='first')
+            self.z_transformer.fit(reshape(Z, (-1, 1)))
+        else:
+            self.z_transformer = None
+        all_nuisances = []
+        fitted_inds = None
+        if sample_weight is None:
+            if freq_weight is not None:
+                sample_weight_nuisances = freq_weight
+            else:
+                sample_weight_nuisances = None
+        else:
+            if freq_weight is not None:
+                sample_weight_nuisances = freq_weight * sample_weight
+            else:
+                sample_weight_nuisances = sample_weight
+
+        self._models_nuisance = []
+        for idx in range(self.mc_iters or 1):
+            nuisances, fitted_models, new_inds, scores = self._fit_nuisances(
+                Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
+            all_nuisances.append(nuisances)
+            self._models_nuisance.append(fitted_models)
+            if scores is None:
+                self.nuisance_scores_ = None
+            else:
+                if idx == 0:
+                    self.nuisance_scores_ = tuple([] for _ in scores)
+                for ind, score in enumerate(scores):
+                    self.nuisance_scores_[ind].append(score)
+            if fitted_inds is None:
+                fitted_inds = new_inds
+            elif not np.array_equal(fitted_inds, new_inds):
+                raise AttributeError("Different indices were fit by different folds, so they cannot be aggregated")
+
+        if self.mc_iters is not None:
+            if self.mc_agg == 'mean':
+                nuisances = tuple(np.mean(nuisance_mc_variants, axis=0)
+                                    for nuisance_mc_variants in zip(*all_nuisances))
+            elif self.mc_agg == 'median':
+                nuisances = tuple(np.median(nuisance_mc_variants, axis=0)
+                                    for nuisance_mc_variants in zip(*all_nuisances))
+            else:
+                raise ValueError(
+                    "Parameter `mc_agg` must be one of {'mean', 'median'}. Got {}".format(self.mc_agg))
+
+        Y, T, X, W, Z, sample_weight, freq_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
+                                                                    for arr in (Y, T, X, W, Z, sample_weight,
+                                                                                freq_weight, sample_var))
+        nuisances = tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances])
+        cached_values = CachedValues(nuisances=nuisances,
+                                     Y=Y, T=T, X=X, W=W, Z=Z,
+                                     sample_weight=sample_weight,
+                                     freq_weight=freq_weight,
+                                     sample_var=sample_var,
+                                     groups=groups,
+                                     output_T=output_T)
+        return cached_values
+
+    def _fit_init(self, Y, T, *, X=None, W=None, Z=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
+                  cache_values=False, inference=None, only_final=False, check_input=True):
+        self._random_state = check_random_state(self.random_state)
+        assert (freq_weight is None) == (
+            sample_var is None), "Sample variances and frequency weights must be provided together!"
+        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
+            "is not supported when treatment is discrete"
+
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X=None, W=None, Z=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference=None, only_final=False, check_input=True):
@@ -599,93 +698,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self : object
         """
-        self._random_state = check_random_state(self.random_state)
-        assert (freq_weight is None) == (
-            sample_var is None), "Sample variances and frequency weights must be provided together!"
-        assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
-            "is not supported when treatment is discrete"
-        if check_input:
-            Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
-                Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
-            self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
-
+        self._fit_init(Y=Y, T=T, X=X, W=W, Z=Z, sample_weight=sample_weight, 
+                       freq_weight=freq_weight, sample_var=sample_var, groups=groups,
+                       cache_values=cache_values, inference=inference, only_final=only_final,
+                       check_input=check_input)
+        cached_values = None
         if not only_final:
-
-            if self.discrete_treatment:
-                categories = self.categories
-                if categories != 'auto':
-                    categories = [categories]  # OneHotEncoder expects a 2D array with features per column
-                self.transformer = OneHotEncoder(categories=categories, sparse=False, drop='first')
-                self.transformer.fit(reshape(T, (-1, 1)))
-                self._d_t = (len(self.transformer.categories_[0]) - 1,)
-            elif self.treatment_featurizer:
-                self._original_treatment_featurizer = clone(self.treatment_featurizer, safe=False)
-                self.transformer = jacify_featurizer(self.treatment_featurizer)
-                output_T = self.transformer.fit_transform(T)
-                self._d_t = np.shape(output_T)[1:]
-            else:
-                self.transformer = None
-
-            if self.discrete_instrument:
-                self.z_transformer = OneHotEncoder(categories='auto', sparse=False, drop='first')
-                self.z_transformer.fit(reshape(Z, (-1, 1)))
-            else:
-                self.z_transformer = None
-
-            all_nuisances = []
-            fitted_inds = None
-            if sample_weight is None:
-                if freq_weight is not None:
-                    sample_weight_nuisances = freq_weight
-                else:
-                    sample_weight_nuisances = None
-            else:
-                if freq_weight is not None:
-                    sample_weight_nuisances = freq_weight * sample_weight
-                else:
-                    sample_weight_nuisances = sample_weight
-
-            self._models_nuisance = []
-            for idx in range(self.mc_iters or 1):
-                nuisances, fitted_models, new_inds, scores = self._fit_nuisances(
-                    Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
-                all_nuisances.append(nuisances)
-                self._models_nuisance.append(fitted_models)
-                if scores is None:
-                    self.nuisance_scores_ = None
-                else:
-                    if idx == 0:
-                        self.nuisance_scores_ = tuple([] for _ in scores)
-                    for ind, score in enumerate(scores):
-                        self.nuisance_scores_[ind].append(score)
-                if fitted_inds is None:
-                    fitted_inds = new_inds
-                elif not np.array_equal(fitted_inds, new_inds):
-                    raise AttributeError("Different indices were fit by different folds, so they cannot be aggregated")
-
-            if self.mc_iters is not None:
-                if self.mc_agg == 'mean':
-                    nuisances = tuple(np.mean(nuisance_mc_variants, axis=0)
-                                      for nuisance_mc_variants in zip(*all_nuisances))
-                elif self.mc_agg == 'median':
-                    nuisances = tuple(np.median(nuisance_mc_variants, axis=0)
-                                      for nuisance_mc_variants in zip(*all_nuisances))
-                else:
-                    raise ValueError(
-                        "Parameter `mc_agg` must be one of {'mean', 'median'}. Got {}".format(self.mc_agg))
-
-            Y, T, X, W, Z, sample_weight, freq_weight, sample_var = (self._subinds_check_none(arr, fitted_inds)
-                                                                     for arr in (Y, T, X, W, Z, sample_weight,
-                                                                                 freq_weight, sample_var))
-            nuisances = tuple([self._subinds_check_none(nuis, fitted_inds) for nuis in nuisances])
-            self._cached_values = CachedValues(nuisances=nuisances,
-                                               Y=Y, T=T, X=X, W=W, Z=Z,
-                                               sample_weight=sample_weight,
-                                               freq_weight=freq_weight,
-                                               sample_var=sample_var,
-                                               groups=groups) if cache_values else None
+            cached_values = self._fit_cached_values(Y=Y, T=T, X=X, W=W, Z=Z,
+                                                    sample_weight=sample_weight,
+                                                    freq_weight=freq_weight,
+                                                    sample_var=sample_var,
+                                                    groups=groups)
+            self._cached_values = cached_values if cache_values else None
         else:
-            nuisances = self._cached_values.nuisances
+            cached_values = self._cached_values
             # _d_t is altered by fit nuisances to what prefit does. So we need to perform the same
             # alteration even when we only want to fit_final.
             if self.transformer is not None:
@@ -694,22 +720,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 else:
                     output_T = self.transformer.fit_transform(T)
                     self._d_t = np.shape(output_T)[1:]
-
-        final_T = T
-        if self.transformer:
-            if (self.discrete_treatment):
-                final_T = self.transformer.transform(final_T.reshape(-1, 1))
-            else:  # treatment featurizer case
-                final_T = output_T
-
-        self._fit_final(Y=Y,
-                        T=final_T,
-                        X=X, W=W, Z=Z,
-                        nuisances=nuisances,
-                        sample_weight=sample_weight,
-                        freq_weight=freq_weight,
-                        sample_var=sample_var,
-                        groups=groups)
+        output_T = cached_values.output_T
+        cached_values = self._fit_compute_final_T(cached_values)
+        self._fit_final(cached_values)
 
         return self
 
@@ -795,20 +808,25 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                                   sample_weight=sample_weight, groups=groups)
         return nuisances, fitted_models, fitted_inds, scores
 
-    def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None,
-                   freq_weight=None, sample_var=None, groups=None):
-        self._ortho_learner_model_final.fit(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                       nuisances=nuisances,
-                                                                       sample_weight=sample_weight,
-                                                                       freq_weight=freq_weight,
-                                                                       sample_var=sample_var,
-                                                                       groups=groups))
+    def _fit_final(self, cached_values, final_model=None):
+        if final_model is None:
+            final_model = self._ortho_learner_model_final
+        final_model.fit(cached_values.Y, cached_values.T, **filter_none_kwargs(X=cached_values.X, 
+                                                                               W=cached_values.W, 
+                                                                               Z=cached_values.Z,
+                                                                               nuisances=cached_values.nuisances,
+                                                                               sample_weight=cached_values.sample_weight,
+                                                                               freq_weight=cached_values.freq_weight,
+                                                                               sample_var=cached_values.sample_var,
+                                                                               groups=cached_values.groups))
         self.score_ = None
-        if hasattr(self._ortho_learner_model_final, 'score'):
-            self.score_ = self._ortho_learner_model_final.score(Y, T, **filter_none_kwargs(X=X, W=W, Z=Z,
-                                                                                           nuisances=nuisances,
-                                                                                           sample_weight=sample_weight,
-                                                                                           groups=groups))
+        if hasattr(final_model, 'score'):
+            self.score_ = final_model.score(cached_values.Y, cached_values.T, **filter_none_kwargs(X=cached_values.X, 
+                                                                                                   W=cached_values.W, 
+                                                                                                   Z=cached_values.Z,
+                                                                                                   nuisances=cached_values.nuisances,
+                                                                                                   sample_weight=cached_values.sample_weight,
+                                                                                                   groups=cached_values.groups))
 
     def const_marginal_effect(self, X=None):
         X, = check_input_arrays(X)

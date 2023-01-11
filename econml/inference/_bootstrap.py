@@ -39,6 +39,10 @@ class BootstrapEstimator:
     n_jobs: int, default: None
         The maximum number of concurrently running jobs, as in joblib.Parallel.
 
+    only_final : bool, default True
+        Whether to bootstrap only the final model, for estimators that do cross-fitting.
+        Ignored for estimators where this does not apply.
+
     verbose: int, default: 0
         Verbosity level
 
@@ -60,7 +64,10 @@ class BootstrapEstimator:
                  verbose=0,
                  compute_means=True,
                  bootstrap_type='pivot'):
-        self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
+        if only_final:
+            self._instances = [clone(wrapped._gen_ortho_learner_model_final(), safe=False) for _ in range(n_bootstrap_samples)]
+        else:
+            self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
         self._only_final = only_final
@@ -89,9 +96,17 @@ class BootstrapEstimator:
         """
         from .._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
 
+        if self._only_final:
+            self._wrapped._fit_init(*args, **named_args)
+            cached_values = self._wrapped._fit_cached_values(*args, **named_args)
+            cached_values = self._wrapped._fit_compute_final_T(cached_values)
+            
         def fit(x, *args, **kwargs):
             x.fit(*args, **kwargs)
-            print(x.coef_)
+            return x  # Explicitly return x in case fit fails to return its target
+
+        def fit_final(x):
+            self._wrapped._fit_final(cached_values, final_model=x)
             return x  # Explicitly return x in case fit fails to return its target
 
         def convertArg(arg, inds):
@@ -130,9 +145,7 @@ class BootstrapEstimator:
             )
         else:
             self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-                delayed(fit)(obj,
-                             *args,
-                             **named_args)
+                delayed(fit_final)(obj)
                 for obj in self._instances
             )
         return self
