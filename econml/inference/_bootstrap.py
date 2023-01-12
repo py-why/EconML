@@ -95,6 +95,7 @@ class BootstrapEstimator:
         The full signature of this method is the same as that of the wrapped object's `fit` method.
         """
         from .._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
+        from .._ortho_learner import CachedValues
 
         if self._only_final:
             self._wrapped._fit_init(*args, **named_args)
@@ -105,38 +106,51 @@ class BootstrapEstimator:
             x.fit(*args, **kwargs)
             return x  # Explicitly return x in case fit fails to return its target
 
-        def fit_final(x):
-            self._wrapped._fit_final(cached_values, final_model=x)
+        def fit_final(x, ind_cached_values):
+            self._wrapped._fit_final(ind_cached_values, final_model=x)
             return x  # Explicitly return x in case fit fails to return its target
 
         def convertArg(arg, inds):
+            def convertArg_(arg, inds):
+                arr = np.asarray(arg)
+                if arr.ndim > 0:
+                    return arr[inds]
+                else:  # arg was a scalar, so we shouldn't have converted it
+                    return arg
             if arg is None:
                 return None
-            arr = np.asarray(arg)
-            if arr.ndim > 0:
-                return arr[inds]
-            else:  # arg was a scalar, so we shouldn't have converted it
-                return arg
+            if isinstance(arg, tuple):
+                converted_arg = []
+                for arg_param in arg:
+                    converted_arg.append(convertArg_(arg_param, inds))
+                return tuple(converted_arg)
+            return convertArg_(arg, inds)
+
+        def convert_cached_values(inds):
+            cached_values_dict = cached_values._asdict().copy()
+            for arg_name in cached_values_dict:
+                cached_values_dict[arg_name] = convertArg(cached_values_dict[arg_name], inds)
+            return CachedValues(**cached_values_dict)
+
+        index_chunks = None
+        if not self._only_final and isinstance(self._instances[0], BaseCateEstimator):
+            index_chunks = self._instances[0]._strata(*args, **named_args)
+            if index_chunks is not None:
+                index_chunks = self.__stratified_indices(index_chunks)
+        if index_chunks is None:
+            n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
+            index_chunks = [np.arange(n_samples)]  # one chunk with all indices
+
+        indices = []
+        for chunk in index_chunks:
+            n_samples = len(chunk)
+            indices.append(chunk[np.random.choice(n_samples,
+                                                size=(self._n_bootstrap_samples, n_samples),
+                                                replace=True)])
+
+        indices = np.hstack(indices)
 
         if not self._only_final:
-            index_chunks = None
-            if isinstance(self._instances[0], BaseCateEstimator):
-                index_chunks = self._instances[0]._strata(*args, **named_args)
-                if index_chunks is not None:
-                    index_chunks = self.__stratified_indices(index_chunks)
-            if index_chunks is None:
-                n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
-                index_chunks = [np.arange(n_samples)]  # one chunk with all indices
-
-            indices = []
-            for chunk in index_chunks:
-                n_samples = len(chunk)
-                indices.append(chunk[np.random.choice(n_samples,
-                                                    size=(self._n_bootstrap_samples, n_samples),
-                                                    replace=True)])
-
-            indices = np.hstack(indices)
-
             self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
                 delayed(fit)(obj,
                             *[convertArg(arg, inds) for arg in args],
@@ -145,8 +159,9 @@ class BootstrapEstimator:
             )
         else:
             self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-                delayed(fit_final)(obj)
-                for obj in self._instances
+                delayed(fit_final)(obj,
+                            convert_cached_values(inds))
+                for obj, inds in zip(self._instances, indices)
             )
         return self
 
