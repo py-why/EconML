@@ -11,7 +11,8 @@ from sklearn.preprocessing import PolynomialFeatures
 import numpy as np
 import unittest
 import joblib
-
+import scipy
+import time
 
 class TestBootstrap(unittest.TestCase):
 
@@ -330,3 +331,25 @@ class TestBootstrap(unittest.TestCase):
                 assert i[0].shape == i[1].shape == inf.point_estimate.shape
                 assert np.allclose(i[0], inf.conf_int()[0])
                 assert np.allclose(i[1], inf.conf_int()[1])
+
+    def test_bootstrap_only_final_time(self):
+        X = np.random.normal(size=(1000, 5))
+        T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
+        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(size=(1000,))
+        n_bootstrap_samples = 10
+
+        est = LinearDML(discrete_treatment=True)
+        start_time = time.time()
+        est.fit(y, T, X=X, W=None, inference=BootstrapInference(n_bootstrap_samples=n_bootstrap_samples, only_final=False))
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        all_bootstrapping_time = elapsed_time
+
+        est = LinearDML(discrete_treatment=True)
+        start_time = time.time()
+        est.fit(y, T, X=X, W=None, inference=BootstrapInference(n_bootstrap_samples=n_bootstrap_samples, only_final=True))
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        final_bootstrapping_time = elapsed_time
+        
+        assert (all_bootstrapping_time > final_bootstrapping_time) or np.isclose(all_bootstrapping_time, final_bootstrapping_time)
