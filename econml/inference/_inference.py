@@ -93,7 +93,6 @@ class BootstrapInference(Inference):
     def fit(self, estimator, *args, **kwargs):
         est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, self._only_final, compute_means=False,
                                  bootstrap_type=self._bootstrap_type, verbose=self._verbose)
-        kwargs["only_final"] = self._only_final
         filtered_kwargs = filter_none_kwargs(**kwargs)
         est.fit(*args, **filtered_kwargs)
         self._est = est

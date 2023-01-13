@@ -64,8 +64,11 @@ class BootstrapEstimator:
                  verbose=0,
                  compute_means=True,
                  bootstrap_type='pivot'):
+        if not hasattr(wrapped, "_gen_ortho_learner_model_final"):
+            only_final = False
         if only_final:
-            self._instances = [clone(wrapped._gen_ortho_learner_model_final(), safe=False) for _ in range(n_bootstrap_samples)]
+            self._final_only_instances = [clone(wrapped._gen_ortho_learner_model_final(), safe=False) for _ in range(n_bootstrap_samples)]
+            self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         else:
             self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
@@ -133,7 +136,7 @@ class BootstrapEstimator:
             return CachedValues(**cached_values_dict)
 
         index_chunks = None
-        if not self._only_final and isinstance(self._instances[0], BaseCateEstimator):
+        if not self._only_final and isinstance(self._wrapped, BaseCateEstimator):
             index_chunks = self._instances[0]._strata(*args, **named_args)
             if index_chunks is not None:
                 index_chunks = self.__stratified_indices(index_chunks)
@@ -158,11 +161,13 @@ class BootstrapEstimator:
                 for obj, inds in zip(self._instances, indices)
             )
         else:
-            self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
+            self._final_only_instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
                 delayed(fit_final)(obj,
                             convert_cached_values(inds))
-                for obj, inds in zip(self._instances, indices)
+                for obj, inds in zip(self._final_only_instances, indices)
             )
+            for obj, wrapped_obj in zip(self._final_only_instances, self._instances):
+                wrapped_obj._ortho_learner_model_final = obj
         return self
 
     def __getattr__(self, name):
@@ -190,11 +195,11 @@ class BootstrapEstimator:
 
         def get_mean():
             # for attributes that exist on the wrapped object, just compute the mean of the wrapped calls
-            return proxy(callable(getattr(self._instances[0], name)), name, lambda arr, _: np.mean(arr, axis=0))
+            return proxy(callable(getattr(self._wrapped, name)), name, lambda arr, _: np.mean(arr, axis=0))
 
         def get_std():
             prefix = name[: - len('_std')]
-            return proxy(callable(getattr(self._instances[0], prefix)), prefix,
+            return proxy(callable(getattr(self._wrapped, prefix)), prefix,
                          lambda arr, _: np.std(arr, axis=0))
 
         def get_interval():
@@ -221,7 +226,7 @@ class BootstrapEstimator:
                       'pivot': pivot_bootstrap}[self._bootstrap_type]
                 return proxy(can_call, prefix, fn)
 
-            can_call = callable(getattr(self._instances[0], prefix))
+            can_call = callable(getattr(self._wrapped, prefix))
             if can_call:
                 # collect extra arguments and pass them through, if the wrapped attribute was callable
                 def call(*args, lower=5, upper=95, **kwargs):
@@ -247,10 +252,10 @@ class BootstrapEstimator:
                 inf_type = 'effect'
             elif prefix == 'coef_':
                 inf_type = 'coefficient'
-                if (hasattr(self._instances[0], 'cate_feature_names') and
-                        callable(self._instances[0].cate_feature_names)):
+                if (hasattr(self._wrapped, 'cate_feature_names') and
+                        callable(self._wrapped.cate_feature_names)):
                     def fname_transformer(x):
-                        return self._instances[0].cate_feature_names(x)
+                        return self._wrapped.cate_feature_names(x)
             elif prefix == 'intercept_':
                 inf_type = 'intercept'
             else:
@@ -262,7 +267,7 @@ class BootstrapEstimator:
                 d_t = None
             d_y = self._wrapped._d_y[0] if self._wrapped._d_y else 1
 
-            can_call = callable(getattr(self._instances[0], prefix))
+            can_call = callable(getattr(self._wrapped, prefix))
 
             kind = self._bootstrap_type
             if kind == 'percentile' or kind == 'pivot':
