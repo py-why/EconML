@@ -60,17 +60,13 @@ class BootstrapEstimator:
     def __init__(self, wrapped,
                  n_bootstrap_samples=100,
                  n_jobs=None,
-                 only_final=True,
+                 only_final=False,
                  verbose=0,
                  compute_means=True,
                  bootstrap_type='pivot'):
         if not hasattr(wrapped, "_gen_ortho_learner_model_final"):
             only_final = False
-        if only_final:
-            self._final_only_instances = [clone(wrapped._gen_ortho_learner_model_final(), safe=False) for _ in range(n_bootstrap_samples)]
-            self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
-        else:
-            self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
+        self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
         self._only_final = only_final
@@ -101,6 +97,8 @@ class BootstrapEstimator:
         from .._ortho_learner import CachedValues
 
         if self._only_final:
+            self._wrapped._prefit(*args, **named_args)
+            self._final_only_instances = [clone(self._wrapped._gen_ortho_learner_model_final(), safe=False) for _ in range(self._n_bootstrap_samples)]
             self._wrapped._fit_init(*args, **named_args)
             cached_values = self._wrapped._fit_cached_values(*args, **named_args)
             cached_values = self._wrapped._fit_compute_final_T(cached_values)
@@ -168,6 +166,7 @@ class BootstrapEstimator:
             )
             for obj, wrapped_obj in zip(self._final_only_instances, self._instances):
                 wrapped_obj._ortho_learner_model_final = obj
+            self._wrapped._postfit(*args, **named_args)
         return self
 
     def __getattr__(self, name):
