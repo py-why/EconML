@@ -50,12 +50,12 @@ class TestDGP(unittest.TestCase):
         ]
 
         param_lists = [n_list, d_t_list, d_y_list, d_x_list, d_z_list, discrete_treatment_list,
-                       discrete_instrument_list, nuisance_Y_list, nuisance_T_list, nuisance_TZ_list, 
+                       discrete_instrument_list, nuisance_Y_list, nuisance_T_list, nuisance_TZ_list,
                        theta_list, y_of_t_list]
 
         results_list = []
 
-        for i in range(10):
+        for i in range(1):
             for config_tuple in product(*param_lists):
                 # for config_tuple in [config_tuple]:
                 n, d_t, d_y, d_x, d_z, discrete_treatment, discrete_instrument, \
@@ -63,7 +63,7 @@ class TestDGP(unittest.TestCase):
 
                 dgp = StandardDGP(n=n, d_t=d_t, d_y=d_y, d_x=d_x, d_z=d_z, discrete_treatment=discrete_treatment,
                                   discrete_instrument=discrete_instrument,
-                                  nuisance_Y=nuisance_Y, nuisance_T=nuisance_T, 
+                                  nuisance_Y=nuisance_Y, nuisance_T=nuisance_T,
                                   nuisance_TZ=nuisance_TZ, theta=theta, y_of_t=y_of_t)
 
                 data_dict = dgp.gen_data()

@@ -130,28 +130,28 @@ class StandardDGP:
         Whether to squeeze the final Y array on output
 
     nuisance_Y: func or dict
-        Nuisance function. Describes how the covariates affect the outcome. 
-        If a function, this function will be used on features X to partially generate Y. 
+        Nuisance function. Describes how the covariates affect the outcome.
+        If a function, this function will be used on features X to partially generate Y.
         If a dict, must include 'support' and 'degree' keys.
 
     nuisance_T: func or dict
         Nuisance function. Describes how the covariates affect the treatment.
-        If a function, this function will be used on features X to partially generate T. 
+        If a function, this function will be used on features X to partially generate T.
         If a dict, must include 'support' and 'degree' keys.
 
     nuisance_TZ: func or dict
         Nuisance function. Describes how the instrument affects the treatment.
-        If a function, this function will be used on instrument Z to partially generate T. 
+        If a function, this function will be used on instrument Z to partially generate T.
         If a dict, must include 'support' and 'degree' keys.
 
     theta: func or dict
         Describes how the features affects the treatment effect heterogenity.
-        If a function, this function will be used on features X to calculate treatment effect heterogenity. 
+        If a function, this function will be used on features X to calculate treatment effect heterogenity.
         If a dict, must include 'support' and 'degree' keys.
 
     y_of_t: func or dict
         Describes how the treatment affects the outcome.
-        If a function, this function will be used directly. 
+        If a function, this function will be used directly.
         If a dict, must include 'support' and 'degree' keys.
 
     x_eps: float
@@ -164,6 +164,7 @@ class StandardDGP:
         Noise parameter for treatment generation
 
     """
+
     def __init__(self,
                  n=1000,
                  d_t=1,
@@ -184,6 +185,7 @@ class StandardDGP:
                  t_eps=1,
                  random_state=None
                  ):
+        self._random_state = check_random_state(random_state)
         self.n = n
         self.d_t = d_t
         self.d_y = d_y
@@ -198,69 +200,79 @@ class StandardDGP:
         if callable(nuisance_Y):
             self.nuisance_Y = nuisance_Y
         else:  # else must be dict
-            if nuisance_Y is None:
-                nuisance_Y = {'support': self.d_x, 'degree': 1}
-            assert isinstance(nuisance_Y, dict), f"nuisance_Y must be a callable or dict, but got {type(nuisance_Y)}"
-            self.nuisance_Y, self.nuisance_Y_coefs = self.gen_nuisance(**nuisance_Y)
+            self.nuisance_Y_params = {'k': self.d_x, 'support': self.d_x, 'degree': 1}
+            if nuisance_Y:
+                assert isinstance(
+                    nuisance_Y, dict), f"nuisance_Y must be a callable or dict, but got {type(nuisance_Y)}"
+                self.nuisance_Y_params.update(nuisance_Y)
+
+            self.nuisance_Y, self.nuisance_Y_coefs = self.gen_nuisance(**self.nuisance_Y_params)
 
         if callable(nuisance_T):
             self.nuisance_T = nuisance_T
         else:  # else must be dict
-            if nuisance_T is None:
-                nuisance_T = {'support': self.d_x, 'degree': 1}
-            assert isinstance(nuisance_T, dict), f"nuisance_T must be a callable or dict, but got {type(nuisance_T)}"
-            self.nuisance_T, self.nuisance_T_coefs = self.gen_nuisance(**nuisance_T)
+            self.nuisance_T_params = {'k': self.d_x, 'support': self.d_x, 'degree': 1}
+            if nuisance_T:
+                assert isinstance(
+                    nuisance_T, dict), f"nuisance_T must be a callable or dict, but got {type(nuisance_T)}"
+                self.nuisance_T_params.update(nuisance_T)
 
+            self.nuisance_T, self.nuisance_T_coefs = self.gen_nuisance(**self.nuisance_T_params)
         if self.d_z:
             if callable(nuisance_TZ):
                 self.nuisance_TZ = nuisance_TZ
             else:  # else must be dict
-                if nuisance_TZ is None:
-                    nuisance_TZ = {'support': self.d_z, 'degree': 1}
-                assert isinstance(
-                    nuisance_TZ, dict), f"nuisance_TZ must be a callable or dict, but got {type(nuisance_TZ)}"
-                nuisance_TZ = {**nuisance_TZ, 'k': self.d_z}
-                self.nuisance_TZ, self.nuisance_TZ_coefs = self.gen_nuisance(**nuisance_TZ)
+                self.nuisance_TZ_params = {'k': self.d_z, 'support': self.d_z, 'degree': 1}
+                if nuisance_TZ:
+                    assert isinstance(
+                        nuisance_TZ, dict), f"nuisance_TZ must be a callable or dict, but got {type(nuisance_TZ)}"
+                    self.nuisance_TZ_params.update(nuisance_TZ)
+
+                self.nuisance_TZ, self.nuisance_TZ_coefs = self.gen_nuisance(**self.nuisance_TZ_params)
         else:
             self.nuisance_TZ = lambda x: 0
 
         if callable(theta):
             self.theta = theta
         else:  # else must be dict
-            if theta is None:
-                theta = {'support': self.d_x, 'degree': 1, 'bounds': [1, 2], 'intercept': [1, 2]}
-            assert isinstance(theta, dict), f"theta must be a callable or dict, but got {type(theta)}"
-            self.theta, self.theta_coefs = self.gen_nuisance(**theta)
+            self.theta_params = {'k': self.d_x, 'support': self.d_x,
+                                 'degree': 1, 'bounds': [1, 2], 'intercept': [1, 2]}
+            if theta:
+                assert isinstance(theta, dict), f"theta must be a callable or dict, but got {type(theta)}"
+                self.theta_params.update(theta)
+
+            self.theta, self.theta_coefs = self.gen_nuisance(**self.theta_params)
 
         if callable(y_of_t):
             self.y_of_t = y_of_t
         else:  # else must be dict
-            if y_of_t is None:
-                y_of_t = {'support': self.d_t, 'degree': 1, 'bounds': [1, 1]}
-            assert isinstance(y_of_t, dict), f"y_of_t must be a callable or dict, but got {type(y_of_t)}"
-            y_of_t['k'] = self.d_t
-            self.y_of_t, self.y_of_t_coefs = self.gen_nuisance(**y_of_t)
+            self.y_of_t_params = {'k': self.d_t, 'support': self.d_t, 'degree': 1, 'bounds': [1, 1]}
+            if y_of_t:
+                assert isinstance(y_of_t, dict), f"y_of_t must be a callable or dict, but got {type(y_of_t)}"
+                self.y_of_t_params.update(y_of_t)
+
+            self.y_of_t, self.y_of_t_coefs = self.gen_nuisance(**self.y_of_t_params)
 
         self.x_eps = x_eps
         self.y_eps = y_eps
         self.t_eps = t_eps
 
     def gen_Y(self):
-        self.y_noise = np.random.normal(size=(self.n, self.d_y), scale=self.y_eps)
+        self.y_noise = self._random_state.normal(size=(self.n, self.d_y), scale=self.y_eps)
         self.Y = self.theta(self.X) * self.y_of_t(self.T) + self.nuisance_Y(self.X) + self.y_noise
         return self.Y
 
     def gen_X(self):
-        self.X = np.random.normal(size=(self.n, self.d_x), scale=self.x_eps)
+        self.X = self._random_state.normal(size=(self.n, self.d_x), scale=self.x_eps)
         return self.X
 
     def gen_T(self):
-        noise = np.random.normal(size=(self.n, self.d_t), scale=self.t_eps)
+        noise = self._random_state.normal(size=(self.n, self.d_t), scale=self.t_eps)
         self.T_noise = noise
 
         if self.discrete_treatment:
             prob_T = expit(self.nuisance_T(self.X) + self.nuisance_TZ(self.Z) + self.T_noise)
-            self.T = np.random.binomial(1, prob_T)
+            self.T = self._random_state.binomial(1, prob_T)
             return self.T
 
         else:
@@ -270,11 +282,11 @@ class StandardDGP:
     def gen_Z(self):
         if self.d_z:
             if self.discrete_instrument:
-                self.Z = np.random.binomial(1, 0.5, size=(self.n, self.d_z))
+                self.Z = self._random_state.binomial(1, 0.5, size=(self.n, self.d_z))
                 return self.Z
 
             else:
-                Z_noise = np.random.normal(size=(self.n, self.d_z), loc=3, scale=3)
+                Z_noise = self._random_state.normal(size=(self.n, self.d_z), loc=3, scale=3)
                 self.Z = Z_noise
                 return self.Z
 
@@ -282,9 +294,9 @@ class StandardDGP:
             self.Z = None
             return self.Z
 
-    def gen_nuisance(self, k=None, support=1, bounds=[-1, 1], degree=1, intercept=False):
+    def gen_nuisance(self, k=None, support=1, bounds=[1, 2], degree=1, intercept=None):
         """
-        A function to generate nuisance functions. Returns a nuisance function and corresponding coefs. 
+        A function to generate nuisance functions. Returns a nuisance function and corresponding coefs.
 
         Parameters
         ----------
@@ -306,8 +318,8 @@ class StandardDGP:
         if not k:
             k = self.d_x
 
-        coefs = np.random.uniform(low=bounds[0], high=bounds[1], size=k)
-        supports = np.random.choice(k, size=support, replace=False)
+        coefs = self._random_state.uniform(low=bounds[0], high=bounds[1], size=k)
+        supports = self._random_state.choice(k, size=support, replace=False)
         mask = np.zeros(shape=k)
         mask[supports] = 1
         coefs = coefs * mask
@@ -315,8 +327,8 @@ class StandardDGP:
         orders = np.ones(shape=(k,)) * degree  # enforce all to be the degree for now
 
         if intercept:
-            assert len(intercept)==2, 'intercept must be a list of 2 numbers, representing lower and upper bounds'
-            intercept = np.random.uniform(low=intercept[0], high=intercept[1])
+            assert len(intercept) == 2, 'intercept must be a list of 2 numbers, representing lower and upper bounds'
+            intercept = self._random_state.uniform(low=intercept[0], high=intercept[1])
         else:
             intercept = 0
 
