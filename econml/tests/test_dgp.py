@@ -68,6 +68,13 @@ class TestDGP(unittest.TestCase):
 
                 data_dict = dgp.gen_data()
 
+                assert n == data_dict['T'].shape[0]
+                assert d_x == data_dict['X'].shape[1]
+                assert d_t == data_dict['T'].shape[1]
+                assert d_y == data_dict['Y'].shape[1]
+                if d_z:
+                    assert d_z == data_dict['Z'].shape[1]
+
                 if d_z:
                     est = OrthoIV(discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument)
                 else:
@@ -114,3 +121,45 @@ class TestDGP(unittest.TestCase):
             assert ((calc_intercept >= intercept[0]) & (calc_intercept <= intercept[1])).all()
 
             np.testing.assert_almost_equal(calc_intercept.min(), calc_intercept.max())
+
+    def test_callable_nuisances(self):
+        def temp_func(x):
+            return (x[:, [0]]>0)*2
+
+        params = [
+            {'nuisance_Y': temp_func}, 
+            {'nuisance_T': temp_func},
+            {'nuisance_TZ': temp_func, 'd_z': 1},
+            {'theta': temp_func},
+            {'y_of_t': temp_func},
+        ]
+
+        for param in params:
+            dgp = StandardDGP(**param)
+
+            data_dict = dgp.gen_data()
+
+            Y = data_dict['Y']
+            T = data_dict['T']
+            X = data_dict['X']
+            Z = data_dict.get('Z')
+
+            y_diff_max = ((dgp.y_noise + dgp.y_of_t(T) * dgp.theta(X) + dgp.nuisance_Y(X)) - Y).max()
+            eff_diff_max = ((dgp.y_of_t(T) * dgp.theta(X)) - dgp.effect(X, T0=0, T1=T)).max()
+            np.testing.assert_almost_equal(0, y_diff_max)
+            np.testing.assert_almost_equal(0, eff_diff_max)
+
+    def test_random_state(self):
+        random_states = [None, 3, np.random.RandomState(5)]
+
+        for random_state in random_states:
+            StandardDGP(random_state=random_state)
+            
+        dgp1 = StandardDGP(random_state=1)
+        data_dict1 = dgp1.gen_data()
+
+        dgp2 = StandardDGP(random_state=1)
+        data_dict2 = dgp2.gen_data()
+
+        for variable in data_dict1.keys():
+            assert (data_dict1[variable] == data_dict2[variable]).all()
