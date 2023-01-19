@@ -29,10 +29,6 @@ class TestDGP(unittest.TestCase):
             None,
         ]
 
-        nuisance_Y_list = [
-            None,
-        ]
-
         nuisance_T_list = [
             None,
         ]
@@ -122,16 +118,21 @@ class TestDGP(unittest.TestCase):
 
             np.testing.assert_almost_equal(calc_intercept.min(), calc_intercept.max())
 
-    def test_callable_nuisances(self):
+    def test_custom_nuisances(self):
         def temp_func(x):
-            return (x[:, [0]]>0)*2
+            return (x[:, [0]] > 0) * 2
 
         params = [
-            {'nuisance_Y': temp_func}, 
+            {'nuisance_Y': temp_func},
             {'nuisance_T': temp_func},
             {'nuisance_TZ': temp_func, 'd_z': 1},
             {'theta': temp_func},
             {'y_of_t': temp_func},
+            {'nuisance_Y': {'support': 1}},
+            {'nuisance_T': {'support': 1}},
+            {'nuisance_TZ': {'bounds': [3, 4]}, 'd_z': 1},
+            {'theta': {'support': 1}},
+            {'y_of_t': {'degree': 2}},
         ]
 
         for param in params:
@@ -154,7 +155,7 @@ class TestDGP(unittest.TestCase):
 
         for random_state in random_states:
             StandardDGP(random_state=random_state)
-            
+
         dgp1 = StandardDGP(random_state=1)
         data_dict1 = dgp1.gen_data()
 
