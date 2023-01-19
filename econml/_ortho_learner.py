@@ -720,10 +720,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 else:
                     output_T = self.transformer.fit_transform(T)
                     self._d_t = np.shape(output_T)[1:]
-        output_T = cached_values.output_T
         cached_values = self._fit_compute_final_T(cached_values)
         self._fit_final(cached_values)
-
         return self
 
     @property

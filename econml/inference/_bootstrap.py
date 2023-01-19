@@ -97,11 +97,11 @@ class BootstrapEstimator:
         from .._ortho_learner import CachedValues
 
         if self._only_final:
-            self._wrapped._prefit(*args, **named_args)
-            self._final_only_instances = [clone(self._wrapped._gen_ortho_learner_model_final(), safe=False) for _ in range(self._n_bootstrap_samples)]
+            print("only final bootstrap")
             self._wrapped._fit_init(*args, **named_args)
             cached_values = self._wrapped._fit_cached_values(*args, **named_args)
             cached_values = self._wrapped._fit_compute_final_T(cached_values)
+            self._final_only_instances = [clone(self._wrapped._gen_ortho_learner_model_final(), safe=False) for _ in range(self._n_bootstrap_samples)]
             
         def fit(x, *args, **kwargs):
             x.fit(*args, **kwargs)
@@ -134,7 +134,7 @@ class BootstrapEstimator:
             return CachedValues(**cached_values_dict)
 
         index_chunks = None
-        if not self._only_final and isinstance(self._wrapped, BaseCateEstimator):
+        if isinstance(self._wrapped, BaseCateEstimator):
             index_chunks = self._instances[0]._strata(*args, **named_args)
             if index_chunks is not None:
                 index_chunks = self.__stratified_indices(index_chunks)
@@ -150,7 +150,6 @@ class BootstrapEstimator:
                                                 replace=True)])
 
         indices = np.hstack(indices)
-
         if not self._only_final:
             self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
                 delayed(fit)(obj,
@@ -166,7 +165,6 @@ class BootstrapEstimator:
             )
             for obj, wrapped_obj in zip(self._final_only_instances, self._instances):
                 wrapped_obj._ortho_learner_model_final = obj
-            self._wrapped._postfit(*args, **named_args)
         return self
 
     def __getattr__(self, name):
