@@ -180,9 +180,12 @@ class StandardDGP:
                  nuisance_TZ=None,
                  theta=None,
                  y_of_t=None,
-                 x_eps=1,
-                 y_eps=1,
-                 t_eps=1,
+                 x_noise='normal',
+                 y_noise='normal',
+                 t_noise='normal',
+                 x_noise_params={},
+                 y_noise_params={},
+                 t_noise_params={},
                  random_state=None
                  ):
         self._random_state = check_random_state(random_state)
@@ -253,21 +256,29 @@ class StandardDGP:
 
             self.y_of_t, self.y_of_t_coefs = self.gen_nuisance(**self.y_of_t_params)
 
-        self.x_eps = x_eps
-        self.y_eps = y_eps
-        self.t_eps = t_eps
+        self.x_noise = x_noise
+        self.y_noise = y_noise
+        self.t_noise = t_noise
+
+        x_noise_params['size'] = (self.n, self.d_x)
+        y_noise_params['size'] = (self.n, self.d_y)
+        t_noise_params['size'] = (self.n, self.d_t)
+
+        self.x_noise_params = x_noise_params
+        self.y_noise_params = y_noise_params
+        self.t_noise_params = t_noise_params
 
     def gen_Y(self):
-        self.y_noise = self._random_state.normal(size=(self.n, self.d_y), scale=self.y_eps)
+        self.y_noise = getattr(self._random_state, self.y_noise)(**self.y_noise_params)
         self.Y = self.theta(self.X) * self.y_of_t(self.T) + self.nuisance_Y(self.X) + self.y_noise
         return self.Y
 
     def gen_X(self):
-        self.X = self._random_state.normal(size=(self.n, self.d_x), scale=self.x_eps)
+        self.X = getattr(self._random_state, self.x_noise)(**self.x_noise_params)
         return self.X
 
     def gen_T(self):
-        noise = self._random_state.normal(size=(self.n, self.d_t), scale=self.t_eps)
+        noise = getattr(self._random_state, self.t_noise)(**self.t_noise_params)
         self.T_noise = noise
 
         if self.discrete_treatment:
