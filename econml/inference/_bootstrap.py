@@ -97,18 +97,10 @@ class BootstrapEstimator:
         from .._ortho_learner import CachedValues
 
         if self._only_final:
-            print("only final bootstrap")
-            self._wrapped._fit_init(*args, **named_args)
-            cached_values = self._wrapped._fit_cached_values(*args, **named_args)
-            cached_values = self._wrapped._fit_compute_final_T(cached_values)
-            self._final_only_instances = [clone(self._wrapped._gen_ortho_learner_model_final(), safe=False) for _ in range(self._n_bootstrap_samples)]
+            self._wrapped._gen_cloned_ortho_learner_model_finals(self._n_bootstrap_samples)
             
         def fit(x, *args, **kwargs):
             x.fit(*args, **kwargs)
-            return x  # Explicitly return x in case fit fails to return its target
-
-        def fit_final(x, ind_cached_values):
-            self._wrapped._fit_final(ind_cached_values, final_model=x)
             return x  # Explicitly return x in case fit fails to return its target
 
         def convertArg(arg, inds):
@@ -127,12 +119,6 @@ class BootstrapEstimator:
                 return tuple(converted_arg)
             return convertArg_(arg, inds)
 
-        def convert_cached_values(inds):
-            cached_values_dict = cached_values._asdict().copy()
-            for arg_name in cached_values_dict:
-                cached_values_dict[arg_name] = convertArg(cached_values_dict[arg_name], inds)
-            return CachedValues(**cached_values_dict)
-
         index_chunks = None
         if isinstance(self._wrapped, BaseCateEstimator):
             index_chunks = self._instances[0]._strata(*args, **named_args)
@@ -148,8 +134,8 @@ class BootstrapEstimator:
             indices.append(chunk[np.random.choice(n_samples,
                                                 size=(self._n_bootstrap_samples, n_samples),
                                                 replace=True)])
-
         indices = np.hstack(indices)
+
         if not self._only_final:
             self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
                 delayed(fit)(obj,
@@ -158,13 +144,9 @@ class BootstrapEstimator:
                 for obj, inds in zip(self._instances, indices)
             )
         else:
-            self._final_only_instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-                delayed(fit_final)(obj,
-                            convert_cached_values(inds))
-                for obj, inds in zip(self._final_only_instances, indices)
-            )
-            for obj, wrapped_obj in zip(self._final_only_instances, self._instances):
-                wrapped_obj._ortho_learner_model_final = obj
+            self._wrapped._set_bootstrap_params(indices, self._n_bootstrap_samples, self._verbose)
+            self._wrapped.fit(*args, **named_args)
+            self._instances = [clone(self._wrapped, safe=False)]
         return self
 
     def __getattr__(self, name):
@@ -180,8 +162,16 @@ class BootstrapEstimator:
 
         def proxy(make_call, name, summary):
             def summarize_with(f):
-                results = np.array(Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-                    (f, (obj, name), {}) for obj in self._instances)), f(self._wrapped, name)
+                instance_results = []
+                obj = clone(self._wrapped, safe=False)
+                for i in range(self._n_bootstrap_samples):
+                    if self._only_final:
+                        obj._set_current_cloned_ortho_learner_model_final(i)
+                    else:
+                        obj = self._instances[i]
+                    instance_results.append(f(obj, name))
+                instance_results = np.array(instance_results)
+                results = instance_results, f(self._wrapped, name)
                 return summary(*results)
             if make_call:
                 def call(*args, **kwargs):

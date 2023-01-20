@@ -30,6 +30,7 @@ from warnings import warn
 from abc import abstractmethod
 import inspect
 from collections import defaultdict
+from joblib import Parallel, delayed
 import re
 
 import numpy as np
@@ -443,6 +444,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.categories = categories
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
+        self._clone_model_finals = False
         super().__init__()
 
     @abstractmethod
@@ -547,8 +549,18 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if not only_final:
             # generate an instance of the nuisance model
             self._ortho_learner_model_nuisance = self._gen_ortho_learner_model_nuisance()
-
         super()._prefit(Y, T, *args, **kwargs)
+
+    def _gen_cloned_ortho_learner_model_finals(self, num_clone_final_models):
+        self._clone_model_finals = True
+        self._cloned_final_models = [clone(self._ortho_learner_model_final, safe=False) for _ in range(num_clone_final_models)]
+        self._current_cloned_index = 0
+        self._current_cloned_final_model = self._cloned_final_models[self._current_cloned_index]
+    
+    def _set_current_cloned_ortho_learner_model_final(self, clone_index):
+        self._current_cloned_index = clone_index
+        self._current_cloned_final_model = self._cloned_final_models[self._current_cloned_index]
+        self._ortho_learner_model_final = self._current_cloned_final_model
 
     def _fit_compute_final_T(self, cached_values):
         final_T = cached_values.T
@@ -805,10 +817,42 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                                                                   Y, T, X=X, W=W, Z=Z,
                                                                   sample_weight=sample_weight, groups=groups)
         return nuisances, fitted_models, fitted_inds, scores
+    
+    def _set_bootstrap_params(self, indices, n_jobs, verbose):
+        self._bootstrap_indices = indices
+        self._n_jobs = n_jobs
+        self._verbose = verbose
 
     def _fit_final(self, cached_values, final_model=None):
         if final_model is None:
             final_model = self._ortho_learner_model_final
+        if self._clone_model_finals:
+            def convertArg(arg, inds):
+                def convertArg_(arg, inds):
+                    arr = np.asarray(arg)
+                    if arr.ndim > 0:
+                        return arr[inds]
+                    else:  # arg was a scalar, so we shouldn't have converted it
+                        return arg
+                if arg is None:
+                    return None
+                if isinstance(arg, tuple):
+                    converted_arg = []
+                    for arg_param in arg:
+                        converted_arg.append(convertArg_(arg_param, inds))
+                    return tuple(converted_arg)
+                return convertArg_(arg, inds)
+
+            def fit(x, **kwargs):
+                x.fit(**filter_none_kwargs(**kwargs))
+                return x
+            cached_values_dict = cached_values._asdict()
+
+            Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
+                delayed(fit)(cloned_final_model,
+                            **{arg: convertArg(cached_values_dict[arg], inds) for arg in cached_values_dict})
+                for inds, cloned_final_model in zip(self._bootstrap_indices, self._cloned_final_models)
+            )
         final_model.fit(cached_values.Y, cached_values.T, **filter_none_kwargs(X=cached_values.X, 
                                                                                W=cached_values.W, 
                                                                                Z=cached_values.Z,
