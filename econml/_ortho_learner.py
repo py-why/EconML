@@ -847,6 +847,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 x.fit(**filter_none_kwargs(**kwargs))
                 return x
             cached_values_dict = cached_values._asdict()
+            del cached_values_dict["output_T"]
 
             Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
                 delayed(fit)(cloned_final_model,
