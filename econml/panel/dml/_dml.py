@@ -23,12 +23,19 @@ from ...utilities import (_deprecate_positional, add_intercept,
 
 
 def _get_groups_period_filter(groups, n_periods):
+    """
+    Computes a dictionary of group indices at each timestep
+
+    If n_periods = 3, we would expect group_period_filter to contain the indices
+    of the full dataset that correspond with a sample collected at each period 
+    number. This later becomes used to index into the full dataset.
+    """
     group_counts = {}
     group_period_filter = {i: [] for i in range(n_periods)}
     for i, g in enumerate(groups):
         if g not in group_counts:
             group_counts[g] = 0
-        group_period_filter[group_counts[g]].append(i)
+        group_period_filter[group_counts[g] % n_periods].append(i)
         group_counts[g] += 1
     return group_period_filter
 
@@ -157,6 +164,10 @@ class _DynamicModelFinal:
 
     def fit(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, sample_var=None, groups=None):
         # NOTE: sample weight, sample var are not passed in
+        _, group_counts = np.unique(groups, return_counts=True)
+        unique_group_counts = np.unique(group_counts)
+        assert np.all(unique_group_counts % self.n_periods == 0), \
+            "Each group should appear in whole multiples in bootstrapping"
         period_filters = _get_groups_period_filter(groups, self.n_periods)
         Y_res, T_res = nuisances
         self._d_y = Y.shape[1:]

@@ -83,7 +83,7 @@ class BootstrapInference(Inference):
         'normal' will instead compute a pivot interval assuming the replicates are normally distributed.
     """
 
-    def __init__(self, n_bootstrap_samples=100, n_jobs=-1, only_final=False, bootstrap_type='pivot', verbose=0):
+    def __init__(self, n_bootstrap_samples=100, n_jobs=-1, only_final=True, bootstrap_type='pivot', verbose=0):
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
         self._only_final = only_final

@@ -60,7 +60,7 @@ class BootstrapEstimator:
     def __init__(self, wrapped,
                  n_bootstrap_samples=100,
                  n_jobs=None,
-                 only_final=False,
+                 only_final=True,
                  verbose=0,
                  compute_means=True,
                  bootstrap_type='pivot'):
@@ -94,7 +94,7 @@ class BootstrapEstimator:
         The full signature of this method is the same as that of the wrapped object's `fit` method.
         """
         from .._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
-        from .._ortho_learner import CachedValues
+        from ..panel.dml import DynamicDML
 
         if self._only_final:
             self._wrapped._gen_cloned_ortho_learner_model_finals(self._n_bootstrap_samples)
@@ -119,23 +119,40 @@ class BootstrapEstimator:
                 return tuple(converted_arg)
             return convertArg_(arg, inds)
 
+        """
+        For DynamicDML only
+        Take n_bootstrap sets of samples of length n_panels among arange(n_panels) and then each sample corresponds with the chunk
+
+        """
         index_chunks = None
+        indices = [] 
+        
         if isinstance(self._wrapped, BaseCateEstimator):
             index_chunks = self._instances[0]._strata(*args, **named_args)
-            if index_chunks is not None:
+            if (index_chunks is not None):
                 index_chunks = self.__stratified_indices(index_chunks)
         if index_chunks is None:
             n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
             index_chunks = [np.arange(n_samples)]  # one chunk with all indices
-
-        indices = []
-        for chunk in index_chunks:
-            n_samples = len(chunk)
-            indices.append(chunk[np.random.choice(n_samples,
-                                                size=(self._n_bootstrap_samples, n_samples),
-                                                replace=True)])
-        indices = np.hstack(indices)
-
+        if isinstance(self._wrapped, DynamicDML):
+            n_index_chunks = len(index_chunks)
+            bootstrapped_chunk_indices = np.random.choice(n_index_chunks, 
+                                                          size=(self._n_bootstrap_samples, n_index_chunks),
+                                                          replace=True)
+            for i in range(self._n_bootstrap_samples):
+                samples = bootstrapped_chunk_indices[i]
+                sample_chunk_indices = [index_chunks[j] for j in samples]
+                indices_sample = np.hstack(sample_chunk_indices)
+                indices.append(indices_sample)
+            indices = np.array(indices)
+        else:
+            for chunk in index_chunks:
+                n_samples = len(chunk)
+                sample = chunk[np.random.choice(n_samples,
+                                                      size=(self._n_bootstrap_samples, n_samples),
+                                                      replace=True)]
+                indices.append(sample)
+            indices = np.hstack(indices)
         if not self._only_final:
             self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
                 delayed(fit)(obj,
