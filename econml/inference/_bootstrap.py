@@ -138,7 +138,7 @@ class BootstrapEstimator:
             x.fit(*args, **kwargs)
             return x  # Explicitly return x in case fit fails to return its target
 
-        indices = self._fit_with_subsets(*args, **named_args)
+        indices = self._compute_subsets(*args, **named_args)
         
         if not self._only_final:
             self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
