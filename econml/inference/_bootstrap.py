@@ -165,15 +165,19 @@ class BootstrapEstimator:
             raise AttributeError(name)
 
         def proxy(make_call, name, summary):
+            def set_curr_obj(obj, i):
+                if self._only_final:
+                    obj._set_current_cloned_ortho_learner_model_final(i)
+                else:
+                    obj = self._instances[i]
+                return obj
             def summarize_with(f):
                 instance_results = []
                 obj = clone(self._wrapped, safe=False)
-                for i in range(self._n_bootstrap_samples):
-                    if self._only_final:
-                        obj._set_current_cloned_ortho_learner_model_final(i)
-                    else:
-                        obj = self._instances[i]
-                    instance_results.append(f(obj, name))
+                instance_results = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
+                        delayed(f)(set_curr_obj(obj, i), name)
+                        for i in range(self._n_bootstrap_samples)
+                    )
                 instance_results = np.array(instance_results)
                 results = instance_results, f(self._wrapped, name)
                 return summary(*results)
