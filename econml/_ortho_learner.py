@@ -43,7 +43,7 @@ from sklearn.utils import check_random_state
 from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                               TreatmentExpansionMixin)
 from .inference import BootstrapInference
-from .utilities import (_deprecate_positional, check_input_arrays,
+from .utilities import (convertArg, _deprecate_positional, check_input_arrays,
                         cross_product, filter_none_kwargs,
                         inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
 
@@ -654,7 +654,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         return cached_values
 
     def _fit_init(self, Y, T, *, X=None, W=None, Z=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-                  cache_values=False, inference=None, only_final=False, check_input=True):
+                  cache_values=False, inference=None, check_input=True):
         self._random_state = check_random_state(self.random_state)
         assert (freq_weight is None) == (
             sample_var is None), "Sample variances and frequency weights must be provided together!"
@@ -712,8 +712,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         self._fit_init(Y=Y, T=T, X=X, W=W, Z=Z, sample_weight=sample_weight, 
                        freq_weight=freq_weight, sample_var=sample_var, groups=groups,
-                       cache_values=cache_values, inference=inference, only_final=only_final,
-                       check_input=check_input)
+                       cache_values=cache_values, inference=inference, check_input=check_input)
         cached_values = None
         if not only_final:
             cached_values = self._fit_cached_values(Y=Y, T=T, X=X, W=W, Z=Z,
@@ -827,22 +826,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if final_model is None:
             final_model = self._ortho_learner_model_final
         if self._clone_model_finals:
-            def convertArg(arg, inds):
-                def convertArg_(arg, inds):
-                    arr = np.asarray(arg)
-                    if arr.ndim > 0:
-                        return arr[inds]
-                    else:  # arg was a scalar, so we shouldn't have converted it
-                        return arg
-                if arg is None:
-                    return None
-                if isinstance(arg, tuple):
-                    converted_arg = []
-                    for arg_param in arg:
-                        converted_arg.append(convertArg_(arg_param, inds))
-                    return tuple(converted_arg)
-                return convertArg_(arg, inds)
-
             def fit(x, **kwargs):
                 x.fit(**filter_none_kwargs(**kwargs))
                 return x

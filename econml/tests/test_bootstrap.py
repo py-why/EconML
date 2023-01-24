@@ -352,4 +352,4 @@ class TestBootstrap(unittest.TestCase):
         elapsed_time = end_time - start_time
         final_bootstrapping_time = elapsed_time
         
-        assert (all_bootstrapping_time > final_bootstrapping_time) or np.isclose(all_bootstrapping_time, final_bootstrapping_time)
+        assert (all_bootstrapping_time > final_bootstrapping_time)      

@@ -9,6 +9,7 @@ from scipy.stats import norm
 from collections import OrderedDict
 import pandas as pd
 
+from ..utilities import convertArg
 
 class BootstrapEstimator:
     """Estimator that uses bootstrap sampling to wrap an existing estimator.
@@ -87,46 +88,12 @@ class BootstrapEstimator:
             indices.append(ind)
         return indices
 
-    def fit(self, *args, **named_args):
-        """
-        Fit the model.
-
-        The full signature of this method is the same as that of the wrapped object's `fit` method.
-        """
+    def _compute_subsets(self, *args, **named_args):
         from .._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
         from ..panel.dml import DynamicDML
 
-        if self._only_final:
-            self._wrapped._gen_cloned_ortho_learner_model_finals(self._n_bootstrap_samples)
-            
-        def fit(x, *args, **kwargs):
-            x.fit(*args, **kwargs)
-            return x  # Explicitly return x in case fit fails to return its target
-
-        def convertArg(arg, inds):
-            def convertArg_(arg, inds):
-                arr = np.asarray(arg)
-                if arr.ndim > 0:
-                    return arr[inds]
-                else:  # arg was a scalar, so we shouldn't have converted it
-                    return arg
-            if arg is None:
-                return None
-            if isinstance(arg, tuple):
-                converted_arg = []
-                for arg_param in arg:
-                    converted_arg.append(convertArg_(arg_param, inds))
-                return tuple(converted_arg)
-            return convertArg_(arg, inds)
-
-        """
-        For DynamicDML only
-        Take n_bootstrap sets of samples of length n_panels among arange(n_panels) and then each sample corresponds with the chunk
-
-        """
         index_chunks = None
         indices = [] 
-        
         if isinstance(self._wrapped, BaseCateEstimator):
             index_chunks = self._instances[0]._strata(*args, **named_args)
             if (index_chunks is not None):
@@ -134,6 +101,8 @@ class BootstrapEstimator:
         if index_chunks is None:
             n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
             index_chunks = [np.arange(n_samples)]  # one chunk with all indices
+        # For DynamicDML only
+        # Take n_bootstrap sets of samples of length n_panels among arange(n_panels) and then each sample corresponds with the chunk
         if isinstance(self._wrapped, DynamicDML):
             n_index_chunks = len(index_chunks)
             bootstrapped_chunk_indices = np.random.choice(n_index_chunks, 
@@ -153,6 +122,24 @@ class BootstrapEstimator:
                                                       replace=True)]
                 indices.append(sample)
             indices = np.hstack(indices)
+        return indices
+    
+    def fit(self, *args, **named_args):
+        """
+        Fit the model.
+
+        The full signature of this method is the same as that of the wrapped object's `fit` method.
+        """
+
+        if self._only_final:
+            self._wrapped._gen_cloned_ortho_learner_model_finals(self._n_bootstrap_samples)
+            
+        def fit(x, *args, **kwargs):
+            x.fit(*args, **kwargs)
+            return x  # Explicitly return x in case fit fails to return its target
+
+        indices = self._fit_with_subsets(*args, **named_args)
+        
         if not self._only_final:
             self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
                 delayed(fit)(obj,

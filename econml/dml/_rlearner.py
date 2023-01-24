@@ -335,7 +335,7 @@ class _RLearner(_OrthoLearner):
         return _ModelFinal(self._gen_rlearner_model_final())
 
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference=None, only_final=False):
+            cache_values=False, inference=None):
         """
         Estimate the counterfactual model from data, i.e. estimates function :math:`\\theta(\\cdot)`.
 
