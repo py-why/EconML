@@ -514,7 +514,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     # override only so that we can update the docstring to indicate support for `LinearModelFinalInference`
     def fit(self, Y, T, *, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
-            cache_values=False, inference='auto', only_final=False):
+            cache_values=False, inference='auto'):
         """
         Estimate the counterfactual model from data, i.e. estimates functions τ(·,·,·), ∂τ(·,·).
 
