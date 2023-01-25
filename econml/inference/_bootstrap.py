@@ -174,7 +174,7 @@ class BootstrapEstimator:
             def summarize_with(f):
                 instance_results = []
                 obj = clone(self._wrapped, safe=False)
-                instance_results = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
+                instance_results = Parallel(n_jobs=self._n_jobs, prefer='processes', verbose=self._verbose)(
                         delayed(f)(set_curr_obj(obj, i), name)
                         for i in range(self._n_bootstrap_samples)
                     )
