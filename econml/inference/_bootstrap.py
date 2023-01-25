@@ -165,12 +165,6 @@ class BootstrapEstimator:
             raise AttributeError(name)
 
         def proxy(make_call, name, summary):
-            def set_curr_obj(obj, i):
-                if self._only_final:
-                    obj._set_current_cloned_ortho_learner_model_final(i)
-                else:
-                    obj = self._instances[i]
-                return obj
             def summarize_with(f):
                 instance_results = []
                 obj = clone(self._wrapped, safe=False)
