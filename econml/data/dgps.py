@@ -154,14 +154,23 @@ class StandardDGP:
         If a function, this function will be used directly.
         If a dict, must include 'support' and 'degree' keys.
 
-    x_eps: float
-        Noise parameter for feature generation
+    x_noise: str
+        Type of noise to use for covariate generation. Must be a method of np.random.RandomState()
 
-    y_eps: func or dict
-        Noise parameter for outcome generation
+    y_noise: str
+        Type of noise to use for outcome generation. Must be a method of np.random.RandomState()
 
-    t_eps: func or dict
-        Noise parameter for treatment generation
+    t_noise: str
+        Type of noise to use for treatment generation. Must be a method of np.random.RandomState()
+
+    x_noise_params: dict
+        Parameters to pass to x noise function
+
+    y_noise_params: dict
+        Parameters to pass to x noise function
+
+    t_noise_params: dict
+        Parameters to pass to x noise function
 
     """
 
@@ -260,8 +269,11 @@ class StandardDGP:
         self.y_noise = y_noise
         self.t_noise = t_noise
 
+        x_noise_params = x_noise_params.copy()
         x_noise_params['size'] = (self.n, self.d_x)
+        y_noise_params = y_noise_params.copy()
         y_noise_params['size'] = (self.n, self.d_y)
+        t_noise_params = t_noise_params.copy()
         t_noise_params['size'] = (self.n, self.d_t)
 
         self.x_noise_params = x_noise_params
