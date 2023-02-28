@@ -12,8 +12,8 @@ from sklearn.utils.multiclass import type_of_target
 import numpy as np
 import scipy.sparse as sp
 from joblib import Parallel, delayed
-from sklearn.base import clone, is_classifier
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV
+from sklearn.base import clone, is_classifierz``
+from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV, BaseCrossValidator
 # TODO: conisder working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
@@ -21,6 +21,11 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import indexable, check_random_state
 from sklearn.utils.validation import _num_samples
 
+def check_list_type(lst):
+    for element in lst:
+        if not isinstance(element, (str, BaseEstimator, BaseCrossValidator)):
+            raise TypeError("The list must contain only strings, sklearn model objects, and sklearn model selection objects.")
+    return True
 
 def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
     random_state = self.random_state if self.shuffle else None
@@ -458,3 +463,5 @@ def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
         return [p[inv_test_indices] for p in predictions]
     else:
         return predictions[inv_test_indices]
+
+
