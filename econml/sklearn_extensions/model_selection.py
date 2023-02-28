@@ -76,7 +76,8 @@ def select_estimator(estimator_type, target_type):
                 ('nnet', select_estimator('nnet', target_type)),
                 ('poly', select_estimator('poly', target_type)),
             ], voting='soft')
-
+    else:
+        raise ValueError(f"Unsupported estimator type: {estimator_type}") 
 
 def check_list_type(lst):
     for element in lst:
