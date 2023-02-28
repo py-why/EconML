@@ -12,7 +12,7 @@ from sklearn.utils.multiclass import type_of_target
 import numpy as np
 import scipy.sparse as sp
 from joblib import Parallel, delayed
-from sklearn.base import clone, is_classifierz``
+from sklearn.base import clone, is_classifier
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV, BaseCrossValidator
 # TODO: conisder working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
