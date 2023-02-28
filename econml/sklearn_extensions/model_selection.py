@@ -21,6 +21,63 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import indexable, check_random_state
 from sklearn.utils.validation import _num_samples
 
+import sklearn.linear_model
+import sklearn.ensemble
+import sklearn.neural_network
+import sklearn.preprocessing
+import numpy as np
+
+def select_estimator(estimator_type, target_type):
+    if target_type not in ['continuous', 'discrete']:
+        raise ValueError(f"Unsupported target type: {target_type}")
+    if estimator_type == 'linear':
+        if target_type == 'continuous':
+            return sklearn.linear_model.ElasticNetCV()
+        elif target_type == 'discrete':
+            return sklearn.linear_model.LogisticRegressionCV()
+    elif estimator_type == 'forest':
+        if target_type == 'continuous':
+            return sklearn.ensemble.RandomForestRegressor()
+        elif target_type == 'discrete':
+            return sklearn.ensemble.RandomForestClassifier()
+    elif estimator_type == 'gbf':
+        if target_type == 'continuous':
+            return sklearn.ensemble.GradientBoostingRegressor()
+        elif target_type == 'discrete':
+            return sklearn.ensemble.GradientBoostingClassifier()
+    elif estimator_type == 'nnet':
+        if target_type == 'continuous':
+            return sklearn.neural_network.MLPRegressor()
+        elif target_type == 'discrete':
+            return sklearn.neural_network.MLPClassifier()
+    elif estimator_type == 'poly':
+        degrees = [2, 3, 4]  # Figure out how to do this
+        models = []
+        if target_type == 'continuous':
+            return sklearn.linear_model.ElasticNetCV(precompute=True)
+        elif target_type == 'discrete':
+            return sklearn.linear_model.LogisticRegressionCV()
+    elif estimator_type == 'automl':
+        return    
+    elif estimator_type == 'all':
+        if target_type == 'continuous':
+            return sklearn.ensemble.VotingRegressor(estimators=[
+                ('linear', select_estimator('linear', target_type)),
+                ('forest', select_estimator('forest', target_type)),
+                ('gbf', select_estimator('gbf', target_type)),
+                ('nnet', select_estimator('nnet', target_type)),
+                ('poly', select_estimator('poly', target_type)),
+            ], voting='soft')
+        elif target_type == 'discrete':
+            return sklearn.ensemble.VotingClassifier(estimators=[
+                ('linear', select_estimator('linear', target_type)),
+                ('forest', select_estimator('forest', target_type)),
+                ('gbf', select_estimator('gbf', target_type)),
+                ('nnet', select_estimator('nnet', target_type)),
+                ('poly', select_estimator('poly', target_type)),
+            ], voting='soft')
+
+
 def check_list_type(lst):
     for element in lst:
         if not isinstance(element, (str, BaseEstimator, BaseCrossValidator)):
