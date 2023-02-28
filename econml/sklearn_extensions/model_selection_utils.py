@@ -50,6 +50,65 @@ def check_list_type(lst):
             raise TypeError("The list must contain only strings, sklearn model objects, and sklearn model selection objects.")
     return True
 
+def select_continuous_estimator(estimator_type):
+    """
+    Returns a continuous estimator object for the specified estimator type.
+    Args:
+        estimator_type (str): The type of estimator to use, one of: 'linear', 'forest', 'gbf', 'nnet', 'poly'.
+    Returns:
+        object: An instance of the selected estimator class.
+    Raises:
+        ValueError: If the estimator type is unsupported.
+    """
+    if estimator_type == 'linear':
+        return sklearn.linear_model.ElasticNetCV()
+    elif estimator_type == 'forest':
+        return sklearn.ensemble.RandomForestRegressor()
+    elif estimator_type == 'gbf':
+        return sklearn.ensemble.GradientBoostingRegressor()
+    elif estimator_type == 'nnet':
+        return sklearn.neural_network.MLPRegressor()
+    elif estimator_type == 'poly':
+        degrees = [2, 3, 4]
+        models = []
+        for degree in degrees:
+            poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
+            linear = sklearn.linear_model.ElasticNetCV(precompute=True, cv=3, tol=0.1, verbose=1)
+            models.append((f"poly{degree}", sklearn.pipeline.Pipeline([('poly', poly), ('linear', linear)])))
+        return sklearn.ensemble.VotingRegressor(estimators=models)
+    else:
+        raise ValueError(f"Unsupported estimator type: {estimator_type}")
+
+def select_discrete_estimator(estimator_type):
+    """
+    Returns a discrete estimator object for the specified estimator type.
+    Args:
+        estimator_type (str): The type of estimator to use, one of: 'linear', 'forest', 'gbf', 'nnet', 'poly'.
+    Returns:
+        object: An instance of the selected estimator class.
+    Raises:
+        ValueError: If the estimator type is unsupported.
+    """
+    if estimator_type == 'linear':
+        return sklearn.linear_model.LogisticRegressionCV()
+    elif estimator_type == 'forest':
+        return sklearn.ensemble.RandomForestClassifier()
+    elif estimator_type == 'gbf':
+        return sklearn.ensemble.GradientBoostingClassifier()
+    elif estimator_type == 'nnet':
+        return sklearn.neural_network.MLPClassifier()
+    elif estimator_type == 'poly':
+        degrees = [2, 3, 4]
+        models = []
+        for degree in degrees:
+            poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
+            linear = sklearn.linear_model.LogisticRegressionCV()
+            models.append((f"poly{degree}", sklearn.pipeline.Pipeline([('poly', poly), ('linear', linear)])))
+        return sklearn.ensemble.VotingClassifier(estimators=models)
+    else:
+        raise ValueError(f"Unsupported estimator type: {estimator_type}")
+
+
 def select_estimator(estimator_type, target_type):
     """
     Returns an estimator object for the specified estimator and target types.
@@ -59,68 +118,16 @@ def select_estimator(estimator_type, target_type):
         target_type (str): The type of target variable, one of: 'continuous', 'discrete'.
 
     Returns:
-        object: An instance of the selected estimator class, configured with appropriate hyperparameters.
+        object: An instance of the selected estimator class.
 
     Raises:
         ValueError: If the estimator or target types are unsupported.
     """
     if target_type not in ['continuous', 'discrete']:
         raise ValueError(f"Unsupported target type: {target_type}")
-    if estimator_type == 'linear':
-        if target_type == 'continuous':
-            return sklearn.linear_model.ElasticNetCV()
-        elif target_type == 'discrete':
-            return sklearn.linear_model.LogisticRegressionCV()
-    elif estimator_type == 'forest':
-        if target_type == 'continuous':
-            return sklearn.ensemble.RandomForestRegressor()
-        elif target_type == 'discrete':
-            return sklearn.ensemble.RandomForestClassifier()
-    elif estimator_type == 'gbf':
-        if target_type == 'continuous':
-            return sklearn.ensemble.GradientBoostingRegressor()
-        elif target_type == 'discrete':
-            return sklearn.ensemble.GradientBoostingClassifier()
-    elif estimator_type == 'nnet':
-        if target_type == 'continuous':
-            return sklearn.neural_network.MLPRegressor()
-        elif target_type == 'discrete':
-            return sklearn.neural_network.MLPClassifier()
-    elif estimator_type == 'poly':
-        degrees = [2, 3, 4]  # I don't think we want to take the voting of each but I'm not sure if we should return a list of models?
-        models = []
-        for degree in degrees:
-            poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
-            if target_type == 'continuous':
-                linear = sklearn.linear_model.ElasticNetCV(precompute=True, cv=3, tol=0.1, verbose=1)
-            elif target_type == 'discrete':
-                linear = sklearn.linear_model.LogisticRegressionCV()
-            else:
-                raise ValueError(f"Unsupported target type: {target_type}")
-            models.append((f"poly{degree}", sklearn.pipeline.Pipeline([('poly', poly), ('linear', linear)])))
-        if target_type == 'continuous':
-            return sklearn.ensemble.VotingRegressor(estimators=models)
-        elif target_type == 'discrete':
-            return sklearn.ensemble.VotingClassifier(estimators=models)
-    elif estimator_type == 'automl':
-        return    
-    elif estimator_type == 'all':
-        if target_type == 'continuous':
-            return sklearn.ensemble.VotingRegressor(estimators=[
-                ('linear', select_estimator('linear', target_type)),
-                ('forest', select_estimator('forest', target_type)),
-                ('gbf', select_estimator('gbf', target_type)),
-                ('nnet', select_estimator('nnet', target_type)),
-                ('poly', select_estimator('poly', target_type)),
-            ])
-        elif target_type == 'discrete':
-            return sklearn.ensemble.VotingClassifier(estimators=[
-                ('linear', select_estimator('linear', target_type)),
-                ('forest', select_estimator('forest', target_type)),
-                ('gbf', select_estimator('gbf', target_type)),
-                ('nnet', select_estimator('nnet', target_type)),
-                ('poly', select_estimator('poly', target_type)),
-            ], voting='soft')
-    else:
-        raise ValueError(f"Unsupported estimator type: {estimator_type}") 
+
+    if target_type == 'continuous':
+        return select_continuous_estimator(estimator_type=estimator_type)
+    elif target_type == 'discrete':
+        return select_discrete_estimator(estimator_type=estimator_type)
 
