@@ -140,7 +140,7 @@ def get_estimator_type(estimator):
     """
     return 'continuous'
 
-def get_complete_estimator_list(estimator_list):
+def get_complete_estimator_list(estimator_list, target_type):
     '''
     Returns a list of sklearn objects from an input list of str's, and sklearn objects.
 
@@ -169,5 +169,5 @@ def get_complete_estimator_list(estimator_list):
         if isinstance(estimator, (BaseEstimator, BaseCrossValidator)):
             temp_est_list.append(estimator)
         else:
-            temp_est_list.append(select_estimator(estimator, get_estimator_type(estimator)))
+            temp_est_list.append(select_estimator(estimator, target_type))
     return temp_est_list
