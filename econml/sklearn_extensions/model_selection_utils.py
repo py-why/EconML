@@ -6,7 +6,27 @@ import sklearn.neural_network
 import sklearn.preprocessing
 from sklearn.base import BaseEstimator
 from sklearn.model_selection import BaseCrossValidator
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, MaxAbsScaler
+from sklearn.pipeline import Pipeline
 
+scaling_lst =  [StandardScaler(), MinMaxScaler(), RobustScaler(), MaxAbsScaler()]
+            
+def scale_pipeline(model):
+    """
+    Returns a pipeline that scales the input data using StandardScaler and applies the given model.
+
+    Parameters:
+    -----------
+    model : estimator object
+        A model object that implements the scikit-learn estimator interface.
+
+    Returns:
+    --------
+    pipe : Pipeline object
+        A pipeline that scales the input data using StandardScaler and applies the given model.
+    """
+    pipe = Pipeline([('scaler', StandardScaler()), ('model', model)])
+    return pipe
 
 def flatten_list(lst):
     """
@@ -73,9 +93,10 @@ def select_continuous_estimator(estimator_type):
         models = []
         for degree in degrees:
             poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
-            linear = sklearn.linear_model.ElasticNetCV(precompute=True, cv=3, tol=0.1, verbose=1)
-            models.append((f"poly{degree}", sklearn.pipeline.Pipeline([('poly', poly), ('linear', linear)])))
-        return sklearn.ensemble.VotingRegressor(estimators=models)
+            linear = sklearn.linear_model.ElasticNetCV(cv=3) #Play around with precompute and tolerance
+            models.append((f"poly{degree}", Pipeline([('poly', poly), ('linear', linear)])))
+        return models
+        # return sklearn.ensemble.VotingRegressor(estimators=models)
     else:
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
@@ -103,8 +124,9 @@ def select_discrete_estimator(estimator_type):
         for degree in degrees:
             poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
             linear = sklearn.linear_model.LogisticRegressionCV()
-            models.append((f"poly{degree}", sklearn.pipeline.Pipeline([('poly', poly), ('linear', linear)])))
-        return sklearn.ensemble.VotingClassifier(estimators=models)
+            models.append((f"poly{degree}", Pipeline([('poly', poly), ('linear', linear)])))
+        return models
+        # return sklearn.ensemble.VotingClassifier(estimators=models)
     else:
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
@@ -125,7 +147,6 @@ def select_estimator(estimator_type, target_type):
     """
     if target_type not in ['continuous', 'discrete']:
         raise ValueError(f"Unsupported target type: {target_type}")
-
     if target_type == 'continuous':
         return select_continuous_estimator(estimator_type=estimator_type)
     elif target_type == 'discrete':
