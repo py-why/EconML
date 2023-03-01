@@ -175,6 +175,9 @@ def get_complete_estimator_list(estimator_list, target_type):
         ValueError: If the estimator is not supported.
 
     '''
+    if not isinstance(estimator_list, list):
+        raise ValueError(f"estimator_list should be of type list not: {type(estimator_list)}")
+
     # Throws error if incompatible elements exist
     check_list_type(estimator_list)
     # populate list of estimator objects
@@ -191,4 +194,6 @@ def get_complete_estimator_list(estimator_list, target_type):
             temp_est_list.append(estimator)
         else:
             temp_est_list.append(select_estimator(estimator, target_type))
+
+    temp_est_list = flatten_list(temp_est_list)
     return temp_est_list
