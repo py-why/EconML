@@ -161,12 +161,10 @@ def get_complete_estimator_list(estimator_list):
 
     # if 'all' or 'automl' chosen then create list of all estimators to search over
     if 'automl' in estimator_list or 'all' in estimator_list:
-        estimator_list_updated = ['linear', 'forest', 'gbf', 'nnet', 'poly']
-    else:
-        estimator_list_updated = estimator_list
-        
+        estimator_list = ['linear', 'forest', 'gbf', 'nnet', 'poly']
+
     # loop over every estimator
-    for estimator in estimator_list_updated:
+    for estimator in estimator_list:
         # if sklearn object: add to list, else turn str into corresponding sklearn object and add to list
         if isinstance(estimator, (BaseEstimator, BaseCrossValidator)):
             temp_est_list.append(estimator)
