@@ -112,14 +112,17 @@ def select_continuous_estimator(estimator_type):
         ValueError: If the estimator type is unsupported.
     """
     if estimator_type == 'linear':
-        return scale_pipeline(ElasticNetCV())
+        return (ElasticNetCV())
     elif estimator_type == 'forest':
         return RandomForestRegressor()
     elif estimator_type == 'gbf':
         return GradientBoostingRegressor()
     elif estimator_type == 'nnet':
-        return scale_pipeline(MLPRegressor())
-    
+        return (MLPRegressor())
+    elif estimator_type == 'poly':
+        poly = sklearn.preprocessing.PolynomialFeatures()
+        linear = sklearn.linear_model.ElasticNetCV(cv=3) #Play around with precompute and tolerance
+        return (Pipeline([('poly', poly), ('linear', linear)]))
     else:
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
@@ -137,14 +140,17 @@ def select_discrete_estimator(estimator_type):
         ValueError: If the estimator type is unsupported.
     """
     if estimator_type == 'linear':
-        return scale_pipeline(LogisticRegressionCV(multi_class='auto'))
+        return (LogisticRegressionCV(multi_class='auto'))
     elif estimator_type == 'forest':
         return RandomForestClassifier()
     elif estimator_type == 'gbf':
         return GradientBoostingClassifier()
     elif estimator_type == 'nnet':
-        return scale_pipeline(MLPClassifier())
-        # return sklearn.ensemble.VotingClassifier(estimators=models)
+        return (MLPClassifier())
+    elif estimator_type == 'poly':
+        poly = PolynomialFeatures()
+        linear = LogisticRegressionCV(multi_class='auto')
+        return (Pipeline([('poly', poly), ('linear', linear)]))
     else:
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
@@ -263,14 +269,14 @@ def select_classification_hyperparameters(model_type):
         A dictionary representing the hyperparameter grid to search over.
     """
     
-    if model_type == 'linear':
+    if model_type == type(LogisticRegressionCV()):
         # Hyperparameter grid for linear classification model
         return {
             'penalty': ['l1', 'l2', 'elasticnet'],
             'C': [0.01, 0.1, 1, 10, 100],
             'solver': ['liblinear']
         }
-    elif model_type == 'forest':
+    elif model_type == type(RandomForestClassifier()):
         # Hyperparameter grid for random forest classification model
         return {
             'n_estimators': [100, 500, 1000],
@@ -278,7 +284,7 @@ def select_classification_hyperparameters(model_type):
             'min_samples_split': [2, 5],
             'min_samples_leaf': [1, 2]
         }
-    elif model_type == 'nnet':
+    elif model_type == type(MLPClassifier()):
         # Hyperparameter grid for neural network classification model
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
@@ -290,9 +296,10 @@ def select_classification_hyperparameters(model_type):
     elif model_type == 'poly':
         # Hyperparameter grid for polynomial kernel classification model
         return {
-            'C': [0.01, 0.1, 1, 10, 100],
-            'degree': [2, 3, 4],
-            'coef0': [0, 1, 2]
+            'poly__degree': [2, 3, 4],
+            'linear__fit_intercept': [True, False],
+            'linear__C': [0.01, 0.1, 1, 10, 100],
+            'linear__coef0': [0, 1, 2]
         }
     else:
         # Invalid model type
@@ -310,18 +317,18 @@ def get_regression_hyperparameters(model_type):
     Returns:
         A dictionary of hyperparameters to be searched over using a grid search.
     """
-    if model_type == 'linear':
+    if model_type == type(ElasticNetCV()):
         return {
             'l1_ratio': []
         }
-    elif model_type == 'forest':
+    elif model_type == type(RandomForestRegressor()):
         return {
             'n_estimators': [100, 500, 1000],
             'max_depth': [None, 10, 50],
             'min_samples_split': [2, 5, 10],
             'min_samples_leaf': [1, 2, 4]
         }
-    elif model_type == 'nnet':
+    elif model_type == type(MLPRegressor()):
         # Hyperparameter grid for neural network classification model
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
@@ -333,11 +340,30 @@ def get_regression_hyperparameters(model_type):
     elif model_type == 'poly':
         # Hyperparameter grid for polynomial kernel classification model
         return {
-            'C': [0.01, 0.1, 1, 10, 100],
-            'degree': [2, 3, 4],
-            'coef0': [0, 1, 2]
+            'linear__C': [0.01, 0.1, 1, 10, 100],
+            'poly__degree': [2, 3, 4]
         }
     else:
         # Invalid model type
         raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
-        
+
+
+def is_data_scaled(X):
+    """
+    Check if the input data is already centered and scaled using StandardScaler.
+
+    Args:
+        X array-like of shape (n_samples, n_features): The input data.
+
+    Returns:
+        is_scaled (bool): Whether the input data is already centered and scaled using StandardScaler or not.
+
+    """
+    # Compute the mean and standard deviation of the scaled data
+    mean = np.mean(X, axis=0)
+    std = np.std(X, axis=0)
+
+    # Check if the mean is close to 0 and the standard deviation is close to 1
+    is_scaled = np.allclose(mean, 0.0) and np.allclose(std, 1.0)
+
+    return is_scaled
