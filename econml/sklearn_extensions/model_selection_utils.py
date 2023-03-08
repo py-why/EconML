@@ -1,16 +1,44 @@
 
 import numpy as np
+import sklearn
 import sklearn.ensemble
 import sklearn.linear_model
 import sklearn.neural_network
 import sklearn.preprocessing
 from sklearn.base import BaseEstimator
+from sklearn.ensemble import (GradientBoostingClassifier,
+                              GradientBoostingRegressor,
+                              RandomForestClassifier, RandomForestRegressor)
+from sklearn.linear_model import ElasticNetCV, LogisticRegressionCV
 from sklearn.model_selection import BaseCrossValidator
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, RobustScaler, MaxAbsScaler
+from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import (MaxAbsScaler, MinMaxScaler,
+                                   PolynomialFeatures, RobustScaler,
+                                   StandardScaler)
+
+# For regression problems
+models_regression = [
+    ElasticNetCV(),
+    RandomForestRegressor(),
+    GradientBoostingRegressor(),
+    MLPRegressor()
+]
+
+# For classification problems
+models_classification = [
+    LogisticRegressionCV(),
+    RandomForestClassifier(),
+    GradientBoostingClassifier(),
+    MLPClassifier()
+]
+
+hyperparam_grid = {
+    'poly':{'degrees':[2,3,4]}}
 
 scaling_lst =  [StandardScaler(), MinMaxScaler(), RobustScaler(), MaxAbsScaler()]
-            
+model_list = ['linear', 'forest', 'gbf', 'nnet', 'poly', 'automl']     
+
 def scale_pipeline(model):
     """
     Returns a pipeline that scales the input data using StandardScaler and applies the given model.
@@ -45,6 +73,8 @@ def flatten_list(lst):
         else:
             flattened.append(item)
     return flattened
+
+
 
 def check_list_type(lst):
     """
@@ -81,22 +111,14 @@ def select_continuous_estimator(estimator_type):
         ValueError: If the estimator type is unsupported.
     """
     if estimator_type == 'linear':
-        return sklearn.linear_model.ElasticNetCV()
+        return scale_pipeline(ElasticNetCV())
     elif estimator_type == 'forest':
-        return sklearn.ensemble.RandomForestRegressor()
+        return RandomForestRegressor()
     elif estimator_type == 'gbf':
-        return sklearn.ensemble.GradientBoostingRegressor()
+        return GradientBoostingRegressor()
     elif estimator_type == 'nnet':
-        return sklearn.neural_network.MLPRegressor()
-    elif estimator_type == 'poly':
-        degrees = [2, 3, 4]
-        models = []
-        for degree in degrees:
-            poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
-            linear = sklearn.linear_model.ElasticNetCV(cv=3) #Play around with precompute and tolerance
-            models.append((f"poly{degree}", Pipeline([('poly', poly), ('linear', linear)])))
-        return models
-        # return sklearn.ensemble.VotingRegressor(estimators=models)
+        return scale_pipeline(MLPRegressor())
+    
     else:
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
@@ -111,25 +133,34 @@ def select_discrete_estimator(estimator_type):
         ValueError: If the estimator type is unsupported.
     """
     if estimator_type == 'linear':
-        return sklearn.linear_model.LogisticRegressionCV()
+        return scale_pipeline(LogisticRegressionCV(multi_class='auto'))
     elif estimator_type == 'forest':
-        return sklearn.ensemble.RandomForestClassifier()
+        return RandomForestClassifier()
     elif estimator_type == 'gbf':
-        return sklearn.ensemble.GradientBoostingClassifier()
+        return GradientBoostingClassifier()
     elif estimator_type == 'nnet':
-        return sklearn.neural_network.MLPClassifier()
-    elif estimator_type == 'poly':
-        degrees = [2, 3, 4]
-        models = []
-        for degree in degrees:
-            poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
-            linear = sklearn.linear_model.LogisticRegressionCV()
-            models.append((f"poly{degree}", Pipeline([('poly', poly), ('linear', linear)])))
-        return models
+        return scale_pipeline(MLPClassifier())
         # return sklearn.ensemble.VotingClassifier(estimators=models)
     else:
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
+def select_poly(target_type, degrees):
+    if target_type == 'continuous':
+        models = []
+        for degree in degrees:
+            poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
+            linear = sklearn.linear_model.ElasticNetCV(cv=3) #Play around with precompute and tolerance
+            models.append((f"poly{degree}", Pipeline([('poly', poly), ('linear', linear)])))
+        return models
+    elif target_type == 'discrete':
+        models = []
+        for degree in degrees:
+            poly = PolynomialFeatures(degree=degree)
+            linear = LogisticRegressionCV(multi_class='auto')
+            models.append((f"poly{degree}", Pipeline([('poly', poly), ('linear', linear)])))
+        return models
+    else:
+        raise ValueError(f"Unsupported target type: {target_type}")
 
 def select_estimator(estimator_type, target_type):
     """
@@ -175,6 +206,7 @@ def get_complete_estimator_list(estimator_list, target_type):
         ValueError: If the estimator is not supported.
 
     '''
+    
     if not isinstance(estimator_list, list):
         raise ValueError(f"estimator_list should be of type list not: {type(estimator_list)}")
 
@@ -197,3 +229,95 @@ def get_complete_estimator_list(estimator_list, target_type):
 
     temp_est_list = flatten_list(temp_est_list)
     return temp_est_list
+
+def select_classification_hyperparameters(model):
+    model_type = type(model)
+    """
+    Returns a hyperparameter grid for the specified classification model type.
+    
+    Args:
+    - model: A classification model. Valid values are 'linear', 'forest', 'nnet', and 'poly'.
+    
+    Returns:
+    - A dictionary representing the hyperparameter grid to search over.
+    """
+    
+    if model_type == 'linear':
+        # Hyperparameter grid for linear classification model
+        return {
+            'penalty': ['l1', 'l2', 'elasticnet'],
+            'C': [0.01, 0.1, 1, 10, 100],
+            'solver': ['liblinear']
+        }
+    elif model_type == 'forest':
+        # Hyperparameter grid for random forest classification model
+        return {
+            'n_estimators': [100, 500, 1000],
+            'max_depth': [None, 5, 10, 20],
+            'min_samples_split': [2, 5],
+            'min_samples_leaf': [1, 2]
+        }
+    elif model_type == 'nnet':
+        # Hyperparameter grid for neural network classification model
+        return {
+            'hidden_layer_sizes': [(10,), (50,), (100,)],
+            'activation': ['logistic', 'relu'],
+            'solver': ['adam'],
+            'alpha': [0.0001, 0.001, 0.01],
+            'learning_rate': ['constant', 'adaptive']
+        }
+    elif model_type == 'poly':
+        # Hyperparameter grid for polynomial kernel classification model
+        return {
+            'C': [0.01, 0.1, 1, 10, 100],
+            'degree': [2, 3, 4],
+            'coef0': [0, 1, 2]
+        }
+    else:
+        # Invalid model type
+        raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
+    
+
+
+def get_regression_hyperparameters(model):
+    model_type = type(model)
+    """
+    Returns a dictionary of hyperparameters to be searched over for a regression model.
+
+    Parameters:
+    model (str): The type of model to be used. Valid values are 'linear', 'forest', 'nnet', and 'poly'.
+
+    Returns:
+    A dictionary of hyperparameters to be searched over using a grid search.
+    """
+    if model_type == 'linear':
+        return {
+            'l1_ratio': []
+        }
+    elif model_type == 'forest':
+        return {
+            'n_estimators': [100, 500, 1000],
+            'max_depth': [None, 10, 50],
+            'min_samples_split': [2, 5, 10],
+            'min_samples_leaf': [1, 2, 4]
+        }
+    elif model_type == 'nnet':
+        # Hyperparameter grid for neural network classification model
+        return {
+            'hidden_layer_sizes': [(10,), (50,), (100,)],
+            'activation': ['logistic', 'relu'],
+            'solver': ['adam'],
+            'alpha': [0.0001, 0.001, 0.01],
+            'learning_rate': ['constant', 'adaptive']
+        }
+    elif model_type == 'poly':
+        # Hyperparameter grid for polynomial kernel classification model
+        return {
+            'C': [0.01, 0.1, 1, 10, 100],
+            'degree': [2, 3, 4],
+            'coef0': [0, 1, 2]
+        }
+    else:
+        # Invalid model type
+        raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
+        
