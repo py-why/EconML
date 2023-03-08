@@ -257,6 +257,20 @@ class WeightedStratifiedKFold(WeightedKFold):
         """
         return self.n_splits
 
+class SearchEstimatorList():
+    def __init__(self, estimator_list, categorical_indices, is_discrete=False):
+        self.estimator_list = get_complete_estimator_list(estimator_list, 'discrete' if is_discrete else 'continuous')
+        self.categorical_indices = categorical_indices
+        return
+
+    def select(self, X, y, *, sample_weight=None, groups=None):
+        """
+        Perform cross-validation on the estimator list.
+        """
+        return
+
+    def best_model(self, mse_map, time_map):
+        return
 
 class GridSearchCVList(BaseEstimator):
     """ An extension of GridSearchCV that allows for passing a list of estimators each with their own
