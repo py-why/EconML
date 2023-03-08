@@ -145,19 +145,37 @@ def select_discrete_estimator(estimator_type):
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
 def select_poly(target_type, degrees):
+    """
+    Builds polynomial regression models of specified degree(s) for either continuous or discrete targets.
+
+    Args:
+    target_type (str): Either 'continuous' or 'discrete'.
+    degrees (list): List of integer degree(s) for the polynomial regression model(s).
+
+    Returns:
+    A list of model Pipeline objects containing the polynomial feature transformer and linear model.
+
+    Raises:
+    ValueError: If target_type is not either 'continuous' or 'discrete', or if the elements in degrees are not integers.
+
+    """
+    # Check that degrees are integers
+    if not all(isinstance(x, int) for x in degrees):
+        raise ValueError("All elements in degrees must be integers.")
+    
     if target_type == 'continuous':
         models = []
         for degree in degrees:
             poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
             linear = sklearn.linear_model.ElasticNetCV(cv=3) #Play around with precompute and tolerance
-            models.append((f"poly{degree}", Pipeline([('poly', poly), ('linear', linear)])))
+            models.append(Pipeline([('poly', poly), ('linear', linear)]))
         return models
     elif target_type == 'discrete':
         models = []
         for degree in degrees:
             poly = PolynomialFeatures(degree=degree)
             linear = LogisticRegressionCV(multi_class='auto')
-            models.append((f"poly{degree}", Pipeline([('poly', poly), ('linear', linear)])))
+            models.append(Pipeline([('poly', poly), ('linear', linear)]))
         return models
     else:
         raise ValueError(f"Unsupported target type: {target_type}")
