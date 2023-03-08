@@ -43,15 +43,13 @@ def scale_pipeline(model):
     """
     Returns a pipeline that scales the input data using StandardScaler and applies the given model.
 
-    Parameters:
-    -----------
-    model : estimator object
-        A model object that implements the scikit-learn estimator interface.
+    Args:
+        model : estimator object
+            A model object that implements the scikit-learn estimator interface.
 
     Returns:
-    --------
-    pipe : Pipeline object
-        A pipeline that scales the input data using StandardScaler and applies the given model.
+        pipe : Pipeline object
+            A pipeline that scales the input data using StandardScaler and applies the given model.
     """
     pipe = Pipeline([('scaler', StandardScaler()), ('model', model)])
     return pipe
@@ -103,10 +101,13 @@ def check_list_type(lst):
 def select_continuous_estimator(estimator_type):
     """
     Returns a continuous estimator object for the specified estimator type.
+
     Args:
         estimator_type (str): The type of estimator to use, one of: 'linear', 'forest', 'gbf', 'nnet', 'poly'.
+
     Returns:
         object: An instance of the selected estimator class.
+
     Raises:
         ValueError: If the estimator type is unsupported.
     """
@@ -125,10 +126,13 @@ def select_continuous_estimator(estimator_type):
 def select_discrete_estimator(estimator_type):
     """
     Returns a discrete estimator object for the specified estimator type.
+
     Args:
         estimator_type (str): The type of estimator to use, one of: 'linear', 'forest', 'gbf', 'nnet', 'poly'.
+
     Returns:
         object: An instance of the selected estimator class.
+
     Raises:
         ValueError: If the estimator type is unsupported.
     """
@@ -149,14 +153,14 @@ def select_poly(target_type, degrees):
     Builds polynomial regression models of specified degree(s) for either continuous or discrete targets.
 
     Args:
-    target_type (str): Either 'continuous' or 'discrete'.
-    degrees (list): List of integer degree(s) for the polynomial regression model(s).
+        target_type (str): Either 'continuous' or 'discrete'.
+        degrees (list): List of integer degree(s) for the polynomial regression model(s).
 
     Returns:
-    A list of model Pipeline objects containing the polynomial feature transformer and linear model.
+        A list of model Pipeline objects containing the polynomial feature transformer and linear model.
 
     Raises:
-    ValueError: If target_type is not either 'continuous' or 'discrete', or if the elements in degrees are not integers.
+        ValueError: If target_type is not either 'continuous' or 'discrete', or if the elements in degrees are not integers.
 
     """
     # Check that degrees are integers
@@ -248,16 +252,15 @@ def get_complete_estimator_list(estimator_list, target_type):
     temp_est_list = flatten_list(temp_est_list)
     return temp_est_list
 
-def select_classification_hyperparameters(model):
-    model_type = type(model)
+def select_classification_hyperparameters(model_type):
     """
     Returns a hyperparameter grid for the specified classification model type.
     
     Args:
-    - model: A classification model. Valid values are 'linear', 'forest', 'nnet', and 'poly'.
+        model_type (str): The type of model to be used. Valid values are 'linear', 'forest', 'nnet', and 'poly'.
     
     Returns:
-    - A dictionary representing the hyperparameter grid to search over.
+        A dictionary representing the hyperparameter grid to search over.
     """
     
     if model_type == 'linear':
@@ -297,16 +300,15 @@ def select_classification_hyperparameters(model):
     
 
 
-def get_regression_hyperparameters(model):
-    model_type = type(model)
+def get_regression_hyperparameters(model_type):
     """
     Returns a dictionary of hyperparameters to be searched over for a regression model.
 
-    Parameters:
-    model (str): The type of model to be used. Valid values are 'linear', 'forest', 'nnet', and 'poly'.
+    Args:
+        model_type (str): The type of model to be used. Valid values are 'linear', 'forest', 'nnet', and 'poly'.
 
     Returns:
-    A dictionary of hyperparameters to be searched over using a grid search.
+        A dictionary of hyperparameters to be searched over using a grid search.
     """
     if model_type == 'linear':
         return {
