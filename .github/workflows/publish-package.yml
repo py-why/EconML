@@ -1,0 +1,117 @@
+name: Build and publish the package to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Whether to publish the package (as opposed to just building it)'
+        required: false
+        default: true
+        type: boolean
+      repository:
+        description: 'Whether to publish to production PyPI or test PyPI'
+        required: false
+        default: pypi
+        type: choice
+        options: [pypi, testpypi]
+      ref:
+        description: 'The git ref to build the package for'
+        required: false
+        default: ''
+        type: string
+  # annoyingly, there does not seem to be a way to share these input definitions between triggers
+  workflow_call:
+    inputs:
+      publish:
+        description: 'Whether to publish the package (as opposed to just building it)'
+        required: false
+        default: true
+        type: boolean
+      # choice type only supported for workflow_dispatch, not workflow_call
+      repository:
+        description: 'Whether to publish to production PyPI or test PyPI'
+        required: false
+        default: pypi
+        type: string
+      ref:
+        description: 'The git ref to build the package for'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout repository
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-python@v4
+        name: Setup Python
+        with:
+          python-version: 3.9
+      - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+        name: Ensure latest pip and setuptools
+      - run: pip install cibuildwheel && python -m cibuildwheel --output-dir dist
+        name: Build wheels
+        env:
+          CIBW_BUILD: cp3{7,8,9,10}-*
+          CIBW_SKIP: "*musl* *win32 *i686"
+      - uses: actions/upload-artifact@v3
+        name: Upload wheels as artifact
+        with:
+          name: dist
+          path: dist/
+  build_sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        name: Checkout repository
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-python@v4
+        name: Setup Python
+        with:
+          python-version: 3.8 # because of our supported TensorFlow versions, must build on 3.6-3.8
+      - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+        name: Ensure latest pip and setuptools
+      - run: pip install -U cython && pip install -e .[all]
+        name: Install econml[all]
+      - run: python setup.py sdist
+        name: Build sdist
+      - uses: actions/upload-artifact@v3
+        name: Upload sdist as artifact
+        with:
+          name: dist
+          path: dist/
+  publish:
+    name: Publish to PyPI or TestPyPI
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v4
+        name: Setup Python
+        with:
+          python-version: 3.9
+      - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
+        name: Ensure latest pip and setuptools
+      - run: pip install twine
+        name: Install twine
+      - uses: actions/download-artifact@v3
+        name: Download wheels and sdist
+        with:
+          name: dist
+          path: dist/
+      - run: twine upload dist/*
+        name: Upload wheels and sdist to package index
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_REPOSITORY: ${{ inputs.repository }}
+          TWINE_PASSWORD: ${{ inputs.repository == 'pypi' && secrets.PYPI_UPLOAD_TOKEN  || secrets.TEST_PYPI_UPLOAD_TOKEN }}
+    if: ${{ inputs.publish }}
