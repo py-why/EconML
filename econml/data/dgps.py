@@ -309,7 +309,7 @@ class StandardDGP:
                 return self.Z
 
             else:
-                Z_noise = self._random_state.normal(size=(self.n, self.d_z), loc=3, scale=3)
+                Z_noise = self._random_state.normal(size=(self.n, self.d_z), loc=0, scale=1)
                 self.Z = Z_noise
                 return self.Z
 
