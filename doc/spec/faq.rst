@@ -56,22 +56,10 @@ which is a good diagnostic as to the quality of your model.
 How do I give feedback?
 ------------------------------------
 
-This project welcomes contributions and suggestions. Most contributions require you to agree to
-a Contributor License Agreement (CLA) declaring that you have the right to, and actually do, 
-grant us the rights to use your contribution. For details, visit https://cla.microsoft.com.
+This project welcomes contributions and suggestions.  We use the `DCO bot <https://github.com/apps/dco>`_ to enforce a 
+`Developer Certificate of Origin <https://developercertificate.org/>` which requires users to sign-off on their commits.
+This is a simple way to certify that you wrote or otherwise have the right to submit the code you are contributing to 
+the project.  Git provides a :code:`-s` command line option to include this automatically when you commit via :code:`git commit`.
 
 
-When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
-a CLA and decorate the PR appropriately (e.g., label, comment). 
-Simply follow the instructions provided by the bot. You will only need to do this once across all repos using our CLA.
-
-
-This project has adopted the Microsoft Open Source Code of Conduct. 
-For more information see the Code of Conduct FAQ or contact opencode@microsoft.com with any additional questions or comments.
-
-
-
-
-
-
-
+This project has adopted the `PyWhy Code of Conduct <https://github.com/py-why/governance/blob/main/CODE-OF-CONDUCT.md>`_.
