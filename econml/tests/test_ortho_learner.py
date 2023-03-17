@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
 from econml._ortho_learner import _OrthoLearner, _crossfit
