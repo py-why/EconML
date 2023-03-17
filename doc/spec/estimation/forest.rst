@@ -315,8 +315,8 @@ Usage Examples
 Here is a simple example of how to call :class:`.DMLOrthoForest`
 and what the returned values correspond to in a simple data generating process.
 For more examples check out our 
-`OrthoForest Jupyter notebook <https://github.com/Microsoft/EconML/blob/main/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
-and the `ForestLearners Jupyter notebook <https://github.com/microsoft/EconML/blob/main/notebooks/ForestLearners%20Basic%20Example.ipynb>`_ .
+`OrthoForest Jupyter notebook <https://github.com/py-why/EconML/blob/main/notebooks/Orthogonal%20Random%20Forest%20Examples.ipynb>`_ 
+and the `ForestLearners Jupyter notebook <https://github.com/py-why/EconML/blob/main/notebooks/ForestLearners%20Basic%20Example.ipynb>`_ .
 
 
     .. testcode::
