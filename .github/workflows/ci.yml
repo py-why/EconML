@@ -224,7 +224,7 @@ jobs:
     steps:
     - run: exit 1
       name: At least one check failed or was cancelled
-      if: ${{ !(success()) }}
+      if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
     - run: exit 0
       name: All checks passed
-      if: ${{ success() }}
+      if: ${{ !(contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')) }}
