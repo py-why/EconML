@@ -16,7 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (MaxAbsScaler, MinMaxScaler,
                                    PolynomialFeatures, RobustScaler,
                                    StandardScaler)
-
+from sklearn.model_selection import BaseSearchCV
 # For regression problems
 models_regression = [
     ElasticNetCV(),
