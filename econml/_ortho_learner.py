@@ -34,7 +34,7 @@ import re
 
 import numpy as np
 from sklearn.base import clone
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv
+from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold, StratifiedGroupKFold, check_cv
 from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
                                    OneHotEncoder)
 from sklearn.utils import check_random_state
@@ -783,11 +783,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         else:
             splitter = check_cv(self.cv, [0], classifier=stratify)
             # if check_cv produced a new KFold or StratifiedKFold object, we need to set shuffle and random_state
-            # TODO: ideally, we'd also infer whether we need a GroupKFold (if groups are passed)
-            #       however, sklearn doesn't support both stratifying and grouping (see
-            #       https://github.com/scikit-learn/scikit-learn/issues/13621), so for now the user needs to supply
-            #       their own object that supports grouping if they want to use groups.
             if splitter != self.cv and isinstance(splitter, (KFold, StratifiedKFold)):
+                # upgrade to a GroupKFold or StratiGroupKFold if groups is not None
+                if groups is not None:
+                    if isinstance(splitter, KFold):
+                        splitter = GroupKFold(n_splits=splitter.n_splits)
+                    elif isinstance(splitter, StratifiedKFold):
+                        splitter = StratifiedGroupKFold(n_splits=splitter.n_splits)
                 splitter.shuffle = True
                 splitter.random_state = self._random_state
 
@@ -795,6 +797,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             to_split = np.hstack(all_vars) if all_vars else np.ones((T.shape[0], 1))
 
             if groups is not None:
+                # we won't have generated a KFold or StratifiedKFold ourselves when groups are passed,
+                # but the user might have supplied one, which won't work
                 if isinstance(splitter, (KFold, StratifiedKFold)):
                     raise TypeError("Groups were passed to fit while using a KFold or StratifiedKFold splitter. "
                                     "Instead you must initialize this object with a splitter that can handle groups.")

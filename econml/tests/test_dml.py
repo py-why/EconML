@@ -23,6 +23,7 @@ import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.multioutput import MultiOutputRegressor
 from econml.grf import MultiOutputGRF
+from econml.tests.utilities import (GroupingModel, NestedModel)
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
@@ -1143,58 +1144,32 @@ class TestDML(unittest.TestCase):
             self.assertAlmostEqual(cme1[0], -cme2[1] + cme2[0], places=3)
 
     def test_groups(self):
+
         groups = [1, 2, 3, 4, 5, 6] * 10
         t = groups
         y = groups
-        est = LinearDML()
-        with pytest.raises(Exception):  # can't pass groups without a compatible n_split
-            est.fit(y, t, groups=groups)
+
+        n_copies = {i: 10 for i in [1, 2, 3, 4, 5, 6]}
 
         # test outer grouping
-        est = LinearDML(model_y=LinearRegression(), model_t=LinearRegression(), cv=GroupKFold(2))
+        # with 2 folds, we should get exactly 3 groups per split, each with 10 copies of the y or t value
+        est = LinearDML(model_y=GroupingModel(LinearRegression(), (3, 3), n_copies),
+                        model_t=GroupingModel(LinearRegression(), (3, 3), n_copies))
         est.fit(y, t, groups=groups)
 
         # test nested grouping
-        class NestedModel:
-            def __init__(self, cv):
-                self.model = LassoCV(cv=cv)
 
-            # DML nested CV works via a 'cv' attribute
-            @property
-            def cv(self):
-                return self.model.cv
+        # with 2-fold outer and 2-fold inner grouping, and six total groups,
+        # should get 1 or 2 groups per split
 
-            @cv.setter
-            def cv(self, value):
-                self.model.cv = value
-
-            def fit(self, X, y):
-                for (train, test) in check_cv(self.cv, y).split(X, y):
-                    (yvals, cts) = np.unique(y[train], return_counts=True)
-                    # with 2-fold outer and 2-fold inner grouping, and six total groups,
-                    # should get 1 or 2 groups per split
-                    if len(yvals) > 2:
-                        raise Exception(f"Grouping failed: received {len(yval)} groups instead of at most 2")
-
-                    # ensure that the grouping has worked correctly and we get all 10 copies of the items in
-                    # whichever groups we see
-                    for (yval, ct) in zip(yvals, cts):
-                        if ct != 10:
-                            raise Exception(f"Grouping failed; received {ct} copies of {yval} instead of 10")
-                self.model.fit(X, y)
-                return self
-
-            def predict(self, X):
-                return self.model.predict(X)
-
-        # test nested grouping
-        est = LinearDML(model_y=NestedModel(cv=2), model_t=NestedModel(cv=2), cv=GroupKFold(2))
+        est = LinearDML(model_y=NestedModel(LassoCV(cv=2), (1, 2), n_copies),
+                        model_t=NestedModel(LassoCV(cv=2), (1, 2), n_copies))
         est.fit(y, t, groups=groups)
 
         # by default, we use 5 split cross-validation for our T and Y models
         # but we don't have enough groups here to split both the outer and inner samples with grouping
         # TODO: does this imply we should change some defaults to make this more likely to succeed?
-        est = LinearDML(model_y=LassoCV(cv=5), model_t=LassoCV(cv=5), cv=GroupKFold(2))
+        est = LinearDML(model_y=LassoCV(cv=5), model_t=LassoCV(cv=5))
         with pytest.raises(Exception):
             est.fit(y, t, groups=groups)
 

@@ -38,51 +38,6 @@ import statsmodels
 from joblib import Parallel, delayed
 
 
-# TODO: once we drop support for sklearn < 1.0, we can remove this
-def _add_normalize(to_wrap):
-    """
-    Add a fictitious "normalize" argument to linear model initializer signatures.
-
-    This is necessary for their get_params to play nicely with some other sklearn-internal methods.
-
-    Note that directly adding a **params argument to the ordinary initializer will not work,
-    because get_params explicitly looks only at the initializer signature arguments that are not
-    varargs or varkeywords, so we need to modify the signature of the initializer to include the
-    "normalize" argument.
-    """
-    # if we're decorating a class, just update the __init__ method,
-    # so that the result is still a class instead of a wrapper method
-    if isinstance(to_wrap, type):
-        import sklearn
-        from packaging import version
-
-        if version.parse(sklearn.__version__) >= version.parse("1.0"):
-            # normalize was deprecated or removed; don't need to do anything
-            return to_wrap
-
-        else:
-            from inspect import Parameter, signature
-            from functools import wraps
-
-            old_init = to_wrap.__init__
-
-            @wraps(old_init)
-            def new_init(self, *args, normalize=False, **kwargs):
-                if normalize is not False:
-                    warnings.warn("normalize is deprecated and will be ignored", stacklevel=2)
-                return old_init(self, *args, **kwargs)
-
-            sig = signature(old_init)
-            sig = sig.replace(parameters=[*sig.parameters.values(),
-                                          Parameter("normalize", kind=Parameter.KEYWORD_ONLY, default=False)])
-
-            new_init.__signature__ = sig
-            to_wrap.__init__ = new_init
-            return to_wrap
-    else:
-        raise ValueError("This decorator was applied to a method, but is intended to be applied only to types.")
-
-
 def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
     cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
@@ -176,7 +131,6 @@ class WeightedModelMixin:
             super().fit(**fit_params)
 
 
-@_add_normalize
 class WeightedLasso(WeightedModelMixin, Lasso):
     """Version of sklearn Lasso that accepts weights.
 
@@ -282,7 +236,6 @@ class WeightedLasso(WeightedModelMixin, Lasso):
         return self
 
 
-@_add_normalize
 class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
     """Version of sklearn MultiTaskLasso that accepts weights.
 
@@ -372,7 +325,6 @@ class WeightedMultiTaskLasso(WeightedModelMixin, MultiTaskLasso):
         return self
 
 
-@_add_normalize
 class WeightedLassoCV(WeightedModelMixin, LassoCV):
     """Version of sklearn LassoCV that accepts weights.
 
@@ -491,7 +443,6 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
         return self
 
 
-@_add_normalize
 class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
     """Version of sklearn MultiTaskLassoCV that accepts weights.
 
@@ -631,7 +582,6 @@ def _get_theta_coefs_and_tau_sq(i, X, sample_weight, alpha_cov, n_alphas_cov, ma
     return coefs, tausq
 
 
-@_add_normalize
 class DebiasedLasso(WeightedLasso):
     """Debiased Lasso model.
 
@@ -977,7 +927,6 @@ class DebiasedLasso(WeightedLasso):
         return _unscaled_coef_var
 
 
-@_add_normalize
 class MultiOutputDebiasedLasso(MultiOutputRegressor):
     """Debiased MultiOutputLasso model.
 
