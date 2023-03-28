@@ -312,9 +312,9 @@ class SearchEstimatorList(BaseEstimator):
                                        pre_dispatch=self.pre_dispatch, error_score=self.error_score,
                                        return_train_score=self.return_train_score)
                 if scaling: # is_linear_model(estimator) and
-                    temp_search.fit(scaled_X, y, param_grid, groups=groups, sample_weight=sample_weight, groups=groups)
+                    temp_search.fit(scaled_X, y, param_grid, groups=groups, sample_weight=sample_weight)
                 else:
-                    temp_search.fit(X, y, param_grid, groups=groups, sample_weight=sample_weight, groups=groups)
+                    temp_search.fit(X, y, param_grid, groups=groups, sample_weight=sample_weight)
                     self._search_list.append(temp_search)
             except (ValueError, TypeError, FitFailedWarning) as e:
                 # Raise a warning for the failed initialization

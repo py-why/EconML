@@ -14,7 +14,7 @@ from sklearn.linear_model import (ARDRegression, BayesianRidge, ElasticNet,
                                   LinearRegression, LogisticRegression,
                                   LogisticRegressionCV,
                                   OrthogonalMatchingPursuit, Ridge)
-from sklearn.model_selection import BaseCrossValidator, BaseSearchCV
+from sklearn.model_selection import BaseCrossValidator
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (MaxAbsScaler, MinMaxScaler,
