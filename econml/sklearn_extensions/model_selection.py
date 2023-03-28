@@ -13,7 +13,7 @@ import numpy as np
 import scipy.sparse as sp
 from joblib import Parallel, delayed
 from sklearn.base import clone, is_classifier
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV, BaseCrossValidator
+from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV, BaseCrossValidator, RandomizedSearchCV
 # TODO: conisder working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
@@ -261,16 +261,22 @@ class WeightedStratifiedKFold(WeightedKFold):
         return self.n_splits
 
 class SearchEstimatorList(BaseEstimator):
-    def __init__(self, estimator_list, param_grid_list, categorical_indices, search=GridSearchCV, is_discrete=False, scoring=None,
+    def __init__(self, estimator_list = ['linear', 'forest'], param_grid_list = 'auto', search=GridSearchCV, is_discrete=False, scoring=None,
                  n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
                  error_score=np.nan, return_train_score=False):
-        if search != GridSearchCV:
+        if search != GridSearchCV or search != RandomizedSearchCV:
             raise ValueError("The object is not an instance of GridSearchCV")
         # if not isinstance(search, BaseSearchCV):
         #     raise ValueError("The object is not an instance of BaseSearchCV")
         self.estimator_list = get_complete_estimator_list(estimator_list, 'discrete' if is_discrete else 'continuous')
-        self.param_grid_list = param_grid_list
-        self.categorical_indices = categorical_indices
+        
+        if param_grid_list == 'auto':
+            self.param_grid_list = auto_hyperparameters(estimator_list=estimator_list, is_discrete=is_discrete)
+        elif param_grid_list == None:
+            self.param_grid_list = len(estimator_list) * [{}]
+        else:
+            self.param_grid_list = param_grid_list
+        # self.categorical_indices = categorical_indices
         self.search = search
         if error_score == np.nan:
             if is_discrete:
@@ -292,8 +298,10 @@ class SearchEstimatorList(BaseEstimator):
         Perform cross-validation on the estimator list.
         """
         self._search_list = []
-        if not is_data_scaled(X):
-            if scaling:
+        
+        if scaling:
+            if is_data_scaled(X):
+                warnings.warn("Data may already be scaled. Scaling twice may negatively affect results.", UserWarning)
                 scale = StandardScaler()
                 scaled_X = scale.fit_transform(X)
 
@@ -303,8 +311,11 @@ class SearchEstimatorList(BaseEstimator):
                                        n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
                                        pre_dispatch=self.pre_dispatch, error_score=self.error_score,
                                        return_train_score=self.return_train_score)
-                temp_search.fit(X, y, param_grid, groups=groups, sample_weight=sample_weight)
-                self._search_list.append(temp_search)
+                if scaling: # is_linear_model(estimator) and
+                    temp_search.fit(scaled_X, y, param_grid, groups=groups, sample_weight=sample_weight, groups=groups)
+                else:
+                    temp_search.fit(X, y, param_grid, groups=groups, sample_weight=sample_weight, groups=groups)
+                    self._search_list.append(temp_search)
             except (ValueError, TypeError, FitFailedWarning) as e:
                 # Raise a warning for the failed initialization
                 warning_msg = f"Warning: {e} for estimator {estimator} and param_grid {param_grid}"
@@ -314,6 +325,7 @@ class SearchEstimatorList(BaseEstimator):
         self.best_score_ = self._search_list[self.best_ind_].best_score_
         self.best_params_ = self._search_list[self.best_ind_].best_params_
         return self
+    
     def best_model(self):
         return self.best_estimator_
     def predict(self, X):

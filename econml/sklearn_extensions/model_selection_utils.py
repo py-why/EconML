@@ -5,18 +5,23 @@ import sklearn.ensemble
 import sklearn.linear_model
 import sklearn.neural_network
 import sklearn.preprocessing
-from sklearn.base import BaseEstimator
+from sklearn.base import BaseEstimator, is_regressor
 from sklearn.ensemble import (GradientBoostingClassifier,
                               GradientBoostingRegressor,
                               RandomForestClassifier, RandomForestRegressor)
-from sklearn.linear_model import ElasticNetCV, LogisticRegressionCV
-from sklearn.model_selection import BaseCrossValidator
+from sklearn.linear_model import (ARDRegression, BayesianRidge, ElasticNet,
+                                  ElasticNetCV, Lars, Lasso, LassoLars,
+                                  LinearRegression, LogisticRegression,
+                                  LogisticRegressionCV,
+                                  OrthogonalMatchingPursuit, Ridge)
+from sklearn.model_selection import BaseCrossValidator, BaseSearchCV
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (MaxAbsScaler, MinMaxScaler,
                                    PolynomialFeatures, RobustScaler,
                                    StandardScaler)
-from sklearn.model_selection import BaseSearchCV
+from sklearn.svm import SVC, LinearSVC
+
 # For regression problems
 models_regression = [
     ElasticNetCV(),
@@ -24,6 +29,7 @@ models_regression = [
     GradientBoostingRegressor(),
     MLPRegressor()
 ]
+
 
 # For classification problems
 models_classification = [
@@ -288,7 +294,7 @@ def select_classification_hyperparameters(model_type):
         # Hyperparameter grid for neural network classification model
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
-            'activation': ['logistic', 'relu'],
+            'activation': ['relu'],
             'solver': ['adam'],
             'alpha': [0.0001, 0.001, 0.01],
             'learning_rate': ['constant', 'adaptive']
@@ -298,16 +304,17 @@ def select_classification_hyperparameters(model_type):
         return {
             'poly__degree': [2, 3, 4],
             'linear__fit_intercept': [True, False],
-            'linear__C': [0.01, 0.1, 1, 10, 100],
+            'linear__C': [ 0.1, 1, 10],
             'linear__coef0': [0, 1, 2]
         }
     else:
         # Invalid model type
-        raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
+        return {}
+        # raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
     
 
 
-def get_regression_hyperparameters(model_type):
+def select_regression_hyperparameters(model_type):
     """
     Returns a dictionary of hyperparameters to be searched over for a regression model.
 
@@ -332,7 +339,7 @@ def get_regression_hyperparameters(model_type):
         # Hyperparameter grid for neural network classification model
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
-            'activation': ['logistic', 'relu'],
+            'activation': ['relu'],
             'solver': ['adam'],
             'alpha': [0.0001, 0.001, 0.01],
             'learning_rate': ['constant', 'adaptive']
@@ -345,7 +352,38 @@ def get_regression_hyperparameters(model_type):
         }
     else:
         # Invalid model type
-        raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
+        return {}
+        # raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
+
+
+def is_linear_model(estimator):
+    """
+    Check whether an estimator is a polynomial regression, logistic regression, linear SVM, or any other type of
+    linear model.
+
+    Args:
+    estimator (scikit-learn estimator): The estimator to check.
+
+    Returns:
+    is_linear (bool): True if the estimator is a linear model, False otherwise.
+    """
+
+    # Check if the estimator is a polynomial regression
+    if isinstance(estimator, Pipeline):
+        has_poly_feature_step = any(isinstance(step[1], PolynomialFeatures) for step in estimator.steps)
+        if has_poly_feature_step:
+            return True
+
+    # Check if the estimator is a linear regression or related model
+    if hasattr(estimator, 'fit_intercept') and hasattr(estimator, 'coef_'):
+        return True
+
+    # Check if the estimator is a logistic regression or linear SVM
+    if isinstance(estimator, (LogisticRegression, LinearSVC, SVC)):
+        return True
+
+    # Otherwise, the estimator is not a linear model
+    return False
 
 
 def is_data_scaled(X):
@@ -367,3 +405,23 @@ def is_data_scaled(X):
     is_scaled = np.allclose(mean, 0.0) and np.allclose(std, 1.0)
 
     return is_scaled
+
+def auto_hyperparameters(estimator_list, is_discrete=True):
+    """
+    Selects hyperparameters for a list of estimators.
+    
+    Args:
+    - estimator_list: list of scikit-learn estimators
+    - is_discrete: boolean indicating whether the problem is classification or regression
+    
+    Returns:
+    - param_list: list of parameter grids for the estimators
+    """
+    param_list = []
+    for estimator in estimator_list:
+        model_type = type(estimator)
+        if is_discrete:
+            param_list.append(select_classification_hyperparameters(model_type=model_type))
+        else:
+            param_list.append(select_regression_hyperparameters(model_type=model_type))
+    return param_list
