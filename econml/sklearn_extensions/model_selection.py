@@ -17,6 +17,7 @@ from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearch
 # TODO: conisder working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
+from sklearn.exceptions import FitFailedWarning
 from sklearn.preprocessing import LabelEncoder
 from sklearn.utils import indexable, check_random_state
 from sklearn.utils.validation import _num_samples
@@ -259,21 +260,67 @@ class WeightedStratifiedKFold(WeightedKFold):
         """
         return self.n_splits
 
-class SearchEstimatorList():
-    def __init__(self, estimator_list, categorical_indices, is_discrete=False):
+class SearchEstimatorList(BaseEstimator):
+    def __init__(self, estimator_list, param_grid_list, categorical_indices, search=GridSearchCV, is_discrete=False, scoring=None,
+                 n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
+                 error_score=np.nan, return_train_score=False):
+        if search != GridSearchCV:
+            raise ValueError("The object is not an instance of GridSearchCV")
+        # if not isinstance(search, BaseSearchCV):
+        #     raise ValueError("The object is not an instance of BaseSearchCV")
         self.estimator_list = get_complete_estimator_list(estimator_list, 'discrete' if is_discrete else 'continuous')
+        self.param_grid_list = param_grid_list
         self.categorical_indices = categorical_indices
+        self.search = search
+        if error_score == np.nan:
+            if is_discrete:
+                self.scoring = 'f1'
+            else:
+                self.scoring = 'mse'
+            warnings.warn(f"No scoring value was given. Using default score method {self.scoring}.")
+        self.n_jobs = n_jobs
+        self.refit = refit
+        self.cv = cv
+        self.verbose = verbose
+        self.pre_dispatch = pre_dispatch
+        self.error_score = error_score
+        self.return_train_score = return_train_score
         return
 
-    def select(self, X, y, *, sample_weight=None, groups=None):
+    def select(self, X, y, *, scaling=True, sample_weight=None, groups=None):
         """
         Perform cross-validation on the estimator list.
         """
-        return
+        self._search_list = []
+        if not is_data_scaled(X):
+            if scaling:
+                scale = StandardScaler()
+                scaled_X = scale.fit_transform(X)
 
-    def best_model(self, mse_map, time_map):
-        return
-
+        for estimator, param_grid in zip(self.estimator_list, self.param_grid_list):
+            try:
+                temp_search = self.search(estimator, param_grid, scoring=self.scoring,
+                                       n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
+                                       pre_dispatch=self.pre_dispatch, error_score=self.error_score,
+                                       return_train_score=self.return_train_score)
+                temp_search.fit(X, y, param_grid, groups=groups, sample_weight=sample_weight)
+                self._search_list.append(temp_search)
+            except (ValueError, TypeError, FitFailedWarning) as e:
+                # Raise a warning for the failed initialization
+                warning_msg = f"Warning: {e} for estimator {estimator} and param_grid {param_grid}"
+                warnings.warn(warning_msg, category=UserWarning)
+        self.best_ind_ = np.argmax([search.best_score_ for search in self._search_list])
+        self.best_estimator_ = self._search_list[self.best_ind_].best_estimator_
+        self.best_score_ = self._search_list[self.best_ind_].best_score_
+        self.best_params_ = self._search_list[self.best_ind_].best_params_
+        return self
+    def best_model(self):
+        return self.best_estimator_
+    def predict(self, X):
+        return self.best_estimator_.predict(X)
+    def predict_proba(self, X):
+        return self.best_estimator_.predict_proba(X)
+    
 class GridSearchCVList(BaseEstimator):
     """ An extension of GridSearchCV that allows for passing a list of estimators each with their own
     parameter grid and returns the best among all estimators in the list and hyperparameter in their
@@ -323,6 +370,7 @@ class GridSearchCVList(BaseEstimator):
         self.best_score_ = self._gcv_list[self.best_ind_].best_score_
         self.best_params_ = self._gcv_list[self.best_ind_].best_params_
         return self
+    
     def best_model(self):
         return self.best_estimator_
 
