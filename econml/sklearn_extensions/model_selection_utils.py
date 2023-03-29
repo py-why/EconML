@@ -107,6 +107,9 @@ def check_list_type(lst):
         >>> check_list_type([1, 'linear'])
         TypeError: The list must contain only strings, sklearn model objects, and sklearn model selection objects.
     """
+    if len(lst) == 0:
+        raise ValueError("Estimator list is empty. Please add some models or use some of the defaults provided.")
+    
     for element in lst:
         if not isinstance(element, (str, BaseEstimator, BaseCrossValidator)):
             raise TypeError("The list must contain only strings, sklearn model objects, and sklearn model selection objects.")
@@ -261,6 +264,14 @@ def select_classification_hyperparameters(estimator):
             'min_samples_split': [2, 5],
             'min_samples_leaf': [1, 2]
         }
+    elif isinstance(estimator, GradientBoostingClassifier):
+        # Hyperparameter grid for gradient boosting classification model
+        return {
+            'n_estimators': [100, 500, 1000],
+            'learning_rate': [0.01, 0.05, 0.1],
+            'max_depth': [3, 5, 7],
+            
+        }
     elif isinstance(estimator, MLPClassifier):
         # Hyperparameter grid for neural network classification model
         return {
@@ -299,7 +310,7 @@ def select_regression_hyperparameters(estimator):
     if isinstance(estimator, ElasticNetCV):
         return {
             'l1_ratio': [0.1, 0.5, 0.9],
-            'max_iter': [1000, 5000, 10000],
+            'max_iter': [1000],
         }
     elif isinstance(estimator, RandomForestRegressor):
         return {
@@ -314,10 +325,18 @@ def select_regression_hyperparameters(estimator):
             'alpha': [0.0001, 0.001, 0.01],
             'learning_rate': ['constant', 'adaptive']
         }
+    elif isinstance(estimator, GradientBoostingRegressor):
+        # Hyperparameter grid for gradient boosting regression model
+        return {
+            'n_estimators': [100],
+            'learning_rate': [0.01, 0.1, 1.0],
+            'max_depth': [3, 5],
+        }
     elif is_polynomial_pipeline(estimator=estimator):
         # Hyperparameter grid for polynomial kernel classification model
         return {
-            'linear__C': [0.01, 0.1, 1, 10, 100],
+            'linear__l1_ratio': [0.1, 0.5, 0.9],
+            'linear__max_iter': [1000],
             'poly__degree': [2, 3, 4]
         }
     else:
