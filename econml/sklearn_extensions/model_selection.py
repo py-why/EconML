@@ -346,8 +346,9 @@ class GridSearchCVList(BaseEstimator):
 
     def __init__(self, estimator_list, param_grid_list, scoring=None,
                  n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
-                 error_score=np.nan, return_train_score=False, is_discrete = False):
-        self.estimator_list = get_complete_estimator_list(estimator_list, 'discrete' if is_discrete else 'continuous')
+                 error_score=np.nan, return_train_score=False):
+        # 'discrete' if is_discrete else 'continuous'
+        self.estimator_list = get_complete_estimator_list(estimator_list, 'continuous')
         self.param_grid_list = param_grid_list
         self.scoring = scoring
         self.n_jobs = n_jobs
