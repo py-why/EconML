@@ -261,29 +261,26 @@ class WeightedStratifiedKFold(WeightedKFold):
         return self.n_splits
 
 class SearchEstimatorList(BaseEstimator):
-    def __init__(self, estimator_list = ['linear', 'forest'], param_grid_list = 'auto', search=GridSearchCV, is_discrete=False, scoring=None,
+    def __init__(self, estimator_list = ['linear', 'forest'], param_grid_list = 'auto', is_discrete=False, scoring=None,
                  n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
                  error_score=np.nan, return_train_score=False):
-        if search != GridSearchCV or search != RandomizedSearchCV:
-            raise ValueError("The object is not an instance of GridSearchCV")
-        # if not isinstance(search, BaseSearchCV):
-        #     raise ValueError("The object is not an instance of BaseSearchCV")
-        self.estimator_list = get_complete_estimator_list(estimator_list, 'discrete' if is_discrete else 'continuous')
         
+        self.estimator_list = get_complete_estimator_list(estimator_list, 'discrete' if is_discrete else 'continuous')
+
         if param_grid_list == 'auto':
-            self.param_grid_list = auto_hyperparameters(estimator_list=estimator_list, is_discrete=is_discrete)
-        elif param_grid_list == None:
+            self.param_grid_list = auto_hyperparameters(estimator_list=self.estimator_list, is_discrete=is_discrete)
+        elif (param_grid_list == None) and (param_grid_list == 'default'):
             self.param_grid_list = len(estimator_list) * [{}]
         else:
             self.param_grid_list = param_grid_list
         # self.categorical_indices = categorical_indices
-        self.search = search
-        if error_score == np.nan:
+        if scoring == None:
             if is_discrete:
                 self.scoring = 'f1'
             else:
                 self.scoring = 'mse'
             warnings.warn(f"No scoring value was given. Using default score method {self.scoring}.")
+        self.scoring = scoring
         self.n_jobs = n_jobs
         self.refit = refit
         self.cv = cv
@@ -298,23 +295,25 @@ class SearchEstimatorList(BaseEstimator):
         Perform cross-validation on the estimator list.
         """
         self._search_list = []
-        
+        self.scaling = scaling
         if scaling:
             if is_data_scaled(X):
                 warnings.warn("Data may already be scaled. Scaling twice may negatively affect results.", UserWarning)
-                scale = StandardScaler()
-                scaled_X = scale.fit_transform(X)
+            self.scaler = StandardScaler()
+            self.scaler.fit(X)
+            scaled_X = self.scaler.transform(X)
 
         for estimator, param_grid in zip(self.estimator_list, self.param_grid_list):
             try:
-                temp_search = self.search(estimator, param_grid, scoring=self.scoring,
+                temp_search = GridSearchCV(estimator, param_grid, scoring=self.scoring,
                                        n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
                                        pre_dispatch=self.pre_dispatch, error_score=self.error_score,
                                        return_train_score=self.return_train_score)
                 if scaling: # is_linear_model(estimator) and
-                    temp_search.fit(scaled_X, y, param_grid, groups=groups, sample_weight=sample_weight)
+                    temp_search.fit(scaled_X, y, groups=groups, sample_weight=sample_weight) # , groups=groups, sample_weight=sample_weight
+                    self._search_list.append(temp_search)
                 else:
-                    temp_search.fit(X, y, param_grid, groups=groups, sample_weight=sample_weight)
+                    temp_search.fit(X, y,  groups=groups, sample_weight=sample_weight)
                     self._search_list.append(temp_search)
             except (ValueError, TypeError, FitFailedWarning) as e:
                 # Raise a warning for the failed initialization
@@ -326,11 +325,16 @@ class SearchEstimatorList(BaseEstimator):
         self.best_params_ = self._search_list[self.best_ind_].best_params_
         return self
     
+    def scaler_transform(self, X):
+        if self.scaling:    
+            return self.scaler.transform(X)
     def best_model(self):
         return self.best_estimator_
     def predict(self, X):
+        if self.scaling:    
+            return self.best_estimator_.predict(self.scaler.transform(X))
         return self.best_estimator_.predict(X)
-    def predict_proba(self, X):
+    def predict_prob(self, X):
         return self.best_estimator_.predict_proba(X)
     
 class GridSearchCVList(BaseEstimator):

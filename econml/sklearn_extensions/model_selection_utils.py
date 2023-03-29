@@ -21,6 +21,7 @@ from sklearn.preprocessing import (MaxAbsScaler, MinMaxScaler,
                                    PolynomialFeatures, RobustScaler,
                                    StandardScaler)
 from sklearn.svm import SVC, LinearSVC
+from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV, BaseCrossValidator, RandomizedSearchCV
 
 # For regression problems
 models_regression = [
@@ -326,21 +327,19 @@ def select_regression_hyperparameters(model_type):
     """
     if model_type == type(ElasticNetCV()):
         return {
-            'l1_ratio': []
+            'l1_ratio': [0.1, 0.5, 0.9],
+            'max_iter': [1000, 5000, 10000],
         }
     elif model_type == type(RandomForestRegressor()):
         return {
-            'n_estimators': [100, 500, 1000],
+            'n_estimators': [100, 200],
             'max_depth': [None, 10, 50],
             'min_samples_split': [2, 5, 10],
-            'min_samples_leaf': [1, 2, 4]
         }
     elif model_type == type(MLPRegressor()):
         # Hyperparameter grid for neural network classification model
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
-            'activation': ['relu'],
-            'solver': ['adam'],
             'alpha': [0.0001, 0.001, 0.01],
             'learning_rate': ['constant', 'adaptive']
         }
@@ -425,3 +424,10 @@ def auto_hyperparameters(estimator_list, is_discrete=True):
         else:
             param_list.append(select_regression_hyperparameters(model_type=model_type))
     return param_list
+
+
+def set_search_hyperparameters(search_object, hyperparameters):
+    if isinstance(search_object, (RandomizedSearchCV, GridSearchCV)):
+        search_object.set_params(**hyperparameters)
+    else:
+        raise ValueError("Invalid search object")
