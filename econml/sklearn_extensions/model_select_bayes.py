@@ -100,11 +100,16 @@ class BayesianOptimizationSearchListCV():
 
         """
 
+        # parameterds to fit the model with
         params = {}
+
+        # rounding may be necessary if the params need to be ints
         params['max_depth'] = round(max_depth)
-        params['min_samples_split'] = int(min_samples_split)
+        params['min_samples_split'] = round(min_samples_split)
         params['min_weight_fraction_leaf'] = min_weight_fraction_leaf
         #params['max_features'] = int(max_features)
+
+        # scores the model with the above hyperparams
         scores = cross_val_score(RandomForestRegressor(random_state=123, **params),
                                 X, y, scoring=scoring, cv=cv).mean()
         score = scores.mean()
@@ -120,8 +125,14 @@ class BayesianOptimizationSearchListCV():
             'min_weight_fraction_leaf':(0.0,0.2),
             'max_features':(1, 7)
         }
+
+        # takes in a method to score the hyperparameters (implements above), the params with respective ranges
         rand_for = BayesianOptimization(self.random_forest_reg_score, params, random_state=random_state)
+
+        # Optimize. Not sure what init_points are but i will look into. a google search should clear it up
         rand_for.maximize(init_points=10, n_iter=1)
+
+        # return the best parameters found
         return rand_for.max['params']
     
     def random_forest_cls(self, random_state=123):
