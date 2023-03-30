@@ -129,7 +129,14 @@ class BayesianOptimizationSearchListCV():
         # takes in a method to score the hyperparameters (implements above), the params with respective ranges
         rand_for = BayesianOptimization(self.random_forest_reg_score, params, random_state=random_state)
 
-        # Optimize. Not sure what init_points are but i will look into. a google search should clear it up
+        # Optimize.
+        """
+        n_iter: How many steps of bayesian optimization you want to perform. 
+                The more steps the more likely to find a good maximum you are.
+        
+        init_points: How many steps of random exploration you want to perform. 
+                    Random exploration can help by diversifying the exploration space.
+        """
         rand_for.maximize(init_points=10, n_iter=1)
 
         # return the best parameters found
