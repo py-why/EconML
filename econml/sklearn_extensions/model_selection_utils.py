@@ -22,6 +22,7 @@ from sklearn.preprocessing import (MaxAbsScaler, MinMaxScaler,
                                    StandardScaler)
 from sklearn.svm import SVC, LinearSVC
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV, BaseCrossValidator, RandomizedSearchCV
+import warnings
 
 # For regression problems
 models_regression = [
@@ -39,9 +40,6 @@ models_classification = [
     GradientBoostingClassifier(),
     MLPClassifier()
 ]
-
-hyperparam_grid = {
-    'poly':{'degrees':[2,3,4]}}
 
 scaling_lst =  [StandardScaler(), MinMaxScaler(), RobustScaler(), MaxAbsScaler()]
 model_list = ['linear', 'forest', 'gbf', 'nnet', 'poly', 'automl']     
@@ -79,7 +77,16 @@ def flatten_list(lst):
             flattened.append(item)
     return flattened
 
-
+def is_polynomial_pipeline(estimator):
+    if not isinstance(estimator, Pipeline):
+        return False
+    steps = estimator.steps
+    if len(steps) != 2:
+        return False
+    poly_step = steps[0]
+    if not isinstance(poly_step[1], PolynomialFeatures):
+        return False
+    return True
 
 def check_list_type(lst):
     """
@@ -100,6 +107,9 @@ def check_list_type(lst):
         >>> check_list_type([1, 'linear'])
         TypeError: The list must contain only strings, sklearn model objects, and sklearn model selection objects.
     """
+    if len(lst) == 0:
+        raise ValueError("Estimator list is empty. Please add some models or use some of the defaults provided.")
+    
     for element in lst:
         if not isinstance(element, (str, BaseEstimator, BaseCrossValidator)):
             raise TypeError("The list must contain only strings, sklearn model objects, and sklearn model selection objects.")
@@ -161,42 +171,6 @@ def select_discrete_estimator(estimator_type):
     else:
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
-def select_poly(target_type, degrees):
-    """
-    Builds polynomial regression models of specified degree(s) for either continuous or discrete targets.
-
-    Args:
-        target_type (str): Either 'continuous' or 'discrete'.
-        degrees (list): List of integer degree(s) for the polynomial regression model(s).
-
-    Returns:
-        A list of model Pipeline objects containing the polynomial feature transformer and linear model.
-
-    Raises:
-        ValueError: If target_type is not either 'continuous' or 'discrete', or if the elements in degrees are not integers.
-
-    """
-    # Check that degrees are integers
-    if not all(isinstance(x, int) for x in degrees):
-        raise ValueError("All elements in degrees must be integers.")
-    
-    if target_type == 'continuous':
-        models = []
-        for degree in degrees:
-            poly = sklearn.preprocessing.PolynomialFeatures(degree=degree)
-            linear = sklearn.linear_model.ElasticNetCV(cv=3) #Play around with precompute and tolerance
-            models.append(Pipeline([('poly', poly), ('linear', linear)]))
-        return models
-    elif target_type == 'discrete':
-        models = []
-        for degree in degrees:
-            poly = PolynomialFeatures(degree=degree)
-            linear = LogisticRegressionCV(multi_class='auto')
-            models.append(Pipeline([('poly', poly), ('linear', linear)]))
-        return models
-    else:
-        raise ValueError(f"Unsupported target type: {target_type}")
-
 def select_estimator(estimator_type, target_type):
     """
     Returns an estimator object for the specified estimator and target types.
@@ -218,15 +192,6 @@ def select_estimator(estimator_type, target_type):
     elif target_type == 'discrete':
         return select_discrete_estimator(estimator_type=estimator_type)
 
-def get_estimator_type(estimator):
-    """
-    Returns the type of estimator. either 'discrete' or 'continuous'
-
-    Args:
-
-    """
-    return 'continuous'
-
 def get_complete_estimator_list(estimator_list, target_type):
     '''
     Returns a list of sklearn objects from an input list of str's, and sklearn objects.
@@ -241,7 +206,15 @@ def get_complete_estimator_list(estimator_list, target_type):
         ValueError: If the estimator is not supported.
 
     '''
+    if isinstance(estimator_list, str):
+        if estimator_list in ['linear', 'forest', 'gbf', 'nnet', 'poly', 'automl']:
+            estimator_list = [estimator_list]
+        else: 
+            raise ValueError("Invalid estimator_list value. Please provide a valid value from the list of available estimators: ['linear', 'forest', 'gbf', 'nnet', 'poly', 'automl']")
     
+    if isinstance(estimator_list, BaseEstimator):
+        estimator_list = [estimator_list]
+
     if not isinstance(estimator_list, list):
         raise ValueError(f"estimator_list should be of type list not: {type(estimator_list)}")
 
@@ -265,7 +238,7 @@ def get_complete_estimator_list(estimator_list, target_type):
     temp_est_list = flatten_list(temp_est_list)
     return temp_est_list
 
-def select_classification_hyperparameters(model_type):
+def select_classification_hyperparameters(estimator):
     """
     Returns a hyperparameter grid for the specified classification model type.
     
@@ -276,14 +249,14 @@ def select_classification_hyperparameters(model_type):
         A dictionary representing the hyperparameter grid to search over.
     """
     
-    if model_type == type(LogisticRegressionCV()):
+    if isinstance(estimator, LogisticRegressionCV):
         # Hyperparameter grid for linear classification model
         return {
+            'Cs': [0.01, 0.1, 1],
             'penalty': ['l1', 'l2', 'elasticnet'],
-            'C': [0.01, 0.1, 1, 10, 100],
-            'solver': ['liblinear']
+            'solver': ['lbfgs', 'liblinear', 'saga']
         }
-    elif model_type == type(RandomForestClassifier()):
+    elif isinstance(estimator, RandomForestClassifier):
         # Hyperparameter grid for random forest classification model
         return {
             'n_estimators': [100, 500, 1000],
@@ -291,7 +264,15 @@ def select_classification_hyperparameters(model_type):
             'min_samples_split': [2, 5],
             'min_samples_leaf': [1, 2]
         }
-    elif model_type == type(MLPClassifier()):
+    elif isinstance(estimator, GradientBoostingClassifier):
+        # Hyperparameter grid for gradient boosting classification model
+        return {
+            'n_estimators': [100, 500, 1000],
+            'learning_rate': [0.01, 0.05, 0.1],
+            'max_depth': [3, 5, 7],
+            
+        }
+    elif isinstance(estimator, MLPClassifier):
         # Hyperparameter grid for neural network classification model
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
@@ -300,22 +281,23 @@ def select_classification_hyperparameters(model_type):
             'alpha': [0.0001, 0.001, 0.01],
             'learning_rate': ['constant', 'adaptive']
         }
-    elif model_type == 'poly':
+    elif is_polynomial_pipeline(estimator=estimator):
         # Hyperparameter grid for polynomial kernel classification model
         return {
             'poly__degree': [2, 3, 4],
-            'linear__fit_intercept': [True, False],
-            'linear__C': [ 0.1, 1, 10],
-            'linear__coef0': [0, 1, 2]
+            'linear__Cs': [1, 10, 20],
+            'linear__max_iter': [100, 200],
+            'linear__penalty': ['l2'],
+            'linear__solver': ['saga', 'liblinear', 'lbfgs']
         }
     else:
-        # Invalid model type
+        warnings.warn("No hyperparameters for this type of model. There are default hyperparameters for LogisticRegressionCV, RandomForestClassifier, MLPClassifier, and the polynomial pipleine", category=UserWarning)
         return {}
         # raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
     
 
 
-def select_regression_hyperparameters(model_type):
+def select_regression_hyperparameters(estimator):
     """
     Returns a dictionary of hyperparameters to be searched over for a regression model.
 
@@ -325,32 +307,40 @@ def select_regression_hyperparameters(model_type):
     Returns:
         A dictionary of hyperparameters to be searched over using a grid search.
     """
-    if model_type == type(ElasticNetCV()):
+    if isinstance(estimator, ElasticNetCV):
         return {
             'l1_ratio': [0.1, 0.5, 0.9],
-            'max_iter': [1000, 5000, 10000],
+            'max_iter': [1000],
         }
-    elif model_type == type(RandomForestRegressor()):
+    elif isinstance(estimator, RandomForestRegressor):
         return {
             'n_estimators': [100, 200],
             'max_depth': [None, 10, 50],
             'min_samples_split': [2, 5, 10],
         }
-    elif model_type == type(MLPRegressor()):
+    elif isinstance(estimator, MLPRegressor):
         # Hyperparameter grid for neural network classification model
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
             'alpha': [0.0001, 0.001, 0.01],
             'learning_rate': ['constant', 'adaptive']
         }
-    elif model_type == 'poly':
+    elif isinstance(estimator, GradientBoostingRegressor):
+        # Hyperparameter grid for gradient boosting regression model
+        return {
+            'n_estimators': [100],
+            'learning_rate': [0.01, 0.1, 1.0],
+            'max_depth': [3, 5],
+        }
+    elif is_polynomial_pipeline(estimator=estimator):
         # Hyperparameter grid for polynomial kernel classification model
         return {
-            'linear__C': [0.01, 0.1, 1, 10, 100],
+            'linear__l1_ratio': [0.1, 0.5, 0.9],
+            'linear__max_iter': [1000],
             'poly__degree': [2, 3, 4]
         }
     else:
-        # Invalid model type
+        warnings.warn("No hyperparameters for this type of model. There are default hyperparameters for ElasticNetCV, RandomForestRegressor, MLPRegressor, and the polynomial pipeline.", category=UserWarning)
         return {}
         # raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
 
@@ -418,11 +408,10 @@ def auto_hyperparameters(estimator_list, is_discrete=True):
     """
     param_list = []
     for estimator in estimator_list:
-        model_type = type(estimator)
         if is_discrete:
-            param_list.append(select_classification_hyperparameters(model_type=model_type))
+            param_list.append(select_classification_hyperparameters(estimator=estimator))
         else:
-            param_list.append(select_regression_hyperparameters(model_type=model_type))
+            param_list.append(select_regression_hyperparameters(estimator=estimator))
     return param_list
 
 
@@ -431,3 +420,4 @@ def set_search_hyperparameters(search_object, hyperparameters):
         search_object.set_params(**hyperparameters)
     else:
         raise ValueError("Invalid search object")
+    
