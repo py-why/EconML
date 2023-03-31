@@ -29,7 +29,6 @@ class BayesianOptimizationSearchListCV():
     def fit(self, X, y=None):
         pass
     
-   
     def get_estimators(self, estimator_list, is_discrete):
         
         """

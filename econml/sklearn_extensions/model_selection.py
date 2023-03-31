@@ -289,7 +289,7 @@ class SearchEstimatorList(BaseEstimator):
         self.error_score = error_score
         self.return_train_score = return_train_score
 
-    def select(self, X, y, *, scaling=True, sample_weight=None, groups=None):
+    def fit(self, X, y, *, scaling=True, sample_weight=None, groups=None):
         """
         Perform cross-validation on the estimator list.
         """
