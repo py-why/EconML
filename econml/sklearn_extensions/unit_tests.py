@@ -67,9 +67,6 @@ class TestSearchEstimatorList(unittest.TestCase):
         self.assertIsNotNone(search_estimator_list.best_estimator_)
         self.assertIsNotNone(search_estimator_list.best_score_)
         self.assertIsNotNone(search_estimator_list.best_params_)
-        print("Best estimator: ", search_estimator_list.best_estimator_)
-        print("Best score: ", search_estimator_list.best_score_)
-        print("Best parameters: ", search_estimator_list.best_params_)
 
     def test_auto_param_grid_continuous(self):
         X, y = fetch_california_housing(return_X_y=True)

@@ -274,13 +274,13 @@ class SearchEstimatorList(BaseEstimator):
         else:
             self.param_grid_list = param_grid_list
         # self.categorical_indices = categorical_indices
+        self.scoring = scoring
         if scoring == None:
             if is_discrete:
                 self.scoring = 'f1'
             else:
                 self.scoring = 'mse'
             warnings.warn(f"No scoring value was given. Using default score method {self.scoring}.")
-        self.scoring = scoring
         self.n_jobs = n_jobs
         self.refit = refit
         self.cv = cv
@@ -288,7 +288,6 @@ class SearchEstimatorList(BaseEstimator):
         self.pre_dispatch = pre_dispatch
         self.error_score = error_score
         self.return_train_score = return_train_score
-        return
 
     def select(self, X, y, *, scaling=True, sample_weight=None, groups=None):
         """
