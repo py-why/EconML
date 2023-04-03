@@ -34,7 +34,7 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          reshape_treatmentwise_effects, shape, transpose,
                          get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
-
+from ..sklearn_extensions.model_selection import SearchEstimatorList
 
 class _FirstStageWrapper:
     def __init__(self, model, is_Y, featurizer, linear_first_stages, discrete_treatment):
@@ -457,6 +457,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     def __init__(self, *,
                  model_y, model_t, model_final,
+                 param_list='auto',
+                 scaling=True,
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
@@ -471,6 +473,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
         self.linear_first_stages = linear_first_stages
+        self.scaling=scaling
+        self.param_list=param_list
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
@@ -482,27 +486,35 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state)
-
+        
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
         if self.model_y == 'auto':
-            model_y = WeightedLassoCVWrapper(random_state=self.random_state)
+            model_y = SearchEstimatorList(param_grid_list=self.param_list,
+                 scaling=self.scaling)
         else:
-            model_y = clone(self.model_y, safe=False)
+            model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
+                 scaling=self.scaling), safe=False)
+            # model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 
     def _gen_model_t(self):
         if self.model_t == 'auto':
             if self.discrete_treatment:
-                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                               random_state=self.random_state)
+                model_t = SearchEstimatorList(param_grid_list=self.param_list,
+                 scaling=self.scaling, is_discrete=True)
+                # model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                            #    random_state=self.random_state) ANTHONY
             else:
-                model_t = WeightedLassoCVWrapper(random_state=self.random_state)
+                model_t = SearchEstimatorList(param_grid_list=self.param_list,
+                 scaling=self.scaling)
+                # model_t = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
-            model_t = clone(self.model_t, safe=False)
+            model_t = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
+                 scaling=self.scaling), safe=False)
         return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 
