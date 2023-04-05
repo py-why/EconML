@@ -353,7 +353,7 @@ class SearchEstimatorList(BaseEstimator):
         self.best_score_ = self._search_list[self.best_ind_].best_score_
         self.best_params_ = self._search_list[self.best_ind_].best_params_
         print(f'Best estimator {self.best_estimator_} and best score {self.best_score_} and best params {self.best_params_}')
-        pdb.set_trace()
+        # pdb.set_trace()
         return self
     
     def scaler_transform(self, X):
