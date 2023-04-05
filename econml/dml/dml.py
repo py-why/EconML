@@ -355,6 +355,14 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         The estimator for fitting the response residuals to the treatment residuals. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
+    param_list: list or 'auto', default 'auto'
+        The list of parameters to be used during cross-validation. 
+        If 'auto', it will be chosen based on the model type.
+
+    scaling: bool, default True
+        Whether to scale the features during the estimation process.
+        Scaling can help improve the performance of some models.
+
     featurizer: :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
@@ -379,6 +387,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
+    verbose: int, default 2
+        The verbosity level of the output messages. Higher values indicate more verbosity.
+        
     cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -465,7 +476,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  linear_first_stages=False,
                  discrete_treatment=False,
                  categories='auto',
+                 verbose=2,
                  cv=2,
+                 n_jobs=None,
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
@@ -475,6 +488,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self.linear_first_stages = linear_first_stages
         self.scaling=scaling
         self.param_list=param_list
+        self.verbose = verbose
+        self.cv = cv
+        self.n_jobs = n_jobs
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
@@ -492,11 +508,11 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     def _gen_model_y(self):
         if self.model_y == 'auto':
-            model_y = SearchEstimatorList(param_grid_list=self.param_list,
-                 scaling=self.scaling)
+            model_y = SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
+                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state)
         else:
             model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
-                 scaling=self.scaling), safe=False)
+                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
             # model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
@@ -504,17 +520,17 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     def _gen_model_t(self):
         if self.model_t == 'auto':
             if self.discrete_treatment:
-                model_t = SearchEstimatorList(param_grid_list=self.param_list,
-                 scaling=self.scaling, is_discrete=True)
+                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list,
+                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, is_discrete=True, n_jobs=self.n_jobs, random_state=self.random_state)
                 # model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
                                             #    random_state=self.random_state) ANTHONY
             else:
-                model_t = SearchEstimatorList(param_grid_list=self.param_list,
-                 scaling=self.scaling)
+                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list, 
+                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state)
                 # model_t = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
-            model_t = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
-                 scaling=self.scaling), safe=False)
+            model_t = clone(SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list,
+                 scaling=self.scaling, cv=self.cv, verbose=self.verbose, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
         return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 
@@ -695,18 +711,23 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     def __init__(self, *,
                  model_y='auto', model_t='auto',
+                 param_list='auto',
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
                  discrete_treatment=False,
                  categories='auto',
+                 scaling=True,
+                 verbose=2,
                  cv=2,
+                 n_jobs=None,
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
+                         param_list=param_list,
                          model_final=None,
                          featurizer=featurizer,
                          treatment_featurizer=treatment_featurizer,
@@ -714,6 +735,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
+                         scaling=scaling,
+                         verbose=verbose,
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,

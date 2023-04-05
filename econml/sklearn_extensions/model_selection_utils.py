@@ -1,4 +1,7 @@
 
+import pdb
+import warnings
+
 import numpy as np
 import sklearn
 import sklearn.ensemble
@@ -14,15 +17,16 @@ from sklearn.linear_model import (ARDRegression, BayesianRidge, ElasticNet,
                                   LinearRegression, LogisticRegression,
                                   LogisticRegressionCV,
                                   OrthogonalMatchingPursuit, Ridge)
-from sklearn.model_selection import BaseCrossValidator
+from sklearn.model_selection import (BaseCrossValidator, GridSearchCV, KFold,
+                                     RandomizedSearchCV, StratifiedKFold,
+                                     check_cv)
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import (MaxAbsScaler, MinMaxScaler,
                                    PolynomialFeatures, RobustScaler,
                                    StandardScaler)
 from sklearn.svm import SVC, LinearSVC
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV, BaseCrossValidator, RandomizedSearchCV
-import warnings
+import inspect
 
 # For regression problems
 models_regression = [
@@ -222,11 +226,10 @@ def get_complete_estimator_list(estimator_list, target_type):
     check_list_type(estimator_list)
     # populate list of estimator objects
     temp_est_list = []
-
+    
     # if 'all' or 'automl' chosen then create list of all estimators to search over
     if 'automl' in estimator_list or 'all' in estimator_list:
         estimator_list = ['linear', 'forest', 'gbf', 'nnet', 'poly']
-
     # loop over every estimator
     for estimator in estimator_list:
         # if sklearn object: add to list, else turn str into corresponding sklearn object and add to list
@@ -259,7 +262,7 @@ def select_classification_hyperparameters(estimator):
     elif isinstance(estimator, RandomForestClassifier):
         # Hyperparameter grid for random forest classification model
         return {
-            'n_estimators': [100, 500, 1000],
+            'n_estimators': [100, 500],
             'max_depth': [None, 5, 10, 20],
             'min_samples_split': [2, 5],
             'min_samples_leaf': [1, 2]
@@ -267,7 +270,7 @@ def select_classification_hyperparameters(estimator):
     elif isinstance(estimator, GradientBoostingClassifier):
         # Hyperparameter grid for gradient boosting classification model
         return {
-            'n_estimators': [100, 500, 1000],
+            'n_estimators': [100, 500],
             'learning_rate': [0.01, 0.05, 0.1],
             'max_depth': [3, 5, 7],
             
@@ -294,7 +297,6 @@ def select_classification_hyperparameters(estimator):
         warnings.warn("No hyperparameters for this type of model. There are default hyperparameters for LogisticRegressionCV, RandomForestClassifier, MLPClassifier, and the polynomial pipleine", category=UserWarning)
         return {}
         # raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
-    
 
 
 def select_regression_hyperparameters(estimator):
@@ -314,7 +316,7 @@ def select_regression_hyperparameters(estimator):
         }
     elif isinstance(estimator, RandomForestRegressor):
         return {
-            'n_estimators': [100, 200],
+            'n_estimators': [50],
             'max_depth': [None, 10, 50],
             'min_samples_split': [2, 5, 10],
         }
@@ -421,3 +423,12 @@ def set_search_hyperparameters(search_object, hyperparameters):
     else:
         raise ValueError("Invalid search object")
     
+def is_mlp(estimator):
+    return isinstance(estimator, (MLPClassifier, MLPRegressor))
+
+def has_random_state(model):
+    if is_polynomial_pipeline(model):
+        signature = inspect.signature(type(model['linear']))
+    else:
+        signature = inspect.signature(type(model))
+    return ("random_state" in signature.parameters)

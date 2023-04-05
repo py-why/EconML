@@ -1,26 +1,32 @@
 # Some imports to get us started
 import warnings
+
 warnings.simplefilter('ignore')
 
 # Utilities
 import os
+import pdb
 import urllib.request
+
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from networkx.drawing.nx_pydot import to_pydot
 from IPython.display import Image, display
-
+from networkx.drawing.nx_pydot import to_pydot
+from sklearn.ensemble import (GradientBoostingClassifier,
+                              GradientBoostingRegressor,
+                              RandomForestClassifier, RandomForestRegressor)
+from sklearn.linear_model import LassoCV
+from sklearn.model_selection import KFold
 # Generic ML imports
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.linear_model import LinearRegression
 
+from econml.cate_interpreter import (SingleTreeCateInterpreter,
+                                     SingleTreePolicyInterpreter)
 # EconML imports
-from econml.dml import LinearDML, CausalForestDML
-from econml.cate_interpreter import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
-
-import matplotlib.pyplot as plt
-import matplotlib
-import pdb
+from econml.dml import CausalForestDML, LinearDML
 
 matplotlib.use("TkAgg")
 
@@ -42,9 +48,12 @@ W = train_data[confounder_names].values
 X_test = np.linspace(0, 5, 100).reshape(-1, 1)
 X_test_data = pd.DataFrame(X_test, columns=["income"])
 
+# Create a LinearRegression object with default parameters
+lr = LinearRegression()
 
-est = LinearDML(model_y='poly', model_t='linear',
-              featurizer=PolynomialFeatures(degree=2, include_bias=False))
+# kf = KFold(n_splits=5, shuffle=True, random_state=42)
+est = LinearDML(model_y=['linear', LassoCV(), RandomForestRegressor()], model_t=['poly', lr], param_list=None, verbose=10,
+              featurizer=PolynomialFeatures(degree=2, include_bias=False), random_state=42)
 
 # # initiate an EconML cate estimator
 # est = LinearDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor(),
