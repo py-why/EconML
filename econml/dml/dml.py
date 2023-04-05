@@ -476,12 +476,13 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  linear_first_stages=False,
                  discrete_treatment=False,
                  categories='auto',
-                 verbose=2,
-                 cv=2,
-                 n_jobs=None,
+                 verbose=2, # New
+                 cv=2, 
+                 grid_folds=3, #New
+                 n_jobs=None, #New
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None): #New
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
@@ -490,6 +491,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self.param_list=param_list
         self.verbose = verbose
         self.cv = cv
+        self.grid_folds = grid_folds
         self.n_jobs = n_jobs
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
@@ -506,31 +508,31 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
 
-    def _gen_model_y(self):
+    def _gen_model_y(self): #New
         if self.model_y == 'auto':
             model_y = SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
-                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state)
+                 scaling=self.scaling, verbose=self.verbose, grid_folds=self.grid_folds, n_jobs=self.n_jobs, random_state=self.random_state)
         else:
             model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
-                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
+                 scaling=self.scaling, verbose=self.verbose, grid_folds=self.grid_folds, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
             # model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 
-    def _gen_model_t(self):
+    def _gen_model_t(self): #New
         if self.model_t == 'auto':
             if self.discrete_treatment:
                 model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list,
-                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, is_discrete=True, n_jobs=self.n_jobs, random_state=self.random_state)
+                 scaling=self.scaling, verbose=self.verbose, grid_folds=self.grid_folds, is_discrete=True, n_jobs=self.n_jobs, random_state=self.random_state)
                 # model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
                                             #    random_state=self.random_state) ANTHONY
             else:
                 model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list, 
-                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state)
+                 scaling=self.scaling, verbose=self.verbose, grid_folds=self.grid_folds, n_jobs=self.n_jobs, random_state=self.random_state)
                 # model_t = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_t = clone(SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list,
-                 scaling=self.scaling, cv=self.cv, verbose=self.verbose, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
+                 scaling=self.scaling, grid_folds=self.grid_folds, verbose=self.verbose, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
         return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 
@@ -721,6 +723,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  scaling=True,
                  verbose=2,
                  cv=2,
+                 grid_folds=3,
                  n_jobs=None,
                  mc_iters=None,
                  mc_agg='mean',
@@ -738,6 +741,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          scaling=scaling,
                          verbose=verbose,
                          cv=cv,
+                         n_jobs=n_jobs,
+                         grid_folds=grid_folds,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,)

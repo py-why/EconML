@@ -264,7 +264,7 @@ class WeightedStratifiedKFold(WeightedKFold):
 
 class SearchEstimatorList(BaseEstimator):
     def __init__(self, estimator_list = ['linear', 'forest'], param_grid_list = 'auto', scaling=True, is_discrete=False, scoring=None,
-                 n_jobs=None, refit=True, cv=3, verbose=2, pre_dispatch='2*n_jobs', random_state=None,
+                 n_jobs=None, refit=True, grid_folds=3, verbose=2, pre_dispatch='2*n_jobs', random_state=None,
                  error_score=np.nan, return_train_score=False):
         
         self.estimator_list = estimator_list 
@@ -289,7 +289,7 @@ class SearchEstimatorList(BaseEstimator):
         self.scaling=scaling
         self.n_jobs = n_jobs
         self.refit = refit
-        self.cv = cv
+        self.grid_folds = grid_folds
         self.verbose = verbose
         self.random_state = random_state
         self.pre_dispatch = pre_dispatch
@@ -304,6 +304,7 @@ class SearchEstimatorList(BaseEstimator):
         self._search_list = []
         
         if self.scaling:
+            # pdb.set_trace()
             if is_data_scaled(X):
                 warnings.warn("Data may already be scaled. Scaling twice may negatively affect results.", UserWarning)
             self.scaler = StandardScaler()
@@ -322,14 +323,14 @@ class SearchEstimatorList(BaseEstimator):
                 print(estimator)
                 print(param_grid)
                 temp_search = GridSearchCV(estimator, param_grid, scoring=self.scoring,
-                                       n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
+                                       n_jobs=self.n_jobs, refit=self.refit, cv=self.grid_folds, verbose=self.verbose,
                                        pre_dispatch=self.pre_dispatch, error_score=self.error_score,
                                        return_train_score=self.return_train_score)
                 if self.scaling: # is_linear_model(estimator) and
                     if is_polynomial_pipeline(estimator=estimator):
                         temp_search.fit(scaled_X, y, groups=groups, linear__sample_weight=sample_weight)
                     elif is_mlp(estimator=estimator):
-                        temp_search.fit(X, y, groups=groups)
+                        temp_search.fit(scaled_X, y, groups=groups)
                     else:
                         temp_search.fit(scaled_X, y, groups=groups, sample_weight=sample_weight) # , groups=groups, sample_weight=sample_weight
                     self._search_list.append(temp_search)
@@ -352,6 +353,7 @@ class SearchEstimatorList(BaseEstimator):
         self.best_score_ = self._search_list[self.best_ind_].best_score_
         self.best_params_ = self._search_list[self.best_ind_].best_params_
         print(f'Best estimator {self.best_estimator_} and best score {self.best_score_} and best params {self.best_params_}')
+        pdb.set_trace()
         return self
     
     def scaler_transform(self, X):
