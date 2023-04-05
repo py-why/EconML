@@ -715,7 +715,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     def __init__(self, *,
                  model_y='auto', model_t='auto',
-                 param_list='auto',
+                 param_list_y='auto',
+                 param_list_t='auto',
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
@@ -732,7 +733,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  random_state=None):
         super().__init__(model_y=model_y,
                          model_t=model_t,
-                         param_list=param_list,
+                         param_list_y=param_list_y,
+                         param_list_t=param_list_t,
                          model_final=None,
                          featurizer=featurizer,
                          treatment_featurizer=treatment_featurizer,
