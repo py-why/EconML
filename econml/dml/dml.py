@@ -468,7 +468,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     def __init__(self, *,
                  model_y, model_t, model_final,
-                 param_list='auto',
+                 param_list_y='auto',
+                 param_list_t='auto',
                  scaling=True,
                  featurizer=None,
                  treatment_featurizer=None,
@@ -488,7 +489,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self.fit_cate_intercept = fit_cate_intercept
         self.linear_first_stages = linear_first_stages
         self.scaling=scaling
-        self.param_list=param_list
+        self.param_list_y=param_list_y
+        self.param_list_t=param_list_t
         self.verbose = verbose
         self.cv = cv
         self.grid_folds = grid_folds
@@ -510,10 +512,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     def _gen_model_y(self): #New
         if self.model_y == 'auto':
-            model_y = SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
+            model_y = SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list_y,
                  scaling=self.scaling, verbose=self.verbose, grid_folds=self.grid_folds, n_jobs=self.n_jobs, random_state=self.random_state)
         else:
-            model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list,
+            model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list_y,
                  scaling=self.scaling, verbose=self.verbose, grid_folds=self.grid_folds, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
             # model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
@@ -522,16 +524,16 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     def _gen_model_t(self): #New
         if self.model_t == 'auto':
             if self.discrete_treatment:
-                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list,
+                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
                  scaling=self.scaling, verbose=self.verbose, grid_folds=self.grid_folds, is_discrete=True, n_jobs=self.n_jobs, random_state=self.random_state)
                 # model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
                                             #    random_state=self.random_state) ANTHONY
             else:
-                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list, 
+                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t, 
                  scaling=self.scaling, verbose=self.verbose, grid_folds=self.grid_folds, n_jobs=self.n_jobs, random_state=self.random_state)
                 # model_t = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
-            model_t = clone(SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list,
+            model_t = clone(SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
                  scaling=self.scaling, grid_folds=self.grid_folds, verbose=self.verbose, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
         return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)

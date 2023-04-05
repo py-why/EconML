@@ -391,12 +391,17 @@ class GridSearchCVList(BaseEstimator):
         of parameter settings.
     """
 
-    def __init__(self, estimator_list, param_grid_list, scoring=None,
+    def __init__(self, estimator_list = ['linear', 'forest'], param_grid_list = 'auto', scoring=None,
                  n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
-                 error_score=np.nan, return_train_score=False):
+                 error_score=np.nan, return_train_score=False, is_discrete= False):
         # 'discrete' if is_discrete else 'continuous'
         self.estimator_list = get_complete_estimator_list(estimator_list, 'continuous')
-        self.param_grid_list = param_grid_list
+        if param_grid_list == 'auto':
+            self.param_grid_list = auto_hyperparameters(estimator_list=self.estimator_list, is_discrete=is_discrete)
+        elif (param_grid_list == None):
+            self.param_grid_list = len(self.estimator_list) * [{}]
+        else:
+            self.param_grid_list = param_grid_list
         self.scoring = scoring
         self.n_jobs = n_jobs
         self.refit = refit
