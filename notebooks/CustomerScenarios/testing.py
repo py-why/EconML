@@ -51,18 +51,41 @@ X_test_data = pd.DataFrame(X_test, columns=["income"])
 # Create a LinearRegression object with default parameters
 lr = LinearRegression()
 
-# kf = KFold(n_splits=5, shuffle=True, random_state=42)
-est = LinearDML(model_y=['linear', LassoCV(), RandomForestRegressor()], model_t=['poly', lr], param_list=None, verbose=10,
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+# Original 
+# est = LinearDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor(), param_list_y='auto', param_list_t='auto', grid_folds=2,
+#               featurizer=PolynomialFeatures(degree=2, include_bias=False))
+
+# est = LinearDML(model_y='automl', model_t=['linear', lr], scaling=True, param_list=None, grid_folds=2,
+#               featurizer=PolynomialFeatures(degree=2, include_bias=False))
+
+# Picks default hyper parameters if possible (Linear changes to ElasticNet and then lr doesn't have any)
+# est = LinearDML(model_y=GradientBoostingRegressor(), model_t=['linear', lr], scaling=True, param_list='auto',
+#               featurizer=PolynomialFeatures(degree=2, include_bias=False))
+
+# est = LinearDML(model_y=GradientBoostingRegressor(), model_t=['linear', lr], scaling=False, param_list='auto',
+#               featurizer=PolynomialFeatures(degree=2, include_bias=False))
+
+# Inputs list and we have key words, verbose shows more. 
+# est = LinearDML(model_y=['linear', LassoCV(), RandomForestRegressor()], model_t=['poly', lr], param_list=None, verbose=10,
+#               featurizer=PolynomialFeatures(degree=2, include_bias=False))
+
+# Random state for models if they have a random state
+est = LinearDML(model_y='linear', model_t=lr, cv=kf, param_list_y=None, param_list_t=None, verbose=10,
               featurizer=PolynomialFeatures(degree=2, include_bias=False), random_state=42)
 
-# # initiate an EconML cate estimator
-# est = LinearDML(model_y=GradientBoostingRegressor(), model_t=GradientBoostingRegressor(),
-#               featurizer=PolynomialFeatures(degree=2, include_bias=False))
+# est = LinearDML(model_y='linear', model_t=lr, grid_folds=kf, param_list=None, verbose=10,
+#               featurizer=PolynomialFeatures(degree=2, include_bias=False), random_state=42)
+
+# est = LinearDML(model_y=['linear', LassoCV(), RandomForestRegressor()], model_t=['poly', lr], param_list=None, verbose=10,
+#               featurizer=PolynomialFeatures(degree=2, include_bias=False), random_state=42)
+
 
 # pdb.set_trace()
 # fit through dowhy
 est_dw = est.dowhy.fit(Y, T, X=X, W=W, outcome_names=["log_demand"], treatment_names=["log_price"], feature_names=["income"],
                confounder_names=confounder_names, inference="statsmodels")
+# pdb.set_trace()
 
 identified_estimand = est_dw.identified_estimand_
 print(identified_estimand)
