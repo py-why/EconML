@@ -206,18 +206,21 @@ class DRScorer:
         score : double
             An analogue of the DR-square loss for the causal setting.
         """
-        Ydr = self.drlearner_.model_final 
+        g, p = self.drlearner_._cached_values.nuisances
+        Y =  self.drlearner_._cached_values.Y
+        T =  self.drlearner_._cached_values.T
+        Ydr = g  + (Y - g) / p * T
         X = self.drlearner_._cached_values.W[:, :self.dx_]
         sample_weight = self.drlearner_._cached_values.sample_weight
         if Ydr.ndim == 1:
             Ydr = Ydr.reshape((-1, 1))
-            
-        cate = cate_model.const_marginal_effect(X).reshape((-1, Ydr.shape[1]))
 
+        effects = cate_model.const_marginal_effect(X).reshape((-1, Ydr.shape[1]))
+        
         if sample_weight is not None:
-            return 1 - np.mean(np.average((Ydr - cate)**2, weights=sample_weight, axis=0)) / self.base_score_
+            return 1 - np.mean(np.average((Ydr - effects)**2, weights=sample_weight, axis=0)) / self.base_score_
         else:
-            return 1 - np.mean((Ydr - cate) ** 2) / self.base_score_
+            return 1 - np.mean((Ydr - effects) ** 2) / self.base_score_
 
     def best_model(self, cate_models, return_scores=False):
         """ Chooses the best among a list of models

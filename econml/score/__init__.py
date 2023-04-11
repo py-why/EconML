@@ -7,7 +7,9 @@ purpose of model selection.
 """
 
 from .rscorer import RScorer
+from .drscorer import DRScorer
 from .ensemble_cate import EnsembleCateEstimator
 
 __all__ = ['RScorer',
+           'DRScorer',
            'EnsembleCateEstimator']
