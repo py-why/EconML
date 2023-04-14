@@ -2,7 +2,7 @@
 # cython: boundscheck=False
 # cython: wraparound=False
 
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
 from libc.stdlib cimport free

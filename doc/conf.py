@@ -21,8 +21,8 @@ sys.path.insert(0, os.path.abspath('econml'))
 # -- Project information -----------------------------------------------------
 
 project = 'econml'
-copyright = '2022, Microsoft Research'
-author = 'Microsoft Research'
+copyright = '2022, PyWhy contributors'
+author = 'PyWhy contributors'
 version = econml.__version__
 release = econml.__version__
 
@@ -176,7 +176,7 @@ latex_elements = {
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
     (root_doc, 'econml.tex', 'econml Documentation',
-     'Microsoft Research', 'manual'),
+     'PyWhy contributors', 'manual'),
 ]
 
 
