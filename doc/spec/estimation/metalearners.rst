@@ -17,7 +17,7 @@ These methods fall into the meta-learner category because they simply combine ML
 so as to get a final stage estimate and do not introduce new estimation components.
 
 For examples of how to use our implemented metelearners check out this
-`Metalearners Jupyter notebook <https://github.com/Microsoft/EconML/blob/main/notebooks/Metalearners%20Examples.ipynb>`_. The examples
+`Metalearners Jupyter notebook <https://github.com/py-why/EconML/blob/main/notebooks/Metalearners%20Examples.ipynb>`_. The examples
 and documents here are only based on binary treatment setting, but all of these estimators are applicable to multiple treatment settings as well.
 
 
@@ -146,9 +146,9 @@ Usage Examples
 
 Check out the following notebooks:
 
-    * `Metalearners Jupyter notebook <https://github.com/Microsoft/EconML/blob/main/notebooks/Metalearners%20Examples.ipynb>`_.
-    * `DML Examples Jupyter Notebook <https://github.com/microsoft/EconML/blob/main/notebooks/Double%20Machine%20Learning%20Examples.ipynb>`_,
-    * `Forest Learners Jupyter Notebook <https://github.com/microsoft/EconML/blob/main/notebooks/ForestLearners%20Basic%20Example.ipynb>`_.
+    * `Metalearners Jupyter notebook <https://github.com/py-why/EconML/blob/main/notebooks/Metalearners%20Examples.ipynb>`_.
+    * `DML Examples Jupyter Notebook <https://github.com/py-why/EconML/blob/main/notebooks/Double%20Machine%20Learning%20Examples.ipynb>`_,
+    * `Forest Learners Jupyter Notebook <https://github.com/py-why/EconML/blob/main/notebooks/ForestLearners%20Basic%20Example.ipynb>`_.
 
 
 .. todo::
