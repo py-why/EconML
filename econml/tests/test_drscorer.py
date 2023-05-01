@@ -29,9 +29,8 @@ class TestDRScorer(unittest.TestCase):
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
         sigma = 0.001
-        y = (1 + .5*X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
+        y = (1 + .5 * X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
         return y, T, X, X[:, 0]
-    
 
     def test_comparison(self):
         def reg():
@@ -53,7 +52,7 @@ class TestDRScorer(unittest.TestCase):
                   ('dalearner', DomainAdaptationLearner(models=reg(), final_models=reg(), propensity_model=clf())),
                   ('slearner', SLearner(overall_model=reg())),
                   ('tlearner', TLearner(models=reg())),
-                  ('drlearner', DRLearner(model_propensity='auto',model_regression='auto',
+                  ('drlearner', DRLearner(model_propensity='auto', model_regression='auto',
                                           model_final=reg(), cv=3)),
                   ('rlearner', NonParamDML(model_y=reg(), model_t=clf(), model_final=reg(),
                                            discrete_treatment=True, cv=3)),
@@ -72,8 +71,8 @@ class TestDRScorer(unittest.TestCase):
                           multitask_model_final=False,
                           featurizer=None,
                           min_propensity=1e-6,
-                          cv=3, 
-                          mc_iters=2, 
+                          cv=3,
+                          mc_iters=2,
                           mc_agg='median')
         scorer.fit(Y_val, T_val, X=X_val)
         rscore = [scorer.score(mdl) for _, mdl in models]

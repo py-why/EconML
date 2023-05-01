@@ -10,14 +10,13 @@ from .ensemble_cate import EnsembleCateEstimator
 
 
 class DRScorer:
-    """ Scorer based on the DRLearner loss. Fits regression model g (using T-Learner) and propensity model p at fit time
-    and calculates the regression and propensity of the evaluation data::
+    """ Scorer based on the DRLearner loss. Fits regression model g (using T-Learner) and propensity model p at fit
+    time and calculates the regression and propensity of the evaluation data::
 
         g (model_regression) = E[Y | X, W, T]
-        
         p (model_propensity) = Pr[T | X, W]
 
-        Ydr(g,p) = g  + (Y - g ) / p * T
+        Ydr(g,p) = g(X,W,T) + (Y - g(X,W,T)) / p_T(X,W)
 
     Then for any given cate model calculates the loss::
 
@@ -206,17 +205,16 @@ class DRScorer:
         score : double
             An analogue of the DR-square loss for the causal setting.
         """
-        g, p = self.drlearner_._cached_values.nuisances
-        Y =  self.drlearner_._cached_values.Y
-        T =  self.drlearner_._cached_values.T
-        Ydr = g  + (Y - g) / p * T
+        Y = self.drlearner_._cached_values.Y
+        T = self.drlearner_._cached_values.T
+        Y_pred, _ = self.drlearner_._cached_values.nuisances
+        Ydr = Y_pred[..., 1:] - Y_pred[..., [0]]
         X = self.drlearner_._cached_values.W[:, :self.dx_]
         sample_weight = self.drlearner_._cached_values.sample_weight
         if Ydr.ndim == 1:
             Ydr = Ydr.reshape((-1, 1))
 
         effects = cate_model.const_marginal_effect(X).reshape((-1, Ydr.shape[1]))
-        
         if sample_weight is not None:
             return 1 - np.mean(np.average((Ydr - effects)**2, weights=sample_weight, axis=0)) / self.base_score_
         else:
