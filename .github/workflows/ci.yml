@@ -12,6 +12,11 @@ on:
         default: ''
         type: string
 
+# Only run once per PR, canceling any previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 # Precompute the ref if the workflow was triggered by a workflow dispatch rather than copying this logic repeatedly
 env:
   ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
