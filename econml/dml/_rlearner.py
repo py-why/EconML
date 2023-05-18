@@ -295,7 +295,7 @@ class _RLearner(_OrthoLearner):
                 model_y.fit(X, W, Y, sample_weight=sample_weight)
                 model_y.predict(X, W)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     @abstractmethod
     def _gen_model_t(self):
@@ -310,7 +310,7 @@ class _RLearner(_OrthoLearner):
                 model_t.fit(X, W, T, sample_weight=sample_weight)
                 model_t.predict(X, W)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     @abstractmethod
     def _gen_rlearner_model_final(self):
@@ -326,7 +326,7 @@ class _RLearner(_OrthoLearner):
                                 sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var)
                 model_final.predict(X)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def _gen_ortho_learner_model_nuisance(self):
         return _ModelNuisance(self._gen_model_y(), self._gen_model_t())
