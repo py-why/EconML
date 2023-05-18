@@ -3,85 +3,84 @@
 
 import unittest
 import numpy as np
-
-from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
-np.set_printoptions(suppress=True)
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LogisticRegression
-import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from joblib import Parallel, delayed
-
-from econml.dml import DML, LinearDML, SparseLinearDML, NonParamDML
-from econml.metalearners import XLearner, TLearner, SLearner, DomainAdaptationLearner
-from econml.dr import DRLearner
-from econml.score import DRScorer
 import scipy.special
+from sklearn.linear_model import LassoCV
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.utils import check_random_state
 
-
-def _fit_model(name, model, Y, T, X):
-    return name, model.fit(Y, T, X=X)
-
-
-class TestDRScorer(unittest.TestCase):
-
-    def _get_data(self):
+class TestDRLearner(unittest.TestCase):
+    def test_default_models(self):
+        np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
         sigma = 0.001
-        y = (1 + .5 * X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
-        return y, T, X, X[:, 0]
+        y = (1 + 0.5 * X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
+        est = DRLearner()
+        est.fit(y, T, X=X, W=None)
+        assert est.const_marginal_effect(X[:2]).shape == (2, 2)
+        assert est.effect(X[:2], T0=0, T1=1).shape == (2,)
+        assert isinstance(est.score_, float)
+        assert isinstance(est.score(y, T, X=X), float)
+        assert len(est.model_cate(T=1).coef_.shape) == 1
+        assert len(est.model_cate(T=2).coef_.shape) == 1
+        assert isinstance(est.cate_feature_names(), list)
+        assert isinstance(est.models_regression[0][0].coef_, np.ndarray)
+        assert isinstance(est.models_propensity[0][0].coef_, np.ndarray)
 
-    def test_comparison(self):
-        def reg():
-            return LinearRegression()
+    def test_custom_models(self):
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 3))
+        T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
+        sigma = 0.01
+        y = (1 + 0.5 * X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
+        est = DRLearner(
+            model_propensity=RandomForestClassifier(n_estimators=100, min_samples_leaf=10),
+            model_regression=RandomForestRegressor(n_estimators=100, min_samples_leaf=10),
+            model_final=LassoCV(cv=3),
+            featurizer=None
+        )
+        est.fit(y, T, X=X, W=None)
+        assert isinstance(est.score_, float)
+        assert est.const_marginal_effect(X[:3]).shape == (3, 2)
+        assert len(est.model_cate(T=2).coef_.shape) == 1
+        assert isinstance(est.model_cate(T=2).intercept_, float)
+        assert len(est.model_cate(T=1).coef_.shape) == 1
+        assert isinstance(est.model_cate(T=1).intercept_, float)
 
-        def clf():
-            return LogisticRegression()
+    def test_cv_splitting_strategy(self):
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 3))
+        T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
+        sigma = 0.001
+        y = (1 + 0.5 * X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
+        est = DRLearner(cv=2)
+        est.fit(y, T, X=X, W=None)
+        assert est.const_marginal_effect(X[:2]).shape == (2, 2)
 
-        y, T, X, true_eff = self._get_data()
-        (X_train, X_val, T_train, T_val,
-         Y_train, Y_val, _, true_eff_val) = train_test_split(X, T, y, true_eff, test_size=.4)
+    def test_mc_iters(self):
+        np.random.seed(123)
+        X = np.random.normal(size=(1000, 3))
+        T = np.random.binomial(2, scipy.special.expit(X[:, 0]))
+        sigma = 0.001
+        y = (1 + 0.5 * X[:, 0]) * T + X[:, 0] + np.random.normal(0, sigma, size=(1000,))
+        est = DRLearner()
+        est.fit(y, T, X=X, W=None, inference='bootstrap', n_bootstrap_samples=50)
 
-        models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
-                                     linear_first_stages=False, cv=3)),
-                  ('sldml', SparseLinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
-                                            featurizer=PolynomialFeatures(degree=2, include_bias=False),
-                                            linear_first_stages=False, cv=3)),
-                  ('xlearner', XLearner(models=reg(), cate_models=reg(), propensity_model=clf())),
-                  ('dalearner', DomainAdaptationLearner(models=reg(), final_models=reg(), propensity_model=clf())),
-                  ('slearner', SLearner(overall_model=reg())),
-                  ('tlearner', TLearner(models=reg())),
-                  ('drlearner', DRLearner(model_propensity='auto', model_regression='auto',
-                                          model_final=reg(), cv=3)),
-                  ('rlearner', NonParamDML(model_y=reg(), model_t=clf(), model_final=reg(),
-                                           discrete_treatment=True, cv=3)),
-                  ('dml3dlasso', DML(model_y=reg(), model_t=clf(), model_final=reg(), discrete_treatment=True,
-                                     featurizer=PolynomialFeatures(degree=3),
-                                     linear_first_stages=False, cv=3))
-                  ]
+        self.assertAlmostEqual(est.effect(X[:2], T0=0, T1=1, inference='bootstrap', n_bootstrap_samples=50).shape[0], 50)
+        self.assertAlmostEqual(est.effect_interval(X[:2], T0=0, T1=1, alpha=0.05, inference='bootstrap',
+                                                   n_bootstrap_samples=50).shape, (2, 50, 2))
+        self.assertAlmostEqual(est.ortho_summary(X[:2], T0=0, T1=1, inference='bootstrap',
+                                                 n_bootstrap_samples=50).shape, (2, 2, 5))
+        self.assertAlmostEqual(est.ortho_intervals(X[:2], T0=0, T1=1, inference='bootstrap', n_bootstrap_samples=50,
+                                                   method='normal').shape, (2, 2, 2, 2))
 
-        models = Parallel(n_jobs=1, verbose=1)(delayed(_fit_model)(name, mdl,
-                                                                   Y_train, T_train, X_train)
-                                               for name, mdl in models)
-
-        scorer = DRScorer(model_propensity='auto',
-                          model_regression='auto',
-                          model_final=StatsModelsLinearRegression(),
-                          multitask_model_final=False,
-                          featurizer=None,
-                          min_propensity=1e-6,
-                          cv=3,
-                          mc_iters=2,
-                          mc_agg='median')
-        scorer.fit(Y_val, T_val, X=X_val)
-        rscore = [scorer.score(mdl) for _, mdl in models]
-        rootpehe_score = [np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
-                          for _, mdl in models]
-        assert LinearRegression().fit(np.array(rscore).reshape(-1, 1), np.array(rootpehe_score)).coef_ < 0.5
-        mdl, _ = scorer.best_model([mdl for _, mdl in models])
-        rootpehe_best = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
-        assert rootpehe_best < 1.5 * np.min(rootpehe_score) + 0.05
-        mdl, _ = scorer.ensemble([mdl for _, mdl in models])
-        rootpehe_ensemble = np.sqrt(np.mean((true_eff_val.flatten() - mdl.effect(X_val).flatten())**2))
-        assert rootpehe_ensemble < 1.5 * np.min(rootpehe_score) + 0.05
+    def test_score(self):
+        np.random.seed(123)
+        y = np.random.normal(size=(1000,))
+        T = np.random.binomial(2, 0.5, size=(1000,))
+        X = np.random.normal(size=(1000, 3))
+        est = DRScorer()
+        est.fit(y, T, X=X, W=None)
+        score = est.score()
+        self.assertAlmostEqual(score, 0.05778546)
