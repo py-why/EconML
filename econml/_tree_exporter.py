@@ -612,7 +612,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
             Number of digits of precision for floating point in the values of
             impurity, threshold and value attributes of each node.
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     @abc.abstractmethod
     def _make_mpl_exporter(self, *, title=None, feature_names=None, treatment_names=None, max_depth=None,
@@ -650,7 +650,7 @@ class _SingleTreeExporterMixin(metaclass=abc.ABCMeta):
         fontsize : int
             Fontsize for text
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def export_graphviz(self, out_file=None, feature_names=None, treatment_names=None,
                         max_depth=None,
