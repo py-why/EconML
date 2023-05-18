@@ -84,3 +84,10 @@ class TestDRLearner(unittest.TestCase):
         est.fit(y, T, X=X, W=None)
         score = est.score()
         self.assertAlmostEqual(score, 0.05778546)
+        # Test using baseline method (e.g., RScorer)
+        # Replace the following lines with the appropriate baseline method and its parameters
+        baseline_est = BaselineScorer()
+        baseline_est.fit(y, T, X=X, W=None)
+        score_baseline = baseline_est.score()
+        # Perform the comparison test
+        self.assertAlmostEqual(score_dr, score_baseline)
