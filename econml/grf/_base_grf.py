@@ -103,6 +103,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         self.warm_start = warm_start
         self.max_samples = max_samples
 
+    @abstractmethod
     def _get_alpha_and_pointJ(self, X, T, y, **kwargs):
         """ This function must be implemented by child class and given input variables
         X, T, y and any auxiliary variables passed as keyword only, should be calculating
@@ -116,8 +117,9 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         J : array of shape (n_samples, n_outputs * n_outputs)
             The J matrix part of the moment equation, flattened in Fortran-contiguous format.
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
+    @abstractmethod
     def _get_n_outputs_decomposition(self, X, T, y, **kwargs):
         """ This function must be implemented by child class and given input variables
         X, T, y and any auxiliary variables passed as keyword only, should return a tuple
@@ -131,7 +133,7 @@ class BaseGRF(BaseEnsemble, metaclass=ABCMeta):
         n_relevant_outputs : int
             The length of the prefix of parameters that we care about (remainder are nuisance)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def apply(self, X):
         """
