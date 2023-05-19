@@ -1,4 +1,4 @@
-[![Build status](https://github.com/py-why/EconML/actions/workflows/ci.yml/badge.svg)](https://github.com/py-why/EconML/actions/workflows/ci.yml)```
+[![Build status](https://github.com/py-why/EconML/actions/workflows/ci.yml/badge.svg)](https://github.com/py-why/EconML/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/econml.svg)](https://pypi.org/project/econml/)
 [![PyPI wheel](https://img.shields.io/pypi/wheel/econml.svg)](https://pypi.org/project/econml/)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/econml.svg)](https://pypi.org/project/econml/)
