@@ -8,6 +8,9 @@ from sklearn.linear_model import LassoCV
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.utils import check_random_state
+from econml.score import DRScorer
+from econml.dr import DRLearner
+
 
 class TestDRLearner(unittest.TestCase):
     def test_default_models(self):
@@ -67,13 +70,14 @@ class TestDRLearner(unittest.TestCase):
         est = DRLearner()
         est.fit(y, T, X=X, W=None, inference='bootstrap', n_bootstrap_samples=50)
 
-        self.assertAlmostEqual(est.effect(X[:2], T0=0, T1=1, inference='bootstrap', n_bootstrap_samples=50).shape[0], 50)
+        self.aseertAlmostEqual(est.effect(X[:2], T0=0, T1=1, inference='bootstrap',
+                               n_bootstrap_samples=50).shape[0], 50)
         self.assertAlmostEqual(est.effect_interval(X[:2], T0=0, T1=1, alpha=0.05, inference='bootstrap',
-                                                   n_bootstrap_samples=50).shape, (2, 50, 2))
+                               n_bootstrap_samples=50).shape, (2, 50, 2))
         self.assertAlmostEqual(est.ortho_summary(X[:2], T0=0, T1=1, inference='bootstrap',
-                                                 n_bootstrap_samples=50).shape, (2, 2, 5))
-        self.assertAlmostEqual(est.ortho_intervals(X[:2], T0=0, T1=1, inference='bootstrap', n_bootstrap_samples=50,
-                                                   method='normal').shape, (2, 2, 2, 2))
+                               n_bootstrap_samples=50).shape, (2, 2, 5))
+        self.assertAlmostEqual(est.ortho_intervals(X[:2], T0=0, T1=1, inference='bootstrap',
+                               n_bootstrap_samples=50, method='normal').shape, (2, 2, 2, 2))
 
     def test_score(self):
         np.random.seed(123)
