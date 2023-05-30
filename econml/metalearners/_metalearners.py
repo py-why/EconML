@@ -127,7 +127,10 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X = check_array(X)
         taus = []
         for ind in range(self._d_t[0]):
-            if hasattr(self.models[ind + 1], 'predict_proba'):
+            if (
+                hasattr(self.models[ind + 1], 'predict_proba') and
+                hasattr(self.models[0], 'predict_proba')
+            ):
                 taus.append(self.models[ind + 1].predict_proba(X)[:, 1] - self.models[0].predict_proba(X)[:, 1])
             else:
                 taus.append(self.models[ind + 1].predict(X) - self.models[0].predict(X))
@@ -403,7 +406,10 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         for ind in range(self._d_t[0]):
             propensity_scores = self.propensity_models[ind].predict_proba(X)[:, 1:]
 
-            if hasattr(self.cate_controls_models[ind], 'predict_proba'):
+            if (
+               hasattr(self.cate_controls_models[ind], 'predict_proba') and
+               hasattr(self.cate_treated_models[ind], 'predict_proba')
+            ):
                 tau_hat = propensity_scores * self.cate_controls_models[ind].predict_proba(X)[:, 1].reshape(m, -1) \
                     + (1 - propensity_scores) * self.cate_treated_models[ind].predict_proba(X)[:, 1].reshape(m, -1)
             else:
