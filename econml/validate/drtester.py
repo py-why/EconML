@@ -316,7 +316,7 @@ class DRtester:
             xlabel = 'Group Mean CATE',
             ylabel = 'GATE',
             title=f"Treatment = {tmt}, Calibration R^2 = {rsq}"
-        ).get_figure()
+        )
 
         return fig
 
