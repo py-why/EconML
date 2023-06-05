@@ -39,11 +39,28 @@ class DRtester:
 
     \mathcal{R^2}_C = 1 - \frac{Cal_G}{Cal_O}
 
-    The calibration r-squared metric is similar to thestandard R-square score in that it can take any value
+    The calibration r-squared metric is similar to the standard R-square score in that it can take any value
     less than or equal to 1, with scores closer to 1 indicating a better calibrated CATE model.
 
     **QINI**
 
+    Units are ordered by predicted CATE values and a running measure of the average treatment effect in each cohort is
+    kept as we progress through ranks. The QINI coefficient is then the area under the resulting curve, with a value
+    of 0 interpreted as corresponding to a model with randomly assigned CATE coefficients. All calculations are
+    performed on validation dataset results, using the training set as input.
+
+    More formally, the QINI curve is given by the following function:
+
+    .. math::
+
+    \tau_{QINI}(q) = Cov(Y^{DR}(g,p), 1\{\hat{\tau}(Z) \geq \hat{\mu}(q)\})
+
+    Where q is the desired quantile, \hat{\mu} is the quantile function, and \hat{\tau} is the predicted CATE function.
+    Y^{DR}(g,p) refers to the doubly robust outcome difference (relative to control) for the given observation.
+
+    The QINI coefficient is then given by:
+
+    QINI = \int_0^1 \tau_{QINI}(q) dq
 
     Parameters
     ----------
