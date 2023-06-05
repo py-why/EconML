@@ -5,7 +5,7 @@ import pandas as pd
 import scipy.stats as st
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 
-from drtester import DRtester
+from econml.validate import DRtester
 
 
 class TestDRTester(unittest.TestCase):
@@ -180,6 +180,37 @@ class TestDRTester(unittest.TestCase):
                     self.assertTrue(
                         str(exc.exception) == "CATE not fitted on training data - must provide CATE model and both Zval, Ztrain"
                     )
+
+        # Test that
+
+
+
+    def test_unfitted_cate(self):
+        # Testing that fitting the cate model in the evaluate step works
+
+        Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=2)
+
+        # Simple classifier and regressor for propensity, outcome, and cate
+        reg_t = RandomForestClassifier()
+        reg_y = GradientBoostingRegressor()
+        reg_cate = GradientBoostingRegressor()
+
+        # Calibration
+        my_dr_tester = DRtester(reg_y, reg_t).fit_nuisance(
+            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
+        )
+        Ztrain = Xtrain[:, 1]
+        Zval = Xval[:, 1]
+        my_dr_tester = my_dr_tester.evaluate_cal(reg_cate, Zval, Ztrain)
+        self.assertTrue(my_dr_tester.cal_r_squared is not None)
+
+        # QINI
+        my_dr_tester = DRtester(reg_y, reg_t).fit_nuisance(
+            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
+        )
+        my_dr_tester = my_dr_tester.evaluate_qini(reg_cate, Zval, Ztrain)
+        self.assertTrue(my_dr_tester.qini_res['qini_pval'][0] is not None)
+
 
     def test_cate_val_fit(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
