@@ -7,7 +7,6 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 
 from econml.validate import DRtester
 
-
 class TestDRTester(unittest.TestCase):
 
     @staticmethod

@@ -27,17 +27,20 @@ class DRtester:
     absolute difference in the mean CATE prediction and the overall ATE. These measures are then summed across bins,
     weighted by a probability a unit is in each bin.
 
+    .. math::
+
     Cal_G = \sum_k \pi(k) |E[s(Z) | k] - E[Y^{DR | k}|
 
     Cal_O = \sum_k \pi(k) |E[s(Z) | k] - E[Y^{DR}|
 
     The calibration r-squared is then defined as
 
+    .. math::
 
     \mathcal{R^2}_C = 1 - \frac{Cal_G}{Cal_O}
 
     The calibration r-squared metric is similar to thestandard R-square score in that it can take any value
-    $\leq 1$, with scores closer to 1 indicating a better calibrated CATE model.
+    less than or equal to 1, with scores closer to 1 indicating a better calibrated CATE model.
 
     **QINI**
 
