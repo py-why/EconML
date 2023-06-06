@@ -899,7 +899,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                     nuisances = [np.zeros((n_iters * n_splits,) + nuis.shape) for nuis in nuisance_temp]
 
                 for it, nuis in enumerate(nuisance_temp):
-                    nuisances[it][i * n_iters + j] = nuis
+                    nuisances[it][j * n_iters + i] = nuis
 
         for it in range(len(nuisances)):
             nuisances[it] = np.mean(nuisances[it], axis=0)
