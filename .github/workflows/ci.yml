@@ -1,4 +1,4 @@
-name: Run all checks for pull requests
+name: Run all checks
 
 on:
   pull_request:
@@ -11,10 +11,24 @@ on:
         required: false
         default: ''
         type: string
+      use_lkg:
+        description: 'Whether to use the last known good versions of dependencies'
+        required: true
+        default: True
+        type: boolean
+  # nightly
+  schedule:
+    - cron: '0 0 * * *'
+
+# Only run once per PR, canceling any previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 # Precompute the ref if the workflow was triggered by a workflow dispatch rather than copying this logic repeatedly
 env:
   ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
+  use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg || github.event_name == 'pull_request') || null }}
 
 jobs:
   eval: 
@@ -85,7 +99,7 @@ jobs:
     - uses: actions/setup-python@v4
       name: Setup Python
       with:
-        python-version: 3.9
+        python-version: '3.9'
     - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
       name: Ensure latest pip and setuptools
     - run: 'pip install pycodestyle && pycodestyle econml'
@@ -103,11 +117,11 @@ jobs:
           extras: "[tf,plt]"
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
-          version: 3.8 # no supported version of tensorflow for 3.9
+          version: '3.8' # no supported version of tensorflow for 3.9
         - kind: "customer-scenarios"
           extras: "[plt,dowhy]"
           pattern: "CustomerScenarios"
-          version: 3.9
+          version: '3.9'
           install_graphviz: false
       fail-fast: false
     steps:
@@ -125,12 +139,22 @@ jobs:
       name: Install graphviz
       if: ${{ matrix.install_graphviz }}
     # Add verbose flag to pip installation if in debug mode
-    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }}
+    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
       name: Install econml
-    - run: pip install pytest pytest-runner coverage jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
-      name: Install test and notebook requirements
-    - run: pip list
-      name: List installed packages
+    # Install notebook requirements (if not already done as part of lkg)
+    - run: pip install jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+      name: Install notebook requirements
+      if: ${{ !env.use_lkg }}
+    - run: pip freeze --exclude-editable > notebooks-${{ matrix.version }}-${{ matrix.kind }}-requirements.txt
+      name: Save installed packages
+    - uses: actions/upload-artifact@v3
+      name: Upload installed packages
+      with:
+        name: requirements
+        path: notebooks-${{ matrix.version }}-${{ matrix.kind }}-requirements.txt
+    - run: pip install pytest pytest-runner coverage
+      name: Install pytest
+
     - run: python setup.py pytest
       name: Run notebook tests
       id: run_tests
@@ -156,16 +180,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: [3.6, 3.7, 3.8, 3.9]
+        python-version: ['3.7', '3.8', '3.9', '3.10']
         kind: [serial, other, dml, main, treatment]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
           - os: macos-latest
             kind: serial
-          # Python 3.6 isn't supported on ubuntu-latest
-          - os: ubuntu-latest
-            python-version: 3.6
-
         # Assign the correct package and testing options for each kind of test
         include:
           - kind: serial
@@ -197,8 +217,15 @@ jobs:
     - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
       name: Ensure latest pip and setuptools
     # Add verbose flag to pip installation if in debug mode
-    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }}
+    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
       name: Install econml
+    - run: pip freeze --exclude-editable > tests-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}-requirements.txt
+      name: Save installed packages
+    - uses: actions/upload-artifact@v3
+      name: Upload installed packages
+      with:
+        name: requirements
+        path: tests-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}-requirements.txt
     - run: pip install pytest pytest-runner coverage
       name: Install pytest
     - run: python setup.py pytest
@@ -236,7 +263,7 @@ jobs:
     - uses: actions/setup-python@v4
       name: Setup Python
       with:
-        python-version: 3.8
+        python-version: '3.8'
     - run: pip install coverage
       name: Install coverage
     - run: coverage combine coverage/
