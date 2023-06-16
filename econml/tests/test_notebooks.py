@@ -7,6 +7,7 @@ import html
 import os
 
 _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
+_maindir = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
 _nbsubdirs = ['.', 'CustomerScenarios', 'Solutions']  # TODO: add AutoML notebooks
 
@@ -28,6 +29,15 @@ def test_notebook(file):
     import nbconvert
 
     nb = nbformat.read(os.path.join(_nbdir, file), as_version=4)
+
+    # make sure that coverage outputs reflect notebook contents
+    nb.cells.insert(0, nbformat.v4.new_code_cell(f"""
+    import os, coverage
+    cwd = os.getcwd()
+    os.chdir({_maindir!r}) # change to the root directory, so that setup.cfg is found
+    coverage.process_startup()
+    os.chdir(cwd) # change back to the original directory"""))
+
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves
     ep = nbconvert.preprocessors.ExecutePreprocessor(

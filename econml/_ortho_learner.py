@@ -469,7 +469,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             If the estimator also provides a score method with the same arguments as fit, it will be used to
             calculate scores during training.
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     @abstractmethod
     def _gen_ortho_learner_model_final(self):
@@ -492,7 +492,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             then the input ``T`` to both above calls will be the one-hot encoding of the original input ``T``,
             excluding the first column of the one-hot.
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def _check_input_dims(self, Y, T, X=None, W=None, Z=None, *other_arrays):
         assert shape(Y)[0] == shape(T)[0], "Dimension mis-match!"
