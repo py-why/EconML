@@ -71,10 +71,14 @@ jobs:
           popd
         name: Zip docs for publishing
         if : ${{ inputs.publish }}
+      - uses: azure/login@v1
+        name: Login to Azure
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+        if : ${{ inputs.publish }}
       - uses: azure/webapps-deploy@v2
         name: Deploy documentation to Azure web app
         with:
           app-name: ${{ inputs.environment == 'prod' && 'econml' || 'econml-dev' }}
           package: build/sphinx/html/docs.zip
-          publish-profile: ${{ inputs.environment == 'prod' && secrets.PROD_WEBAPP_PUBLISH_PROFILE || secrets.STAGING_WEBAPP_PUBLISH_PROFILE }}
         if: ${{ inputs.publish }}          
