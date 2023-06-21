@@ -186,6 +186,9 @@ jobs:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
           - os: macos-latest
             kind: serial
+          # Python 3.7 is broken on the mac runner image, see https://github.com/actions/runner-images/issues/7764
+          - os: macos-latest
+            python-version: '3.7'
         # Assign the correct package and testing options for each kind of test
         include:
           - kind: serial
