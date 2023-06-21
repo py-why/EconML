@@ -34,14 +34,15 @@ class TestDRIV(unittest.TestCase):
         y = np.random.normal(size=(n,))
 
         # parameter combinations to test
-        for d_w, d_x, binary_T, binary_Z, projection, featurizer\
+        for d_w, d_x, binary_T, binary_Z, projection, fit_cov_directly, featurizer\
             in itertools.product(
                 [None, 10],     # d_w
                 [None, 3],      # d_x
                 [True, False],  # binary_T
                 [True, False],  # binary_Z
                 [True, False],  # projection
-                [None, PolynomialFeatures(degree=2, include_bias=False), ]):    # featurizer
+                [True, False],  # fit_cov_directly
+                [None, PolynomialFeatures(degree=2, include_bias=False), ],):    # featurizer
 
             if d_w is None:
                 W = None
@@ -71,6 +72,7 @@ class TestDRIV(unittest.TestCase):
                     ),
                     fit_cate_intercept=True,
                     projection=projection,
+                    fit_cov_directly=fit_cov_directly,
                     discrete_instrument=binary_Z,
                     discrete_treatment=binary_T,
                     featurizer=featurizer,
@@ -79,6 +81,7 @@ class TestDRIV(unittest.TestCase):
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     fit_cate_intercept=True,
                     projection=projection,
+                    fit_cov_directly=fit_cov_directly,
                     discrete_instrument=binary_Z,
                     discrete_treatment=binary_T,
                     featurizer=featurizer,
@@ -87,6 +90,7 @@ class TestDRIV(unittest.TestCase):
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     fit_cate_intercept=True,
                     projection=projection,
+                    fit_cov_directly=fit_cov_directly,
                     discrete_instrument=binary_Z,
                     discrete_treatment=binary_T,
                     featurizer=featurizer,
@@ -94,6 +98,7 @@ class TestDRIV(unittest.TestCase):
                 ForestDRIV(
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     projection=projection,
+                    fit_cov_directly=fit_cov_directly,
                     discrete_instrument=binary_Z,
                     discrete_treatment=binary_T,
                     featurizer=featurizer,
@@ -101,9 +106,10 @@ class TestDRIV(unittest.TestCase):
             ]
 
             if X is None:
-                est_list = est_list[:-1]
+                est_list = est_list[:-1]  # ForestDRIV doesn't support X=None
 
-            if binary_T and binary_Z:
+            # IntentToTreatDRIV only supports binary treatments and instruments, and doesn't support fit_cov_directly
+            if binary_T and binary_Z and not fit_cov_directly:
                 est_list += [
                     IntentToTreatDRIV(
                         flexible_model_effect=StatsModelsLinearRegression(
@@ -121,8 +127,9 @@ class TestDRIV(unittest.TestCase):
                 ]
 
             for est in est_list:
-                with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T,
-                                  binary_Z=binary_Z, projection=projection, featurizer=featurizer,
+                with self.subTest(d_w=d_w, d_x=d_x, binary_T=binary_T, binary_Z=binary_Z,
+                                  projection=projection, fit_cov_directly=fit_cov_directly,
+                                  featurizer=featurizer,
                                   est=est):
 
                     # TODO: serializing/deserializing for every combination -- is this necessary?
@@ -201,30 +208,29 @@ class TestDRIV(unittest.TestCase):
             discrete_treatment=True,
             flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False)
         )]
-
-        # no heterogeneity
-        n = 1000
-        p = 10
-        true_ate = 10
-
-        def true_fn(X):
-            return true_ate
-        y, T, Z, X = dgp(n, p, true_fn)
         for est in ests_list:
             with self.subTest(est=est):
+                # no heterogeneity
+                n = 1000
+                p = 10
+                true_ate = 10
+
+                def true_fn(X):
+                    return true_ate
+                y, T, Z, X = dgp(n, p, true_fn)
+
                 est.fit(y, T, Z=Z, X=None, W=X, inference="auto")
                 ate_lb, ate_ub = est.ate_interval()
                 np.testing.assert_array_less(ate_lb, true_ate)
                 np.testing.assert_array_less(true_ate, ate_ub)
 
-        # with heterogeneity
-        true_coef = 10
+                # with heterogeneity
+                true_coef = 10
 
-        def true_fn(X):
-            return true_coef * X[:, 0]
-        y, T, Z, X = dgp(n, p, true_fn)
-        for est in ests_list:
-            with self.subTest(est=est):
+                def true_fn(X):
+                    return true_coef * X[:, 0]
+                y, T, Z, X = dgp(n, p, true_fn)
+
                 est.fit(y, T, Z=Z, X=X[:, [0]], W=X[:, 1:], inference="auto")
                 coef_lb, coef_ub = est.coef__interval()
                 intercept_lb, intercept_ub = est.intercept__interval(alpha=0.05)
@@ -232,3 +238,37 @@ class TestDRIV(unittest.TestCase):
                 np.testing.assert_array_less(true_coef, coef_ub)
                 np.testing.assert_array_less(intercept_lb, 0)
                 np.testing.assert_array_less(0, intercept_ub)
+
+    def test_fit_cov_directly(self):
+        # fitting the covariance directly should be at least as good as computing the covariance from separate models
+        est = LinearDRIV()
+
+        n = 500
+        p = 10
+        true_coef = 10
+
+        n_trials = 201
+        wins = 0
+
+        for _ in range(n_trials):
+
+            X = np.random.normal(size=(n, p))
+            Z = np.random.binomial(1, 0.5, size=(n,))
+            u = np.random.normal(size=(n,))  # unmeasured confounder
+            T = np.random.binomial(1, special.expit(X[:, 0] + Z + u))
+            y = np.random.normal(size=(n,)) + true_coef * X[:, 0] * T + u
+
+            est.fit_cov_directly = False
+            est.fit(y, T, Z=Z, X=X[:, [0]], W=X[:, 1:])
+            coef_indirect = est.coef_
+
+            est.fit_cov_directly = True
+            est.fit(y, T, Z=Z, X=X[:, [0]], W=X[:, 1:])
+            coef_direct = est.coef_
+
+            # directly fitting the covariance should be better than indirectly fitting it
+            if (np.linalg.norm(coef_direct - true_coef) <
+                    np.linalg.norm(coef_indirect - true_coef)):
+                wins += 1
+        print("wins: ", wins)
+        self.assertGreater(wins, n_trials / 2)
