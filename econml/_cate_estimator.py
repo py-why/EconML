@@ -852,7 +852,7 @@ class TreatmentExpansionMixin(BaseCateEstimator):
         n_rows = 1 if X is None else shape(X)[0]
         outTs = []
         for T in Ts:
-            if (ndim(T) == 0) and self._d_t_in and self._d_t_in[0] > 1:
+            if (ndim(T) == 0) and self._d_t_in and self._d_t_in[0] > 1 and T != 0:
                 warn("A scalar was specified but there are multiple treatments; "
                      "the same value will be used for each treatment.  Consider specifying"
                      "all treatments, or using the const_marginal_effect method.")
