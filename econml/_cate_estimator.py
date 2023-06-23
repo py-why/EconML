@@ -599,7 +599,6 @@ class LinearCateEstimator(BaseCateEstimator):
         # of rows of T was not taken into account
         if X is None:
             eff = np.repeat(eff, shape(T0)[0], axis=0)
-        m = shape(eff)[0]
         dT = T1 - T0
         einsum_str = 'myt,mt->my'
         if ndim(dT) == 1:
