@@ -40,6 +40,7 @@ For information on use cases and background material on causal inference and het
 - [Blogs and Publications](#blogs-and-publications)
 - [Citation](#citation)
 - [Contributing and Feedback](#contributing-and-feedback)
+- [Community](#community)
 - [References](#references)
 
 </details>
