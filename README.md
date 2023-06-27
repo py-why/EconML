@@ -5,7 +5,11 @@
 
 
 
-<h1><img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
+<h1>
+<a href="https://econml.azurewebsites.net/">
+<img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;", alt="econml-logo"> 
+</a> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation
+</h1>
 
 **EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and built as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
 techniques with econometrics to bring automation to complex causal inference problems. The promise of EconML:
@@ -721,7 +725,9 @@ This project has adopted the [PyWhy Code of Conduct](https://github.com/py-why/g
 
 # Community
 
-<img src="doc/pywhy-logo.png" width="80px" align="left" style="margin-right: 10px;">
+<a href="https://pywhy.org/">
+<img src="doc/pywhy-logo.png" width="80px" align="left" style="margin-right: 10px;", alt="pywhy-logo">
+</a>
 
 EconML is a part of [PyWhy](https://www.pywhy.org/), an organization with a mission to build an open-source ecosystem for causal machine learning.
 
