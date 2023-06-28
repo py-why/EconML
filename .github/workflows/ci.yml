@@ -13,7 +13,7 @@ on:
         type: string
       use_lkg:
         description: 'Whether to use the last known good versions of dependencies'
-        required: true
+        required: false
         default: True
         type: boolean
   # nightly
@@ -28,7 +28,7 @@ concurrency:
 # Precompute the ref if the workflow was triggered by a workflow dispatch rather than copying this logic repeatedly
 env:
   ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
-  use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg || github.event_name == 'pull_request') || null }}
+  use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' }}
 
 jobs:
   eval: 
@@ -288,6 +288,7 @@ jobs:
       repository: testpypi
       # don't have access to env context here for some reason
       ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
+      use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' }}
 
   docs:
     name: Build documentation
@@ -299,7 +300,8 @@ jobs:
       environment: test
       # don't have access to env context here for some reason
       ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
-
+      use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' }}
+      
   verify:
     name: Verify CI checks
     needs: [lint, notebooks, tests, build, docs]
