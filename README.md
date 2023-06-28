@@ -726,7 +726,7 @@ This project has adopted the [PyWhy Code of Conduct](https://github.com/py-why/g
 # Community
 
 <a href="https://pywhy.org/">
-<img src="doc/pywhy-logo.png" width="80px" align="left" style="margin-right: 10px;", alt="pywhy-logo">
+<img src="doc/spec/img/pywhy-logo.png" width="80px" align="left" style="margin-right: 10px;", alt="pywhy-logo">
 </a>
 
 EconML is a part of [PyWhy](https://www.pywhy.org/), an organization with a mission to build an open-source ecosystem for causal machine learning.
