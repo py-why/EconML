@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath('econml'))
 # -- Project information -----------------------------------------------------
 
 project = 'econml'
-copyright = '2022, PyWhy contributors'
+copyright = '2023, PyWhy contributors'
 author = 'PyWhy contributors'
 version = econml.__version__
 release = econml.__version__
