@@ -5,7 +5,11 @@
 
 
 
-<h1><img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
+<h1>
+<a href="https://econml.azurewebsites.net/">
+<img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;", alt="econml-logo"> 
+</a> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation
+</h1>
 
 **EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and built as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
 techniques with econometrics to bring automation to complex causal inference problems. The promise of EconML:
@@ -40,6 +44,7 @@ For information on use cases and background material on causal inference and het
 - [Blogs and Publications](#blogs-and-publications)
 - [Citation](#citation)
 - [Contributing and Feedback](#contributing-and-feedback)
+- [Community](#community)
 - [References](#references)
 
 </details>
@@ -717,6 +722,18 @@ a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow th
 provided by the bot. You will only need to do this once across all repos using our CLA.
 
 This project has adopted the [PyWhy Code of Conduct](https://github.com/py-why/governance/blob/main/CODE-OF-CONDUCT.md).
+
+# Community
+
+<a href="https://pywhy.org/">
+<img src="doc/spec/img/pywhy-logo.png" width="80px" align="left" style="margin-right: 10px;", alt="pywhy-logo">
+</a>
+
+EconML is a part of [PyWhy](https://www.pywhy.org/), an organization with a mission to build an open-source ecosystem for causal machine learning.
+
+PyWhy also has a [Discord](https://discord.gg/cSBGb3vsZb), which serves as a space for like-minded casual machine learning researchers and practitioners of all experience levels to come together to ask and answer questions, discuss new features, and share ideas.
+
+We invite you to join us at regular office hours and community calls in the Discord.
 
 # References
 

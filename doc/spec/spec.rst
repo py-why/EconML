@@ -15,6 +15,7 @@ EconML User Guide
     interpretability
     references
     faq
+    community
 
 .. todo::
     benchmark
