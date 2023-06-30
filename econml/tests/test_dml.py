@@ -22,7 +22,9 @@ from econml.tests.test_statsmodels import _summarize
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.multioutput import MultiOutputRegressor
 from econml.grf import MultiOutputGRF
+from econml.sklearn_extensions.model_selection import SearchEstimatorList
 from econml.tests.utilities import (GroupingModel, NestedModel)
+import pdb
 
 try:
     import ray
@@ -623,9 +625,9 @@ class TestDML(unittest.TestCase):
         assert isinstance(est.featurizer_, Pipeline)
         assert isinstance(est.model_cate, WeightedLasso)
         for mdl in est.models_y[0]:
-            assert isinstance(mdl, WeightedLasso)
+            assert isinstance(mdl, SearchEstimatorList)
         for mdl in est.models_t[0]:
-            assert isinstance(mdl, LogisticRegression)
+            assert isinstance(mdl, SearchEstimatorList)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
         np.testing.assert_array_equal(est.cate_feature_names(), ['X0', 'X0^2'])
         est = DML(model_y=WeightedLasso(),
@@ -639,9 +641,9 @@ class TestDML(unittest.TestCase):
         assert isinstance(est.featurizer_, FunctionTransformer)
         assert isinstance(est.model_cate, WeightedLasso)
         for mdl in est.models_y[0]:
-            assert isinstance(mdl, WeightedLasso)
+            assert isinstance(mdl, SearchEstimatorList)
         for mdl in est.models_t[0]:
-            assert isinstance(mdl, LogisticRegression)
+            assert isinstance(mdl, SearchEstimatorList)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 
     def test_forest_dml_perf(self):
@@ -1129,7 +1131,7 @@ class TestDML(unittest.TestCase):
                               model_t=LinearRegression(fit_intercept=False),
                               fit_cate_intercept=False)
         dml.fit(y, t, X=x, W=w)
-
+        # pdb.set_trace()
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)

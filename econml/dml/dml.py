@@ -34,6 +34,8 @@ from ..utilities import (_deprecate_positional, add_intercept,
                          reshape_treatmentwise_effects, shape, transpose,
                          get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
+from ..sklearn_extensions.model_selection import SearchEstimatorList
+import pdb
 
 
 class _FirstStageWrapper:
@@ -356,6 +358,14 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         The estimator for fitting the response residuals to the treatment residuals. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
+    param_list: list or 'auto', default 'auto'
+        The list of parameters to be used during cross-validation. 
+        If 'auto', it will be chosen based on the model type.
+
+    scaling: bool, default True
+        Whether to scale the features during the estimation process.
+        Scaling can help improve the performance of some models.
+
     featurizer: :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
@@ -379,6 +389,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     categories: 'auto' or list, default 'auto'
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
+
+    verbose: int, default 2
+        The verbosity level of the output messages. Higher values indicate more verbosity.
 
     cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
@@ -469,13 +482,19 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     def __init__(self, *,
                  model_y, model_t, model_final,
+                 param_list_y=None,
+                 param_list_t=None,
+                 scaling=False,
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=False,
                  discrete_treatment=False,
                  categories='auto',
+                 verbose=2,  # New
                  cv=2,
+                 grid_folds=2,  # New
+                 n_jobs=None,  # New
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
@@ -487,6 +506,13 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
         self.linear_first_stages = linear_first_stages
+        self.scaling = scaling
+        self.param_list_y = param_list_y
+        self.param_list_t = param_list_t
+        self.verbose = verbose
+        self.cv = cv
+        self.grid_folds = grid_folds
+        self.n_jobs = n_jobs
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
@@ -508,23 +534,37 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
 
-    def _gen_model_y(self):
+    def _gen_model_y(self):  # New
         if self.model_y == 'auto':
-            model_y = WeightedLassoCVWrapper(random_state=self.random_state)
+            model_y = SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list_y,
+                                          scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state)
         else:
-            model_y = clone(self.model_y, safe=False)
+            model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list_y,
+                                                scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
+        # model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 
-    def _gen_model_t(self):
+    def _gen_model_t(self):  # New
+        # import pdb
+        # pdb.set_trace()
         if self.model_t == 'auto':
             if self.discrete_treatment:
-                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                               random_state=self.random_state)
+                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
+                                              scaling=self.scaling, verbose=self.verbose, cv=WeightedStratifiedKFold(random_state=self.random_state), is_discrete=self.discrete_treatment,
+                                              n_jobs=self.n_jobs, random_state=self.random_state)
             else:
-                model_t = WeightedLassoCVWrapper(random_state=self.random_state)
+                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
+                                              scaling=self.scaling, verbose=self.verbose, cv=self.cv, is_discrete=self.discrete_treatment,
+                                              n_jobs=self.n_jobs, random_state=self.random_state)
+            # model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+            # model_t = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
-            model_t = clone(self.model_t, safe=False)
+            model_t = clone(SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
+                                                scaling=self.scaling, verbose=self.verbose, cv=self.cv, is_discrete=self.discrete_treatment,
+                                                n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
+        # model_t = clone(self.model_t, safe=False)
+
         return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 
@@ -716,13 +756,19 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     def __init__(self, *,
                  model_y='auto', model_t='auto',
+                 param_list_y=None,
+                 param_list_t=None,
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
                  discrete_treatment=False,
                  categories='auto',
+                 scaling=True,
+                 verbose=2,
                  cv=2,
+                 grid_folds=2,
+                 n_jobs=None,
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
@@ -733,6 +779,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
         super().__init__(model_y=model_y,
                          model_t=model_t,
+                         param_list_y=param_list_y,
+                         param_list_t=param_list_t,
                          model_final=None,
                          featurizer=featurizer,
                          treatment_featurizer=treatment_featurizer,
@@ -740,7 +788,11 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
+                         scaling=scaling,
+                         verbose=verbose,
                          cv=cv,
+                         n_jobs=n_jobs,
+                         grid_folds=grid_folds,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
