@@ -23,6 +23,8 @@ import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.multioutput import MultiOutputRegressor
 from econml.grf import MultiOutputGRF
+from econml.sklearn_extensions.model_selection import SearchEstimatorList
+import pdb
 
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
@@ -586,9 +588,9 @@ class TestDML(unittest.TestCase):
         assert isinstance(est.featurizer_, Pipeline)
         assert isinstance(est.model_cate, WeightedLasso)
         for mdl in est.models_y[0]:
-            assert isinstance(mdl, WeightedLasso)
+            assert isinstance(mdl, SearchEstimatorList)
         for mdl in est.models_t[0]:
-            assert isinstance(mdl, LogisticRegression)
+            assert isinstance(mdl, SearchEstimatorList)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
         np.testing.assert_array_equal(est.cate_feature_names(), ['X0', 'X0^2'])
         est = DML(model_y=WeightedLasso(),
@@ -602,9 +604,9 @@ class TestDML(unittest.TestCase):
         assert isinstance(est.featurizer_, FunctionTransformer)
         assert isinstance(est.model_cate, WeightedLasso)
         for mdl in est.models_y[0]:
-            assert isinstance(mdl, WeightedLasso)
+            assert isinstance(mdl, SearchEstimatorList)
         for mdl in est.models_t[0]:
-            assert isinstance(mdl, LogisticRegression)
+            assert isinstance(mdl, SearchEstimatorList)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 
     def test_forest_dml_perf(self):
@@ -1079,7 +1081,7 @@ class TestDML(unittest.TestCase):
                               model_t=LinearRegression(fit_intercept=False),
                               fit_cate_intercept=False)
         dml.fit(y, t, X=x, W=w)
-
+        # pdb.set_trace()
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
@@ -1162,31 +1164,37 @@ class TestDML(unittest.TestCase):
             # DML nested CV works via a 'cv' attribute
             @property
             def cv(self):
+                print('property')
+                print(self.model.cv)
                 return self.model.cv
 
             @cv.setter
             def cv(self, value):
+                # pdb.set_trace()
+                print('setter')
+                print(self.model.cv)
                 self.model.cv = value
 
             def fit(self, X, y):
+                # pdb.set_trace()
                 for (train, test) in check_cv(self.cv, y).split(X, y):
                     (yvals, cts) = np.unique(y[train], return_counts=True)
+                    # pdb.set_trace()
                     # with 2-fold outer and 2-fold inner grouping, and six total groups,
                     # should get 1 or 2 groups per split
                     if len(yvals) > 2:
-                        raise Exception(f"Grouping failed: received {len(yval)} groups instead of at most 2")
+                        raise Exception(f"Grouping failed: received {len(yvals)} groups instead of at most 2")
 
                     # ensure that the grouping has worked correctly and we get all 10 copies of the items in
                     # whichever groups we see
                     for (yval, ct) in zip(yvals, cts):
                         if ct != 10:
-                            raise Exception(f"Grouping failed; received {ct} copies of {yval} instead of 10")
+                            raise Exception(f"Grouping failed; received {ct} copies of {yvals} instead of 10")
                 self.model.fit(X, y)
                 return self
 
             def predict(self, X):
                 return self.model.predict(X)
-
         # test nested grouping
         est = LinearDML(model_y=NestedModel(cv=2), model_t=NestedModel(cv=2), cv=GroupKFold(2))
         est.fit(y, t, groups=groups)

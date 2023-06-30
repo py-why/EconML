@@ -30,6 +30,7 @@ from statsmodels.iolib.summary import summary_return
 from statsmodels.compat.python import lmap
 import copy
 from inspect import signature
+from econml.sklearn_extensions.model_selection import SearchEstimatorList
 
 MAX_RAND_SEED = np.iinfo(np.int32).max
 
@@ -918,8 +919,28 @@ def fit_with_groups(model, X, y, groups=None, **kwargs):
     kwargs : dict
         Any other named arguments to pass to the model's fit
     """
-
+    # import pdb
+    # pdb.set_trace()
     if groups is not None:
+        if isinstance(model, SearchEstimatorList):
+            for estimator in model.complete_estimator_list:
+                if hasattr(estimator, 'cv'):
+                    old_cv = estimator.cv
+                    # logic copied from check_cv
+                    cv = 5 if old_cv is None else old_cv
+                    if isinstance(cv, numbers.Integral):
+                        cv = GroupKFold(cv)
+                    # otherwise we will assume the user already set the cv attribute to something
+                    # compatible with splitting with a 'groups' argument
+
+                    # now we have to compute the folds explicitly because some classifiers (like LassoCV)
+                    # don't use the groups when calling split internally
+                    splits = list(cv.split(X, y, groups=groups))
+                    try:
+                        estimator.cv = splits
+                        return estimator.fit(X, y, **kwargs)
+                    finally:
+                        estimator.cv = old_cv
         # assume that we should perform nested cross-validation if and only if
         # the model has a 'cv' attribute; this is a somewhat brittle assumption...
         if hasattr(model, 'cv'):
@@ -935,6 +956,7 @@ def fit_with_groups(model, X, y, groups=None, **kwargs):
             # don't use the groups when calling split internally
             splits = list(cv.split(X, y, groups=groups))
             try:
+                print(splits)
                 model.cv = splits
                 return model.fit(X, y, **kwargs)
             finally:
