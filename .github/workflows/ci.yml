@@ -28,7 +28,10 @@ concurrency:
 # Precompute the ref if the workflow was triggered by a workflow dispatch rather than copying this logic repeatedly
 env:
   ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
-  use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' }}
+  # we want to use the LKG if that is explicitly requested, or if we're in a PR, but not a nightly run
+  # the final `|| ''` is because env vars are always converted to strings and the string 'false' is truthy (!!)
+  # (see https://github.com/orgs/community/discussions/25645)
+  use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' || ''}}
 
 jobs:
   eval: 
@@ -291,6 +294,7 @@ jobs:
       repository: testpypi
       # don't have access to env context here for some reason
       ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
+      # can't use env context here so need to duplicate expression, but these are true boolean values so don't need extra string logic
       use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' }}
 
   docs:
@@ -303,6 +307,7 @@ jobs:
       environment: test
       # don't have access to env context here for some reason
       ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
+      # can't use env context here so need to duplicate expression, but these are true boolean values so don't need extra string logic
       use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' }}
       
   verify:
