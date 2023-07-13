@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
 import os.path
@@ -20,7 +20,7 @@ def test_dominicks():
     if not os.path.isfile(file_name):
         print("Downloading file (this might take a few seconds)...")
         urllib.request.urlretrieve(
-            "https://msalicedatapublic.blob.core.windows.net/datasets/OrangeJuice/oj_large.csv", file_name)
+            "https://msalicedatapublic.z5.web.core.windows.net/datasets/OrangeJuice/oj_large.csv", file_name)
     oj_data = pd.read_csv(file_name)
 
     brands = sorted(set(oj_data["brand"]))

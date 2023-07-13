@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
 import unittest
@@ -1095,6 +1095,7 @@ class TestDML(unittest.TestCase):
                 est.fit(y, T, X=X, W=W)
                 assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == mc_iters
                 assert len(est.nuisance_scores_t[0]) == len(est.nuisance_scores_y[0]) == cv
+                est.score(y, T, X=X, W=W)
 
     def test_categories(self):
         dmls = [LinearDML, SparseLinearDML]

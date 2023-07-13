@@ -1,11 +1,15 @@
-[![Build Status](https://dev.azure.com/ms/EconML/_apis/build/status/Microsoft.EconML?branchName=main)](https://dev.azure.com/ms/EconML/_build/latest?definitionId=49&branchName=main)
+[![Build status](https://github.com/py-why/EconML/actions/workflows/ci.yml/badge.svg)](https://github.com/py-why/EconML/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/econml.svg)](https://pypi.org/project/econml/)
 [![PyPI wheel](https://img.shields.io/pypi/wheel/econml.svg)](https://pypi.org/project/econml/)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/econml.svg)](https://pypi.org/project/econml/)
 
 
 
-<h1><img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
+<h1>
+<a href="https://econml.azurewebsites.net/">
+<img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;", alt="econml-logo"> 
+</a> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation
+</h1>
 
 **EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and built as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
 techniques with econometrics to bring automation to complex causal inference problems. The promise of EconML:
@@ -40,69 +44,72 @@ For information on use cases and background material on causal inference and het
 - [Blogs and Publications](#blogs-and-publications)
 - [Citation](#citation)
 - [Contributing and Feedback](#contributing-and-feedback)
+- [Community](#community)
 - [References](#references)
 
 </details>
 
 # News
 
-**November 16, 2022:** Release v0.14.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.14.0)
+**May 19, 2023:** Release v0.14.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.14.1)
 
 <details><summary>Previous releases</summary>
 
-**June 17, 2022:** Release v0.13.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.13.1)
+**November 16, 2022:** Release v0.14.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.14.0)
 
-**January 31, 2022:** Release v0.13.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.13.0)
+**June 17, 2022:** Release v0.13.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.13.1)
 
-**August 13, 2021:** Release v0.12.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0)
+**January 31, 2022:** Release v0.13.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.13.0)
 
-**August 5, 2021:** Release v0.12.0b6, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b6)
+**August 13, 2021:** Release v0.12.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.12.0)
 
-**August 3, 2021:** Release v0.12.0b5, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b5)
+**August 5, 2021:** Release v0.12.0b6, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.12.0b6)
 
-**July 9, 2021:** Release v0.12.0b4, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b4)
+**August 3, 2021:** Release v0.12.0b5, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.12.0b5)
 
-**June 25, 2021:** Release v0.12.0b3, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b3)
+**July 9, 2021:** Release v0.12.0b4, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.12.0b4)
 
-**June 18, 2021:** Release v0.12.0b2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b2)
+**June 25, 2021:** Release v0.12.0b3, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.12.0b3)
 
-**June 7, 2021:** Release v0.12.0b1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.12.0b1)
+**June 18, 2021:** Release v0.12.0b2, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.12.0b2)
 
-**May 18, 2021:** Release v0.11.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.11.1)
+**June 7, 2021:** Release v0.12.0b1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.12.0b1)
 
-**May 8, 2021:** Release v0.11.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.11.0)
+**May 18, 2021:** Release v0.11.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.11.1)
 
-**March 22, 2021:** Release v0.10.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.10.0)
+**May 8, 2021:** Release v0.11.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.11.0)
 
-**March 11, 2021:** Release v0.9.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.2)
+**March 22, 2021:** Release v0.10.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.10.0)
 
-**March 3, 2021:** Release v0.9.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.1)
+**March 11, 2021:** Release v0.9.2, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.9.2)
 
-**February 20, 2021:** Release v0.9.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.0)
+**March 3, 2021:** Release v0.9.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.9.1)
 
-**January 20, 2021:** Release v0.9.0b1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.9.0b1)
+**February 20, 2021:** Release v0.9.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.9.0)
 
-**November 20, 2020:** Release v0.8.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.8.1)
+**January 20, 2021:** Release v0.9.0b1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.9.0b1)
 
-**November 18, 2020:** Release v0.8.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.8.0)
+**November 20, 2020:** Release v0.8.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.8.1)
 
-**September 4, 2020:** Release v0.8.0b1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.8.0b1)
+**November 18, 2020:** Release v0.8.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.8.0)
 
-**March 6, 2020:** Release v0.7.0, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.7.0)
+**September 4, 2020:** Release v0.8.0b1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.8.0b1)
 
-**February 18, 2020:** Release v0.7.0b1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.7.0b1)
+**March 6, 2020:** Release v0.7.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.7.0)
 
-**January 10, 2020:** Release v0.6.1, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.6.1)
+**February 18, 2020:** Release v0.7.0b1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.7.0b1)
 
-**December 6, 2019:** Release v0.6, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.6)
+**January 10, 2020:** Release v0.6.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.6.1)
 
-**November 21, 2019:** Release v0.5, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.5). 
+**December 6, 2019:** Release v0.6, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.6)
 
-**June 3, 2019:** Release v0.4, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.4). 
+**November 21, 2019:** Release v0.5, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.5). 
 
-**May 3, 2019:** Release v0.3, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.3).
+**June 3, 2019:** Release v0.4, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.4). 
 
-**April 10, 2019:** Release v0.2, see release notes [here](https://github.com/Microsoft/EconML/releases/tag/v0.2).
+**May 3, 2019:** Release v0.3, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.3).
+
+**April 10, 2019:** Release v0.2, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.2).
 
 **March 6, 2019:** Release v0.1, welcome to have a try and provide feedback.
 
@@ -645,7 +652,7 @@ importances = policy.feature_importances_
   ![image](images/policy_tree.png)
 </details>
 
-To see more complex examples, go to the [notebooks](https://github.com/Microsoft/EconML/tree/main/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
+To see more complex examples, go to the [notebooks](https://github.com/py-why/EconML/tree/main/notebooks) section of the repository. For a more detailed description of the treatment effect estimation algorithms, see the EconML [documentation](https://econml.azurewebsites.net/).
 
 # For Developers
 
@@ -667,7 +674,16 @@ This project's documentation is generated via [Sphinx](https://www.sphinx-doc.or
 
 To generate a local copy of the documentation from a clone of this repository, just run `python setup.py build_sphinx -W -E -a`, which will build the documentation and place it under the `build/sphinx/html` path. 
 
-The reStructuredText files that make up the documentation are stored in the [docs directory](https://github.com/Microsoft/EconML/tree/main/doc); module documentation is automatically generated by the Sphinx build process.
+The reStructuredText files that make up the documentation are stored in the [docs directory](https://github.com/py-why/EconML/tree/main/doc); module documentation is automatically generated by the Sphinx build process.
+
+## Release process
+
+We use GitHub Actions to build and publish the package and documentation.  To create a new release, an admin should perform the following steps:
+
+1. Update the version number in `econml/_version.py` and add a mention of the new version in the news section of this file and commit the changes.
+2. Manually run the publish_package.yml workflow to build and publish the package to PyPI.
+3. Manually run the publish_docs.yml workflow to build and publish the documentation.
+4. Under https://github.com/py-why/EconML/releases, create a new release with a corresponding tag, and update the release notes.
 
 # Blogs and Publications
 
@@ -683,7 +699,7 @@ The reStructuredText files that make up the documentation are stored in the [doc
 
 If you use EconML in your research, please cite us as follows:
 
-   Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/microsoft/EconML, 2019. Version 0.x.
+   Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis. **EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation.** https://github.com/py-why/EconML, 2019. Version 0.x.
 
 BibTex:
 
@@ -691,7 +707,7 @@ BibTex:
 @misc{econml,
   author={Keith Battocchi, Eleanor Dillon, Maggie Hei, Greg Lewis, Paul Oka, Miruna Oprescu, Vasilis Syrgkanis},
   title={{EconML}: {A Python Package for ML-Based Heterogeneous Treatment Effects Estimation}},
-  howpublished={https://github.com/microsoft/EconML},
+  howpublished={https://github.com/py-why/EconML},
   note={Version 0.x},
   year={2019}
 }
@@ -699,17 +715,25 @@ BibTex:
 
 # Contributing and Feedback
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
-Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
-the rights to use your contribution. For details, visit https://cla.microsoft.com.
+This project welcomes contributions and suggestions.  We use the [DCO bot](https://github.com/apps/dco) to enforce a [Developer Certificate of Origin](https://developercertificate.org/) which requires users to sign-off on their commits.  This is a simple way to certify that you wrote or otherwise have the right to submit the code you are contributing to the project.  Git provides a `-s` command line option to include this automatically when you commit via `git commit`.
 
 When you submit a pull request, a CLA-bot will automatically determine whether you need to provide
 a CLA and decorate the PR appropriately (e.g., label, comment). Simply follow the instructions
 provided by the bot. You will only need to do this once across all repos using our CLA.
 
-This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
-For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or
-contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+This project has adopted the [PyWhy Code of Conduct](https://github.com/py-why/governance/blob/main/CODE-OF-CONDUCT.md).
+
+# Community
+
+<a href="https://pywhy.org/">
+<img src="doc/spec/img/pywhy-logo.png" width="80px" align="left" style="margin-right: 10px;", alt="pywhy-logo">
+</a>
+
+EconML is a part of [PyWhy](https://www.pywhy.org/), an organization with a mission to build an open-source ecosystem for causal machine learning.
+
+PyWhy also has a [Discord](https://discord.gg/cSBGb3vsZb), which serves as a space for like-minded casual machine learning researchers and practitioners of all experience levels to come together to ask and answer questions, discuss new features, and share ideas.
+
+We invite you to join us at regular office hours and community calls in the Discord.
 
 # References
 

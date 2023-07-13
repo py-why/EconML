@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
 
 import abc
@@ -31,7 +31,7 @@ class _SingleTreeInterpreter(_SingleTreeExporterMixin, metaclass=abc.ABCMeta):
             must be compatible shape-wise with the features used to fit
             the estimator
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
 
 class SingleTreeCateInterpreter(_SingleTreeInterpreter):
