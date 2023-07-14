@@ -531,7 +531,7 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
         Whether to check if the input arrays have the same length.
 
     force_all_finite : bool or 'allow-nan', default True
-        Whether to allow inf and nan in input arrays. 
+        Whether to allow inf and nan in input arrays.
         'allow-nan': accepts only np.nan and pd.NA values in array. Values
         cannot be infinite.
 
