@@ -605,8 +605,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
             "is not supported when treatment is discrete"
         if check_input:
-            Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
-                Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
+            Y, T, X, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
+                Y, T, X, Z, sample_weight, freq_weight, sample_var, groups)
+            W, = check_input_arrays(W, force_all_finite='allow-nan')
             self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
 
         if not only_final:
@@ -878,7 +879,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         if not hasattr(self._ortho_learner_model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
-        Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
+        Y, T, X, Z = check_input_arrays(Y, T, X, Z)
+        W, = check_input_arrays(W, force_all_finite='allow-nan')
         self._check_fitted_dims(X)
         self._check_fitted_dims_w_z(W, Z)
         X, T = self._expand_treatments(X, T)

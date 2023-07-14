@@ -671,7 +671,8 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         """
         if not hasattr(self._ortho_learner_model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
-        Y, T, X, W, groups = check_input_arrays(Y, T, X, W, groups)
+        Y, T, X, groups = check_input_arrays(Y, T, X, groups)
+        W, = check_input_arrays(W, force_all_finite='allow-nan')
         self._check_fitted_dims(X)
         X, T = super()._expand_treatments(X, T)
         n_iters = len(self._models_nuisance)

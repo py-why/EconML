@@ -142,7 +142,8 @@ class DoWhyWrapper:
         column_names = outcome_names + treatment_names + feature_names + confounder_names + instrument_names
 
         # transfer input to numpy arrays
-        Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
+        Y, T, X, Z = check_input_arrays(Y, T, X, Z)
+        W, = check_input_arrays(W, force_all_finite='allow-nan')
         # transfer input to 2d arrays
         n_obs = Y.shape[0]
         Y, T, X, W, Z = reshape_arrays_2dim(n_obs, Y, T, X, W, Z)

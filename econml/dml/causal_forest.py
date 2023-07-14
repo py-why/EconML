@@ -737,7 +737,8 @@ class CausalForestDML(_BaseDML):
             all parameters of the object have been set to the best performing parameters from the tuning grid.
         """
         from ..score import RScorer  # import here to avoid circular import issue
-        Y, T, X, W, sample_weight, groups = check_input_arrays(Y, T, X, W, sample_weight, groups)
+        Y, T, X, sample_weight, groups = check_input_arrays(Y, T, X, sample_weight, groups)
+        W, = check_input_arrays(W, force_all_finite='allow-nan')
 
         if params == 'auto':
             params = {
