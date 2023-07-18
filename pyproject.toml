@@ -4,7 +4,7 @@ requires = [
     "wheel",
     "oldest-supported-numpy",
     "scipy",
-    "cython"
+    "cython<3" # Our native code has several incompatibilities with Cython 3
 ]
 build-backend = "setuptools.build_meta"
 
