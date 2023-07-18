@@ -70,7 +70,7 @@ jobs:
       - run: pip install cibuildwheel && python -m cibuildwheel --output-dir dist
         name: Build wheels
         env:
-          CIBW_BUILD: cp3{7,8,9,10}-*
+          CIBW_BUILD: cp3*
           CIBW_SKIP: "*musl* *win32 *i686"
       - uses: actions/upload-artifact@v3
         name: Upload wheels as artifact
