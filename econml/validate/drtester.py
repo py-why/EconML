@@ -3,10 +3,12 @@ from typing import Tuple, Union, List
 import numpy as np
 import pandas as pd
 import scipy.stats as st
+from sklearn.model_selection import check_cv
 from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from statsmodels.api import OLS
 from statsmodels.tools import add_constant
-from sklearn.model_selection import check_cv
+
+from results import CalibrationEvaluationResults, BLPEvaluationResults, QiniEvaluationResults, EvaluationResults
 from utils import calculate_dr_outcomes, calc_qini_coeff
 
 
@@ -142,9 +144,7 @@ class DRtester:
         Dtrain: np.array = None,
         ytrain: np.array = None,
     ):
-
         """
-
         Generates nuisance predictions and calculates doubly robust (DR) outcomes either by (1) cross-fitting in the
         validation sample, or (2) fitting in the training sample and applying to the validation sample. If Xtrain,
         Dtrain, and ytrain are all not None, then option (2) will be implemented, otherwise, option (1) will be
@@ -196,9 +196,6 @@ class DRtester:
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain, Dtrain, ytrain, Xval)
             self.dr_val = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
-
-            self.Dtrain = Dtrain
-
         else:
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_cv(Xval, Dval, yval)
@@ -216,7 +213,6 @@ class DRtester:
         ytrain: np.array,
         Xval: np.array
     ) -> Tuple[np.array, np.array]:
-
         """
         Fits nuisance models in training sample and applies to generate predictions in validation sample.
 
@@ -259,7 +255,6 @@ class DRtester:
         D: np.array,
         y: np.array
     ) -> Tuple[np.array, np.array]:
-
         """
         Generates nuisance function predictions using k-folds cross validation.
 
@@ -273,8 +268,6 @@ class DRtester:
             starting at 1
         y: array of length n
             Outcomes
-        random_state: int, default 123
-            Random seed
 
         Returns
         -------
@@ -304,9 +297,9 @@ class DRtester:
     ):
 
         """
-        Fits CATE model and generates predictions. If Ztrain is None, then the predictions are generated using k-folds
-        cross-validation on the validation set. If Ztrain is specified, then the CATE is fit on the training sample
-        (where the DR outcomes were generated using k-folds CV), and then applied to the validation sample.
+        Generates predictions from fitted CATE model. If Ztrain is None, then the predictions are generated using k-folds
+        cross-validation on the validation set. If Ztrain is specified, then the CATE is assumed to have been fitted on
+        the training sample (where the DR outcomes were generated using k-folds CV), and then applied to the validation sample.
 
         Parameters
         ----------
@@ -333,7 +326,7 @@ class DRtester:
         Zval: np.array = None,
         Ztrain: np.array = None,
         n_groups: int = 4
-    ):
+    ) -> CalibrationEvaluationResults:
 
         """
         Implements calibration test as in [Dwivedi2020]
@@ -351,9 +344,7 @@ class DRtester:
 
         Returns
         -------
-        self, with added attribute cal_r_squared showing the R^2 value of the calibration test and dataframe df_plot
-        containing relevant results to plot calibration test gates
-
+        CalibrationEvaluationResults object showing the results of the calibration test
         """
         if self.dr_train is None:
             raise Exception("Must fit nuisance models on training sample data to use calibration test")
@@ -364,10 +355,9 @@ class DRtester:
                 raise Exception('CATE not fitted on training data - must provide both Zval, Ztrain')
             self.get_cate_preds(Zval, Ztrain)
 
-        self.cal_r_squared = np.zeros(self.n_treat)
-        self.df_plot = pd.DataFrame()
+        cal_r_squared = np.zeros(self.n_treat)
+        df_plot = pd.DataFrame()
         for k in range(self.n_treat):
-
             cuts = np.quantile(self.cate_preds_train[:, k], np.linspace(0, 1, n_groups + 1))
             probs = np.zeros(n_groups)
             g_cate = np.zeros(n_groups)
@@ -391,54 +381,27 @@ class DRtester:
             # Calculate overall calibration score
             cal_score_o = np.sum(abs(gate - self.ate_val[k]) * probs)
             # Calculate R-square calibration score
-            self.cal_r_squared[k] = 1 - (cal_score_g / cal_score_o)
+            cal_r_squared[k] = 1 - (cal_score_g / cal_score_o)
 
             df_plot1 = pd.DataFrame({'ind': np.array(range(n_groups)),
                                      'gate': gate, 'se_gate': se_gate,
                                     'g_cate': g_cate, 'se_g_cate': se_g_cate})
             df_plot1['tmt'] = self.treatments[k + 1]
-            self.df_plot = pd.concat((self.df_plot, df_plot1))
+            df_plot = pd.concat((df_plot, df_plot1))
 
-        return self
-
-    def plot_cal(self, tmt: int):
-        """
-        Plots group average treatment effects (GATEs) and predicted GATEs by quantile-based group in validation sample.
-
-        Parameters
-        ----------
-        tmt: integer
-            Treatment level to plot
-
-        Returns
-        -------
-        fig: matplotlib
-            Plot with predicted GATE on x-axis and GATE (and 95% CI) on y-axis
-        """
-        if tmt == 0:
-            raise Exception('Plotting only supported for treated units (not controls)')
-
-        df = self.df_plot
-        df = df[df.tmt == tmt].copy()
-        rsq = round(self.cal_r_squared[np.where(self.treatments == tmt)[0][0] - 1], 3)
-        df['95_err'] = 1.96 * df['se_gate']
-        fig = df.plot(
-            kind='scatter',
-            x='g_cate',
-            y='gate',
-            yerr='95_err',
-            xlabel = 'Group Mean CATE',
-            ylabel = 'GATE',
-            title=f"Treatment = {tmt}, Calibration R^2 = {rsq}"
+        self.cal_res = CalibrationEvaluationResults(
+            cal_r_squared=cal_r_squared,
+            df_plot=df_plot,
+            treatments=self.treatments
         )
 
-        return fig
+        return self.cal_res
 
     def evaluate_blp(
         self,
         Zval: np.array = None,
         Ztrain: np.array = None
-    ):
+    ) -> BLPEvaluationResults:
         """
         Implements the best linear predictor (BLP) test as in [Chernozhukov2022]. `fit_nusiance' method must already
         be implemented.
@@ -455,8 +418,7 @@ class DRtester:
 
         Returns
         -------
-        self, with added dataframe blp_res showing the results of the BLP test
-
+        BLPEvaluationResults object showing the results of the BLP test
         """
 
         if self.dr_val is None:
@@ -483,18 +445,21 @@ class DRtester:
                 errs.append(reg.bse[1])
                 pvals.append(reg.pvalues[1])
 
-        self.blp_res = pd.DataFrame(
-            {'treatment': self.treatments[1:], 'blp_est': params, 'blp_se': errs, 'blp_pval': pvals}
-        ).round(3)
+        self.blp_res = BLPEvaluationResults(
+            params=params,
+            errs=errs,
+            pvals=pvals,
+            treatments=self.treatments
+        )
 
-        return self
+        return self.blp_res
 
     def evaluate_qini(
         self,
         Zval: np.array = None,
         Ztrain: np.array = None,
         percentiles: np.array = np.linspace(5, 95, 50)
-    ):
+    ) -> QiniEvaluationResults:
 
         """
         Calculates QINI coefficient for the given model as in Radcliffe (2007), where units are ordered by predicted
@@ -517,7 +482,7 @@ class DRtester:
 
         Returns
         -------
-        self, with added dataframe qini_res showing the results of the QINI fit
+        QiniEvaluationResults object showing the results of the QINI fit
         """
         if self.dr_val is None:
             raise Exception("Must fit nuisances before evaluating")
@@ -553,18 +518,21 @@ class DRtester:
 
         pvals = [st.norm.sf(abs(q / e)) for q, e in zip(qinis, errs)]
 
-        self.qini_res = pd.DataFrame(
-            {'treatment': self.treatments[1:], 'qini_coeff': qinis, 'qini_se': errs, 'qini_pval': pvals},
-        ).round(3)
+        self.qini_res = QiniEvaluationResults(
+            params=qinis,
+            errs=errs,
+            pvals=pvals,
+            treatments=self.treatments
+        )
 
-        return self
+        return self.qini_res
 
     def evaluate_all(
         self,
         Zval: np.array = None,
         Ztrain: np.array = None,
         n_groups: int = 4
-    ):
+    ) -> EvaluationResults:
         """
         Implements the best linear prediction (`evaluate_blp'), calibration (`evaluate_cal') and QINI coefficient
         (`evaluate_qini') methods.
@@ -580,7 +548,7 @@ class DRtester:
 
         Returns
         -------
-        self, with added dataframe df_res summarizing the results of all tests
+        EvaluationResults object summarizing the results of all tests
         """
 
         # if CATE is given explicitly or has not been fitted at all previously, fit it now
@@ -589,11 +557,14 @@ class DRtester:
                 raise Exception('CATE predictions not yet calculated - must provide both Zval, Ztrain')
             self.get_cate_preds(Zval, Ztrain)
 
-        self.evaluate_blp()
-        self.evaluate_cal(n_groups=n_groups)
-        self.evaluate_qini()
+        blp_res = self.evaluate_blp()
+        cal_res = self.evaluate_cal(n_groups=n_groups)
+        qini_res = self.evaluate_qini()
 
-        self.df_res = self.blp_res.merge(self.qini_res, on='treatment')
-        self.df_res['cal_r_squared'] = np.around(self.cal_r_squared, 3)
+        self.res = EvaluationResults(
+            blp_res=blp_res,
+            cal_res=cal_res,
+            qini_res=qini_res
+        )
 
-        return self
+        return self.res

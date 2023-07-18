@@ -1,5 +1,7 @@
-import numpy as np
 from typing import Tuple
+
+import numpy as np
+
 
 def calculate_dr_outcomes(
     D: np.array,
