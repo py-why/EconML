@@ -120,6 +120,22 @@ def select_estimator(estimator_type, is_discrete, random_state):
 
 
 def is_likely_estimator(estimator):
+    """
+    Check if an object is likely to be an estimator.
+
+    This function checks if an object has 'fit' and 'predict' methods, or if it is an instance of BaseEstimator.
+
+    Parameters
+    ----------
+    estimator : object
+        The object to check.
+
+    Returns
+    -------
+    bool
+        True if the object is likely to be an estimator, False otherwise.
+    """
+
     required_methods = ['fit', 'predict']
     return all(hasattr(estimator, method) for method in required_methods) or isinstance(estimator, BaseEstimator)
 
@@ -383,6 +399,22 @@ def is_mlp(estimator):
 
 
 def has_random_state(model):
+    """
+    Check if a model has a 'random_state' parameter.
+
+    This function inspects the model's signature to check if it has a 'random_state' parameter.
+
+    Parameters
+    ----------
+    model : object
+        The model to check.
+
+    Returns
+    -------
+    bool
+        True if the model has a 'random_state' parameter, False otherwise.
+    """
+
     if is_polynomial_pipeline(model):
         signature = inspect.signature(type(model['linear']))
     else:
@@ -391,30 +423,84 @@ def has_random_state(model):
 
 
 def supports_sample_weight(estimator):
+    """
+    Check if a model supports 'sample_weight'.
+
+    This function inspects the signature of the model's 'fit' method to check if it supports 'sample_weight'.
+
+    Parameters
+    ----------
+    model : object
+        The model to check.
+
+    Returns
+    -------
+    bool
+        True if the model supports 'sample_weight', False otherwise.
+    """
+
     fit_signature = inspect.signature(estimator.fit)
     return 'sample_weight' in fit_signature.parameters
 
 
 def just_one_model_no_params(estimator_list, param_list):
+    """
+    Check if there is only one model and the parameter list is empty.
+
+    This function checks if the length of the model and parameter list is 1 and 0 respectively.
+
+    Parameters
+    ----------
+    estimator_list : list
+        List of models.
+
+    param_list : list
+        List of parameters.
+
+    Returns
+    -------
+    bool
+        True if there is only one model and the parameter list is empty, False otherwise.
+    """
+
     return (len(estimator_list) == 1) and (len(param_list) == 1) and (len(param_list[0]) == 0)
 
 
 def param_grid_is_empty(param_grid):
+    """
+    Check if a parameter grid is empty.
+
+    This function checks if the length of the parameter grid is 0.
+
+    Parameters
+    ----------
+    param_grid : dict
+        Parameter grid to check.
+
+    Returns
+    -------
+    bool
+        True if the parameter grid is empty, False otherwise.
+    """
+
     return len(param_grid) == 0
 
 
 def is_linear_model(estimator):
     """
-    Check whether an estimator is a polynomial regression, logistic regression, linear SVM, or any other type of
-    linear model.
+    Check if a model is a linear model.
+
+    This function checks if a model has 'fit_intercept' and 'coef_' attributes or if it is an instance of LogisticRegression, LinearSVC, or SVC.
 
     Parameters
     ----------
-    estimator (scikit-learn estimator): The estimator to check.
+    model : object
+        The model to check.
 
     Returns
-    ----------
-    is_linear (bool): True if the estimator is a linear model, False otherwise.
+    -------
+    bool
+        True if the model is a linear model, False otherwise.
     """
 
     if isinstance(estimator, Pipeline):
@@ -433,15 +519,19 @@ def is_linear_model(estimator):
 
 def is_data_scaled(X):
     """
-    Check if the input data is already centered and scaled using StandardScaler.
+    Check if input data is scaled.
+
+    This function checks if the input data is scaled by comparing its mean and standard deviation to 0 and 1 respectively.
 
     Parameters
     ----------
-        X array-like of shape (n_samples, n_features): The input data.
+    X : array-like of shape (n_samples, n_features)
+        Input data.
 
     Returns
-    ----------
-        is_scaled (bool): Whether the input data is already centered and scaled using StandardScaler or not.
+    -------
+    bool
+        True if the input data is scaled, False otherwise.
 
     """
     mean = np.mean(X, axis=0)
@@ -453,6 +543,25 @@ def is_data_scaled(X):
 
 
 def is_regressor_or_classifier(model, is_discrete):
+    """
+    Check if a model is a regressor or classifier.
+
+    This function checks if a model is a regressor or classifier depending on the 'is_discrete' parameter.
+
+    Parameters
+    ----------
+    model : object
+        The model to check.
+
+    is_discrete : bool
+        If True, checks if the model is a classifier. If False, checks if the model is a regressor.
+
+    Returns
+    -------
+    bool
+        True if the model matches the type specified by 'is_discrete', False otherwise.
+    """
+
     if is_discrete:
         if is_polynomial_pipeline(model):
             return is_classifier(model[1])
@@ -484,6 +593,22 @@ def scale_pipeline(model):
 
 
 def is_polynomial_pipeline(estimator):
+    """
+    Check if a model is a polynomial pipeline.
+
+    This function checks if a model is a pipeline that includes a PolynomialFeatures step.
+
+    Parameters
+    ----------
+    model : object
+        The model to check.
+
+    Returns
+    -------
+    bool
+        True if the model is a polynomial pipeline, False otherwise.
+    """
+
     if not isinstance(estimator, Pipeline):
         return False
     steps = estimator.steps
@@ -496,6 +621,22 @@ def is_polynomial_pipeline(estimator):
 
 
 def is_likely_multi_task(y):
+    """
+    Check if a target array is likely multi-task.
+
+    This function checks if a target array is likely to be multi-task by checking its shape.
+
+    Parameters
+    ----------
+    y : array-like
+        The target array to check.
+
+    Returns
+    -------
+    bool
+        True if the target array is likely multi-task, False otherwise.
+    """
+
     if len(y.shape) == 2:
         if y.shape[1] > 1:
             return True
@@ -503,6 +644,22 @@ def is_likely_multi_task(y):
 
 
 def can_handle_multitask(model, is_discrete=False):
+    """
+    Check if a model can handle multi-task output.
+
+    This function checks if a model can handle multi-task output by trying to fit and predict on random data.
+
+    Parameters
+    ----------
+    model : object
+        The model to check.
+
+    Returns
+    -------
+    bool
+        True if the model can handle multi-task output, False otherwise.
+    """
+
     X = np.random.rand(10, 3)
     if is_discrete:
         y = np.random.randint(0, 2, (10, 2))
@@ -523,8 +680,31 @@ def can_handle_multitask(model, is_discrete=False):
 
 
 def pipeline_convert_to_multitask(pipeline):
-    steps = list(pipeline.steps)
+    """
+    Convert a pipeline to handle multi-task output if possible.
 
+    This function iterates over the steps in the input pipeline. If a step is a
+    polynomial transformer, it adds the step to the new pipeline as is. If the
+    step is an estimator, it attempts to convert it to handle multi-task output
+    and adds the converted estimator to the new pipeline.
+
+    Parameters
+    ----------
+    pipeline : sklearn.Pipeline
+        The pipeline to convert.
+
+    Returns
+    -------
+    sklearn.Pipeline
+        The converted pipeline.
+
+    Raises
+    ------
+    ValueError
+        If an unknown error occurs when making model multi-task.
+    """
+
+    steps = list(pipeline.steps)
     if isinstance(steps[-1][1], (LogisticRegressionCV)):
         steps[-1] = ('linear', MultiOutputClassifier(steps[-1][1]))
     if isinstance(steps[-1][1], (ElasticNetCV)):
@@ -535,6 +715,25 @@ def pipeline_convert_to_multitask(pipeline):
 
 
 def make_model_multi_task(model, is_discrete):
+    """
+    Convert a model to handle multi-task output if possible.
+
+    This function converts a model to handle multi-task output if possible.
+
+    Parameters
+    ----------
+    model : object
+        The model to convert.
+
+    is_discrete : bool
+        If True, the model is treated as a classifier. If False, the model is treated as a regressor.
+
+    Returns
+    -------
+    object
+        The converted model if possible, raises an error otherwise.
+    """
+
     try:
         if is_discrete:
             if is_polynomial_pipeline(model):
@@ -547,15 +746,30 @@ def make_model_multi_task(model, is_discrete):
                 return pipeline_convert_to_multitask(model)
             else:
                 return MultiOutputRegressor(model)
-    except TypeError as e:
-        raise ValueError(f"An error occurred due to type mismatch: {e}") from e
-    except AttributeError as e:
-        raise ValueError(f"An error occurred due to attribute error: {e}") from e
     except Exception as e:
         raise ValueError("An unknown error occurred when making model multitask.") from e
 
 
 def make_param_multi_task(estimator, param_grid):
+    """
+    Convert the keys in a parameter grid to work with a multi-task model.
+
+    This function converts the keys in a parameter grid to work with a multi-task model by prepending 'estimator__' to each key.
+
+    Parameters
+    ----------
+    estimator : object
+        The estimator the parameter grid is for.
+
+    param_grid : dict
+        The parameter grid to convert.
+
+    Returns
+    -------
+    dict
+        The converted parameter grid.
+    """
+
     if isinstance(estimator, ElasticNetCV):
         return param_grid
     else:

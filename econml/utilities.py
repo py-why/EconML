@@ -955,27 +955,22 @@ def fit_with_groups(model, X, y, groups=None, **kwargs):
     # pdb.set_trace()
     if groups is not None:
         if isinstance(model, SearchEstimatorList):
+            # SearchEstimatorList must be handled different. Each estimator must be changed for CV else the functionality isn't the same
+            # It does have a CV but it does not work if you just change the CV of the SearchEstimatorList
             for estimator in model.complete_estimator_list:
                 if hasattr(estimator, 'cv'):
                     old_cv = estimator.cv
-                    # logic copied from check_cv
                     cv = 5 if old_cv is None else old_cv
                     if isinstance(cv, numbers.Integral):
                         cv = GroupKFold(cv)
-                    # otherwise we will assume the user already set the cv attribute to something
-                    # compatible with splitting with a 'groups' argument
-
-                    # now we have to compute the folds explicitly because some classifiers (like LassoCV)
-                    # don't use the groups when calling split internally
                     splits = list(cv.split(X, y, groups=groups))
                     try:
                         estimator.cv = splits
-                        return estimator.fit(X, y, **kwargs)
-                    finally:
+                    except:
                         estimator.cv = old_cv
         # assume that we should perform nested cross-validation if and only if
         # the model has a 'cv' attribute; this is a somewhat brittle assumption...
-        if hasattr(model, 'cv'):
+        elif hasattr(model, 'cv'):
             old_cv = model.cv
             # logic copied from check_cv
             cv = 5 if old_cv is None else old_cv

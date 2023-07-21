@@ -332,7 +332,10 @@ class SearchEstimatorList(BaseEstimator):
         elif (param_grid_list == None):
             self.param_grid_list = len(self.complete_estimator_list) * [{}]
         else:
-            self.param_grid_list = param_grid_list
+            if isinstance(param_grid_list, dict):
+                self.param_grid_list = [param_grid_list]
+            else:
+                self.param_grid_list = param_grid_list
         self.categorical_indices = categorical_indices
         self.scoring = scoring
         if scoring == None:
@@ -356,9 +359,9 @@ class SearchEstimatorList(BaseEstimator):
         # print(groups)
         # if groups != None:
         #     pdb.set_trace()
-        
-        self._search_list = []
         # pdb.set_trace()
+        self._search_list = []
+
         # Change estimators if multi_task
         if is_likely_multi_task(y):
             for index, estimator in enumerate(self.complete_estimator_list):
@@ -375,7 +378,7 @@ class SearchEstimatorList(BaseEstimator):
                 scaled_X = self.scaler.fit_transform(X)
 
         if just_one_model_no_params(estimator_list=self.complete_estimator_list, param_list=self.param_grid_list):
-            # Just fit the model and return it, no need for Grid search or for loop
+            # Just fit the model and return it, no need for grid search or for loop
             estimator = self.complete_estimator_list[0]
             if self.random_state != None:
                 if has_random_state(model=estimator):

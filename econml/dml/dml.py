@@ -541,7 +541,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         else:
             model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list_y,
                                                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
-        # model_y = clone(self.model_y, safe=False)
+        # if self.model_y == 'auto':
+        #     model_y = WeightedLassoCVWrapper(random_state=self.random_state)
+        # else:
+        #     model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 
@@ -557,14 +560,19 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                 model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
                                               scaling=self.scaling, verbose=self.verbose, cv=self.cv, is_discrete=self.discrete_treatment,
                                               n_jobs=self.n_jobs, random_state=self.random_state)
-            # model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-            # model_t = WeightedLassoCVWrapper(random_state=self.random_state)
+
         else:
             model_t = clone(SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
                                                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, is_discrete=self.discrete_treatment,
                                                 n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
-        # model_t = clone(self.model_t, safe=False)
-
+        # if self.model_t == 'auto':
+        #     if self.discrete_treatment:
+        #         model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+        #                                        random_state=self.random_state)
+        #     else:
+        #         model_t = WeightedLassoCVWrapper(random_state=self.random_state)
+        # else:
+        #     model_t = clone(self.model_t, safe=False)
         return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
                                   self.linear_first_stages, self.discrete_treatment)
 

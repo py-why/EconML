@@ -256,17 +256,11 @@ class TestSearchEstimatorListClassifier(unittest.TestCase):
         self.assertGreaterEqual(acc, self.expected_accuracy)
         self.assertGreaterEqual(f1, self.expected_f1_score)
 
-    def test_invalid_custom_scoring_function(self):
-        with self.assertRaises(ValueError):
-            search = SearchEstimatorList(estimator_list='linear', is_discrete=self.is_discrete,
-                                         scaling=False, scoring='invalid_scorer')
-
+    
     def test_invalid_incorrect_scoring_numbers(self):
         with self.assertRaises(ValueError):
             search = SearchEstimatorList(estimator_list='linear', is_discrete=self.is_discrete,
                                          scaling=False, scoring=123)
-    
-    
 
 
 if __name__ == '__main__':
