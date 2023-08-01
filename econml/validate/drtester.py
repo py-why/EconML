@@ -64,6 +64,8 @@ class DRtester:
 
     The QINI coefficient is then given by:
 
+    .. math::
+
     QINI = \int_0^1 \tau_{QINI}(q) dq
 
     Parameters

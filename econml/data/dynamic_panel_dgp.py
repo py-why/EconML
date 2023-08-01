@@ -135,7 +135,7 @@ def simulate_residuals(ind):
 
 
 def simulate_residuals_all(res_df):
-    res_df_new = res_df.copy(deep=True)
+    res_df_new = res_df.astype(dtype='float64', copy=True, errors='raise')
     for i in range(res_df.shape[1]):
         res_df_new.iloc[:, i] = simulate_residuals(i)
     # demean the new residual again
