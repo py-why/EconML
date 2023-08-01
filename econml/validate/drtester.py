@@ -8,8 +8,8 @@ from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from statsmodels.api import OLS
 from statsmodels.tools import add_constant
 
-from results import CalibrationEvaluationResults, BLPEvaluationResults, QiniEvaluationResults, EvaluationResults
-from utils import calculate_dr_outcomes, calc_qini_coeff
+from .results import CalibrationEvaluationResults, BLPEvaluationResults, QiniEvaluationResults, EvaluationResults
+from .utils import calculate_dr_outcomes, calc_qini_coeff
 
 
 class DRtester:
@@ -112,26 +112,50 @@ class DRtester:
         self.model_propensity = model_propensity
         self.cate = cate
         self.cv = cv
-        self.dr_train = None
-        self.cate_preds_train = None
-        self.cate_preds_val = None
-        self.dr_val = None
-        self.cv_splitter = None
 
     def get_cv_splitter(self, random_state: int = 123):
+        """
+        Generates splitter object for cross-validation.
+        Checks if the cv object passed at initialization is a splitting mechanism or a number of folds and returns
+        appropriately modified object for use in downstream cross-validation.
+
+        Parameters
+        ----------
+        random_state: integer
+            seed for splitter, default is 123
+
+        Returns
+        ------
+        None, but adds attribute 'cv_splitter' containing the constructed splitter object.
+        """
         splitter = check_cv(self.cv, [0], classifier=True)
         if splitter != self.cv and isinstance(splitter, (KFold, StratifiedKFold)):
             splitter.shuffle = True
             splitter.random_state = random_state
         self.cv_splitter = splitter
 
-    def get_cv_splits(self, a, b):
-        if self.cv_splitter is None:
+    def get_cv_splits(self, vars: np.array, T: np.array):
+        """
+        Generates splits for cross-validation, given a set of variables and treatment vector.
+
+        Parameters
+        ----------
+        vars: (n x k) matrix or vector of length n
+            Features used in nuisance models
+        T: vector of length n_val
+            Treatment assignment vector. Control status must be minimum value. It is recommended to have
+            the control status be equal to 0, and all other treatments integers starting at 1.
+
+        Returns
+        ------
+        list of folds of the data, on which to run cross-validation
+        """
+        if not hasattr(self, 'cv_splitter'):
             self.get_cv_splitter()
 
-        all_vars = [var if np.ndim(var) == 2 else var.reshape(-1, 1) for var in [a,b] if var is not None]
+        all_vars = [var if np.ndim(var) == 2 else var.reshape(-1, 1) for var in vars if var is not None]
         to_split = np.hstack(all_vars)
-        folds = self.cv_splitter.split(to_split)
+        folds = self.cv_splitter.split(to_split, T)
 
         return list(folds)
 
@@ -174,7 +198,6 @@ class DRtester:
         (fit_on_train), doubly robust outcome values for the validation set (dr_val), and the DR ATE value (ate_val).
         If training data is provided, also adds attributes for the doubly robust outcomes for the training
         set (dr_train) and the training treatments (Dtrain)
-
         """
 
         self.Dval = Dval
@@ -191,18 +214,18 @@ class DRtester:
         if self.fit_on_train:
             # Get DR outcomes in training sample
             reg_preds_train, prop_preds_train = self.fit_nuisance_cv(Xtrain, Dtrain, ytrain)
-            self.dr_train = calculate_dr_outcomes(Dtrain, ytrain, reg_preds_train, prop_preds_train)
+            self.dr_train_ = calculate_dr_outcomes(Dtrain, ytrain, reg_preds_train, prop_preds_train)
 
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_train(Xtrain, Dtrain, ytrain, Xval)
-            self.dr_val = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+            self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
         else:
             # Get DR outcomes in validation sample
             reg_preds_val, prop_preds_val = self.fit_nuisance_cv(Xval, Dval, yval)
-            self.dr_val = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
+            self.dr_val_ = calculate_dr_outcomes(Dval, yval, reg_preds_val, prop_preds_val)
 
         # Calculate ATE in the validation sample
-        self.ate_val = self.dr_val.mean(axis=0)
+        self.ate_val = self.dr_val_.mean(axis=0)
 
         return self
 
@@ -275,7 +298,7 @@ class DRtester:
         treatment probabilities, respectively.
         """
 
-        splits = self.get_cv_splits(X, D)
+        splits = self.get_cv_splits([X], D)
         prop_preds = cross_val_predict(self.model_propensity, X, D, cv=splits, method='predict_proba')
 
         # Predict outcomes
@@ -292,39 +315,39 @@ class DRtester:
 
     def get_cate_preds(
         self,
-        Zval: np.array,
-        Ztrain: np.array = None
+        Xval: np.array,
+        Xtrain: np.array = None
     ):
 
         """
-        Generates predictions from fitted CATE model. If Ztrain is None, then the predictions are generated using k-folds
-        cross-validation on the validation set. If Ztrain is specified, then the CATE is assumed to have been fitted on
+        Generates predictions from fitted CATE model. If Xtrain is None, then the predictions are generated using k-folds
+        cross-validation on the validation set. If Xtrain is specified, then the CATE is assumed to have been fitted on
         the training sample (where the DR outcomes were generated using k-folds CV), and then applied to the validation sample.
 
         Parameters
         ----------
-        Zval: (n_val x n_treatment) matrix
+        Xval: (n_val x n_treatment) matrix
             Validation set features to be used to predict (and potentially fit) DR outcomes in CATE model
-        Ztrain (n_train x n_treatment) matrix, defaul ``None``
+        Xtrain (n_train x n_treatment) matrix, defaul ``None``
             Training set features used to fit CATE model
 
         Returns
         -------
-        None, but adds attribute cate_preds_val for predicted CATE values on the validation set and, if training
-        data is provided, attribute cate_preds_train for predicted CATE values on the training set
+        None, but adds attribute cate_preds_val_ for predicted CATE values on the validation set and, if training
+        data is provided, attribute cate_preds_train_ for predicted CATE values on the training set
         """
         base = self.treatments[0]
-        vals = [self.cate.effect(Zval, TO=base, T1=t) for t in self.treatments[1:]]
-        self.cate_preds_val = np.stack(vals).T
+        vals = [self.cate.effect(X=Xval, T0=base, T1=t) for t in self.treatments[1:]]
+        self.cate_preds_val_ = np.stack(vals).T
 
-        if Ztrain is not None:
-            trains = [self.cate.effect(Ztrain, TO=base, T1=t) for t in self.treatments[1:]]
-            self.cate_preds_train = np.stack(trains).T
+        if Xtrain is not None:
+            trains = [self.cate.effect(X=Xtrain, T0=base, T1=t) for t in self.treatments[1:]]
+            self.cate_preds_train_ = np.stack(trains).T
 
     def evaluate_cal(
         self,
-        Zval: np.array = None,
-        Ztrain: np.array = None,
+        Xval: np.array = None,
+        Xtrain: np.array = None,
         n_groups: int = 4
     ) -> CalibrationEvaluationResults:
 
@@ -333,12 +356,12 @@ class DRtester:
 
         Parameters
         ----------
-        Zval: (n_cal x n_treatment) matrix, default ``None``
+        Xval: (n_val x n_treatment) matrix, default ``None``
             Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
             implemented
-        Ztrain: (n_train x n_treatment) matrix, default ``None``
+        Xtrain: (n_train x n_treatment) matrix, default ``None``
             Training sample features for CATE model. If not specified, then `fit cate' method must already have been
-            implemented (with Ztrain specified)
+            implemented (with Xtrain specified)
         n_groups: integer, default 4
             Number of quantile-based groups used to calculate calibration score.
 
@@ -346,19 +369,19 @@ class DRtester:
         -------
         CalibrationEvaluationResults object showing the results of the calibration test
         """
-        if self.dr_train is None:
+        if not hasattr(self, 'dr_train_'):
             raise Exception("Must fit nuisance models on training sample data to use calibration test")
 
         # if CATE is given explicitly or has not been fitted at all previously, fit it now
-        if (self.cate_preds_train is None) or (self.cate_preds_val is None):
-            if (Zval is None) or (Ztrain is None):
-                raise Exception('CATE not fitted on training data - must provide both Zval, Ztrain')
-            self.get_cate_preds(Zval, Ztrain)
+        if (not hasattr(self, 'cate_preds_train_')) or (not hasattr(self, 'cate_preds_val_')):
+            if (Xval is None) or (Xtrain is None):
+                raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
+            self.get_cate_preds(Xval, Xtrain)
 
         cal_r_squared = np.zeros(self.n_treat)
         df_plot = pd.DataFrame()
         for k in range(self.n_treat):
-            cuts = np.quantile(self.cate_preds_train[:, k], np.linspace(0, 1, n_groups + 1))
+            cuts = np.quantile(self.cate_preds_train_[:, k], np.linspace(0, 1, n_groups + 1))
             probs = np.zeros(n_groups)
             g_cate = np.zeros(n_groups)
             se_g_cate = np.zeros(n_groups)
@@ -366,15 +389,15 @@ class DRtester:
             se_gate = np.zeros(n_groups)
             for i in range(n_groups):
                 # Assign units in validation set to groups
-                ind = (self.cate_preds_val[:, k] >= cuts[i]) & (self.cate_preds_val[:, k] <= cuts[i + 1])
+                ind = (self.cate_preds_val_[:, k] >= cuts[i]) & (self.cate_preds_val_[:, k] <= cuts[i + 1])
                 # Proportion of validations set in group
                 probs[i] = np.mean(ind)
                 # Group average treatment effect (GATE) -- average of DR outcomes in group
-                gate[i] = np.mean(self.dr_val[ind, k])
-                se_gate[i] = np.std(self.dr_val[ind, k]) / np.sqrt(np.sum(ind))
+                gate[i] = np.mean(self.dr_val_[ind, k])
+                se_gate[i] = np.std(self.dr_val_[ind, k]) / np.sqrt(np.sum(ind))
                 # Average of CATE predictions in group
-                g_cate[i] = np.mean(self.cate_preds_val[ind, k])
-                se_g_cate[i] = np.std(self.cate_preds_val[ind, k]) / np.sqrt(np.sum(ind))
+                g_cate[i] = np.mean(self.cate_preds_val_[ind, k])
+                se_g_cate[i] = np.std(self.cate_preds_val_[ind, k]) / np.sqrt(np.sum(ind))
 
             # Calculate group calibration score
             cal_score_g = np.sum(abs(gate - g_cate) * probs)
@@ -399,8 +422,8 @@ class DRtester:
 
     def evaluate_blp(
         self,
-        Zval: np.array = None,
-        Ztrain: np.array = None
+        Xval: np.array = None,
+        Xtrain: np.array = None
     ) -> BLPEvaluationResults:
         """
         Implements the best linear predictor (BLP) test as in [Chernozhukov2022]. `fit_nusiance' method must already
@@ -408,12 +431,12 @@ class DRtester:
 
         Parameters
         ----------
-        Zval: (n_val x k) matrix, default ``None''
+        Xval: (n_val x k) matrix, default ``None''
             Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
             implemented
-        Ztrain: (n_train x k) matrix, default ``None''
+        Xtrain: (n_train x k) matrix, default ``None''
             Training sample features for CATE model. If specified, then CATE is fitted on training sample and applied
-            to Zval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
+            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
             vice-versa)
 
         Returns
@@ -421,17 +444,17 @@ class DRtester:
         BLPEvaluationResults object showing the results of the BLP test
         """
 
-        if self.dr_val is None:
+        if not hasattr(self, 'dr_val_'):
             raise Exception("Must fit nuisances before evaluating")
 
         # if CATE is given explicitly or has not been fitted at all previously, fit it now
-        if self.cate_preds_val is None:
-            if Zval is None:  # need at least Zval
-                raise Exception('CATE predictions not yet calculated - must provide Zval')
-            self.get_cate_preds(Zval, Ztrain)
+        if not hasattr(self, 'cate_preds_val_'):
+            if Xval is None:  # need at least Xval
+                raise Exception('CATE predictions not yet calculated - must provide Xval')
+            self.get_cate_preds(Xval, Xtrain)
 
         if self.n_treat == 1:  # binary treatment
-            reg = OLS(self.dr_val, add_constant(self.cate_preds_val)).fit()
+            reg = OLS(self.dr_val_, add_constant(self.cate_preds_val_)).fit()
             params = [reg.params[1]]
             errs = [reg.bse[1]]
             pvals = [reg.pvalues[1]]
@@ -440,7 +463,7 @@ class DRtester:
             errs = []
             pvals = []
             for k in range(self.n_treat):  # run a separate regression for each
-                reg = OLS(self.dr_val[:, k], add_constant(self.cate_preds_val[:, k])).fit(cov_type='HC1')
+                reg = OLS(self.dr_val_[:, k], add_constant(self.cate_preds_val_[:, k])).fit(cov_type='HC1')
                 params.append(reg.params[1])
                 errs.append(reg.bse[1])
                 pvals.append(reg.pvalues[1])
@@ -456,8 +479,8 @@ class DRtester:
 
     def evaluate_qini(
         self,
-        Zval: np.array = None,
-        Ztrain: np.array = None,
+        Xval: np.array = None,
+        Xtrain: np.array = None,
         percentiles: np.array = np.linspace(5, 95, 50)
     ) -> QiniEvaluationResults:
 
@@ -470,12 +493,12 @@ class DRtester:
 
         Parameters
         ----------
-        Zval: (n_val x k) matrix, default ``None''
+        Xval: (n_val x k) matrix, default ``None''
             Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
             implemented
-        Ztrain: (n_train x k) matrix, default ``None''
+        Xtrain: (n_train x k) matrix, default ``None''
             Training sample features for CATE model. If specified, then CATE is fitted on training sample and applied
-            to Zval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
+            to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
             vice-versa)
         percentiles: one-dimensional array, default ``np.linspace(5, 95, 50)''
             Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of 5%.
@@ -484,20 +507,19 @@ class DRtester:
         -------
         QiniEvaluationResults object showing the results of the QINI fit
         """
-        if self.dr_val is None:
+        if not hasattr(self, 'dr_val_'):
             raise Exception("Must fit nuisances before evaluating")
 
-        # if CATE is given explicitly or has not been fitted at all previously, fit it now
-        if (self.cate_preds_train is None) or (self.cate_preds_val is None):
-            if (Zval is None) or (Ztrain is None):
-                raise Exception('CATE predictions not yet calculated - must provide CATE model and both Zval, Ztrain')
-            self.get_cate_preds(Zval, Ztrain)
+        if (not hasattr(self, 'cate_preds_train_')) or (not hasattr(self, 'cate_preds_val_')):
+            if (Xval is None) or (Xtrain is None):
+                raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
+            self.get_cate_preds(Xval, Xtrain)
 
         if self.n_treat == 1:
             qini, qini_err = calc_qini_coeff(
-                self.cate_preds_train,
-                self.cate_preds_val,
-                self.dr_val,
+                self.cate_preds_train_,
+                self.cate_preds_val_,
+                self.dr_val_,
                 percentiles
             )
             qinis = [qini]
@@ -507,9 +529,9 @@ class DRtester:
             errs = []
             for k in range(self.n_treat):
                 qini, qini_err = calc_qini_coeff(
-                    self.cate_preds_train[:, k],
-                    self.cate_preds_val[:, k],
-                    self.dr_val[:, k],
+                    self.cate_preds_train_[:, k],
+                    self.cate_preds_val_[:, k],
+                    self.dr_val_[:, k],
                     percentiles
                 )
 
@@ -529,8 +551,8 @@ class DRtester:
 
     def evaluate_all(
         self,
-        Zval: np.array = None,
-        Ztrain: np.array = None,
+        Xval: np.array = None,
+        Xtrain: np.array = None,
         n_groups: int = 4
     ) -> EvaluationResults:
         """
@@ -539,10 +561,10 @@ class DRtester:
 
         Parameters
         ----------
-        Zval: (n_cal x k) matrix, default ``None''
+        Xval: (n_cal x k) matrix, default ``None''
             Validation sample features for CATE model. If not specified, then `fit_cate' method must already have been
             implemented
-        Ztrain: (n_train x k) matrix, default ``None''
+        Xtrain: (n_train x k) matrix, default ``None''
             Training sample features for CATE model. If not specified, then `fit_cate' method must already have been
             implemented
 
@@ -551,11 +573,10 @@ class DRtester:
         EvaluationResults object summarizing the results of all tests
         """
 
-        # if CATE is given explicitly or has not been fitted at all previously, fit it now
-        if (self.cate_preds_val is None) or (self.cate_preds_train is None):
-            if (Zval is None) or (Ztrain is None):
-                raise Exception('CATE predictions not yet calculated - must provide both Zval, Ztrain')
-            self.get_cate_preds(Zval, Ztrain)
+        if (not hasattr(self, 'cate_preds_train_')) or (not hasattr(self, 'cate_preds_val_')):
+            if (Xval is None) or (Xtrain is None):
+                raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
+            self.get_cate_preds(Xval, Xtrain)
 
         blp_res = self.evaluate_blp()
         cal_res = self.evaluate_cal(n_groups=n_groups)

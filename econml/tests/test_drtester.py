@@ -5,7 +5,9 @@ import pandas as pd
 import scipy.stats as st
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 
-from econml.validate import DRtester
+from econml.validate.drtester import DRtester
+from econml.dml import DML
+
 
 class TestDRTester(unittest.TestCase):
 
@@ -57,15 +59,24 @@ class TestDRTester(unittest.TestCase):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=2)
 
         # Simple classifier and regressor for propensity, outcome, and cate
-        reg_t = RandomForestClassifier()
-        reg_y = GradientBoostingRegressor()
-        reg_cate = GradientBoostingRegressor()
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y
+        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(reg_y, reg_t).fit_nuisance(
+        my_dr_tester = DRtester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
         )
-        dr_outcomes = my_dr_tester.dr_val
+        dr_outcomes = my_dr_tester.dr_val_
 
         ates = dr_outcomes.mean(axis=0)
         for k in range(dr_outcomes.shape[1]):
@@ -74,42 +85,47 @@ class TestDRTester(unittest.TestCase):
 
             self.assertLess(abs(ates[k] - (k + 1)), 2 * ate_errs)
 
-        Ztrain = Xtrain[:, 1]
-        Zval = Xval[:, 1]
-
-        my_dr_tester.fit_cate(reg_cate, Zval, Ztrain)
-
-        my_dr_tester = my_dr_tester.evaluate_all()
+        res = my_dr_tester.evaluate_all(Xval, Xtrain)
+        res_df = res.summary()
 
         for k in range(3):
             if k == 0:
                 with self.assertRaises(Exception) as exc:
-                    my_dr_tester.plot_cal(k)
+                    res.plot_cal(k)
                 self.assertTrue(str(exc.exception) == 'Plotting only supported for treated units (not controls)')
             else:
-                self.assertTrue(my_dr_tester.plot_cal(k) is not None)
+                self.assertTrue(res.plot_cal(k) is not None)
 
-        self.assertGreater(my_dr_tester.df_res.blp_pval.values[0], 0.1)  # no heterogeneity
-        self.assertLess(my_dr_tester.df_res.blp_pval.values[1], 0.05)  # heterogeneity
+        self.assertGreater(res_df.blp_pval.values[0], 0.1)  # no heterogeneity
+        self.assertLess(res_df.blp_pval.values[1], 0.05)  # heterogeneity
 
-        self.assertLess(my_dr_tester.df_res.cal_r_squared.values[0], 0.2)  # poor R2
-        self.assertGreater(my_dr_tester.df_res.cal_r_squared.values[1], 0.5)  # good R2
+        self.assertLess(res_df.cal_r_squared.values[0], 0)  # poor R2
+        self.assertGreater(res_df.cal_r_squared.values[1], 0)  # good R2
 
-        self.assertLess(my_dr_tester.df_res.qini_pval.values[1], my_dr_tester.df_res.qini_pval.values[0])
+        self.assertLess(res_df.qini_pval.values[1], res_df.qini_pval.values[0])
 
     def test_binary(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
 
         # Simple classifier and regressor for propensity, outcome, and cate
-        reg_t = RandomForestClassifier()
-        reg_y = GradientBoostingRegressor()
-        reg_cate = GradientBoostingRegressor()
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y
+        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(reg_y, reg_t).fit_nuisance(
+        my_dr_tester = DRtester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
         )
-        dr_outcomes = my_dr_tester.dr_val
+        dr_outcomes = my_dr_tester.dr_val_
 
         ate = dr_outcomes.mean(axis=0)
         ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() / \
@@ -117,35 +133,42 @@ class TestDRTester(unittest.TestCase):
         truth = 1
         self.assertLess(abs(ate - truth), 2 * ate_err)
 
-        Ztrain = Xtrain[:, 1]
-        Zval = Xval[:, 1]
-
-        my_dr_tester = my_dr_tester.evaluate_all(reg_cate, Zval, Ztrain)
+        res = my_dr_tester.evaluate_all(Xval, Xtrain)
+        res_df = res.summary()
 
         for k in range(2):
             if k == 0:
                 with self.assertRaises(Exception) as exc:
-                    my_dr_tester.plot_cal(k)
+                    res.plot_cal(k)
                 self.assertTrue(str(exc.exception) == 'Plotting only supported for treated units (not controls)')
             else:
-                self.assertTrue(my_dr_tester.plot_cal(k) is not None)
-        self.assertLess(my_dr_tester.df_res.blp_pval.values[0], 0.05)  # heterogeneity
-        self.assertGreater(my_dr_tester.df_res.cal_r_squared.values[0], 0.5)  # good R2
-        self.assertLess(my_dr_tester.df_res.qini_pval.values[0], 0.05)  # heterogeneity
+                self.assertTrue(res.plot_cal(k) is not None)
+
+        self.assertLess(res_df.blp_pval.values[0], 0.05)  # heterogeneity
+        self.assertGreater(res_df.cal_r_squared.values[0], 0)  # good R2
+        self.assertLess(res_df.qini_pval.values[0], 0.05)  # heterogeneity
 
     def test_nuisance_val_fit(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
 
         # Simple classifier and regressor for propensity, outcome, and cate
-        reg_t = RandomForestClassifier()
-        reg_y = GradientBoostingRegressor()
-        reg_cate = GradientBoostingRegressor()
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
+
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y
+        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
-        my_dr_tester = DRtester(reg_y, reg_t).fit_nuisance(
-            Xval, Dval, Yval
-        )
-        dr_outcomes = my_dr_tester.dr_val
+        my_dr_tester = DRtester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(Xval, Dval, Yval)
+
+        dr_outcomes = my_dr_tester.dr_val_
 
         ate = dr_outcomes.mean(axis=0)
         ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() / \
@@ -153,116 +176,87 @@ class TestDRTester(unittest.TestCase):
         truth = 1
         self.assertLess(abs(ate - truth), 2 * ate_err)
 
-        Zval = Xval[:, 1]
-        Ztrain = Xtrain[:, 1]
-
-        with self.assertRaises(Exception) as exc:
-            my_dr_tester.fit_cate(reg_cate, Zval, Ztrain)
-        self.assertTrue(
-            str(exc.exception) == "Nuisance models cross-fit on validation sample but Ztrain is specified"
-        )
-
         # use evaluate_blp to fit on validation only
-        my_dr_tester = my_dr_tester.evaluate_blp(reg_cate, Zval)
+        blp_res = my_dr_tester.evaluate_blp(Xval)
 
-        self.assertLess(my_dr_tester.blp_res.blp_pval.values[0], 0.05)  # heterogeneity
+        self.assertLess(blp_res.pvals[0], 0.05)  # heterogeneity
 
-        for func in [my_dr_tester.evaluate_cal, my_dr_tester.evaluate_qini, my_dr_tester.evaluate_all]:
-            for kwargs in [{}, {'reg_cate': reg_cate}, {'Zval': Zval}, {'reg_cate': reg_cate, 'Zval': Zval}]:
-                with self.assertRaises(Exception) as exc:
-                    func(kwargs)
-                if func.__name__ == 'evaluate_cal':
-                    self.assertTrue(
-                        str(exc.exception) == "Must fit nuisance models on training sample data to use calibration test"
-                    )
-                else:
-                    self.assertTrue(
-                        str(exc.exception) == "CATE not fitted on training data - must provide CATE model and both Zval, Ztrain"
-                    )
-
-        # Test that
-
-
-
-    def test_unfitted_cate(self):
-        # Testing that fitting the cate model in the evaluate step works
-
-        Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=2)
-
-        # Simple classifier and regressor for propensity, outcome, and cate
-        reg_t = RandomForestClassifier()
-        reg_y = GradientBoostingRegressor()
-        reg_cate = GradientBoostingRegressor()
-
-        # Calibration
-        my_dr_tester = DRtester(reg_y, reg_t).fit_nuisance(
-            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
-        )
-        Ztrain = Xtrain[:, 1]
-        Zval = Xval[:, 1]
-        my_dr_tester = my_dr_tester.evaluate_cal(reg_cate, Zval, Ztrain)
-        self.assertTrue(my_dr_tester.cal_r_squared is not None)
-
-        # QINI
-        my_dr_tester = DRtester(reg_y, reg_t).fit_nuisance(
-            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
-        )
-        my_dr_tester = my_dr_tester.evaluate_qini(reg_cate, Zval, Ztrain)
-        self.assertTrue(my_dr_tester.qini_res['qini_pval'][0] is not None)
-
-
-    def test_cate_val_fit(self):
-        Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
-
-        # Simple classifier and regressor for propensity, outcome, and cate
-        reg_t = RandomForestClassifier()
-        reg_y = GradientBoostingRegressor()
-        reg_cate = GradientBoostingRegressor()
-
-        # test the DR outcome difference
-        my_dr_tester = DRtester(reg_y, reg_t).fit_nuisance(
-            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
-        )
-
-        Zval = Xval[:, 1]
-
-        with self.assertRaises(Exception) as exc:
-            my_dr_tester.fit_cate(reg_cate, Zval)
-        self.assertTrue(str(exc.exception) == 'Nuisance models fit on training sample but Ztrain not specified')
+        for kwargs in [{}, {'Xval': Xval}]:
+            with self.assertRaises(Exception) as exc:
+                my_dr_tester.evaluate_cal(kwargs)
+            self.assertTrue(
+                str(exc.exception) == "Must fit nuisance models on training sample data to use calibration test"
+            )
 
     def test_exceptions(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
 
-        reg_cate = GradientBoostingRegressor()
-        reg_t = RandomForestClassifier()
-        reg_y = GradientBoostingRegressor()
+        # Simple classifier and regressor for propensity, outcome, and cate
+        reg_t = RandomForestClassifier(random_state=0)
+        reg_y = GradientBoostingRegressor(random_state=0)
 
-        my_dr_tester = DRtester(reg_y, reg_t)
+        cate = DML(
+            model_y=reg_y,
+            model_t=reg_t,
+            model_final=reg_y
+        ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
+
+        # test the DR outcome difference
+        my_dr_tester = DRtester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        )
 
         # fit nothing
         for func in [my_dr_tester.evaluate_blp, my_dr_tester.evaluate_cal, my_dr_tester.evaluate_qini]:
-            for kwargs in [{}, {'reg_cate': reg_cate}]:
-                with self.assertRaises(Exception) as exc:
-                    func(kwargs)
-                if func.__name__ == 'evaluate_cal':
-                    self.assertTrue(
-                        str(exc.exception) == "Must fit nuisance models on training sample data to use calibration test"
-                    )
-                else:
-                    self.assertTrue(str(exc.exception) == "Must fit nuisances before evaluating")
+            with self.assertRaises(Exception) as exc:
+                func()
+            if func.__name__ == 'evaluate_cal':
+                self.assertTrue(
+                    str(exc.exception) == "Must fit nuisance models on training sample data to use calibration test"
+                )
+            else:
+                self.assertTrue(str(exc.exception) == "Must fit nuisances before evaluating")
 
         my_dr_tester = my_dr_tester.fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
         )
 
-        # fit nuisances, but not CATE
-        for func in [my_dr_tester.evaluate_blp, my_dr_tester.evaluate_cal, my_dr_tester.evaluate_qini]:
-            for kwargs in [{}, {'reg_cate': reg_cate}, {'Zval': Xval[:, 1]}]:
-                with self.assertRaises(Exception) as exc:
-                    func(kwargs)
-                if func.__name__ in ['evaluate_cal', 'evaluate_qini']:
-                    self.assertTrue(
-                        str(exc.exception) == 'CATE not fitted on training data - must provide CATE model and both Zval, Ztrain'
-                    )
-                else:
-                    self.assertTrue(str(exc.exception) == "CATE not yet fitted - must provide Zval and CATE estimator")
+        for func in [
+            my_dr_tester.evaluate_blp,
+            my_dr_tester.evaluate_cal,
+            my_dr_tester.evaluate_qini,
+            my_dr_tester.evaluate_all
+        ]:
+            with self.assertRaises(Exception) as exc:
+                func()
+            if func.__name__ == 'evaluate_blp':
+                self.assertTrue(
+                    str(exc.exception) == "CATE predictions not yet calculated - must provide Xval"
+                )
+            else:
+                self.assertTrue(str(exc.exception) == "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+
+        for func in [
+            my_dr_tester.evaluate_cal,
+            my_dr_tester.evaluate_qini,
+            my_dr_tester.evaluate_all
+        ]:
+            with self.assertRaises(Exception) as exc:
+                func(Xval=Xval)
+            self.assertTrue(
+                str(exc.exception) == "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+
+        cal_res = my_dr_tester.evaluate_cal(Xval, Xtrain)
+        self.assertGreater(cal_res.cal_r_squared[0], 0)  # good R2
+
+        my_dr_tester = DRtester(
+            model_regression=reg_y,
+            model_propensity=reg_t,
+            cate=cate
+        ).fit_nuisance(
+            Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
+        )
+        qini_res = my_dr_tester.evaluate_qini(Xval, Xtrain)
+        self.assertLess(qini_res.pvals[0], 0.05)
