@@ -110,7 +110,7 @@ class _ModelFinal:
         effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
         if sample_weight is not None:
-            return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
+            return np.mean(np.average((Y_res - Y_res_pred) ** 2, weights=sample_weight, axis=0))
         else:
             return np.mean((Y_res - Y_res_pred) ** 2)
 
@@ -272,7 +272,7 @@ class _RLearner(_OrthoLearner):
     """
 
     def __init__(self, *, discrete_treatment, treatment_featurizer, categories,
-                 cv, random_state, mc_iters=None, mc_agg='mean'):
+                 cv, random_state, mc_iters=None, mc_agg='mean', use_ray=False, **ray_remote_func_options):
         super().__init__(discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter
@@ -280,7 +280,9 @@ class _RLearner(_OrthoLearner):
                          cv=cv,
                          random_state=random_state,
                          mc_iters=mc_iters,
-                         mc_agg=mc_agg)
+                         mc_agg=mc_agg,
+                         use_ray=use_ray,
+                         **ray_remote_func_options)
 
     @abstractmethod
     def _gen_model_y(self):
