@@ -466,7 +466,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 use_ray=False,
+                 **ray_remote_func_options
+                 ):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
@@ -481,7 +484,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         use_ray=use_ray,
+                         **ray_remote_func_options
+                         )
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
