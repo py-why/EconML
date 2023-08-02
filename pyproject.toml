@@ -59,7 +59,7 @@ plt = [
     "matplotlib < 3.6.0"
 ]
 dowhy = [
-    "dowhy < 0.9"
+    "dowhy < 0.11"
 ]
 all = [
     # Disabled due to incompatibility with scikit-learn
@@ -75,7 +75,7 @@ all = [
     "graphviz",
     # Version capped due to shap incompatibility
     "matplotlib < 3.6.0",
-    "dowhy < 0.9"
+    "dowhy < 0.11"
 ]
 
 [build-system]
