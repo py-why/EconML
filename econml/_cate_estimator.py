@@ -11,8 +11,8 @@ from warnings import warn
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params, get_feature_names_or_default,
                         inverse_onehot, Summary, get_input_columns, check_input_arrays, jacify_featurizer)
-from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
-    LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference, \
+    LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference, \
     GenericModelFinalInferenceDiscrete
 from ._shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
 from .dowhy import DoWhyWrapper
