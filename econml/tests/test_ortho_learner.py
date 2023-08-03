@@ -38,10 +38,10 @@ class TestOrthoLearner(unittest.TestCase):
         y = X[:, 0] + np.random.normal(size=(5000,))
         folds = list(KFold(2).split(X, y))
         model = Lasso(alpha=0.01)
-        ray_remote_function_option = {"num_cpus":1}
+        ray_remote_function_option = {"num_cpus": 1}
 
-        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),False,
-                                                              folds,ray_remote_function_option,
+        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), False,
+                                                              folds, ray_remote_function_option,
                                                               X, y, y, Z=None)
         np.testing.assert_allclose(nuisance[0][folds[0][1]],
                                    model.fit(X[folds[0][0]], y[folds[0][0]]).predict(X[folds[0][1]]))
@@ -61,8 +61,8 @@ class TestOrthoLearner(unittest.TestCase):
         y = X[:, 0] + np.random.normal(size=(5000,))
         folds = list(KFold(2).split(X, y))
         model = Lasso(alpha=0.01)
-        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),False,
-                                                              folds,ray_remote_function_option,
+        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), False,
+                                                              folds, ray_remote_function_option,
                                                               X, y, y, Z=None)
         np.testing.assert_allclose(nuisance[0][folds[0][1]],
                                    model.fit(X[folds[0][0]], y[folds[0][0]]).predict(X[folds[0][1]]))
@@ -83,8 +83,8 @@ class TestOrthoLearner(unittest.TestCase):
         folds = list(KFold(2).split(X, y))
         model = Lasso(alpha=0.01)
         use_ray = True
-        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),True,
-                                                              folds,ray_remote_function_option,
+        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), True,
+                                                              folds, ray_remote_function_option,
                                                               X, y, y, Z=None)
         np.testing.assert_allclose(nuisance[0][folds[0][1]],
                                    model.fit(X[folds[0][0]], y[folds[0][0]]).predict(X[folds[0][1]]))
@@ -118,8 +118,8 @@ class TestOrthoLearner(unittest.TestCase):
                  (np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
         model = Lasso(alpha=0.01)
         with pytest.raises(AttributeError) as e_info:
-            nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),True,
-                                                                  folds,ray_remote_function_option,
+            nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), True,
+                                                                  folds, ray_remote_function_option,
                                                                   X, y, y, Z=None)
 
         np.random.seed(123)
@@ -129,8 +129,8 @@ class TestOrthoLearner(unittest.TestCase):
                  (np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
         model = Lasso(alpha=0.01)
         with pytest.raises(AttributeError) as e_info:
-            nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),False,
-                                                                  folds,ray_remote_function_option,
+            nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), False,
+                                                                  folds, ray_remote_function_option,
                                                                   X, y, y, Z=None)
 
         np.random.seed(123)
@@ -139,8 +139,8 @@ class TestOrthoLearner(unittest.TestCase):
         folds = [(np.arange(X.shape[0]), np.arange(X.shape[0]))]
         model = Lasso(alpha=0.01)
         with pytest.raises(AttributeError) as e_info:
-            nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),True,
-                                                                  folds,ray_remote_function_option,
+            nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), True,
+                                                                  folds, ray_remote_function_option,
                                                                   X, y, y, Z=None)
 
         np.random.seed(123)
@@ -149,8 +149,8 @@ class TestOrthoLearner(unittest.TestCase):
         folds = [(np.arange(X.shape[0]), np.arange(X.shape[0]))]
         model = Lasso(alpha=0.01)
         with pytest.raises(AttributeError) as e_info:
-            nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),False,
-                                                                  folds,ray_remote_function_option,
+            nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), False,
+                                                                  folds, ray_remote_function_option,
                                                                   X, y, y, Z=None)
 
     def test_crossfit_comparison(self):
@@ -236,9 +236,10 @@ class TestOrthoLearner(unittest.TestCase):
         X = np.random.normal(size=(10000, 3))
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
-        ray_remote_function_option = {"num_cpus":1}
+        ray_remote_function_option = {"num_cpus": 1}
         est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None,
-                           discrete_instrument=False, categories='auto', random_state=None, use_ray=False,**ray_remote_function_option)
+                           discrete_instrument=False, categories='auto', random_state=None, use_ray=False,
+                           **ray_remote_function_option)
         est.fit(y, X[:, 0], W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=3)
@@ -287,9 +288,10 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         folds = [(np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
-        est = OrthoLearner(cv=folds, discrete_treatment=False, treatment_featurizer=None,
-                           discrete_instrument=False, categories='auto', random_state=None, use_ray=False
-                           , **ray_remote_function_option)
+        est = OrthoLearner(cv=KFold(n_splits=3),
+                           discrete_treatment=False, treatment_featurizer=None, discrete_instrument=False,
+                           categories='auto', random_state=None, use_ray=False, **ray_remote_function_option)
+
         est.fit(y, X[:, 0], X=None, W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=2)
         np.testing.assert_array_almost_equal(est.effect(), np.ones(1), decimal=2)
