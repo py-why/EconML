@@ -9,6 +9,7 @@ from scipy.stats import norm
 from collections import OrderedDict
 import pandas as pd
 
+from ..utilities import convertArg
 
 class BootstrapEstimator:
     """Estimator that uses bootstrap sampling to wrap an existing estimator.
@@ -39,6 +40,10 @@ class BootstrapEstimator:
     n_jobs: int, default: None
         The maximum number of concurrently running jobs, as in joblib.Parallel.
 
+    only_final : bool, default True
+        Whether to bootstrap only the final model, for estimators that do cross-fitting.
+        Ignored for estimators where this does not apply.
+
     verbose: int, default: 0
         Verbosity level
 
@@ -56,12 +61,16 @@ class BootstrapEstimator:
     def __init__(self, wrapped,
                  n_bootstrap_samples=100,
                  n_jobs=None,
+                 only_final=True,
                  verbose=0,
                  compute_means=True,
                  bootstrap_type='pivot'):
+        if not hasattr(wrapped, "_gen_ortho_learner_model_final"):
+            only_final = False
         self._instances = [clone(wrapped, safe=False) for _ in range(n_bootstrap_samples)]
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
+        self._only_final = only_final
         self._verbose = verbose
         self._compute_means = compute_means
         self._bootstrap_type = bootstrap_type
@@ -79,51 +88,69 @@ class BootstrapEstimator:
             indices.append(ind)
         return indices
 
+    def _compute_subsets(self, *args, **named_args):
+        from .._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
+        from ..panel.dml import DynamicDML
+
+        index_chunks = None
+        indices = [] 
+        if isinstance(self._wrapped, BaseCateEstimator):
+            index_chunks = self._instances[0]._strata(*args, **named_args)
+            if (index_chunks is not None):
+                index_chunks = self.__stratified_indices(index_chunks)
+        if index_chunks is None:
+            n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
+            index_chunks = [np.arange(n_samples)]  # one chunk with all indices
+        # For DynamicDML only
+        # Take n_bootstrap sets of samples of length n_panels among arange(n_panels) and then each sample corresponds with the chunk
+        if isinstance(self._wrapped, DynamicDML):
+            n_index_chunks = len(index_chunks)
+            bootstrapped_chunk_indices = np.random.choice(n_index_chunks, 
+                                                          size=(self._n_bootstrap_samples, n_index_chunks),
+                                                          replace=True)
+            for i in range(self._n_bootstrap_samples):
+                samples = bootstrapped_chunk_indices[i]
+                sample_chunk_indices = [index_chunks[j] for j in samples]
+                indices_sample = np.hstack(sample_chunk_indices)
+                indices.append(indices_sample)
+            indices = np.array(indices)
+        else:
+            for chunk in index_chunks:
+                n_samples = len(chunk)
+                sample = chunk[np.random.choice(n_samples,
+                                                      size=(self._n_bootstrap_samples, n_samples),
+                                                      replace=True)]
+                indices.append(sample)
+            indices = np.hstack(indices)
+        return indices
+    
     def fit(self, *args, **named_args):
         """
         Fit the model.
 
         The full signature of this method is the same as that of the wrapped object's `fit` method.
         """
-        from .._cate_estimator import BaseCateEstimator  # need to nest this here to avoid circular import
 
-        index_chunks = None
-        if isinstance(self._instances[0], BaseCateEstimator):
-            index_chunks = self._instances[0]._strata(*args, **named_args)
-            if index_chunks is not None:
-                index_chunks = self.__stratified_indices(index_chunks)
-        if index_chunks is None:
-            n_samples = np.shape(args[0] if args else named_args[(*named_args,)[0]])[0]
-            index_chunks = [np.arange(n_samples)]  # one chunk with all indices
-
-        indices = []
-        for chunk in index_chunks:
-            n_samples = len(chunk)
-            indices.append(chunk[np.random.choice(n_samples,
-                                                  size=(self._n_bootstrap_samples, n_samples),
-                                                  replace=True)])
-
-        indices = np.hstack(indices)
-
+        if self._only_final:
+            self._wrapped._gen_cloned_ortho_learner_model_finals(self._n_bootstrap_samples)
+            
         def fit(x, *args, **kwargs):
             x.fit(*args, **kwargs)
             return x  # Explicitly return x in case fit fails to return its target
 
-        def convertArg(arg, inds):
-            if arg is None:
-                return None
-            arr = np.asarray(arg)
-            if arr.ndim > 0:
-                return arr[inds]
-            else:  # arg was a scalar, so we shouldn't have converted it
-                return arg
-
-        self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-            delayed(fit)(obj,
-                         *[convertArg(arg, inds) for arg in args],
-                         **{arg: convertArg(named_args[arg], inds) for arg in named_args})
-            for obj, inds in zip(self._instances, indices)
-        )
+        indices = self._compute_subsets(*args, **named_args)
+        
+        if not self._only_final:
+            self._instances = Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
+                delayed(fit)(obj,
+                            *[convertArg(arg, inds) for arg in args],
+                            **{arg: convertArg(named_args[arg], inds) for arg in named_args})
+                for obj, inds in zip(self._instances, indices)
+            )
+        else:
+            self._wrapped._set_bootstrap_params(indices, self._n_bootstrap_samples, self._verbose)
+            self._wrapped.fit(*args, **named_args)
+            self._instances = [clone(self._wrapped, safe=False)]
         return self
 
     def __getattr__(self, name):
@@ -139,8 +166,16 @@ class BootstrapEstimator:
 
         def proxy(make_call, name, summary):
             def summarize_with(f):
-                results = np.array(Parallel(n_jobs=self._n_jobs, prefer='threads', verbose=self._verbose)(
-                    (f, (obj, name), {}) for obj in self._instances)), f(self._wrapped, name)
+                instance_results = []
+                obj = clone(self._wrapped, safe=False)
+                for i in range(self._n_bootstrap_samples):
+                    if self._only_final:
+                        obj._set_current_cloned_ortho_learner_model_final(i)
+                    else:
+                        obj = self._instances[i]
+                    instance_results.append(f(obj, name))
+                instance_results = np.array(instance_results)
+                results = instance_results, f(self._wrapped, name)
                 return summary(*results)
             if make_call:
                 def call(*args, **kwargs):
@@ -151,11 +186,11 @@ class BootstrapEstimator:
 
         def get_mean():
             # for attributes that exist on the wrapped object, just compute the mean of the wrapped calls
-            return proxy(callable(getattr(self._instances[0], name)), name, lambda arr, _: np.mean(arr, axis=0))
+            return proxy(callable(getattr(self._wrapped, name)), name, lambda arr, _: np.mean(arr, axis=0))
 
         def get_std():
             prefix = name[: - len('_std')]
-            return proxy(callable(getattr(self._instances[0], prefix)), prefix,
+            return proxy(callable(getattr(self._wrapped, prefix)), prefix,
                          lambda arr, _: np.std(arr, axis=0))
 
         def get_interval():
@@ -182,7 +217,7 @@ class BootstrapEstimator:
                       'pivot': pivot_bootstrap}[self._bootstrap_type]
                 return proxy(can_call, prefix, fn)
 
-            can_call = callable(getattr(self._instances[0], prefix))
+            can_call = callable(getattr(self._wrapped, prefix))
             if can_call:
                 # collect extra arguments and pass them through, if the wrapped attribute was callable
                 def call(*args, lower=5, upper=95, **kwargs):
@@ -208,10 +243,10 @@ class BootstrapEstimator:
                 inf_type = 'effect'
             elif prefix == 'coef_':
                 inf_type = 'coefficient'
-                if (hasattr(self._instances[0], 'cate_feature_names') and
-                        callable(self._instances[0].cate_feature_names)):
+                if (hasattr(self._wrapped, 'cate_feature_names') and
+                        callable(self._wrapped.cate_feature_names)):
                     def fname_transformer(x):
-                        return self._instances[0].cate_feature_names(x)
+                        return self._wrapped.cate_feature_names(x)
             elif prefix == 'intercept_':
                 inf_type = 'intercept'
             else:
@@ -223,7 +258,7 @@ class BootstrapEstimator:
                 d_t = None
             d_y = self._wrapped._d_y[0] if self._wrapped._d_y else 1
 
-            can_call = callable(getattr(self._instances[0], prefix))
+            can_call = callable(getattr(self._wrapped, prefix))
 
             kind = self._bootstrap_type
             if kind == 'percentile' or kind == 'pivot':

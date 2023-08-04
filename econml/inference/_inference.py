@@ -71,6 +71,10 @@ class BootstrapInference(Inference):
     verbose: int, default: 0
         Verbosity level
 
+    only_final : bool, default True
+        Whether to bootstrap only the final model, for estimators that do cross-fitting.
+        Ignored for estimators where this does not apply.
+
     bootstrap_type: 'percentile', 'pivot', or 'normal', default 'pivot'
         Bootstrap method used to compute results.
         'percentile' will result in using the empiracal CDF of the replicated computations of the statistics.
@@ -79,14 +83,15 @@ class BootstrapInference(Inference):
         'normal' will instead compute a pivot interval assuming the replicates are normally distributed.
     """
 
-    def __init__(self, n_bootstrap_samples=100, n_jobs=-1, bootstrap_type='pivot', verbose=0):
+    def __init__(self, n_bootstrap_samples=100, n_jobs=-1, only_final=True, bootstrap_type='pivot', verbose=0):
         self._n_bootstrap_samples = n_bootstrap_samples
         self._n_jobs = n_jobs
+        self._only_final = only_final
         self._bootstrap_type = bootstrap_type
         self._verbose = verbose
 
     def fit(self, estimator, *args, **kwargs):
-        est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, compute_means=False,
+        est = BootstrapEstimator(estimator, self._n_bootstrap_samples, self._n_jobs, self._only_final, compute_means=False,
                                  bootstrap_type=self._bootstrap_type, verbose=self._verbose)
         filtered_kwargs = filter_none_kwargs(**kwargs)
         est.fit(*args, **filtered_kwargs)

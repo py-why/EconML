@@ -45,6 +45,21 @@ class IdentityFeatures(TransformerMixin):
         """Perform the identity transform, which returns the input unmodified."""
         return X
 
+def convertArg(arg, inds):
+    def convertArg_(arg, inds):
+        arr = np.asarray(arg)
+        if arr.ndim > 0:
+            return arr[inds]
+        else:  # arg was a scalar, so we shouldn't have converted it
+            return arg
+    if arg is None:
+        return None
+    if isinstance(arg, tuple):
+        converted_arg = []
+        for arg_param in arg:
+            converted_arg.append(convertArg_(arg_param, inds))
+        return tuple(converted_arg)
+    return convertArg_(arg, inds)
 
 def parse_final_model_params(coef, intercept, d_y, d_t, d_t_in, bias_part_of_coef, fit_cate_intercept):
     dt = d_t
