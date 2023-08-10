@@ -27,7 +27,7 @@ import inspect
 from sklearn.exceptions import NotFittedError
 from sklearn.multioutput import MultiOutputRegressor, MultiOutputClassifier
 from sklearn.model_selection import KFold
-# from sklearn_extensions.model_selection import WeightedStratifiedKFold
+import pandas as pd
 
 
 def select_continuous_estimator(estimator_type, random_state):
@@ -57,6 +57,9 @@ def select_continuous_estimator(estimator_type, random_state):
         poly = PolynomialFeatures()
         linear = ElasticNetCV(random_state=random_state)  # Play around with precompute and tolerance
         return (Pipeline([('poly', poly), ('linear', linear)]))
+    elif estimator_type == 'weighted_lasso':
+        from econml.sklearn_extensions.linear_model import WeightedLassoCVWrapper
+        return WeightedLassoCVWrapper(random_state=random_state)
     else:
         raise ValueError(f"Unsupported estimator type: {estimator_type}")
 
@@ -278,18 +281,15 @@ def select_classification_hyperparameters(estimator):
     elif isinstance(estimator, MLPClassifier):
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
-            'activation': ['relu'],
-            'solver': ['adam'],
-            'alpha': [0.0001, 0.001, 0.01],
+            'alpha': [0.0001, 0.01],
             'learning_rate': ['constant', 'adaptive']
         }
     elif is_polynomial_pipeline(estimator=estimator):
         return {
             'poly__degree': [2, 3, 4],
-            'linear__Cs': [1, 10, 20],
             'linear__max_iter': [100, 200],
             'linear__penalty': ['l2'],
-            'linear__solver': ['saga', 'liblinear', 'lbfgs']
+            'linear__solver': ['saga', 'lbfgs']
         }
     else:
         warnings.warn("No hyperparameters for this type of model. There are default hyperparameters for LogisticRegressionCV, RandomForestClassifier, MLPClassifier, and the polynomial pipleine", category=UserWarning)
@@ -324,7 +324,7 @@ def select_regression_hyperparameters(estimator):
     elif isinstance(estimator, MLPRegressor):
         return {
             'hidden_layer_sizes': [(10,), (50,), (100,)],
-            'alpha': [0.0001, 0.001, 0.01],
+            'alpha': [0.0001, 0.01],
             'learning_rate': ['constant', 'adaptive']
         }
     elif isinstance(estimator, GradientBoostingRegressor):
@@ -775,3 +775,36 @@ def make_param_multi_task(estimator, param_grid):
     else:
         param_grid_multi = {f'estimator__{k}': v for k, v in param_grid.items()}
         return param_grid_multi
+
+
+def preprocess_and_encode(data, cat_indices=None):
+    """
+    Detects categorical columns, one-hot encodes them, and returns the preprocessed data.
+
+    Parameters:
+    - data: pandas DataFrame or numpy array
+    - cat_indices: list of column indices (or names for DataFrame) to be considered categorical
+
+    Returns:
+    - Preprocessed data in the format of the original input (DataFrame or numpy array)
+    """
+    was_numpy = False
+    if isinstance(data, np.ndarray):
+        was_numpy = True
+        data = pd.DataFrame(data)
+
+    # If cat_indices is None, detect categorical columns using object type as a heuristic
+    if cat_indices is None:
+        cat_columns = data.select_dtypes(['object']).columns.tolist()
+    else:
+        if all(isinstance(i, int) for i in cat_indices):  # if cat_indices are integer indices
+            cat_columns = data.columns[cat_indices].tolist()
+        else:  # assume cat_indices are column names
+            cat_columns = cat_indices
+
+    data_encoded = pd.get_dummies(data, columns=cat_columns)
+
+    if was_numpy:
+        return data_encoded.values
+    else:
+        return data_encoded

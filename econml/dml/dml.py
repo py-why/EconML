@@ -484,6 +484,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  model_y, model_t, model_final,
                  param_list_y=None,
                  param_list_t=None,
+                 scoring_y=None,
+                 scoring_t=None,
                  scaling=False,
                  featurizer=None,
                  treatment_featurizer=None,
@@ -509,6 +511,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self.scaling = scaling
         self.param_list_y = param_list_y
         self.param_list_t = param_list_t
+        self.scoring_y = scoring_y
+        self.scoring_t = scoring_t
         self.verbose = verbose
         self.cv = cv
         self.grid_folds = grid_folds
@@ -536,10 +540,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     def _gen_model_y(self):  # New
         if self.model_y == 'auto':
-            model_y = SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list_y,
+            model_y = SearchEstimatorList(estimator_list=WeightedLassoCVWrapper(random_state=self.random_state), param_grid_list=self.param_list_y, scoring=self.scoring_y,
                                           scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state)
         else:
-            model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list_y,
+            model_y = clone(SearchEstimatorList(estimator_list=self.model_y, param_grid_list=self.param_list_y, scoring=self.scoring_y,
                                                 scaling=self.scaling, verbose=self.verbose, cv=self.cv, n_jobs=self.n_jobs, random_state=self.random_state), safe=False)
         # if self.model_y == 'auto':
         #     model_y = WeightedLassoCVWrapper(random_state=self.random_state)
@@ -549,15 +553,13 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                                   self.linear_first_stages, self.discrete_treatment)
 
     def _gen_model_t(self):  # New
-        # import pdb
-        # pdb.set_trace()
         if self.model_t == 'auto':
             if self.discrete_treatment:
-                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
+                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t, scoring=self.scoring_t,
                                               scaling=self.scaling, verbose=self.verbose, cv=WeightedStratifiedKFold(random_state=self.random_state), is_discrete=self.discrete_treatment,
                                               n_jobs=self.n_jobs, random_state=self.random_state)
             else:
-                model_t = SearchEstimatorList(estimator_list=self.model_t, param_grid_list=self.param_list_t,
+                model_t = SearchEstimatorList(estimator_list=WeightedLassoCVWrapper(random_state=self.random_state), param_grid_list=self.param_list_t, scoring=self.scoring_t,
                                               scaling=self.scaling, verbose=self.verbose, cv=self.cv, is_discrete=self.discrete_treatment,
                                               n_jobs=self.n_jobs, random_state=self.random_state)
 

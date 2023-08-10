@@ -354,6 +354,7 @@ class SearchEstimatorList(BaseEstimator):
         self.error_score = error_score
         self.return_train_score = return_train_score
         self.is_discrete = is_discrete
+        self.supported_models = ['linear', 'forest', 'gbf', 'nnet', 'poly']
 
     def fit(self, X, y, *, sample_weight=None, groups=None):
         # print(groups)
@@ -400,6 +401,11 @@ class SearchEstimatorList(BaseEstimator):
             self.best_params_ = {}
             return self
         for estimator, param_grid in zip(self.complete_estimator_list, self.param_grid_list):
+            if self.verbose:
+                if is_polynomial_pipeline(estimator):
+                    print(f"Processing estimator: {type(estimator.named_steps['linear']).__name__}")
+                else:
+                    print(f"Processing estimator: {type(estimator).__name__}")
             try:
                 if self.random_state != None:
                     if has_random_state(model=estimator):
@@ -408,8 +414,6 @@ class SearchEstimatorList(BaseEstimator):
                             estimator = estimator.set_params(linear__random_state=self.random_state)
                         else:
                             estimator.set_params(random_state=self.random_state)
-                print(estimator)  # Note Delete this
-                print(param_grid)  # Note Delete this
                 # pdb.set_trace() # Note Delete this
                 temp_search = GridSearchCV(estimator, param_grid, scoring=self.scoring,
                                            n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
@@ -441,8 +445,11 @@ class SearchEstimatorList(BaseEstimator):
                 # This warning catches a problem after fit has run with no exception, however if there is no cv_results_ this indicates a failed fit operation.
                 warning_msg = f"Warning: estimator {estimator} and param_grid {param_grid} failed has no attribute cv_results_."
                 warnings.warn(warning_msg, category=FitFailedWarning)
-
-        self.best_ind_ = np.argmax([search.best_score_ for search in self._search_list])
+        try:
+            self.best_ind_ = np.argmax([search.best_score_ for search in self._search_list])
+        except Exception as e:
+            warning_msg = f"Failed for estimator {estimator} and param_grid {param_grid} with this error {e}."
+            raise Exception(warning_msg) from e
         self.best_estimator_ = self._search_list[self.best_ind_].best_estimator_
         self.best_score_ = self._search_list[self.best_ind_].best_score_
         self.best_params_ = self._search_list[self.best_ind_].best_params_
@@ -464,14 +471,6 @@ class SearchEstimatorList(BaseEstimator):
 
     def predict_proba(self, X):
         return self.best_estimator_.predict_proba(X)
-
-    def refit(self, X, y):
-        # Refits the best estimator using the entire dataset.
-        if self.best_estimator_ is None:
-            raise ValueError("No best estimator found. Please call the 'fit' method before calling 'refit'.")
-
-        self.best_estimator_.fit(X, y)
-        return self
 
 
 class GridSearchCVList(BaseEstimator):
