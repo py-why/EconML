@@ -60,7 +60,7 @@ class _OrthoIVModelNuisance:
             self._model_z_xw.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         return self
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, group=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         if hasattr(self._model_y_xw, 'score'):
             Y_X_score = self._model_y_xw.score(X=X, W=W, Target=Y, sample_weight=sample_weight)
         else:
@@ -85,7 +85,7 @@ class _OrthoIVModelNuisance:
                 Z_X_score = None
             return Y_X_score, T_X_score, Z_X_score
 
-    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, group=None):
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         Y_pred = self._model_y_xw.predict(X=X, W=W)
         T_pred = self._model_t_xw.predict(X=X, W=W)
 
@@ -860,7 +860,6 @@ class _BaseDMLIV(_OrthoLearner):
             Controls for each sample
         sample_weight:(n,) vector, optional
             Weights for each samples
-
 
         Returns
         -------

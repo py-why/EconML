@@ -327,7 +327,7 @@ class _BaseDRIVModelFinal:
         X = self._transform_X(X, fitting=False)
         return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None):
         theta_dr, clipped_cov, _ = self._effect_estimate(nuisances)
 
         X = self._transform_X(X, fitting=False)
