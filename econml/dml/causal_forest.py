@@ -601,7 +601,8 @@ class CausalForestDML(_BaseDML):
                  subforest_size=4,
                  n_jobs=-1,
                  random_state=None,
-                 verbose=0):
+                 verbose=0,
+                 enable_missing=False):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -636,7 +637,8 @@ class CausalForestDML(_BaseDML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=['W'] if enable_missing else None)
 
     def _get_inference_options(self):
         options = super()._get_inference_options()
@@ -738,7 +740,7 @@ class CausalForestDML(_BaseDML):
         """
         from ..score import RScorer  # import here to avoid circular import issue
         Y, T, X, sample_weight, groups = check_input_arrays(Y, T, X, sample_weight, groups)
-        W, = check_input_arrays(W, force_all_finite='allow-nan')
+        W, = check_input_arrays(W, force_all_finite='allow-nan' if self._enable_missing else True)
 
         if params == 'auto':
             params = {

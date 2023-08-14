@@ -108,8 +108,9 @@ class _FinalWrapper:
         else:
             self._fit_cate_intercept = fit_cate_intercept
             if self._fit_cate_intercept:
+                # data is already validated at initial fit time
                 add_intercept_trans = FunctionTransformer(add_intercept,
-                                                          validate=True)
+                                                          validate=False)
                 if featurizer:
                     self._featurizer = Pipeline([('featurize', self._original_featurizer),
                                                  ('add_intercept', add_intercept_trans)])
@@ -466,7 +467,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
@@ -481,7 +483,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=['X', 'W'] if enable_missing else None)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -692,7 +695,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=None,
@@ -705,7 +709,9 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state,)
+                         random_state=random_state,
+                         enable_missing=enable_missing)
+        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
@@ -932,7 +938,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -952,7 +959,9 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=enable_missing)
+        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
 
     def _gen_model_final(self):
         return MultiOutputDebiasedLasso(alpha=self.alpha,
@@ -1139,7 +1148,8 @@ class KernelDML(DML):
                  bw=1.0,
                  cv=2,
                  mc_iters=None, mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.dim = dim
         self.bw = bw
         super().__init__(model_y=model_y,
@@ -1153,7 +1163,9 @@ class KernelDML(DML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=enable_missing)
+        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
 
     def _gen_model_final(self):
         return ElasticNetCV(fit_intercept=False, random_state=self.random_state)
@@ -1326,7 +1338,8 @@ class NonParamDML(_BaseDML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -1340,7 +1353,8 @@ class NonParamDML(_BaseDML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=['X', 'W'] if enable_missing else None)
 
     def _get_inference_options(self):
         # add blb to parent's options

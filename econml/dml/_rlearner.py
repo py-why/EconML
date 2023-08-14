@@ -272,7 +272,7 @@ class _RLearner(_OrthoLearner):
     """
 
     def __init__(self, *, discrete_treatment, treatment_featurizer, categories,
-                 cv, random_state, mc_iters=None, mc_agg='mean'):
+                 cv, random_state, mc_iters=None, mc_agg='mean', enable_missing=None):
         super().__init__(discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter
@@ -280,7 +280,8 @@ class _RLearner(_OrthoLearner):
                          cv=cv,
                          random_state=random_state,
                          mc_iters=mc_iters,
-                         mc_agg=mc_agg)
+                         mc_agg=mc_agg,
+                         enable_missing=enable_missing)
 
     @abstractmethod
     def _gen_model_y(self):

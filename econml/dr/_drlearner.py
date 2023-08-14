@@ -409,7 +409,8 @@ class DRLearner(_OrthoLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.model_propensity = clone(model_propensity, safe=False)
         self.model_regression = clone(model_regression, safe=False)
         self.model_final = clone(model_final, safe=False)
@@ -423,7 +424,8 @@ class DRLearner(_OrthoLearner):
                          treatment_featurizer=None,  # treatment featurization not supported with discrete treatment
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=['X', 'W'] if enable_missing else None)
 
     # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_effect(self, X=None):
@@ -871,7 +873,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
@@ -883,7 +886,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=enable_missing)
+        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=self.fit_cate_intercept)
@@ -1149,7 +1154,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.fit_cate_intercept = fit_cate_intercept
         self.alpha = alpha
         self.n_alphas = n_alphas
@@ -1168,7 +1174,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=enable_missing)
+        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
 
     def _gen_model_final(self):
         return DebiasedLasso(alpha=self.alpha,
@@ -1432,7 +1440,8 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                  subforest_size=4,
                  n_jobs=-1,
                  verbose=0,
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -1456,7 +1465,9 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=enable_missing)
+        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
 
     def _gen_model_final(self):
         return RegressionForest(n_estimators=self.n_estimators,

@@ -350,7 +350,8 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -366,7 +367,8 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=['W'] if enable_missing else None)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -1149,7 +1151,8 @@ class DMLIV(_BaseDMLIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -1163,7 +1166,8 @@ class DMLIV(_BaseDMLIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=['X', 'W'] if enable_missing else None)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -1540,7 +1544,8 @@ class NonParamDMLIV(_BaseDMLIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -1553,7 +1558,8 @@ class NonParamDMLIV(_BaseDMLIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         enable_missing=['X', 'W'] if enable_missing else None)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)

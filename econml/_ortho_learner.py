@@ -298,6 +298,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
+    enable_missing: list, default ['W']
+        Which data arrays to allow missing values for. Currently only supports missing values for W, X.
+
     Examples
     --------
 
@@ -434,7 +437,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def __init__(self, *,
                  discrete_treatment, treatment_featurizer,
                  discrete_instrument, categories, cv, random_state,
-                 mc_iters=None, mc_agg='mean'):
+                 mc_iters=None, mc_agg='mean', enable_missing=None):
         self.cv = cv
         self.discrete_treatment = discrete_treatment
         self.treatment_featurizer = treatment_featurizer
@@ -443,6 +446,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.categories = categories
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
+        self._enable_missing = enable_missing or []
         super().__init__()
 
     @abstractmethod
@@ -605,9 +609,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
             "is not supported when treatment is discrete"
         if check_input:
-            Y, T, X, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
-                Y, T, X, Z, sample_weight, freq_weight, sample_var, groups)
-            W, = check_input_arrays(W, force_all_finite='allow-nan')
+            Y, T, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
+                Y, T, Z, sample_weight, freq_weight, sample_var, groups)
+            X, = check_input_arrays(X, force_all_finite='allow-nan' if 'X' in self._enable_missing else True)
+            W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._enable_missing else True)
             self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
 
         if not only_final:
