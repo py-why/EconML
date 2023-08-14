@@ -309,7 +309,7 @@ class _BaseDRIV(_OrthoLearner):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 enable_missing=None):
+                 enable_missing=False):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
@@ -324,6 +324,9 @@ class _BaseDRIV(_OrthoLearner):
                          mc_agg=mc_agg,
                          random_state=random_state,
                          enable_missing=enable_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     # Maggie: I think that would be the case?
     def _get_inference_options(self):
@@ -560,7 +563,7 @@ class _DRIV(_BaseDRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 enable_missing=None):
+                 enable_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -879,7 +882,7 @@ class DRIV(_DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=['W'] if enable_missing else None)
+                         enable_missing=enable_missing)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -907,7 +910,7 @@ class DRIV(_DRIV):
                          mc_iters=self.mc_iters,
                          mc_agg=self.mc_agg,
                          random_state=self.random_state,
-                         enable_missing=self._enable_missing)
+                         enable_missing=self.enable_missing)
         elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xw, safe=False),
@@ -921,7 +924,7 @@ class DRIV(_DRIV):
                                  mc_iters=self.mc_iters,
                                  mc_agg=self.mc_agg,
                                  random_state=self.random_state,
-                                 enable_missing=True if self._enable_missing else False)
+                                 enable_missing=self.enable_missing)
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
@@ -975,9 +978,6 @@ class DRIV(_DRIV):
             assert self.model_t_xwz == "auto", ("In the case of projection=False and prel_cate_approach='driv', "
                                                 "model_t_xwz will not be fitted, "
                                                 "please keep it as default!")
-        # assert not (self._enable_missing and self.prel_cate_approach == "dmliv" and not self.projection), \
-        #     ("Cannot handle missing data when prel_cate_approach='dmliv' and projection=False!")
-
         return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values, inference=inference)
@@ -2288,7 +2288,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 enable_missing=None):
+                 enable_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
@@ -2533,7 +2533,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=['W'] if enable_missing else None)
+                         enable_missing=enable_missing)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -2553,7 +2553,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                       opt_reweighted=self.prel_opt_reweighted,
                                       cv=self.prel_cv,
                                       random_state=self.random_state,
-                                      enable_missing=self._enable_missing)
+                                      enable_missing=self.enable_missing)
         elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xwz, safe=False),
@@ -2567,7 +2567,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                  mc_iters=self.mc_iters,
                                  mc_agg=self.mc_agg,
                                  random_state=self.random_state,
-                                 enable_missing=True if self._enable_missing else False)
+                                 enable_missing=self.enable_missing)
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "

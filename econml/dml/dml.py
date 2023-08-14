@@ -484,7 +484,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=['X', 'W'] if enable_missing else None)
+                         enable_missing=enable_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['X', 'W'] if self.enable_missing else []
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -711,7 +714,9 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          mc_agg=mc_agg,
                          random_state=random_state,
                          enable_missing=enable_missing)
-        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
+        
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
@@ -961,7 +966,9 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          mc_agg=mc_agg,
                          random_state=random_state,
                          enable_missing=enable_missing)
-        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     def _gen_model_final(self):
         return MultiOutputDebiasedLasso(alpha=self.alpha,
@@ -1165,7 +1172,9 @@ class KernelDML(DML):
                          mc_agg=mc_agg,
                          random_state=random_state,
                          enable_missing=enable_missing)
-        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     def _gen_model_final(self):
         return ElasticNetCV(fit_intercept=False, random_state=self.random_state)
@@ -1354,7 +1363,10 @@ class NonParamDML(_BaseDML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=['X', 'W'] if enable_missing else None)
+                         enable_missing=enable_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['X', 'W'] if self.enable_missing else []
 
     def _get_inference_options(self):
         # add blb to parent's options

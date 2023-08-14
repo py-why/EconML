@@ -425,7 +425,10 @@ class DRLearner(_OrthoLearner):
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
                          random_state=random_state,
-                         enable_missing=['X', 'W'] if enable_missing else None)
+                         enable_missing=enable_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['X', 'W'] if self.enable_missing else []
 
     # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_effect(self, X=None):
@@ -888,7 +891,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          mc_agg=mc_agg,
                          random_state=random_state,
                          enable_missing=enable_missing)
-        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=self.fit_cate_intercept)
@@ -1176,7 +1181,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          mc_agg=mc_agg,
                          random_state=random_state,
                          enable_missing=enable_missing)
-        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     def _gen_model_final(self):
         return DebiasedLasso(alpha=self.alpha,
@@ -1467,7 +1474,9 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                          mc_agg=mc_agg,
                          random_state=random_state,
                          enable_missing=enable_missing)
-        self._enable_missing = ['W'] if enable_missing else []  # override super's default, which is ['X', 'W']
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     def _gen_model_final(self):
         return RegressionForest(n_estimators=self.n_estimators,

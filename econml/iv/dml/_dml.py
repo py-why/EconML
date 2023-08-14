@@ -368,7 +368,10 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=['W'] if enable_missing else None)
+                         enable_missing=enable_missing)
+        
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -1167,7 +1170,7 @@ class DMLIV(_BaseDMLIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=['X', 'W'] if enable_missing else None)
+                         enable_missing=enable_missing)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -1559,7 +1562,7 @@ class NonParamDMLIV(_BaseDMLIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=['X', 'W'] if enable_missing else None)
+                         enable_missing=enable_missing)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)

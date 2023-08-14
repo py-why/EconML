@@ -142,8 +142,11 @@ class DoWhyWrapper:
         column_names = outcome_names + treatment_names + feature_names + confounder_names + instrument_names
 
         # transfer input to numpy arrays
+        if 'X' in self._cate_estimator._gen_allowed_missing_vars():
+            warnings.warn("DoWhyWrapper does not support missing values in X.")
         Y, T, X, Z = check_input_arrays(Y, T, X, Z)
-        W, = check_input_arrays(W, force_all_finite='allow-nan')
+        W, = check_input_arrays(
+            W, force_all_finite='allow-nan' if 'W' in self._cate_estimator._gen_allowed_missing_vars() else True)
         # transfer input to 2d arrays
         n_obs = Y.shape[0]
         Y, T, X, W, Z = reshape_arrays_2dim(n_obs, Y, T, X, W, Z)

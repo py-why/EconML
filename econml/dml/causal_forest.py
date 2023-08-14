@@ -638,7 +638,10 @@ class CausalForestDML(_BaseDML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=['W'] if enable_missing else None)
+                         enable_missing=enable_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     def _get_inference_options(self):
         options = super()._get_inference_options()
@@ -740,7 +743,7 @@ class CausalForestDML(_BaseDML):
         """
         from ..score import RScorer  # import here to avoid circular import issue
         Y, T, X, sample_weight, groups = check_input_arrays(Y, T, X, sample_weight, groups)
-        W, = check_input_arrays(W, force_all_finite='allow-nan' if self._enable_missing else True)
+        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
 
         if params == 'auto':
             params = {

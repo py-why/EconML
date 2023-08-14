@@ -118,13 +118,16 @@ class TestMissing(unittest.TestCase):
         # model that can handle missing values
         nuisance_model = make_pipeline(SimpleImputer(strategy='mean'), LinearRegression())
         OrthoLearner(discrete_treatment=False, treatment_featurizer=None, discrete_instrument=None,
-                     categories='auto', cv=3, random_state=1).fit(y, T, W=W_missing)
+                     categories='auto', cv=3, random_state=1, enable_missing=True).fit(y, T, W=W_missing)
 
-        CausalForestDML(model_y=nuisance_model, model_t=nuisance_model).fit(y, T, X=X, W=W_missing)
+        CausalForestDML(model_y=nuisance_model, model_t=nuisance_model,
+                        enable_missing=True).fit(y, T, X=X, W=W_missing)
 
-        DynamicDML(model_y=nuisance_model, model_t=nuisance_model).fit(y, T, W=W_missing, groups=groups)
+        DynamicDML(model_y=nuisance_model, model_t=nuisance_model,
+                   enable_missing=True).fit(y, T, W=W_missing, groups=groups)
 
-        LinearDML(model_y=nuisance_model, model_t=nuisance_model).dowhy.fit(y, T, X=X, W=W_missing)
+        LinearDML(model_y=nuisance_model, model_t=nuisance_model,
+                  enable_missing=True).dowhy.fit(y, T, X=X, W=W_missing)
 
     def test_missing2(self):
         n = 100
@@ -195,16 +198,17 @@ class TestMissing(unittest.TestCase):
                        prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True, 
                        enable_missing=True),
             SparseLinearDRIV(model_y_xw=model_y, model_t_xw=model_t, model_z_xw=model_t, model_tz_xw=model_t,
-                             prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True, 
+                             prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True,
                              enable_missing=True),
             ForestDRIV(model_y_xw=model_y, model_t_xw=model_t, model_z_xw=model_t, model_tz_xw=model_t,
-                       prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True, 
+                       prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True,
                        enable_missing=True),
             LinearIntentToTreatDRIV(model_y_xw=model_y, model_t_xwz=model_t,
                                     prel_cate_approach='driv', enable_missing=True)
         ]
 
         for est in x_w_missing_models:
+            print(est)
             if 'Z' in inspect.getfullargspec(est.fit).kwonlyargs:
                 include_Z = True
             else:
@@ -213,8 +217,16 @@ class TestMissing(unittest.TestCase):
             data_dict = create_data_dict(y, T, X, X_missing, W, W_missing, Z,
                                          X_has_missing=True, W_has_missing=True, include_Z=include_Z)
             est.fit(**data_dict)
+            self.assertRaises(ValueError, est.dowhy.fit, **data_dict)  # missing in X should fail with dowhywrapper
+
+            # assert that fitting with missing values fails when enable_missing is False
+            # and that setting enable_missing after init still works
+            est.enable_missing = False
+            self.assertRaises(ValueError, est.fit, **data_dict)
+            self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
 
         for est in w_missing_models:
+            print(est)
             if 'Z' in inspect.getfullargspec(est.fit).kwonlyargs:
                 include_Z = True
             else:
@@ -223,3 +235,16 @@ class TestMissing(unittest.TestCase):
             data_dict = create_data_dict(y, T, X, X_missing, W, W_missing, Z,
                                          X_has_missing=False, W_has_missing=True, include_Z=include_Z)
             est.fit(**data_dict)
+            est.dowhy.fit(**data_dict)
+
+            # assert that we fail with a value error when we pass missing X to a model that doesn't support it
+            data_dict_to_fail = create_data_dict(y, T, X, X_missing, W, W_missing, Z,
+                                                 X_has_missing=True, W_has_missing=True, include_Z=include_Z)
+            self.assertRaises(ValueError, est.fit, **data_dict_to_fail)
+            self.assertRaises(ValueError, est.dowhy.fit, **data_dict_to_fail)
+
+            # assert that fitting with missing values fails when enable_missing is False
+            # and that setting enable_missing after init still works
+            est.enable_missing = False
+            self.assertRaises(ValueError, est.fit, **data_dict)
+            self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
