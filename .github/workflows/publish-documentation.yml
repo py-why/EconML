@@ -23,6 +23,11 @@ on:
         required: false
         default: True
         type: boolean
+      run_doctests:
+        description: 'Whether to run doctests'
+        required: false
+        default: True
+        type: boolean
   # annoyingly, there does not seem to be a way to share these input definitions between triggers
   workflow_call:
     inputs:
@@ -44,6 +49,11 @@ on:
         type: string
       use_lkg:
         description: 'Whether to use the last known good versions of dependencies'
+        required: false
+        default: True
+        type: boolean
+      run_doctests:
+        description: 'Whether to run doctests'
         required: false
         default: True
         type: boolean
@@ -74,6 +84,9 @@ jobs:
         with:
           name: docs
           path: build/sphinx/html/
+      - run: python setup.py build_sphinx -b doctest
+        name: Run doctests
+        if : ${{ inputs.run_doctests }}
       - run: |-
           pushd build/sphinx/html
           zip -r docs.zip *
