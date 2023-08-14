@@ -5,6 +5,7 @@ from econml.iv.dr import (DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, Intent
 from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from econml.utilities import shape
+from econml.tests.utilities import GroupingModel
 
 import itertools
 import numpy as np
@@ -12,6 +13,7 @@ import pytest
 import pickle
 from scipy import special
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression, LogisticRegression
 import unittest
 
 
@@ -272,3 +274,79 @@ class TestDRIV(unittest.TestCase):
                 wins += 1
         print("wins: ", wins)
         self.assertGreater(wins, n_trials / 2)
+
+    def test_groups(self):
+        n = 500
+        d_w = 10
+        d_x = 3
+        W = np.random.normal(size=(n, d_w))
+        X = np.random.normal(size=(n, d_x))
+        T = np.random.choice(["a", "b"], size=(n,))
+        Z = np.random.choice(["c", "d"], size=(n,))
+        groups = [i // 4 for i in range(n)]
+        y = groups
+        n_copies = {i: 4 for i in range(125)}
+
+        def ceil(a, b):  # ceiling analog of //
+            return -(a // -b)
+        ct_lims_2 = (125 // 2, ceil(125, 2))
+        ct_lims_3 = (125 - ceil(125, 3), 125 - 125 // 3)
+
+        est_list = [
+            DRIV(
+                discrete_instrument=True,
+                discrete_treatment=True,
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
+                model_z_xw=LinearRegression(),
+                model_t_xw=LogisticRegression(),
+                model_tz_xw=LinearRegression(),
+                model_t_xwz=LogisticRegression(),
+                prel_cate_approach='dmliv'
+            ),
+            LinearDRIV(
+                discrete_instrument=True,
+                discrete_treatment=True,
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
+                model_z_xw=LinearRegression(),
+                model_t_xw=LogisticRegression(),
+                model_tz_xw=LinearRegression(),
+                model_t_xwz=LogisticRegression(),
+                prel_cate_approach='dmliv'
+            ),
+            SparseLinearDRIV(
+                discrete_instrument=True,
+                discrete_treatment=True,
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
+                model_z_xw=LinearRegression(),
+                model_t_xw=LogisticRegression(),
+                model_tz_xw=LinearRegression(),
+                model_t_xwz=LogisticRegression(),
+                prel_cate_approach='dmliv'
+            ),
+            ForestDRIV(
+                discrete_instrument=True,
+                discrete_treatment=True,
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
+                model_z_xw=LinearRegression(),
+                model_t_xw=LogisticRegression(),
+                model_tz_xw=LinearRegression(),
+                model_t_xwz=LogisticRegression(),
+                prel_cate_approach='dmliv'
+            ),
+            IntentToTreatDRIV(
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims_3, n_copies),
+                model_t_xwz=LogisticRegression(),
+                prel_cate_approach='dmliv'
+            ),
+            LinearIntentToTreatDRIV(
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims_3, n_copies),
+                model_t_xwz=LogisticRegression(),
+                prel_cate_approach='dmliv'
+            )
+        ]
+
+        for est in est_list:
+            with self.subTest(est=est):
+                est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
+                score = est.score(y, T, Z=Z, X=X, W=W)
+                eff = est.const_marginal_effect(X)
