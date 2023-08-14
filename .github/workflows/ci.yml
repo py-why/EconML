@@ -127,6 +127,8 @@ jobs:
           version: '3.9'
           install_graphviz: false
       fail-fast: false
+    env:
+      id_string: ${{ matrix.kind }}-${{ matrix.version }}
     steps:
     - uses: actions/checkout@v3
       name: Checkout repository
@@ -148,13 +150,13 @@ jobs:
     - run: pip install jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
       name: Install notebook requirements
       if: ${{ !env.use_lkg }}
-    - run: pip freeze --exclude-editable > notebooks-${{ matrix.version }}-${{ matrix.kind }}-requirements.txt
+    - run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
       name: Save installed packages
     - uses: actions/upload-artifact@v3
       name: Upload installed packages
       with:
         name: requirements
-        path: notebooks-${{ matrix.version }}-${{ matrix.kind }}-requirements.txt
+        path: notebooks-${{ env.id_string }}-requirements.txt
     - run: pip install pytest pytest-runner coverage
       name: Install pytest
 
@@ -165,7 +167,7 @@ jobs:
         PYTEST_ADDOPTS: '-m "notebook"'
         NOTEBOOK_DIR_PATTERN: ${{ matrix.pattern }}
         COVERAGE_PROCESS_START: 'setup.cfg'
-    - run: mv .coverage .coverage.${{ matrix.kind }}
+    - run: mv .coverage .coverage.${{ env.id_string }}
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       name: Make coverage filename unique
@@ -174,8 +176,18 @@ jobs:
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage
-        path: .coverage.${{ matrix.kind }}    
-
+        path: .coverage.${{ env.id_string }}    
+    - run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
+      # Run whether or not the tests passed, but only if they ran at all
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      name: Make test XML filename unique
+    - uses: actions/upload-artifact@v3
+      name: Upload test XML files
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      with:
+        name: tests
+        path: ${{ env.id_string }}-test-results.xml
+  
   tests:
     name: "Run tests"
     needs: [eval]
@@ -211,6 +223,8 @@ jobs:
             extras: "[tf,plt]"
       fail-fast: false    
     runs-on: ${{ matrix.os }}
+    env:
+      id_string: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
     steps:
     - uses: actions/checkout@v3
       name: Checkout repository
@@ -225,13 +239,13 @@ jobs:
     # Add verbose flag to pip installation if in debug mode
     - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
       name: Install econml
-    - run: pip freeze --exclude-editable > tests-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}-requirements.txt
+    - run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
       name: Save installed packages
     - uses: actions/upload-artifact@v3
       name: Upload installed packages
       with:
         name: requirements
-        path: tests-${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}-requirements.txt
+        path: tests-${{ env.id_string }}-requirements.txt
     - run: pip install pytest pytest-runner coverage
       name: Install pytest
     - run: python setup.py pytest
@@ -240,7 +254,7 @@ jobs:
       env:
         PYTEST_ADDOPTS: ${{ matrix.opts }}
         COVERAGE_PROCESS_START: 'setup.cfg'
-    - run: mv .coverage .coverage.${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
+    - run: mv .coverage .coverage.${{ env.id_string }}
       # Run whether or not the tests passed, but only if they ran at all
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       name: Make coverage filename unique
@@ -249,7 +263,17 @@ jobs:
       if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
       with:
         name: coverage
-        path: .coverage.${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
+        path: .coverage.${{ env.id_string }}
+    - run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
+      # Run whether or not the tests passed, but only if they ran at all
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      name: Make test XML filename unique
+    - uses: actions/upload-artifact@v3
+      name: Upload test XML files
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      with:
+        name: tests
+        path: ${{ env.id_string }}-test-results.xml
 
   coverage-report:
     name: "Coverage report"
