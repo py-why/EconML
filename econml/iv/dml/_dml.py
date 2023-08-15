@@ -369,7 +369,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                          mc_agg=mc_agg,
                          random_state=random_state,
                          enable_missing=enable_missing)
-        
+
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.enable_missing else []
 

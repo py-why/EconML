@@ -614,8 +614,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if check_input:
             Y, T, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
                 Y, T, Z, sample_weight, freq_weight, sample_var, groups)
-            X, = check_input_arrays(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
-            W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+            X, = check_input_arrays(
+                X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+            W, = check_input_arrays(
+                W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
             self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
 
         if not only_final:
