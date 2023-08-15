@@ -63,10 +63,15 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def __init__(self, *,
                  models,
-                 categories='auto'):
+                 categories='auto',
+                 enable_missing=False):
         self.models = clone(models, safe=False)
         self.categories = categories
+        self.enable_missing = enable_missing
         super().__init__()
+
+    def _gen_allowed_missing_vars(self):
+        return ['X'] if self.enable_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X, inference=None):
@@ -95,7 +100,8 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
 
         # Check inputs
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -176,10 +182,15 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     def __init__(self, *,
                  overall_model,
-                 categories='auto'):
+                 categories='auto',
+                 enable_missing=False):
         self.overall_model = clone(overall_model, safe=False)
         self.categories = categories
+        self.enable_missing = enable_missing
         super().__init__()
+
+    def _gen_allowed_missing_vars(self):
+        return ['X'] if self.enable_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X=None, inference=None):
@@ -208,7 +219,8 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         # Check inputs
         if X is None:
             X = np.zeros((Y.shape[0], 1))
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column
@@ -307,12 +319,17 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  models,
                  cate_models=None,
                  propensity_model=LogisticRegression(),
-                 categories='auto'):
+                 categories='auto',
+                 enable_missing=False):
         self.models = clone(models, safe=False)
         self.cate_models = clone(cate_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
         self.categories = categories
+        self.enable_missing = enable_missing
         super().__init__()
+
+    def _gen_allowed_missing_vars(self):
+        return ['X'] if self.enable_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X, inference=None):
@@ -339,7 +356,8 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : an instance of self.
         """
         # Check inputs
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         if Y.ndim == 2 and Y.shape[1] == 1:
             Y = Y.flatten()
         categories = self.categories
@@ -461,12 +479,17 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  models,
                  final_models,
                  propensity_model=LogisticRegression(),
-                 categories='auto'):
+                 categories='auto',
+                 enable_missing=False):
         self.models = clone(models, safe=False)
         self.final_models = clone(final_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
         self.categories = categories
+        self.enable_missing = enable_missing
         super().__init__()
+
+    def _gen_allowed_missing_vars(self):
+        return ['X'] if self.enable_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X, inference=None):
@@ -493,7 +516,8 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self : an instance of self.
         """
         # Check inputs
-        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False)
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         categories = self.categories
         if categories != 'auto':
             categories = [categories]  # OneHotEncoder expects a 2D array with features per column

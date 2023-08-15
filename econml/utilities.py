@@ -465,7 +465,8 @@ def reshape_Y_T(Y, T):
     return Y, T
 
 
-def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
+def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True, 
+                 force_all_finite_X=True, force_all_finite_W=True):
     """
     Input validation for CATE estimators.
 
@@ -494,6 +495,16 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
     multi_output_Y: bool
         Whether to allow more than one outcome.
 
+    force_all_finite_X : bool or 'allow-nan', default True
+        Whether to allow inf and nan in input arrays in X.
+        'allow-nan': accepts only np.nan and pd.NA values in array. Values
+        cannot be infinite.
+
+    force_all_finite_W : bool or 'allow-nan', default True
+        Whether to allow inf and nan in input arrays in W.
+        'allow-nan': accepts only np.nan and pd.NA values in array. Values
+        cannot be infinite.
+
     Returns
     -------
     Y : array_like, shape (n, ) or (n, d_y)
@@ -509,10 +520,10 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True):
         Converted and validated W.
 
     """
-    X, T = check_X_y(X, T, multi_output=multi_output_T, y_numeric=True)
-    _, Y = check_X_y(X, Y, multi_output=multi_output_Y, y_numeric=True)
+    X, T = check_X_y(X, T, multi_output=multi_output_T, y_numeric=True, force_all_finite=force_all_finite_X)
+    _, Y = check_X_y(X, Y, multi_output=multi_output_Y, y_numeric=True, force_all_finite=force_all_finite_X)
     if W is not None:
-        W, _ = check_X_y(W, Y, multi_output=multi_output_Y, y_numeric=True)
+        W, _ = check_X_y(W, Y, multi_output=multi_output_Y, y_numeric=True, force_all_finite=force_all_finite_W)
     return Y, T, X, W
 
 

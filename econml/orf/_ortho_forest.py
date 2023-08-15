@@ -219,7 +219,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                  backend='loky',
                  verbose=3,
                  batch_size='auto',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         # Estimators
         self.nuisance_estimator = nuisance_estimator
         self.second_stage_nuisance_estimator = second_stage_nuisance_estimator
@@ -250,7 +251,11 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.verbose = verbose
         self.batch_size = batch_size
         self.categories = categories
+        self.enable_missing = enable_missing
         super().__init__()
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.enable_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X, W=None, inference='auto'):
@@ -278,7 +283,8 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         -------
         self: an instance of self.
         """
-        Y, T, X, W = check_inputs(Y, T, X, W, multi_output_Y=False)
+        Y, T, X, W = check_inputs(Y, T, X, W, multi_output_Y=False,
+                                  force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         shuffled_inidces = self.random_state.permutation(X.shape[0])
         n = X.shape[0] // 2
         self.Y_one = Y[shuffled_inidces[:n]]
@@ -554,7 +560,8 @@ class DMLOrthoForest(BaseOrthoForest):
                  backend='loky',
                  verbose=3,
                  batch_size='auto',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         # Copy and/or define models
         self.lambda_reg = lambda_reg
         if model_T == 'auto':
@@ -566,23 +573,32 @@ class DMLOrthoForest(BaseOrthoForest):
         self.model_Y = model_Y
         self.model_T_final = model_T_final
         self.model_Y_final = model_Y_final
+        # TODO: ideally the below private attribute logic should be in .fit but is needed in init 
+        # for nuisance estimator generation for parent class
+        # should refactor later
+        self._model_T = clone(model_T, safe=False)
+        self._model_Y = clone(model_Y, safe=False)
         if self.model_T_final is None:
-            self.model_T_final = clone(self.model_T, safe=False)
+            self._model_T_final = clone(self.model_T, safe=False)
+        else:
+            self._model_T_final = clone(self.model_T_final, safe=False)
         if self.model_Y_final is None:
-            self.model_Y_final = clone(self.model_Y, safe=False)
+            self._model_Y_final = clone(self.model_Y, safe=False)
+        else:
+            self._model_Y_final = clone(self.model_Y_final, safe=False)
         if discrete_treatment:
-            self.model_T = _RegressionWrapper(self.model_T)
-            self.model_T_final = _RegressionWrapper(self.model_T_final)
+            self._model_T = _RegressionWrapper(self._model_T)
+            self._model_T_final = _RegressionWrapper(self._model_T_final)
         self.random_state = check_random_state(random_state)
         self.global_residualization = global_residualization
         self.global_res_cv = global_res_cv
         self.treatment_featurizer = treatment_featurizer
         # Define nuisance estimators
         nuisance_estimator = _DMLOrthoForest_nuisance_estimator_generator(
-            self.model_T, self.model_Y, self.random_state, second_stage=False,
+            self._model_T, self._model_Y, self.random_state, second_stage=False,
             global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
         second_stage_nuisance_estimator = _DMLOrthoForest_nuisance_estimator_generator(
-            self.model_T_final, self.model_Y_final, self.random_state, second_stage=True,
+            self._model_T_final, self._model_Y_final, self.random_state, second_stage=True,
             global_residualization=self.global_residualization, discrete_treatment=discrete_treatment)
         # Define parameter estimators
         parameter_estimator = _DMLOrthoForest_parameter_estimator_func
@@ -609,7 +625,8 @@ class DMLOrthoForest(BaseOrthoForest):
             discrete_treatment=discrete_treatment,
             treatment_featurizer=treatment_featurizer,
             categories=categories,
-            random_state=self.random_state)
+            random_state=self.random_state,
+            enable_missing=enable_missing)
 
     def _combine(self, X, W):
         if X is None:
@@ -646,7 +663,7 @@ class DMLOrthoForest(BaseOrthoForest):
         self: an instance of self.
         """
         self._set_input_names(Y, T, X, set_flag=True)
-        Y, T, X, W = check_inputs(Y, T, X, W)
+        Y, T, X, W = check_inputs(Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
             "is not supported when treatment is discrete"
 
@@ -668,8 +685,8 @@ class DMLOrthoForest(BaseOrthoForest):
         if self.global_residualization:
             cv = check_cv(self.global_res_cv, y=T, classifier=self.discrete_treatment)
             cv = list(cv.split(X=X, y=T))
-            Y = Y - _cross_val_predict(self.model_Y_final, self._combine(X, W), Y, cv=cv, safe=False).reshape(Y.shape)
-            T = T - _cross_val_predict(self.model_T_final, self._combine(X, W), T, cv=cv, safe=False).reshape(T.shape)
+            Y = Y - _cross_val_predict(self._model_Y_final, self._combine(X, W), Y, cv=cv, safe=False).reshape(Y.shape)
+            T = T - _cross_val_predict(self._model_T_final, self._combine(X, W), T, cv=cv, safe=False).reshape(T.shape)
 
         super().fit(Y, T, X=X, W=W, inference=inference)
 
@@ -924,7 +941,8 @@ class DROrthoForest(BaseOrthoForest):
                  backend='loky',
                  verbose=3,
                  batch_size='auto',
-                 random_state=None):
+                 random_state=None,
+                 enable_missing=False):
         self.lambda_reg = lambda_reg
         # Copy and/or define models
         self.propensity_model = clone(propensity_model, safe=False)
@@ -964,7 +982,8 @@ class DROrthoForest(BaseOrthoForest):
             backend=backend,
             verbose=verbose,
             batch_size=batch_size,
-            random_state=self.random_state)
+            random_state=self.random_state,
+            enable_missing=enable_missing)
 
     def fit(self, Y, T, *, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
@@ -994,7 +1013,7 @@ class DROrthoForest(BaseOrthoForest):
         self: an instance of self.
         """
         self._set_input_names(Y, T, X, set_flag=True)
-        Y, T, X, W = check_inputs(Y, T, X, W)
+        Y, T, X, W = check_inputs(Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         # Check that T is shape (n, )
         # Check T is numeric
         T = self._check_treatment(T)

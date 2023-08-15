@@ -3,7 +3,7 @@
 import pytest
 import unittest
 import numpy as np
-from sklearn.linear_model import LinearRegression, LogisticRegressionCV, LassoCV
+from sklearn.linear_model import LinearRegression, LogisticRegression, Lasso
 from sklearn.pipeline import make_pipeline
 from sklearn.impute import SimpleImputer
 
@@ -12,10 +12,11 @@ from econml._ortho_learner import _OrthoLearner
 from econml.dml import LinearDML, SparseLinearDML, KernelDML, CausalForestDML, NonParamDML, DML
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr import DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV
-from econml.orf import DMLOrthoForest
+from econml.orf import DMLOrthoForest, DROrthoForest
 from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestDRLearner
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from econml.panel.dml import DynamicDML
+from econml.metalearners import TLearner, SLearner, XLearner, DomainAdaptationLearner
 
 import inspect
 import scipy
@@ -76,10 +77,15 @@ class NonParamModelFinal:
 
     def fit(self, *args, **kwargs):
         sample_weight = kwargs.pop('sample_weight')
-        return self.pipeline.fit(*args, **kwargs, lassocv__sample_weight=sample_weight)
+        # pass sample weight to final step of pipeline
+        sample_weight_dict = {f'{self.pipeline.steps[-1][0]}__sample_weight': sample_weight}
+        return self.pipeline.fit(*args, **kwargs, **sample_weight_dict)
 
     def predict(self, *args, **kwargs):
         return self.pipeline.predict(*args, **kwargs)
+
+    def predict_proba(self, *args, **kwargs):
+        return self.pipeline.predict_proba(*args, **kwargs)
 
 
 def create_data_dict(Y, T, X, X_missing, W, W_missing, Z, X_has_missing=False, W_has_missing=False, include_Z=False):
@@ -144,12 +150,14 @@ class TestMissing(unittest.TestCase):
         X_missing[mask] = np.nan
         Z = np.random.binomial(1, 0.5, size=(n,))
 
-        model_t = make_pipeline(SimpleImputer(strategy='mean'), LogisticRegressionCV())
-        model_y = make_pipeline(SimpleImputer(strategy='mean'), LassoCV())
+        model_t = make_pipeline(SimpleImputer(strategy='mean'), LogisticRegression())
+        model_y = make_pipeline(SimpleImputer(strategy='mean'), Lasso())
         model_final = make_pipeline(SimpleImputer(strategy='mean'), LinearRegression())
         param_model_final = ParametricModelFinalForMissing(make_pipeline(
             SimpleImputer(strategy='mean'), StatsModelsLinearRegression(fit_intercept=False)))
-        non_param_model_final = NonParamModelFinal(make_pipeline(SimpleImputer(strategy='mean'), LassoCV()))
+        non_param_model_final = NonParamModelFinal(make_pipeline(SimpleImputer(strategy='mean'), Lasso()))
+        non_param_model_final_t = NonParamModelFinal(make_pipeline(
+            SimpleImputer(strategy='mean'), LogisticRegression()))
         discrete_treatment = True
         discrete_instrument = True
 
@@ -204,7 +212,19 @@ class TestMissing(unittest.TestCase):
                        prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True,
                        enable_missing=True),
             LinearIntentToTreatDRIV(model_y_xw=model_y, model_t_xwz=model_t,
-                                    prel_cate_approach='driv', enable_missing=True)
+                                    prel_cate_approach='driv', enable_missing=True),
+            DMLOrthoForest(model_T=model_t, model_Y=model_y, model_T_final=non_param_model_final_t,
+                           model_Y_final=non_param_model_final, discrete_treatment=True, enable_missing=True),
+            DROrthoForest(propensity_model=model_t, model_Y=model_y, propensity_model_final=non_param_model_final_t,
+                          model_Y_final=non_param_model_final, enable_missing=True),
+        ]
+
+        metalearners = [
+            SLearner(overall_model=model_y, enable_missing=True),
+            TLearner(models=model_y, enable_missing=True),
+            XLearner(models=model_y, propensity_model=model_t, cate_models=model_y, enable_missing=True),
+            DomainAdaptationLearner(models=model_y, final_models=model_y,
+                                    propensity_model=model_t, enable_missing=True)
         ]
 
         for est in x_w_missing_models:
@@ -235,7 +255,8 @@ class TestMissing(unittest.TestCase):
             data_dict = create_data_dict(y, T, X, X_missing, W, W_missing, Z,
                                          X_has_missing=False, W_has_missing=True, include_Z=include_Z)
             est.fit(**data_dict)
-            est.dowhy.fit(**data_dict)
+            est.effect(X)
+            est_dowhy = est.dowhy.fit(**data_dict)
 
             # assert that we fail with a value error when we pass missing X to a model that doesn't support it
             data_dict_to_fail = create_data_dict(y, T, X, X_missing, W, W_missing, Z,
@@ -247,4 +268,15 @@ class TestMissing(unittest.TestCase):
             # and that setting enable_missing after init still works
             est.enable_missing = False
             self.assertRaises(ValueError, est.fit, **data_dict)
+            self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
+
+        for est in metalearners:
+            print(est)
+
+            data_dict = create_data_dict(y, T, X, X_missing, W, W_missing, Z,
+                                         X_has_missing=True, W_has_missing=False, include_Z=False)
+            data_dict.pop('W')
+            est.fit(**data_dict)
+
+            data_dict['W'] = None
             self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
