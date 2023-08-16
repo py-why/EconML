@@ -1657,7 +1657,7 @@ class _StatsModelsWrapper(BaseEstimator):
             The lower and upper bounds of the confidence interval of the coefficients
         """
         return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.coef_, self.coef_stderr_)]),\
+                         for p, err in zip(self.coef_, self.coef_stderr_)]), \
             np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                       for p, err in zip(self.coef_, self.coef_stderr_)])
 
@@ -1677,15 +1677,15 @@ class _StatsModelsWrapper(BaseEstimator):
             The lower and upper bounds of the confidence interval of the intercept(s)
         """
         if not self.fit_intercept:
-            return (0 if self._n_out == 0 else np.zeros(self._n_out)),\
+            return (0 if self._n_out == 0 else np.zeros(self._n_out)), \
                 (0 if self._n_out == 0 else np.zeros(self._n_out))
 
         if self._n_out == 0:
-            return _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_),\
+            return _safe_norm_ppf(alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_), \
                 _safe_norm_ppf(1 - alpha / 2, loc=self.intercept_, scale=self.intercept_stderr_)
         else:
             return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                             for p, err in zip(self.intercept_, self.intercept_stderr_)]),\
+                             for p, err in zip(self.intercept_, self.intercept_stderr_)]), \
                 np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                           for p, err in zip(self.intercept_, self.intercept_stderr_)])
 
@@ -1707,7 +1707,7 @@ class _StatsModelsWrapper(BaseEstimator):
             The lower and upper bounds of the confidence intervals of the predicted mean outcomes
         """
         return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                         for p, err in zip(self.predict(X), self.prediction_stderr(X))]),\
+                         for p, err in zip(self.predict(X), self.prediction_stderr(X))]), \
             np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                       for p, err in zip(self.predict(X), self.prediction_stderr(X))])
 

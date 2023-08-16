@@ -352,12 +352,12 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                 slice_weights_one, slice_weights_two = self._get_weights(X_single, tree_slice=slice_it)
                 slice_weights_list.append((slice_weights_one[mask_w1], slice_weights_two[mask_w2]))
         W_none = self.W_one is None
-        return np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])),\
-            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])),\
-            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])),\
+        return np.concatenate((self.Y_one[mask_w1], self.Y_two[mask_w2])), \
+            np.concatenate((self.T_one[mask_w1], self.T_two[mask_w2])), \
+            np.concatenate((self.X_one[mask_w1], self.X_two[mask_w2])), \
             np.concatenate((self.W_one[mask_w1], self.W_two[mask_w2])
-                           ) if not W_none else None,\
-            w_nonzero,\
+                           ) if not W_none else None, \
+            w_nonzero, \
             split_inds, slice_weights_list
 
     def _get_inference_options(self):
@@ -1255,7 +1255,7 @@ class BLBInference(Inference):
         param_upper = [param + np.apply_along_axis(lambda s: norm.ppf(upper, scale=s), 0, np.sqrt(np.diag(cov_mat)))
                        for (param, cov_mat) in params_and_cov]
         param_lower, param_upper = np.asarray(param_lower), np.asarray(param_upper)
-        return param_lower.reshape((-1,) + self._estimator._d_y + self._estimator._d_t),\
+        return param_lower.reshape((-1,) + self._estimator._d_y + self._estimator._d_t), \
             param_upper.reshape((-1,) + self._estimator._d_y + self._estimator._d_t)
 
     def const_marginal_effect_inference(self, X=None):

@@ -148,16 +148,16 @@ class StatsModelsOLS:
 def _compare_classes(est, lr, X_test, alpha=.05, tol=1e-12):
     assert np.all(np.abs(est.coef_ - lr.coef_) < tol), "{}, {}".format(est.coef_, lr.coef_)
     assert np.all(np.abs(np.array(est.coef__interval(alpha=alpha)) -
-                         np.array(lr.coef__interval(alpha=alpha))) < tol),\
+                         np.array(lr.coef__interval(alpha=alpha))) < tol), \
         "{}, {}".format(est.coef__interval(alpha=alpha), np.array(lr.coef__interval(alpha=alpha)))
     assert np.all(np.abs(est.intercept_ - lr.intercept_) < tol), "{}, {}".format(est.intercept_, lr.intercept_)
     assert np.all(np.abs(np.array(est.intercept__interval(alpha=alpha)) -
-                         np.array(lr.intercept__interval(alpha=alpha))) < tol),\
+                         np.array(lr.intercept__interval(alpha=alpha))) < tol), \
         "{}, {}".format(est.intercept__interval(alpha=alpha), lr.intercept__interval(alpha=alpha))
     assert np.all(np.abs(est.predict(X_test) - lr.predict(X_test)) <
                   tol), "{}, {}".format(est.predict(X_test), lr.predict(X_test))
     assert np.all(np.abs(np.array(est.predict_interval(X_test, alpha=alpha)) -
-                         np.array(lr.predict_interval(X_test, alpha=alpha))) < tol),\
+                         np.array(lr.predict_interval(X_test, alpha=alpha))) < tol), \
         "{}, {}".format(est.predict_interval(X_test, alpha=alpha), lr.predict_interval(X_test, alpha=alpha))
 
 
@@ -244,24 +244,25 @@ def _summarize(X, y, w=None):
 
 def _compare_dml_classes(est, lr, X_test, alpha=.05, tol=1e-10):
     assert np.all(np.abs(est.coef_ - lr.coef_) < tol), "{}, {}".format(est.coef_, lr.coef_)
-    assert np.all(np.abs(np.array(est.coef__interval(alpha=alpha)) - np.array(lr.coef__interval(alpha=alpha))) < tol),\
+    assert np.all(np.abs(np.array(est.coef__interval(alpha=alpha)) - np.array(lr.coef__interval(alpha=alpha))) <
+                  tol), \
         "{}, {}".format(np.array(est.coef__interval(alpha=alpha)), np.array(lr.coef__interval(alpha=alpha)))
     assert np.all(np.abs(est.effect(X_test) - lr.effect(X_test)) <
                   tol), "{}, {}".format(est.effect(X_test), lr.effect(X_test))
     assert np.all(np.abs(np.array(est.effect_interval(X_test, alpha=alpha)) -
-                         np.array(lr.effect_interval(X_test, alpha=alpha))) < tol),\
+                         np.array(lr.effect_interval(X_test, alpha=alpha))) < tol), \
         "{}, {}".format(est.effect_interval(X_test, alpha=alpha), lr.effect_interval(X_test, alpha=alpha))
 
 
 def _compare_dr_classes(est, lr, X_test, alpha=.05, tol=1e-10):
     assert np.all(np.abs(est.coef_(T=1) - lr.coef_(T=1)) < tol), "{}, {}".format(est.coef_(T=1), lr.coef_(T=1))
     assert np.all(np.abs(np.array(est.coef__interval(T=1, alpha=alpha)) -
-                         np.array(lr.coef__interval(T=1, alpha=alpha))) < tol),\
+                         np.array(lr.coef__interval(T=1, alpha=alpha))) < tol), \
         "{}, {}".format(np.array(est.coef__interval(T=1, alpha=alpha)), np.array(lr.coef__interval(T=1, alpha=alpha)))
     assert np.all(np.abs(est.effect(X_test) - lr.effect(X_test)) <
                   tol), "{}, {}".format(est.effect(X_test), lr.effect(X_test))
     assert np.all(np.abs(np.array(est.effect_interval(X_test, alpha=alpha)) -
-                         np.array(lr.effect_interval(X_test, alpha=alpha))) < tol),\
+                         np.array(lr.effect_interval(X_test, alpha=alpha))) < tol), \
         "{}, {}".format(est.effect_interval(X_test, alpha=alpha), lr.effect_interval(X_test, alpha=alpha))
 
 
@@ -355,7 +356,7 @@ class TestStatsModels(unittest.TestCase):
         y = X[:, 0]
         est = OLS(fit_intercept=False, cov_type="nonrobust").fit(X, y)
         assert np.all(np.abs(est.coef_ - [1, 0, 0]) <= 1e-12), "{}, {}".format(est.coef_, [1, 0, 0])
-        assert np.all(np.abs(est.coef__interval() - np.array([[1, 0, 0], [1, 0, 0]])) <= 1e-12),\
+        assert np.all(np.abs(est.coef__interval() - np.array([[1, 0, 0], [1, 0, 0]])) <= 1e-12), \
             "{}, {}".format(est.coef__interval(), np.array([[1, 0, 0], [1, 0, 0]]))
         assert np.all(est.coef_stderr_ <= 1e-12)
         assert np.all(est._param_var <= 1e-12)
@@ -366,7 +367,7 @@ class TestStatsModels(unittest.TestCase):
         est = OLS(fit_intercept=True, cov_type="nonrobust").fit(X, y)
         assert np.all(np.abs(est.coef_ - np.array([1] + [0] * (d - 1))) <=
                       1e-12), "{}, {}".format(est.coef_, [1] + [0] * (d - 1))
-        assert np.all(np.abs(est.coef__interval() - np.array([[1] + [0] * (d - 1), [1] + [0] * (d - 1)])) <= 1e-12),\
+        assert np.all(np.abs(est.coef__interval() - np.array([[1] + [0] * (d - 1), [1] + [0] * (d - 1)])) <= 1e-12), \
             "{}, {}".format(est.coef__interval(), np.array([[1] + [0] * (d - 1), [1] + [0] * (d - 1)]))
         assert np.all(est.coef_stderr_ <= 1e-12)
         assert np.all(est._param_var <= 1e-12)
@@ -383,12 +384,12 @@ class TestStatsModels(unittest.TestCase):
         assert np.all(np.abs(est.coef_stderr_ - np.array([1] * d)) <= 1e-12)
         assert np.all(np.abs(est.coef__interval()[0] -
                              np.array([scipy.stats.norm.ppf(.025, loc=1, scale=1)] +
-                                      [scipy.stats.norm.ppf(.025, loc=0, scale=1)] * (d - 1))) <= 1e-12),\
+                                      [scipy.stats.norm.ppf(.025, loc=0, scale=1)] * (d - 1))) <= 1e-12), \
             "{}, {}".format(est.coef__interval()[0], np.array([scipy.stats.norm.ppf(.025, loc=1, scale=1)] +
                                                               [scipy.stats.norm.ppf(.025, loc=0, scale=1)] * (d - 1)))
         assert np.all(np.abs(est.coef__interval()[1] -
                              np.array([scipy.stats.norm.ppf(.975, loc=1, scale=1)] +
-                                      [scipy.stats.norm.ppf(.975, loc=0, scale=1)] * (d - 1))) <= 1e-12),\
+                                      [scipy.stats.norm.ppf(.975, loc=0, scale=1)] * (d - 1))) <= 1e-12), \
             "{}, {}".format(est.coef__interval()[1], np.array([scipy.stats.norm.ppf(.975, loc=1, scale=1)] +
                                                               [scipy.stats.norm.ppf(.975, loc=0, scale=1)] * (d - 1)))
 
@@ -405,13 +406,13 @@ class TestStatsModels(unittest.TestCase):
             assert np.all(np.abs(est.coef_stderr_[t] - np.array([1] * d)) <= 1e-12), "{}".format(est.coef_stderr_[t])
             assert np.all(np.abs(est.coef__interval()[0][t] -
                                  np.array([scipy.stats.norm.ppf(.025, loc=1, scale=1)] +
-                                          [scipy.stats.norm.ppf(.025, loc=0, scale=1)] * (d - 1))) <= 1e-12),\
+                                          [scipy.stats.norm.ppf(.025, loc=0, scale=1)] * (d - 1))) <= 1e-12), \
                 "{}, {}".format(est.coef__interval()[0][t],
                                 np.array([scipy.stats.norm.ppf(.025, loc=1, scale=1)] +
                                          [scipy.stats.norm.ppf(.025, loc=0, scale=1)] * (d - 1)))
             assert np.all(np.abs(est.coef__interval()[1][t] -
                                  np.array([scipy.stats.norm.ppf(.975, loc=1, scale=1)] +
-                                          [scipy.stats.norm.ppf(.975, loc=0, scale=1)] * (d - 1))) <= 1e-12),\
+                                          [scipy.stats.norm.ppf(.975, loc=0, scale=1)] * (d - 1))) <= 1e-12), \
                 "{}, {}".format(est.coef__interval()[1][t],
                                 np.array([scipy.stats.norm.ppf(.975, loc=1, scale=1)] +
                                          [scipy.stats.norm.ppf(.975, loc=0, scale=1)] * (d - 1)))
@@ -433,20 +434,22 @@ class TestStatsModels(unittest.TestCase):
                           1e-12), "{}".format(est.coef_stderr_[t])
             assert np.all(np.abs(est.coef__interval()[0][t] -
                                  np.array([scipy.stats.norm.ppf(.025, loc=1, scale=np.sqrt(2))] +
-                                          [scipy.stats.norm.ppf(.025, loc=0, scale=np.sqrt(2))] * (d - 1))) <= 1e-12),\
+                                          [scipy.stats.norm.ppf(.025, loc=0, scale=np.sqrt(2))] * (d - 1))) <=
+                          1e-12), \
                 "{}, {}".format(est.coef__interval()[0][t],
                                 np.array([scipy.stats.norm.ppf(.025, loc=1, scale=np.sqrt(2))] +
                                          [scipy.stats.norm.ppf(.025, loc=0, scale=np.sqrt(2))] * (d - 1)))
             assert np.all(np.abs(est.coef__interval()[1][t] -
                                  np.array([scipy.stats.norm.ppf(.975, loc=1, scale=np.sqrt(2))] +
-                                          [scipy.stats.norm.ppf(.975, loc=0, scale=np.sqrt(2))] * (d - 1))) <= 1e-12),\
+                                          [scipy.stats.norm.ppf(.975, loc=0, scale=np.sqrt(2))] * (d - 1))) <=
+                          1e-12), \
                 "{}, {}".format(est.coef__interval()[1][t],
                                 np.array([scipy.stats.norm.ppf(.975, loc=1, scale=np.sqrt(2))] +
                                          [scipy.stats.norm.ppf(.975, loc=0, scale=np.sqrt(2))] * (d - 1)))
             assert np.all(np.abs(est.intercept_[t]) <= 1e-12), "{}, {}".format(est.intercept_[t])
             assert np.all(np.abs(est.intercept_stderr_[t] - 1) <= 1e-12), "{}".format(est.intercept_stderr_[t])
             assert np.all(np.abs(est.intercept__interval()[0][t] -
-                                 scipy.stats.norm.ppf(.025, loc=0, scale=1)) <= 1e-12),\
+                                 scipy.stats.norm.ppf(.025, loc=0, scale=1)) <= 1e-12), \
                 "{}, {}".format(est.intercept__interval()[0][t], scipy.stats.norm.ppf(.025, loc=0, scale=1))
 
     def test_comp_with_statsmodels(self):
@@ -551,26 +554,26 @@ class TestStatsModels(unittest.TestCase):
                                                                                         sample_weight=weight)
                               for t in range(p)]
                         for t in range(p):
-                            assert np.all(np.abs(est.coef_[t] - lr[t].coef_) < 1e-12),\
+                            assert np.all(np.abs(est.coef_[t] - lr[t].coef_) < 1e-12), \
                                 "{}, {}, {}: {}, {}".format(cov_type, fit_intercept, t, est.coef_[t], lr[t].coef_)
                             assert np.all(np.abs(np.array(est.coef__interval(alpha=alpha))[:, t] -
-                                                 lr[t].coef__interval(alpha=alpha)) < 1e-12),\
+                                                 lr[t].coef__interval(alpha=alpha)) < 1e-12), \
                                 "{}, {}, {}: {} vs {}".format(cov_type, fit_intercept, t,
                                                               np.array(est.coef__interval(alpha=alpha))[:, t],
                                                               lr[t].coef__interval(alpha=alpha))
-                            assert np.all(np.abs(est.intercept_[t] - lr[t].intercept_) < 1e-12),\
+                            assert np.all(np.abs(est.intercept_[t] - lr[t].intercept_) < 1e-12), \
                                 "{}, {}, {}: {} vs {}".format(cov_type, fit_intercept, t,
                                                               est.intercept_[t], lr[t].intercept_)
                             assert np.all(np.abs(np.array(est.intercept__interval(alpha=alpha))[:, t] -
-                                                 lr[t].intercept__interval(alpha=alpha)) < 1e-12),\
+                                                 lr[t].intercept__interval(alpha=alpha)) < 1e-12), \
                                 "{}, {}, {}: {} vs {}".format(cov_type, fit_intercept, t,
                                                               np.array(est.intercept__interval(alpha=alpha))[:, t],
                                                               lr[t].intercept__interval(alpha=alpha))
-                            assert np.all(np.abs(est.predict(X_test)[:, t] - lr[t].predict(X_test)) < 1e-12),\
+                            assert np.all(np.abs(est.predict(X_test)[:, t] - lr[t].predict(X_test)) < 1e-12), \
                                 "{}, {}, {}: {} vs {}".format(cov_type, fit_intercept, t, est.predict(X_test)[
                                                               :, t], lr[t].predict(X_test))
                             assert np.all(np.abs(np.array(est.predict_interval(X_test, alpha=alpha))[:, :, t] -
-                                                 lr[t].predict_interval(X_test, alpha=alpha)) < 1e-12),\
+                                                 lr[t].predict_interval(X_test, alpha=alpha)) < 1e-12), \
                                 "{}, {}, {}: {} vs {}".format(cov_type, fit_intercept, t,
                                                               np.array(est.predict_interval(X_test,
                                                                                             alpha=alpha))[:, :, t],
