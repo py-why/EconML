@@ -514,6 +514,13 @@ class CausalForestDML(_BaseDML):
     verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -601,7 +608,11 @@ class CausalForestDML(_BaseDML):
                  subforest_size=4,
                  n_jobs=-1,
                  random_state=None,
-                 verbose=0):
+                 verbose=0,
+                 use_ray=False,
+                 ray_remote_func_options=None):
+        if ray_remote_func_options is None:
+            ray_remote_func_options = {}
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -636,7 +647,9 @@ class CausalForestDML(_BaseDML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _get_inference_options(self):
         options = super()._get_inference_options()

@@ -61,6 +61,9 @@ plt = [
 dowhy = [
     "dowhy < 0.11"
 ]
+ray = [
+    "ray > 2.2.0"
+]
 all = [
     # Disabled due to incompatibility with scikit-learn
     # azureml-sdk[explain,automl] == 1.0.83
@@ -75,7 +78,8 @@ all = [
     "graphviz",
     # Version capped due to shap incompatibility
     "matplotlib < 3.6.0",
-    "dowhy < 0.11"
+    "dowhy < 0.11",
+    "ray > 2.2.0"
 ]
 
 [build-system]

@@ -300,6 +300,13 @@ class DRLearner(_OrthoLearner):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -409,7 +416,12 @@ class DRLearner(_OrthoLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
+        if ray_remote_func_options is None:
+            ray_remote_func_options = {}
         self.model_propensity = clone(model_propensity, safe=False)
         self.model_regression = clone(model_regression, safe=False)
         self.model_final = clone(model_final, safe=False)
@@ -423,7 +435,10 @@ class DRLearner(_OrthoLearner):
                          treatment_featurizer=None,  # treatment featurization not supported with discrete treatment
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,
-                         random_state=random_state)
+                         random_state=random_state,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
 
     # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_effect(self, X=None):
@@ -812,6 +827,13 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -871,7 +893,12 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 use_ray=False,
+                 ray_remote_func_options=None):
+
+        if ray_remote_func_options is None:
+            ray_remote_func_options = {}
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
@@ -883,7 +910,10 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=self.fit_cate_intercept)
@@ -1083,6 +1113,13 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -1149,7 +1186,12 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 use_ray=False,
+                 ray_remote_func_options=None):
+
+        if ray_remote_func_options is None:
+            ray_remote_func_options = {}
         self.fit_cate_intercept = fit_cate_intercept
         self.alpha = alpha
         self.n_alphas = n_alphas
@@ -1168,7 +1210,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         return DebiasedLasso(alpha=self.alpha,
@@ -1221,7 +1265,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
-                               "We recommend using the LinearDRLearner for this low-dimensional setting.")
+                                   "We recommend using the LinearDRLearner for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
@@ -1408,6 +1452,15 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         If :class:`~numpy.random.mtrand.RandomState` instance, random_state is the random number generator;
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
+
     """
 
     def __init__(self, *,
@@ -1432,7 +1485,11 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                  subforest_size=4,
                  n_jobs=-1,
                  verbose=0,
-                 random_state=None):
+                 random_state=None,
+                 use_ray=False,
+                 ray_remote_func_options=None,):
+        if ray_remote_func_options is None:
+            ray_remote_func_options = {}
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -1456,7 +1513,9 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options,)
 
     def _gen_model_final(self):
         return RegressionForest(n_estimators=self.n_estimators,

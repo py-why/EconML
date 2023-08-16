@@ -24,6 +24,13 @@ from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.multioutput import MultiOutputRegressor
 from econml.grf import MultiOutputGRF
 
+try:
+    import ray
+    ray_installed = True
+except ImportError:
+    ray_installed = False
+
+
 # all solutions to underdetermined (or exactly determined) Ax=b are given by A⁺b+(I-A⁺A)w for some arbitrary w
 # note that if Ax=b is overdetermined, this will raise an assertion error
 
@@ -39,11 +46,18 @@ def rand_sol(A, b):
 @pytest.mark.dml
 class TestDML(unittest.TestCase):
 
-    def test_cate_api(self):
+    def test_cate_api_without_ray(self):
         treatment_featurizations = [None]
-        self._test_cate_api(treatment_featurizations)
+        self._test_cate_api(treatment_featurizations, False)
 
-    def _test_cate_api(self, treatment_featurizations):
+    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    def test_cate_api_with_ray(self):
+        ray.init()
+        treatment_featurizations = [None]
+        self._test_cate_api(treatment_featurizations, True)
+        ray.shutdown()
+
+    def _test_cate_api(self, treatment_featurizations, use_ray):
         """Test that we correctly implement the CATE API."""
         n_c = 20  # number of rows for continuous models
         n_d = 30  # number of rows for discrete models
@@ -104,7 +118,7 @@ class TestDML(unittest.TestCase):
                                         (n if d_x else 1) * (d_y if d_y > 0 else 1) *
                                         (d_t_final if d_t_final > 0 else 1), 6)
 
-                                    fd_x = featurizer.fit_transform(X).shape[1:] if featurizer and d_x\
+                                    fd_x = featurizer.fit_transform(X).shape[1:] if featurizer and d_x \
                                         else ((d_x,) if d_x else (0,))
                                     coef_shape = Y.shape[1:] + (T.shape[1:] if not is_discrete else (2,)) + fd_x
 
@@ -119,58 +133,66 @@ class TestDML(unittest.TestCase):
 
                                     all_infs = [None, 'auto', BootstrapInference(2)]
 
-                                    for est, multi, infs in\
-                                        [(DML(model_y=Lasso(),
-                                              model_t=model_t,
-                                              model_final=Lasso(alpha=0.1, fit_intercept=False),
-                                              featurizer=featurizer,
-                                              fit_cate_intercept=fit_cate_intercept,
-                                              discrete_treatment=is_discrete,
-                                              treatment_featurizer=treatment_featurizer),
-                                         True,
-                                         [None] +
-                                         ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
-                                         (DML(model_y=Lasso(),
-                                              model_t=model_t,
-                                              model_final=StatsModelsRLM(fit_intercept=False),
-                                              featurizer=featurizer,
-                                              fit_cate_intercept=fit_cate_intercept,
-                                              discrete_treatment=is_discrete,
-                                              treatment_featurizer=treatment_featurizer),
-                                         True,
-                                         ['auto']),
-                                         (LinearDML(model_y=Lasso(),
-                                                    model_t='auto',
-                                                    featurizer=featurizer,
-                                                    fit_cate_intercept=fit_cate_intercept,
-                                                    discrete_treatment=is_discrete,
-                                                    treatment_featurizer=treatment_featurizer),
-                                         True,
-                                         all_infs),
-                                         (SparseLinearDML(model_y=WeightedLasso(),
-                                                          model_t=model_t,
-                                                          featurizer=featurizer,
-                                                          fit_cate_intercept=fit_cate_intercept,
-                                                          discrete_treatment=is_discrete,
-                                                          treatment_featurizer=treatment_featurizer),
-                                         True,
-                                         [None, 'auto'] +
-                                         ([BootstrapInference(n_bootstrap_samples=20)] if not is_discrete else [])),
-                                         (KernelDML(model_y=WeightedLasso(),
-                                                    model_t=model_t,
-                                                    fit_cate_intercept=fit_cate_intercept,
-                                                    discrete_treatment=is_discrete,
-                                                    treatment_featurizer=treatment_featurizer),
-                                         False,
-                                         [None]),
-                                         (CausalForestDML(model_y=WeightedLasso(),
-                                                          model_t=model_t,
-                                                          featurizer=featurizer,
-                                                          n_estimators=4,
-                                                          n_jobs=1,
-                                                          discrete_treatment=is_discrete),
-                                         True,
-                                         ['auto', 'blb'])]:
+                                    for est, multi, infs in \
+                                            [(DML(model_y=Lasso(),
+                                                  model_t=model_t,
+                                                  model_final=Lasso(alpha=0.1, fit_intercept=False),
+                                                  featurizer=featurizer,
+                                                  fit_cate_intercept=fit_cate_intercept,
+                                                  discrete_treatment=is_discrete,
+                                                  treatment_featurizer=treatment_featurizer,
+                                                  use_ray=use_ray),
+                                              True,
+                                              [None] +
+                                              ([BootstrapInference(
+                                                  n_bootstrap_samples=20)] if not is_discrete else [])),
+                                             (DML(model_y=Lasso(),
+                                                  model_t=model_t,
+                                                  model_final=StatsModelsRLM(fit_intercept=False),
+                                                  featurizer=featurizer,
+                                                  fit_cate_intercept=fit_cate_intercept,
+                                                  discrete_treatment=is_discrete,
+                                                  treatment_featurizer=treatment_featurizer,
+                                                  use_ray=use_ray),
+                                              True,
+                                              ['auto']),
+                                             (LinearDML(model_y=Lasso(),
+                                                        model_t='auto',
+                                                        featurizer=featurizer,
+                                                        fit_cate_intercept=fit_cate_intercept,
+                                                        discrete_treatment=is_discrete,
+                                                        treatment_featurizer=treatment_featurizer,
+                                                        use_ray=use_ray),
+                                              True,
+                                              all_infs),
+                                             (SparseLinearDML(model_y=WeightedLasso(),
+                                                              model_t=model_t,
+                                                              featurizer=featurizer,
+                                                              fit_cate_intercept=fit_cate_intercept,
+                                                              discrete_treatment=is_discrete,
+                                                              treatment_featurizer=treatment_featurizer,
+                                                              use_ray=use_ray),
+                                              True,
+                                              [None, 'auto'] +
+                                              ([BootstrapInference(n_bootstrap_samples=20)]
+                                              if not is_discrete else [])),
+                                             (KernelDML(model_y=WeightedLasso(),
+                                                        model_t=model_t,
+                                                        fit_cate_intercept=fit_cate_intercept,
+                                                        discrete_treatment=is_discrete,
+                                                        treatment_featurizer=treatment_featurizer,
+                                                        use_ray=use_ray),
+                                              False,
+                                              [None]),
+                                             (CausalForestDML(model_y=WeightedLasso(),
+                                                              model_t=model_t,
+                                                              featurizer=featurizer,
+                                                              n_estimators=4,
+                                                              n_jobs=1,
+                                                              discrete_treatment=is_discrete,
+                                                              use_ray=use_ray),
+                                              True,
+                                              ['auto', 'blb'])]:
 
                                         if not (multi) and d_y > 1:
                                             continue
@@ -355,7 +377,16 @@ class TestDML(unittest.TestCase):
                                                         X, T0='a', T1='b')
                                                     self.assertEqual(shape(eff), effect_shape2)
 
-    def test_cate_api_nonparam(self):
+    def test_cate_api_nonparam_without_ray(self):
+        self._test_cate_api_nonparam(use_ray=False)
+
+    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    def test_cate_api_nonparam_with_ray(self):
+        ray.init()
+        self._test_cate_api_nonparam(use_ray=True)
+        ray.shutdown()
+
+    def _test_cate_api_nonparam(self, use_ray):
         """Test that we correctly implement the CATE API."""
         n = 20
 
@@ -407,14 +438,16 @@ class TestDML(unittest.TestCase):
                                                                   model_t=model_t,
                                                                   model_final=WeightedLasso(),
                                                                   featurizer=None,
-                                                                  discrete_treatment=is_discrete),
+                                                                  discrete_treatment=is_discrete,
+                                                                  use_ray=use_ray),
                                                       True,
                                                       base_infs),
                                                      (NonParamDML(model_y=WeightedLasso(),
                                                                   model_t=model_t,
                                                                   model_final=WeightedLasso(),
                                                                   featurizer=FunctionTransformer(),
-                                                                  discrete_treatment=is_discrete),
+                                                                  discrete_treatment=is_discrete,
+                                                                  use_ray=use_ray),
                                                       True,
                                                       base_infs), ]:
 
@@ -618,6 +651,7 @@ class TestDML(unittest.TestCase):
 
             def true_fn(x):
                 return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
+
             y = true_fn(X) * T + X[:, 0] + (1 * X[:, 0] + 1) * np.random.normal(0, 1, size=(n,))
 
             XT = np.hstack([T.reshape(-1, 1), X])
@@ -712,6 +746,7 @@ class TestDML(unittest.TestCase):
 
             def true_fn(x):
                 return -1 + 2 * x[:, 0] + x[:, 1] * x[:, 2]
+
             y = true_fn(X) * (T == 1) + true_fn(X) * (T == 2) + X[:, 0] + np.random.normal(0, 1, size=(n,))
             est = CausalForestDML(discrete_treatment=True,
                                   featurizer=PolynomialFeatures(degree=2, interaction_only=True, include_bias=False),
@@ -839,18 +874,27 @@ class TestDML(unittest.TestCase):
                 decimal=2)
             dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
-    def test_can_custom_splitter(self):
+    def _test_can_custom_splitter(self, use_ray):
         # test that we can fit with a KFold instance
         dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
-                        discrete_treatment=True, cv=KFold())
+                        discrete_treatment=True, cv=KFold(), use_ray=use_ray)
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
         # test that we can fit with a train/test iterable
         dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
-                        discrete_treatment=True, cv=[([0, 1, 2], [3, 4, 5])])
+                        discrete_treatment=True, cv=[([0, 1, 2], [3, 4, 5])], use_ray=use_ray)
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
+
+    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    def test_can_use_groups_with_ray(self):
+        ray.init()
+        self._test_can_custom_splitter(use_ray=True)
+        ray.shutdown()
+
+    def test_can_use_groups_without_ray(self):
+        self._test_can_custom_splitter(use_ray=False)
 
     def test_can_use_featurizer(self):
         "Test that we can use a featurizer, and that fit is only called during training"
@@ -1084,18 +1128,48 @@ class TestDML(unittest.TestCase):
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
 
-    def test_nuisance_scores(self):
+    def _test_nuisance_scores(self, use_ray):
         X = np.random.choice(np.arange(5), size=(100, 3))
         y = np.random.normal(size=(100,))
         T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
         for mc_iters in [1, 2, 3]:
             for cv in [1, 2, 3]:
-                est = LinearDML(cv=cv, mc_iters=mc_iters)
+                est = LinearDML(cv=cv, mc_iters=mc_iters, use_ray=use_ray)
                 est.fit(y, T, X=X, W=W)
                 assert len(est.nuisance_scores_t) == len(est.nuisance_scores_y) == mc_iters
                 assert len(est.nuisance_scores_t[0]) == len(est.nuisance_scores_y[0]) == cv
                 est.score(y, T, X=X, W=W)
+
+    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    def test_nuisance_scores_with_ray(self):
+        ray.init()
+        self._test_nuisance_scores(use_ray=True)
+        ray.shutdown()
+
+    def test_nuisance_scores_without_ray(self):
+        self._test_nuisance_scores(use_ray=False)
+
+    def test_compare_nuisance_with_ray_vs_without_ray(self):
+        X = np.random.choice(np.arange(5), size=(100, 3))
+        y = np.random.normal(size=(100,))
+        T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
+        W = np.random.normal(size=(100, 2))
+        ray.init()
+        for mc_iters in [1, 2, 3]:
+            for cv in [1, 2, 3]:
+                est_with_ray = LinearDML(cv=cv, mc_iters=mc_iters, use_ray=True)
+                est_without_ray = LinearDML(cv=cv, mc_iters=mc_iters, use_ray=False)
+
+                est_with_ray.fit(y, T, X=X, W=W)
+                est_without_ray.fit(y, T, X=X, W=W)
+
+                # Compare results with and without Ray
+                assert len(est_with_ray.nuisance_scores_t) == len(est_without_ray.nuisance_scores_t) == mc_iters
+                assert len(est_with_ray.nuisance_scores_y) == len(est_without_ray.nuisance_scores_y) == mc_iters
+                assert len(est_with_ray.nuisance_scores_t[0]) == len(est_without_ray.nuisance_scores_t[0]) == cv
+                assert len(est_with_ray.nuisance_scores_y[0]) == len(est_without_ray.nuisance_scores_y[0]) == cv
+        ray.shutdown()
 
     def test_categories(self):
         dmls = [LinearDML, SparseLinearDML]

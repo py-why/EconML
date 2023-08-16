@@ -46,6 +46,14 @@ from .utilities import (_deprecate_positional, check_input_arrays,
                         cross_product, filter_none_kwargs,
                         inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
 
+try:
+    import ray
+except ImportError as exn:
+    from .utilities import MissingModule
+    ray = MissingModule(
+        "Ray is not a dependency of the base econml package; install econml[ray] or econml[all] to require it, "
+        "or install ray separately, to use functionality that depends on ray", exn)
+
 
 def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     """
@@ -107,7 +115,7 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     return nuisance_temp, model, test_idxs, (score_temp if calculate_scores else None)
 
 
-def _crossfit(model, use_ray, folds, ray_remote_fun_option, *args, **kwargs):
+def _crossfit(model, folds, use_ray, ray_remote_fun_option, *args, **kwargs):
     """
     General crossfit based calculation of nuisance parameters.
 
@@ -120,10 +128,6 @@ def _crossfit(model, use_ray, folds, ray_remote_fun_option, *args, **kwargs):
         function estimates a model of the nuisance function, based on the input
         data to fit. Predict evaluates the fitted nuisance function on the input
         data to predict.
-    use_ray: bool, default False (optional)
-        Flag to indicate whether to use ray to parallelize the cross-fitting step.
-    ray_remote_fun_option: dict, default None (optional)
-        Options to pass to the ray.remote decorator.
     folds : list of tuple or None
         The crossfitting fold structure. Every entry in the list is a tuple whose
         first element are the training indices of the args and kwargs data and
@@ -131,6 +135,10 @@ def _crossfit(model, use_ray, folds, ray_remote_fun_option, *args, **kwargs):
         is not the full set of all indices, then the remaining nuisance parameters
         for the missing indices have value NaN.  If folds is None, then cross fitting
         is not performed; all indices are used for both model fitting and prediction
+    use_ray: bool, default False
+        Flag to indicate whether to use ray to parallelize the cross-fitting step.
+    ray_remote_fun_option: dict, default None
+        Options to pass to the ray.remote decorator.
     args : a sequence of (numpy matrices or None)
         Each matrix is a data variable whose first index corresponds to a sample
     kwargs : a sequence of key-value args, with values being (numpy matrices or None)
@@ -181,7 +189,7 @@ def _crossfit(model, use_ray, folds, ray_remote_fun_option, *args, **kwargs):
         model = Lasso(alpha=0.01)
         use_ray = False
         ray_remote_fun_option = {}
-        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),use_ray, folds,ray_remote_fun_option,
+        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),folds, use_ray, ray_remote_fun_option,
          X, y,W=y, Z=None)
 
     >>> nuisance
@@ -215,11 +223,9 @@ def _crossfit(model, use_ray, folds, ray_remote_fun_option, *args, **kwargs):
         first_arr = args[0] if args else kwargs.items()[0][1]
         return nuisances, model_list, np.arange(first_arr.shape[0]), scores
 
-
     folds = list(folds)
     fold_refs = []
     if use_ray:
-        import ray
         # Adding the kwargs to ray object store to be used by remote functions for each fold to avoid IO overhead
         ray_args = ray.put(kwargs)
         for idx, (train_idxs, test_idxs) in enumerate(folds):
@@ -412,7 +418,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                            discrete_instrument=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
-        OR (for parallelization using ray))
         est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None,
                            discrete_instrument=False, categories='auto', random_state=None,use_ray=True)
         est.fit(y, X[:, 0], W=X[:, 1:])
@@ -505,7 +510,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def __init__(self, *,
                  discrete_treatment, treatment_featurizer,
                  discrete_instrument, categories, cv, random_state,
-                 mc_iters=None, mc_agg='mean', use_ray=False, **ray_remote_func_options):
+                 mc_iters=None, mc_agg='mean', use_ray=False, ray_remote_func_options=None):
+        if ray_remote_func_options is None:
+            ray_remote_func_options = {}
         self.actors = []
         self.cv = cv
         self.discrete_treatment = discrete_treatment
@@ -516,7 +523,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
         self.use_ray = use_ray
-        self.ray_remote_func_opt = ray_remote_func_options
+        self.ray_remote_func_options = ray_remote_func_options
         super().__init__()
 
     @abstractmethod
@@ -722,25 +729,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             self._models_nuisance = []
 
             if self.use_ray:
-                # Initialize Ray Connection if not already initialized
-                try:
-                    import ray
-                except ImportError:
-                    raise ImportError("To use `use_ray=True`, try installing econml via pip3 install econml['ray'].")
                 if not ray.is_initialized():
-                    ray.init(ignore_reinit_error=True)
+                    ray.init()
 
                 # Define Ray remote function (Ray remote wrapper of the _fit_nuisances function)
                 def _fit_nuisances(Y, T, X, W, Z, sample_weight, groups):
                     return self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
 
                 # Create Ray remote jobs for parallel processing
-                self.nuiances_ref = [ray.remote(_fit_nuisances).options(**self.ray_remote_func_opt).remote(
+                self.nuisances_ref = [ray.remote(_fit_nuisances).options(**self.ray_remote_func_options).remote(
                     Y, T, X, W, Z, sample_weight_nuisances, groups) for _ in range(self.mc_iters or 1)]
 
             for idx in range(self.mc_iters or 1):
                 if self.use_ray:
-                    nuisances, fitted_models, new_inds, scores = ray.get(self.nuiances_ref[idx])
+                    nuisances, fitted_models, new_inds, scores = ray.get(self.nuisances_ref[idx])
                 else:
                     nuisances, fitted_models, new_inds, scores = self._fit_nuisances(
                         Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
@@ -757,10 +759,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                     fitted_inds = new_inds
                 elif not np.array_equal(fitted_inds, new_inds):
                     raise AttributeError("Different indices were fit by different folds, so they cannot be aggregated")
-
-            # Shutdown Ray Connection
-            if self.use_ray and ray.is_initialized:
-                ray.shutdown()
 
             if self.mc_iters is not None:
                 if self.mc_agg == 'mean':
@@ -889,9 +887,10 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             else:
                 folds = splitter.split(to_split, strata)
 
-        nuisances, fitted_models, fitted_inds, scores = _crossfit(self._ortho_learner_model_nuisance, self.use_ray,
-                                                                  folds, self.ray_remote_func_opt, Y, T, X=X, W=W,
-                                                                  Z=Z, sample_weight=sample_weight, groups=groups, )
+        nuisances, fitted_models, fitted_inds, scores = _crossfit(self._ortho_learner_model_nuisance, folds,
+                                                                  self.use_ray, self.ray_remote_func_options, Y, T,
+                                                                  X=X, W=W, Z=Z, sample_weight=sample_weight,
+                                                                  groups=groups)
         return nuisances, fitted_models, fitted_inds, scores
 
     def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None,

@@ -117,12 +117,12 @@ jobs:
         kind: [except-customer-scenarios, customer-scenarios]
         include:
         - kind: "except-customer-scenarios"
-          extras: "[tf,plt,ray]"
+          extras: "[tf,plt]"
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
           version: '3.8' # no supported version of tensorflow for 3.9
         - kind: "customer-scenarios"
-          extras: "[plt,dowhy,ray]"
+          extras: "[plt,dowhy]"
           pattern: "CustomerScenarios"
           version: '3.9'
           install_graphviz: false
@@ -199,7 +199,7 @@ jobs:
             extras: "[tf,plt,ray]"
           - kind: other
             opts: '-m "cate_api" -n auto'
-            extras: "[tf,plt,ray]"
+            extras: "[tf,plt]"
           - kind: dml
             opts: '-m "dml"'
             extras: "[tf,plt,ray]"
@@ -208,7 +208,7 @@ jobs:
             extras: "[tf,plt,dowhy,ray]"
           - kind: treatment
             opts: '-m "treatment_featurization" -n auto'
-            extras: "[tf,plt,ray]"
+            extras: "[tf,plt]"
       fail-fast: false    
     runs-on: ${{ matrix.os }}
     steps:
