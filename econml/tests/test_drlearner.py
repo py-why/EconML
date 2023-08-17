@@ -275,7 +275,7 @@ class TestDRLearner(unittest.TestCase):
 
     @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
     def test_test_cate_api_with_ray(self):
-        ray.init()
+        ray.init(num_cpus=1)
         self._test_cate_api(use_ray=True)
         ray.shutdown()
 
@@ -734,7 +734,7 @@ class TestDRLearner(unittest.TestCase):
 
     @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
     def test_drlearner_with_inference_all_attributes_with_ray(self):
-        ray.init()
+        ray.init(num_cpus=1)
         self._test_drlearner_with_inference_all_attributes(use_ray=True)
         ray.shutdown()
 

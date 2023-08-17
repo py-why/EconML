@@ -188,7 +188,7 @@ class TestDRIV(unittest.TestCase):
 
     @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
     def test_cate_api_with_ray(self):
-        ray.init()
+        ray.init(num_cpus=1)
         self._test_cate_api(use_ray=True)
         ray.shutdown()
 
@@ -262,7 +262,7 @@ class TestDRIV(unittest.TestCase):
 
     @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
     def test_accuracy_with_ray(self):
-        ray.init()
+        ray.init(num_cpus=1)
         self._test_accuracy(use_ray=True)
         ray.shutdown()
 

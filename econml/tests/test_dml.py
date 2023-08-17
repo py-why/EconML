@@ -52,7 +52,7 @@ class TestDML(unittest.TestCase):
 
     @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
     def test_cate_api_with_ray(self):
-        ray.init()
+        ray.init(num_cpus=1)
         treatment_featurizations = [None]
         self._test_cate_api(treatment_featurizations, use_ray=True)
         ray.shutdown()
@@ -382,7 +382,7 @@ class TestDML(unittest.TestCase):
 
     @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
     def test_cate_api_nonparam_with_ray(self):
-        ray.init()
+        ray.init(num_cpus=1)
         self._test_cate_api_nonparam(use_ray=True)
         ray.shutdown()
 
@@ -889,7 +889,7 @@ class TestDML(unittest.TestCase):
 
     @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
     def test_can_use_groups_with_ray(self):
-        ray.init()
+        ray.init(num_cpus=1)
         self._test_can_custom_splitter(use_ray=True)
         ray.shutdown()
 
@@ -1143,7 +1143,7 @@ class TestDML(unittest.TestCase):
 
     @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
     def test_nuisance_scores_with_ray(self):
-        ray.init()
+        ray.init(num_cpus=1)
         self._test_nuisance_scores(use_ray=True)
         ray.shutdown()
 
@@ -1155,7 +1155,7 @@ class TestDML(unittest.TestCase):
         y = np.random.normal(size=(100,))
         T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
-        ray.init()
+        ray.init(num_cpus=1)
         for mc_iters in [1, 2, 3]:
             for cv in [1, 2, 3]:
                 est_with_ray = LinearDML(cv=cv, mc_iters=mc_iters, use_ray=True)
