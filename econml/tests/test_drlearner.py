@@ -62,7 +62,7 @@ class TestDRLearner(unittest.TestCase):
             treatment_effect=TestDRLearner._heterogeneous_te,
             propensity=lambda x: (0.8 if (x[2] > -0.5 and x[2] < 0.5) else 0.2))
 
-    def _test_cate_api(self, use_ray):
+    def _test_cate_api(self, use_ray=False):
         """Test that we correctly implement the CATE API."""
         n = 20
 

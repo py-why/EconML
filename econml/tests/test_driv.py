@@ -24,7 +24,7 @@ except ImportError:
 
 @pytest.mark.cate_api
 class TestDRIV(unittest.TestCase):
-    def _test_cate_api(self, use_ray):
+    def _test_cate_api(self, use_ray=False):
         def const_marg_eff_shape(n, d_x, binary_T):
             """Constant marginal effect shape."""
             return (n if d_x else 1,) + ((1,) if binary_T else ())
@@ -195,7 +195,7 @@ class TestDRIV(unittest.TestCase):
     def test_cate_api_without_ray(self):
         self._test_cate_api(use_ray=False)
 
-    def _test_accuracy(self, use_ray):
+    def _test_accuracy(self, use_ray=False):
         np.random.seed(123)
 
         # dgp (binary T, binary Z)

@@ -54,10 +54,10 @@ class TestDML(unittest.TestCase):
     def test_cate_api_with_ray(self):
         ray.init()
         treatment_featurizations = [None]
-        self._test_cate_api(treatment_featurizations, True)
+        self._test_cate_api(treatment_featurizations, use_ray=True)
         ray.shutdown()
 
-    def _test_cate_api(self, treatment_featurizations, use_ray):
+    def _test_cate_api(self, treatment_featurizations, use_ray=False):
         """Test that we correctly implement the CATE API."""
         n_c = 20  # number of rows for continuous models
         n_d = 30  # number of rows for discrete models
@@ -386,7 +386,7 @@ class TestDML(unittest.TestCase):
         self._test_cate_api_nonparam(use_ray=True)
         ray.shutdown()
 
-    def _test_cate_api_nonparam(self, use_ray):
+    def _test_cate_api_nonparam(self, use_ray=False):
         """Test that we correctly implement the CATE API."""
         n = 20
 
@@ -874,7 +874,7 @@ class TestDML(unittest.TestCase):
                 decimal=2)
             dml.score(np.array([2, 3, 1, 3, 2, 1, 1, 1]), np.array([3, 2, 1, 2, 3, 1, 1, 1]), np.ones((8, 1)))
 
-    def _test_can_custom_splitter(self, use_ray):
+    def _test_can_custom_splitter(self, use_ray=False):
         # test that we can fit with a KFold instance
         dml = LinearDML(model_y=LinearRegression(), model_t=LogisticRegression(C=1000),
                         discrete_treatment=True, cv=KFold(), use_ray=use_ray)
@@ -1128,7 +1128,7 @@ class TestDML(unittest.TestCase):
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
 
-    def _test_nuisance_scores(self, use_ray):
+    def _test_nuisance_scores(self, use_ray=False):
         X = np.random.choice(np.arange(5), size=(100, 3))
         y = np.random.normal(size=(100,))
         T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))

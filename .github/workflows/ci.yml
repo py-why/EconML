@@ -117,7 +117,7 @@ jobs:
         kind: [except-customer-scenarios, customer-scenarios]
         include:
         - kind: "except-customer-scenarios"
-          extras: "[tf,plt]"
+          extras: "[tf,plt,ray]"
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
           version: '3.8' # no supported version of tensorflow for 3.9
