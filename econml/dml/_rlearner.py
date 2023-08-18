@@ -184,6 +184,10 @@ class _RLearner(_OrthoLearner):
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
+    allow_missing: bool
+        Whether to allow missing values in X, W. If True, will need to supply nuisance models that can handle
+        missing values.
+
     Examples
     --------
 
@@ -272,7 +276,7 @@ class _RLearner(_OrthoLearner):
     """
 
     def __init__(self, *, discrete_treatment, treatment_featurizer, categories,
-                 cv, random_state, mc_iters=None, mc_agg='mean', enable_missing=False):
+                 cv, random_state, mc_iters=None, mc_agg='mean', allow_missing=False):
         super().__init__(discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter
@@ -281,7 +285,7 @@ class _RLearner(_OrthoLearner):
                          random_state=random_state,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         enable_missing=enable_missing)
+                         allow_missing=allow_missing)
 
     @abstractmethod
     def _gen_model_y(self):

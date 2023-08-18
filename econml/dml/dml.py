@@ -411,6 +411,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in X, W. If True, will need to supply model_y, model_t, and model_final
+        that can handle missing values.
+
     Examples
     --------
     A simple example with discrete treatment and a linear model_final (equivalent to LinearDML):
@@ -468,7 +472,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
@@ -484,10 +488,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=enable_missing)
+                         allow_missing=allow_missing)
 
     def _gen_allowed_missing_vars(self):
-        return ['X', 'W'] if self.enable_missing else []
+        return ['X', 'W'] if self.allow_missing else []
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -648,6 +652,10 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_t that can handle
+        missing values.
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -699,7 +707,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=None,
@@ -713,10 +721,10 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=enable_missing)
+                         allow_missing=allow_missing)
 
     def _gen_allowed_missing_vars(self):
-        return ['W'] if self.enable_missing else []
+        return ['W'] if self.allow_missing else []
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
@@ -887,6 +895,10 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_t that can handle
+        missing values.
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -944,7 +956,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -965,10 +977,10 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=enable_missing)
+                         allow_missing=allow_missing)
 
     def _gen_allowed_missing_vars(self):
-        return ['W'] if self.enable_missing else []
+        return ['W'] if self.allow_missing else []
 
     def _gen_model_final(self):
         return MultiOutputDebiasedLasso(alpha=self.alpha,
@@ -1120,6 +1132,10 @@ class KernelDML(DML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_t that can handle
+        missing values.
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -1156,7 +1172,7 @@ class KernelDML(DML):
                  cv=2,
                  mc_iters=None, mc_agg='mean',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
         self.dim = dim
         self.bw = bw
         super().__init__(model_y=model_y,
@@ -1171,10 +1187,10 @@ class KernelDML(DML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=enable_missing)
+                         allow_missing=allow_missing)
 
     def _gen_allowed_missing_vars(self):
-        return ['W'] if self.enable_missing else []
+        return ['W'] if self.allow_missing else []
 
     def _gen_model_final(self):
         return ElasticNetCV(fit_intercept=False, random_state=self.random_state)
@@ -1306,6 +1322,10 @@ class NonParamDML(_BaseDML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_t, and model_final
+        that can handle missing values.
+
     Examples
     --------
     A simple example with a discrete treatment:
@@ -1348,7 +1368,7 @@ class NonParamDML(_BaseDML):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -1363,10 +1383,10 @@ class NonParamDML(_BaseDML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=enable_missing)
+                         allow_missing=allow_missing)
 
     def _gen_allowed_missing_vars(self):
-        return ['X', 'W'] if self.enable_missing else []
+        return ['X', 'W'] if self.allow_missing else []
 
     def _get_inference_options(self):
         # add blb to parent's options

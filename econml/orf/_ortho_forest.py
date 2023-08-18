@@ -220,7 +220,7 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
                  verbose=3,
                  batch_size='auto',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
         # Estimators
         self.nuisance_estimator = nuisance_estimator
         self.second_stage_nuisance_estimator = second_stage_nuisance_estimator
@@ -251,11 +251,11 @@ class BaseOrthoForest(TreatmentExpansionMixin, LinearCateEstimator):
         self.verbose = verbose
         self.batch_size = batch_size
         self.categories = categories
-        self.enable_missing = enable_missing
+        self.allow_missing = allow_missing
         super().__init__()
 
     def _gen_allowed_missing_vars(self):
-        return ['W'] if self.enable_missing else []
+        return ['W'] if self.allow_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X, W=None, inference='auto'):
@@ -539,6 +539,10 @@ class DMLOrthoForest(BaseOrthoForest):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance_models
+        that can handle missing values.
+
     """
 
     def __init__(self, *,
@@ -561,7 +565,7 @@ class DMLOrthoForest(BaseOrthoForest):
                  verbose=3,
                  batch_size='auto',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
         # Copy and/or define models
         self.lambda_reg = lambda_reg
         if model_T == 'auto':
@@ -573,7 +577,7 @@ class DMLOrthoForest(BaseOrthoForest):
         self.model_Y = model_Y
         self.model_T_final = model_T_final
         self.model_Y_final = model_Y_final
-        # TODO: ideally the below private attribute logic should be in .fit but is needed in init 
+        # TODO: ideally the below private attribute logic should be in .fit but is needed in init
         # for nuisance estimator generation for parent class
         # should refactor later
         self._model_T = clone(model_T, safe=False)
@@ -626,7 +630,7 @@ class DMLOrthoForest(BaseOrthoForest):
             treatment_featurizer=treatment_featurizer,
             categories=categories,
             random_state=self.random_state,
-            enable_missing=enable_missing)
+            allow_missing=allow_missing)
 
     def _combine(self, X, W):
         if X is None:
@@ -663,7 +667,8 @@ class DMLOrthoForest(BaseOrthoForest):
         self: an instance of self.
         """
         self._set_input_names(Y, T, X, set_flag=True)
-        Y, T, X, W = check_inputs(Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+        Y, T, X, W = check_inputs(
+            Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
             "is not supported when treatment is discrete"
 
@@ -922,7 +927,9 @@ class DROrthoForest(BaseOrthoForest):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
-
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance_models
+        that can handle missing values.
     """
 
     def __init__(self, *,
@@ -942,7 +949,7 @@ class DROrthoForest(BaseOrthoForest):
                  verbose=3,
                  batch_size='auto',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
         self.lambda_reg = lambda_reg
         # Copy and/or define models
         self.propensity_model = clone(propensity_model, safe=False)
@@ -983,7 +990,7 @@ class DROrthoForest(BaseOrthoForest):
             verbose=verbose,
             batch_size=batch_size,
             random_state=self.random_state,
-            enable_missing=enable_missing)
+            allow_missing=allow_missing)
 
     def fit(self, Y, T, *, X, W=None, inference='auto'):
         """Build an orthogonal random forest from a training set (Y, T, X, W).
@@ -1013,7 +1020,8 @@ class DROrthoForest(BaseOrthoForest):
         self: an instance of self.
         """
         self._set_input_names(Y, T, X, set_flag=True)
-        Y, T, X, W = check_inputs(Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
+        Y, T, X, W = check_inputs(
+            Y, T, X, W, force_all_finite_W='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         # Check that T is shape (n, )
         # Check T is numeric
         T = self._check_treatment(T)

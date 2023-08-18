@@ -397,6 +397,10 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance_models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with default models:
@@ -464,7 +468,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 enable_missing=False):
+                 allow_missing=False):
         self.fit_cate_intercept = fit_cate_intercept
         self.linear_first_stages = linear_first_stages
         self.featurizer = clone(featurizer, safe=False)
@@ -478,10 +482,10 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=enable_missing)
+                         allow_missing=allow_missing)
 
     def _gen_allowed_missing_vars(self):
-        return ['W'] if self.enable_missing else []
+        return ['W'] if self.allow_missing else []
 
     # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_effect(self, X=None):

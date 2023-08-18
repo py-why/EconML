@@ -465,7 +465,7 @@ def reshape_Y_T(Y, T):
     return Y, T
 
 
-def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True, 
+def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True,
                  force_all_finite_X=True, force_all_finite_W=True):
     """
     Input validation for CATE estimators.

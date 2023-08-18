@@ -34,6 +34,10 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
+    allow_missing: bool
+        Whether to allow missing values in X. If True, will need to supply models
+        that can handle missing values.
+
     Examples
     --------
     A simple example:
@@ -64,14 +68,14 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def __init__(self, *,
                  models,
                  categories='auto',
-                 enable_missing=False):
+                 allow_missing=False):
         self.models = clone(models, safe=False)
         self.categories = categories
-        self.enable_missing = enable_missing
+        self.allow_missing = allow_missing
         super().__init__()
 
     def _gen_allowed_missing_vars(self):
-        return ['X'] if self.enable_missing else []
+        return ['X'] if self.allow_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X, inference=None):
@@ -153,6 +157,10 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
+    allow_missing: bool
+        Whether to allow missing values in X. If True, will need to supply overall_model
+        that can handle missing values.
+
     Examples
     --------
     A simple example:
@@ -183,14 +191,14 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def __init__(self, *,
                  overall_model,
                  categories='auto',
-                 enable_missing=False):
+                 allow_missing=False):
         self.overall_model = clone(overall_model, safe=False)
         self.categories = categories
-        self.enable_missing = enable_missing
+        self.allow_missing = allow_missing
         super().__init__()
 
     def _gen_allowed_missing_vars(self):
-        return ['X'] if self.enable_missing else []
+        return ['X'] if self.allow_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X=None, inference=None):
@@ -288,6 +296,10 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
+    allow_missing: bool
+        Whether to allow missing values in X. If True, will need to supply models, cate_models, and
+        propensity_model that can handle missing values.
+
     Examples
     --------
     A simple example:
@@ -320,16 +332,16 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  cate_models=None,
                  propensity_model=LogisticRegression(),
                  categories='auto',
-                 enable_missing=False):
+                 allow_missing=False):
         self.models = clone(models, safe=False)
         self.cate_models = clone(cate_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
         self.categories = categories
-        self.enable_missing = enable_missing
+        self.allow_missing = allow_missing
         super().__init__()
 
     def _gen_allowed_missing_vars(self):
-        return ['X'] if self.enable_missing else []
+        return ['X'] if self.allow_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X, inference=None):
@@ -445,6 +457,10 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
+    allow_missing: bool
+        Whether to allow missing values in X. If True, will need to supply models, final_models, and
+        propensity_model that can handle missing values.
+
     Examples
     --------
     A simple example:
@@ -480,16 +496,16 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  final_models,
                  propensity_model=LogisticRegression(),
                  categories='auto',
-                 enable_missing=False):
+                 allow_missing=False):
         self.models = clone(models, safe=False)
         self.final_models = clone(final_models, safe=False)
         self.propensity_model = clone(propensity_model, safe=False)
         self.categories = categories
-        self.enable_missing = enable_missing
+        self.allow_missing = allow_missing
         super().__init__()
 
     def _gen_allowed_missing_vars(self):
-        return ['X'] if self.enable_missing else []
+        return ['X'] if self.allow_missing else []
 
     @BaseCateEstimator._wrap_fit
     def fit(self, Y, T, *, X, inference=None):

@@ -144,7 +144,7 @@ class DoWhyWrapper:
         # transfer input to numpy arrays
         if 'X' in self._cate_estimator._gen_allowed_missing_vars():
             raise ValueError(
-                'DoWhyWrapper does not support missing values in X. Please set enable_missing=False before proceeding.'
+                'DoWhyWrapper does not support missing values in X. Please set allow_missing=False before proceeding.'
             )
         Y, T, X, Z = check_input_arrays(Y, T, X, Z)
         W, = check_input_arrays(

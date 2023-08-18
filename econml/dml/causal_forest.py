@@ -514,6 +514,10 @@ class CausalForestDML(_BaseDML):
     verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_y that can handle
+        missing values.
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -602,7 +606,7 @@ class CausalForestDML(_BaseDML):
                  n_jobs=-1,
                  random_state=None,
                  verbose=0,
-                 enable_missing=False):
+                 allow_missing=False):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -638,10 +642,10 @@ class CausalForestDML(_BaseDML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         enable_missing=enable_missing)
+                         allow_missing=allow_missing)
 
     def _gen_allowed_missing_vars(self):
-        return ['W'] if self.enable_missing else []
+        return ['W'] if self.allow_missing else []
 
     def _get_inference_options(self):
         options = super()._get_inference_options()

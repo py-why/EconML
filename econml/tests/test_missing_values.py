@@ -124,16 +124,16 @@ class TestMissing(unittest.TestCase):
         # model that can handle missing values
         nuisance_model = make_pipeline(SimpleImputer(strategy='mean'), LinearRegression())
         OrthoLearner(discrete_treatment=False, treatment_featurizer=None, discrete_instrument=None,
-                     categories='auto', cv=3, random_state=1, enable_missing=True).fit(y, T, W=W_missing)
+                     categories='auto', cv=3, random_state=1, allow_missing=True).fit(y, T, W=W_missing)
 
         CausalForestDML(model_y=nuisance_model, model_t=nuisance_model,
-                        enable_missing=True).fit(y, T, X=X, W=W_missing)
+                        allow_missing=True).fit(y, T, X=X, W=W_missing)
 
         DynamicDML(model_y=nuisance_model, model_t=nuisance_model,
-                   enable_missing=True).fit(y, T, W=W_missing, groups=groups)
+                   allow_missing=True).fit(y, T, W=W_missing, groups=groups)
 
         LinearDML(model_y=nuisance_model, model_t=nuisance_model,
-                  enable_missing=True).dowhy.fit(y, T, X=X, W=W_missing)
+                  allow_missing=True).dowhy.fit(y, T, X=X, W=W_missing)
 
     def test_missing2(self):
         n = 100
@@ -164,67 +164,67 @@ class TestMissing(unittest.TestCase):
         # test X, W only
         x_w_missing_models = [
             NonParamDML(model_y=model_y, model_t=model_t, model_final=non_param_model_final,
-                        discrete_treatment=discrete_treatment, enable_missing=True),
-            DML(model_y=model_y, model_t=model_t, model_final=param_model_final, enable_missing=True),
+                        discrete_treatment=discrete_treatment, allow_missing=True),
+            DML(model_y=model_y, model_t=model_t, model_final=param_model_final, allow_missing=True),
             DMLIV(model_y_xw=model_y, model_t_xw=model_t, model_t_xwz=model_t,
                   model_final=param_model_final, discrete_treatment=discrete_treatment,
-                  discrete_instrument=discrete_instrument, enable_missing=True),
+                  discrete_instrument=discrete_instrument, allow_missing=True),
             NonParamDMLIV(model_y_xw=model_y, model_t_xw=model_t, model_t_xwz=model_t,
                           model_final=non_param_model_final, discrete_treatment=discrete_treatment,
-                          discrete_instrument=discrete_instrument, enable_missing=True),
-            DRLearner(model_propensity=model_t, model_regression=model_y, model_final=model_final, enable_missing=True)
+                          discrete_instrument=discrete_instrument, allow_missing=True),
+            DRLearner(model_propensity=model_t, model_regression=model_y, model_final=model_final, allow_missing=True)
         ]
 
         # test W only
         w_missing_models = [
             DRIV(model_y_xw=model_y, model_t_xw=model_t, model_z_xw=model_t, model_tz_xw=model_t,
                  discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
-                 prel_cate_approach='driv', projection=False, enable_missing=True),
+                 prel_cate_approach='driv', projection=False, allow_missing=True),
             DRIV(model_y_xw=model_y, model_t_xw=model_t, model_t_xwz=model_t, model_tz_xw=model_y,
                  discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
-                 prel_cate_approach='driv', projection=True, enable_missing=True),
+                 prel_cate_approach='driv', projection=True, allow_missing=True),
             DRIV(model_y_xw=model_y, model_t_xw=model_t, model_z_xw=model_t, model_t_xwz=model_t, model_tz_xw=model_t,
                  discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
-                 prel_cate_approach='dmliv', projection=False, enable_missing=True),
+                 prel_cate_approach='dmliv', projection=False, allow_missing=True),
             DRIV(model_y_xw=model_y, model_t_xw=model_t, model_t_xwz=model_t, model_tz_xw=model_y,
                  discrete_treatment=discrete_treatment, discrete_instrument=discrete_instrument,
-                 prel_cate_approach='dmliv', projection=True, enable_missing=True),
+                 prel_cate_approach='dmliv', projection=True, allow_missing=True),
             IntentToTreatDRIV(model_y_xw=model_y, model_t_xwz=model_t, prel_cate_approach='driv',
-                              model_final=model_final, enable_missing=True),
+                              model_final=model_final, allow_missing=True),
             IntentToTreatDRIV(model_y_xw=model_y, model_t_xwz=model_t, prel_cate_approach='dmliv',
-                              model_final=model_final, enable_missing=True),
-            LinearDML(model_y=model_y, model_t=model_t, discrete_treatment=True, enable_missing=True),
-            SparseLinearDML(model_y=model_y, model_t=model_t, discrete_treatment=True, enable_missing=True),
-            KernelDML(model_y=model_y, model_t=model_t, discrete_treatment=True, enable_missing=True),
-            CausalForestDML(model_y=model_y, model_t=model_t, discrete_treatment=True, enable_missing=True),
-            LinearDRLearner(model_propensity=model_t, model_regression=model_y, enable_missing=True),
-            SparseLinearDRLearner(model_propensity=model_t, model_regression=model_y, enable_missing=True),
-            ForestDRLearner(model_propensity=model_t, model_regression=model_y, enable_missing=True),
+                              model_final=model_final, allow_missing=True),
+            LinearDML(model_y=model_y, model_t=model_t, discrete_treatment=True, allow_missing=True),
+            SparseLinearDML(model_y=model_y, model_t=model_t, discrete_treatment=True, allow_missing=True),
+            KernelDML(model_y=model_y, model_t=model_t, discrete_treatment=True, allow_missing=True),
+            CausalForestDML(model_y=model_y, model_t=model_t, discrete_treatment=True, allow_missing=True),
+            LinearDRLearner(model_propensity=model_t, model_regression=model_y, allow_missing=True),
+            SparseLinearDRLearner(model_propensity=model_t, model_regression=model_y, allow_missing=True),
+            ForestDRLearner(model_propensity=model_t, model_regression=model_y, allow_missing=True),
             OrthoIV(model_y_xw=model_y, model_t_xw=model_t, model_z_xw=model_t,
-                    discrete_treatment=True, discrete_instrument=True, enable_missing=True),
+                    discrete_treatment=True, discrete_instrument=True, allow_missing=True),
             LinearDRIV(model_y_xw=model_y, model_t_xw=model_t, model_z_xw=model_t, model_tz_xw=model_t,
                        prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True,
-                       enable_missing=True),
+                       allow_missing=True),
             SparseLinearDRIV(model_y_xw=model_y, model_t_xw=model_t, model_z_xw=model_t, model_tz_xw=model_t,
                              prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True,
-                             enable_missing=True),
+                             allow_missing=True),
             ForestDRIV(model_y_xw=model_y, model_t_xw=model_t, model_z_xw=model_t, model_tz_xw=model_t,
                        prel_cate_approach='driv', discrete_treatment=True, discrete_instrument=True,
-                       enable_missing=True),
+                       allow_missing=True),
             LinearIntentToTreatDRIV(model_y_xw=model_y, model_t_xwz=model_t,
-                                    prel_cate_approach='driv', enable_missing=True),
+                                    prel_cate_approach='driv', allow_missing=True),
             DMLOrthoForest(model_T=model_t, model_Y=model_y, model_T_final=non_param_model_final_t,
-                           model_Y_final=non_param_model_final, discrete_treatment=True, enable_missing=True),
+                           model_Y_final=non_param_model_final, discrete_treatment=True, allow_missing=True),
             DROrthoForest(propensity_model=model_t, model_Y=model_y, propensity_model_final=non_param_model_final_t,
-                          model_Y_final=non_param_model_final, enable_missing=True),
+                          model_Y_final=non_param_model_final, allow_missing=True),
         ]
 
         metalearners = [
-            SLearner(overall_model=model_y, enable_missing=True),
-            TLearner(models=model_y, enable_missing=True),
-            XLearner(models=model_y, propensity_model=model_t, cate_models=model_y, enable_missing=True),
+            SLearner(overall_model=model_y, allow_missing=True),
+            TLearner(models=model_y, allow_missing=True),
+            XLearner(models=model_y, propensity_model=model_t, cate_models=model_y, allow_missing=True),
             DomainAdaptationLearner(models=model_y, final_models=model_y,
-                                    propensity_model=model_t, enable_missing=True)
+                                    propensity_model=model_t, allow_missing=True)
         ]
 
         for est in x_w_missing_models:
@@ -239,9 +239,9 @@ class TestMissing(unittest.TestCase):
             est.fit(**data_dict)
             self.assertRaises(ValueError, est.dowhy.fit, **data_dict)  # missing in X should fail with dowhywrapper
 
-            # assert that fitting with missing values fails when enable_missing is False
-            # and that setting enable_missing after init still works
-            est.enable_missing = False
+            # assert that fitting with missing values fails when allow_missing is False
+            # and that setting allow_missing after init still works
+            est.allow_missing = False
             self.assertRaises(ValueError, est.fit, **data_dict)
             self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
 
@@ -264,9 +264,9 @@ class TestMissing(unittest.TestCase):
             self.assertRaises(ValueError, est.fit, **data_dict_to_fail)
             self.assertRaises(ValueError, est.dowhy.fit, **data_dict_to_fail)
 
-            # assert that fitting with missing values fails when enable_missing is False
-            # and that setting enable_missing after init still works
-            est.enable_missing = False
+            # assert that fitting with missing values fails when allow_missing is False
+            # and that setting allow_missing after init still works
+            est.allow_missing = False
             self.assertRaises(ValueError, est.fit, **data_dict)
             self.assertRaises(ValueError, est.dowhy.fit, **data_dict)
 
