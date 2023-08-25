@@ -521,9 +521,21 @@ def check_inputs(Y, T, X, W=None, multi_output_T=True, multi_output_Y=True,
 
     """
     X, T = check_X_y(X, T, multi_output=multi_output_T, y_numeric=True, force_all_finite=force_all_finite_X)
+    if force_all_finite_X == 'allow-nan':
+        try:
+            assert_all_finite(X)
+        except ValueError:
+            warnings.warn("X contains NaN. Causal identification strategy can be erroneous"
+                          " in the presence of missing values.")
     _, Y = check_X_y(X, Y, multi_output=multi_output_Y, y_numeric=True, force_all_finite=force_all_finite_X)
     if W is not None:
         W, _ = check_X_y(W, Y, multi_output=multi_output_Y, y_numeric=True, force_all_finite=force_all_finite_W)
+        if force_all_finite_W == 'allow-nan':
+            try:
+                assert_all_finite(W)
+            except ValueError:
+                warnings.warn("W contains NaN. Causal identification strategy can be erroneous"
+                              " in the presence of missing values.")
     return Y, T, X, W
 
 
@@ -572,6 +584,13 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
                 except ValueError:
                     warnings.warn("Input contains NaN, infinity or a value too large for dtype('float64') "
                                   "but input check is disabled. Check the inputs before proceeding.")
+            elif force_all_finite == 'allow-nan':
+                try:
+                    assert_all_finite(new_arg)
+                except ValueError:
+                    warnings.warn("Input contains NaN. Causal identification strategy can be"
+                                  " in the presence of missing values.")
+
             if validate_len:
                 m = new_arg.shape[0]
                 if n is None:
