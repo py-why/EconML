@@ -611,8 +611,6 @@ class CausalForestDML(_BaseDML):
                  verbose=0,
                  use_ray=False,
                  ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies

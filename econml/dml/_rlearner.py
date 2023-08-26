@@ -280,8 +280,6 @@ class _RLearner(_OrthoLearner):
 
     def __init__(self, *, discrete_treatment, treatment_featurizer, categories,
                  cv, random_state, mc_iters=None, mc_agg='mean', use_ray=False, ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         super().__init__(discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter

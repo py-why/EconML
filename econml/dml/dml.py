@@ -479,8 +479,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  ):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.fit_cate_intercept = fit_cate_intercept
         self.linear_first_stages = linear_first_stages
         self.featurizer = clone(featurizer, safe=False)
@@ -659,6 +657,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
     ray_remote_func_options : dict, default None
         Options to pass to the remote function when using Ray.
         See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
@@ -717,8 +716,6 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  use_ray=False,
                  ray_remote_func_options=None,
                  ):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
 
         super().__init__(model_y=model_y,
                          model_t=model_t,
@@ -908,6 +905,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
     ray_remote_func_options : dict, default None
         Options to pass to the remote function when using Ray.
         See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
@@ -971,8 +969,6 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  random_state=None,
                  use_ray=False,
                  ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -1149,6 +1145,7 @@ class KernelDML(DML):
 
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
     ray_remote_func_options : dict, default None
         Options to pass to the remote function when using Ray.
         See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
@@ -1191,8 +1188,6 @@ class KernelDML(DML):
                  random_state=None,
                  use_ray=False,
                  ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.dim = dim
         self.bw = bw
         super().__init__(model_y=model_y,
@@ -1394,8 +1389,6 @@ class NonParamDML(_BaseDML):
                  ray_remote_func_options=None):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.featurizer = clone(featurizer, safe=False)

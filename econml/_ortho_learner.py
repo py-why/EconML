@@ -511,8 +511,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  discrete_treatment, treatment_featurizer,
                  discrete_instrument, categories, cv, random_state,
                  mc_iters=None, mc_agg='mean', use_ray=False, ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.actors = []
         self.cv = cv
         self.discrete_treatment = discrete_treatment
@@ -731,6 +729,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             if self.use_ray:
                 if not ray.is_initialized():
                     ray.init()
+                self.ray_remote_func_options = self.ray_remote_func_options or {}
 
                 # Define Ray remote function (Ray remote wrapper of the _fit_nuisances function)
                 def _fit_nuisances(Y, T, X, W, Z, sample_weight, groups):

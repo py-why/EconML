@@ -420,8 +420,6 @@ class DRLearner(_OrthoLearner):
                  use_ray=False,
                  ray_remote_func_options=None
                  ):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.model_propensity = clone(model_propensity, safe=False)
         self.model_regression = clone(model_regression, safe=False)
         self.model_final = clone(model_final, safe=False)
@@ -897,8 +895,6 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  use_ray=False,
                  ray_remote_func_options=None):
 
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.fit_cate_intercept = fit_cate_intercept
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
@@ -1190,8 +1186,6 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  use_ray=False,
                  ray_remote_func_options=None):
 
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.fit_cate_intercept = fit_cate_intercept
         self.alpha = alpha
         self.n_alphas = n_alphas
@@ -1488,8 +1482,6 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
                  random_state=None,
                  use_ray=False,
                  ray_remote_func_options=None,):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split

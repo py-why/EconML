@@ -311,8 +311,6 @@ class _BaseDRIV(_OrthoLearner):
                  random_state=None,
                  use_ray=False,
                  ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
@@ -567,8 +565,6 @@ class _DRIV(_BaseDRIV):
                  use_ray=False,
                  ray_remote_func_options=None,
                  ):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -869,9 +865,6 @@ class DRIV(_DRIV):
                  use_ray=False,
                  ray_remote_func_options=None,
                  ):
-
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
         else:
@@ -1346,8 +1339,6 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  use_ray=False,
                  ray_remote_func_options=None
                  ):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xw=model_t_xw,
                          model_z_xw=model_z_xw,
@@ -1690,8 +1681,6 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  random_state=None,
                  use_ray=False,
                  ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -2112,8 +2101,6 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  random_state=None,
                  use_ray=False,
                  ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -2341,8 +2328,6 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  random_state=None,
                  use_ray=False,
                  ray_remote_func_options=None,):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
@@ -2575,8 +2560,6 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  use_ray=False,
                  ray_remote_func_options=None):
 
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         # maybe shouldn't expose fit_cate_intercept in this class?
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
@@ -2873,8 +2856,6 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  random_state=None,
                  use_ray=False,
                  ray_remote_func_options=None):
-        if ray_remote_func_options is None:
-            ray_remote_func_options = {}
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xwz=model_t_xwz,
                          flexible_model_effect=flexible_model_effect,
