@@ -1882,6 +1882,47 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         return self
 
 
+    def compute_A(self, X, freq_weight):
+        """
+        Compute matrix A (np.matmul(WX.T, WX)) for given data and frequency weights.
+
+        Parameters
+        ----------
+        X : (N, d) nd array_like
+            co-variates
+        freq_weight: (N, ) array_like of int or None
+            Weight for the observation.
+
+        Returns
+        -------
+        A : np.ndarray
+            Matrix A
+        """
+        WX = X * np.sqrt(freq_weight).reshape(-1, 1)
+        return np.matmul(WX.T, WX)
+
+    def compute_B(self, X, y, freq_weight):
+        """
+        Compute matrix B (np.matmul(WX.T, Y)) for given data and frequency weights.
+
+        Parameters
+        ----------
+        X : (N, d) nd array_like
+            co-variates
+        y : {(N,), (N, p)} nd array_like
+            output variable(s)
+        freq_weight: (N, ) array_like of int or None
+            Weight for the observation.
+
+        Returns
+        -------
+        B : np.ndarray
+            Matrix B
+        """
+        wy = y * np.sqrt(freq_weight)
+        return np.matmul(X.T, wy)
+
+
 class StatsModelsRLM(_StatsModelsWrapper):
     """
     Class which mimics robust linear regression from the statsmodels package.
