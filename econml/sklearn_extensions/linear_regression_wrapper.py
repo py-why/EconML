@@ -1,5 +1,5 @@
 import numpy as np
-from econml.sklearn_extensions.model_selection import StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 
 class LinearRegressionWrapper:
     def __init__(self, fit_intercept=True, cov_type="HC0"):
@@ -21,6 +21,6 @@ linear_regression.fit(X, y, sample_weight, freq_weight, sample_var)
 A = linear_regression.compute_A(X, freq_weight)
 B = linear_regression.compute_B(X, y, freq_weight)
 
-# Now you can export A and B outside of the LinearRegressionWrapper class
+# Now you can export A and B outside of the LinearRegressionWrapper class and aggregate them
 
 
