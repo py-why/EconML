@@ -1730,6 +1730,8 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
     def __init__(self, fit_intercept=True, cov_type="HC0"):
         self.cov_type = cov_type
         self.fit_intercept = fit_intercept
+        self.A = None
+        self.B = None
         return
 
     def _check_input(self, X, y, sample_weight, freq_weight, sample_var):
@@ -1879,6 +1881,8 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
 
         self._param_var = np.array(self._var)
+        self.A = compute_A(X, freq_weight)
+        self.B = compute_B(X, y, freq_weight)
         return self
 
 
