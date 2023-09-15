@@ -1881,8 +1881,8 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
 
         self._param_var = np.array(self._var)
-        self.A = compute_A(X, freq_weight)
-        self.B = compute_B(X, y, freq_weight)
+        self.A = self.compute_A(X, freq_weight)
+        self.B = self.compute_B(X, y, freq_weight)
         return self
 
 
