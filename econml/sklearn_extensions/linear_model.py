@@ -1885,7 +1885,6 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         self.B = self.compute_B(X, y, freq_weight)
         return self
 
-
     def compute_A(self, X, freq_weight):
         """
         Compute matrix A (np.matmul(WX.T, WX)) for given data and frequency weights.
