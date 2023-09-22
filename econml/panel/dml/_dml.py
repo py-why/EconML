@@ -458,6 +458,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=False,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -469,7 +470,8 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
-        super().__init__(discrete_treatment=discrete_treatment,
+        super().__init__(binary_outcome=binary_outcome,
+                         discrete_treatment=discrete_treatment,
                          treatment_featurizer=None,
                          discrete_instrument=False,
                          categories=categories,
@@ -526,11 +528,15 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     def _gen_model_y(self):
         if self.model_y == 'auto':
-            model_y = WeightedLassoCVWrapper(random_state=self.random_state)
+            if self.binary_outcome:
+                model_y = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                               random_state=self.random_state)
+            else:
+                model_y = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
-                                  self.linear_first_stages, self.discrete_treatment)
+                                  self.linear_first_stages, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_t(self):
         if self.model_t == 'auto':
@@ -542,7 +548,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         else:
             model_t = clone(self.model_t, safe=False)
         return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
-                                  self.linear_first_stages, self.discrete_treatment)
+                                  self.linear_first_stages, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)

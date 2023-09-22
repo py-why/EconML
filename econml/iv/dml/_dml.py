@@ -343,6 +343,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  projection=False,
                  featurizer=None,
                  fit_cate_intercept=True,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
                  discrete_instrument=False,
@@ -359,7 +360,8 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
 
-        super().__init__(discrete_instrument=discrete_instrument,
+        super().__init__(binary_outcome=binary_outcome,
+                         discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
@@ -379,7 +381,11 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     def _gen_ortho_learner_model_nuisance(self):
         if self.model_y_xw == 'auto':
-            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+            if self.binary_outcome:
+                model_y_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                  random_state=self.random_state)
+            else:
+                model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y_xw = clone(self.model_y_xw, safe=False)
 
@@ -404,11 +410,13 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                 model_t_xwz = clone(self.model_t_xwz, safe=False)
 
             return _OrthoIVModelNuisance(_FirstStageWrapper(clone(model_y_xw, safe=False), True,
-                                                            self._gen_featurizer(), False, False),
+                                                            self._gen_featurizer(), False, False, self.binary_outcome),
                                          _FirstStageWrapper(clone(model_t_xw, safe=False), False,
-                                                            self._gen_featurizer(), False, self.discrete_treatment),
+                                                            self._gen_featurizer(), False,
+                                                            self.discrete_treatment, self.binary_outcome),
                                          _FirstStageWrapper(clone(model_t_xwz, safe=False), False,
-                                                            self._gen_featurizer(), False, self.discrete_treatment),
+                                                            self._gen_featurizer(), False,
+                                                            self.discrete_treatment, self.binary_outcome),
                                          self.projection)
 
         else:
@@ -423,11 +431,13 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                 model_z_xw = clone(self.model_z_xw, safe=False)
 
             return _OrthoIVModelNuisance(_FirstStageWrapper(clone(model_y_xw, safe=False), True,
-                                                            self._gen_featurizer(), False, False),
+                                                            self._gen_featurizer(), False, False, self.binary_outcome),
                                          _FirstStageWrapper(clone(model_t_xw, safe=False), False,
-                                                            self._gen_featurizer(), False, self.discrete_treatment),
+                                                            self._gen_featurizer(), False,
+                                                            self.discrete_treatment, self.binary_outcome),
                                          _FirstStageWrapper(clone(model_z_xw, safe=False), False,
-                                                            self._gen_featurizer(), False, self.discrete_instrument),
+                                                            self._gen_featurizer(), False,
+                                                            self.discrete_instrument, self.binary_outcome),
                                          self.projection)
 
     def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
@@ -1142,6 +1152,7 @@ class DMLIV(_BaseDMLIV):
                  model_final=StatsModelsLinearRegression(fit_intercept=False),
                  featurizer=None,
                  fit_cate_intercept=True,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
                  discrete_instrument=False,
@@ -1156,7 +1167,8 @@ class DMLIV(_BaseDMLIV):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
-        super().__init__(discrete_treatment=discrete_treatment,
+        super().__init__(binary_outcome=binary_outcome,
+                         discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=discrete_instrument,
                          categories=categories,
@@ -1170,11 +1182,15 @@ class DMLIV(_BaseDMLIV):
 
     def _gen_model_y_xw(self):
         if self.model_y_xw == 'auto':
-            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+            if self.binary_outcome:
+                model_y_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                  random_state=self.random_state)
+            else:
+                model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y_xw = clone(self.model_y_xw, safe=False)
         return _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(),
-                                  False, False)
+                                  False, False, self.binary_outcome)
 
     def _gen_model_t_xw(self):
         if self.model_t_xw == 'auto':
@@ -1186,7 +1202,7 @@ class DMLIV(_BaseDMLIV):
         else:
             model_t_xw = clone(self.model_t_xw, safe=False)
         return _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                  False, self.discrete_treatment)
+                                  False, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_t_xwz(self):
         if self.model_t_xwz == 'auto':
@@ -1198,7 +1214,7 @@ class DMLIV(_BaseDMLIV):
         else:
             model_t_xwz = clone(self.model_t_xwz, safe=False)
         return _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                  False, self.discrete_treatment)
+                                  False, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
@@ -1532,6 +1548,7 @@ class NonParamDMLIV(_BaseDMLIV):
                  model_t_xw="auto",
                  model_t_xwz="auto",
                  model_final,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
                  discrete_instrument=False,
@@ -1546,7 +1563,8 @@ class NonParamDMLIV(_BaseDMLIV):
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
-        super().__init__(discrete_treatment=discrete_treatment,
+        super().__init__(binary_outcome=binary_outcome,
+                         discrete_treatment=discrete_treatment,
                          discrete_instrument=discrete_instrument,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
@@ -1560,11 +1578,15 @@ class NonParamDMLIV(_BaseDMLIV):
 
     def _gen_model_y_xw(self):
         if self.model_y_xw == 'auto':
-            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+            if self.binary_outcome:
+                model_y_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                  random_state=self.random_state)
+            else:
+                model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y_xw = clone(self.model_y_xw, safe=False)
         return _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(),
-                                  False, False)
+                                  False, False, self.binary_outcome)
 
     def _gen_model_t_xw(self):
         if self.model_t_xw == 'auto':
@@ -1576,7 +1598,7 @@ class NonParamDMLIV(_BaseDMLIV):
         else:
             model_t_xw = clone(self.model_t_xw, safe=False)
         return _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                  False, self.discrete_treatment)
+                                  False, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_t_xwz(self):
         if self.model_t_xwz == 'auto':
@@ -1588,7 +1610,7 @@ class NonParamDMLIV(_BaseDMLIV):
         else:
             model_t_xwz = clone(self.model_t_xwz, safe=False)
         return _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                  False, self.discrete_treatment)
+                                  False, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)

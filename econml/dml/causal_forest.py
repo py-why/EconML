@@ -649,7 +649,11 @@ class CausalForestDML(_BaseDML):
 
     def _gen_model_y(self):
         if self.model_y == 'auto':
-            model_y = WeightedLassoCVWrapper(random_state=self.random_state)
+            if self.binary_outcome:
+                model_y = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                               random_state=self.random_state)
+            else:
+                model_y = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(), False, self.discrete_treatment)

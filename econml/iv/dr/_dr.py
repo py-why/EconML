@@ -301,6 +301,7 @@ class _BaseDRIV(_OrthoLearner):
                  fit_cate_intercept=False,
                  cov_clip=1e-3,
                  opt_reweighted=False,
+                 binary_outcome=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
@@ -314,7 +315,8 @@ class _BaseDRIV(_OrthoLearner):
         self.fit_cate_intercept = fit_cate_intercept
         self.cov_clip = cov_clip
         self.opt_reweighted = opt_reweighted
-        super().__init__(discrete_instrument=discrete_instrument,
+        super().__init__(binary_outcome=binary_outcome,
+                         discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
@@ -550,6 +552,7 @@ class _DRIV(_BaseDRIV):
                  fit_cate_intercept=False,
                  cov_clip=1e-3,
                  opt_reweighted=False,
+                 binary_outcome=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
@@ -570,6 +573,7 @@ class _DRIV(_BaseDRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          opt_reweighted=opt_reweighted,
+                         binary_outcome=binary_outcome,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
@@ -584,7 +588,11 @@ class _DRIV(_BaseDRIV):
 
     def _gen_ortho_learner_model_nuisance(self):
         if self.model_y_xw == 'auto':
-            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+            if self.binary_outcome:
+                model_y_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                  random_state=self.random_state)
+            else:
+                model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y_xw = clone(self.model_y_xw, safe=False)
 
@@ -614,14 +622,15 @@ class _DRIV(_BaseDRIV):
                 model_t_xwz = clone(self.model_t_xwz, safe=False)
 
             return _BaseDRIVModelNuisance(self._gen_prel_model_effect(),
-                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False),
+                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(),
+                                                             False, False, self.binary_outcome),
                                           _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
-                                          # outcome is continuous since proj_t is probability
+                                                             False, self.discrete_treatment, self.binary_outcome),
+                                          # target is continuous since proj_t is probability
                                           _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
-                                                             False),
+                                                             False, self.binary_outcome),
                                           _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
+                                                             False, self.discrete_treatment, self.binary_outcome),
                                           self.projection, self.discrete_treatment, self.discrete_instrument)
 
         else:
@@ -644,13 +653,15 @@ class _DRIV(_BaseDRIV):
                 model_z_xw = clone(self.model_z_xw, safe=False)
 
             return _BaseDRIVModelNuisance(self._gen_prel_model_effect(),
-                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False),
+                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False,
+                                                             self.binary_outcome),
                                           _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
+                                                             False, self.discrete_treatment, self.binary_outcome),
                                           _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
-                                                             self.discrete_treatment and self.discrete_instrument),
+                                                             self.discrete_treatment and self.discrete_instrument,
+                                                             self.binary_outcome),
                                           _FirstStageWrapper(model_z_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_instrument),
+                                                             False, self.discrete_instrument, self.binary_outcome),
                                           self.projection, self.discrete_treatment, self.discrete_instrument)
 
 
@@ -838,6 +849,7 @@ class DRIV(_DRIV):
                  fit_cate_intercept=False,
                  cov_clip=1e-3,
                  opt_reweighted=False,
+                 binary_outcome=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
@@ -866,6 +878,7 @@ class DRIV(_DRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          opt_reweighted=opt_reweighted,
+                         binary_outcome=binary_outcome,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
@@ -1301,6 +1314,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  fit_cate_intercept=True,
                  cov_clip=1e-3,
                  opt_reweighted=False,
+                 binary_outcome=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
@@ -1324,6 +1338,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          opt_reweighted=opt_reweighted,
+                         binary_outcome=binary_outcome,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
@@ -1632,6 +1647,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  n_jobs=None,
                  cov_clip=1e-3,
                  opt_reweighted=False,
+                 binary_outcome=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
@@ -1662,6 +1678,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          fit_cate_intercept=fit_cate_intercept,
                          cov_clip=cov_clip,
                          opt_reweighted=opt_reweighted,
+                         binary_outcome=binary_outcome,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
@@ -2040,6 +2057,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  verbose=0,
                  cov_clip=1e-3,
                  opt_reweighted=False,
+                 binary_outcome=False,
                  discrete_instrument=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
@@ -2076,6 +2094,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          fit_cate_intercept=False,
                          cov_clip=cov_clip,
                          opt_reweighted=opt_reweighted,
+                         binary_outcome=binary_outcome,
                          discrete_instrument=discrete_instrument,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
@@ -2294,7 +2313,11 @@ class _IntentToTreatDRIV(_BaseDRIV):
 
     def _gen_ortho_learner_model_nuisance(self):
         if self.model_y_xw == 'auto':
-            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
+            if self.binary_outcome:
+                model_y_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                  random_state=self.random_state)
+            else:
+                model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y_xw = clone(self.model_y_xw, safe=False)
 
@@ -2312,11 +2335,13 @@ class _IntentToTreatDRIV(_BaseDRIV):
             raise ValueError("Only 'auto' or float is allowed!")
 
         return _IntentToTreatDRIVModelNuisance(_FirstStageWrapper(model_y_xw, True, self._gen_featurizer(),
-                                                                  False, False),
+                                                                  False, False, self.binary_outcome),
                                                _FirstStageWrapper(model_t_xwz, False,
-                                                                  self._gen_featurizer(), False, True),
+                                                                  self._gen_featurizer(), False, True,
+                                                                  self.binary_outcome),
                                                _FirstStageWrapper(dummy_z, False,
-                                                                  self._gen_featurizer(), False, True),
+                                                                  self._gen_featurizer(), False, True,
+                                                                  self.binary_outcome),
                                                self._gen_prel_model_effect()
                                                )
 

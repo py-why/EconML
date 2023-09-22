@@ -432,10 +432,17 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
 
     def __init__(self, *,
-                 discrete_treatment, treatment_featurizer,
-                 discrete_instrument, categories, cv, random_state,
-                 mc_iters=None, mc_agg='mean'):
+                 binary_outcome,
+                 discrete_treatment,
+                 treatment_featurizer,
+                 discrete_instrument,
+                 categories,
+                 cv,
+                 random_state,
+                 mc_iters=None,
+                 mc_agg='mean'):
         self.cv = cv
+        self.binary_outcome = binary_outcome
         self.discrete_treatment = discrete_treatment
         self.treatment_featurizer = treatment_featurizer
         self.discrete_instrument = discrete_instrument
@@ -525,20 +532,41 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _strata(self, Y, T, X=None, W=None, Z=None,
                 sample_weight=None, freq_weight=None, sample_var=None, groups=None,
                 cache_values=False, only_final=False, check_input=True):
-        if self.discrete_instrument:
-            Z = LabelEncoder().fit_transform(np.ravel(Z))
-
+        arrs = []
+        if self.binary_outcome:
+            arrs.append(Y)
         if self.discrete_treatment:
-            enc = LabelEncoder()
-            T = enc.fit_transform(np.ravel(T))
-            if self.discrete_instrument:
-                return T + Z * len(enc.classes_)
-            else:
-                return T
-        elif self.discrete_instrument:
-            return Z
-        else:
+            arrs.append(T)
+        if self.discrete_instrument:
+            arrs.append(Z)
+
+        return self._single_strata_from_discrete_arrays(arrs)
+
+    """
+    Combine multiple discrete arrays into a single array for stratification purposes:
+
+    e.g. if arrs are
+    [0 1 2 0 1 2 0 1 2 0 1 2],
+    [0 1 0 1 0 1 0 1 0 1 0 1],
+    [0 0 0 0 0 0 1 1 1 1 1 1]
+    then output will be
+    [0 8 4 6 2 10 1 9 5 7 3 11]
+
+    Every distinct combination of these discrete arrays will have it's own label.
+    """
+
+    def _single_strata_from_discrete_arrays(self, arrs):
+        if not arrs:
             return None
+
+        curr_array = np.zeros(shape=arrs[0].ravel().shape, dtype='int')
+
+        for arr in arrs:
+            enc = LabelEncoder()
+            temp = enc.fit_transform(arr.ravel())
+            curr_array = temp + curr_array * len(enc.classes_)
+
+        return curr_array
 
     def _prefit(self, Y, T, *args, only_final=False, **kwargs):
 

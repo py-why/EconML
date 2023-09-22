@@ -37,12 +37,20 @@ from .._shap import _shap_explain_model_cate
 
 
 class _FirstStageWrapper:
-    def __init__(self, model, is_Y, featurizer, linear_first_stages, discrete_treatment):
+    def __init__(
+            self,
+            model,
+            is_Y,
+            featurizer,
+            linear_first_stages,
+            discrete_treatment,
+            binary_outcome):
         self._model = clone(model, safe=False)
         self._featurizer = clone(featurizer, safe=False)
         self._is_Y = is_Y
         self._linear_first_stages = linear_first_stages
         self._discrete_treatment = discrete_treatment
+        self._binary_outcome = binary_outcome
 
     def _combine(self, X, W, n_samples, fitting=True):
         if X is None:
@@ -77,9 +85,13 @@ class _FirstStageWrapper:
 
     def predict(self, X, W):
         n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
-        if (not self._is_Y) and self._discrete_treatment:
+        if (not self._is_Y and self._discrete_treatment) or (self._is_Y and self._binary_outcome):
             return self._model.predict_proba(self._combine(X, W, n_samples, fitting=False))[:, 1:]
         else:
+            if (not self._is_Y) and (not self._discrete_treatment) and hasattr(self._model, 'predict_proba'):
+                warn("A treatment model has a predict_proba method, but discrete_treatment=False. "
+                     "If your treatment is discrete, consider setting discrete_treatment=True. "
+                     "Otherwise, if your treatment is not discrete, use a regressor instead.", UserWarning)
             return self._model.predict(self._combine(X, W, n_samples, fitting=False))
 
     def score(self, X, W, Target, sample_weight=None):
@@ -461,6 +473,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=False,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -475,7 +488,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.model_final = clone(model_final, safe=False)
-        super().__init__(discrete_treatment=discrete_treatment,
+        super().__init__(binary_outcome=binary_outcome,
+                         discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
@@ -488,11 +502,15 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     def _gen_model_y(self):
         if self.model_y == 'auto':
-            model_y = WeightedLassoCVWrapper(random_state=self.random_state)
+            if self.binary_outcome:
+                model_y = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                               random_state=self.random_state)
+            else:
+                model_y = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y = clone(self.model_y, safe=False)
         return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
-                                  self.linear_first_stages, self.discrete_treatment)
+                                  self.linear_first_stages, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_t(self):
         if self.model_t == 'auto':
@@ -504,7 +522,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         else:
             model_t = clone(self.model_t, safe=False)
         return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
-                                  self.linear_first_stages, self.discrete_treatment)
+                                  self.linear_first_stages, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
@@ -687,6 +705,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -700,6 +719,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          treatment_featurizer=treatment_featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
+                         binary_outcome=binary_outcome,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
@@ -927,6 +947,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -947,6 +968,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          treatment_featurizer=treatment_featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
+                         binary_outcome=binary_outcome,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
@@ -1131,6 +1153,7 @@ class KernelDML(DML):
     """
 
     def __init__(self, model_y='auto', model_t='auto',
+                 binary_outcome=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
                  categories='auto',
@@ -1148,6 +1171,7 @@ class KernelDML(DML):
                          featurizer=None,
                          treatment_featurizer=treatment_featurizer,
                          fit_cate_intercept=fit_cate_intercept,
+                         binary_outcome=binary_outcome,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
@@ -1320,6 +1344,7 @@ class NonParamDML(_BaseDML):
     def __init__(self, *,
                  model_y, model_t, model_final,
                  featurizer=None,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
                  categories='auto',
@@ -1334,7 +1359,8 @@ class NonParamDML(_BaseDML):
         self.model_t = clone(model_t, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.model_final = clone(model_final, safe=False)
-        super().__init__(discrete_treatment=discrete_treatment,
+        super().__init__(binary_outcome=binary_outcome,
+                         discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
@@ -1353,11 +1379,11 @@ class NonParamDML(_BaseDML):
 
     def _gen_model_y(self):
         return _FirstStageWrapper(clone(self.model_y, safe=False), True,
-                                  self._gen_featurizer(), False, self.discrete_treatment)
+                                  self._gen_featurizer(), False, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_t(self):
         return _FirstStageWrapper(clone(self.model_t, safe=False), False,
-                                  self._gen_featurizer(), False, self.discrete_treatment)
+                                  self._gen_featurizer(), False, self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
