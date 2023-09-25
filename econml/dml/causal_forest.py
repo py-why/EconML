@@ -658,7 +658,8 @@ class CausalForestDML(_BaseDML):
                 model_y = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_y = clone(self.model_y, safe=False)
-        return _FirstStageWrapper(model_y, True, self._gen_featurizer(), False, self.discrete_treatment)
+        return _FirstStageWrapper(model_y, True, self._gen_featurizer(), False,
+                                  self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_t(self):
         if self.model_t == 'auto':
@@ -669,7 +670,8 @@ class CausalForestDML(_BaseDML):
                 model_t = WeightedLassoCVWrapper(random_state=self.random_state)
         else:
             model_t = clone(self.model_t, safe=False)
-        return _FirstStageWrapper(model_t, False, self._gen_featurizer(), False, self.discrete_treatment)
+        return _FirstStageWrapper(model_t, False, self._gen_featurizer(), False,
+                                  self.discrete_treatment, self.binary_outcome)
 
     def _gen_model_final(self):
         return MultiOutputGRF(CausalForest(n_estimators=self.n_estimators,
