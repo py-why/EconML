@@ -577,6 +577,7 @@ class CausalForestDML(_BaseDML):
                  model_t='auto',
                  featurizer=None,
                  treatment_featurizer=None,
+                 binary_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -630,7 +631,8 @@ class CausalForestDML(_BaseDML):
         self.subforest_size = subforest_size
         self.n_jobs = n_jobs
         self.verbose = verbose
-        super().__init__(discrete_treatment=discrete_treatment,
+        super().__init__(binary_outcome=binary_outcome,
+                         discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
                          cv=cv,
