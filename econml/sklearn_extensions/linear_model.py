@@ -13,6 +13,8 @@
     from sklearn.linear_model import lasso_path
 """
 
+from __future__ import annotations  # needed to allow type signature to refer to containing type
+
 import numbers
 import numpy as np
 import warnings
@@ -36,9 +38,11 @@ from statsmodels.tools.tools import add_constant
 from statsmodels.api import RLM
 import statsmodels
 from joblib import Parallel, delayed
-
+from typing import List
 
 # TODO: once we drop support for sklearn < 1.0, we can remove this
+
+
 def _add_normalize(to_wrap):
     """
     Add a fictitious "normalize" argument to linear model initializer signatures.
@@ -1730,9 +1734,6 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
     def __init__(self, fit_intercept=True, cov_type="HC0"):
         self.cov_type = cov_type
         self.fit_intercept = fit_intercept
-        self.A = None
-        self.B = None
-        return
 
     def _check_input(self, X, y, sample_weight, freq_weight, sample_var):
         """Check dimensions and other assertions."""
@@ -1837,21 +1838,45 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             wy = y * np.sqrt(freq_weight).reshape(-1, 1)
 
         param, _, rank, _ = np.linalg.lstsq(WX, wy, rcond=None)
-
-        if rank < param.shape[0]:
-            warnings.warn("Co-variance matrix is underdetermined. Inference will be invalid!")
-
-        sigma_inv = np.linalg.pinv(np.matmul(WX.T, WX))
-        self._param = param
-        var_i = sample_var + (y - np.matmul(X, param))**2
         n_obs = np.sum(freq_weight)
-        df = len(param) if self._n_out == 0 else param.shape[0]
+        self._n_obs = n_obs
+
+        df = param.shape[0]
+
+        if rank < df:
+            warnings.warn("Co-variance matrix is underdetermined. Inference will be invalid!")
 
         if n_obs <= df:
             warnings.warn("Number of observations <= than number of parameters. Using biased variance calculation!")
             correction = 1
         else:
             correction = (n_obs / (n_obs - df))
+
+        # For aggregation calculations, always treat wy as an array so that einsum expressions don't need to change
+        # We'll collapse results back down afterwards if necessary
+        wy = wy.reshape(-1, 1) if y.ndim < 2 else wy
+        sv = sample_var.reshape(-1, 1) if y.ndim < 2 else sample_var
+        self.A = np.matmul(WX.T, WX)
+        self.B = np.matmul(WX.T, wy)
+
+        # for federation, we need to store these 5 arrays when using heteroskedasticity-robust inference
+        if (self.cov_type in ['HC0', 'HC1']):
+            # y dimension is always first in the output when present so that broadcasting works correctly
+            self.C = np.einsum('nw,nx,ny,ny->ywx', X, X, wy, wy)
+            self.D = np.einsum('nv,nw,nx,ny->yvwx', X, X, WX, wy)
+            self.E = np.einsum('nu,nv,nw,nx->uvwx', X, X, WX, WX)
+            self.sample_var = np.einsum('nw,nx,ny->ywx', WX, WX, sv)
+        elif (self.cov_type is None) or (self.cov_type == 'nonrobust'):
+            self.C = np.einsum('ny,ny->y', wy, wy)
+            self.D = np.einsum('nx,ny->yx', WX, wy)
+            self.E = np.einsum('nw,nx->wx', WX, WX)
+            self.sample_var = np.average(sv, weights=freq_weight, axis=0) * n_obs
+
+        sigma_inv = np.linalg.pinv(self.A)
+
+        var_i = sample_var + (y - np.matmul(X, param))**2
+
+        self._param = param
 
         if (self.cov_type is None) or (self.cov_type == 'nonrobust'):
             if y.ndim < 2:
@@ -1881,49 +1906,82 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
 
         self._param_var = np.array(self._var)
-        self.A = self.compute_A(X, freq_weight)
-        self.B = self.compute_B(X, y, freq_weight)
+
         return self
 
-    def compute_A(self, X, freq_weight):
+    @staticmethod
+    def aggregate(models: List[StatsModelsLinearRegression]):
         """
-        Compute matrix A (np.matmul(WX.T, WX)) for given data and frequency weights.
+        Aggregate multiple models into one.
 
         Parameters
         ----------
-        X : (N, d) nd array_like
-            co-variates
-        freq_weight: (N, ) array_like of int or None
-            Weight for the observation.
+        models : list of StatsModelsLinearRegression
+            The models to aggregate
 
         Returns
         -------
-        A : np.ndarray
-            Matrix A
+        agg_model : StatsModelsLinearRegression
+            The aggregated model
         """
-        WX = X * np.sqrt(freq_weight).reshape(-1, 1)
-        return np.matmul(WX.T, WX)
+        if len(models) == 0:
+            raise ValueError("Must aggregate at least one model!")
+        cov_types = set([model.cov_type for model in models])
+        fit_intercepts = set([model.fit_intercept for model in models])
+        _n_outs = set([model._n_out for model in models])
+        assert len(cov_types) == 1, "All models must have the same cov_type!"
+        assert len(fit_intercepts) == 1, "All models must have the same fit_intercept!"
+        assert len(_n_outs) == 1, "All models must have the same number of outcomes!"
+        agg_model = StatsModelsLinearRegression(cov_type=models[0].cov_type, fit_intercept=models[0].fit_intercept)
 
-    def compute_B(self, X, y, freq_weight):
-        """
-        Compute matrix B (np.matmul(WX.T, Y)) for given data and frequency weights.
+        agg_model._n_out = models[0]._n_out
 
-        Parameters
-        ----------
-        X : (N, d) nd array_like
-            co-variates
-        y : {(N,), (N, p)} nd array_like
-            output variable(s)
-        freq_weight: (N, ) array_like of int or None
-            Weight for the observation.
+        A = np.sum([model.A for model in models], axis=0)
+        B = np.sum([model.B for model in models], axis=0)
+        C = np.sum([model.C for model in models], axis=0)
+        D = np.sum([model.D for model in models], axis=0)
+        E = np.sum([model.E for model in models], axis=0)
 
-        Returns
-        -------
-        B : np.ndarray
-            Matrix B
-        """
-        wy = y * np.sqrt(freq_weight)
-        return np.matmul(X.T, wy)
+        sample_var = np.sum([model.sample_var for model in models], axis=0)
+        n_obs = np.sum([model._n_obs for model in models], axis=0)
+
+        sigma_inv = np.linalg.pinv(A)
+        param = sigma_inv @ B
+        df = np.shape(param)[0]
+
+        agg_model._param = param if agg_model._n_out > 0 else param.squeeze(1)
+
+        if n_obs <= df:
+            warnings.warn("Number of observations <= than number of parameters. Using biased variance calculation!")
+            correction = 1
+        elif agg_model.cov_type == 'HC0':
+            correction = 1
+        else:  # both HC1 and nonrobust use the same correction factor
+            correction = (n_obs / (n_obs - df))
+
+        if agg_model.cov_type in ['HC0', 'HC1']:
+            weighted_sigma = C - 2 * np.einsum('yvwx,vy->ywx', D, param) + \
+                np.einsum('uvwx,uy,vy->ywx', E, param, param) + sample_var
+            if agg_model._n_out == 0:
+                agg_model._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma.squeeze(0), sigma_inv))
+            else:
+                agg_model._var = [correction * np.matmul(sigma_inv, np.matmul(ws, sigma_inv)) for ws in weighted_sigma]
+
+        else:
+            assert agg_model.cov_type == 'nonrobust' or agg_model.cov_type is None
+            sigma = C - 2 * np.einsum('yx,xy->y', D, param) + np.einsum('wx,wy,xy->y', E, param, param)
+            var_i = (sample_var + sigma) / n_obs
+            if agg_model._n_out == 0:
+                agg_model._var = correction * var_i * sigma_inv
+            else:
+                agg_model._var = [correction * var * sigma_inv for var in var_i]
+
+        agg_model._param_var = np.array(agg_model._var)
+
+        (agg_model.A, agg_model.B, agg_model.C, agg_model.D, agg_model.E,
+         agg_model.sample_var, agg_model._n_obs) = A, B, C, D, E, sample_var, n_obs
+
+        return agg_model
 
 
 class StatsModelsRLM(_StatsModelsWrapper):
