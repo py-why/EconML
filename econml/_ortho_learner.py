@@ -447,6 +447,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.categories = categories
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
+
         self.allow_missing = allow_missing
         super().__init__()
 
