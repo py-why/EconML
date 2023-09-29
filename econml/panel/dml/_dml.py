@@ -397,6 +397,10 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance_models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with default models:
@@ -463,7 +467,8 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.fit_cate_intercept = fit_cate_intercept
         self.linear_first_stages = linear_first_stages
         self.featurizer = clone(featurizer, safe=False)
@@ -476,7 +481,11 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                          cv=GroupKFold(cv) if isinstance(cv, int) else cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     # override only so that we can exclude treatment featurization verbiage in docstring
     def const_marginal_effect(self, X=None):
@@ -671,7 +680,8 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         """
         if not hasattr(self._ortho_learner_model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
-        Y, T, X, W, groups = check_input_arrays(Y, T, X, W, groups)
+        Y, T, X, groups = check_input_arrays(Y, T, X, groups)
+        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         self._check_fitted_dims(X)
         X, T = super()._expand_treatments(X, T)
         n_iters = len(self._models_nuisance)
