@@ -514,6 +514,10 @@ class CausalForestDML(_BaseDML):
     verbose : int, default 0
         Controls the verbosity when fitting and predicting.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_y that can handle
+        missing values.
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -601,7 +605,8 @@ class CausalForestDML(_BaseDML):
                  subforest_size=4,
                  n_jobs=-1,
                  random_state=None,
-                 verbose=0):
+                 verbose=0,
+                 allow_missing=False):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -636,7 +641,11 @@ class CausalForestDML(_BaseDML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     def _get_inference_options(self):
         options = super()._get_inference_options()
@@ -737,7 +746,8 @@ class CausalForestDML(_BaseDML):
             all parameters of the object have been set to the best performing parameters from the tuning grid.
         """
         from ..score import RScorer  # import here to avoid circular import issue
-        Y, T, X, W, sample_weight, groups = check_input_arrays(Y, T, X, W, sample_weight, groups)
+        Y, T, X, sample_weight, groups = check_input_arrays(Y, T, X, sample_weight, groups)
+        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
 
         if params == 'auto':
             params = {

@@ -308,7 +308,8 @@ class _BaseDRIV(_OrthoLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
@@ -321,7 +322,11 @@ class _BaseDRIV(_OrthoLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     # Maggie: I think that would be the case?
     def _get_inference_options(self):
@@ -557,7 +562,8 @@ class _DRIV(_BaseDRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -577,7 +583,8 @@ class _DRIV(_BaseDRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -779,6 +786,10 @@ class DRIV(_DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with the default models:
@@ -845,7 +856,8 @@ class DRIV(_DRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
 
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
@@ -873,7 +885,8 @@ class DRIV(_DRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -900,7 +913,8 @@ class DRIV(_DRIV):
                          cv=self.prel_cv,
                          mc_iters=self.mc_iters,
                          mc_agg=self.mc_agg,
-                         random_state=self.random_state)
+                         random_state=self.random_state,
+                         allow_missing=self.allow_missing)
         elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xw, safe=False),
@@ -913,7 +927,8 @@ class DRIV(_DRIV):
                                  cv=self.prel_cv,
                                  mc_iters=self.mc_iters,
                                  mc_agg=self.mc_agg,
-                                 random_state=self.random_state)
+                                 random_state=self.random_state,
+                                 allow_missing=self.allow_missing)
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
@@ -1231,6 +1246,10 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with the default models:
@@ -1308,7 +1327,8 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xw=model_t_xw,
                          model_z_xw=model_z_xw,
@@ -1331,7 +1351,8 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
@@ -1555,6 +1576,10 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with the default models:
@@ -1639,7 +1664,8 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -1669,7 +1695,8 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_model_final(self):
         return DebiasedLasso(alpha=self.alpha,
@@ -1967,6 +1994,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with the default models:
@@ -2047,7 +2078,8 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -2083,7 +2115,8 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_model_final(self):
         return RegressionForest(n_estimators=self.n_estimators,
@@ -2270,7 +2303,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  cv=3,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
@@ -2287,7 +2321,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          discrete_treatment=True,
                          categories=categories,
                          opt_reweighted=opt_reweighted,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -2430,6 +2465,10 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with the default models:
@@ -2490,7 +2529,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  mc_agg='mean',
                  opt_reweighted=False,
                  categories='auto',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         # maybe shouldn't expose fit_cate_intercept in this class?
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
@@ -2512,7 +2552,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -2531,7 +2572,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                       categories=self.categories,
                                       opt_reweighted=self.prel_opt_reweighted,
                                       cv=self.prel_cv,
-                                      random_state=self.random_state)
+                                      random_state=self.random_state,
+                                      allow_missing=self.allow_missing)
         elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xwz, safe=False),
@@ -2544,7 +2586,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                  cv=self.prel_cv,
                                  mc_iters=self.mc_iters,
                                  mc_agg=self.mc_agg,
-                                 random_state=self.random_state)
+                                 random_state=self.random_state,
+                                 allow_missing=self.allow_missing)
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
@@ -2704,6 +2747,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with the default models:
@@ -2775,7 +2822,8 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  mc_agg='mean',
                  opt_reweighted=False,
                  categories='auto',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xwz=model_t_xwz,
                          flexible_model_effect=flexible_model_effect,
@@ -2792,7 +2840,8 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          mc_agg=mc_agg,
                          opt_reweighted=opt_reweighted,
                          categories=categories,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
