@@ -16,6 +16,7 @@ EconML User Guide
     references
     faq
     community
+    federated_learning
 
 .. todo::
     benchmark
