@@ -187,6 +187,12 @@ jobs:
       with:
         name: tests
         path: ${{ env.id_string }}-test-results.xml
+    - uses: actions/upload-artifact@v3
+      name: Upload notebook outputs
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      with:
+        name: notebooks
+        path: notebooks/output/
   
   tests:
     name: "Run tests"

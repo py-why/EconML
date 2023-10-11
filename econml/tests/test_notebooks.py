@@ -15,9 +15,10 @@ _nbsubdirs = ['.', 'CustomerScenarios', 'Solutions']  # TODO: add AutoML noteboo
 _nbsubdirs = [d for d in _nbsubdirs if re.match(os.getenv('NOTEBOOK_DIR_PATTERN', '.*'), d)]
 
 _notebooks = [
-    os.path.join(subdir, path) for subdir
-    in _nbsubdirs for path in os.listdir(os.path.join(_nbdir, subdir)) if
-    path.endswith('.ipynb')]
+    os.path.join(subdir, path)
+    for subdir in _nbsubdirs
+    for path in os.listdir(os.path.join(_nbdir, subdir))
+    if path.endswith('.ipynb')]
 # omit the lalonde notebook
 _notebooks = [nb for nb in _notebooks if "Lalonde" not in nb]
 
@@ -44,6 +45,23 @@ def test_notebook(file):
         timeout=1800, allow_errors=True, extra_arguments=["--HistoryManager.enabled=False"])
 
     ep.preprocess(nb, {'metadata': {'path': _nbdir}})
+
+    # remove added coverage cell, then decrement execution_count for other cells to account for it
+    nb.cells.pop(0)
+    for cell in nb.cells:
+        if "execution_count" in cell:
+            if cell["execution_count"] is not None:  # could be None if the cell errored
+                cell["execution_count"] -= 1
+        if "outputs" in cell:
+            for output in cell["outputs"]:
+                if "execution_count" in output:
+                    output["execution_count"] -= 1
+
+    output_file = os.path.join(_nbdir, 'output', file)
+    # create directory if necessary
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    nbformat.write(nb, output_file, version=4)
+
     errors = [nbconvert.preprocessors.CellExecutionError.from_cell_and_msg(cell, output)
               for cell in nb.cells if "outputs" in cell
               for output in cell["outputs"]
