@@ -639,6 +639,18 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         if not only_final:
 
+            if self.binary_outcome:
+                self.outcome_transformer = LabelEncoder()
+                self.outcome_transformer.fit(Y)
+                if Y.shape[1:] and Y.shape[1] > 1:
+                    raise ValueError(
+                        f"Only one outcome variable is supported when binary_outcome=True. Got Y of shape {Y.shape}")
+                if len(self.outcome_transformer.classes_) > 2:
+                    raise AttributeError(
+                        "More than 2 outcome classes detected. This method currently only supports binary outcomes")
+            else:
+                self.outcome_transformer = None
+
             if self.discrete_treatment:
                 categories = self.categories
                 if categories != 'auto':
@@ -781,7 +793,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
 
         # use a binary array to get stratified split in case of discrete treatment
-        stratify = self.discrete_treatment or self.discrete_instrument
+        stratify = self.discrete_treatment or self.discrete_instrument or self.binary_outcome
         strata = self._strata(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, groups=groups)
         if strata is None:
             strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
@@ -793,6 +805,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         if self.discrete_instrument:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
+
+        if self.binary_outcome:
+            Y = self.outcome_transformer.transform(Y)
 
         if self.cv == 1:  # special case, no cross validation
             folds = None
@@ -912,6 +927,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X, T = self._expand_treatments(X, T)
         if self.z_transformer is not None:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
+        if self.binary_outcome:
+            Y = self.outcome_transformer.transform(Y)
         n_iters = len(self._models_nuisance)
         n_splits = len(self._models_nuisance[0])
 

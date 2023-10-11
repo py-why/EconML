@@ -51,16 +51,18 @@ from ..inference import GenericModelFinalInferenceDiscrete
 from ..grf import RegressionForest
 from ..sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
+from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..utilities import (_deprecate_positional, check_high_dimensional,
                          filter_none_kwargs, fit_with_groups, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
 
 class _ModelNuisance:
-    def __init__(self, model_propensity, model_regression, min_propensity):
+    def __init__(self, model_propensity, model_regression, min_propensity, binary_outcome):
         self._model_propensity = model_propensity
         self._model_regression = model_regression
         self._min_propensity = min_propensity
+        self._binary_outcome = binary_outcome
 
     def _combine(self, X, W):
         return np.hstack([arr for arr in [X, W] if arr is not None])
@@ -102,12 +104,18 @@ class _ModelNuisance:
         n = T.shape[0]
         Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
         T_counter = np.zeros(T.shape)
-        Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
+        if self._binary_outcome and hasattr(self._model_regression, 'predict_proba'):
+            Y_pred[:, 0] = self._model_regression.predict_proba(np.hstack([XW, T_counter]))[:, 1].reshape(n)
+        else:
+            Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
         Y_pred[:, 0] += (Y.reshape(n) - Y_pred[:, 0]) * np.all(T == 0, axis=1) / propensities[:, 0]
         for t in np.arange(T.shape[1]):
             T_counter = np.zeros(T.shape)
             T_counter[:, t] = 1
-            Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
+            if self._binary_outcome and hasattr(self._model_regression, 'predict_proba'):
+                Y_pred[:, t + 1] = self._model_regression.predict_proba(np.hstack([XW, T_counter]))[:, 1].reshape(n)
+            else:
+                Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
             Y_pred[:, t + 1] += (Y.reshape(n) - Y_pred[:, t + 1]) * (T[:, t] == 1) / propensities[:, t + 1]
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
         propensities_weight = np.sum(propensities * T_complete, axis=1)
@@ -486,11 +494,15 @@ class DRLearner(_OrthoLearner):
             model_propensity = clone(self.model_propensity, safe=False)
 
         if self.model_regression == 'auto':
-            model_regression = WeightedLassoCVWrapper(cv=3, random_state=self.random_state)
+            if self.binary_outcome:
+                model_regression = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
+                                                        random_state=self.random_state)
+            else:
+                model_regression = WeightedLassoCVWrapper(cv=3, random_state=self.random_state)
         else:
-            model_regression = clone(self.model_regression, safe=False)
+            model_regression = clone(self.model_y, safe=False)
 
-        return _ModelNuisance(model_propensity, model_regression, self.min_propensity)
+        return _ModelNuisance(model_propensity, model_regression, self.min_propensity, self.binary_outcome)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)

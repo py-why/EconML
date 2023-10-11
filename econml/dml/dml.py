@@ -88,10 +88,15 @@ class _FirstStageWrapper:
         if (not self._is_Y and self._discrete_treatment) or (self._is_Y and self._binary_outcome):
             return self._model.predict_proba(self._combine(X, W, n_samples, fitting=False))[:, 1:]
         else:
-            if (not self._is_Y) and (not self._discrete_treatment) and hasattr(self._model, 'predict_proba'):
-                warn("A treatment model has a predict_proba method, but discrete_treatment=False. "
-                     "If your treatment is discrete, consider setting discrete_treatment=True. "
-                     "Otherwise, if your treatment is not discrete, use a regressor instead.", UserWarning)
+            if hasattr(self._model, 'predict_proba'):
+                if (not self._is_Y):
+                    warn("A treatment model has a predict_proba method, but discrete_treatment=False. "
+                         "If your treatment is discrete, consider setting discrete_treatment=True. "
+                         "Otherwise, if your treatment is not discrete, use a regressor instead.", UserWarning)
+                elif (self._is_Y):
+                    warn("An outcome model has a predict_proba method, but binary_outcome=False. "
+                         "If your outcome is binary, consider setting binary_outcome=True. "
+                         "Otherwise, if your outcome is not binary, use a regressor instead.", UserWarning)
             return self._model.predict(self._combine(X, W, n_samples, fitting=False))
 
     def score(self, X, W, Target, sample_weight=None):
