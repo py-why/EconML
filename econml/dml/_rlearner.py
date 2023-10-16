@@ -183,13 +183,17 @@ class _RLearner(_OrthoLearner):
     mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
+
+    allow_missing: bool
+        Whether to allow missing values in X, W. If True, will need to supply nuisance models that can handle
+        missing values.
+
     use_ray: bool, default False
         Whether to use Ray to speed up the cross-fitting step.
 
     ray_remote_func_options : dict, optional
         Options to pass to ray.remote function decorator.
         see more at https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
-
 
     Examples
     --------
@@ -279,7 +283,8 @@ class _RLearner(_OrthoLearner):
     """
 
     def __init__(self, *, discrete_treatment, treatment_featurizer, categories,
-                 cv, random_state, mc_iters=None, mc_agg='mean', use_ray=False, ray_remote_func_options=None):
+                 cv, random_state, mc_iters=None, mc_agg='mean', allow_missing=False,
+                 use_ray=False, ray_remote_func_options=None):
         super().__init__(discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter
@@ -288,6 +293,7 @@ class _RLearner(_OrthoLearner):
                          random_state=random_state,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
                          ray_remote_func_options=ray_remote_func_options)
 

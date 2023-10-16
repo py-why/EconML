@@ -365,12 +365,18 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     mc_agg: {'mean', 'median'}, default 'mean'
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
+
+    allow_missing: bool
+        Whether to allow missing values in X, W. If True, will need to supply nuisance models that can handle
+        missing values.
+
     use_ray: bool, default False
         Whether to use ray to parallelize the cross-fitting step.
+
     ray_remote_func_options: dict, default None
         Options to pass to the ray.remote decorator.
 
-    Examples
+   Examples
     --------
 
     The example code below implements a very simple version of the double machine learning
@@ -510,7 +516,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def __init__(self, *,
                  discrete_treatment, treatment_featurizer,
                  discrete_instrument, categories, cv, random_state,
-                 mc_iters=None, mc_agg='mean', use_ray=False, ray_remote_func_options=None):
+                 mc_iters=None, mc_agg='mean', allow_missing=False, use_ray=False, ray_remote_func_options=None):
         self.actors = []
         self.cv = cv
         self.discrete_treatment = discrete_treatment
@@ -520,9 +526,13 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.categories = categories
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
+        self.allow_missing = allow_missing
         self.use_ray = use_ray
         self.ray_remote_func_options = ray_remote_func_options
         super().__init__()
+
+    def _gen_allowed_missing_vars(self):
+        return ['X', 'W'] if self.allow_missing else []
 
     @abstractmethod
     def _gen_ortho_learner_model_nuisance(self):
@@ -684,8 +694,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         assert not (self.discrete_treatment and self.treatment_featurizer), "Treatment featurization " \
             "is not supported when treatment is discrete"
         if check_input:
-            Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
-                Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
+            Y, T, Z, sample_weight, freq_weight, sample_var, groups = check_input_arrays(
+                Y, T, Z, sample_weight, freq_weight, sample_var, groups)
+            X, = check_input_arrays(
+                X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+            W, = check_input_arrays(
+                W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
             self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
 
         if not only_final:
@@ -980,7 +994,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         """
         if not hasattr(self._ortho_learner_model_final, 'score'):
             raise AttributeError("Final model does not have a score method!")
-        Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
+        Y, T, Z = check_input_arrays(Y, T, Z)
+        X, = check_input_arrays(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
+        W, = check_input_arrays(W, force_all_finite='allow-nan' if 'W' in self._gen_allowed_missing_vars() else True)
         self._check_fitted_dims(X)
         self._check_fitted_dims_w_z(W, Z)
         X, T = self._expand_treatments(X, T)

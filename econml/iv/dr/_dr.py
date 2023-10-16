@@ -309,6 +309,7 @@ class _BaseDRIV(_OrthoLearner):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
                  ray_remote_func_options=None):
         self.model_final = clone(model_final, safe=False)
@@ -324,8 +325,12 @@ class _BaseDRIV(_OrthoLearner):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
                          ray_remote_func_options=ray_remote_func_options)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     # Maggie: I think that would be the case?
     def _get_inference_options(self):
@@ -562,8 +567,9 @@ class _DRIV(_BaseDRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
-                 ray_remote_func_options=None,
+                 ray_remote_func_options=None
                  ):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
@@ -585,8 +591,9 @@ class _DRIV(_BaseDRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options,)
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -788,6 +795,10 @@ class DRIV(_DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
 
@@ -862,8 +873,9 @@ class DRIV(_DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
-                 ray_remote_func_options=None,
+                 ray_remote_func_options=None
                  ):
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
@@ -892,8 +904,9 @@ class DRIV(_DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options,)
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -920,7 +933,8 @@ class DRIV(_DRIV):
                          cv=self.prel_cv,
                          mc_iters=self.mc_iters,
                          mc_agg=self.mc_agg,
-                         random_state=self.random_state)
+                         random_state=self.random_state,
+                         allow_missing=self.allow_missing)
         elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xw, safe=False),
@@ -933,7 +947,8 @@ class DRIV(_DRIV):
                                  cv=self.prel_cv,
                                  mc_iters=self.mc_iters,
                                  mc_agg=self.mc_agg,
-                                 random_state=self.random_state)
+                                 random_state=self.random_state,
+                                 allow_missing=self.allow_missing)
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
@@ -1251,6 +1266,10 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
 
@@ -1336,6 +1355,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
                  ray_remote_func_options=None
                  ):
@@ -1362,6 +1382,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
                          ray_remote_func_options=ray_remote_func_options)
 
@@ -1587,6 +1608,10 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
 
@@ -1679,6 +1704,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
                  ray_remote_func_options=None):
         self.alpha = alpha
@@ -1711,6 +1737,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
                          ray_remote_func_options=ray_remote_func_options
                          )
@@ -2011,6 +2038,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
 
@@ -2099,6 +2130,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
                  ray_remote_func_options=None):
         self.n_estimators = n_estimators
@@ -2137,6 +2169,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
                          ray_remote_func_options=ray_remote_func_options)
 
@@ -2326,8 +2359,9 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
-                 ray_remote_func_options=None,):
+                 ray_remote_func_options=None):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
@@ -2345,8 +2379,9 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          categories=categories,
                          opt_reweighted=opt_reweighted,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
-                         ray_remote_func_options=ray_remote_func_options,)
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -2489,6 +2524,10 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
 
@@ -2557,6 +2596,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  opt_reweighted=False,
                  categories='auto',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
                  ray_remote_func_options=None):
 
@@ -2582,6 +2622,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
                          ray_remote_func_options=ray_remote_func_options)
 
@@ -2602,7 +2643,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                       categories=self.categories,
                                       opt_reweighted=self.prel_opt_reweighted,
                                       cv=self.prel_cv,
-                                      random_state=self.random_state)
+                                      random_state=self.random_state,
+                                      allow_missing=self.allow_missing)
         elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xwz, safe=False),
@@ -2615,7 +2657,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                  cv=self.prel_cv,
                                  mc_iters=self.mc_iters,
                                  mc_agg=self.mc_agg,
-                                 random_state=self.random_state)
+                                 random_state=self.random_state,
+                                 allow_missing=self.allow_missing)
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
@@ -2775,6 +2818,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
 
@@ -2854,6 +2901,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  opt_reweighted=False,
                  categories='auto',
                  random_state=None,
+                 allow_missing=False,
                  use_ray=False,
                  ray_remote_func_options=None):
         super().__init__(model_y_xw=model_y_xw,
@@ -2873,6 +2921,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          opt_reweighted=opt_reweighted,
                          categories=categories,
                          random_state=random_state,
+                         allow_missing=allow_missing,
                          use_ray=use_ray,
                          ray_remote_func_options=ray_remote_func_options)
 
