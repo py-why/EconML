@@ -4,56 +4,6 @@ Federated Learning in Microsoft EconML Library
     :local:
     :depth: 2
 
-Table of Contents
-=================
-
-Overview
---------
-
-1. Overview <overview>
-
-Getting Started
----------------
-
-2. Prerequisites <prerequisites>
-3. Installation <installation>
-
-Federated Learning Options
---------------------------
-
-4. Option 1: Evaluating with Apache Spark <option-1-evaluating-with-apache-spark>
-5. Option 2: Azure Apache Spark Cluster Provisioning <option-2-azure-apache-spark-cluster-provisioning>
-
-Notes on Implementation
------------------------
-
-6. Implementation Steps <implementation-steps>
-7. Best Practices for Product Exploration in Federated Learning <best-practices-product-exploration>
-8. Azure Products Offerings for Core Model Evaluation in Federated Learning <azure-products-offerings-core-model-evaluation>
-9. Combining Final Results in Federated Learning <combining-final-results>
-
-Mathematical Background
------------------------
-
-10. Mathematical Background <mathematical-background>
-
-Implementation Details
-----------------------
-
-11. Implementation Details <implementation-details>
-
-Unit Testing
-------------
-
-12. Unit Testing <unit-testing>
-
-Conclusion
-----------
-
-13. Conclusion <conclusion>
-
-
-
 Overview
 --------
 
@@ -132,7 +82,7 @@ Option 1: Evaluating with Apache Spark
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Use of Apache Spark for Distributed Evaluation
-***********************************************
+""""""""""""""""""""""""""""""""""""""""""""""
 
 Apache Spark is a powerful distributed computing framework that can be used to facilitate the evaluation of Federated Learning models across decentralized data sources. Here's how Apache Spark can be employed in the context of Federated Learning:
 
@@ -153,7 +103,7 @@ Introduction to Databricks
 Databricks is an integrated platform for big data analytics and machine learning. It simplifies the setup and management of Apache Spark clusters in the cloud, making it an ideal choice for Federated Learning experimentation and deployment.
 
 Process of Setting Up an Azure Apache Spark Cluster for Local Testing
-********************************************************************
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Setting up an Azure Apache Spark cluster for local testing involves several steps:
 
@@ -185,7 +135,7 @@ You can automate various aspects of this setup process using Azure DevOps, Azure
 Examples and Documentation Resources
 -------------------------------------
 
-Databricks and Azure provide extensive documentation, tutorials, and examples for setting up Apache Spark clusters, integrating with EconML, and deploying Federated Learning solutions. Be sure to explore these resources to streamline your implementation and leverage best practices.
+Databricks and Azure provide extensive documentation, tutorials, and examples [here](https://docs.databricks.com/en/index.html). for setting up Apache Spark clusters, integrating with EconML, and deploying Federated Learning solutions. Be sure to explore these resources to streamline your implementation and leverage best practices.
 
 In summary, Federated Learning options within the EconML Library include using Apache Spark for distributed evaluation and setting up Azure Apache Spark clusters through Databricks for testing and deployment. Each option offers unique advantages, and the choice depends on your specific requirements, resources, and cloud infrastructure preferences.
 
