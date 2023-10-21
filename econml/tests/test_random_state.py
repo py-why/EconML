@@ -18,7 +18,6 @@ from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifi
 import itertools
 from econml.sklearn_extensions.linear_model import WeightedLasso, StatsModelsRLM, StatsModelsLinearRegression
 from econml.tests.test_statsmodels import _summarize
-import econml.tests.utilities  # bugfix for assertWarns
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from econml.iv.dr._dr import _DummyCATE
 

@@ -22,7 +22,6 @@ from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestD
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
 from econml.utilities import get_feature_names_or_default, shape, hstack, vstack, reshape, cross_product
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
-import econml.tests.utilities  # bugfix for assertWarns
 from econml.tests.utilities import (GroupingModel, NestedModel)
 
 
