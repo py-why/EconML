@@ -101,5 +101,6 @@ markers = [
     "dml",
     "serial",
     "cate_api",
-    "treatment_featurization"
+    "treatment_featurization",
+    "ray"
 ]

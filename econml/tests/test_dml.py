@@ -50,7 +50,7 @@ class TestDML(unittest.TestCase):
         treatment_featurizations = [None]
         self._test_cate_api(treatment_featurizations, False)
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_cate_api_with_ray(self):
         ray.init(num_cpus=1)
         treatment_featurizations = [None]
@@ -380,7 +380,7 @@ class TestDML(unittest.TestCase):
     def test_cate_api_nonparam_without_ray(self):
         self._test_cate_api_nonparam(use_ray=False)
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_cate_api_nonparam_with_ray(self):
         ray.init(num_cpus=1)
         self._test_cate_api_nonparam(use_ray=True)
@@ -887,13 +887,13 @@ class TestDML(unittest.TestCase):
         dml.fit(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), X=np.ones((6, 1)))
         dml.score(np.array([1, 2, 3, 1, 2, 3]), np.array([1, 2, 3, 1, 2, 3]), np.ones((6, 1)))
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
-    def test_can_use_groups_with_ray(self):
+    @pytest.mark.ray
+    def test_can_use_custom_splitter_with_ray(self):
         ray.init(num_cpus=1)
         self._test_can_custom_splitter(use_ray=True)
         ray.shutdown()
 
-    def test_can_use_groups_without_ray(self):
+    def test_can_use_custom_splitter_without_ray(self):
         self._test_can_custom_splitter(use_ray=False)
 
     def test_can_use_featurizer(self):
@@ -1141,7 +1141,7 @@ class TestDML(unittest.TestCase):
                 assert len(est.nuisance_scores_t[0]) == len(est.nuisance_scores_y[0]) == cv
                 est.score(y, T, X=X, W=W)
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_nuisance_scores_with_ray(self):
         ray.init(num_cpus=1)
         self._test_nuisance_scores(use_ray=True)
@@ -1150,6 +1150,7 @@ class TestDML(unittest.TestCase):
     def test_nuisance_scores_without_ray(self):
         self._test_nuisance_scores(use_ray=False)
 
+    @pytest.mark.ray
     def test_compare_nuisance_with_ray_vs_without_ray(self):
         X = np.random.choice(np.arange(5), size=(100, 3))
         y = np.random.normal(size=(100,))

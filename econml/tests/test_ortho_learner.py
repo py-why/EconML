@@ -158,18 +158,18 @@ class TestOrthoLearner(unittest.TestCase):
                                                                   ray_remote_function_option,
                                                                   X, y, y, Z=None)
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_crossfit_with_ray(self):
-        ray.init(ignore_reinit_error=True)
+        ray.init()
         self._test_crossfit(use_ray=True)
         ray.shutdown()
 
     def test_crossfit_without_ray(self):
         self._test_crossfit(use_ray=False)
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_crossfit_comparison(self):
-        ray.init(ignore_reinit_error=True)  # Initialize Ray
+        ray.init()  # Initialize Ray
 
         class Wrapper:
 
@@ -313,7 +313,7 @@ class TestOrthoLearner(unittest.TestCase):
         np.testing.assert_almost_equal(est.score_, sigma**2, decimal=2)
         np.testing.assert_almost_equal(est.ortho_learner_model_final_.model.coef_[0], 1, decimal=2)
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_ol_with_ray(self):
         self._test_ol(True)
 

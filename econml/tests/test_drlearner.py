@@ -273,7 +273,7 @@ class TestDRLearner(unittest.TestCase):
                                         self.assertEqual(
                                             shape(eff), effect_shape2)
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_test_cate_api_with_ray(self):
         ray.init(num_cpus=1)
         self._test_cate_api(use_ray=True)
@@ -732,7 +732,7 @@ class TestDRLearner(unittest.TestCase):
                                             np.testing.assert_array_equal(est.feature_importances_(t).shape,
                                                                           [X.shape[1]])
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_drlearner_with_inference_all_attributes_with_ray(self):
         ray.init(num_cpus=1)
         self._test_drlearner_with_inference_all_attributes(use_ray=True)

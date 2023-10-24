@@ -186,7 +186,7 @@ class TestDRIV(unittest.TestCase):
                         # test can run shap values
                         _ = est.shap_values(X[:10])
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_cate_api_with_ray(self):
         ray.init(num_cpus=1)
         self._test_cate_api(use_ray=True)
@@ -260,7 +260,7 @@ class TestDRIV(unittest.TestCase):
                 np.testing.assert_array_less(intercept_lb, 0)
                 np.testing.assert_array_less(0, intercept_ub)
 
-    @pytest.mark.skipif(not ray_installed, reason="Ray not installed")
+    @pytest.mark.ray
     def test_accuracy_with_ray(self):
         ray.init(num_cpus=1)
         self._test_accuracy(use_ray=True)
