@@ -205,7 +205,7 @@ class TestDRIV(unittest.TestCase):
         self._test_cate_api(use_ray=False)
 
     def _test_accuracy(self, use_ray=False):
-        np.random.seed(123)
+        np.random.seed(42)
 
         # dgp (binary T, binary Z)
 
@@ -265,6 +265,15 @@ class TestDRIV(unittest.TestCase):
                 np.testing.assert_array_less(true_coef, coef_ub)
                 np.testing.assert_array_less(intercept_lb, 0)
                 np.testing.assert_array_less(0, intercept_ub)
+
+    @pytest.mark.ray
+    def test_accuracy_with_ray(self):
+        ray.init(num_cpus=1)
+        self._test_accuracy(use_ray=True)
+        ray.shutdown()
+
+    def test_accuracy_without_ray(self):
+        self._test_accuracy(use_ray=False)
 
     def test_fit_cov_directly(self):
         # fitting the covariance directly should be at least as good as computing the covariance from separate models
@@ -375,12 +384,3 @@ class TestDRIV(unittest.TestCase):
                 est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
                 score = est.score(y, T, Z=Z, X=X, W=W)
                 eff = est.const_marginal_effect(X)
-
-    @pytest.mark.ray
-    def test_accuracy_with_ray(self):
-        ray.init(num_cpus=1)
-        self._test_accuracy(use_ray=True)
-        ray.shutdown()
-
-    def test_accuracy_without_ray(self):
-        self._test_accuracy(use_ray=False)
