@@ -275,9 +275,11 @@ class TestDRLearner(unittest.TestCase):
 
     @pytest.mark.ray
     def test_test_cate_api_with_ray(self):
-        ray.init(num_cpus=1)
-        self._test_cate_api(use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init(num_cpus=1)
+            self._test_cate_api(use_ray=True)
+        finally:
+            ray.shutdown()
 
     def test_test_cate_api_without_ray(self):
         self._test_cate_api(use_ray=False)
@@ -734,9 +736,11 @@ class TestDRLearner(unittest.TestCase):
 
     @pytest.mark.ray
     def test_drlearner_with_inference_all_attributes_with_ray(self):
-        ray.init(num_cpus=1)
-        self._test_drlearner_with_inference_all_attributes(use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init(num_cpus=1)
+            self._test_drlearner_with_inference_all_attributes(use_ray=True)
+        finally:
+            ray.shutdown()
 
     def test_drlearner_with_inference_all_attributes_without_ray(self):
         self._test_drlearner_with_inference_all_attributes(use_ray=False)

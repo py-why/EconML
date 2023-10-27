@@ -52,10 +52,12 @@ class TestDML(unittest.TestCase):
 
     @pytest.mark.ray
     def test_cate_api_with_ray(self):
-        ray.init(num_cpus=1)
-        treatment_featurizations = [None]
-        self._test_cate_api(treatment_featurizations, use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init(num_cpus=1)
+            treatment_featurizations = [None]
+            self._test_cate_api(treatment_featurizations, use_ray=True)
+        finally:
+            ray.shutdown()
 
     def _test_cate_api(self, treatment_featurizations, use_ray=False):
         """Test that we correctly implement the CATE API."""
@@ -382,9 +384,11 @@ class TestDML(unittest.TestCase):
 
     @pytest.mark.ray
     def test_cate_api_nonparam_with_ray(self):
-        ray.init(num_cpus=1)
-        self._test_cate_api_nonparam(use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init(num_cpus=1)
+            self._test_cate_api_nonparam(use_ray=True)
+        finally:
+            ray.shutdown()
 
     def _test_cate_api_nonparam(self, use_ray=False):
         """Test that we correctly implement the CATE API."""
@@ -889,9 +893,11 @@ class TestDML(unittest.TestCase):
 
     @pytest.mark.ray
     def test_can_use_custom_splitter_with_ray(self):
-        ray.init(num_cpus=1)
-        self._test_can_custom_splitter(use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init(num_cpus=1)
+            self._test_can_custom_splitter(use_ray=True)
+        finally:
+            ray.shutdown()
 
     def test_can_use_custom_splitter_without_ray(self):
         self._test_can_custom_splitter(use_ray=False)
@@ -1143,9 +1149,11 @@ class TestDML(unittest.TestCase):
 
     @pytest.mark.ray
     def test_nuisance_scores_with_ray(self):
-        ray.init(num_cpus=1)
-        self._test_nuisance_scores(use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init(num_cpus=1)
+            self._test_nuisance_scores(use_ray=True)
+        finally:
+            ray.shutdown()
 
     def test_nuisance_scores_without_ray(self):
         self._test_nuisance_scores(use_ray=False)
@@ -1156,21 +1164,23 @@ class TestDML(unittest.TestCase):
         y = np.random.normal(size=(100,))
         T = T0 = T1 = np.random.choice(np.arange(3), size=(100, 2))
         W = np.random.normal(size=(100, 2))
-        ray.init(num_cpus=1)
-        for mc_iters in [1, 2, 3]:
-            for cv in [1, 2, 3]:
-                est_with_ray = LinearDML(cv=cv, mc_iters=mc_iters, use_ray=True)
-                est_without_ray = LinearDML(cv=cv, mc_iters=mc_iters, use_ray=False)
+        try:
+            ray.init(num_cpus=1)
+            for mc_iters in [1, 2, 3]:
+                for cv in [1, 2, 3]:
+                    est_with_ray = LinearDML(cv=cv, mc_iters=mc_iters, use_ray=True)
+                    est_without_ray = LinearDML(cv=cv, mc_iters=mc_iters, use_ray=False)
 
-                est_with_ray.fit(y, T, X=X, W=W)
-                est_without_ray.fit(y, T, X=X, W=W)
+                    est_with_ray.fit(y, T, X=X, W=W)
+                    est_without_ray.fit(y, T, X=X, W=W)
 
-                # Compare results with and without Ray
-                assert len(est_with_ray.nuisance_scores_t) == len(est_without_ray.nuisance_scores_t) == mc_iters
-                assert len(est_with_ray.nuisance_scores_y) == len(est_without_ray.nuisance_scores_y) == mc_iters
-                assert len(est_with_ray.nuisance_scores_t[0]) == len(est_without_ray.nuisance_scores_t[0]) == cv
-                assert len(est_with_ray.nuisance_scores_y[0]) == len(est_without_ray.nuisance_scores_y[0]) == cv
-        ray.shutdown()
+                    # Compare results with and without Ray
+                    assert len(est_with_ray.nuisance_scores_t) == len(est_without_ray.nuisance_scores_t) == mc_iters
+                    assert len(est_with_ray.nuisance_scores_y) == len(est_without_ray.nuisance_scores_y) == mc_iters
+                    assert len(est_with_ray.nuisance_scores_t[0]) == len(est_without_ray.nuisance_scores_t[0]) == cv
+                    assert len(est_with_ray.nuisance_scores_y[0]) == len(est_without_ray.nuisance_scores_y[0]) == cv
+        finally:
+            ray.shutdown()
 
     def test_categories(self):
         dmls = [LinearDML, SparseLinearDML]

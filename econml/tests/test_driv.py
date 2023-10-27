@@ -197,9 +197,11 @@ class TestDRIV(unittest.TestCase):
 
     @pytest.mark.ray
     def test_cate_api_with_ray(self):
-        ray.init(num_cpus=1)
-        self._test_cate_api(use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init(num_cpus=1)
+            self._test_cate_api(use_ray=True)
+        finally:
+            ray.shutdown()
 
     def test_cate_api_without_ray(self):
         self._test_cate_api(use_ray=False)
@@ -268,9 +270,11 @@ class TestDRIV(unittest.TestCase):
 
     @pytest.mark.ray
     def test_accuracy_with_ray(self):
-        ray.init(num_cpus=1)
-        self._test_accuracy(use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init(num_cpus=1)
+            self._test_accuracy(use_ray=True)
+        finally:
+            ray.shutdown()
 
     def test_accuracy_without_ray(self):
         self._test_accuracy(use_ray=False)

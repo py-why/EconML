@@ -160,53 +160,58 @@ class TestOrthoLearner(unittest.TestCase):
 
     @pytest.mark.ray
     def test_crossfit_with_ray(self):
-        ray.init()
-        self._test_crossfit(use_ray=True)
-        ray.shutdown()
+        try:
+            ray.init()
+            self._test_crossfit(use_ray=True)
+        finally:
+            ray.shutdown()
 
     def test_crossfit_without_ray(self):
         self._test_crossfit(use_ray=False)
 
     @pytest.mark.ray
     def test_crossfit_comparison(self):
-        ray.init()  # Initialize Ray
+        try:
+            ray.init()  # Initialize Ray
 
-        class Wrapper:
+            class Wrapper:
 
-            def __init__(self, model):
-                self._model = model
+                def __init__(self, model):
+                    self._model = model
 
-            def fit(self, X, y, Q, W=None):
-                self._model.fit(X, y)
-                return self
+                def fit(self, X, y, Q, W=None):
+                    self._model.fit(X, y)
+                    return self
 
-            def predict(self, X, y, Q, W=None):
-                return self._model.predict(X), y - self._model.predict(X), X
+                def predict(self, X, y, Q, W=None):
+                    return self._model.predict(X), y - self._model.predict(X), X
 
-            def score(self, X, y, Q, W=None):
-                return self._model.score(X, y)
+                def score(self, X, y, Q, W=None):
+                    return self._model.score(X, y)
 
-        # Generate synthetic data
-        X, y = make_regression(n_samples=10, n_features=5, noise=0.1, random_state=42)
-        folds = list(KFold(2).split(X, y))
-        model = LinearRegression()
-        ray_remote_function_option = {"num_cpus": 1}
+            # Generate synthetic data
+            X, y = make_regression(n_samples=10, n_features=5, noise=0.1, random_state=42)
+            folds = list(KFold(2).split(X, y))
+            model = LinearRegression()
+            ray_remote_function_option = {"num_cpus": 1}
 
-        # Run _crossfit with Ray enabled
-        nuisance_ray, model_list_ray, fitted_inds_ray, scores_ray = _crossfit(Wrapper(model), folds, True,
-                                                                              ray_remote_function_option,
-                                                                              X, y, y, Z=None)
-        # Run _crossfit without Ray
-        nuisance_regular, model_list_regular, fitted_inds_regular, scores_regular = _crossfit(Wrapper(model), folds,
-                                                                                              False, {},
-                                                                                              X, y, y, Z=None)
-        # Compare the results
-        assert np.allclose(nuisance_ray[0], nuisance_regular[0])
-        assert np.allclose(nuisance_ray[1], nuisance_regular[1])
-        assert np.allclose(fitted_inds_ray, fitted_inds_regular)
-        assert np.allclose(scores_ray, scores_regular)
+            # Run _crossfit with Ray enabled
+            nuisance_ray, model_list_ray, fitted_inds_ray, scores_ray = _crossfit(Wrapper(model), folds, True,
+                                                                                  ray_remote_function_option,
+                                                                                  X, y, y, Z=None)
+            # Run _crossfit without Ray
+            nuisance_regular, model_list_regular, fitted_inds_regular, scores_regular = _crossfit(Wrapper(model),
+                                                                                                  folds,
+                                                                                                  False, {},
+                                                                                                  X, y, y, Z=None)
+            # Compare the results
+            assert np.allclose(nuisance_ray[0], nuisance_regular[0])
+            assert np.allclose(nuisance_ray[1], nuisance_regular[1])
+            assert np.allclose(fitted_inds_ray, fitted_inds_regular)
+            assert np.allclose(scores_ray, scores_regular)
 
-        ray.shutdown()  # Shutdown Ray
+        finally:
+            ray.shutdown()  # Shutdown Ray
 
     def _test_ol(self, use_ray):
         class ModelNuisance:
