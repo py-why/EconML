@@ -110,7 +110,7 @@ class _ModelFinal:
         effects = self._model_final.predict(X).reshape((-1, Y_res.shape[1], T_res.shape[1]))
         Y_res_pred = np.einsum('ijk,ik->ij', effects, T_res).reshape(Y_res.shape)
         if sample_weight is not None:
-            return np.mean(np.average((Y_res - Y_res_pred)**2, weights=sample_weight, axis=0))
+            return np.mean(np.average((Y_res - Y_res_pred) ** 2, weights=sample_weight, axis=0))
         else:
             return np.mean((Y_res - Y_res_pred) ** 2)
 
@@ -187,6 +187,13 @@ class _RLearner(_OrthoLearner):
     allow_missing: bool
         Whether to allow missing values in X, W. If True, will need to supply nuisance models that can handle
         missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to speed up the cross-fitting step.
+
+    ray_remote_func_options : dict, optional
+        Options to pass to ray.remote function decorator.
+        see more at https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
 
     Examples
     --------
@@ -276,7 +283,8 @@ class _RLearner(_OrthoLearner):
     """
 
     def __init__(self, *, discrete_treatment, treatment_featurizer, categories,
-                 cv, random_state, mc_iters=None, mc_agg='mean', allow_missing=False):
+                 cv, random_state, mc_iters=None, mc_agg='mean', allow_missing=False,
+                 use_ray=False, ray_remote_func_options=None):
         super().__init__(discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter
@@ -285,7 +293,9 @@ class _RLearner(_OrthoLearner):
                          random_state=random_state,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     @abstractmethod
     def _gen_model_y(self):

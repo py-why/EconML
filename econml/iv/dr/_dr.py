@@ -358,7 +358,9 @@ class _BaseDRIV(_OrthoLearner):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
@@ -372,7 +374,9 @@ class _BaseDRIV(_OrthoLearner):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.allow_missing else []
@@ -613,7 +617,10 @@ class _DRIV(_BaseDRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -635,7 +642,9 @@ class _DRIV(_BaseDRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -859,6 +868,13 @@ class DRIV(_DRIV):
         Whether to allow missing values in W. If True, will need to supply nuisance models
         that can handle missing values.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -927,8 +943,10 @@ class DRIV(_DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 allow_missing=False):
-
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
         else:
@@ -957,7 +975,9 @@ class DRIV(_DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -1329,6 +1349,13 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         Whether to allow missing values in W. If True, will need to supply nuisance models
         that can handle missing values.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -1408,7 +1435,10 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xw=model_t_xw,
                          model_z_xw=model_z_xw,
@@ -1433,7 +1463,9 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
@@ -1668,6 +1700,13 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         Whether to allow missing values in W. If True, will need to supply nuisance models
         that can handle missing values.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -1754,7 +1793,9 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -1786,7 +1827,10 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
 
     def _gen_model_final(self):
         return DebiasedLasso(alpha=self.alpha,
@@ -1838,7 +1882,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
-                               "We recommend using the LinearDRLearner for this low-dimensional setting.")
+                                   "We recommend using the LinearDRLearner for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
@@ -2095,6 +2139,13 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         Whether to allow missing values in W. If True, will need to supply nuisance models
         that can handle missing values.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -2177,7 +2228,9 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -2215,7 +2268,9 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         return RegressionForest(n_estimators=self.n_estimators,
@@ -2403,7 +2458,9 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
@@ -2421,7 +2478,9 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          categories=categories,
                          opt_reweighted=opt_reweighted,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -2568,6 +2627,13 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         Whether to allow missing values in W. If True, will need to supply nuisance models
         that can handle missing values.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -2629,7 +2695,10 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  opt_reweighted=False,
                  categories='auto',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
+
         # maybe shouldn't expose fit_cate_intercept in this class?
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
@@ -2652,7 +2721,9 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -2850,6 +2921,13 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         Whether to allow missing values in W. If True, will need to supply nuisance models
         that can handle missing values.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -2922,7 +3000,9 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  opt_reweighted=False,
                  categories='auto',
                  random_state=None,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xwz=model_t_xwz,
                          flexible_model_effect=flexible_model_effect,
@@ -2940,7 +3020,9 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          opt_reweighted=opt_reweighted,
                          categories=categories,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)

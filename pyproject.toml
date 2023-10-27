@@ -60,6 +60,9 @@ plt = [
 dowhy = [
     "dowhy < 0.11"
 ]
+ray = [
+    "ray > 2.2.0"
+]
 all = [
     # Disabled due to incompatibility with scikit-learn
     # azureml-sdk[explain,automl] == 1.0.83
@@ -73,7 +76,8 @@ all = [
     "numpy < 1.24",
     "graphviz",
     "matplotlib",
-    "dowhy < 0.11"
+    "dowhy < 0.11",
+    "ray > 2.2.0"
 ]
 
 [build-system]
@@ -95,5 +99,6 @@ markers = [
     "dml",
     "serial",
     "cate_api",
-    "treatment_featurization"
+    "treatment_featurization",
+    "ray"
 ]

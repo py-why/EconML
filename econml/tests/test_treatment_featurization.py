@@ -18,11 +18,7 @@ from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 
 from econml.utilities import jacify_featurizer
 from econml.iv.sieve import DPolynomialFeatures
-
-from econml.tests.test_dml import TestDML
-
 from copy import deepcopy
-from econml.tests.test_dml import TestDML
 
 
 class DGP():
@@ -576,5 +572,6 @@ class TestTreatmentFeaturization(unittest.TestCase):
         assert (lb1 < lb2).all() and (ub1 > ub2).all()
 
     def test_identity_feat_with_cate_api(self):
+        from .test_dml import TestDML
         treatment_featurizations = [FunctionTransformer()]
         TestDML()._test_cate_api(treatment_featurizations)
