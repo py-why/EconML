@@ -58,105 +58,105 @@ class TestBinaryOutcome(unittest.TestCase):
             np.testing.assert_array_less(0.50, proportion_in_interval)
 
 
-# accuracy test, DML
-def test_accuracy_iv(self):
-    n = 10000
-    binary_outcome = True
-    discrete_treatment = True
-    true_ate = 0.3
-    W = np.random.uniform(-1, 1, size=(n, 1))
-    Z = np.random.uniform(-1, 1, size=(n, 1))
-    D = np.random.binomial(1, .5 + .1 * W[:, 0] + .1 * Z[:, 0], size=(n,))
-    Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
+    # accuracy test, DML
+    def test_accuracy_iv(self):
+        n = 10000
+        binary_outcome = True
+        discrete_treatment = True
+        true_ate = 0.3
+        W = np.random.uniform(-1, 1, size=(n, 1))
+        Z = np.random.uniform(-1, 1, size=(n, 1))
+        D = np.random.binomial(1, .5 + .1 * W[:, 0] + .1 * Z[:, 0], size=(n,))
+        Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
 
-    ests = [
-        OrthoIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
-        LinearDRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
-    ]
+        ests = [
+            OrthoIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
+            LinearDRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
+        ]
 
-    for est in ests:
+        for est in ests:
 
-        est.fit(Y, D, W=W, Z=Z)
-        ate = est.ate()
-        ate_lb, ate_ub = est.ate_interval()
+            est.fit(Y, D, W=W, Z=Z)
+            ate = est.ate()
+            ate_lb, ate_ub = est.ate_interval()
 
-        est.summary()
+            est.summary()
 
-        proportion_in_interval = ((ate_lb < true_ate) & (true_ate < ate_ub)).mean()
-        np.testing.assert_array_less(0.50, proportion_in_interval)
-
-
-def test_string_outcome(self):
-    n = 100
-    true_ate = 0.3
-    W = np.random.uniform(-1, 1, size=(n, 1))
-    D = np.random.binomial(1, .5 + .1 * W[:, 0], size=(n,))
-    Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
-    Y_str = pd.Series(Y).replace(0, 'a').replace(1, 'b').values
-    est = LinearDML(binary_outcome=True, discrete_treatment=True)
-    est.fit(Y_str, D, X=W)
+            proportion_in_interval = ((ate_lb < true_ate) & (true_ate < ate_ub)).mean()
+            np.testing.assert_array_less(0.50, proportion_in_interval)
 
 
-def test_basic_functionality(self):
-    n = 100
-    binary_outcome = True
-    d_x = 3
+    def test_string_outcome(self):
+        n = 100
+        true_ate = 0.3
+        W = np.random.uniform(-1, 1, size=(n, 1))
+        D = np.random.binomial(1, .5 + .1 * W[:, 0], size=(n,))
+        Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
+        Y_str = pd.Series(Y).replace(0, 'a').replace(1, 'b').values
+        est = LinearDML(binary_outcome=True, discrete_treatment=True)
+        est.fit(Y_str, D, X=W)
 
-    def gen_array(n, is_binary, d):
-        sz = (n, d) if d > 0 else (n,)
 
-        if is_binary:
-            return np.random.choice([0, 1], size=sz)
-        else:
-            return np.random.normal(size=sz)
+    def test_basic_functionality(self):
+        n = 100
+        binary_outcome = True
+        d_x = 3
 
-    for discrete_treatment in [True, False]:
-        for discrete_instrument in [True, False, None]:
+        def gen_array(n, is_binary, d):
+            sz = (n, d) if d > 0 else (n,)
 
-            Y = gen_array(n, binary_outcome, d=0)
-            T = gen_array(n, discrete_treatment, d=0)
-            Z = None
-            if discrete_instrument is not None:
-                Z = gen_array(n, discrete_instrument, d=0)
-            X = gen_array(n, is_binary=False, d=3)
-
-            if Z is not None:
-                est_list = [
-                    DRIV(binary_outcome=binary_outcome),
-                    DMLIV(binary_outcome=binary_outcome),
-                    OrthoIV(binary_outcome=binary_outcome),
-                ]
-
+            if is_binary:
+                return np.random.choice([0, 1], size=sz)
             else:
-                est_list = [
-                    LinearDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
-                    CausalForestDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment)
-                ]
+                return np.random.normal(size=sz)
 
-                if discrete_treatment:
-                    est_list += [
-                        LinearDRLearner(binary_outcome=binary_outcome),
+        for discrete_treatment in [True, False]:
+            for discrete_instrument in [True, False, None]:
+
+                Y = gen_array(n, binary_outcome, d=0)
+                T = gen_array(n, discrete_treatment, d=0)
+                Z = None
+                if discrete_instrument is not None:
+                    Z = gen_array(n, discrete_instrument, d=0)
+                X = gen_array(n, is_binary=False, d=3)
+
+                if Z is not None:
+                    est_list = [
+                        DRIV(binary_outcome=binary_outcome),
+                        DMLIV(binary_outcome=binary_outcome),
+                        OrthoIV(binary_outcome=binary_outcome),
                     ]
 
-            for est in est_list:
-                print(est)
-                est.fit(Y, T, **filter_none_kwargs(X=X, Z=Z))
-                est.score(Y, T, **filter_none_kwargs(X=X, Z=Z))
-                est.effect(X=X)
-                est.const_marginal_effect(X=X)
-                est.marginal_effect(T, X=X)
-                est.ate(X=X)
+                else:
+                    est_list = [
+                        LinearDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
+                        CausalForestDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment)
+                    ]
 
-            # make sure the auto outcome model is a classifier
-            if hasattr(est, 'model_y'):
-                outcome_model_attr = 'models_y'
-            elif hasattr(est, 'model_regression'):
-                outcome_model_attr = 'models_regression'
-            elif hasattr(est, 'model_y_xw'):
-                outcome_model_attr = 'models_y_xw'
-            assert (
-                hasattr(
-                    getattr(est, outcome_model_attr)[0][0],
-                    'predict_proba'
-                )
-            ), 'Auto outcome model is not a classifier!'
+                    if discrete_treatment:
+                        est_list += [
+                            LinearDRLearner(binary_outcome=binary_outcome),
+                        ]
+
+                for est in est_list:
+                    print(est)
+                    est.fit(Y, T, **filter_none_kwargs(X=X, Z=Z))
+                    est.score(Y, T, **filter_none_kwargs(X=X, Z=Z))
+                    est.effect(X=X)
+                    est.const_marginal_effect(X=X)
+                    est.marginal_effect(T, X=X)
+                    est.ate(X=X)
+
+                # make sure the auto outcome model is a classifier
+                if hasattr(est, 'model_y'):
+                    outcome_model_attr = 'models_y'
+                elif hasattr(est, 'model_regression'):
+                    outcome_model_attr = 'models_regression'
+                elif hasattr(est, 'model_y_xw'):
+                    outcome_model_attr = 'models_y_xw'
+                assert (
+                    hasattr(
+                        getattr(est, outcome_model_attr)[0][0],
+                        'predict_proba'
+                    )
+                ), 'Auto outcome model is not a classifier!'
