@@ -376,7 +376,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     ray_remote_func_options: dict, default None
         Options to pass to the ray.remote decorator.
 
-   Examples
+    Examples
     --------
 
     The example code below implements a very simple version of the double machine learning
