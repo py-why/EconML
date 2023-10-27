@@ -679,21 +679,9 @@ class _DRIV(_BaseDRIV):
             else:
                 model_t_xwz = clone(self.model_t_xwz, safe=False)
 
-            return _BaseDRIVModelNuisance(self._gen_prel_model_effect(),
-                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(),
-                                                             False, False, self.binary_outcome),
-                                          _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment, self.binary_outcome),
-                                          # target is continuous since proj_t is probability
-                                          _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
-                                                             False, self.binary_outcome),
-                                          _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment, self.binary_outcome),
-                                          self.projection, self.discrete_treatment, self.discrete_instrument)
-
             return _BaseDRIVModelNuisance(prel_model_effect=self._gen_prel_model_effect(),
                                           model_y_xw=_FirstStageWrapper(
-                                              model_y_xw, True, self._gen_featurizer(), 
+                                              model_y_xw, True, self._gen_featurizer(),
                                               False, False, self.binary_outcome),
                                           model_t_xw=_FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
                                                                         False, self.discrete_treatment,
@@ -730,7 +718,7 @@ class _DRIV(_BaseDRIV):
 
             return _BaseDRIVModelNuisance(prel_model_effect=self._gen_prel_model_effect(),
                                           model_y_xw=_FirstStageWrapper(
-                                              model_y_xw, True, self._gen_featurizer(), 
+                                              model_y_xw, True, self._gen_featurizer(),
                                               False, False, self.binary_outcome),
                                           model_t_xw=_FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
                                                                         False, self.discrete_treatment,
