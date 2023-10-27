@@ -509,7 +509,7 @@ class DRLearner(_OrthoLearner):
             else:
                 model_regression = WeightedLassoCVWrapper(cv=3, random_state=self.random_state)
         else:
-            model_regression = clone(self.model_y, safe=False)
+            model_regression = clone(self.model_regression, safe=False)
 
         return _ModelNuisance(model_propensity, model_regression, self.min_propensity, self.binary_outcome)
 

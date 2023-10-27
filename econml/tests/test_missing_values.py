@@ -123,8 +123,9 @@ class TestMissing(unittest.TestCase):
 
         # model that can handle missing values
         nuisance_model = make_pipeline(SimpleImputer(strategy='mean'), LinearRegression())
-        OrthoLearner(discrete_treatment=False, treatment_featurizer=None, discrete_instrument=None,
-                     categories='auto', cv=3, random_state=1, allow_missing=True).fit(y, T, W=W_missing)
+        OrthoLearner(binary_outcome=False, discrete_treatment=False, treatment_featurizer=None,
+                     discrete_instrument=None, categories='auto', cv=3, random_state=1,
+                     allow_missing=True).fit(y, T, W=W_missing)
 
         CausalForestDML(model_y=nuisance_model, model_t=nuisance_model,
                         allow_missing=True).fit(y, T, X=X, W=W_missing)

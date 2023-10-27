@@ -3,6 +3,7 @@
 import pytest
 import unittest
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor
@@ -21,7 +22,7 @@ from copy import deepcopy
 
 class TestBinaryOutcome(unittest.TestCase):
     # accuracy test
-    def test_accuracy():
+    def test_accuracy(self):
         n = 1000
         binary_outcome = True
         discrete_treatment = True
@@ -58,7 +59,7 @@ class TestBinaryOutcome(unittest.TestCase):
 
 
 # accuracy test, DML
-def test_accuracy_iv():
+def test_accuracy_iv(self):
     n = 10000
     binary_outcome = True
     discrete_treatment = True
@@ -85,7 +86,7 @@ def test_accuracy_iv():
         np.testing.assert_array_less(0.50, proportion_in_interval)
 
 
-def test_string_outcome():
+def test_string_outcome(self):
     n = 100
     true_ate = 0.3
     W = np.random.uniform(-1, 1, size=(n, 1))
@@ -96,7 +97,7 @@ def test_string_outcome():
     est.fit(Y_str, D, X=W)
 
 
-def test_basic_functionality():
+def test_basic_functionality(self):
     n = 100
     binary_outcome = True
     d_x = 3
