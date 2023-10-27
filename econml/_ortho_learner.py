@@ -424,10 +424,6 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                            discrete_instrument=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
-        est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None,
-                           discrete_instrument=False, categories='auto', random_state=None,use_ray=True)
-        est.fit(y, X[:, 0], W=X[:, 1:])
-
     >>> est.score_
     0.00756830...
     >>> est.const_marginal_effect()
