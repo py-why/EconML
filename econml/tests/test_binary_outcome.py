@@ -57,7 +57,6 @@ class TestBinaryOutcome(unittest.TestCase):
             proportion_in_interval = ((ate_lb < true_ate) & (true_ate < ate_ub)).mean()
             np.testing.assert_array_less(0.50, proportion_in_interval)
 
-
     # accuracy test, DML
     def test_accuracy_iv(self):
         n = 10000
@@ -85,7 +84,6 @@ class TestBinaryOutcome(unittest.TestCase):
             proportion_in_interval = ((ate_lb < true_ate) & (true_ate < ate_ub)).mean()
             np.testing.assert_array_less(0.50, proportion_in_interval)
 
-
     def test_string_outcome(self):
         n = 100
         true_ate = 0.3
@@ -95,7 +93,6 @@ class TestBinaryOutcome(unittest.TestCase):
         Y_str = pd.Series(Y).replace(0, 'a').replace(1, 'b').values
         est = LinearDML(binary_outcome=True, discrete_treatment=True)
         est.fit(Y_str, D, X=W)
-
 
     def test_basic_functionality(self):
         n = 100
