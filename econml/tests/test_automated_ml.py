@@ -22,7 +22,6 @@ from sklearn.ensemble import RandomForestRegressor, \
 import itertools
 from econml.sklearn_extensions.linear_model import WeightedLasso
 from econml.tests.test_statsmodels import _summarize
-import econml.tests.utilities  # bugfix for assertWarns
 import copy
 import logging
 from econml.data.dgps import ihdp_surface_B

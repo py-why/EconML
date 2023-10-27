@@ -15,6 +15,7 @@ from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr._dr import _DummyCATE
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
 from econml.utilities import shape
+from econml.tests.utilities import GroupingModel
 
 
 @pytest.mark.cate_api
@@ -187,3 +188,57 @@ class TestDMLIV(unittest.TestCase):
                 ate_lb, ate_ub = est.effect_interval()
                 np.testing.assert_array_less(ate_lb, true_ate)
                 np.testing.assert_array_less(true_ate, ate_ub)
+
+    def test_groups(self):
+        n = 500
+        d_w = 10
+        d_x = 3
+        W = np.random.normal(size=(n, d_w))
+        X = np.random.normal(size=(n, d_x))
+        T = np.random.choice(["a", "b"], size=(n,))
+        Z = np.random.choice(["c", "d"], size=(n,))
+        groups = [i // 4 for i in range(n)]
+        y = groups
+        n_copies = {i: 4 for i in range(125)}
+        ct_lims = (62, 63)  # floor(n_groups / 2), ceil(n_groups / 2)
+
+        est_list = [
+            OrthoIV(
+                projection=False,
+                discrete_treatment=True,
+                discrete_instrument=True,
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims, n_copies),
+                model_t_xw=LogisticRegression(),
+                model_z_xw=LogisticRegression(),
+            ),
+            OrthoIV(
+                projection=True,
+                discrete_treatment=True,
+                discrete_instrument=True,
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims, n_copies),
+                model_t_xw=LogisticRegression(),
+                model_t_xwz=LogisticRegression(),
+            ),
+            DMLIV(
+                model_final=LinearRegression(fit_intercept=False),
+                discrete_treatment=True,
+                discrete_instrument=True,
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims, n_copies),
+                model_t_xw=LogisticRegression(),
+                model_t_xwz=LogisticRegression(),
+            ),
+            NonParamDMLIV(
+                model_final=RandomForestRegressor(),
+                discrete_treatment=True,
+                discrete_instrument=True,
+                model_y_xw=GroupingModel(LinearRegression(), ct_lims, n_copies),
+                model_t_xw=LogisticRegression(),
+                model_t_xwz=LogisticRegression(),
+            ),
+        ]
+
+        for est in est_list:
+            with self.subTest(est=est):
+                est.fit(y, T, Z=Z, X=X, W=W, groups=groups)
+                score = est.score(y, T, Z=Z, X=X, W=W)
+                eff = est.const_marginal_effect(X)
