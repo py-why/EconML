@@ -5,7 +5,6 @@ import unittest
 import numpy as np
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression, LogisticRegression
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from joblib import Parallel, delayed
 
