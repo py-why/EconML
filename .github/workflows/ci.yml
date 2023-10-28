@@ -214,7 +214,7 @@ jobs:
         include:
           - kind: serial
             opts: '-m "serial and not ray" -n 1'
-            extras: "[tf,plt]"
+            extras: ""
           - kind: other
             opts: '-m "cate_api and not ray" -n auto'
             extras: "[tf,plt]"
