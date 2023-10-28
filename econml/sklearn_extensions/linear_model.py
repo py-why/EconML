@@ -1856,23 +1856,23 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         # We'll collapse results back down afterwards if necessary
         wy = wy.reshape(-1, 1) if y.ndim < 2 else wy
         sv = sample_var.reshape(-1, 1) if y.ndim < 2 else sample_var
-        self.A = np.matmul(WX.T, WX)
-        self.B = np.matmul(WX.T, wy)
+        self.XX = np.matmul(WX.T, WX)
+        self.Xy = np.matmul(WX.T, wy)
 
         # for federation, we need to store these 5 arrays when using heteroskedasticity-robust inference
         if (self.cov_type in ['HC0', 'HC1']):
             # y dimension is always first in the output when present so that broadcasting works correctly
-            self.C = np.einsum('nw,nx,ny,ny->ywx', X, X, wy, wy)
-            self.D = np.einsum('nv,nw,nx,ny->yvwx', X, X, WX, wy)
-            self.E = np.einsum('nu,nv,nw,nx->uvwx', X, X, WX, WX)
+            self.XXyy = np.einsum('nw,nx,ny,ny->ywx', X, X, wy, wy)
+            self.XXXy = np.einsum('nv,nw,nx,ny->yvwx', X, X, WX, wy)
+            self.XXXX = np.einsum('nu,nv,nw,nx->uvwx', X, X, WX, WX)
             self.sample_var = np.einsum('nw,nx,ny->ywx', WX, WX, sv)
         elif (self.cov_type is None) or (self.cov_type == 'nonrobust'):
-            self.C = np.einsum('ny,ny->y', wy, wy)
-            self.D = np.einsum('nx,ny->yx', WX, wy)
-            self.E = np.einsum('nw,nx->wx', WX, WX)
+            self.XXyy = np.einsum('ny,ny->y', wy, wy)
+            self.XXXy = np.einsum('nx,ny->yx', WX, wy)
+            self.XXXX = np.einsum('nw,nx->wx', WX, WX)
             self.sample_var = np.average(sv, weights=freq_weight, axis=0) * n_obs
 
-        sigma_inv = np.linalg.pinv(self.A)
+        sigma_inv = np.linalg.pinv(self.XX)
 
         var_i = sample_var + (y - np.matmul(X, param))**2
 
@@ -1936,17 +1936,17 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         agg_model._n_out = models[0]._n_out
 
-        A = np.sum([model.A for model in models], axis=0)
-        B = np.sum([model.B for model in models], axis=0)
-        C = np.sum([model.C for model in models], axis=0)
-        D = np.sum([model.D for model in models], axis=0)
-        E = np.sum([model.E for model in models], axis=0)
+        XX = np.sum([model.XX for model in models], axis=0)
+        Xy = np.sum([model.Xy for model in models], axis=0)
+        XXyy = np.sum([model.XXyy for model in models], axis=0)
+        XXXy = np.sum([model.XXXy for model in models], axis=0)
+        XXXX = np.sum([model.XXXX for model in models], axis=0)
 
         sample_var = np.sum([model.sample_var for model in models], axis=0)
         n_obs = np.sum([model._n_obs for model in models], axis=0)
 
-        sigma_inv = np.linalg.pinv(A)
-        param = sigma_inv @ B
+        sigma_inv = np.linalg.pinv(XX)
+        param = sigma_inv @ Xy
         df = np.shape(param)[0]
 
         agg_model._param = param if agg_model._n_out > 0 else param.squeeze(1)
@@ -1960,8 +1960,8 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             correction = (n_obs / (n_obs - df))
 
         if agg_model.cov_type in ['HC0', 'HC1']:
-            weighted_sigma = C - 2 * np.einsum('yvwx,vy->ywx', D, param) + \
-                np.einsum('uvwx,uy,vy->ywx', E, param, param) + sample_var
+            weighted_sigma = XXyy - 2 * np.einsum('yvwx,vy->ywx', XXXy, param) + \
+                np.einsum('uvwx,uy,vy->ywx', XXXX, param, param) + sample_var
             if agg_model._n_out == 0:
                 agg_model._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma.squeeze(0), sigma_inv))
             else:
@@ -1969,7 +1969,7 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         else:
             assert agg_model.cov_type == 'nonrobust' or agg_model.cov_type is None
-            sigma = C - 2 * np.einsum('yx,xy->y', D, param) + np.einsum('wx,wy,xy->y', E, param, param)
+            sigma = XXyy - 2 * np.einsum('yx,xy->y', XXXy, param) + np.einsum('wx,wy,xy->y', XXXX, param, param)
             var_i = (sample_var + sigma) / n_obs
             if agg_model._n_out == 0:
                 agg_model._var = correction * var_i * sigma_inv
@@ -1978,8 +1978,8 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
 
         agg_model._param_var = np.array(agg_model._var)
 
-        (agg_model.A, agg_model.B, agg_model.C, agg_model.D, agg_model.E,
-         agg_model.sample_var, agg_model._n_obs) = A, B, C, D, E, sample_var, n_obs
+        (agg_model.XX, agg_model.Xy, agg_model.XXyy, agg_model.XXXy, agg_model.XXXX,
+         agg_model.sample_var, agg_model._n_obs) = XX, Xy, XXyy, XXXy, XXXX, sample_var, n_obs
 
         return agg_model
 
