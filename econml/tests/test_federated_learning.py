@@ -10,6 +10,7 @@ from econml.federated_learning import FederatedEstimator
 
 class FunctionRegressor:
     """A simple model that ignores the data it is fitted on, always just using the specified function to predict"""
+
     def __init__(self, func):
         self.func = func
 
@@ -35,6 +36,7 @@ class TestFederatedLearning(unittest.TestCase):
     -------
     None
     """
+
     def test_splitting_works(self):
 
         num_samples = 1000
@@ -97,11 +99,11 @@ class TestFederatedLearning(unittest.TestCase):
 
                                     est_fed2 = FederatedEstimator([est_h1, est_h2])
 
-                                    np.testing.assert_allclose(est_fed1.model_final_._param,
-                                                               est_fed2.model_final_._param)
-                                    np.testing.assert_allclose(est_fed1.model_final_._param,
-                                                               est_all.model_final_._param)
-                                    np.testing.assert_allclose(est_fed1.model_final_._param_var,
-                                                               est_fed2.model_final_._param_var)
-                                    np.testing.assert_allclose(est_fed1.model_final_._param_var,
-                                                               est_all.model_final_._param_var)
+                                    np.testing.assert_allclose(est_fed1.coef_,
+                                                               est_fed2.coef_)
+                                    np.testing.assert_allclose(est_fed1.coef_,
+                                                               est_all.coef_)
+                                    np.testing.assert_allclose(est_fed1.coef__interval(),
+                                                               est_fed2.coef__interval())
+                                    np.testing.assert_allclose(est_fed1.coef__interval(),
+                                                               est_all.coef__interval())
