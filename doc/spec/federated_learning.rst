@@ -45,7 +45,7 @@ Example Usage
     from econml.federated_learning import FederatedEstimator
     from econml.dml import LinearDML
     n = 1000
-    (X, y, t) = (np.random.normal(size=(n,)+s) for s in [(3,), (), ())
+    (X, y, t) = (np.random.normal(size=(n,)+s) for s in [(3,), (), ()])
 
 .. testcode::
 
