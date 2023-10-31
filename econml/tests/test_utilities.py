@@ -112,7 +112,7 @@ class TestUtilities(unittest.TestCase):
             all_inds = set.union(*(set(inds) for inds in dims))
             # of all of the distinct indices that appear in any input,
             # pick a random subset of them (of size at most 5) to appear in the output
-            output = ''.join(random.sample(all_inds, random.randint(0, min(len(all_inds), 5))))
+            output = ''.join(random.sample(sorted(all_inds), random.randint(0, min(len(all_inds), 5))))
             specification = ','.join(dims) + '->' + output
             with self.subTest(spec=specification):
                 print(specification)
