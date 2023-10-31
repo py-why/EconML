@@ -129,9 +129,11 @@ As an example, for linear regression of :math:`y` on :math:`X`, we have
 
 And so the additional moments we need to distribute are
 
+.. math::
+
     \begin{align*}
-        & \E_n[X^\top y y^\top X] = \E_n[X^\top X y^2] = \E_n[X] \\
-        & \E_n[X^\top y \otimes X^\top X] = \E_n[X \otimes X \otimes X y]\\
+        & \E_n[X^\top y y^\top X] = \E_n[X^\top X y^2] = \E_n[X \otimes X \otimes y \otimes y] \\
+        & \E_n[X^\top y \otimes X^\top X] = \E_n[X \otimes X \otimes X \otimes y]\\
         & \E_n[X^\top X \otimes X^\top X] = \E_n[X \otimes X \otimes X \otimes X] \\ 
     \end{align*}
 

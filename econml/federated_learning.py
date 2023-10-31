@@ -24,18 +24,8 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
     Parameters
     ----------
     estimators : list of LinearDML, LinearDRIV, or LinearDRLearner
-        List of estimators to aggregate (all of the same type).
-
-    Attributes
-    ----------
-    estimators : list of LinearDML, LinearDRIV, or LinearDRLearner
-        List of estimators provided during initialization.
-
-    model_final_ : StatsModelsLinearRegression
-        The aggregated model obtained by aggregating models from `estimators`.
-
-    fitted_models_final : list of StatsModelsLinearRegression
-        The list of fitted models obtained by aggregating models from `estimators`.
+        List of estimators to aggregate (all of the same type), which must already have
+        been fit.
     """
 
     def __init__(self, estimators: List[LinearDML]):
@@ -89,6 +79,10 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
         return self._inference.const_marginal_effect_inference(X).point_estimate
 
     def fit(self, *args, **kwargs):
+        """
+        This method should not be called; it is included only for compatibility with the
+        CATE estimation APIs
+        """
         raise NotImplementedError("FederatedEstimator does not support fit")
 
     # Methods needed to implement the LinearFinalModelCateEstimatorMixin
