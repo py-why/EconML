@@ -1,5 +1,5 @@
 Federated Learning in EconML
-==============================================
+============================
 .. contents::
     :local:
     :depth: 2
@@ -25,15 +25,15 @@ Federated Learning with EconML
 ------------------------------
 
 Introducing the `FederatedEstimator`
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We provide the `FederatedEstimator` class to allow aggregating individual estimators which have 
+We provide the :class:`.FederatedEstimator` class to allow aggregating individual estimators which have 
 been trained on different subsets of data.  The individual estimators must all be of the same type, 
 which must currently be either LinearDML, LinearDRLearner, LinearDRIV, or LinearIntentToTreatDRIV.
 
-Unlike other estimators, you should not call `fit` on an instance of `FederatedEstimator`; instead, 
-you should train your individual estimators separately and then pass the already trained models to the `FederatedEstimator`
-initializer.  The `FederatedEstimator` will then aggregate the individual estimators into a single model.
+Unlike other estimators, you should not call `fit` on an instance of :class:`.FederatedEstimator`; instead, 
+you should train your individual estimators separately and then pass the already trained models to the :class:`.FederatedEstimator`
+initializer.  The :class:`.FederatedEstimator` will then aggregate the individual estimators into a single model.
 
 
 Example Usage
