@@ -201,15 +201,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.7', '3.8', '3.9', '3.10']
+        python-version: ['3.8', '3.9', '3.10', '3.11']
         kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
           - os: macos-latest
             kind: serial
-          # Python 3.7 is broken on the mac runner image, see https://github.com/actions/runner-images/issues/7764
-          - os: macos-latest
-            python-version: '3.7'
           # Ray tests run out of memory on Windows
           - os: windows-latest
             kind: ray
