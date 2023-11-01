@@ -167,22 +167,25 @@ class TestFederatedLearning(unittest.TestCase):
 
                                     est_fed2 = FederatedEstimator([est_h1, est_h2])
 
-                                    # test coefficients
-                                    np.testing.assert_allclose(est_fed1.coef_,
-                                                               est_fed2.coef_)
-                                    np.testing.assert_allclose(est_fed1.coef_,
-                                                               est_all.coef_)
-                                    np.testing.assert_allclose(est_fed1.coef__interval(),
-                                                               est_fed2.coef__interval())
-                                    np.testing.assert_allclose(est_fed1.coef__interval(),
-                                                               est_all.coef__interval())
 
-                                    # test effects
-                                    np.testing.assert_allclose(est_fed1.effect(X[:10]),
-                                                               est_fed2.effect(X[:10]))
-                                    np.testing.assert_allclose(est_fed1.effect(X[:10]),
-                                                               est_all.effect(X[:10]))
-                                    np.testing.assert_allclose(est_fed1.effect_interval(X[:10]),
-                                                               est_fed2.effect_interval(X[:10]))
-                                    np.testing.assert_allclose(est_fed1.effect_interval(X[:10]),
-                                                               est_all.effect_interval(X[:10]))
+clone(est)
+# test coefficients
+np.testing.assert_allclose(est_fed1.coef_,
+                           est_fed2.coef_)
+np.testing.assert_allclose(est_fed1.coef_,
+                           est_all.coef_)
+np.testing.assert_allclose(est_fed1.coef__interval(),
+                           est_fed2.coef__interval())
+np.testing.assert_allclose(est_fed1.coef__interval(),
+                           est_all.coef__interval())
+
+# test effects
+X_test = X[:10] if X is not None else None
+np.testing.assert_allclose(est_fed1.effect(X_test),
+                           est_fed2.effect(X_test))
+np.testing.assert_allclose(est_fed1.effect(X_test),
+                           est_all.effect(X_test))
+np.testing.assert_allclose(est_fed1.effect_interval(X_test),
+                           est_fed2.effect_interval(X_test))
+np.testing.assert_allclose(est_fed1.effect_interval(X_test),
+                           est_all.effect_interval(X_test))

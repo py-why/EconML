@@ -49,8 +49,7 @@ class FederatedEstimator(TreatmentExpansionMixin, LinearCateEstimator):
             cate_est_type = StatsModelsCateEstimatorDiscreteMixin
             self.fitted_models_final = [
                 StatsModelsLinearRegression.aggregate(models)
-                for models in zip(*[est.fitted_models_final for est in self.estimators],
-                                  strict=True)]
+                for models in zip(*[est.fitted_models_final for est in self.estimators])]
             inf.fitted_models_final = self.fitted_models_final
 
         # mix in the appropriate inference class
