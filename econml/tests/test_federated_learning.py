@@ -168,7 +168,6 @@ class TestFederatedLearning(unittest.TestCase):
                                     est_fed2 = FederatedEstimator([est_h1, est_h2])
 
 
-clone(est)
 # test coefficients
 np.testing.assert_allclose(est_fed1.coef_,
                            est_fed2.coef_)
