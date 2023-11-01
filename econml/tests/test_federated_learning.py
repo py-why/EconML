@@ -3,7 +3,10 @@
 
 import numpy as np
 import unittest
+
+from sklearn import clone
 from econml.dml import LinearDML
+from econml.dr import LinearDRLearner
 from econml.inference import StatsModelsInference
 from econml.federated_learning import FederatedEstimator
 
@@ -26,7 +29,7 @@ class TestFederatedLearning(unittest.TestCase):
     A set of unit tests for the FederatedLearner class.
 
     These tests check various scenarios of splitting, aggregation, and comparison
-    between FederatedLearner and individual LinearDML estimators.
+    between FederatedLearner and individual LinearDML/LinearDRLearner estimators.
 
     Parameters
     ----------
@@ -74,36 +77,40 @@ class TestFederatedLearning(unittest.TestCase):
                             y_model = FunctionRegressor(lambda XW: XW @ b)
 
                             for cov_type in ['HC0', 'HC1', 'nonrobust']:
-                                with self.subTest(d_x=d_x, d_t=d_t, d_y=d_y,
-                                                  weights=(weights is not None), fw=(freq_weights is not None),
-                                                  cov_type=cov_type):
-                                    est_all = LinearDML(model_y=y_model, model_t=t_model, linear_first_stages=False)
-                                    est_h1 = LinearDML(model_y=y_model, model_t=t_model, linear_first_stages=False)
-                                    est_h2 = LinearDML(model_y=y_model, model_t=t_model, linear_first_stages=False)
+                                for est in [LinearDML(model_y=y_model, model_t=t_model, linear_first_stages=False),
+                                            LinearDRLearner(model_propensity=t_model, model_regression=y_model)]:
+                                    with self.subTest(d_x=d_x, d_t=d_t, d_y=d_y,
+                                                      weights=(weights is not None), fw=(freq_weights is not None),
+                                                      est=est, cov_type=cov_type):
+                                        est_all = clone(est)
+                                        est_h1 = clone(est)
+                                        est_h2 = clone(est)
 
-                                    est_all.fit(Y, T, X=X, W=W,
-                                                sample_weight=weights, freq_weight=freq_weights, sample_var=sample_var,
-                                                inference=StatsModelsInference(cov_type=cov_type))
-                                    est_h1.fit(Y1, T1, X=X1, W=W1,
-                                               sample_weight=weights1,
-                                               freq_weight=freq_weights1,
-                                               sample_var=sample_var1,
-                                               inference=StatsModelsInference(cov_type=cov_type))
-                                    est_h2.fit(Y2, T2, X=X2, W=W2,
-                                               sample_weight=weights2,
-                                               freq_weight=freq_weights2,
-                                               sample_var=sample_var2,
-                                               inference=StatsModelsInference(cov_type=cov_type))
+                                        est_all.fit(Y, T, X=X, W=W,
+                                                    sample_weight=weights,
+                                                    freq_weight=freq_weights,
+                                                    sample_var=sample_var,
+                                                    inference=StatsModelsInference(cov_type=cov_type))
+                                        est_h1.fit(Y1, T1, X=X1, W=W1,
+                                                   sample_weight=weights1,
+                                                   freq_weight=freq_weights1,
+                                                   sample_var=sample_var1,
+                                                   inference=StatsModelsInference(cov_type=cov_type))
+                                        est_h2.fit(Y2, T2, X=X2, W=W2,
+                                                   sample_weight=weights2,
+                                                   freq_weight=freq_weights2,
+                                                   sample_var=sample_var2,
+                                                   inference=StatsModelsInference(cov_type=cov_type))
 
-                                    est_fed1 = FederatedEstimator([est_all])
+                                        est_fed1 = FederatedEstimator([est_all])
 
-                                    est_fed2 = FederatedEstimator([est_h1, est_h2])
+                                        est_fed2 = FederatedEstimator([est_h1, est_h2])
 
-                                    np.testing.assert_allclose(est_fed1.coef_,
-                                                               est_fed2.coef_)
-                                    np.testing.assert_allclose(est_fed1.coef_,
-                                                               est_all.coef_)
-                                    np.testing.assert_allclose(est_fed1.coef__interval(),
-                                                               est_fed2.coef__interval())
-                                    np.testing.assert_allclose(est_fed1.coef__interval(),
-                                                               est_all.coef__interval())
+                                        np.testing.assert_allclose(est_fed1.coef_,
+                                                                   est_fed2.coef_)
+                                        np.testing.assert_allclose(est_fed1.coef_,
+                                                                   est_all.coef_)
+                                        np.testing.assert_allclose(est_fed1.coef__interval(),
+                                                                   est_fed2.coef__interval())
+                                        np.testing.assert_allclose(est_fed1.coef__interval(),
+                                                                   est_all.coef__interval())
