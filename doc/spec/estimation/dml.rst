@@ -646,7 +646,7 @@ Then we can estimate the coefficients :math:`\alpha_i` by running:
     from sklearn.preprocessing import PolynomialFeatures
     est = LinearDML(model_y=RandomForestRegressor(),
                     model_t=RandomForestRegressor(),
-                    featurizer=PolynomialFeatures(degree=4, include_bias=True))
+                    featurizer=PolynomialFeatures(degree=3, include_bias=True))
     est.fit(y, T, X=X, W=W)
 
     # To get the coefficients of the polynomial fitted in the final stage we can
@@ -703,7 +703,7 @@ We can even create a Pipeline or Union of featurizers that will apply multiply f
     est = LinearDML(model_y=RandomForestRegressor(), 
                     model_t=RandomForestRegressor(),
                     featurizer=Pipeline([('log', LogFeatures()), 
-                                         ('poly', PolynomialFeatures(degree=3))]))
+                                         ('poly', PolynomialFeatures(degree=2))]))
     est.fit(y, T, X=X, W=W)
 
 
