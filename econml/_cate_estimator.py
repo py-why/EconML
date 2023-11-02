@@ -4,6 +4,7 @@
 """Base classes for all CATE estimators."""
 
 import abc
+import inspect
 import numpy as np
 from functools import wraps
 from copy import deepcopy
@@ -329,6 +330,11 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     def _defer_to_inference(m):
         @wraps(m)
         def call(self, *args, **kwargs):
+            # apply defaults before calling inference method
+            bound_args = inspect.signature(m).bind(self, *args, **kwargs)
+            bound_args.apply_defaults()
+            args = bound_args.args[1:]  # remove self
+            kwargs = bound_args.kwargs
             return self._use_inference_method(m.__name__, *args, **kwargs)
         return call
 
