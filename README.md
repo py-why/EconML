@@ -51,9 +51,11 @@ For information on use cases and background material on causal inference and het
 
 # News
 
-**May 19, 2023:** Release v0.14.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.14.1)
+** November 11, 2023:** Release v0.15.0b1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.15.0b1)
 
 <details><summary>Previous releases</summary>
+
+**May 19, 2023:** Release v0.14.1, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.14.1)
 
 **November 16, 2022:** Release v0.14.0, see release notes [here](https://github.com/py-why/EconML/releases/tag/v0.14.0)
 
