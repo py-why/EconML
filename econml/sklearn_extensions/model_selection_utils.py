@@ -1,5 +1,4 @@
 
-import pdb
 import warnings
 from sklearn.exceptions import NotFittedError
 import numpy as np
@@ -104,7 +103,8 @@ def select_estimator(estimator_type, is_discrete, random_state):
 
     Parameters
     ----------
-        estimator_type (str): The type of estimator to use, one of: 'linear', 'forest', 'gbf', 'nnet', 'poly', 'automl', 'all'.
+        estimator_type (str): The type of estimator to use, one of: 'linear', 'forest',
+        'gbf', 'nnet', 'poly', 'automl', 'all'.
         is_discrete (bool): The type of target variable, if true then it's discrete.
         TODO Add Random State for parameter
     Returns
@@ -156,7 +156,8 @@ def check_list_type(lst):
         bool: True if the list only contains valid objects, False otherwise.
 
     Raises:
-        TypeError: If the list contains objects other than strings, sklearn model objects, or sklearn model selection objects.
+        TypeError: If the list contains objects other than strings, sklearn model objects,
+        or sklearn model selection objects.
 
     Examples:
         >>> check_list_type(['linear', RandomForestRegressor(), KFold()])
@@ -167,13 +168,12 @@ def check_list_type(lst):
     if len(lst) == 0:
         raise ValueError("Estimator list is empty. Please add some models or use some of the defaults provided.")
 
-    # pdb.set_trace()
     for element in lst:
         if (not isinstance(element, (str, BaseCrossValidator))):
             if not is_likely_estimator(element):
-                # pdb.set_trace()
                 raise TypeError(
-                    f"The list must contain only strings, sklearn model objects, and sklearn model selection objects. Invalid element: {element}")
+                    "The list must contain only strings, sklearn model objects, and sklearn model selection objects. "
+                    f"Invalid element: {element}")
     return True
 
 
@@ -183,7 +183,8 @@ def get_complete_estimator_list(estimator_list, is_discrete, random_state):
 
     Parameters
     ----------
-        estimator_list : List of estimators; can be sklearn object or str: 'linear', 'forest', 'gbf', 'nnet', 'poly', 'auto', 'all'.
+        estimator_list : List of estimators; can be sklearn object or str: 'linear', 'forest', 'gbf',
+        'nnet', 'poly', 'auto', 'all'.
         is_discrete (bool): if target type is discrete or continuous.
 
     Returns
@@ -194,7 +195,6 @@ def get_complete_estimator_list(estimator_list, is_discrete, random_state):
         ValueError: If the estimator is not supported.
 
     '''
-    # pdb.set_trace()
     if isinstance(estimator_list, str):
         if 'all' == estimator_list:
             estimator_list = ['linear', 'forest', 'gbf', 'nnet', 'poly']
@@ -204,7 +204,8 @@ def get_complete_estimator_list(estimator_list, is_discrete, random_state):
             estimator_list = [estimator_list]
         else:
             raise ValueError(
-                "Invalid estimator_list value. Please provide a valid value from the list of available estimators: ['linear', 'forest', 'gbf', 'nnet', 'poly', 'automl']")
+                "Invalid estimator_list value. Please provide a valid value from the list of available estimators: "
+                "['linear', 'forest', 'gbf', 'nnet', 'poly', 'automl']")
     elif isinstance(estimator_list, list):
         if 'auto' in estimator_list:
             for estimator in ['linear']:
@@ -236,11 +237,10 @@ def get_complete_estimator_list(estimator_list, is_discrete, random_state):
     temp_est_list = flatten_list(temp_est_list)
 
     # Check that all types of models are matched towards the problem.
-    # pdb.set_trace()
     for estimator in temp_est_list:
         if (isinstance(estimator, BaseEstimator)):
             if not is_regressor_or_classifier(estimator, is_discrete=is_discrete):
-                raise TypeError("Invalid estimator type: {} - must be a regressor or classifier".format(type(estimator)))
+                raise TypeError(f"Invalid estimator type: {type(estimator)} - must be a regressor or classifier")
     return temp_est_list
 
 
@@ -292,7 +292,9 @@ def select_classification_hyperparameters(estimator):
             'linear__solver': ['saga', 'lbfgs']
         }
     else:
-        warnings.warn("No hyperparameters for this type of model. There are default hyperparameters for LogisticRegressionCV, RandomForestClassifier, MLPClassifier, and the polynomial pipleine", category=UserWarning)
+        warnings.warn("No hyperparameters for this type of model. There are default hyperparameters for "
+                      "LogisticRegressionCV, RandomForestClassifier, MLPClassifier, and the polynomial pipleine",
+                      category=UserWarning)
         return {}
         # raise ValueError("Invalid model type. Valid values are 'linear', 'forest', 'nnet', and 'poly'.")
 
@@ -340,7 +342,9 @@ def select_regression_hyperparameters(estimator):
             'poly__degree': [2, 3, 4]
         }
     else:
-        warnings.warn("No hyperparameters for this type of model. There are default hyperparameters for ElasticNetCV, RandomForestRegressor, MLPRegressor, and the polynomial pipeline.", category=UserWarning)
+        warnings.warn("No hyperparameters for this type of model. There are default hyperparameters for "
+                      "ElasticNetCV, RandomForestRegressor, MLPRegressor, and the polynomial pipeline.",
+                      category=UserWarning)
         return {}
 
 
@@ -490,7 +494,8 @@ def is_linear_model(estimator):
     """
     Check if a model is a linear model.
 
-    This function checks if a model has 'fit_intercept' and 'coef_' attributes or if it is an instance of LogisticRegression, LinearSVC, or SVC.
+    This function checks if a model has 'fit_intercept' and 'coef_' attributes or if it is an instance of
+    LogisticRegression, LinearSVC, or SVC.
 
     Parameters
     ----------
@@ -521,7 +526,8 @@ def is_data_scaled(X):
     """
     Check if input data is scaled.
 
-    This function checks if the input data is scaled by comparing its mean and standard deviation to 0 and 1 respectively.
+    This function checks if the input data is scaled by comparing its mean and standard deviation to
+    0 and 1 respectively.
 
     Parameters
     ----------
@@ -754,7 +760,8 @@ def make_param_multi_task(estimator, param_grid):
     """
     Convert the keys in a parameter grid to work with a multi-task model.
 
-    This function converts the keys in a parameter grid to work with a multi-task model by prepending 'estimator__' to each key.
+    This function converts the keys in a parameter grid to work with a multi-task model by prepending
+    'estimator__' to each key.
 
     Parameters
     ----------

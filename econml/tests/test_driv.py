@@ -13,7 +13,7 @@ import pytest
 import pickle
 from scipy import special
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LassoCV, LinearRegression, LogisticRegression
 import unittest
 
 try:
@@ -281,7 +281,10 @@ class TestDRIV(unittest.TestCase):
 
     def test_fit_cov_directly(self):
         # fitting the covariance directly should be at least as good as computing the covariance from separate models
-        est = LinearDRIV()
+
+        # set the models so that model selection over random forests doesn't take too much time in the repeated trials
+        est = LinearDRIV(model_y_xw=LassoCV(), model_t_xw=LassoCV(), model_z_xw=LassoCV(),
+                         model_tz_xw=LassoCV())
 
         n = 500
         p = 10
@@ -334,8 +337,8 @@ class TestDRIV(unittest.TestCase):
             DRIV(
                 discrete_instrument=True,
                 discrete_treatment=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
-                model_z_xw=LinearRegression(),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_2, n_copies),
+                model_z_xw=LogisticRegression(),
                 model_t_xw=LogisticRegression(),
                 model_tz_xw=LinearRegression(),
                 model_t_xwz=LogisticRegression(),
@@ -344,8 +347,8 @@ class TestDRIV(unittest.TestCase):
             LinearDRIV(
                 discrete_instrument=True,
                 discrete_treatment=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
-                model_z_xw=LinearRegression(),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_2, n_copies),
+                model_z_xw=LogisticRegression(),
                 model_t_xw=LogisticRegression(),
                 model_tz_xw=LinearRegression(),
                 model_t_xwz=LogisticRegression(),
@@ -354,8 +357,8 @@ class TestDRIV(unittest.TestCase):
             SparseLinearDRIV(
                 discrete_instrument=True,
                 discrete_treatment=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
-                model_z_xw=LinearRegression(),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_2, n_copies),
+                model_z_xw=LogisticRegression(),
                 model_t_xw=LogisticRegression(),
                 model_tz_xw=LinearRegression(),
                 model_t_xwz=LogisticRegression(),
@@ -364,20 +367,20 @@ class TestDRIV(unittest.TestCase):
             ForestDRIV(
                 discrete_instrument=True,
                 discrete_treatment=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
-                model_z_xw=LinearRegression(),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_2, n_copies),
+                model_z_xw=LogisticRegression(),
                 model_t_xw=LogisticRegression(),
                 model_tz_xw=LinearRegression(),
                 model_t_xwz=LogisticRegression(),
                 prel_cate_approach='dmliv'
             ),
             IntentToTreatDRIV(
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_3, n_copies),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_3, n_copies),
                 model_t_xwz=LogisticRegression(),
                 prel_cate_approach='dmliv'
             ),
             LinearIntentToTreatDRIV(
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_3, n_copies),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_3, n_copies),
                 model_t_xwz=LogisticRegression(),
                 prel_cate_approach='dmliv'
             )

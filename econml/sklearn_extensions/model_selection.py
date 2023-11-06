@@ -3,27 +3,36 @@
 """Collection of scikit-learn extensions for model selection techniques."""
 
 import numbers
-import pdb
 import warnings
+import abc
 
 import numpy as np
+from collections.abc import Iterable
 import scipy.sparse as sp
 import sklearn
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator, clone, is_classifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.exceptions import FitFailedWarning
-from sklearn.model_selection import (BaseCrossValidator, GridSearchCV, KFold,
+from sklearn.linear_model import (ElasticNet, ElasticNetCV, Lasso, LassoCV, MultiTaskElasticNet, MultiTaskElasticNetCV,
+                                  MultiTaskLasso, MultiTaskLassoCV, Ridge, RidgeCV, RidgeClassifier, RidgeClassifierCV,
+                                  LogisticRegression, LogisticRegressionCV)
+from sklearn.model_selection import (BaseCrossValidator, GridSearchCV, GroupKFold, KFold,
                                      RandomizedSearchCV, StratifiedKFold,
                                      check_cv)
 # TODO: conisder working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.utils import check_random_state, indexable
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import _num_samples
 
-from econml.sklearn_extensions.model_selection_utils import *
+from .linear_model import WeightedLassoCVWrapper, WeightedLassoWrapper
+from .model_selection_utils import (auto_hyperparameters, can_handle_multitask, get_complete_estimator_list,
+                                    has_random_state, is_data_scaled, is_likely_multi_task,
+                                    is_mlp, is_polynomial_pipeline, just_one_model_no_params, make_model_multi_task,
+                                    make_param_multi_task, param_grid_is_empty, supports_sample_weight)
 
 
 def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
@@ -261,11 +270,297 @@ class WeightedStratifiedKFold(WeightedKFold):
         return self.n_splits
 
 
+class ModelSelector(metaclass=abc.ABCMeta):
+    """
+    This class enables a two-stage fitting process, where first a model is selected
+    by calling `train` with `is_selecting=True`, and then the selected model is fit (presumably
+    on a different data set) by calling train with `is_selecting=False`.
+
+
+    """
+
+    @abc.abstractmethod
+    def train(self, is_selecting: bool, *args, **kwargs):
+        """
+        Either selects a model or fits a model, depending on the value of `is_selecting`.
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def predict(self, *args, **kwargs):
+        """
+        Predicts using the selected model; should not be called until after `train` has been used
+        both to select a model and to fit it.
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def score(self, *args, **kwargs):
+        """
+        Gets the score of the selected model on the given data; should not be called until after `train` has been used
+        both to select a model and to fit it.
+        """
+        raise NotImplementedError("Abstract method")
+
+
+class SingleModelSelector(ModelSelector):
+    """
+    A model selection class that selects a single best model;
+    this encompasses random search, grid search, ensembling, etc.
+    """
+
+    @property
+    @abc.abstractmethod
+    def best_model(self):
+        raise NotImplementedError("Abstract method")
+
+    @property
+    @abc.abstractmethod
+    def best_score(self):
+        raise NotImplementedError("Abstract method")
+
+    def predict(self, *args, **kwargs):
+        return self.best_model.predict(*args, **kwargs)
+
+    def predict_proba(self, *args, **kwargs):
+        return self.best_model.predict_proba(*args, **kwargs)
+
+    def score(self, *args, **kwargs):
+        if hasattr(self.best_model, 'score'):
+            return self.best_model.score(*args, **kwargs)
+        else:
+            return None
+
+
+def _fit_with_groups(model, X, y, *, groups, **kwargs):
+    """
+    Fits a model while correctly handling grouping if necessary.
+
+    This enables us to perform an inner-loop cross-validation of a model
+    which handles grouping correctly, which is not easy using typical sklearn models.
+
+    For example, GridSearchCV and RandomSearchCV both support passing `groups` to fit,
+    but other CV-related estimators (e.g. LassoCV) do not, which means that GroupKFold
+    cannot be used as the cv instance, because the `groups` argument will never be passed through
+    to GroupKFold's `split` method.
+
+    The hacky workaround here is to explicitly set the `cv` attribute to the set of
+    rows that GroupKFold would have generated rather than using GroupKFold as the cv instance.
+    """
+    if groups is not None:
+        if hasattr(model, 'cv'):
+            old_cv = model.cv
+            # logic copied from check_cv
+            cv = 5 if old_cv is None else old_cv
+            if isinstance(cv, numbers.Integral):
+                cv = GroupKFold(cv)
+            # otherwise we will assume the user already set the cv attribute to something
+            # compatible with splitting with a `groups` argument
+
+            splits = list(cv.split(X, y, groups=groups))
+            try:
+                model.cv = splits
+                return model.fit(X, y, **kwargs)  # drop groups from arg list
+            finally:
+                model.cv = old_cv
+
+    # drop groups from arg list, which were already used at the outer level and may not be supported by the model
+    return model.fit(X, y, **kwargs)
+
+
+class FixedModelSelector(SingleModelSelector):
+    """
+    Model selection class that always selects the given model
+    """
+
+    def __init__(self, model):
+        self.model = clone(model, safe=False)
+
+    def train(self, is_selecting, *args, groups=None, **kwargs):
+        # whether selecting or not, need to train the model on the data
+        # TODO: want to get out-of-sample score here if selecting, which
+        #       would require cross-validation, but want to respect grouping, stratifying, etc. 
+        _fit_with_groups(self.model, *args, groups=groups, **kwargs)
+        if is_selecting and hasattr(self.model, 'score'):
+            self._score = self.model.score(*args, **kwargs)
+        return self
+
+    @property
+    def best_model(self):
+        return self.model
+
+    @property
+    def best_score(self):
+        return self._score
+
+
+class SklearnCVSelector(SingleModelSelector):
+    """
+    Wraps one of sklearn's CV classes in the ModelSelector interface
+    """
+
+    def __init__(self, searcher):
+        self.searcher = clone(searcher)
+
+    @staticmethod
+    def convertible_types():
+        return {GridSearchCV, RandomizedSearchCV} | SklearnCVSelector._model_mapping().keys()
+
+    @staticmethod
+    def can_wrap(model):
+        return any(isinstance(model, model_type) for model_type in SklearnCVSelector.convertible_types())
+
+    @staticmethod
+    def _model_mapping():
+        return {LogisticRegressionCV: (LogisticRegression,
+                                       ["C", "l1_ratio"],
+                                       [],
+                                       ["classes_", "coef_", "intercept_", "n_features_in_", "n_iter_"]),
+                ElasticNetCV: (ElasticNet,
+                               ["alpha", "l1_ratio"],
+                               ["precompute"],
+                               ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
+                LassoCV: (Lasso,
+                          ["alpha"],
+                          ["precompute"],
+                          ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
+                RidgeCV: (Ridge,
+                          ["alpha"],
+                          [],
+                          ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
+                RidgeClassifierCV: (RidgeClassifier,
+                                    ["alpha"],
+                                    [],
+                                    ["label_binarizer", "coef_", "intercept_", "n_features_in_", "n_iter_"]),
+                MultiTaskElasticNetCV: (MultiTaskElasticNet,
+                                        ["alpha", "l1_ratio"],
+                                        ["precompute"],
+                                        ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
+                MultiTaskLassoCV: (MultiTaskLasso,
+                                   ["alpha"],
+                                   [],
+                                   ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
+                WeightedLassoCVWrapper: (WeightedLassoWrapper,
+                                         ["alpha"],
+                                         [],
+                                         ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"])
+                }
+
+    def train(self, is_selecting: bool, *args, groups=None, **kwargs):
+        if is_selecting:
+
+            _fit_with_groups(self.searcher, *args, groups=groups, **kwargs)
+            self._best_model = self._extract_best_model()
+            # TODO: ideally, want the out-of-sample score here instead;
+            #       but this is not exposed in a consistent way
+            self._best_score = self.searcher.score(*args, **kwargs)
+        else:
+            # don't need to use _fit_with_groups here since none of these models support it
+            self.best_model.fit(*args, **kwargs)
+        return self
+
+    @property
+    def best_model(self):
+        return self._best_model
+
+    @property
+    def best_score(self):
+        return self._best_score
+
+    def _extract_best_model(self):
+        if isinstance(self.searcher, GridSearchCV) or isinstance(self.searcher, RandomizedSearchCV):
+            return self.searcher.best_estimator_
+        else:
+            for known_type in self._model_mapping().keys():
+                if isinstance(self.searcher, known_type):
+                    model_type, opt_params, strip_params, fit_vars = self._model_mapping()[known_type]
+                    model = model_type()
+                    # set all shared parameters
+                    for param in model.get_params().keys() & self.searcher.get_params().keys() - set(strip_params):
+                        setattr(model, param, getattr(self.searcher, param))
+                    # update learned hyperparameters with best values
+                    for param in opt_params:
+                        setattr(model, param, getattr(self.searcher, param + "_"))
+                    # set all fitted variables
+                    for var in fit_vars:
+                        setattr(model, var, getattr(self.searcher, var))
+                    return model
+            raise ValueError(f"Unsupported type: {type(self.searcher)}")
+
+
+class ListSelector(SingleModelSelector):
+    """
+    Model selection class that selects the best model from a list of model selectors
+
+    Parameters
+    ----------
+    models : list of ModelSelector
+        The list of model selectors to choose from
+    unwrap : bool, default True
+        Whether to return the best model's best model, rather than just the outer best model selector
+    """
+
+    def __init__(self, models, unwrap=True):
+        self.models = [clone(model, safe=False) for model in models]
+        self.unwrap = unwrap
+
+    def train(self, is_selecting, *args, **kwargs):
+        if is_selecting:
+            scores = []
+            for model in self.models:
+                model.train(is_selecting, *args, **kwargs)
+                scores.append(model.best_score)
+            self._all_scores = scores
+            self._best_score = np.max(scores)
+            self._best_model = self.models[np.argmax(scores)]
+
+        else:
+            self._best_model.train(is_selecting, *args, **kwargs)
+
+    @property
+    def best_model(self):
+        """
+        Gets the best model; note that if we were selecting over SingleModelSelectors and `unwrap` is `False`,
+        we will return the SingleModelSelector instance, not its best model.
+        """
+        return self._best_model.best_model if self.unwrap else self._best_model
+
+    @property
+    def best_score(self):
+        return self._best_score
+
+
+def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV):
+    named_models = {
+        'linear': (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
+                   else WeightedLassoCVWrapper(random_state=random_state, cv=cv)),
+        'forest': (RandomForestClassifier(random_state=random_state) if is_discrete
+                   else RandomForestRegressor(random_state=random_state)),
+    }
+    if isinstance(input, ModelSelector):  # we've already got a model selector, don't need to do anything
+        return input
+    elif isinstance(input, list):  # we've got a list; call get_selector on each element, then wrap in a ListSelector
+        models = [get_selector(model, is_discrete,
+                               random_state=random_state, cv=cv, wrapper=wrapper)
+                  for model in input]
+        return ListSelector(models)
+    elif isinstance(input, str):  # we've got a string; look it up
+        if input in named_models:
+            return get_selector(named_models[input], is_discrete,
+                                random_state=random_state, cv=cv, wrapper=wrapper)
+        else:
+            raise ValueError(f"Unknown model type: {input}, must be one of {named_models.keys()}")
+    elif SklearnCVSelector.can_wrap(input):
+        return SklearnCVSelector(input)
+    else:  # assume this is an sklearn-compatible model
+        return FixedModelSelector(input)
+
+
 class SearchEstimatorList(BaseEstimator):
     """
     The SearchEstimatorList is a utility class for hyperparameter tuning.
-    It provides a convenient way to perform GridSearch cross-validation for 
-    a list of estimators. The class automates the process of hyperparameter 
+    It provides a convenient way to perform GridSearch cross-validation for
+    a list of estimators. The class automates the process of hyperparameter
     tuning, model fitting, and prediction for multiple estimators.
 
 
@@ -275,7 +570,8 @@ class SearchEstimatorList(BaseEstimator):
         A list of names of estimators to be used for grid search.
 
     param_grid_list : list or 'auto', default 'auto'
-        A list of dictionaries specifying hyperparameters for each estimator in `estimator_list`. If set to 'auto', the class automatically generates hyperparameters for the estimators.
+        A list of dictionaries specifying hyperparameters for each estimator in `estimator_list`. If set to 'auto',
+        the class automatically generates hyperparameters for the estimators.
 
     scaling : bool, default True
         Indicates whether to scale the input data using StandardScaler.
@@ -304,32 +600,35 @@ class SearchEstimatorList(BaseEstimator):
     random_state : int, RandomState instance, or None, default None
         If int, `random_state` is the seed used by the random number generator;
         If `RandomState` instance, `random_state` is the random number generator;
-        If None, the random number generator is the `RandomState` instance used by `np.random<numpy.random>`. Used when `shuffle` == True.
+        If None, the random number generator is the `RandomState` instance used by `np.random<numpy.random>`.
+        Used when `shuffle` == True.
 
     error_score : float or 'raise', default np.nan
-        The value assigned to the score if an error occurs during fitting an estimator. If set to 'raise', an error is raised.
+        The value assigned to the score if an error occurs during fitting an estimator. If set to 'raise',
+        an error is raised.
 
     return_train_score : bool, default False
         Determines whether to include training scores in the `cv_results_` attribute of the class.
 
     categorical_indices : str, int, list, or None default None
-        List of categorical indices 
+        List of categorical indices
     """
 
-    def __init__(self, estimator_list=['linear', 'forest'], param_grid_list=None, scaling=False, is_discrete=False, scoring=None,
-                 n_jobs=None, refit=True, cv=2, verbose=2, pre_dispatch='2*n_jobs', random_state=None,
+    def __init__(self, estimator_list=['linear', 'forest'], param_grid_list=None, scaling=False,
+                 is_discrete=False, scoring=None, n_jobs=None, refit=True, cv=2, verbose=2,
+                 pre_dispatch='2*n_jobs', random_state=None,
                  error_score=np.nan, return_train_score=False, categorical_indices=None):
-        # pdb.set_trace()
         self.estimator_list = estimator_list
         self.complete_estimator_list = get_complete_estimator_list(
             clone(estimator_list, safe=False), is_discrete=is_discrete, random_state=random_state)
 
-        # TODO Add in more functionality by checking if it's an empty list. If it's just 1 dictionary then we're going to need to turn it into a list
+        # TODO Add in more functionality by checking if it's an empty list. If it's just 1 dictionary
+        # then we're going to need to turn it into a list
         # Just do more cases
         if param_grid_list == 'auto':
             self.param_grid_list = auto_hyperparameters(
                 estimator_list=self.complete_estimator_list, is_discrete=is_discrete)
-        elif (param_grid_list == None):
+        elif (param_grid_list is None):
             self.param_grid_list = len(self.complete_estimator_list) * [{}]
         else:
             if isinstance(param_grid_list, dict):
@@ -338,7 +637,7 @@ class SearchEstimatorList(BaseEstimator):
                 self.param_grid_list = param_grid_list
         self.categorical_indices = categorical_indices
         self.scoring = scoring
-        if scoring == None:
+        if scoring is None:
             if is_discrete:
                 self.scoring = 'f1_macro'
             else:
@@ -357,10 +656,6 @@ class SearchEstimatorList(BaseEstimator):
         self.supported_models = ['linear', 'forest', 'gbf', 'nnet', 'poly']
 
     def fit(self, X, y, *, sample_weight=None, groups=None):
-        # print(groups)
-        # if groups != None:
-        #     pdb.set_trace()
-        # pdb.set_trace()
         self._search_list = []
 
         # Change estimators if multi_task
@@ -369,7 +664,7 @@ class SearchEstimatorList(BaseEstimator):
                 if not can_handle_multitask(model=estimator, is_discrete=self.is_discrete):
                     self.complete_estimator_list[index] = make_model_multi_task(
                         model=estimator, is_discrete=self.is_discrete)
-                    if self.param_grid_list != None:
+                    if self.param_grid_list is not None:
                         self.param_grid_list[index] = make_param_multi_task(
                             estimator=estimator, param_grid=self.param_grid_list[index])
 
@@ -381,9 +676,10 @@ class SearchEstimatorList(BaseEstimator):
         if just_one_model_no_params(estimator_list=self.complete_estimator_list, param_list=self.param_grid_list):
             # Just fit the model and return it, no need for grid search or for loop
             estimator = self.complete_estimator_list[0]
-            if self.random_state != None:
+            if self.random_state is not None:
                 if has_random_state(model=estimator):
-                    # For a polynomial pipeline, you have to set the random state of the linear part, the polynomial part doesn't have random state
+                    # For a polynomial pipeline, you have to set the random state of the linear part,
+                    # the polynomial part doesn't have random state
                     if is_polynomial_pipeline(estimator):
                         estimator = estimator.set_params(linear__random_state=self.random_state)
                     else:
@@ -407,14 +703,15 @@ class SearchEstimatorList(BaseEstimator):
                 else:
                     print(f"Processing estimator: {type(estimator).__name__}")
             try:
-                if self.random_state != None:
+                if self.random_state is not None:
                     if has_random_state(model=estimator):
-                        # For a polynomial pipeline, you have to set the random state of the linear part, the polynomial part doesn't have random state
+                        # For a polynomial pipeline, you have to set the random state of the linear part,
+                        # the polynomial part doesn't have random state
                         if is_polynomial_pipeline(estimator):
                             estimator = estimator.set_params(linear__random_state=self.random_state)
                         else:
                             estimator.set_params(random_state=self.random_state)
-                # pdb.set_trace() # Note Delete this
+
                 temp_search = GridSearchCV(estimator, param_grid, scoring=self.scoring,
                                            n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
                                            pre_dispatch=self.pre_dispatch, error_score=self.error_score,
@@ -442,8 +739,10 @@ class SearchEstimatorList(BaseEstimator):
                 warning_msg = f"Warning: {e} for estimator {estimator} and param_grid {param_grid}"
                 warnings.warn(warning_msg, category=UserWarning)
             if not hasattr(temp_search, 'cv_results_') and not param_grid_is_empty(param_grid=param_grid):
-                # This warning catches a problem after fit has run with no exception, however if there is no cv_results_ this indicates a failed fit operation.
-                warning_msg = f"Warning: estimator {estimator} and param_grid {param_grid} failed has no attribute cv_results_."
+                # This warning catches a problem after fit has run with no exception,
+                # however if there is no cv_results_ this indicates a failed fit operation.
+                warning_msg = (f"Warning: estimator {estimator} and param_grid {param_grid} "
+                               "failed, has no attribute cv_results_.")
                 warnings.warn(warning_msg, category=FitFailedWarning)
         try:
             self.best_ind_ = np.argmax([search.best_score_ for search in self._search_list])
@@ -453,8 +752,8 @@ class SearchEstimatorList(BaseEstimator):
         self.best_estimator_ = self._search_list[self.best_ind_].best_estimator_
         self.best_score_ = self._search_list[self.best_ind_].best_score_
         self.best_params_ = self._search_list[self.best_ind_].best_params_
-        print(
-            f'Best estimator {self.best_estimator_} and best score {self.best_score_} and best params {self.best_params_}')
+        print(f'Best estimator {self.best_estimator_} and best score {self.best_score_} '
+              f'and best params {self.best_params_}')
         return self
 
     def scaler_transform(self, X):
@@ -496,20 +795,14 @@ class GridSearchCVList(BaseEstimator):
         of parameter settings.
     """
 
-    def __init__(self, estimator_list=['linear', 'forest'], param_grid_list='auto', scoring=None,
+    def __init__(self, estimator_list, param_grid_list, scoring=None,
                  n_jobs=None, refit=True, cv=None, verbose=0, pre_dispatch='2*n_jobs',
-                 error_score=np.nan, return_train_score=False, is_discrete=False):
-        # 'discrete' if is_discrete else 'continuous'
-        self.estimator_list = get_complete_estimator_list(estimator_list, is_discrete, )
-        if param_grid_list == 'auto':
-            self.param_grid_list = auto_hyperparameters(estimator_list=self.estimator_list, is_discrete=is_discrete)
-        elif (param_grid_list == None):
-            self.param_grid_list = len(self.estimator_list) * [{}]
-        else:
-            self.param_grid_list = param_grid_list
+                 error_score=np.nan, return_train_score=False):
+        self.estimator_list = estimator_list
+        self.param_grid_list = param_grid_list
         self.scoring = scoring
         self.n_jobs = n_jobs
-        # self.refit = refit
+        self.refit = refit
         self.cv = cv
         self.verbose = verbose
         self.pre_dispatch = pre_dispatch
@@ -519,7 +812,7 @@ class GridSearchCVList(BaseEstimator):
 
     def fit(self, X, y=None, **fit_params):
         self._gcv_list = [GridSearchCV(estimator, param_grid, scoring=self.scoring,
-                                       n_jobs=self.n_jobs, cv=self.cv, verbose=self.verbose,
+                                       n_jobs=self.n_jobs, refit=self.refit, cv=self.cv, verbose=self.verbose,
                                        pre_dispatch=self.pre_dispatch, error_score=self.error_score,
                                        return_train_score=self.return_train_score)
                           for estimator, param_grid in zip(self.estimator_list, self.param_grid_list)]
@@ -529,9 +822,6 @@ class GridSearchCVList(BaseEstimator):
         self.best_params_ = self._gcv_list[self.best_ind_].best_params_
         return self
 
-    def best_model(self):
-        return self.best_estimator_
-
     def predict(self, X):
         return self.best_estimator_.predict(X)
 
@@ -539,7 +829,7 @@ class GridSearchCVList(BaseEstimator):
         return self.best_estimator_.predict_proba(X)
 
 
-def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=3,
+def _cross_val_predict(estimator, X, y=None, *, groups=None, cv=None,
                        n_jobs=None, verbose=0, fit_params=None,
                        pre_dispatch='2*n_jobs', method='predict', safe=True):
     """This is a fork from :meth:`~sklearn.model_selection.cross_val_predict` to allow for

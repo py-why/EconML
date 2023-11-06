@@ -22,9 +22,7 @@ from econml.tests.test_statsmodels import _summarize
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from sklearn.multioutput import MultiOutputRegressor
 from econml.grf import MultiOutputGRF
-from econml.sklearn_extensions.model_selection import SearchEstimatorList
 from econml.tests.utilities import (GroupingModel, NestedModel)
-import pdb
 
 try:
     import ray
@@ -625,9 +623,9 @@ class TestDML(unittest.TestCase):
         assert isinstance(est.featurizer_, Pipeline)
         assert isinstance(est.model_cate, WeightedLasso)
         for mdl in est.models_y[0]:
-            assert isinstance(mdl, SearchEstimatorList)
+            assert isinstance(mdl, WeightedLasso)
         for mdl in est.models_t[0]:
-            assert isinstance(mdl, SearchEstimatorList)
+            assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A', 'A^2'])
         np.testing.assert_array_equal(est.cate_feature_names(), ['X0', 'X0^2'])
         est = DML(model_y=WeightedLasso(),
@@ -641,9 +639,9 @@ class TestDML(unittest.TestCase):
         assert isinstance(est.featurizer_, FunctionTransformer)
         assert isinstance(est.model_cate, WeightedLasso)
         for mdl in est.models_y[0]:
-            assert isinstance(mdl, SearchEstimatorList)
+            assert isinstance(mdl, WeightedLasso)
         for mdl in est.models_t[0]:
-            assert isinstance(mdl, SearchEstimatorList)
+            assert isinstance(mdl, LogisticRegression)
         np.testing.assert_array_equal(est.cate_feature_names(['A']), ['A'])
 
     def test_forest_dml_perf(self):
@@ -1131,7 +1129,6 @@ class TestDML(unittest.TestCase):
                               model_t=LinearRegression(fit_intercept=False),
                               fit_cate_intercept=False)
         dml.fit(y, t, X=x, W=w)
-        # pdb.set_trace()
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
@@ -1239,8 +1236,8 @@ class TestDML(unittest.TestCase):
 
         # test outer grouping
         # with 2 folds, we should get exactly 3 groups per split, each with 10 copies of the y or t value
-        est = LinearDML(model_y=GroupingModel(LinearRegression(), (3, 3), n_copies),
-                        model_t=GroupingModel(LinearRegression(), (3, 3), n_copies))
+        est = LinearDML(model_y=GroupingModel(LinearRegression(), 60, (3, 3), n_copies),
+                        model_t=GroupingModel(LinearRegression(), 60, (3, 3), n_copies))
         est.fit(y, t, groups=groups)
 
         # test nested grouping
@@ -1248,16 +1245,9 @@ class TestDML(unittest.TestCase):
         # with 2-fold outer and 2-fold inner grouping, and six total groups,
         # should get 1 or 2 groups per split
 
-        est = LinearDML(model_y=NestedModel(LassoCV(cv=2), (1, 2), n_copies),
-                        model_t=NestedModel(LassoCV(cv=2), (1, 2), n_copies))
+        est = LinearDML(model_y=NestedModel(LassoCV(cv=2), 60, (1, 2), n_copies),
+                        model_t=NestedModel(LassoCV(cv=2), 60, (1, 2), n_copies))
         est.fit(y, t, groups=groups)
-
-        # by default, we use 5 split cross-validation for our T and Y models
-        # but we don't have enough groups here to split both the outer and inner samples with grouping
-        # TODO: does this imply we should change some defaults to make this more likely to succeed?
-        est = LinearDML(model_y=LassoCV(cv=5), model_t=LassoCV(cv=5))
-        with pytest.raises(Exception):
-            est.fit(y, t, groups=groups)
 
     def test_treatment_names(self):
         Y = np.random.normal(size=(100, 1))

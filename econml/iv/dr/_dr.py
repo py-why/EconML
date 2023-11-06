@@ -27,16 +27,23 @@ from ..._cate_estimator import (StatsModelsCateEstimatorMixin, DebiasedLassoCate
                                 LinearCateEstimator)
 from ...inference import StatsModelsInference
 from ...sklearn_extensions.linear_model import StatsModelsLinearRegression, DebiasedLasso, WeightedLassoCVWrapper
-from ...sklearn_extensions.model_selection import WeightedStratifiedKFold
+from ...sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, WeightedStratifiedKFold
 from ...utilities import (_deprecate_positional, add_intercept, filter_none_kwargs,
                           inverse_onehot, get_feature_names_or_default, check_high_dimensional, check_input_arrays)
 from ...grf import RegressionForest
-from ...dml.dml import _FirstStageWrapper, _FinalWrapper
+from ...dml.dml import _make_first_stage_selector, _FinalWrapper
 from ...iv.dml import NonParamDMLIV
 from ..._shap import _shap_explain_model_cate
 
 
-class _BaseDRIVModelNuisance:
+def _combine(W, Z, n_samples):
+    if Z is not None:  # Z will not be None
+        Z = Z.reshape(n_samples, -1)
+        return Z if W is None else np.hstack([W, Z])
+    return None if W is None else W
+
+
+class _BaseDRIVNuisanceSelector(ModelSelector):
     def __init__(self, *, prel_model_effect, model_y_xw, model_t_xw, model_tz_xw, model_z,
                  projection, fit_cov_directly,
                  discrete_treatment, discrete_instrument):
@@ -53,22 +60,30 @@ class _BaseDRIVModelNuisance:
         else:
             self._model_z_xw = model_z
 
-    def _combine(self, W, Z, n_samples):
-        if Z is not None:  # Z will not be None
-            Z = Z.reshape(n_samples, -1)
-            return Z if W is None else np.hstack([W, Z])
-        return None if W is None else W
-
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         # T and Z only allow single continuous or binary, keep the shape of (n,) for continuous and (n,1) for binary
         T = T.ravel() if not self._discrete_treatment else T
         Z = Z.ravel() if not self._discrete_instrument else Z
 
-        self._model_y_xw.fit(X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
-        self._model_t_xw.fit(X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+        self._model_y_xw.train(is_selecting, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+        self._model_t_xw.train(is_selecting, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+        if is_selecting and self._fit_cov_directly:
+            # need to fit, too, since we call predict later inside this train method
+            self._model_t_xw.train(False, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+
         if self._projection:
-            WZ = self._combine(W, Z, Y.shape[0])
-            self._model_t_xwz.fit(X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
+            WZ = _combine(W, Z, Y.shape[0])
+            self._model_t_xwz.train(is_selecting, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
+            if is_selecting:
+                # need to fit, too, since we call predict later inside this train method
+                self._model_t_xwz.train(False, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
+        else:
+            self._model_z_xw.train(is_selecting, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+            if is_selecting:
+                # need to fit, too, since we call predict later inside this train method
+                self._model_z_xw.train(False, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+
+        if self._projection:
             T_proj = self._model_t_xwz.predict(X, WZ).reshape(T.shape)
             if self._fit_cov_directly:
                 # We're projecting, so we're treating E[T|X,Z] as the instrument (ignoring W for simplicity)
@@ -82,15 +97,14 @@ class _BaseDRIVModelNuisance:
                 else:
                     T_pred = T_pred.reshape(T.shape)
                 target = (T_proj - T_pred)**2
-                self._model_tz_xw.fit(X=X, W=W, Target=target,
-                                      sample_weight=sample_weight, groups=groups)
+                self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
+                                        sample_weight=sample_weight, groups=groups)
             else:
                 # return shape (n,)
                 target = (T * T_proj).reshape(T.shape[0],)
-                self._model_tz_xw.fit(X=X, W=W, Target=target,
-                                      sample_weight=sample_weight, groups=groups)
+                self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
+                                        sample_weight=sample_weight, groups=groups)
         else:
-            self._model_z_xw.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
             if self._fit_cov_directly:
                 Z_pred = self._model_z_xw.predict(X, W)
                 T_pred = self._model_t_xw.predict(X, W)
@@ -111,10 +125,10 @@ class _BaseDRIVModelNuisance:
                 target_shape = Z_res.shape if Z_res.ndim > 1 else T_res.shape
                 target = T_res.reshape(target_shape) * Z_res.reshape(target_shape)
                 # TODO: if the T and Z models overfit, then this will be biased towards 0;
-                #       consider using nested cross-fitting here
+                #       consider using nested cross-fitting
                 #       a similar comment applies to the projection case
-                self._model_tz_xw.fit(X=X, W=W, Target=target,
-                                      sample_weight=sample_weight, groups=groups)
+                self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
+                                        sample_weight=sample_weight, groups=groups)
             else:
                 if self._discrete_treatment:
                     if self._discrete_instrument:
@@ -130,8 +144,8 @@ class _BaseDRIVModelNuisance:
                     else:
                         # shape(n,)
                         target = T * Z
-                self._model_tz_xw.fit(X=X, W=W, Target=target,
-                                      sample_weight=sample_weight, groups=groups)
+                self._model_tz_xw.train(is_selecting, X=X, W=W, Target=target,
+                                        sample_weight=sample_weight, groups=groups)
 
         # TODO: prel_model_effect could allow sample_var and freq_weight?
         if self._discrete_instrument:
@@ -168,7 +182,7 @@ class _BaseDRIVModelNuisance:
 
         if self._projection:
             if hasattr(self._model_t_xwz, 'score'):
-                WZ = self._combine(W, Z, Y.shape[0])
+                WZ = _combine(W, Z, Y.shape[0])
                 t_xwz_score = self._model_t_xwz.score(X=X, W=WZ, Target=T, sample_weight=sample_weight)
             else:
                 t_xwz_score = None
@@ -232,7 +246,7 @@ class _BaseDRIVModelNuisance:
 
         if self._projection:
             # concat W and Z
-            WZ = self._combine(W, Z, Y.shape[0])
+            WZ = _combine(W, Z, Y.shape[0])
             T_proj = self._model_t_xwz.predict(X, WZ).reshape(T.shape)
             Z_res = T_proj - T_pred
             if self._fit_cov_directly:
@@ -650,86 +664,38 @@ class _DRIV(_BaseDRIV):
         return clone(self.prel_model_effect, safe=False)
 
     def _gen_ortho_learner_model_nuisance(self):
-        if self.model_y_xw == 'auto':
-            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_y_xw = clone(self.model_y_xw, safe=False)
-
-        if self.model_t_xw == 'auto':
-            if self.discrete_treatment:
-                model_t_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                  random_state=self.random_state)
-            else:
-                model_t_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t_xw = clone(self.model_t_xw, safe=False)
+        model_y_xw = _make_first_stage_selector(self.model_y_xw, False, self.random_state)
+        model_t_xw = _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state)
 
         if self.projection:
             # this is a regression model since proj_t is probability
-            if self.model_tz_xw == "auto":
-                model_tz_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_tz_xw = clone(self.model_tz_xw, safe=False)
+            model_tz_xw = _make_first_stage_selector(self.model_tz_xw,
+                                                     is_discrete=False,
+                                                     random_state=self.random_state)
 
-            if self.model_t_xwz == 'auto':
-                if self.discrete_treatment:
-                    model_t_xwz = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                       random_state=self.random_state)
-                else:
-                    model_t_xwz = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_t_xwz = clone(self.model_t_xwz, safe=False)
-
-            return _BaseDRIVModelNuisance(prel_model_effect=self._gen_prel_model_effect(),
-                                          model_y_xw=_FirstStageWrapper(
-                                              model_y_xw, True, self._gen_featurizer(), False, False),
-                                          model_t_xw=_FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                                        False, self.discrete_treatment),
-                                          # outcome is continuous since proj_t is probability
-                                          model_tz_xw=_FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(),
-                                                                         False, False),
-                                          model_z=_FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                                                     False, self.discrete_treatment),
-                                          projection=self.projection,
-                                          fit_cov_directly=self.fit_cov_directly,
-                                          discrete_treatment=self.discrete_treatment,
-                                          discrete_instrument=self.discrete_instrument)
+            # we're using E[T|X,W,Z] as the instrument
+            model_z = _make_first_stage_selector(self.model_t_xwz,
+                                                 is_discrete=self.discrete_treatment,
+                                                 random_state=self.random_state)
 
         else:
-            if self.model_tz_xw == "auto":
-                if self.discrete_treatment and self.discrete_instrument and not self.fit_cov_directly:
-                    model_tz_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                       random_state=self.random_state)
-                else:
-                    model_tz_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_tz_xw = clone(self.model_tz_xw, safe=False)
+            model_tz_xw = _make_first_stage_selector(self.model_tz_xw, is_discrete=(self.discrete_treatment and
+                                                                                    self.discrete_instrument and
+                                                                                    not self.fit_cov_directly),
+                                                     random_state=self.random_state)
 
-            if self.model_z_xw == 'auto':
-                if self.discrete_instrument:
-                    model_z_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                      random_state=self.random_state)
-                else:
-                    model_z_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_z_xw = clone(self.model_z_xw, safe=False)
+            model_z = _make_first_stage_selector(self.model_z_xw, is_discrete=self.discrete_instrument,
+                                                 random_state=self.random_state)
 
-            return _BaseDRIVModelNuisance(prel_model_effect=self._gen_prel_model_effect(),
-                                          model_y_xw=_FirstStageWrapper(
-                                              model_y_xw, True, self._gen_featurizer(), False, False),
-                                          model_t_xw=_FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                                        False, self.discrete_treatment),
-                                          model_tz_xw=_FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(),
-                                                                         False, (self.discrete_treatment and
-                                                                                 self.discrete_instrument and
-                                                                                 not self.fit_cov_directly)),
-                                          model_z=_FirstStageWrapper(model_z_xw, False, self._gen_featurizer(),
-                                                                     False, (self.discrete_instrument and
-                                                                             not self.fit_cov_directly)),
-                                          projection=self.projection,
-                                          fit_cov_directly=self.fit_cov_directly,
-                                          discrete_treatment=self.discrete_treatment,
-                                          discrete_instrument=self.discrete_instrument)
+        return _BaseDRIVNuisanceSelector(prel_model_effect=self._gen_prel_model_effect(),
+                                         model_y_xw=model_y_xw,
+                                         model_t_xw=model_t_xw,
+                                         model_tz_xw=model_tz_xw,
+                                         model_z=model_z,
+                                         projection=self.projection,
+                                         fit_cov_directly=self.fit_cov_directly,
+                                         discrete_treatment=self.discrete_treatment,
+                                         discrete_instrument=self.discrete_instrument)
 
 
 class DRIV(_DRIV):
@@ -1090,7 +1056,7 @@ class DRIV(_DRIV):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_y_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_y_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t_xw(self):
@@ -1104,7 +1070,7 @@ class DRIV(_DRIV):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_t_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_z_xw(self):
@@ -1120,7 +1086,7 @@ class DRIV(_DRIV):
         """
         if self.projection:
             raise AttributeError("Projection model is fitted for instrument! Use models_t_xwz.")
-        return [[mdl._model_z_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_z_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t_xwz(self):
@@ -1136,7 +1102,7 @@ class DRIV(_DRIV):
         """
         if not self.projection:
             raise AttributeError("Direct model is fitted for instrument! Use models_z_xw.")
-        return [[mdl._model_t_xwz._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t_xwz.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_tz_xw(self):
@@ -1150,7 +1116,7 @@ class DRIV(_DRIV):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_tz_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_tz_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_prel_model_effect(self):
@@ -2342,25 +2308,23 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
             raise ValueError("Parameter `model_final` cannot be altered for this estimator!")
 
 
-class _IntentToTreatDRIVModelNuisance:
-    def __init__(self, model_y_xw, model_t_xwz, dummy_z, prel_model_effect):
-        self._model_y_xw = clone(model_y_xw, safe=False)
-        self._model_t_xwz = clone(model_t_xwz, safe=False)
-        self._dummy_z = clone(dummy_z, safe=False)
-        self._prel_model_effect = clone(prel_model_effect, safe=False)
+class _IntentToTreatDRIVNuisanceSelector(ModelSelector):
+    def __init__(self,
+                 model_y_xw: SingleModelSelector,
+                 model_t_xwz: SingleModelSelector,
+                 dummy_z: SingleModelSelector,
+                 prel_model_effect):
+        self._model_y_xw = model_y_xw
+        self._model_t_xwz = model_t_xwz
+        self._dummy_z = dummy_z
+        self._prel_model_effect = prel_model_effect
 
-    def _combine(self, W, Z, n_samples):
-        if Z is not None:  # Z will not be None
-            Z = Z.reshape(n_samples, -1)
-            return Z if W is None else np.hstack([W, Z])
-        return None if W is None else W
-
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        self._model_y_xw.fit(X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+    def train(self, is_selecting, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        self._model_y_xw.train(is_selecting, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
         # concat W and Z
-        WZ = self._combine(W, Z, Y.shape[0])
-        self._model_t_xwz.fit(X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
-        self._dummy_z.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+        WZ = _combine(W, Z, Y.shape[0])
+        self._model_t_xwz.train(is_selecting, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
+        self._dummy_z.train(is_selecting, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         # we need to undo the one-hot encoding for calling effect,
         # since it expects raw values
         self._prel_model_effect.fit(Y, inverse_onehot(T), Z=inverse_onehot(Z), X=X, W=W,
@@ -2374,7 +2338,7 @@ class _IntentToTreatDRIVModelNuisance:
             Y_X_score = None
         if hasattr(self._model_t_xwz, 'score'):
             # concat W and Z
-            WZ = self._combine(W, Z, Y.shape[0])
+            WZ = _combine(W, Z, Y.shape[0])
             T_XZ_score = self._model_t_xwz.score(X=X, W=WZ, Target=T, sample_weight=sample_weight)
         else:
             T_XZ_score = None
@@ -2390,8 +2354,8 @@ class _IntentToTreatDRIVModelNuisance:
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         Y_pred = self._model_y_xw.predict(X, W)
-        T_pred_zero = self._model_t_xwz.predict(X, self._combine(W, np.zeros(Z.shape), Y.shape[0]))
-        T_pred_one = self._model_t_xwz.predict(X, self._combine(W, np.ones(Z.shape), Y.shape[0]))
+        T_pred_zero = self._model_t_xwz.predict(X, _combine(W, np.zeros(Z.shape), Y.shape[0]))
+        T_pred_one = self._model_t_xwz.predict(X, _combine(W, np.ones(Z.shape), Y.shape[0]))
         Z_pred = self._dummy_z.predict(X, W)
         prel_theta = self._prel_model_effect.effect(X)
 
@@ -2486,16 +2450,8 @@ class _IntentToTreatDRIV(_BaseDRIV):
         return clone(self.prel_model_effect, safe=False)
 
     def _gen_ortho_learner_model_nuisance(self):
-        if self.model_y_xw == 'auto':
-            model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_y_xw = clone(self.model_y_xw, safe=False)
-
-        if self.model_t_xwz == 'auto':
-            model_t_xwz = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                               random_state=self.random_state)
-        else:
-            model_t_xwz = clone(self.model_t_xwz, safe=False)
+        model_y_xw = _make_first_stage_selector(self.model_y_xw, is_discrete=False, random_state=self.random_state)
+        model_t_xwz = _make_first_stage_selector(self.model_t_xwz, is_discrete=True, random_state=self.random_state)
 
         if self.z_propensity == "auto":
             dummy_z = DummyClassifier(strategy="prior")
@@ -2504,14 +2460,9 @@ class _IntentToTreatDRIV(_BaseDRIV):
         else:
             raise ValueError("Only 'auto' or float is allowed!")
 
-        return _IntentToTreatDRIVModelNuisance(_FirstStageWrapper(model_y_xw, True, self._gen_featurizer(),
-                                                                  False, False),
-                                               _FirstStageWrapper(model_t_xwz, False,
-                                                                  self._gen_featurizer(), False, True),
-                                               _FirstStageWrapper(dummy_z, False,
-                                                                  self._gen_featurizer(), False, True),
-                                               self._gen_prel_model_effect()
-                                               )
+        dummy_z = _make_first_stage_selector(dummy_z, is_discrete=True, random_state=self.random_state)
+
+        return _IntentToTreatDRIVNuisanceSelector(model_y_xw, model_t_xwz, dummy_z, self._gen_prel_model_effect())
 
 
 class _DummyCATE:

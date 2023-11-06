@@ -43,6 +43,7 @@ from sklearn.linear_model import (LassoCV, LinearRegression,
                                   LogisticRegressionCV)
 from sklearn.ensemble import RandomForestRegressor
 
+
 from .._ortho_learner import _OrthoLearner
 from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, BaseCateEstimator,
                                ForestModelFinalCateEstimatorDiscreteMixin,
@@ -51,13 +52,17 @@ from ..inference import GenericModelFinalInferenceDiscrete
 from ..grf import RegressionForest
 from ..sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
+from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, get_selector
 from ..utilities import (_deprecate_positional, check_high_dimensional,
-                         filter_none_kwargs, fit_with_groups, inverse_onehot, get_feature_names_or_default)
+                         filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
 
-class _ModelNuisance:
-    def __init__(self, model_propensity, model_regression, min_propensity):
+class _ModelNuisance(ModelSelector):
+    def __init__(self,
+                 model_propensity: SingleModelSelector,
+                 model_regression: SingleModelSelector,
+                 min_propensity):
         self._model_propensity = model_propensity
         self._model_regression = model_regression
         self._min_propensity = min_propensity
@@ -65,7 +70,7 @@ class _ModelNuisance:
     def _combine(self, X, W):
         return np.hstack([arr for arr in [X, W] if arr is not None])
 
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
+    def train(self, is_selecting, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         if Y.ndim != 1 and (Y.ndim != 2 or Y.shape[1] != 1):
             raise ValueError("The outcome matrix must be of shape ({0}, ) or ({0}, 1), "
                              "instead got {1}.".format(len(X), Y.shape))
@@ -77,22 +82,16 @@ class _ModelNuisance:
         XW = self._combine(X, W)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight)
 
-        fit_with_groups(self._model_propensity, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
-        fit_with_groups(self._model_regression, np.hstack([XW, T]), Y, groups=groups, **filtered_kwargs)
+        self._model_propensity.train(is_selecting, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
+        self._model_regression.train(is_selecting, np.hstack([XW, T]), Y, groups=groups, **filtered_kwargs)
         return self
 
     def score(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         XW = self._combine(X, W)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight)
 
-        if hasattr(self._model_propensity, 'score'):
-            propensity_score = self._model_propensity.score(XW, inverse_onehot(T), **filtered_kwargs)
-        else:
-            propensity_score = None
-        if hasattr(self._model_regression, 'score'):
-            regression_score = self._model_regression.score(np.hstack([XW, T]), Y, **filtered_kwargs)
-        else:
-            regression_score = None
+        propensity_score = self._model_propensity.score(XW, inverse_onehot(T), **filtered_kwargs)
+        regression_score = self._model_regression.score(np.hstack([XW, T]), Y, **filtered_kwargs)
 
         return propensity_score, regression_score
 
@@ -112,6 +111,12 @@ class _ModelNuisance:
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
         propensities_weight = np.sum(propensities * T_complete, axis=1)
         return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities_weight.reshape((n,))
+
+
+def _make_first_stage_selector(model, is_discrete, random_state):
+    if model == "auto":
+        model = ['linear', 'forest']
+    return get_selector(model, is_discrete=is_discrete, random_state=random_state)
 
 
 class _ModelFinal:
@@ -499,16 +504,8 @@ class DRLearner(_OrthoLearner):
         return options
 
     def _gen_ortho_learner_model_nuisance(self):
-        if self.model_propensity == 'auto':
-            model_propensity = LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto',
-                                                    random_state=self.random_state)
-        else:
-            model_propensity = clone(self.model_propensity, safe=False)
-
-        if self.model_regression == 'auto':
-            model_regression = WeightedLassoCVWrapper(cv=3, random_state=self.random_state)
-        else:
-            model_regression = clone(self.model_regression, safe=False)
+        model_propensity = _make_first_stage_selector(self.model_propensity, True, self.random_state)
+        model_regression = _make_first_stage_selector(self.model_regression, False, self.random_state)
 
         return _ModelNuisance(model_propensity, model_regression, self.min_propensity)
 
@@ -648,7 +645,7 @@ class DRLearner(_OrthoLearner):
             monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_propensity for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_propensity.best_model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_regression(self):
@@ -662,7 +659,7 @@ class DRLearner(_OrthoLearner):
             monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_regression for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_regression.best_model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_propensity(self):
