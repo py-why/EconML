@@ -33,15 +33,15 @@ class DRtester:
 
     .. math::
 
-    Cal_G = \sum_k \pi(k) |E[s(Z) | k] - E[Y^{DR | k}|
+        \\mathrm{Cal}_G = \\sum_k \\pi(k) |{\\E[s(Z) | k] - \\E[Y^{DR} | k]}|
 
-    Cal_O = \sum_k \pi(k) |E[s(Z) | k] - E[Y^{DR}|
+        \\mathrm{Cal}_O = \\sum_k \\pi(k) |{\\E[s(Z) | k] - \\E[Y^{DR}]}|
 
     The calibration r-squared is then defined as
 
     .. math::
 
-    \mathcal{R^2}_C = 1 - \frac{Cal_G}{Cal_O}
+        \\mathcal{R^2}_C = 1 - \\frac{\\mathrm{Cal}_G}{\\mathrm{Cal}_O}
 
     The calibration r-squared metric is similar to the standard R-square score in that it can take any value
     less than or equal to 1, with scores closer to 1 indicating a better calibrated CATE model.
@@ -57,16 +57,17 @@ class DRtester:
 
     .. math::
 
-    \tau_{QINI}(q) = Cov(Y^{DR}(g,p), 1\{\hat{\tau}(Z) \geq \hat{\mu}(q)\})
+        \\tau_{QINI}(q) = \\mathrm{Cov}(Y^{DR}(g,p), \\mathbb{1}\\{\\hat{\\tau}(Z) \\geq \\hat{\\mu}(q)\\})
 
-    Where q is the desired quantile, \hat{\mu} is the quantile function, and \hat{\tau} is the predicted CATE function.
-    Y^{DR}(g,p) refers to the doubly robust outcome difference (relative to control) for the given observation.
+    Where :math:`q` is the desired quantile, :math:`\\hat{\\mu}` is the quantile function, and :math:`\\hat{\\tau}` is
+    the predicted CATE function.
+    :math:`Y^{DR}(g,p)` refers to the doubly robust outcome difference (relative to control) for the given observation.
 
     The QINI coefficient is then given by:
 
     .. math::
 
-    QINI = \int_0^1 \tau_{QINI}(q) dq
+        QINI = \\int_0^1 \\tau_{QINI}(q) dq
 
     Parameters
     ----------
@@ -246,9 +247,9 @@ class DRtester:
         Xtrain: (n_train x k) matrix
             Training sample features used to predict both treatment status and outcomes
         Dtrain: array of length n_train
-            Training sample treatment assignments. Should have integer values with the lowest-value corresponding to the
-            control treatment. It is recommended to have the control take value 0 and all other treatments be integers
-            starting at 1
+            Training sample treatment assignments. Should have integer values with the lowest-value corresponding to
+            the control treatment. It is recommended to have the control take value 0 and all other treatments be
+            integers starting at 1
         ytrain: array of length n_train
             Outcomes for training sample
         Xval: (n_train x k) matrix
@@ -269,7 +270,8 @@ class DRtester:
         n = Xval.shape[0]
         reg_preds = np.zeros((n, self.n_treat + 1))
         for i in range(self.n_treat + 1):
-            model_regression_fitted = self.model_regression.fit(Xtrain[Dtrain == self.treatments[i]], ytrain[Dtrain == self.treatments[i]])
+            model_regression_fitted = self.model_regression.fit(
+                Xtrain[Dtrain == self.treatments[i]], ytrain[Dtrain == self.treatments[i]])
             reg_preds[:, i] = model_regression_fitted.predict(Xval)
 
         return reg_preds, prop_preds
@@ -310,7 +312,7 @@ class DRtester:
         for k in range(self.n_treat + 1):
             for train, test in splits:
                 model_regression_fitted = self.model_regression.fit(X[train][D[train] == self.treatments[k]],
-                                                          y[train][D[train] == self.treatments[k]])
+                                                                    y[train][D[train] == self.treatments[k]])
                 reg_preds[test, k] = model_regression_fitted.predict(X[test])
 
         return reg_preds, prop_preds
@@ -320,11 +322,11 @@ class DRtester:
         Xval: np.array,
         Xtrain: np.array = None
     ):
-
         """
-        Generates predictions from fitted CATE model. If Xtrain is None, then the predictions are generated using k-folds
-        cross-validation on the validation set. If Xtrain is specified, then the CATE is assumed to have been fitted on
-        the training sample (where the DR outcomes were generated using k-folds CV), and then applied to the validation sample.
+        Generates predictions from fitted CATE model. If Xtrain is None, then the predictions are generated using
+        k-folds cross-validation on the validation set. If Xtrain is specified, then the CATE is assumed to have
+        been fitted on the training sample (where the DR outcomes were generated using k-folds CV), and then applied
+        to the validation sample.
 
         Parameters
         ----------
@@ -352,7 +354,6 @@ class DRtester:
         Xtrain: np.array = None,
         n_groups: int = 4
     ) -> CalibrationEvaluationResults:
-
         """
         Implements calibration test as in [Dwivedi2020]
 
@@ -485,7 +486,6 @@ class DRtester:
         Xtrain: np.array = None,
         percentiles: np.array = np.linspace(5, 95, 50)
     ) -> QiniEvaluationResults:
-
         """
         Calculates QINI coefficient for the given model as in Radcliffe (2007), where units are ordered by predicted
         CATE values and a running measure of the average treatment effect in each cohort is kept as we progress
@@ -503,7 +503,8 @@ class DRtester:
             to Xval. If specified, then Xtrain, Dtrain, Ytrain must have been specified in `fit_nuisance' method (and
             vice-versa)
         percentiles: one-dimensional array, default ``np.linspace(5, 95, 50)''
-            Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of 5%.
+            Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of
+            5%.
 
         Returns
         -------
