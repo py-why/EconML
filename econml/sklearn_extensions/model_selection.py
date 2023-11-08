@@ -378,10 +378,10 @@ class FixedModelSelector(SingleModelSelector):
 
     def train(self, is_selecting, *args, groups=None, **kwargs):
         # whether selecting or not, need to train the model on the data
-        # TODO: want to get out-of-sample score here if selecting, which
-        #       would require cross-validation, but want to respect grouping, stratifying, etc. 
         _fit_with_groups(self.model, *args, groups=groups, **kwargs)
         if is_selecting and hasattr(self.model, 'score'):
+            # TODO: we need to alter this to use out-of-sample score here, which
+            #       will require cross-validation, but should respect grouping, stratifying, etc.
             self._score = self.model.score(*args, **kwargs)
         return self
 
@@ -392,6 +392,69 @@ class FixedModelSelector(SingleModelSelector):
     @property
     def best_score(self):
         return self._score
+
+
+def _copy_to(m1, m2, attrs, insert_underscore=False):
+    for attr in attrs:
+        setattr(m2, attr, getattr(m1, attr + "_" if insert_underscore else attr))
+
+
+def _convert_linear_model(model, new_cls, extra_attrs=[]):
+    new_model = new_cls()
+    # copy common parameters
+    _copy_to(model, new_model, ["fit_intercept", "max_iter",
+                                "tol",
+                                "random_state"])
+    # copy common fitted variables
+    _copy_to(model, new_model, ["coef_", "intercept_", "n_features_in_", "n_iter_"])
+    # copy attributes unique to this class
+    _copy_to(model, new_model, extra_attrs)
+    return new_model
+
+
+def _to_logisticRegression(model: LogisticRegressionCV):
+    lr = _convert_linear_model(model, LogisticRegression)
+    _copy_to(model, lr, ["penalty", "dual", "intercept_scaling",
+                         "class_weight",
+                         "solver", "multi_class",
+                         "verbose", "n_jobs"])
+    _copy_to(model, lr, ["classes_"])
+
+    _copy_to(model, lr, ["C", "l1_ratio"], True)  # these are arrays in LogisticRegressionCV, need to convert them next
+
+    # make sure all classes agree on best c/l1 combo
+    assert np.isclose(lr.C, lr.C.flatten()[0]).all()
+    assert np.equal(lr.l1_ratio, None).all() or np.isclose(lr.l1_ratio, lr.l1_ratio.flatten()[0]).all()
+    lr.C = lr.C[0]
+    lr.l1_ratio = lr.l1_ratio[0]
+    avg_scores = np.average([v for k, v in model.scores_.items()], axis=1)  # average over folds
+    best_scores = np.max(avg_scores, axis=tuple(range(1, avg_scores.ndim)))  # average score of best c/l1 combo
+    assert np.isclose(best_scores, best_scores.flatten()[0]).all()  # make sure all folds agree on best c/l1 combo
+    return lr, best_scores[0]
+
+
+def _convert_linear_regression(model, new_cls, extra_attrs=["positive"]):
+    new_model = _convert_linear_model(model, new_cls, ["normalize", "copy_X",
+                                                       "n_iter_"])
+    _copy_to(model, new_model, ["alpha"], True)
+    return new_model
+
+
+def _to_elasticNet(model: ElasticNetCV, is_lasso=False, cls=None, extra_attrs=[]):
+    cls = cls or (Lasso if is_lasso else ElasticNet)
+    new_model = _convert_linear_regression(model, cls, extra_attrs + ['selection', 'warm_start',
+                                                                      'dual_gap_'])
+    if not is_lasso:
+        # l1 ratio doesn't apply to Lasso, only ElasticNet
+        _copy_to(model, new_model, ["l1_ratio"], True)
+    max_score = np.max(np.mean(model.mse_path_, axis=-1))  # last dimension in mse_path is folds, so average over that
+    return new_model, max_score
+
+
+def _to_ridge(model, cls=Ridge, extra_attrs=["positive"]):
+    ridge = _convert_linear_regression(model, cls, extra_attrs + ["_normalize", "solver"])
+    best_score = model.best_score_
+    return ridge, best_score
 
 
 class SklearnCVSelector(SingleModelSelector):
@@ -412,48 +475,32 @@ class SklearnCVSelector(SingleModelSelector):
 
     @staticmethod
     def _model_mapping():
-        return {LogisticRegressionCV: (LogisticRegression,
-                                       ["C", "l1_ratio"],
-                                       [],
-                                       ["classes_", "coef_", "intercept_", "n_features_in_", "n_iter_"]),
-                ElasticNetCV: (ElasticNet,
-                               ["alpha", "l1_ratio"],
-                               ["precompute"],
-                               ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
-                LassoCV: (Lasso,
-                          ["alpha"],
-                          ["precompute"],
-                          ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
-                RidgeCV: (Ridge,
-                          ["alpha"],
-                          [],
-                          ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
-                RidgeClassifierCV: (RidgeClassifier,
-                                    ["alpha"],
-                                    [],
-                                    ["label_binarizer", "coef_", "intercept_", "n_features_in_", "n_iter_"]),
-                MultiTaskElasticNetCV: (MultiTaskElasticNet,
-                                        ["alpha", "l1_ratio"],
-                                        ["precompute"],
-                                        ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
-                MultiTaskLassoCV: (MultiTaskLasso,
-                                   ["alpha"],
-                                   [],
-                                   ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"]),
-                WeightedLassoCVWrapper: (WeightedLassoWrapper,
-                                         ["alpha"],
-                                         [],
-                                         ["coef_", "intercept_", "dual_gap_", "n_features_in_", "n_iter_"])
+        return {LogisticRegressionCV: _to_logisticRegression,
+                ElasticNetCV: _to_elasticNet,
+                LassoCV: lambda model: _to_elasticNet(model, True, None, ["positive"]),
+                RidgeCV: _to_ridge,
+                RidgeClassifierCV: lambda model: _to_ridge(model, RidgeClassifier, ["positive", "class_weight",
+                                                                                    "_label_binarizer"]),
+                MultiTaskElasticNetCV: lambda model: _to_elasticNet(model, False, MultiTaskElasticNet, extra_attrs=[]),
+                MultiTaskLassoCV: lambda model: _to_elasticNet(model, True, MultiTaskLasso, extra_attrs=[]),
+                WeightedLassoCVWrapper: lambda model: _to_elasticNet(model, True, WeightedLassoWrapper,
+                                                                     extra_attrs=[]),
                 }
 
     def train(self, is_selecting: bool, *args, groups=None, **kwargs):
         if is_selecting:
-
             _fit_with_groups(self.searcher, *args, groups=groups, **kwargs)
-            self._best_model = self._extract_best_model()
-            # TODO: ideally, want the out-of-sample score here instead;
-            #       but this is not exposed in a consistent way
-            self._best_score = self.searcher.score(*args, **kwargs)
+
+            if isinstance(self.searcher, GridSearchCV) or isinstance(self.searcher, RandomizedSearchCV):
+                self._best_model = self.searcher.best_estimator_
+                self._best_score = self.searcher.best_score_
+
+            for known_type in self._model_mapping().keys():
+                if isinstance(self.searcher, known_type):
+                    converter = self._model_mapping()[known_type]
+                    self._best_model, self._best_score = converter(self.searcher)
+                    return self
+
         else:
             # don't need to use _fit_with_groups here since none of these models support it
             self.best_model.fit(*args, **kwargs)
@@ -466,26 +513,6 @@ class SklearnCVSelector(SingleModelSelector):
     @property
     def best_score(self):
         return self._best_score
-
-    def _extract_best_model(self):
-        if isinstance(self.searcher, GridSearchCV) or isinstance(self.searcher, RandomizedSearchCV):
-            return self.searcher.best_estimator_
-        else:
-            for known_type in self._model_mapping().keys():
-                if isinstance(self.searcher, known_type):
-                    model_type, opt_params, strip_params, fit_vars = self._model_mapping()[known_type]
-                    model = model_type()
-                    # set all shared parameters
-                    for param in model.get_params().keys() & self.searcher.get_params().keys() - set(strip_params):
-                        setattr(model, param, getattr(self.searcher, param))
-                    # update learned hyperparameters with best values
-                    for param in opt_params:
-                        setattr(model, param, getattr(self.searcher, param + "_"))
-                    # set all fitted variables
-                    for var in fit_vars:
-                        setattr(model, var, getattr(self.searcher, var))
-                    return model
-            raise ValueError(f"Unsupported type: {type(self.searcher)}")
 
 
 class ListSelector(SingleModelSelector):
@@ -534,8 +561,9 @@ def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=Grid
     named_models = {
         'linear': (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
                    else WeightedLassoCVWrapper(random_state=random_state, cv=cv)),
-        'forest': (RandomForestClassifier(random_state=random_state) if is_discrete
-                   else RandomForestRegressor(random_state=random_state)),
+        'forest': (GridSearchCV(RandomForestClassifier(random_state=random_state) if is_discrete
+                                else RandomForestRegressor(random_state=random_state),
+                                param_grid={}, cv=cv)),
     }
     if isinstance(input, ModelSelector):  # we've already got a model selector, don't need to do anything
         return input

@@ -1276,7 +1276,8 @@ class WeightedLassoCVWrapper(_PairedEstimatorWrapper):
     _known_params = set(['eps', 'n_alphas', 'alphas', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'copy_X',
                          'cv', 'verbose', 'n_jobs', 'random_state', 'selection'])
 
-    _post_fit_attrs = set(['alpha_', 'alphas_', 'coef_', 'dual_gap_', 'intercept_', 'n_iter_', 'n_features_in_'])
+    _post_fit_attrs = set(['alpha_', 'alphas_', 'coef_', 'dual_gap_',
+                           'intercept_', 'n_iter_', 'n_features_in_', 'mse_path_'])
 
 
 class WeightedLassoWrapper(_PairedEstimatorWrapper):
