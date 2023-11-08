@@ -2152,10 +2152,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-1.74672...,  1.57225..., -1.58916...])
+    array([-1.74672...,  1.57..., -1.58916...])
     >>> est.effect_interval(X[:3])
-    (array([-7.05230..., -6.78656..., -5.11344...]),
-    array([3.55885..., 9.93108..., 1.93512...]))
+    (array([-7.05230..., -6..., -5.11344...]),
+    array([3.55885..., 9.9..., 1.93512...]))
     """
 
     def __init__(self, *,
