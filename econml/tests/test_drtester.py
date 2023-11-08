@@ -80,8 +80,8 @@ class TestDRTester(unittest.TestCase):
 
         ates = dr_outcomes.mean(axis=0)
         for k in range(dr_outcomes.shape[1]):
-            ate_errs = np.sqrt(((dr_outcomes[:, k] - ates[k]) ** 2).sum() / \
-                      (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+            ate_errs = np.sqrt(((dr_outcomes[:, k] - ates[k]) ** 2).sum() /
+                               (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
 
             self.assertLess(abs(ates[k] - (k + 1)), 2 * ate_errs)
 
@@ -128,8 +128,8 @@ class TestDRTester(unittest.TestCase):
         dr_outcomes = my_dr_tester.dr_val_
 
         ate = dr_outcomes.mean(axis=0)
-        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() / \
-                               (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() /
+                          (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
         truth = 1
         self.assertLess(abs(ate - truth), 2 * ate_err)
 
@@ -171,8 +171,8 @@ class TestDRTester(unittest.TestCase):
         dr_outcomes = my_dr_tester.dr_val_
 
         ate = dr_outcomes.mean(axis=0)
-        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() / \
-                               (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
+        ate_err = np.sqrt(((dr_outcomes - ate) ** 2).sum() /
+                          (dr_outcomes.shape[0] * (dr_outcomes.shape[0] - 1)))
         truth = 1
         self.assertLess(abs(ate - truth), 2 * ate_err)
 
@@ -236,7 +236,8 @@ class TestDRTester(unittest.TestCase):
                     str(exc.exception) == "CATE predictions not yet calculated - must provide Xval"
                 )
             else:
-                self.assertTrue(str(exc.exception) == "CATE predictions not yet calculated - must provide both Xval, Xtrain")
+                self.assertTrue(str(exc.exception) ==
+                                "CATE predictions not yet calculated - must provide both Xval, Xtrain")
 
         for func in [
             my_dr_tester.evaluate_cal,

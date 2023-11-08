@@ -82,7 +82,7 @@ def calc_qini_coeff(
         inds = (qs[it] <= cate_preds_val)  # group with larger CATE prediction than the q-th quantile
         group_prob = np.sum(inds) / n  # fraction of population in this group
         toc[it] = group_prob * (
-                np.mean(dr_val[inds]) - ate)  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+            np.mean(dr_val[inds]) - ate)  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
         toc_psi[it, :] = np.squeeze(
             (dr_val - ate) * (inds - group_prob) - toc[it])  # influence function for the tau(q)
         toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
