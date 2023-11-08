@@ -12,7 +12,6 @@ from econml.panel.dml import DynamicDML
 from econml.panel.dml._dml import _get_groups_period_filter
 from econml.inference import BootstrapInference, EmpiricalInferenceResults, NormalInferenceResults
 from econml.utilities import shape, hstack, vstack, reshape, cross_product
-import econml.tests.utilities  # bugfix for assertWarns
 from econml.tests.dgp import DynamicPanelDGP
 
 

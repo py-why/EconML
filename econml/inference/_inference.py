@@ -33,7 +33,7 @@ class Inference(metaclass=abc.ABCMeta):
 
         This is called after the estimator's fit.
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def ate_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
         return self.effect_inference(X=X, T0=T0, T1=T1).population_summary(alpha=alpha).conf_int_mean()
@@ -738,7 +738,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     @property
     def var(self):
@@ -776,7 +776,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     @abc.abstractmethod
     def pvalue(self, value=0):
@@ -796,7 +796,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def zstat(self, value=0):
         """
@@ -963,7 +963,7 @@ class InferenceResults(metaclass=abc.ABCMeta):
         results: InferenceResults
             The expanded results
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def translate(self, offset):
         """
@@ -1067,11 +1067,11 @@ class NormalInferenceResults(InferenceResults):
         if self.stderr is None:
             raise AttributeError("Only point estimates are available!")
         if np.isscalar(self.point_estimate):
-            return _safe_norm_ppf(alpha / 2, loc=self.point_estimate, scale=self.stderr),\
+            return _safe_norm_ppf(alpha / 2, loc=self.point_estimate, scale=self.stderr), \
                 _safe_norm_ppf(1 - alpha / 2, loc=self.point_estimate, scale=self.stderr)
         else:
             return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                             for p, err in zip(self.point_estimate, self.stderr)]),\
+                             for p, err in zip(self.point_estimate, self.stderr)]), \
                 np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                           for p, err in zip(self.point_estimate, self.stderr)])
 
@@ -1403,7 +1403,7 @@ class PopulationSummaryResults:
                     _safe_norm_ppf(1 - alpha / 2, loc=mean_point, scale=stderr_mean))
         else:
             return np.array([_safe_norm_ppf(alpha / 2, loc=p, scale=err)
-                             for p, err in zip(mean_point, stderr_mean)]),\
+                             for p, err in zip(mean_point, stderr_mean)]), \
                 np.array([_safe_norm_ppf(1 - alpha / 2, loc=p, scale=err)
                           for p, err in zip(mean_point, stderr_mean)])
 

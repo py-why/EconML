@@ -19,6 +19,12 @@ on:
         required: false
         default: ''
         type: string
+      use_lkg:
+          description: 'Whether to use the last known good versions of dependencies'
+          required: false
+          default: True
+          type: boolean
+
   # annoyingly, there does not seem to be a way to share these input definitions between triggers
   workflow_call:
     inputs:
@@ -38,13 +44,18 @@ on:
         required: false
         default: ''
         type: string
-
+      use_lkg:
+        description: 'Whether to use the last known good versions of dependencies'
+        required: false
+        default: True
+        type: boolean
 jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -60,7 +71,7 @@ jobs:
       - run: pip install cibuildwheel && python -m cibuildwheel --output-dir dist
         name: Build wheels
         env:
-          CIBW_BUILD: cp3{7,8,9,10}-*
+          CIBW_BUILD: cp3*
           CIBW_SKIP: "*musl* *win32 *i686"
       - uses: actions/upload-artifact@v3
         name: Upload wheels as artifact
@@ -81,7 +92,7 @@ jobs:
           python-version: 3.8 # because of our supported TensorFlow versions, must build on 3.6-3.8
       - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
         name: Ensure latest pip and setuptools
-      - run: pip install -U cython && pip install -e .[all]
+      - run: pip install -e .[all] ${{ inputs.use_lkg && '-r lkg.txt' || '' }}
         name: Install econml[all]
       - run: python setup.py sdist
         name: Build sdist

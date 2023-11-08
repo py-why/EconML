@@ -60,7 +60,7 @@ class _OrthoIVModelNuisance:
             self._model_z_xw.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         return self
 
-    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, group=None):
+    def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         if hasattr(self._model_y_xw, 'score'):
             Y_X_score = self._model_y_xw.score(X=X, W=W, Target=Y, sample_weight=sample_weight)
         else:
@@ -85,7 +85,7 @@ class _OrthoIVModelNuisance:
                 Z_X_score = None
             return Y_X_score, T_X_score, Z_X_score
 
-    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, group=None):
+    def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         Y_pred = self._model_y_xw.predict(X=X, W=W)
         T_pred = self._model_t_xw.predict(X=X, W=W)
 
@@ -280,6 +280,10 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
     Examples
     --------
     A simple example with the default models:
@@ -350,7 +354,8 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -366,7 +371,11 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -852,7 +861,6 @@ class _BaseDMLIV(_OrthoLearner):
         sample_weight:(n,) vector, optional
             Weights for each samples
 
-
         Returns
         -------
         score: float
@@ -1087,6 +1095,10 @@ class DMLIV(_BaseDMLIV):
         How to aggregate the nuisance value for each sample across the `mc_iters` monte carlo iterations of
         cross-fitting.
 
+    allow_missing: bool
+        Whether to allow missing values in X, W. If True, will need to supply nuisance models and model_final
+        that can handle missing values.
+
     Examples
     --------
     A simple example with the default models:
@@ -1149,7 +1161,8 @@ class DMLIV(_BaseDMLIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -1163,7 +1176,8 @@ class DMLIV(_BaseDMLIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -1478,6 +1492,10 @@ class NonParamDMLIV(_BaseDMLIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in X, W. If True, will need to supply nuisance models and model_final
+        that can handle missing values.
+
     Examples
     --------
     A simple example:
@@ -1540,7 +1558,8 @@ class NonParamDMLIV(_BaseDMLIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -1553,7 +1572,8 @@ class NonParamDMLIV(_BaseDMLIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)

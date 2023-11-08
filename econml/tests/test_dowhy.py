@@ -63,7 +63,7 @@ class TestDowhy(unittest.TestCase):
                 else:
                     est_dowhy = est.dowhy.fit(Y, T, X=X, W=W)
                 # test causal graph
-                est_dowhy.view_model()
+                est_dowhy.view_model(layout=None)
                 # test refutation estimate
                 est_dowhy.refute_estimate(method_name="random_common_cause", num_simulations=3)
                 if name != "orf":

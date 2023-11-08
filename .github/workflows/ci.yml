@@ -1,4 +1,4 @@
-name: Run all checks for pull requests
+name: Run all checks
 
 on:
   pull_request:
@@ -11,10 +11,27 @@ on:
         required: false
         default: ''
         type: string
+      use_lkg:
+        description: 'Whether to use the last known good versions of dependencies'
+        required: false
+        default: True
+        type: boolean
+  # nightly
+  schedule:
+    - cron: '0 0 * * *'
+
+# Only run once per PR, canceling any previous runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 # Precompute the ref if the workflow was triggered by a workflow dispatch rather than copying this logic repeatedly
 env:
   ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
+  # we want to use the LKG if that is explicitly requested, or if we're in a PR, but not a nightly run
+  # the final `|| ''` is because env vars are always converted to strings and the string 'false' is truthy (!!)
+  # (see https://github.com/orgs/community/discussions/25645)
+  use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' || ''}}
 
 jobs:
   eval: 
@@ -85,7 +102,7 @@ jobs:
     - uses: actions/setup-python@v4
       name: Setup Python
       with:
-        python-version: 3.9
+        python-version: '3.9'
     - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
       name: Ensure latest pip and setuptools
     - run: 'pip install pycodestyle && pycodestyle econml'
@@ -97,19 +114,21 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        kind: [except customer scenarios, customer scenarios]
+        kind: [except-customer-scenarios, customer-scenarios]
         include:
-        - kind: "except customer scenarios"
-          extras: "[tf,plt]"
+        - kind: "except-customer-scenarios"
+          extras: "[tf,plt,ray]"
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
-          version: 3.8 # no supported version of tensorflow for 3.9
-        - kind: "customer scenarios"
+          version: '3.8' # no supported version of tensorflow for 3.9
+        - kind: "customer-scenarios"
           extras: "[plt,dowhy]"
           pattern: "CustomerScenarios"
-          version: 3.9
+          version: '3.9'
           install_graphviz: false
       fail-fast: false
+    env:
+      id_string: ${{ matrix.kind }}-${{ matrix.version }}
     steps:
     - uses: actions/checkout@v3
       name: Checkout repository
@@ -125,18 +144,56 @@ jobs:
       name: Install graphviz
       if: ${{ matrix.install_graphviz }}
     # Add verbose flag to pip installation if in debug mode
-    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }}
+    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg-notebook.txt' }}
       name: Install econml
-    - run: pip install pytest pytest-runner jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
-      name: Install test and notebook requirements
-    - run: pip list
-      name: List installed packages
+    # Install notebook requirements (if not already done as part of lkg)
+    - run: pip install jupyter jupyter-client nbconvert nbformat seaborn xgboost tqdm
+      name: Install notebook requirements
+      if: ${{ !env.use_lkg }}
+    - run: pip freeze --exclude-editable > notebooks-${{ env.id_string }}-requirements.txt
+      name: Save installed packages
+    - uses: actions/upload-artifact@v3
+      name: Upload installed packages
+      with:
+        name: requirements
+        path: notebooks-${{ env.id_string }}-requirements.txt
+    - run: pip install pytest pytest-runner coverage
+      name: Install pytest
+
     - run: python setup.py pytest
       name: Run notebook tests
+      id: run_tests
       env:
         PYTEST_ADDOPTS: '-m "notebook"'
         NOTEBOOK_DIR_PATTERN: ${{ matrix.pattern }}
-    
+        COVERAGE_PROCESS_START: 'setup.cfg'
+    - run: mv .coverage .coverage.${{ env.id_string }}
+      # Run whether or not the tests passed, but only if they ran at all
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      name: Make coverage filename unique
+    - uses: actions/upload-artifact@v3
+      name: Upload coverage report
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      with:
+        name: coverage
+        path: .coverage.${{ env.id_string }}    
+    - run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
+      # Run whether or not the tests passed, but only if they ran at all
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      name: Make test XML filename unique
+    - uses: actions/upload-artifact@v3
+      name: Upload test XML files
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      with:
+        name: tests
+        path: ${{ env.id_string }}-test-results.xml
+    - uses: actions/upload-artifact@v3
+      name: Upload notebook outputs
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      with:
+        name: notebooks
+        path: notebooks/output/
+  
   tests:
     name: "Run tests"
     needs: [eval]
@@ -144,35 +201,42 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: [3.6, 3.7, 3.8, 3.9]
-        kind: [serial, other, dml, main, treatment]
+        python-version: ['3.7', '3.8', '3.9', '3.10']
+        kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
           - os: macos-latest
             kind: serial
-          # Python 3.6 isn't supported on ubuntu-latest
-          - os: ubuntu-latest
-            python-version: 3.6
-
+          # Python 3.7 is broken on the mac runner image, see https://github.com/actions/runner-images/issues/7764
+          - os: macos-latest
+            python-version: '3.7'
+          # Ray tests run out of memory on Windows
+          - os: windows-latest
+            kind: ray
         # Assign the correct package and testing options for each kind of test
         include:
           - kind: serial
-            opts: '-m "serial" -n 1'
+            opts: '-m "serial and not ray" -n 1'
             extras: "[tf,plt]"
           - kind: other
-            opts: '-m "cate_api" -n auto'
+            opts: '-m "cate_api and not ray" -n auto'
             extras: "[tf,plt]"
           - kind: dml
-            opts: '-m "dml"'
+            opts: '-m "dml and not ray"'
             extras: "[tf,plt]"
           - kind: main
-            opts: '-m "not (notebook or automl or dml or serial or cate_api or treatment_featurization)" -n 2'
+            opts: '-m "not (notebook or automl or dml or serial or cate_api or treatment_featurization or ray)" -n 2'
             extras: "[tf,plt,dowhy]"
           - kind: treatment
-            opts: '-m "treatment_featurization" -n auto'
+            opts: '-m "treatment_featurization and not ray" -n auto'
             extras: "[tf,plt]"
+          - kind: ray
+            opts: '-m "ray"'
+            extras: "[ray]"
       fail-fast: false    
     runs-on: ${{ matrix.os }}
+    env:
+      id_string: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
     steps:
     - uses: actions/checkout@v3
       name: Checkout repository
@@ -185,16 +249,76 @@ jobs:
     - run: python -m pip install --upgrade pip && pip install --upgrade setuptools
       name: Ensure latest pip and setuptools
     # Add verbose flag to pip installation if in debug mode
-    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }}
+    - run: pip install -e .${{ matrix.extras }} ${{ fromJSON('["","-v"]')[runner.debug] }} ${{ env.use_lkg && '-r lkg.txt' }}
       name: Install econml
+    - run: pip freeze --exclude-editable > tests-${{ env.id_string }}-requirements.txt
+      name: Save installed packages
+    - uses: actions/upload-artifact@v3
+      name: Upload installed packages
+      with:
+        name: requirements
+        path: tests-${{ env.id_string }}-requirements.txt
     - run: pip install pytest pytest-runner coverage
       name: Install pytest
     - run: python setup.py pytest
       name: Run tests
+      id: run_tests
       env:
         PYTEST_ADDOPTS: ${{ matrix.opts }}
         COVERAGE_PROCESS_START: 'setup.cfg'
-    # todo: publish test results, coverage info
+    - run: mv .coverage .coverage.${{ env.id_string }}
+      # Run whether or not the tests passed, but only if they ran at all
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      name: Make coverage filename unique
+    - uses: actions/upload-artifact@v3
+      name: Upload coverage report
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      with:
+        name: coverage
+        path: .coverage.${{ env.id_string }}
+    - run: mv junit/test-results.xml ${{ env.id_string }}-test-results.xml
+      # Run whether or not the tests passed, but only if they ran at all
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      name: Make test XML filename unique
+    - uses: actions/upload-artifact@v3
+      name: Upload test XML files
+      if: success() || failure() && contains(fromJSON('["success", "failure"]'), steps.run_tests.outcome)
+      with:
+        name: tests
+        path: ${{ env.id_string }}-test-results.xml
+
+  coverage-report:
+    name: "Coverage report"
+    needs: [tests, notebooks]
+    if: success() || failure()
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout repository
+      with:
+        ref: ${{ env.ref }}
+    - uses: actions/download-artifact@v3
+      name: Get coverage reports
+      with:
+        name: coverage
+        path: coverage
+    - uses: actions/setup-python@v4
+      name: Setup Python
+      with:
+        python-version: '3.8'
+    - run: pip install coverage
+      name: Install coverage
+    - run: coverage combine coverage/
+      name: Combine coverage reports
+    - run: coverage report -m --format=markdown > $GITHUB_STEP_SUMMARY
+      name: Generate coverage report
+    - run: coverage html
+      name: Generate coverage html --fail-under=86
+    - uses: actions/upload-artifact@v3
+      name: Upload coverage report
+      with:
+        name: coverage
+        path: htmlcov
       
   build:
     name: Build package
@@ -206,6 +330,8 @@ jobs:
       repository: testpypi
       # don't have access to env context here for some reason
       ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
+      # can't use env context here so need to duplicate expression, but these are true boolean values so don't need extra string logic
+      use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' }}
 
   docs:
     name: Build documentation
@@ -217,7 +343,9 @@ jobs:
       environment: test
       # don't have access to env context here for some reason
       ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || null }}
-
+      # can't use env context here so need to duplicate expression, but these are true boolean values so don't need extra string logic
+      use_lkg: ${{ (github.event_name == 'workflow_dispatch' && inputs.use_lkg) || github.event_name == 'pull_request' }}
+      
   verify:
     name: Verify CI checks
     needs: [lint, notebooks, tests, build, docs]

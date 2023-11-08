@@ -14,7 +14,7 @@ from sklearn.base import TransformerMixin
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestRegressor
 from sklearn.exceptions import DataConversionWarning
 from sklearn.linear_model import LinearRegression, Lasso, LassoCV, LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import KFold, GroupKFold, check_cv
+from sklearn.model_selection import KFold, StratifiedGroupKFold, check_cv
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer, PolynomialFeatures
 
@@ -22,7 +22,14 @@ from econml.dr import DRLearner, LinearDRLearner, SparseLinearDRLearner, ForestD
 from econml.inference import BootstrapInference, StatsModelsInferenceDiscrete
 from econml.utilities import get_feature_names_or_default, shape, hstack, vstack, reshape, cross_product
 from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
-import econml.tests.utilities  # bugfix for assertWarns
+from econml.tests.utilities import (GroupingModel, NestedModel)
+
+try:
+    import ray
+
+    ray_installed = True
+except ImportError:
+    ray_installed = False
 
 
 @pytest.mark.serial
@@ -55,7 +62,7 @@ class TestDRLearner(unittest.TestCase):
             treatment_effect=TestDRLearner._heterogeneous_te,
             propensity=lambda x: (0.8 if (x[2] > -0.5 and x[2] < 0.5) else 0.2))
 
-    def test_cate_api(self):
+    def _test_cate_api(self, use_ray=False):
         """Test that we correctly implement the CATE API."""
         n = 20
 
@@ -111,11 +118,12 @@ class TestDRLearner(unittest.TestCase):
                         intercept_summaryframe_shape = (d_y if d_y > 0 else 1, 6)
 
                         for est in [LinearDRLearner(model_propensity=LogisticRegression(C=1000, solver='lbfgs',
-                                                                                        multi_class='auto')),
+                                                                                        multi_class='auto'),
+                                                    use_ray=use_ray),
                                     DRLearner(model_propensity=LogisticRegression(multi_class='auto'),
                                               model_regression=LinearRegression(),
                                               model_final=StatsModelsLinearRegression(),
-                                              multitask_model_final=True)]:
+                                              multitask_model_final=True, use_ray=use_ray)]:
 
                             # ensure that we can serialize unfit estimator
                             pickle.dumps(est)
@@ -260,11 +268,21 @@ class TestDRLearner(unittest.TestCase):
                                     else:
                                         cm = ExitStack()  # ExitStack can be used as a "do nothing" ContextManager
                                     with cm:
-                                        effect_shape2 = (
-                                            n if d_x else 1,) + ((d_y,) if d_y > 0 else ())
+                                        effect_shape2 = (n if d_x else 1,) + ((d_y,) if d_y > 0 else ())
                                         eff = est.effect(X, T0='a', T1='b')
                                         self.assertEqual(
                                             shape(eff), effect_shape2)
+
+    @pytest.mark.ray
+    def test_test_cate_api_with_ray(self):
+        try:
+            ray.init(num_cpus=1)
+            self._test_cate_api(use_ray=True)
+        finally:
+            ray.shutdown()
+
+    def test_test_cate_api_without_ray(self):
+        self._test_cate_api(use_ray=False)
 
     def test_can_use_vectors(self):
         """
@@ -510,7 +528,7 @@ class TestDRLearner(unittest.TestCase):
                                                     np.testing.assert_allclose(
                                                         est.model_cate(T=t).intercept_, t, rtol=0, atol=.15)
 
-    def test_drlearner_with_inference_all_attributes(self):
+    def _test_drlearner_with_inference_all_attributes(self, use_ray):
         np.random.seed(123)
         controls = np.random.uniform(-1, 1, size=(10000, 2))
         T = np.random.binomial(2, scipy.special.expit(controls[:, 0]))
@@ -553,11 +571,13 @@ class TestDRLearner(unittest.TestCase):
                                     if est_class == ForestDRLearner:
                                         est = est_class(model_propensity=model_t,
                                                         model_regression=model_y,
-                                                        n_estimators=1000)
+                                                        n_estimators=1000,
+                                                        use_ray=use_ray)
                                     else:
                                         est = est_class(model_propensity=model_t,
                                                         model_regression=model_y,
-                                                        featurizer=featurizer)
+                                                        featurizer=featurizer,
+                                                        use_ray=use_ray)
 
                                     if (X is None) and (W is None):
                                         with pytest.raises(AttributeError) as e_info:
@@ -714,6 +734,17 @@ class TestDRLearner(unittest.TestCase):
                                             np.testing.assert_array_equal(est.feature_importances_(t).shape,
                                                                           [X.shape[1]])
 
+    @pytest.mark.ray
+    def test_drlearner_with_inference_all_attributes_with_ray(self):
+        try:
+            ray.init(num_cpus=1)
+            self._test_drlearner_with_inference_all_attributes(use_ray=True)
+        finally:
+            ray.shutdown()
+
+    def test_drlearner_with_inference_all_attributes_without_ray(self):
+        self._test_drlearner_with_inference_all_attributes(use_ray=False)
+
     @staticmethod
     def _check_with_interval(truth, point, lower, upper):
         np.testing.assert_allclose(point, truth, rtol=0, atol=.2)
@@ -788,52 +819,24 @@ class TestDRLearner(unittest.TestCase):
         t = [1, 2, 3] * 20
         y = groups
         w = np.random.normal(size=(60, 1))
-        est = LinearDRLearner()
-        with pytest.raises(Exception):  # can't pass groups without a compatible n_split
-            est.fit(y, t, W=w, groups=groups)
+
+        n_copies = {i: 10 for i in [1, 2, 3, 4, 5, 6]}
 
         # test outer grouping
-        # NOTE: we should ideally use a stratified split with grouping, but sklearn doesn't have one yet
+        # NOTE: StratifiedGroupKFold has a bug when shuffle is True where it doesn't always stratify properly
+        #       so we explicitly pass a StratifiedGroupKFold with shuffle=False (the default) rather than letting
+        #       cross-fit generate one
         est = LinearDRLearner(model_propensity=LogisticRegression(),
-                              model_regression=LinearRegression(), cv=GroupKFold(2))
+                              # with 2-fold grouping, we should get exactly 3 groups per split
+                              model_regression=GroupingModel(LinearRegression(), (3, 3), n_copies),
+                              cv=StratifiedGroupKFold(2))
         est.fit(y, t, W=w, groups=groups)
 
         # test nested grouping
-        class NestedModel:
-            def __init__(self, cv):
-                self.model = LassoCV(cv=cv)
-
-            # DML nested CV works via a 'cv' attribute
-            @property
-            def cv(self):
-                return self.model.cv
-
-            @cv.setter
-            def cv(self, value):
-                self.model.cv = value
-
-            def fit(self, X, y):
-                for (train, test) in check_cv(self.cv, y).split(X, y):
-                    (yvals, cts) = np.unique(y[train], return_counts=True)
-                    # with 2-fold outer and 2-fold inner grouping, and six total groups,
-                    # should get 1 or 2 groups per split
-                    if len(yvals) > 2:
-                        raise Exception(f"Grouping failed: received {len(yval)} groups instead of at most 2")
-
-                    # ensure that the grouping has worked correctly and we get all 10 copies of the items in
-                    # whichever groups we see
-                    for (yval, ct) in zip(yvals, cts):
-                        if ct != 10:
-                            raise Exception(f"Grouping failed; received {ct} copies of {yval} instead of 10")
-                self.model.fit(X, y)
-                return self
-
-            def predict(self, X):
-                return self.model.predict(X)
-
-        # test nested grouping
         est = LinearDRLearner(model_propensity=LogisticRegression(),
-                              model_regression=NestedModel(cv=2), cv=GroupKFold(2))
+                              # with 2-fold outer and 2-fold inner grouping, we should get 1-2 groups per split
+                              model_regression=NestedModel(LassoCV(cv=2), (1, 2), n_copies),
+                              cv=StratifiedGroupKFold(2))
         est.fit(y, t, W=w, groups=groups)
 
         # by default, we use 5 split cross-validation for our T and Y models
@@ -841,7 +844,7 @@ class TestDRLearner(unittest.TestCase):
         # TODO: does this imply we should change some defaults to make this more likely to succeed?
         est = LinearDRLearner(model_propensity=LogisticRegressionCV(cv=5),
                               model_regression=LassoCV(cv=5),
-                              cv=GroupKFold(2))
+                              cv=StratifiedGroupKFold(2))
         with pytest.raises(Exception):
             est.fit(y, t, W=w, groups=groups)
 

@@ -13,8 +13,10 @@ EconML User Guide
     estimation_dynamic
     inference
     interpretability
+    federated_learning
     references
     faq
+    community
 
 .. todo::
     benchmark

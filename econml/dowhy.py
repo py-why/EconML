@@ -37,8 +37,8 @@ class DoWhyWrapper:
 
     def __init__(self, cate_estimator):
         from pkg_resources import parse_version
-        if parse_version(dowhy.__version__) >= parse_version('0.9'):
-            warnings.warn("econml has not been tested with dowhy versions >= 0.9")
+        if parse_version(dowhy.__version__) >= parse_version('0.11'):
+            warnings.warn("econml has not been tested with dowhy versions >= 0.11")
         self._cate_estimator = cate_estimator
 
     def _get_params(self):
@@ -142,7 +142,13 @@ class DoWhyWrapper:
         column_names = outcome_names + treatment_names + feature_names + confounder_names + instrument_names
 
         # transfer input to numpy arrays
-        Y, T, X, W, Z = check_input_arrays(Y, T, X, W, Z)
+        if 'X' in self._cate_estimator._gen_allowed_missing_vars():
+            raise ValueError(
+                'DoWhyWrapper does not support missing values in X. Please set allow_missing=False before proceeding.'
+            )
+        Y, T, X, Z = check_input_arrays(Y, T, X, Z)
+        W, = check_input_arrays(
+            W, force_all_finite='allow-nan' if 'W' in self._cate_estimator._gen_allowed_missing_vars() else True)
         # transfer input to 2d arrays
         n_obs = Y.shape[0]
         Y, T, X, W, Z = reshape_arrays_2dim(n_obs, Y, T, X, W, Z)

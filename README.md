@@ -5,7 +5,11 @@
 
 
 
-<h1><img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;"> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation</h1>
+<h1>
+<a href="https://econml.azurewebsites.net/">
+<img src="doc/econml-logo-icon.png" width="80px" align="left" style="margin-right: 10px;", alt="econml-logo"> 
+</a> EconML: A Python Package for ML-Based Heterogeneous Treatment Effects Estimation
+</h1>
 
 **EconML** is a Python package for estimating heterogeneous treatment effects from observational data via machine learning. This package was designed and built as part of the [ALICE project](https://www.microsoft.com/en-us/research/project/alice/) at Microsoft Research with the goal to combine state-of-the-art machine learning 
 techniques with econometrics to bring automation to complex causal inference problems. The promise of EconML:
@@ -40,6 +44,7 @@ For information on use cases and background material on causal inference and het
 - [Blogs and Publications](#blogs-and-publications)
 - [Citation](#citation)
 - [Contributing and Feedback](#contributing-and-feedback)
+- [Community](#community)
 - [References](#references)
 
 </details>
@@ -718,24 +723,36 @@ provided by the bot. You will only need to do this once across all repos using o
 
 This project has adopted the [PyWhy Code of Conduct](https://github.com/py-why/governance/blob/main/CODE-OF-CONDUCT.md).
 
+# Community
+
+<a href="https://pywhy.org/">
+<img src="doc/spec/img/pywhy-logo.png" width="80px" align="left" style="margin-right: 10px;", alt="pywhy-logo">
+</a>
+
+EconML is a part of [PyWhy](https://www.pywhy.org/), an organization with a mission to build an open-source ecosystem for causal machine learning.
+
+PyWhy also has a [Discord](https://discord.gg/cSBGb3vsZb), which serves as a space for like-minded casual machine learning researchers and practitioners of all experience levels to come together to ask and answer questions, discuss new features, and share ideas.
+
+We invite you to join us at regular office hours and community calls in the Discord.
+
 # References
 
 Athey, Susan, and Stefan Wager.
 **Policy learning with observational data.**
-Econometrica 89.1 (2021): 133-161.
+[*Econometrica 89.1, 133-161*](https://doi.org/10.3982/ECTA15732), 2021.
 
 X Nie, S Wager.
 **Quasi-Oracle Estimation of Heterogeneous Treatment Effects.**
-[*Biometrika*](https://doi.org/10.1093/biomet/asaa076), 2020
+[*Biometrika 108.2, 299-319*](https://doi.org/10.1093/biomet/asaa076), 2021.
 
 V. Syrgkanis, V. Lei, M. Oprescu, M. Hei, K. Battocchi, G. Lewis.
 **Machine Learning Estimation of Heterogeneous Treatment Effects with Instruments.**
-[*Proceedings of the 33rd Conference on Neural Information Processing Systems (NeurIPS)*](https://arxiv.org/abs/1905.10176), 2019
+[*Proceedings of the 33rd Conference on Neural Information Processing Systems (NeurIPS)*](https://arxiv.org/abs/1905.10176), 2019.
 **(Spotlight Presentation)**
 
 D. Foster, V. Syrgkanis.
 **Orthogonal Statistical Learning.**
-[*Proceedings of the 32nd Annual Conference on Learning Theory (COLT)*](https://arxiv.org/pdf/1901.09036.pdf), 2019
+[*Proceedings of the 32nd Annual Conference on Learning Theory (COLT)*](https://arxiv.org/pdf/1901.09036.pdf), 2019.
 **(Best Paper Award)**
 
 M. Oprescu, V. Syrgkanis and Z. S. Wu.
@@ -764,4 +781,4 @@ V. Chernozhukov, D. Chetverikov, M. Demirer, E. Duflo, C. Hansen, and a. W. Newe
 
 Dudik, M., Erhan, D., Langford, J., & Li, L.
 **Doubly robust policy evaluation and optimization.**
-Statistical Science, 29(4), 485-511, 2014.
+[*Statistical Science, 29(4), 485-511*](https://projecteuclid.org/journals/statistical-science/volume-29/issue-4/Doubly-Robust-Policy-Evaluation-and-Optimization/10.1214/14-STS500.full), 2014.

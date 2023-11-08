@@ -37,13 +37,15 @@ from ..._shap import _shap_explain_model_cate
 
 
 class _BaseDRIVModelNuisance:
-    def __init__(self, prel_model_effect, model_y_xw, model_t_xw, model_tz_xw, model_z, projection,
+    def __init__(self, *, prel_model_effect, model_y_xw, model_t_xw, model_tz_xw, model_z,
+                 projection, fit_cov_directly,
                  discrete_treatment, discrete_instrument):
         self._prel_model_effect = prel_model_effect
         self._model_y_xw = model_y_xw
         self._model_t_xw = model_t_xw
         self._model_tz_xw = model_tz_xw
         self._projection = projection
+        self._fit_cov_directly = fit_cov_directly
         self._discrete_treatment = discrete_treatment
         self._discrete_instrument = discrete_instrument
         if self._projection:
@@ -67,30 +69,69 @@ class _BaseDRIVModelNuisance:
         if self._projection:
             WZ = self._combine(W, Z, Y.shape[0])
             self._model_t_xwz.fit(X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
-            # fit on projected Z: E[T * E[T|X,Z]|X]
             T_proj = self._model_t_xwz.predict(X, WZ).reshape(T.shape)
-            # if discrete, return shape (n,1); if continuous return shape (n,)
-            target = (T * T_proj).reshape(T.shape[0],)
-            self._model_tz_xw.fit(X=X, W=W, Target=target,
-                                  sample_weight=sample_weight, groups=groups)
+            if self._fit_cov_directly:
+                # We're projecting, so we're treating E[T|X,Z] as the instrument (ignoring W for simplicity)
+                # Then beta(X) = E[T̃ (E[T|X,Z]-E[E[T|X,Z]|X)|X] and we can apply the tower rule several times to get
+                #              = E[(E[T|X,Z]-E[T|X])^2|X]
+                # and also     = E[(E[T|X,Z]-T)^2|X]
+                # so we can compute it either from (T_proj-T_pred)^2 or from (T_proj-T)^2
+                T_pred = self._model_t_xw.predict(X, W)
+                if X is None and W is None:
+                    T_pred = np.broadcast_to(T_pred, T.shape)
+                else:
+                    T_pred = T_pred.reshape(T.shape)
+                target = (T_proj - T_pred)**2
+                self._model_tz_xw.fit(X=X, W=W, Target=target,
+                                      sample_weight=sample_weight, groups=groups)
+            else:
+                # return shape (n,)
+                target = (T * T_proj).reshape(T.shape[0],)
+                self._model_tz_xw.fit(X=X, W=W, Target=target,
+                                      sample_weight=sample_weight, groups=groups)
         else:
             self._model_z_xw.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
-            if self._discrete_treatment:
-                if self._discrete_instrument:
-                    # target will be discrete and will be inversed from FirstStageWrapper, shape (n,1)
-                    target = T * Z
+            if self._fit_cov_directly:
+                Z_pred = self._model_z_xw.predict(X, W)
+                T_pred = self._model_t_xw.predict(X, W)
+
+                if X is None and W is None:
+                    Z_pred = np.broadcast_to(Z_pred, Z.shape)
+                    T_pred = np.broadcast_to(T_pred, T.shape)
                 else:
-                    # shape (n,)
-                    target = inverse_onehot(T) * Z
+                    Z_pred = Z_pred.reshape(Z.shape)
+                    T_pred = T_pred.reshape(T.shape)
+
+                Z_res = Z - Z_pred
+                T_res = T - T_pred
+
+                # need to avoid erroneous broadcasting when one of Z_res or T_res is (n,1) and the other is (n,)
+                assert Z_res.shape[0] == T_res.shape[0] and (Z_res.ndim == 1 or Z_res.shape[1:] == (
+                    1,)) and (T_res.ndim == 1 or T_res.shape[1:] == (1,))
+                target_shape = Z_res.shape if Z_res.ndim > 1 else T_res.shape
+                target = T_res.reshape(target_shape) * Z_res.reshape(target_shape)
+                # TODO: if the T and Z models overfit, then this will be biased towards 0;
+                #       consider using nested cross-fitting here
+                #       a similar comment applies to the projection case
+                self._model_tz_xw.fit(X=X, W=W, Target=target,
+                                      sample_weight=sample_weight, groups=groups)
             else:
-                if self._discrete_instrument:
-                    # shape (n,)
-                    target = T * inverse_onehot(Z)
+                if self._discrete_treatment:
+                    if self._discrete_instrument:
+                        # target will be discrete and will be inversed from FirstStageWrapper, shape (n,1)
+                        target = T * Z
+                    else:
+                        # shape (n,)
+                        target = inverse_onehot(T) * Z
                 else:
-                    # shape(n,)
-                    target = T * Z
-            self._model_tz_xw.fit(X=X, W=W, Target=target,
-                                  sample_weight=sample_weight, groups=groups)
+                    if self._discrete_instrument:
+                        # shape (n,)
+                        target = T * inverse_onehot(Z)
+                    else:
+                        # shape(n,)
+                        target = T * Z
+                self._model_tz_xw.fit(X=X, W=W, Target=target,
+                                      sample_weight=sample_weight, groups=groups)
 
         # TODO: prel_model_effect could allow sample_var and freq_weight?
         if self._discrete_instrument:
@@ -194,14 +235,22 @@ class _BaseDRIVModelNuisance:
             WZ = self._combine(W, Z, Y.shape[0])
             T_proj = self._model_t_xwz.predict(X, WZ).reshape(T.shape)
             Z_res = T_proj - T_pred
-            cov = TZ_pred - T_pred**2
+            if self._fit_cov_directly:
+                cov = TZ_pred
+            else:
+                cov = TZ_pred - T_pred**2
+            # in the projection case, this is a variance and should always be non-negative
+            cov = np.maximum(cov, 0)
         else:
             Z_pred = self._model_z_xw.predict(X, W)
             if X is None and W is None:
                 Z_pred = np.tile(Z_pred.reshape(1, -1), (Z.shape[0], 1))
             Z_pred = Z_pred.reshape(Z.shape)
             Z_res = Z - Z_pred
-            cov = TZ_pred - T_pred * Z_pred
+            if self._fit_cov_directly:
+                cov = TZ_pred
+            else:
+                cov = TZ_pred - T_pred * Z_pred
 
         # check nuisances outcome shape
         # Y_res could be a vector or 1-dimensional 2d-array
@@ -278,7 +327,7 @@ class _BaseDRIVModelFinal:
         X = self._transform_X(X, fitting=False)
         return self._model_final.predict(X).reshape((-1,) + self.d_y + self.d_t)
 
-    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None):
+    def score(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None, groups=None):
         theta_dr, clipped_cov, _ = self._effect_estimate(nuisances)
 
         X = self._transform_X(X, fitting=False)
@@ -308,7 +357,10 @@ class _BaseDRIV(_OrthoLearner):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.model_final = clone(model_final, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.fit_cate_intercept = fit_cate_intercept
@@ -321,7 +373,13 @@ class _BaseDRIV(_OrthoLearner):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     # Maggie: I think that would be the case?
     def _get_inference_options(self):
@@ -543,6 +601,7 @@ class _DRIV(_BaseDRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
+                 fit_cov_directly=True,
                  prel_model_effect,
                  model_final,
                  projection=False,
@@ -557,7 +616,11 @@ class _DRIV(_BaseDRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xw = clone(model_t_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
@@ -565,6 +628,7 @@ class _DRIV(_BaseDRIV):
         self.model_tz_xw = clone(model_tz_xw, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
         self.projection = projection
+        self.fit_cov_directly = fit_cov_directly
         super().__init__(model_final=model_final,
                          featurizer=featurizer,
                          fit_cate_intercept=fit_cate_intercept,
@@ -577,7 +641,10 @@ class _DRIV(_BaseDRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -613,20 +680,24 @@ class _DRIV(_BaseDRIV):
             else:
                 model_t_xwz = clone(self.model_t_xwz, safe=False)
 
-            return _BaseDRIVModelNuisance(self._gen_prel_model_effect(),
-                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False),
-                                          _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
+            return _BaseDRIVModelNuisance(prel_model_effect=self._gen_prel_model_effect(),
+                                          model_y_xw=_FirstStageWrapper(
+                                              model_y_xw, True, self._gen_featurizer(), False, False),
+                                          model_t_xw=_FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
+                                                                        False, self.discrete_treatment),
                                           # outcome is continuous since proj_t is probability
-                                          _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
-                                                             False),
-                                          _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
-                                          self.projection, self.discrete_treatment, self.discrete_instrument)
+                                          model_tz_xw=_FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(),
+                                                                         False, False),
+                                          model_z=_FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
+                                                                     False, self.discrete_treatment),
+                                          projection=self.projection,
+                                          fit_cov_directly=self.fit_cov_directly,
+                                          discrete_treatment=self.discrete_treatment,
+                                          discrete_instrument=self.discrete_instrument)
 
         else:
             if self.model_tz_xw == "auto":
-                if self.discrete_treatment and self.discrete_instrument:
+                if self.discrete_treatment and self.discrete_instrument and not self.fit_cov_directly:
                     model_tz_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
                                                        random_state=self.random_state)
                 else:
@@ -643,15 +714,22 @@ class _DRIV(_BaseDRIV):
             else:
                 model_z_xw = clone(self.model_z_xw, safe=False)
 
-            return _BaseDRIVModelNuisance(self._gen_prel_model_effect(),
-                                          _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(), False, False),
-                                          _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_treatment),
-                                          _FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(), False,
-                                                             self.discrete_treatment and self.discrete_instrument),
-                                          _FirstStageWrapper(model_z_xw, False, self._gen_featurizer(),
-                                                             False, self.discrete_instrument),
-                                          self.projection, self.discrete_treatment, self.discrete_instrument)
+            return _BaseDRIVModelNuisance(prel_model_effect=self._gen_prel_model_effect(),
+                                          model_y_xw=_FirstStageWrapper(
+                                              model_y_xw, True, self._gen_featurizer(), False, False),
+                                          model_t_xw=_FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
+                                                                        False, self.discrete_treatment),
+                                          model_tz_xw=_FirstStageWrapper(model_tz_xw, False, self._gen_featurizer(),
+                                                                         False, (self.discrete_treatment and
+                                                                                 self.discrete_instrument and
+                                                                                 not self.fit_cov_directly)),
+                                          model_z=_FirstStageWrapper(model_z_xw, False, self._gen_featurizer(),
+                                                                     False, (self.discrete_instrument and
+                                                                             not self.fit_cov_directly)),
+                                          projection=self.projection,
+                                          fit_cov_directly=self.fit_cov_directly,
+                                          discrete_treatment=self.discrete_treatment,
+                                          discrete_instrument=self.discrete_instrument)
 
 
 class DRIV(_DRIV):
@@ -687,11 +765,18 @@ class DRIV(_DRIV):
         will be applied for continuous treatment.
 
     model_tz_xw : estimator or 'auto' (default is 'auto')
-        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods.
+        model to estimate :math:`\\E[T*Z | X, W]` or :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]`
+        depending on `fit_cov_directly`.
+        Must support `fit` and `predict` methods.
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
-        will be applied for discrete instrument and discrete treatment,
+        will be applied for discrete instrument and discrete treatment with `fit_cov_directly=False`,
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
-        will be applied for continuous instrument or continuous treatment.
+        will be applied otherwise.
+
+    fit_cov_directly : bool, default True
+        Whether to fit :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]` instead of :math:`\\E[T*Z | X, W]`.
+        Otherwise, we compute :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]` from
+        :math:`\\E[T*Z | X, W] - \\E[T | X, W] \\E[Z | X, W]`.
 
     flexible_model_effect : estimator or 'auto' (default is 'auto')
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
@@ -779,6 +864,17 @@ class DRIV(_DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -819,7 +915,7 @@ class DRIV(_DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.45223...,  6.03803..., -2.97548...])
+    array([-1.71678..., -0.27824..., -3.18333...])
     """
 
     def __init__(self, *,
@@ -828,6 +924,7 @@ class DRIV(_DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
+                 fit_cov_directly=True,
                  flexible_model_effect="auto",
                  model_final=None,
                  prel_cate_approach="driv",
@@ -845,8 +942,11 @@ class DRIV(_DRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
-
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
         else:
@@ -859,6 +959,7 @@ class DRIV(_DRIV):
                          model_z_xw=model_z_xw,
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
+                         fit_cov_directly=fit_cov_directly,
                          prel_model_effect=self.prel_cate_approach,
                          model_final=model_final,
                          projection=projection,
@@ -873,7 +974,10 @@ class DRIV(_DRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -890,6 +994,7 @@ class DRIV(_DRIV):
                          prel_model_effect=_DummyCATE(),
                          model_final=clone(self.flexible_model_effect, safe=False),
                          projection=self.projection,
+                         fit_cov_directly=self.fit_cov_directly,
                          featurizer=self._gen_featurizer(),
                          fit_cate_intercept=self.fit_cate_intercept,
                          cov_clip=self.cov_clip,
@@ -900,7 +1005,8 @@ class DRIV(_DRIV):
                          cv=self.prel_cv,
                          mc_iters=self.mc_iters,
                          mc_agg=self.mc_agg,
-                         random_state=self.random_state)
+                         random_state=self.random_state,
+                         allow_missing=self.allow_missing)
         elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xw, safe=False),
@@ -913,7 +1019,8 @@ class DRIV(_DRIV):
                                  cv=self.prel_cv,
                                  mc_iters=self.mc_iters,
                                  mc_agg=self.mc_agg,
-                                 random_state=self.random_state)
+                                 random_state=self.random_state,
+                                 allow_missing=self.allow_missing)
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
@@ -1142,11 +1249,18 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         will be applied for continuous treatment.
 
     model_tz_xw : estimator or 'auto' (default is 'auto')
-        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods.
+        model to estimate :math:`\\E[T*Z | X, W]` or :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]`
+        depending on `fit_cov_directly`.
+        Must support `fit` and `predict` methods.
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
-        will be applied for discrete instrument and discrete treatment,
+        will be applied for discrete instrument and discrete treatment with `fit_cov_directly=False`,
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
-        will be applied for continuous instrument or continuous treatment.
+        will be applied otherwise.
+
+    fit_cov_directly : bool, default True
+        Whether to fit :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]` instead of :math:`\\E[T*Z | X, W]`.
+        Otherwise, we compute :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]` from
+        :math:`\\E[T*Z | X, W] - \\E[T | X, W] \\E[Z | X, W]`.
 
     flexible_model_effect : estimator or 'auto' (default is 'auto')
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
@@ -1231,6 +1345,17 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -1271,19 +1396,19 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.82328...,  5.66220..., -3.37199...])
+    array([-0.54223...,  0.77763..., -2.01011...])
     >>> est.effect_interval(X[:3])
-    (array([-7.73320...,  1.47710..., -6.00997...]),
-    array([-1.91335...,  9.84730..., -0.73402...]))
+    (array([-4.73213..., -5.57270..., -5.84891...]),
+    array([3.64765..., 7.12797..., 1.82868...]))
     >>> est.coef_
-    array([ 4.92394...,  0.77110...,  0.26769..., -0.04996...,  0.07749...])
+    array([ 3.12341...,  1.78962..., -0.45351..., -0.41677...,  0.93306...])
     >>> est.coef__interval()
-    (array([ 3.64471..., -0.48678..., -0.99551... , -1.16740..., -1.24289...]),
-    array([6.20316..., 2.02898..., 1.53090..., 1.06748..., 1.39788...]))
+    (array([ 1.36498...,  0.00496..., -2.28573..., -2.02274..., -0.94000...]),
+    array([4.88184..., 3.57428..., 1.37869..., 1.18919..., 2.80614...]))
     >>> est.intercept_
-    -0.35292...
+    1.10417...
     >>> est.intercept__interval()
-    (-1.54654..., 0.84069...)
+    (-0.65690..., 2.86525...)
     """
 
     def __init__(self, *,
@@ -1292,6 +1417,7 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
+                 fit_cov_directly=True,
                  flexible_model_effect="auto",
                  prel_cate_approach="driv",
                  prel_cv=1,
@@ -1308,12 +1434,17 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xw=model_t_xw,
                          model_z_xw=model_z_xw,
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
+                         fit_cov_directly=fit_cov_directly,
                          flexible_model_effect=flexible_model_effect,
                          model_final=None,
                          prel_cate_approach=prel_cate_approach,
@@ -1331,7 +1462,10 @@ class LinearDRIV(StatsModelsCateEstimatorMixin, DRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
@@ -1436,11 +1570,18 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         will be applied for continuous treatment.
 
     model_tz_xw : estimator or 'auto' (default is 'auto')
-        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods.
+        model to estimate :math:`\\E[T*Z | X, W]` or :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]`
+        depending on `fit_cov_directly`.
+        Must support `fit` and `predict` methods.
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
-        will be applied for discrete instrument and discrete treatment,
+        will be applied for discrete instrument and discrete treatment with `fit_cov_directly=False`,
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
-        will be applied for continuous instrument or continuous treatment.
+        will be applied otherwise.
+
+    fit_cov_directly : bool, default True
+        Whether to fit :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]` instead of :math:`\\E[T*Z | X, W]`.
+        Otherwise, we compute :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]` from
+        :math:`\\E[T*Z | X, W] - \\E[T | X, W] \\E[Z | X, W]`.
 
     flexible_model_effect : estimator or 'auto' (default is 'auto')
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
@@ -1555,6 +1696,17 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -1595,19 +1747,19 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.83304...,  5.76728..., -3.38677...])
+    array([-0.68659...,  1.03696..., -2.10343...])
     >>> est.effect_interval(X[:3])
-    (array([-7.73949... ,  1.62799..., -5.92335... ]),
-    array([-1.92659...,  9.90657..., -0.85020...]))
+    (array([-4.92102..., -4.99359..., -5.79899...]),
+    array([3.54783..., 7.06753..., 1.59212...]))
     >>> est.coef_
-    array([ 4.91422... ,  0.75957...,  0.23460..., -0.02084...,  0.08548...])
+    array([ 3.18552...,  1.83651..., -0.47721..., -0.28640... ,  0.87765...])
     >>> est.coef__interval()
-    (array([ 3.71131... , -0.45763..., -1.00739..., -1.20516..., -1.15926...]),
-    array([6.11713..., 1.97678..., 1.47661..., 1.16347..., 1.33023...]))
+    (array([ 1.43299...,  0.06316..., -2.28671..., -2.01185..., -0.93582...]),
+    array([4.93805..., 3.60987..., 1.33227... , 1.43904..., 2.69114...]))
     >>> est.intercept_
-    -0.30389...
+    1.15151...
     >>> est.intercept__interval()
-    (-1.50685..., 0.89906...)
+    (-0.60109..., 2.90411...)
     """
 
     def __init__(self, *,
@@ -1616,6 +1768,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
+                 fit_cov_directly=True,
                  flexible_model_effect="auto",
                  prel_cate_approach="driv",
                  prel_cv=1,
@@ -1639,7 +1792,10 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -1652,6 +1808,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          model_z_xw=model_z_xw,
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
+                         fit_cov_directly=fit_cov_directly,
                          flexible_model_effect=flexible_model_effect,
                          model_final=None,
                          prel_cate_approach=prel_cate_approach,
@@ -1669,7 +1826,11 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
 
     def _gen_model_final(self):
         return DebiasedLasso(alpha=self.alpha,
@@ -1721,7 +1882,7 @@ class SparseLinearDRIV(DebiasedLassoCateEstimatorMixin, DRIV):
         check_high_dimensional(X, T, threshold=5, featurizer=self.featurizer,
                                discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
-                               "We recommend using the LinearDRLearner for this low-dimensional setting.")
+                                   "We recommend using the LinearDRLearner for this low-dimensional setting.")
         return super().fit(Y, T, X=X, W=W, Z=Z,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
@@ -1776,11 +1937,18 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         will be applied for continuous treatment.
 
     model_tz_xw : estimator or 'auto' (default is 'auto')
-        model to estimate :math:`\\E[T*Z | X, W]`.  Must support `fit` and `predict` methods.
+        model to estimate :math:`\\E[T*Z | X, W]` or :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]`
+        depending on `fit_cov_directly`.
+        Must support `fit` and `predict` methods.
         If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
-        will be applied for discrete instrument and discrete treatment,
+        will be applied for discrete instrument and discrete treatment with `fit_cov_directly=False`,
         and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
-        will be applied for continuous instrument or continuous treatment.
+        will be applied otherwise.
+
+    fit_cov_directly : bool, default True
+        Whether to fit :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]` instead of :math:`\\E[T*Z | X, W]`.
+        Otherwise, we compute :math:`\\E[\\tilde{T}*\\tilde{Z} | X, W]` from
+        :math:`\\E[T*Z | X, W] - \\E[T | X, W] \\E[Z | X, W]`.
 
     flexible_model_effect : estimator or 'auto' (default is 'auto')
         a flexible model for a preliminary version of the CATE, must accept sample_weight at fit time.
@@ -1967,6 +2135,17 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -2003,14 +2182,14 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
 
         np.random.seed(123)
         y, T, Z, X = dgp(1000, 5, true_heterogeneity_function)
-        est = ForestDRIV(discrete_treatment=True, discrete_instrument=True, random_state=123)
+        est = ForestDRIV(discrete_treatment=True, discrete_instrument=True, random_state=42)
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-2.40650...,  6.03247..., -2.46690...])
+    array([-1.74672...,  1.57225..., -1.58916...])
     >>> est.effect_interval(X[:3])
-    (array([-6.77859..., -0.05394..., -4.48171...]),
-    array([ 1.96558..., 12.11890..., -0.45210... ]))
+    (array([-7.05230..., -6.78656..., -5.11344...]),
+    array([3.55885..., 9.93108..., 1.93512...]))
     """
 
     def __init__(self, *,
@@ -2019,6 +2198,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  model_z_xw="auto",
                  model_t_xwz="auto",
                  model_tz_xw="auto",
+                 fit_cov_directly=True,
                  flexible_model_effect="auto",
                  prel_cate_approach="driv",
                  prel_cv=1,
@@ -2047,7 +2227,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -2066,6 +2249,7 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          model_z_xw=model_z_xw,
                          model_t_xwz=model_t_xwz,
                          model_tz_xw=model_tz_xw,
+                         fit_cov_directly=fit_cov_directly,
                          flexible_model_effect=flexible_model_effect,
                          model_final=None,
                          prel_cate_approach=prel_cate_approach,
@@ -2083,7 +2267,10 @@ class ForestDRIV(ForestModelFinalCateEstimatorMixin, DRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         return RegressionForest(n_estimators=self.n_estimators,
@@ -2270,7 +2457,10 @@ class _IntentToTreatDRIV(_BaseDRIV):
                  cv=3,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.model_y_xw = clone(model_y_xw, safe=False)
         self.model_t_xwz = clone(model_t_xwz, safe=False)
         self.prel_model_effect = clone(prel_model_effect, safe=False)
@@ -2287,7 +2477,10 @@ class _IntentToTreatDRIV(_BaseDRIV):
                          discrete_treatment=True,
                          categories=categories,
                          opt_reweighted=opt_reweighted,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_prel_model_effect(self):
         return clone(self.prel_model_effect, safe=False)
@@ -2430,6 +2623,17 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -2490,7 +2694,11 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  mc_agg='mean',
                  opt_reweighted=False,
                  categories='auto',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
+
         # maybe shouldn't expose fit_cate_intercept in this class?
         if flexible_model_effect == "auto":
             self.flexible_model_effect = StatsModelsLinearRegression(fit_intercept=False)
@@ -2512,7 +2720,10 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         if self.model_final is None:
@@ -2531,7 +2742,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                       categories=self.categories,
                                       opt_reweighted=self.prel_opt_reweighted,
                                       cv=self.prel_cv,
-                                      random_state=self.random_state)
+                                      random_state=self.random_state,
+                                      allow_missing=self.allow_missing)
         elif self.prel_cate_approach == "dmliv":
             return NonParamDMLIV(model_y_xw=clone(self.model_y_xw, safe=False),
                                  model_t_xw=clone(self.model_t_xwz, safe=False),
@@ -2544,7 +2756,8 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                                  cv=self.prel_cv,
                                  mc_iters=self.mc_iters,
                                  mc_agg=self.mc_agg,
-                                 random_state=self.random_state)
+                                 random_state=self.random_state,
+                                 allow_missing=self.allow_missing)
         else:
             raise ValueError(
                 "We only support 'dmliv' or 'driv' preliminary model effect, "
@@ -2704,6 +2917,17 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply nuisance models
+        that can handle missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models:
@@ -2775,7 +2999,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  mc_agg='mean',
                  opt_reweighted=False,
                  categories='auto',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         super().__init__(model_y_xw=model_y_xw,
                          model_t_xwz=model_t_xwz,
                          flexible_model_effect=flexible_model_effect,
@@ -2792,7 +3019,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          mc_agg=mc_agg,
                          opt_reweighted=opt_reweighted,
                          categories=categories,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)

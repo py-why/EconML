@@ -108,8 +108,9 @@ class _FinalWrapper:
         else:
             self._fit_cate_intercept = fit_cate_intercept
             if self._fit_cate_intercept:
+                # data is already validated at initial fit time
                 add_intercept_trans = FunctionTransformer(add_intercept,
-                                                          validate=True)
+                                                          validate=False)
                 if featurizer:
                     self._featurizer = Pipeline([('featurize', self._original_featurizer),
                                                  ('add_intercept', add_intercept_trans)])
@@ -410,6 +411,17 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in X, W. If True, will need to supply model_y, model_t, and model_final
+        that can handle missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with discrete treatment and a linear model_final (equivalent to LinearDML):
@@ -466,7 +478,11 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
@@ -481,7 +497,13 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
+
+    def _gen_allowed_missing_vars(self):
+        return ['X', 'W'] if self.allow_missing else []
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -642,6 +664,17 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_t that can handle
+        missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -692,7 +725,12 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None
+                 ):
+
         super().__init__(model_y=model_y,
                          model_t=model_t,
                          model_final=None,
@@ -705,7 +743,13 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state,)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
@@ -876,6 +920,17 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_t that can handle
+        missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -932,7 +987,10 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.alpha = alpha
         self.n_alphas = n_alphas
         self.alpha_cov = alpha_cov
@@ -952,7 +1010,14 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     def _gen_model_final(self):
         return MultiOutputDebiasedLasso(alpha=self.alpha,
@@ -1104,6 +1169,17 @@ class KernelDML(DML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_t that can handle
+        missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -1139,7 +1215,10 @@ class KernelDML(DML):
                  bw=1.0,
                  cv=2,
                  mc_iters=None, mc_agg='mean',
-                 random_state=None):
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.dim = dim
         self.bw = bw
         super().__init__(model_y=model_y,
@@ -1153,7 +1232,14 @@ class KernelDML(DML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
+
+    def _gen_allowed_missing_vars(self):
+        return ['W'] if self.allow_missing else []
 
     def _gen_model_final(self):
         return ElasticNetCV(fit_intercept=False, random_state=self.random_state)
@@ -1285,6 +1371,17 @@ class NonParamDML(_BaseDML):
         If None, the random number generator is the :class:`~numpy.random.mtrand.RandomState` instance used
         by :mod:`np.random<numpy.random>`.
 
+    allow_missing: bool
+        Whether to allow missing values in W. If True, will need to supply model_y, model_t, and model_final
+        that can handle missing values.
+
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with a discrete treatment:
@@ -1326,8 +1423,10 @@ class NonParamDML(_BaseDML):
                  cv=2,
                  mc_iters=None,
                  mc_agg='mean',
-                 random_state=None):
-
+                 random_state=None,
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
         self.model_y = clone(model_y, safe=False)
@@ -1340,7 +1439,14 @@ class NonParamDML(_BaseDML):
                          cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         random_state=random_state)
+                         random_state=random_state,
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options
+                         )
+
+    def _gen_allowed_missing_vars(self):
+        return ['X', 'W'] if self.allow_missing else []
 
     def _get_inference_options(self):
         # add blb to parent's options

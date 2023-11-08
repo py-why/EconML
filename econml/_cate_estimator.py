@@ -4,6 +4,7 @@
 """Base classes for all CATE estimators."""
 
 import abc
+import inspect
 import numpy as np
 from functools import wraps
 from copy import deepcopy
@@ -11,8 +12,8 @@ from warnings import warn
 from .inference import BootstrapInference
 from .utilities import (tensordot, ndim, reshape, shape, parse_final_model_params, get_feature_names_or_default,
                         inverse_onehot, Summary, get_input_columns, check_input_arrays, jacify_featurizer)
-from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference,\
-    LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference,\
+from .inference import StatsModelsInference, StatsModelsInferenceDiscrete, LinearModelFinalInference, \
+    LinearModelFinalInferenceDiscrete, NormalInferenceResults, GenericSingleTreatmentModelFinalInference, \
     GenericModelFinalInferenceDiscrete
 from ._shap import _shap_explain_cme, _shap_explain_joint_linear_model_cate
 from .dowhy import DoWhyWrapper
@@ -117,7 +118,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         self
 
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def _wrap_fit(m):
         @wraps(m)
@@ -160,7 +161,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             Note that when Y is a vector rather than a 2-dimensional array, the corresponding
             singleton dimension will be collapsed (so this method will return a vector)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     @abc.abstractmethod
     def marginal_effect(self, T, X=None):
@@ -185,7 +186,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def ate(self, X=None, *, T0, T1):
         """
@@ -329,6 +330,11 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
     def _defer_to_inference(m):
         @wraps(m)
         def call(self, *args, **kwargs):
+            # apply defaults before calling inference method
+            bound_args = inspect.signature(m).bind(self, *args, **kwargs)
+            bound_args.apply_defaults()
+            args = bound_args.args[1:]  # remove self
+            kwargs = bound_args.kwargs
             return self._use_inference_method(m.__name__, *args, **kwargs)
         return call
 
@@ -355,7 +361,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         lower, upper : tuple(type of :meth:`effect(X, T0, T1)<effect>`, type of :meth:`effect(X, T0, T1))<effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @_defer_to_inference
     def effect_inference(self, X=None, *, T0=0, T1=1):
@@ -379,7 +385,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             can on demand calculate confidence interval, z statistic and p value. It can also output
             a dataframe summary of these inference results.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @_defer_to_inference
     def marginal_effect_interval(self, T, X=None, *, alpha=0.05):
@@ -403,7 +409,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
                              type of :meth:`marginal_effect(T, X)<marginal_effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @_defer_to_inference
     def marginal_effect_inference(self, T, X=None):
@@ -425,7 +431,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             can on demand calculate confidence interval, z statistic and p value. It can also output
             a dataframe summary of these inference results.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @_defer_to_inference
     def ate_interval(self, X=None, *, T0, T1, alpha=0.05):
@@ -450,7 +456,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
         lower, upper : tuple(type of :meth:`ate(X, T0, T1)<ate>`, type of :meth:`ate(X, T0, T1))<ate>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @_defer_to_inference
     def ate_inference(self, X=None, *, T0, T1):
@@ -474,7 +480,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             can on demand calculate confidence interval, z statistic and p value. It can also output
             a dataframe summary of these inference results.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @_defer_to_inference
     def marginal_ate_interval(self, T, X=None, *, alpha=0.05):
@@ -498,7 +504,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
                              type of :meth:`marginal_ate(T, X)<marginal_ate>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @_defer_to_inference
     def marginal_ate_inference(self, T, X=None):
@@ -520,7 +526,7 @@ class BaseCateEstimator(metaclass=abc.ABCMeta):
             can on demand calculate confidence interval, z statistic and p value. It can also output
             a dataframe summary of these inference results.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @property
     def dowhy(self):
@@ -564,7 +570,7 @@ class LinearCateEstimator(BaseCateEstimator):
             rather than a 2-dimensional array, the corresponding singleton dimensions in the output will be collapsed
             (e.g. if both are vectors, then the output of this method will also be a vector)
         """
-        pass
+        raise NotImplementedError("Abstract method")
 
     def effect(self, X=None, *, T0, T1):
         """
@@ -697,7 +703,7 @@ class LinearCateEstimator(BaseCateEstimator):
                              type of :meth:`const_marginal_effect(X)<const_marginal_effect>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_effect_inference(self, X=None):
@@ -717,7 +723,7 @@ class LinearCateEstimator(BaseCateEstimator):
             can on demand calculate confidence interval, z statistic and p value. It can also output
             a dataframe summary of these inference results.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     def const_marginal_ate(self, X=None):
         """
@@ -759,7 +765,7 @@ class LinearCateEstimator(BaseCateEstimator):
                              type of :meth:`const_marginal_ate(X)<const_marginal_ate>` )
             The lower and the upper bounds of the confidence interval for each quantity.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @BaseCateEstimator._defer_to_inference
     def const_marginal_ate_inference(self, X=None):
@@ -779,7 +785,6 @@ class LinearCateEstimator(BaseCateEstimator):
             can on demand calculate confidence interval, z statistic and p value. It can also output
             a dataframe summary of these inference results.
         """
-        pass
 
     def marginal_ate(self, T, X=None):
         return np.mean(self.marginal_effect(T, X=X), axis=0)
@@ -787,12 +792,12 @@ class LinearCateEstimator(BaseCateEstimator):
 
     @BaseCateEstimator._defer_to_inference
     def marginal_ate_interval(self, T, X=None, *, alpha=0.05):
-        pass
+        raise NotImplementedError("Defer to inference")
     marginal_ate_interval.__doc__ = BaseCateEstimator.marginal_ate_interval.__doc__
 
     @BaseCateEstimator._defer_to_inference
     def marginal_ate_inference(self, T, X=None):
-        pass
+        raise NotImplementedError("Defer to inference")
     marginal_ate_inference.__doc__ = BaseCateEstimator.marginal_ate_inference.__doc__
 
     def shap_values(self, X, *, feature_names=None, treatment_names=None, output_names=None, background_samples=100):
@@ -1003,7 +1008,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         lb, ub: tuple(type of :meth:`coef_()<coef_>`, type of :meth:`coef_()<coef_>`)
             The lower and upper bounds of the confidence interval for each quantity.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @BaseCateEstimator._defer_to_inference
     def coef__inference(self):
@@ -1015,7 +1020,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         InferenceResults: object
             The inference of the coefficients in the final linear model
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, *, alpha=0.05):
@@ -1033,7 +1038,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         lower, upper: tuple(type of :meth:`intercept_()<intercept_>`, type of :meth:`intercept_()<intercept_>`)
             The lower and upper bounds of the confidence interval.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @BaseCateEstimator._defer_to_inference
     def intercept__inference(self):
@@ -1045,7 +1050,7 @@ class LinearModelFinalCateEstimatorMixin(BaseCateEstimator):
         InferenceResults: object
             The inference of the intercept in the final linear model
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     def summary(self, alpha=0.05, value=0, decimals=3, feature_names=None, treatment_names=None, output_names=None):
         """ The summary of coefficient and intercept in the linear model of the constant marginal treatment
@@ -1274,7 +1279,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         lower, upper: tuple(type of :meth:`coef_(T)<coef_>`, type of :meth:`coef_(T)<coef_>`)
             The lower and upper bounds of the confidence interval for each quantity.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @BaseCateEstimator._defer_to_inference
     def coef__inference(self, T):
@@ -1291,7 +1296,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         InferenceResults: object
             The inference of the coefficients in the final linear model
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @BaseCateEstimator._defer_to_inference
     def intercept__interval(self, T, *, alpha=0.05):
@@ -1311,7 +1316,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
         lower, upper: tuple(type of :meth:`intercept_(T)<intercept_>`, type of :meth:`intercept_(T)<intercept_>`)
             The lower and upper bounds of the confidence interval.
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     @BaseCateEstimator._defer_to_inference
     def intercept__inference(self, T):
@@ -1329,7 +1334,7 @@ class LinearModelFinalCateEstimatorDiscreteMixin(BaseCateEstimator):
             The inference of the intercept in the final linear model
 
         """
-        pass
+        raise NotImplementedError("Defer to inference")
 
     def summary(self, T, *, alpha=0.05, value=0, decimals=3,
                 feature_names=None, treatment_names=None, output_names=None):
