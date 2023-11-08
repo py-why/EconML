@@ -1,0 +1,94 @@
+from typing import Tuple
+
+import numpy as np
+
+
+def calculate_dr_outcomes(
+    D: np.array,
+    y: np.array,
+    reg_preds: np.array,
+    prop_preds: np.array
+) -> np.array:
+    """
+    Calculates doubly-robust (DR) outcomes using predictions from nuisance models
+
+    Parameters
+    ----------
+    D: vector of length n
+        Treatment assignments. Should have integer values with the lowest-value corresponding to the
+        control treatment. It is recommended to have the control take value 0 and all other treatments be integers
+        starting at 1
+    y: vector of length n
+        Outcomes
+    reg_preds: (n x n_treat) matrix
+        Outcome predictions for each potential treatment
+    prop_preds: (n x n_treat) matrix
+        Propensity score predictions for each treatment
+
+    Returns
+    -------
+    Doubly robust outcome values
+    """
+
+    # treat each treatment as a separate regression
+    # here, prop_preds should be a matrix
+    # with rows corresponding to units and columns corresponding to treatment statuses
+    dr_vec = []
+    d0_mask = np.where(D == 0, 1, 0)
+    y_dr_0 = reg_preds[:, 0] + (d0_mask / np.clip(prop_preds[:, 0], .01, np.inf)) * (y - reg_preds[:, 0])
+    for k in np.sort(np.unique(D)):  # pick a treatment status
+        if k > 0:  # make sure it is not control
+            dk_mask = np.where(D == k, 1, 0)
+            y_dr_k = reg_preds[:, k] + (dk_mask / np.clip(prop_preds[:, k], .01, np.inf)) * (y - reg_preds[:, k])
+            dr_k = y_dr_k - y_dr_0  # this is an n x 1 vector
+            dr_vec.append(dr_k)
+    dr = np.column_stack(dr_vec)  # this is an n x n_treatment matrix
+
+    return dr
+
+
+def calc_qini_coeff(
+    cate_preds_train: np.array,
+    cate_preds_val: np.array,
+    dr_val: np.array,
+    percentiles: np.array
+) -> Tuple[float, float]:
+    """
+    Helper function for QINI coefficient calculation. See documentation for "evaluate_qini" method
+    for more details.
+
+    Parameters
+    ----------
+    cate_preds_train: (n_train x n_treatment) matrix
+        Predicted CATE values for the training sample.
+    cate_preds_val: (n_val x n_treatment) matrix
+        Predicted CATE values for the validation sample.
+    dr_val: (n_val x n_treatment) matrix
+        Doubly robust outcome values for each treatment status in validation sample. Each value is relative to
+        control, e.g. for treatment k the value is Y(k) - Y(0), where 0 signifies no treatment.
+    percentiles: one-dimensional array
+        Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of 5%.
+
+    Returns
+    -------
+    QINI coefficient and associated standard error.
+    """
+    qs = np.percentile(cate_preds_train, percentiles)
+    toc, toc_std, group_prob = np.zeros(len(qs)), np.zeros(len(qs)), np.zeros(len(qs))
+    toc_psi = np.zeros((len(qs), dr_val.shape[0]))
+    n = len(dr_val)
+    ate = np.mean(dr_val)
+    for it in range(len(qs)):
+        inds = (qs[it] <= cate_preds_val)  # group with larger CATE prediction than the q-th quantile
+        group_prob = np.sum(inds) / n  # fraction of population in this group
+        toc[it] = group_prob * (
+            np.mean(dr_val[inds]) - ate)  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+        toc_psi[it, :] = np.squeeze(
+            (dr_val - ate) * (inds - group_prob) - toc[it])  # influence function for the tau(q)
+        toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
+
+    qini_psi = np.sum(toc_psi[:-1] * np.diff(percentiles).reshape(-1, 1) / 100, 0)
+    qini = np.sum(toc[:-1] * np.diff(percentiles) / 100)
+    qini_stderr = np.sqrt(np.mean(qini_psi ** 2) / n)
+
+    return qini, qini_stderr

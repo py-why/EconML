@@ -21,6 +21,7 @@ __all__ = ['automated_ml',
            'dowhy',
            'utilities',
            'federated_learning',
+           'validate',
            '__version__']
 
 from ._version import __version__
