@@ -367,14 +367,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         The estimator for fitting the response residuals to the treatment residuals. Must implement
         `fit` and `predict` methods, and must be a linear model for correctness.
 
-    param_list: list or 'auto', default 'auto'
-        The list of parameters to be used during cross-validation.
-        If 'auto', it will be chosen based on the model type.
-
-    scaling: bool, default True
-        Whether to scale the features during the estimation process.
-        Scaling can help improve the performance of some models.
-
     featurizer: :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
         It is ignored if X is None. The final CATE will be trained on the outcome of featurizer.fit_transform(X).
@@ -491,21 +483,13 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     def __init__(self, *,
                  model_y, model_t, model_final,
-                 param_list_y=None,
-                 param_list_t=None,
-                 scoring_y=None,
-                 scoring_t=None,
-                 scaling=False,
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
-                 linear_first_stages=False,
+                 linear_first_stages="deprecated",
                  discrete_treatment=False,
                  categories='auto',
-                 verbose=2,  # New
                  cv=2,
-                 grid_folds=2,  # New
-                 n_jobs=None,  # New
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
@@ -513,19 +497,11 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  use_ray=False,
                  ray_remote_func_options=None
                  ):
-        # TODO: consider whether we need more care around stateful featurizers,
-        #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
+        if linear_first_stages != "deprecated":
+            warn("The linear_first_stages parameter is deprecated and will be removed in a future version of EconML",
+                 DeprecationWarning)
         self.linear_first_stages = linear_first_stages
-        self.scaling = scaling
-        self.param_list_y = param_list_y
-        self.param_list_t = param_list_t
-        self.scoring_y = scoring_y
-        self.scoring_t = scoring_t
-        self.verbose = verbose
-        self.cv = cv
-        self.grid_folds = grid_folds
-        self.n_jobs = n_jobs
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
@@ -741,19 +717,13 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     def __init__(self, *,
                  model_y='auto', model_t='auto',
-                 param_list_y=None,
-                 param_list_t=None,
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
-                 linear_first_stages=True,
+                 linear_first_stages="deprecated",
                  discrete_treatment=False,
                  categories='auto',
-                 scaling=True,
-                 verbose=2,
                  cv=2,
-                 grid_folds=2,
-                 n_jobs=None,
                  mc_iters=None,
                  mc_agg='mean',
                  random_state=None,
@@ -764,8 +734,6 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
         super().__init__(model_y=model_y,
                          model_t=model_t,
-                         param_list_y=param_list_y,
-                         param_list_t=param_list_t,
                          model_final=None,
                          featurizer=featurizer,
                          treatment_featurizer=treatment_featurizer,
@@ -773,11 +741,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          linear_first_stages=linear_first_stages,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
-                         scaling=scaling,
-                         verbose=verbose,
                          cv=cv,
-                         n_jobs=n_jobs,
-                         grid_folds=grid_folds,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
