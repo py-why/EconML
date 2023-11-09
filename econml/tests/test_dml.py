@@ -1129,7 +1129,7 @@ class TestDML(unittest.TestCase):
             t[fold * n:(fold + 1) * n] = t_f
 
         # we have quadratic terms in y, so we need to pipeline with a quadratic featurizer
-        dml = SparseLinearDML(model_y=Pipeline([('poly', PolynomialFeatures(2)), 
+        dml = SparseLinearDML(model_y=Pipeline([('poly', PolynomialFeatures(2)),
                                                 ('lr', LinearRegression(fit_intercept=False))]),
                               model_t=LinearRegression(fit_intercept=False),
                               fit_cate_intercept=False)
