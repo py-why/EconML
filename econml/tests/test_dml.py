@@ -1051,7 +1051,10 @@ class TestDML(unittest.TestCase):
         Y = T * (x @ a) + xw @ g + err_Y
         # Test sparse estimator
         # --> test coef_, intercept_
-        sparse_dml = SparseLinearDML(fit_cate_intercept=False)
+        # with this DGP, since T depends linearly on X, Y depends on X quadratically
+        # so we should use a quadratic featurizer
+        sparse_dml = SparseLinearDML(fit_cate_intercept=False, model_y=Pipeline([('poly', PolynomialFeatures(2)),
+                                                                                 ('lr', LassoCV())]))
         sparse_dml.fit(Y, T, X=x, W=w)
         np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
         with pytest.raises(AttributeError):
@@ -1125,7 +1128,9 @@ class TestDML(unittest.TestCase):
             y[fold * n:(fold + 1) * n] = y_f
             t[fold * n:(fold + 1) * n] = t_f
 
-        dml = SparseLinearDML(model_y=LinearRegression(fit_intercept=False),
+        # we have quadratic terms in y, so we need to pipeline with a quadratic featurizer
+        dml = SparseLinearDML(model_y=Pipeline([('poly', PolynomialFeatures(2)), 
+                                                ('lr', LinearRegression(fit_intercept=False))]),
                               model_t=LinearRegression(fit_intercept=False),
                               fit_cate_intercept=False)
         dml.fit(y, t, X=x, W=w)
