@@ -4,7 +4,6 @@
 import numpy as np
 import unittest
 import shap
-from shap.plots import scatter, heatmap, bar, beeswarm, waterfall, force
 from econml.dml import *
 from econml.orf import *
 from econml.dr import *
@@ -125,6 +124,9 @@ class TestShap(unittest.TestCase):
                                         shap_values[output][treat].values.shape[1])
 
     def test_identical_output(self):
+        # import here since otherwise test collection would fail if matplotlib is not installed
+        from shap.plots import scatter, heatmap, bar, beeswarm, waterfall
+
         # Treatment effect function
         def exp_te(x):
             return np.exp(2 * x[0])

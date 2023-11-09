@@ -4,7 +4,6 @@
 import numpy as np
 import unittest
 import pytest
-import graphviz
 from econml.cate_interpreter import SingleTreeCateInterpreter, SingleTreePolicyInterpreter
 from econml.dml import LinearDML
 from sklearn.linear_model import LinearRegression, LogisticRegression
