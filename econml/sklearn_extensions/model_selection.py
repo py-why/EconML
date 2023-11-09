@@ -434,7 +434,7 @@ def _to_logisticRegression(model: LogisticRegressionCV):
 
 
 def _convert_linear_regression(model, new_cls, extra_attrs=["positive"]):
-    new_model = _convert_linear_model(model, new_cls, ["normalize", "copy_X",
+    new_model = _convert_linear_model(model, new_cls, ["copy_X",
                                                        "n_iter_"])
     _copy_to(model, new_model, ["alpha"], True)
     return new_model
