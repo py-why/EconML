@@ -179,7 +179,7 @@ def _crossfit(model: ModelSelector, folds, use_ray, ray_remote_fun_option, *args
         class Wrapper:
             def __init__(self, model):
                 self._model = model
-            def fit(self, is_selecting, X, y, W=None):
+            def train(self, is_selecting, X, y, W=None):
                 self._model.fit(X, y)
                 return self
             def predict(self, X, y, W=None):

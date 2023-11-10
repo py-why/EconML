@@ -203,6 +203,7 @@ class _RLearner(_OrthoLearner):
         import numpy as np
         from sklearn.linear_model import LinearRegression
         from econml.dml._rlearner import _RLearner
+        from econml.sklearn_extensions.model_selection import get_selector
         from sklearn.base import clone
         class ModelFirst:
             def __init__(self, model):
@@ -221,9 +222,9 @@ class _RLearner(_OrthoLearner):
                 return self.model.predict(X)
         class RLearner(_RLearner):
             def _gen_model_y(self):
-                return ModelFirst(LinearRegression())
+                return get_selector(ModelFirst(LinearRegression()))
             def _gen_model_t(self):
-                return ModelFirst(LinearRegression())
+                return get_selector(ModelFirst(LinearRegression()))
             def _gen_rlearner_model_final(self):
                 return ModelFinal()
         np.random.seed(123)

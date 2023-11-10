@@ -77,10 +77,11 @@ class TestDRIV(unittest.TestCase):
                 # we're running a lot of tests, so use fixed models instead of model selection
                 DRIV(
                     model_y_xw=LinearRegression(),
-                    model_t_xw=LinearRegression(),
-                    model_tz_xw=LinearRegression(),
-                    model_t_xwz=LinearRegression() if projection else "auto",
-                    model_z_xw=LinearRegression() if not projection else "auto",
+                    model_t_xw=LogisticRegression() if binary_T else LinearRegression(),
+                    model_tz_xw=LogisticRegression() if binary_T and binary_Z and not (
+                        projection or fit_cov_directly) else LinearRegression(),
+                    model_t_xwz="auto" if not projection else LogisticRegression() if binary_T else LinearRegression(),
+                    model_z_xw="auto" if projection else LogisticRegression() if binary_Z else LinearRegression(),
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     model_final=StatsModelsLinearRegression(
                         fit_intercept=False
@@ -95,10 +96,11 @@ class TestDRIV(unittest.TestCase):
                 ),
                 LinearDRIV(
                     model_y_xw=LinearRegression(),
-                    model_t_xw=LinearRegression(),
-                    model_tz_xw=LinearRegression(),
-                    model_t_xwz=LinearRegression() if projection else "auto",
-                    model_z_xw=LinearRegression() if not projection else "auto",
+                    model_t_xw=LogisticRegression() if binary_T else LinearRegression(),
+                    model_tz_xw=LogisticRegression() if binary_T and binary_Z and not (
+                        projection or fit_cov_directly) else LinearRegression(),
+                    model_t_xwz="auto" if not projection else LogisticRegression() if binary_T else LinearRegression(),
+                    model_z_xw="auto" if projection else LogisticRegression() if binary_Z else LinearRegression(),
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     fit_cate_intercept=True,
                     projection=projection,
@@ -110,10 +112,11 @@ class TestDRIV(unittest.TestCase):
                 ),
                 SparseLinearDRIV(
                     model_y_xw=LinearRegression(),
-                    model_t_xw=LinearRegression(),
-                    model_tz_xw=LinearRegression(),
-                    model_t_xwz=LinearRegression() if projection else "auto",
-                    model_z_xw=LinearRegression() if not projection else "auto",
+                    model_t_xw=LogisticRegression() if binary_T else LinearRegression(),
+                    model_tz_xw=LogisticRegression() if binary_T and binary_Z and not (
+                        projection or fit_cov_directly) else LinearRegression(),
+                    model_t_xwz="auto" if not projection else LogisticRegression() if binary_T else LinearRegression(),
+                    model_z_xw="auto" if projection else LogisticRegression() if binary_Z else LinearRegression(),
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     fit_cate_intercept=True,
                     projection=projection,
@@ -125,10 +128,11 @@ class TestDRIV(unittest.TestCase):
                 ),
                 ForestDRIV(
                     model_y_xw=LinearRegression(),
-                    model_t_xw=LinearRegression(),
-                    model_tz_xw=LinearRegression(),
-                    model_t_xwz=LinearRegression() if projection else "auto",
-                    model_z_xw=LinearRegression() if not projection else "auto",
+                    model_t_xw=LogisticRegression() if binary_T else LinearRegression(),
+                    model_tz_xw=LogisticRegression() if binary_T and binary_Z and not (
+                        projection or fit_cov_directly) else LinearRegression(),
+                    model_t_xwz="auto" if not projection else LogisticRegression() if binary_T else LinearRegression(),
+                    model_z_xw="auto" if projection else LogisticRegression() if binary_Z else LinearRegression(),
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     projection=projection,
                     fit_cov_directly=fit_cov_directly,
@@ -147,7 +151,7 @@ class TestDRIV(unittest.TestCase):
                 est_list += [
                     IntentToTreatDRIV(
                         model_y_xw=LinearRegression(),
-                        model_t_xwz=LinearRegression(),
+                        model_t_xwz=LogisticRegression(),
                         flexible_model_effect=StatsModelsLinearRegression(
                             fit_intercept=False
                         ),
@@ -157,7 +161,7 @@ class TestDRIV(unittest.TestCase):
                     ),
                     LinearIntentToTreatDRIV(
                         model_y_xw=LinearRegression(),
-                        model_t_xwz=LinearRegression(),
+                        model_t_xwz=LogisticRegression(),
                         flexible_model_effect=StatsModelsLinearRegression(
                             fit_intercept=False
                         ),

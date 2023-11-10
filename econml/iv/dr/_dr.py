@@ -668,7 +668,7 @@ class _DRIV(_BaseDRIV):
         model_t_xw = _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state)
 
         if self.projection:
-            # this is a regression model since proj_t is probability
+            # this is a regression model since the instrument E[T|X,W,Z] is always continuous
             model_tz_xw = _make_first_stage_selector(self.model_tz_xw,
                                                      is_discrete=False,
                                                      random_state=self.random_state)
@@ -679,12 +679,14 @@ class _DRIV(_BaseDRIV):
                                                  random_state=self.random_state)
 
         else:
-            model_tz_xw = _make_first_stage_selector(self.model_tz_xw, is_discrete=(self.discrete_treatment and
-                                                                                    self.discrete_instrument and
-                                                                                    not self.fit_cov_directly),
+            model_tz_xw = _make_first_stage_selector(self.model_tz_xw,
+                                                     is_discrete=(self.discrete_treatment and
+                                                                  self.discrete_instrument and
+                                                                  not self.fit_cov_directly),
                                                      random_state=self.random_state)
 
-            model_z = _make_first_stage_selector(self.model_z_xw, is_discrete=self.discrete_instrument,
+            model_z = _make_first_stage_selector(self.model_z_xw,
+                                                 is_discrete=self.discrete_instrument,
                                                  random_state=self.random_state)
 
         return _BaseDRIVNuisanceSelector(prel_model_effect=self._gen_prel_model_effect(),
