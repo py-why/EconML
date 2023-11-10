@@ -159,7 +159,7 @@ class TestDML(unittest.TestCase):
                                               True,
                                               ['auto']),
                                              (LinearDML(model_y=Lasso(),
-                                                        model_t='auto',
+                                                        model_t=model_t,
                                                         featurizer=featurizer,
                                                         fit_cate_intercept=fit_cate_intercept,
                                                         discrete_treatment=is_discrete,
