@@ -222,9 +222,9 @@ class _RLearner(_OrthoLearner):
                 return self.model.predict(X)
         class RLearner(_RLearner):
             def _gen_model_y(self):
-                return get_selector(ModelFirst(LinearRegression()))
+                return get_selector(ModelFirst(LinearRegression()), is_discrete=False)
             def _gen_model_t(self):
-                return get_selector(ModelFirst(LinearRegression()))
+                return get_selector(ModelFirst(LinearRegression()), is_discrete=False)
             def _gen_rlearner_model_final(self):
                 return ModelFinal()
         np.random.seed(123)

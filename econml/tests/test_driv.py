@@ -313,7 +313,7 @@ class TestDRIV(unittest.TestCase):
 
         # set the models so that model selection over random forests doesn't take too much time in the repeated trials
         est = LinearDRIV(model_y_xw=LinearRegression(), model_t_xw=LinearRegression(), model_z_xw=LinearRegression(),
-                         model_tz_xw=LinearRegression())
+                         model_tz_xw=LassoCV())
 
         n = 500
         p = 10

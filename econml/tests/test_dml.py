@@ -1012,9 +1012,9 @@ class TestDML(unittest.TestCase):
         assert dml.marginal_effect_interval(1) == (1, 1)
 
     def test_sparse(self):
+        # Ensure reproducibility
+        np.random.seed(1234)
         for _ in range(5):
-            # Ensure reproducibility
-            np.random.seed(1234)
             n_p = np.random.randint(2, 5)  # 2 to 4 products
             d_w = np.random.randint(0, 5)  # random number of covariates
             min_n = np.ceil(2 + d_w * (1 + (d_w + 1) / n_p))  # minimum number of rows per product

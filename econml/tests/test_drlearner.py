@@ -765,6 +765,7 @@ class TestDRLearner(unittest.TestCase):
         outcome_model = Pipeline(
             [('poly', PolynomialFeatures()), ('model', LinearRegression())])
         DR_learner = DRLearner(model_regression=outcome_model,
+                               model_propensity=LogisticRegressionCV(),
                                model_final=LinearRegression())
         self._test_te(DR_learner, tol=0.5, te_type="heterogeneous")
         # Test heterogenous treatment effect for W =/= None
