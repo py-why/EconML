@@ -74,7 +74,13 @@ class TestDRIV(unittest.TestCase):
                 Z = np.random.normal(size=(n,))
 
             est_list = [
+                # we're running a lot of tests, so use fixed models instead of model selection
                 DRIV(
+                    model_y_xw=LinearRegression(),
+                    model_t_xw=LinearRegression(),
+                    model_tz_xw=LinearRegression(),
+                    model_t_xwz=LinearRegression() if projection else "auto",
+                    model_z_xw=LinearRegression() if not projection else "auto",
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     model_final=StatsModelsLinearRegression(
                         fit_intercept=False
@@ -88,6 +94,11 @@ class TestDRIV(unittest.TestCase):
                     use_ray=use_ray,
                 ),
                 LinearDRIV(
+                    model_y_xw=LinearRegression(),
+                    model_t_xw=LinearRegression(),
+                    model_tz_xw=LinearRegression(),
+                    model_t_xwz=LinearRegression() if projection else "auto",
+                    model_z_xw=LinearRegression() if not projection else "auto",
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     fit_cate_intercept=True,
                     projection=projection,
@@ -98,6 +109,11 @@ class TestDRIV(unittest.TestCase):
                     use_ray=use_ray,
                 ),
                 SparseLinearDRIV(
+                    model_y_xw=LinearRegression(),
+                    model_t_xw=LinearRegression(),
+                    model_tz_xw=LinearRegression(),
+                    model_t_xwz=LinearRegression() if projection else "auto",
+                    model_z_xw=LinearRegression() if not projection else "auto",
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     fit_cate_intercept=True,
                     projection=projection,
@@ -108,6 +124,11 @@ class TestDRIV(unittest.TestCase):
                     use_ray=use_ray,
                 ),
                 ForestDRIV(
+                    model_y_xw=LinearRegression(),
+                    model_t_xw=LinearRegression(),
+                    model_tz_xw=LinearRegression(),
+                    model_t_xwz=LinearRegression() if projection else "auto",
+                    model_z_xw=LinearRegression() if not projection else "auto",
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     projection=projection,
                     fit_cov_directly=fit_cov_directly,
@@ -125,6 +146,8 @@ class TestDRIV(unittest.TestCase):
             if binary_T and binary_Z and not fit_cov_directly:
                 est_list += [
                     IntentToTreatDRIV(
+                        model_y_xw=LinearRegression(),
+                        model_t_xwz=LinearRegression(),
                         flexible_model_effect=StatsModelsLinearRegression(
                             fit_intercept=False
                         ),
@@ -133,6 +156,8 @@ class TestDRIV(unittest.TestCase):
                         use_ray=use_ray,
                     ),
                     LinearIntentToTreatDRIV(
+                        model_y_xw=LinearRegression(),
+                        model_t_xwz=LinearRegression(),
                         flexible_model_effect=StatsModelsLinearRegression(
                             fit_intercept=False
                         ),
@@ -283,8 +308,8 @@ class TestDRIV(unittest.TestCase):
         # fitting the covariance directly should be at least as good as computing the covariance from separate models
 
         # set the models so that model selection over random forests doesn't take too much time in the repeated trials
-        est = LinearDRIV(model_y_xw=LassoCV(), model_t_xw=LassoCV(), model_z_xw=LassoCV(),
-                         model_tz_xw=LassoCV())
+        est = LinearDRIV(model_y_xw=LinearRegression(), model_t_xw=LinearRegression(), model_z_xw=LinearRegression(),
+                         model_tz_xw=LinearRegression())
 
         n = 500
         p = 10

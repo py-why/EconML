@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from scipy import special
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LassoCV, LinearRegression, LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import PolynomialFeatures
 
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
@@ -62,26 +62,40 @@ class TestDMLIV(unittest.TestCase):
                                 None,
                                 PolynomialFeatures(degree=2, include_bias=False),
                             ]:
+                                # since we're running so many combinations, just use LassoCV/LogisticRegressionCV for the models
+                                # instead of also selecting over random forest models
                                 est_list = [
                                     OrthoIV(
+                                        model_y_xw=LassoCV(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else LassoCV(),
+                                        model_z_xw=LogisticRegressionCV() if binary_Z else LassoCV(),
                                         projection=False,
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     OrthoIV(
+                                        model_y_xw=LassoCV(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else LassoCV(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else LassoCV(),
                                         projection=True,
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     DMLIV(
+                                        model_y_xw=LassoCV(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else LassoCV(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else LassoCV(),
                                         model_final=LinearRegression(fit_intercept=False),
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     NonParamDMLIV(
+                                        model_y_xw=LassoCV(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else LassoCV(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else LassoCV(),
                                         model_final=RandomForestRegressor(),
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
