@@ -8,12 +8,12 @@ import numpy as np
 import pytest
 from scipy import special
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LassoCV, LinearRegression, LogisticRegression, LogisticRegressionCV
+from sklearn.linear_model import LinearRegression, LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import PolynomialFeatures
 
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr._dr import _DummyCATE
-from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, WeightedLassoCVWrapper
 from econml.utilities import shape
 from econml.tests.utilities import GroupingModel
 
@@ -62,40 +62,40 @@ class TestDMLIV(unittest.TestCase):
                                 None,
                                 PolynomialFeatures(degree=2, include_bias=False),
                             ]:
-                                # since we're running so many combinations, just use LassoCV/LogisticRegressionCV for the models
-                                # instead of also selecting over random forest models
+                                # since we're running so many combinations, just use LassoCV/LogisticRegressionCV
+                                # for the models instead of also selecting over random forest models
                                 est_list = [
                                     OrthoIV(
-                                        model_y_xw=LassoCV(),
-                                        model_t_xw=LogisticRegressionCV() if binary_T else LassoCV(),
-                                        model_z_xw=LogisticRegressionCV() if binary_Z else LassoCV(),
+                                        model_y_xw=WeightedLassoCVWrapper(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
+                                        model_z_xw=LogisticRegressionCV() if binary_Z else WeightedLassoCVWrapper(),
                                         projection=False,
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     OrthoIV(
-                                        model_y_xw=LassoCV(),
-                                        model_t_xw=LogisticRegressionCV() if binary_T else LassoCV(),
-                                        model_t_xwz=LogisticRegressionCV() if binary_T else LassoCV(),
+                                        model_y_xw=WeightedLassoCVWrapper(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
                                         projection=True,
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     DMLIV(
-                                        model_y_xw=LassoCV(),
-                                        model_t_xw=LogisticRegressionCV() if binary_T else LassoCV(),
-                                        model_t_xwz=LogisticRegressionCV() if binary_T else LassoCV(),
+                                        model_y_xw=WeightedLassoCVWrapper(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
                                         model_final=LinearRegression(fit_intercept=False),
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     NonParamDMLIV(
-                                        model_y_xw=LassoCV(),
-                                        model_t_xw=LogisticRegressionCV() if binary_T else LassoCV(),
-                                        model_t_xwz=LogisticRegressionCV() if binary_T else LassoCV(),
+                                        model_y_xw=WeightedLassoCVWrapper(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
                                         model_final=RandomForestRegressor(),
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
