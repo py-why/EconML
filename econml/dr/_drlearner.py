@@ -355,7 +355,7 @@ class DRLearner(_OrthoLearner):
     >>> est.cate_feature_names()
     ['X0', 'X1', 'X2']
     >>> [mdl.coef_ for mdls in est.models_regression for mdl in mdls]
-    [array([ 1.463...,  0.006..., -0.006...,  0.726...,  2.029...]), 
+    [array([ 1.463...,  0.006..., -0.006...,  0.726...,  2.029...]),
     array([ 1.466..., -0.002...,  0...,  0.646...,  2.014...])]
     >>> [mdl.coef_ for mdls in est.models_propensity for mdl in mdls]
     [array([[-0.67903093,  0.04261741, -0.05969718],

@@ -474,7 +474,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     >>> est.coef_
     array([ 0.32570..., -0.05311..., -0.03973...,  0.01598..., -0.11045...])
     >>> est.coef__interval()
-    (array([ 0.13791..., -0.20081..., -0.17941..., -0.12073..., -0.25769...]), 
+    (array([ 0.13791..., -0.20081..., -0.17941..., -0.12073..., -0.25769...]),
     array([0.51348..., 0.09458..., 0.09993..., 0.15269..., 0.03679...]))
     >>> est.intercept_
     1.02940...
@@ -1204,7 +1204,7 @@ class KernelDML(DML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.64124..., 1.46561..., 0.68568... ])
+    array([0.64124..., 1.46561..., 0.68568...])
     """
 
     def __init__(self, model_y='auto', model_t='auto',

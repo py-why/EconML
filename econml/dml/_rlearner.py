@@ -217,7 +217,7 @@ class _RLearner(_OrthoLearner):
             def __init__(self, model):
                 self._model = ModelFirst(model)
             def train(self, is_selecting, X, W, Y, sample_weight=None):
-                self._model.fit(np.hstack(X, W, Y)
+                self._model.fit(X, W, Y, sample_weight=sample_weight)
                 return self
             @property
             def best_model(self):

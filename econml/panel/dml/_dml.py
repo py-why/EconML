@@ -441,7 +441,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     >>> est.effect(X[:2], T0=0, T1=1)
     array([-0.579..., -0.085...])
     >>> est.effect(X[:2], T0=np.zeros((2, n_periods*T.shape[1])), T1=np.ones((2, n_periods*T.shape[1])))
-    array([-0.579, -0.085...])
+    array([-0.579..., -0.085...])
     >>> est.coef_
     array([[ 0.108...],
            [ 0.235...],
