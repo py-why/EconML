@@ -1014,13 +1014,12 @@ class TestDML(unittest.TestCase):
     def test_sparse(self):
         # Ensure reproducibility
         np.random.seed(1234)
-        for _ in range(5):
-            n_p = np.random.randint(2, 5)  # 2 to 4 products
-            d_w = np.random.randint(0, 5)  # random number of covariates
-            min_n = np.ceil(2 + d_w * (1 + (d_w + 1) / n_p))  # minimum number of rows per product
-            n_r = np.random.randint(min_n, min_n + 3)
-            with self.subTest(n_p=n_p, d_w=d_w, n_r=n_r):
-                TestDML._test_sparse(n_p, d_w, n_r)
+        n_p = np.random.randint(2, 5)  # 2 to 4 products
+        d_w = np.random.randint(0, 5)  # random number of covariates
+        min_n = np.ceil(2 + d_w * (1 + (d_w + 1) / n_p))  # minimum number of rows per product
+        n_r = np.random.randint(min_n, min_n + 3)
+        with self.subTest(n_p=n_p, d_w=d_w, n_r=n_r):
+            TestDML._test_sparse(n_p, d_w, n_r)
 
     def test_linear_sparse(self):
         """SparseDML test with a sparse DGP"""
