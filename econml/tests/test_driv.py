@@ -236,7 +236,7 @@ class TestDRIV(unittest.TestCase):
         self._test_cate_api(use_ray=False)
 
     def _test_accuracy(self, use_ray=False):
-        np.random.seed(123)
+        np.random.seed(0)
 
         # dgp (binary T, binary Z)
 

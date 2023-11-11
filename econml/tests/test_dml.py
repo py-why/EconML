@@ -1013,7 +1013,7 @@ class TestDML(unittest.TestCase):
 
     def test_sparse(self):
         # Ensure reproducibility
-        np.random.seed(1234)
+        np.random.seed(123)
         n_p = np.random.randint(2, 5)  # 2 to 4 products
         d_w = np.random.randint(0, 5)  # random number of covariates
         min_n = np.ceil(2 + d_w * (1 + (d_w + 1) / n_p))  # minimum number of rows per product

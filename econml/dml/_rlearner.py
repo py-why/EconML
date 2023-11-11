@@ -203,16 +203,20 @@ class _RLearner(_OrthoLearner):
         import numpy as np
         from sklearn.linear_model import LinearRegression
         from econml.dml._rlearner import _RLearner
-        from econml.sklearn_extensions.model_selection import get_selector
+        from econml.sklearn_extensions.model_selection import SingleModelSelector
         from sklearn.base import clone
-        class ModelFirst:
+        class ModelSelector(SingleModelSelector):
             def __init__(self, model):
                 self._model = clone(model, safe=False)
-            def fit(self, X, W, Y, sample_weight=None):
+            def train(self, is_selecting, X, W, Y, sample_weight=None):
                 self._model.fit(np.hstack([X, W]), Y)
                 return self
-            def predict(self, X, W):
-                return self._model.predict(np.hstack([X, W]))
+            @property
+            def best_model(self):
+                return self._model
+            @property
+            def best_score(self):
+                return 0
         class ModelFinal:
             def fit(self, X, T, T_res, Y_res, sample_weight=None, freq_weight=None, sample_var=None):
                 self.model = LinearRegression(fit_intercept=False).fit(X * T_res.reshape(-1, 1),
@@ -222,9 +226,9 @@ class _RLearner(_OrthoLearner):
                 return self.model.predict(X)
         class RLearner(_RLearner):
             def _gen_model_y(self):
-                return get_selector(ModelFirst(LinearRegression()), is_discrete=False)
+                return ModelSelector(LinearRegression())
             def _gen_model_t(self):
-                return get_selector(ModelFirst(LinearRegression()), is_discrete=False)
+                return ModelSelector(LinearRegression())
             def _gen_rlearner_model_final(self):
                 return ModelFinal()
         np.random.seed(123)
