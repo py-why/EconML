@@ -205,11 +205,19 @@ class _RLearner(_OrthoLearner):
         from econml.dml._rlearner import _RLearner
         from econml.sklearn_extensions.model_selection import SingleModelSelector
         from sklearn.base import clone
-        class ModelSelector(SingleModelSelector):
+        class ModelFirst:
             def __init__(self, model):
                 self._model = clone(model, safe=False)
-            def train(self, is_selecting, X, W, Y, sample_weight=None):
+            def fit(self, X, W, Y, sample_weight=None):
                 self._model.fit(np.hstack([X, W]), Y)
+                return self
+            def predict(self, X, W):
+                return self._model.predict(np.hstack([X, W]))
+        class ModelSelector(SingleModelSelector):
+            def __init__(self, model):
+                self._model = ModelFirst(model)
+            def train(self, is_selecting, X, W, Y, sample_weight=None):
+                self._model.fit(np.hstack(X, W, Y)
                 return self
             @property
             def best_model(self):
@@ -250,9 +258,9 @@ class _RLearner(_OrthoLearner):
     array([0.999631...])
     >>> est.score_
     9.82623204...e-05
-    >>> [mdl._model for mdls in est.models_y for mdl in mdls]
+    >>> [mdl.best_model._model for mdls in est.models_y for mdl in mdls]
     [LinearRegression(), LinearRegression()]
-    >>> [mdl._model for mdls in est.models_t for mdl in mdls]
+    >>> [mdl.best_model._model for mdls in est.models_t for mdl in mdls]
     [LinearRegression(), LinearRegression()]
 
     Attributes
