@@ -29,37 +29,55 @@ from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..utilities import (_deprecate_positional, add_intercept,
                          broadcast_unit_treatments, check_high_dimensional,
-                         cross_product, deprecated, fit_with_groups,
+                         cross_product, deprecated,
                          hstack, inverse_onehot, ndim, reshape,
                          reshape_treatmentwise_effects, shape, transpose,
                          get_feature_names_or_default, filter_none_kwargs)
 from .._shap import _shap_explain_model_cate
+from ..sklearn_extensions.model_selection import get_selector, ModelSelector, SingleModelSelector
+
+
+def _combine(X, W, n_samples):
+    if X is None:
+        # if both X and W are None, just return a column of ones
+        return (W if W is not None else np.ones((n_samples, 1)))
+    return hstack([X, W]) if W is not None else X
 
 
 class _FirstStageWrapper:
-    def __init__(self, model, is_Y, featurizer, linear_first_stages, discrete_treatment):
-        self._model = clone(model, safe=False)
-        self._featurizer = clone(featurizer, safe=False)
-        self._is_Y = is_Y
-        self._linear_first_stages = linear_first_stages
-        self._discrete_treatment = discrete_treatment
+    def __init__(self, model, discrete_target):
+        self._model = model  # plain sklearn-compatible model, not a ModelSelector
+        self._discrete_target = discrete_target
 
-    def _combine(self, X, W, n_samples, fitting=True):
-        if X is None:
-            # if both X and W are None, just return a column of ones
-            return (W if W is not None else np.ones((n_samples, 1)))
-        XW = hstack([X, W]) if W is not None else X
-        if self._is_Y and self._linear_first_stages:
-            if self._featurizer is None:
-                F = X
-            else:
-                F = self._featurizer.fit_transform(X) if fitting else self._featurizer.transform(X)
-            return cross_product(XW, hstack([np.ones((shape(XW)[0], 1)), F]))
+    def predict(self, X, W):
+        n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
+        if self._discrete_target:
+            return self._model.predict_proba(_combine(X, W, n_samples))[:, 1:]
         else:
-            return XW
+            return self._model.predict(_combine(X, W, n_samples))
 
-    def fit(self, X, W, Target, sample_weight=None, groups=None):
-        if (not self._is_Y) and self._discrete_treatment:
+    def score(self, X, W, Target, sample_weight=None):
+        if hasattr(self._model, 'score'):
+            if self._discrete_target:
+                # In this case, the Target is the one-hot-encoding of the treatment variable
+                # We need to go back to the label representation of the one-hot so as to call
+                # the classifier.
+                Target = inverse_onehot(Target)
+            if sample_weight is not None:
+                return self._model.score(_combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
+            else:
+                return self._model.score(_combine(X, W, Target.shape[0]), Target)
+        else:
+            return None
+
+
+class _FirstStageSelector(SingleModelSelector):
+    def __init__(self, model: SingleModelSelector, discrete_target):
+        self._model = clone(model, safe=False)
+        self._discrete_target = discrete_target
+
+    def train(self, is_selecting, X, W, Target, sample_weight=None, groups=None):
+        if self._discrete_target:
             # In this case, the Target is the one-hot-encoding of the treatment variable
             # We need to go back to the label representation of the one-hot so as to call
             # the classifier.
@@ -68,33 +86,26 @@ class _FirstStageWrapper:
                                      "don't contain all treatments")
             Target = inverse_onehot(Target)
 
-        if sample_weight is not None:
-            fit_with_groups(self._model, self._combine(X, W, Target.shape[0]), Target, groups=groups,
-                            sample_weight=sample_weight)
-        else:
-            fit_with_groups(self._model, self._combine(X, W, Target.shape[0]), Target, groups=groups)
+        self._model.train(is_selecting, _combine(X, W, Target.shape[0]), Target,
+                          **filter_none_kwargs(groups=groups, sample_weight=sample_weight))
         return self
 
-    def predict(self, X, W):
-        n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
-        if (not self._is_Y) and self._discrete_treatment:
-            return self._model.predict_proba(self._combine(X, W, n_samples, fitting=False))[:, 1:]
-        else:
-            return self._model.predict(self._combine(X, W, n_samples, fitting=False))
+    @property
+    def best_model(self):
+        return _FirstStageWrapper(self._model.best_model, self._discrete_target)
 
-    def score(self, X, W, Target, sample_weight=None):
-        if hasattr(self._model, 'score'):
-            if (not self._is_Y) and self._discrete_treatment:
-                # In this case, the Target is the one-hot-encoding of the treatment variable
-                # We need to go back to the label representation of the one-hot so as to call
-                # the classifier.
-                Target = inverse_onehot(Target)
-            if sample_weight is not None:
-                return self._model.score(self._combine(X, W, Target.shape[0]), Target, sample_weight=sample_weight)
-            else:
-                return self._model.score(self._combine(X, W, Target.shape[0]), Target)
-        else:
-            return None
+    @property
+    def best_score(self):
+        return self._model.best_score
+
+
+def _make_first_stage_selector(model, is_discrete, random_state):
+    if model == 'auto':
+        model = ['forest', 'linear']
+    return _FirstStageSelector(get_selector(model,
+                                            is_discrete=is_discrete,
+                                            random_state=random_state),
+                               discrete_target=is_discrete)
 
 
 class _FinalWrapper:
@@ -380,6 +391,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         The categories to use when encoding discrete treatments (or 'auto' to use the unique sorted values).
         The first category will be treated as the control treatment.
 
+    verbose: int, default 2
+        The verbosity level of the output messages. Higher values indicate more verbosity.
+
     cv: int, cross-validation generator or an iterable, default 2
         Determines the cross-validation splitting strategy.
         Possible inputs for cv are:
@@ -453,18 +467,19 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.63382..., 1.78225..., 0.71859...])
+    array([0.65142..., 1.82917..., 0.79287...])
     >>> est.effect_interval(X[:3])
-    (array([0.27937..., 1.27619..., 0.42091...]),...([0.98827... , 2.28831..., 1.01628...]))
+    (array([0.28936..., 1.31239..., 0.47626...]),
+    array([1.01348..., 2.34594..., 1.10949...]))
     >>> est.coef_
-    array([ 0.42857...,  0.04488..., -0.03317...,  0.02258..., -0.14875...])
+    array([ 0.32570..., -0.05311..., -0.03973...,  0.01598..., -0.11045...])
     >>> est.coef__interval()
-    (array([ 0.25179..., -0.10558..., -0.16723... , -0.11916..., -0.28759...]),
-    array([ 0.60535...,  0.19536...,  0.10088...,  0.16434..., -0.00990...]))
+    (array([ 0.13791..., -0.20081..., -0.17941..., -0.12073..., -0.25769...]),
+    array([0.51348..., 0.09458..., 0.09993..., 0.15269..., 0.03679...]))
     >>> est.intercept_
-    1.01166...
+    1.02940...
     >>> est.intercept__interval()
-    (0.87125..., 1.15207...)
+    (0.88754..., 1.17125...)
     """
 
     def __init__(self, *,
@@ -472,7 +487,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
-                 linear_first_stages=False,
+                 linear_first_stages="deprecated",
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -483,9 +498,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  use_ray=False,
                  ray_remote_func_options=None
                  ):
-        # TODO: consider whether we need more care around stateful featurizers,
-        #       since we clone it and fit separate copies
         self.fit_cate_intercept = fit_cate_intercept
+        if linear_first_stages != "deprecated":
+            warn("The linear_first_stages parameter is deprecated and will be removed in a future version of EconML",
+                 DeprecationWarning)
         self.linear_first_stages = linear_first_stages
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
@@ -509,24 +525,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        if self.model_y == 'auto':
-            model_y = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_y = clone(self.model_y, safe=False)
-        return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
-                                  self.linear_first_stages, self.discrete_treatment)
+        return _make_first_stage_selector(self.model_y, False, self.random_state)
 
     def _gen_model_t(self):
-        if self.model_t == 'auto':
-            if self.discrete_treatment:
-                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                               random_state=self.random_state)
-            else:
-                model_t = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t = clone(self.model_t, safe=False)
-        return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
-                                  self.linear_first_stages, self.discrete_treatment)
+        return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
@@ -698,20 +700,19 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.59252... , 1.74657..., 0.77384...])
+    array([0.60257..., 1.74564..., 0.72062...])
     >>> est.effect_interval(X[:3])
-    (array([0.25503..., 1.24556..., 0.48440...]),
-    array([0.93002... , 2.24757..., 1.06328... ]))
+    (array([0.25760..., 1.24005..., 0.41770...]),
+    array([0.94754..., 2.25123..., 1.02354...]))
     >>> est.coef_
-    array([ 0.39746..., -0.00313...,  0.01346...,  0.01402..., -0.09071...])
+    array([ 0.41635...,  0.00287..., -0.01831..., -0.01197..., -0.11620...])
     >>> est.coef__interval()
-    (array([ 0.23709..., -0.13618... , -0.11712..., -0.11954..., -0.22782...]),
-    array([0.55783..., 0.12991..., 0.14405..., 0.14758..., 0.04640...]))
+    (array([ 0.24496..., -0.13418..., -0.14852..., -0.13947..., -0.25089...]),
+    array([0.58775..., 0.13993..., 0.11189..., 0.11551..., 0.01848...]))
     >>> est.intercept_
-    0.99197...
+    0.97162...
     >>> est.intercept__interval()
-    (0.85855..., 1.12539...)
-
+    (0.83640..., 1.10684...)
     """
 
     def __init__(self, *,
@@ -719,7 +720,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
-                 linear_first_stages=True,
+                 linear_first_stages="deprecated",
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -954,19 +955,19 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.59401..., 1.74717..., 0.77105...])
+    array([0.59812..., 1.75138..., 0.71770...])
     >>> est.effect_interval(X[:3])
-    (array([0.26608..., 1.26369..., 0.48690...]),
-    array([0.92195..., 2.23066..., 1.05520...]))
+    (array([0.25046..., 1.24249..., 0.42606...]),
+    array([0.94577..., 2.26028..., 1.00935... ]))
     >>> est.coef_
-    array([ 0.39857..., -0.00101... ,  0.01112...,  0.01457..., -0.09117...])
+    array([ 0.41820...,  0.00506..., -0.01831..., -0.00778..., -0.11965...])
     >>> est.coef__interval()
-    (array([ 0.24285..., -0.13728..., -0.12351..., -0.11585..., -0.22974...]),
-    array([0.55430..., 0.13526..., 0.14576..., 0.14501... , 0.04738...]))
+    (array([ 0.25058..., -0.13713..., -0.15469..., -0.13932..., -0.26252...]),
+    array([0.58583..., 0.14726..., 0.11806..., 0.12376..., 0.02320...]))
     >>> est.intercept_
-    0.99378...
+    0.97131...
     >>> est.intercept__interval()
-    (0.86045..., 1.12711...)
+    (0.83363..., 1.10899...)
     """
 
     def __init__(self, *,
@@ -1203,7 +1204,7 @@ class KernelDML(DML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.59341..., 1.54740..., 0.69454... ])
+    array([0.64124..., 1.46561..., 0.68568...])
     """
 
     def __init__(self, model_y='auto', model_t='auto',
@@ -1411,7 +1412,7 @@ class NonParamDML(_BaseDML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.35318..., 1.28760..., 0.83506...])
+    array([0.32389..., 0.85703..., 0.97468...])
     """
 
     def __init__(self, *,
@@ -1458,12 +1459,11 @@ class NonParamDML(_BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _FirstStageWrapper(clone(self.model_y, safe=False), True,
-                                  self._gen_featurizer(), False, self.discrete_treatment)
+        return _make_first_stage_selector(self.model_y, is_discrete=False, random_state=self.random_state)
 
     def _gen_model_t(self):
-        return _FirstStageWrapper(clone(self.model_t, safe=False), False,
-                                  self._gen_featurizer(), False, self.discrete_treatment)
+        return _make_first_stage_selector(self.model_t, is_discrete=self.discrete_treatment,
+                                          random_state=self.random_state)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)

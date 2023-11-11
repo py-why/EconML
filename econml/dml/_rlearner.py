@@ -29,40 +29,35 @@ from abc import abstractmethod
 import numpy as np
 import copy
 from warnings import warn
+
+from ..sklearn_extensions.model_selection import ModelSelector
 from ..utilities import (shape, reshape, ndim, hstack, filter_none_kwargs, _deprecate_positional)
 from sklearn.linear_model import LinearRegression
 from sklearn.base import clone
 from .._ortho_learner import _OrthoLearner
 
 
-class _ModelNuisance:
+class _ModelNuisance(ModelSelector):
     """
     Nuisance model fits the model_y and model_t at fit time and at predict time
     calculates the residual Y and residual T based on the fitted models and returns
     the residuals as two nuisance parameters.
     """
 
-    def __init__(self, model_y, model_t):
+    def __init__(self, model_y: ModelSelector, model_t: ModelSelector):
         self._model_y = model_y
         self._model_t = model_t
 
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
         assert Z is None, "Cannot accept instrument!"
-        self._model_t.fit(X, W, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
-        self._model_y.fit(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._model_t.train(is_selecting, X, W, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._model_y.train(is_selecting, X, W, Y, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        if hasattr(self._model_y, 'score'):
-            # note that groups are not passed to score because they are only used for fitting
-            Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight))
-        else:
-            Y_score = None
-        if hasattr(self._model_t, 'score'):
-            # note that groups are not passed to score because they are only used for fitting
-            T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight))
-        else:
-            T_score = None
+        # note that groups are not passed to score because they are only used for fitting
+        T_score = self._model_t.score(X, W, T, **filter_none_kwargs(sample_weight=sample_weight))
+        Y_score = self._model_y.score(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight))
         return Y_score, T_score
 
     def predict(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -208,6 +203,7 @@ class _RLearner(_OrthoLearner):
         import numpy as np
         from sklearn.linear_model import LinearRegression
         from econml.dml._rlearner import _RLearner
+        from econml.sklearn_extensions.model_selection import SingleModelSelector
         from sklearn.base import clone
         class ModelFirst:
             def __init__(self, model):
@@ -217,6 +213,18 @@ class _RLearner(_OrthoLearner):
                 return self
             def predict(self, X, W):
                 return self._model.predict(np.hstack([X, W]))
+        class ModelSelector(SingleModelSelector):
+            def __init__(self, model):
+                self._model = ModelFirst(model)
+            def train(self, is_selecting, X, W, Y, sample_weight=None):
+                self._model.fit(X, W, Y, sample_weight=sample_weight)
+                return self
+            @property
+            def best_model(self):
+                return self._model
+            @property
+            def best_score(self):
+                return 0
         class ModelFinal:
             def fit(self, X, T, T_res, Y_res, sample_weight=None, freq_weight=None, sample_var=None):
                 self.model = LinearRegression(fit_intercept=False).fit(X * T_res.reshape(-1, 1),
@@ -226,9 +234,9 @@ class _RLearner(_OrthoLearner):
                 return self.model.predict(X)
         class RLearner(_RLearner):
             def _gen_model_y(self):
-                return ModelFirst(LinearRegression())
+                return ModelSelector(LinearRegression())
             def _gen_model_t(self):
-                return ModelFirst(LinearRegression())
+                return ModelSelector(LinearRegression())
             def _gen_rlearner_model_final(self):
                 return ModelFinal()
         np.random.seed(123)
@@ -302,7 +310,7 @@ class _RLearner(_OrthoLearner):
         """
         Returns
         -------
-        model_y: estimator of E[Y | X, W]
+        model_y: selector for the estimator of E[Y | X, W]
             The estimator for fitting the response to the features and controls. Must implement
             `fit` and `predict` methods.  Unlike sklearn estimators both methods must
             take an extra second argument (the controls), i.e. ::
@@ -317,7 +325,7 @@ class _RLearner(_OrthoLearner):
         """
         Returns
         -------
-        model_t: estimator of E[T | X, W]
+        model_t: selector for the estimator of E[T | X, W]
             The estimator for fitting the treatment to the features and controls. Must implement
             `fit` and `predict` methods.  Unlike sklearn estimators both methods must
             take an extra second argument (the controls), i.e. ::
@@ -432,11 +440,11 @@ class _RLearner(_OrthoLearner):
 
     @property
     def models_y(self):
-        return [[mdl._model_y for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_y.best_model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t(self):
-        return [[mdl._model_t for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t.best_model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_y(self):

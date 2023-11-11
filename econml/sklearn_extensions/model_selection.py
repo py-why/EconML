@@ -1,24 +1,34 @@
 # Copyright (c) PyWhy contributors. All rights reserved.
 # Licensed under the MIT License.
-
 """Collection of scikit-learn extensions for model selection techniques."""
 
 import numbers
 import warnings
-import sklearn
-from sklearn.base import BaseEstimator
-from sklearn.utils.multiclass import type_of_target
+import abc
+
 import numpy as np
+from collections.abc import Iterable
 import scipy.sparse as sp
+import sklearn
 from joblib import Parallel, delayed
-from sklearn.base import clone, is_classifier
-from sklearn.model_selection import KFold, StratifiedKFold, check_cv, GridSearchCV
+from sklearn.base import BaseEstimator, clone, is_classifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.exceptions import FitFailedWarning
+from sklearn.linear_model import (ElasticNet, ElasticNetCV, Lasso, LassoCV, MultiTaskElasticNet, MultiTaskElasticNetCV,
+                                  MultiTaskLasso, MultiTaskLassoCV, Ridge, RidgeCV, RidgeClassifier, RidgeClassifierCV,
+                                  LogisticRegression, LogisticRegressionCV)
+from sklearn.model_selection import (BaseCrossValidator, GridSearchCV, GroupKFold, KFold,
+                                     RandomizedSearchCV, StratifiedKFold,
+                                     check_cv)
 # TODO: conisder working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
-from sklearn.preprocessing import LabelEncoder
-from sklearn.utils import indexable, check_random_state
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.utils import check_random_state, indexable
+from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import _num_samples
+
+from .linear_model import WeightedLassoCVWrapper, WeightedLassoWrapper
 
 
 def _split_weighted_sample(self, X, y, sample_weight, is_stratified=False):
@@ -254,6 +264,320 @@ class WeightedStratifiedKFold(WeightedKFold):
             Returns the number of splitting iterations in the cross-validator.
         """
         return self.n_splits
+
+
+class ModelSelector(metaclass=abc.ABCMeta):
+    """
+    This class enables a two-stage fitting process, where first a model is selected
+    by calling `train` with `is_selecting=True`, and then the selected model is fit (presumably
+    on a different data set) by calling train with `is_selecting=False`.
+
+
+    """
+
+    @abc.abstractmethod
+    def train(self, is_selecting: bool, *args, **kwargs):
+        """
+        Either selects a model or fits a model, depending on the value of `is_selecting`.
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def predict(self, *args, **kwargs):
+        """
+        Predicts using the selected model; should not be called until after `train` has been used
+        both to select a model and to fit it.
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def score(self, *args, **kwargs):
+        """
+        Gets the score of the selected model on the given data; should not be called until after `train` has been used
+        both to select a model and to fit it.
+        """
+        raise NotImplementedError("Abstract method")
+
+
+class SingleModelSelector(ModelSelector):
+    """
+    A model selection class that selects a single best model;
+    this encompasses random search, grid search, ensembling, etc.
+    """
+
+    @property
+    @abc.abstractmethod
+    def best_model(self):
+        raise NotImplementedError("Abstract method")
+
+    @property
+    @abc.abstractmethod
+    def best_score(self):
+        raise NotImplementedError("Abstract method")
+
+    def predict(self, *args, **kwargs):
+        return self.best_model.predict(*args, **kwargs)
+
+    def predict_proba(self, *args, **kwargs):
+        return self.best_model.predict_proba(*args, **kwargs)
+
+    def score(self, *args, **kwargs):
+        if hasattr(self.best_model, 'score'):
+            return self.best_model.score(*args, **kwargs)
+        else:
+            return None
+
+
+def _fit_with_groups(model, X, y, *, groups, **kwargs):
+    """
+    Fits a model while correctly handling grouping if necessary.
+
+    This enables us to perform an inner-loop cross-validation of a model
+    which handles grouping correctly, which is not easy using typical sklearn models.
+
+    For example, GridSearchCV and RandomSearchCV both support passing `groups` to fit,
+    but other CV-related estimators (e.g. LassoCV) do not, which means that GroupKFold
+    cannot be used as the cv instance, because the `groups` argument will never be passed through
+    to GroupKFold's `split` method.
+
+    The hacky workaround here is to explicitly set the `cv` attribute to the set of
+    rows that GroupKFold would have generated rather than using GroupKFold as the cv instance.
+    """
+    if groups is not None:
+        if hasattr(model, 'cv'):
+            old_cv = model.cv
+            # logic copied from check_cv
+            cv = 5 if old_cv is None else old_cv
+            if isinstance(cv, numbers.Integral):
+                cv = GroupKFold(cv)
+            # otherwise we will assume the user already set the cv attribute to something
+            # compatible with splitting with a `groups` argument
+
+            splits = list(cv.split(X, y, groups=groups))
+            try:
+                model.cv = splits
+                return model.fit(X, y, **kwargs)  # drop groups from arg list
+            finally:
+                model.cv = old_cv
+
+    # drop groups from arg list, which were already used at the outer level and may not be supported by the model
+    return model.fit(X, y, **kwargs)
+
+
+class FixedModelSelector(SingleModelSelector):
+    """
+    Model selection class that always selects the given model
+    """
+
+    def __init__(self, model):
+        self.model = clone(model, safe=False)
+
+    def train(self, is_selecting, *args, groups=None, **kwargs):
+        # whether selecting or not, need to train the model on the data
+        _fit_with_groups(self.model, *args, groups=groups, **kwargs)
+        if is_selecting and hasattr(self.model, 'score'):
+            # TODO: we need to alter this to use out-of-sample score here, which
+            #       will require cross-validation, but should respect grouping, stratifying, etc.
+            self._score = self.model.score(*args, **kwargs)
+        return self
+
+    @property
+    def best_model(self):
+        return self.model
+
+    @property
+    def best_score(self):
+        return self._score
+
+
+def _copy_to(m1, m2, attrs, insert_underscore=False):
+    for attr in attrs:
+        setattr(m2, attr, getattr(m1, attr + "_" if insert_underscore else attr))
+
+
+def _convert_linear_model(model, new_cls, extra_attrs=[]):
+    new_model = new_cls()
+    # copy common parameters
+    _copy_to(model, new_model, ["fit_intercept", "max_iter",
+                                "tol",
+                                "random_state"])
+    # copy common fitted variables
+    _copy_to(model, new_model, ["coef_", "intercept_", "n_features_in_", "n_iter_"])
+    # copy attributes unique to this class
+    _copy_to(model, new_model, extra_attrs)
+    return new_model
+
+
+def _to_logisticRegression(model: LogisticRegressionCV):
+    lr = _convert_linear_model(model, LogisticRegression)
+    _copy_to(model, lr, ["penalty", "dual", "intercept_scaling",
+                         "class_weight",
+                         "solver", "multi_class",
+                         "verbose", "n_jobs"])
+    _copy_to(model, lr, ["classes_"])
+
+    _copy_to(model, lr, ["C", "l1_ratio"], True)  # these are arrays in LogisticRegressionCV, need to convert them next
+
+    # make sure all classes agree on best c/l1 combo
+    assert np.isclose(lr.C, lr.C.flatten()[0]).all()
+    assert np.equal(lr.l1_ratio, None).all() or np.isclose(lr.l1_ratio, lr.l1_ratio.flatten()[0]).all()
+    lr.C = lr.C[0]
+    lr.l1_ratio = lr.l1_ratio[0]
+    avg_scores = np.average([v for k, v in model.scores_.items()], axis=1)  # average over folds
+    best_scores = np.max(avg_scores, axis=tuple(range(1, avg_scores.ndim)))  # average score of best c/l1 combo
+    assert np.isclose(best_scores, best_scores.flatten()[0]).all()  # make sure all folds agree on best c/l1 combo
+    return lr, best_scores[0]
+
+
+def _convert_linear_regression(model, new_cls, extra_attrs=["positive"]):
+    new_model = _convert_linear_model(model, new_cls, ["copy_X",
+                                                       "n_iter_"])
+    _copy_to(model, new_model, ["alpha"], True)
+    return new_model
+
+
+def _to_elasticNet(model: ElasticNetCV, is_lasso=False, cls=None, extra_attrs=[]):
+    cls = cls or (Lasso if is_lasso else ElasticNet)
+    new_model = _convert_linear_regression(model, cls, extra_attrs + ['selection', 'warm_start',
+                                                                      'dual_gap_'])
+    if not is_lasso:
+        # l1 ratio doesn't apply to Lasso, only ElasticNet
+        _copy_to(model, new_model, ["l1_ratio"], True)
+    max_score = np.max(np.mean(model.mse_path_, axis=-1))  # last dimension in mse_path is folds, so average over that
+    return new_model, max_score
+
+
+def _to_ridge(model, cls=Ridge, extra_attrs=["positive"]):
+    ridge = _convert_linear_regression(model, cls, extra_attrs + ["_normalize", "solver"])
+    best_score = model.best_score_
+    return ridge, best_score
+
+
+class SklearnCVSelector(SingleModelSelector):
+    """
+    Wraps one of sklearn's CV classes in the ModelSelector interface
+    """
+
+    def __init__(self, searcher):
+        self.searcher = clone(searcher)
+
+    @staticmethod
+    def convertible_types():
+        return {GridSearchCV, RandomizedSearchCV} | SklearnCVSelector._model_mapping().keys()
+
+    @staticmethod
+    def can_wrap(model):
+        return any(isinstance(model, model_type) for model_type in SklearnCVSelector.convertible_types())
+
+    @staticmethod
+    def _model_mapping():
+        return {LogisticRegressionCV: _to_logisticRegression,
+                ElasticNetCV: _to_elasticNet,
+                LassoCV: lambda model: _to_elasticNet(model, True, None, ["positive"]),
+                RidgeCV: _to_ridge,
+                RidgeClassifierCV: lambda model: _to_ridge(model, RidgeClassifier, ["positive", "class_weight",
+                                                                                    "_label_binarizer"]),
+                MultiTaskElasticNetCV: lambda model: _to_elasticNet(model, False, MultiTaskElasticNet, extra_attrs=[]),
+                MultiTaskLassoCV: lambda model: _to_elasticNet(model, True, MultiTaskLasso, extra_attrs=[]),
+                WeightedLassoCVWrapper: lambda model: _to_elasticNet(model, True, WeightedLassoWrapper,
+                                                                     extra_attrs=[]),
+                }
+
+    def train(self, is_selecting: bool, *args, groups=None, **kwargs):
+        if is_selecting:
+            _fit_with_groups(self.searcher, *args, groups=groups, **kwargs)
+
+            if isinstance(self.searcher, GridSearchCV) or isinstance(self.searcher, RandomizedSearchCV):
+                self._best_model = self.searcher.best_estimator_
+                self._best_score = self.searcher.best_score_
+
+            for known_type in self._model_mapping().keys():
+                if isinstance(self.searcher, known_type):
+                    converter = self._model_mapping()[known_type]
+                    self._best_model, self._best_score = converter(self.searcher)
+                    return self
+
+        else:
+            # don't need to use _fit_with_groups here since none of these models support it
+            self.best_model.fit(*args, **kwargs)
+        return self
+
+    @property
+    def best_model(self):
+        return self._best_model
+
+    @property
+    def best_score(self):
+        return self._best_score
+
+
+class ListSelector(SingleModelSelector):
+    """
+    Model selection class that selects the best model from a list of model selectors
+
+    Parameters
+    ----------
+    models : list of ModelSelector
+        The list of model selectors to choose from
+    unwrap : bool, default True
+        Whether to return the best model's best model, rather than just the outer best model selector
+    """
+
+    def __init__(self, models, unwrap=True):
+        self.models = [clone(model, safe=False) for model in models]
+        self.unwrap = unwrap
+
+    def train(self, is_selecting, *args, **kwargs):
+        if is_selecting:
+            scores = []
+            for model in self.models:
+                model.train(is_selecting, *args, **kwargs)
+                scores.append(model.best_score)
+            self._all_scores = scores
+            self._best_score = np.max(scores)
+            self._best_model = self.models[np.argmax(scores)]
+
+        else:
+            self._best_model.train(is_selecting, *args, **kwargs)
+
+    @property
+    def best_model(self):
+        """
+        Gets the best model; note that if we were selecting over SingleModelSelectors and `unwrap` is `False`,
+        we will return the SingleModelSelector instance, not its best model.
+        """
+        return self._best_model.best_model if self.unwrap else self._best_model
+
+    @property
+    def best_score(self):
+        return self._best_score
+
+
+def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV):
+    named_models = {
+        'linear': (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
+                   else WeightedLassoCVWrapper(random_state=random_state, cv=cv)),
+        'forest': (GridSearchCV(RandomForestClassifier(random_state=random_state) if is_discrete
+                                else RandomForestRegressor(random_state=random_state),
+                                param_grid={}, cv=cv)),
+    }
+    if isinstance(input, ModelSelector):  # we've already got a model selector, don't need to do anything
+        return input
+    elif isinstance(input, list):  # we've got a list; call get_selector on each element, then wrap in a ListSelector
+        models = [get_selector(model, is_discrete,
+                               random_state=random_state, cv=cv, wrapper=wrapper)
+                  for model in input]
+        return ListSelector(models)
+    elif isinstance(input, str):  # we've got a string; look it up
+        if input in named_models:
+            return get_selector(named_models[input], is_discrete,
+                                random_state=random_state, cv=cv, wrapper=wrapper)
+        else:
+            raise ValueError(f"Unknown model type: {input}, must be one of {named_models.keys()}")
+    elif SklearnCVSelector.can_wrap(input):
+        return SklearnCVSelector(input)
+    else:  # assume this is an sklearn-compatible model
+        return FixedModelSelector(input)
 
 
 class GridSearchCVList(BaseEstimator):

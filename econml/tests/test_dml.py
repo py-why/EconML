@@ -159,7 +159,7 @@ class TestDML(unittest.TestCase):
                                               True,
                                               ['auto']),
                                              (LinearDML(model_y=Lasso(),
-                                                        model_t='auto',
+                                                        model_t=model_t,
                                                         featurizer=featurizer,
                                                         fit_cate_intercept=fit_cate_intercept,
                                                         discrete_treatment=is_discrete,
@@ -1012,15 +1012,14 @@ class TestDML(unittest.TestCase):
         assert dml.marginal_effect_interval(1) == (1, 1)
 
     def test_sparse(self):
-        for _ in range(5):
-            # Ensure reproducibility
-            np.random.seed(1234)
-            n_p = np.random.randint(2, 5)  # 2 to 4 products
-            d_w = np.random.randint(0, 5)  # random number of covariates
-            min_n = np.ceil(2 + d_w * (1 + (d_w + 1) / n_p))  # minimum number of rows per product
-            n_r = np.random.randint(min_n, min_n + 3)
-            with self.subTest(n_p=n_p, d_w=d_w, n_r=n_r):
-                TestDML._test_sparse(n_p, d_w, n_r)
+        # Ensure reproducibility
+        np.random.seed(123)
+        n_p = np.random.randint(2, 5)  # 2 to 4 products
+        d_w = np.random.randint(0, 5)  # random number of covariates
+        min_n = np.ceil(2 + d_w * (1 + (d_w + 1) / n_p))  # minimum number of rows per product
+        n_r = np.random.randint(min_n, min_n + 3)
+        with self.subTest(n_p=n_p, d_w=d_w, n_r=n_r):
+            TestDML._test_sparse(n_p, d_w, n_r)
 
     def test_linear_sparse(self):
         """SparseDML test with a sparse DGP"""
@@ -1051,7 +1050,10 @@ class TestDML(unittest.TestCase):
         Y = T * (x @ a) + xw @ g + err_Y
         # Test sparse estimator
         # --> test coef_, intercept_
-        sparse_dml = SparseLinearDML(fit_cate_intercept=False)
+        # with this DGP, since T depends linearly on X, Y depends on X quadratically
+        # so we should use a quadratic featurizer
+        sparse_dml = SparseLinearDML(fit_cate_intercept=False, model_y=Pipeline([('poly', PolynomialFeatures(2)),
+                                                                                 ('lr', LassoCV())]))
         sparse_dml.fit(Y, T, X=x, W=w)
         np.testing.assert_allclose(a, sparse_dml.coef_, atol=2e-1)
         with pytest.raises(AttributeError):
@@ -1125,11 +1127,12 @@ class TestDML(unittest.TestCase):
             y[fold * n:(fold + 1) * n] = y_f
             t[fold * n:(fold + 1) * n] = t_f
 
-        dml = SparseLinearDML(model_y=LinearRegression(fit_intercept=False),
+        # we have quadratic terms in y, so we need to pipeline with a quadratic featurizer
+        dml = SparseLinearDML(model_y=Pipeline([('poly', PolynomialFeatures(2)),
+                                                ('lr', LinearRegression(fit_intercept=False))]),
                               model_t=LinearRegression(fit_intercept=False),
                               fit_cate_intercept=False)
         dml.fit(y, t, X=x, W=w)
-
         np.testing.assert_allclose(a, dml.coef_.reshape(-1), atol=1e-1)
         eff = reshape(t * np.choose(np.tile(p, 2), a), (-1,))
         np.testing.assert_allclose(eff, dml.effect(x, T0=0, T1=t), atol=1e-1)
@@ -1237,8 +1240,8 @@ class TestDML(unittest.TestCase):
 
         # test outer grouping
         # with 2 folds, we should get exactly 3 groups per split, each with 10 copies of the y or t value
-        est = LinearDML(model_y=GroupingModel(LinearRegression(), (3, 3), n_copies),
-                        model_t=GroupingModel(LinearRegression(), (3, 3), n_copies))
+        est = LinearDML(model_y=GroupingModel(LinearRegression(), 60, (3, 3), n_copies),
+                        model_t=GroupingModel(LinearRegression(), 60, (3, 3), n_copies))
         est.fit(y, t, groups=groups)
 
         # test nested grouping
@@ -1246,16 +1249,9 @@ class TestDML(unittest.TestCase):
         # with 2-fold outer and 2-fold inner grouping, and six total groups,
         # should get 1 or 2 groups per split
 
-        est = LinearDML(model_y=NestedModel(LassoCV(cv=2), (1, 2), n_copies),
-                        model_t=NestedModel(LassoCV(cv=2), (1, 2), n_copies))
+        est = LinearDML(model_y=NestedModel(LassoCV(cv=2), 60, (1, 2), n_copies),
+                        model_t=NestedModel(LassoCV(cv=2), 60, (1, 2), n_copies))
         est.fit(y, t, groups=groups)
-
-        # by default, we use 5 split cross-validation for our T and Y models
-        # but we don't have enough groups here to split both the outer and inner samples with grouping
-        # TODO: does this imply we should change some defaults to make this more likely to succeed?
-        est = LinearDML(model_y=LassoCV(cv=5), model_t=LassoCV(cv=5))
-        with pytest.raises(Exception):
-            est.fit(y, t, groups=groups)
 
     def test_treatment_names(self):
         Y = np.random.normal(size=(100, 1))

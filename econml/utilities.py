@@ -21,7 +21,6 @@ from sklearn.utils.validation import assert_all_finite
 from sklearn.preprocessing import PolynomialFeatures
 import warnings
 from warnings import warn
-from sklearn.model_selection import KFold, StratifiedKFold, GroupKFold
 from collections.abc import Iterable
 from sklearn.utils.multiclass import type_of_target
 import numbers
@@ -917,62 +916,6 @@ def einsum_sparse(subscripts, *arrs):
                   np.empty((len(outputs), 0)),
                   np.array(list(results.values())),
                   [arrs[indMap[c][0][0]].shape[indMap[c][0][1]] for c in outputs])
-
-
-def fit_with_groups(model, X, y, groups=None, **kwargs):
-    """
-    Fit a model while correctly handling grouping if necessary.
-
-    This enables us to perform an inner-loop cross-validation of a model
-    which handles grouping correctly, which is not easy using typical sklearn models.
-
-    For example, GridSearchCV and RandomSearchCV both support passing 'groups' to fit,
-    but other CV-related estimators (such as those derived from LinearModelCV, including LassoCV),
-    do not support passing groups to fit which meanst that GroupKFold cannot be used as the cv instance
-    when using these types, because the required 'groups' argument will never be passed to the
-    GroupKFold's split method.  See also https://github.com/scikit-learn/scikit-learn/issues/12052
-
-    The (hacky) workaround that is used here is to explicitly set the 'cv' attribute (if there is one) to
-    the exact set of rows and not to use GroupKFold even with the sklearn classes that could support it;
-    this should work with classes derived from BaseSearchCV, LinearModelCV, and CalibratedClassifierCV.
-
-    Parameters
-    ----------
-    model : estimator
-        The model to fit
-    X : array_like
-        The features to fit against
-    y : array_like
-        The target to fit against
-    groups : array_like, optional
-        The set of groupings that should be kept together when splitting rows for
-        cross-validation
-    kwargs : dict
-        Any other named arguments to pass to the model's fit
-    """
-
-    if groups is not None:
-        # assume that we should perform nested cross-validation if and only if
-        # the model has a 'cv' attribute; this is a somewhat brittle assumption...
-        if hasattr(model, 'cv'):
-            old_cv = model.cv
-            # logic copied from check_cv
-            cv = 5 if old_cv is None else old_cv
-            if isinstance(cv, numbers.Integral):
-                cv = GroupKFold(cv)
-            # otherwise we will assume the user already set the cv attribute to something
-            # compatible with splitting with a 'groups' argument
-
-            # now we have to compute the folds explicitly because some classifiers (like LassoCV)
-            # don't use the groups when calling split internally
-            splits = list(cv.split(X, y, groups=groups))
-            try:
-                model.cv = splits
-                return model.fit(X, y, **kwargs)
-            finally:
-                model.cv = old_cv
-
-    return model.fit(X, y, **kwargs)
 
 
 def filter_none_kwargs(**kwargs):

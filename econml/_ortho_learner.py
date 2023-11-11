@@ -45,6 +45,7 @@ from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, check_input_arrays,
                         cross_product, filter_none_kwargs,
                         inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
+from .sklearn_extensions.model_selection import ModelSelector
 
 try:
     import ray
@@ -100,7 +101,7 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     kwargs_train = {key: var[train_idxs] for key, var in kwargs.items()}
     kwargs_test = {key: var[test_idxs] for key, var in kwargs.items()}
 
-    model.fit(*args_train, **kwargs_train)
+    model.train(False, *args_train, **kwargs_train)
     nuisance_temp = model.predict(*args_test, **kwargs_test)
 
     if not isinstance(nuisance_temp, tuple):
@@ -115,17 +116,18 @@ def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
     return nuisance_temp, model, test_idxs, (score_temp if calculate_scores else None)
 
 
-def _crossfit(model, folds, use_ray, ray_remote_fun_option, *args, **kwargs):
+def _crossfit(model: ModelSelector, folds, use_ray, ray_remote_fun_option, *args, **kwargs):
     """
     General crossfit based calculation of nuisance parameters.
 
     Parameters
     ----------
-    model : object
-        An object that supports fit and predict. Fit must accept all the args
-        and the keyword arguments kwargs. Similarly predict must all accept
-        all the args as arguments and kwards as keyword arguments. The fit
-        function estimates a model of the nuisance function, based on the input
+    model : ModelSelector
+        An object that has train and predict methods.
+        The train method must take an 'is_selecting' argument first, and then
+        accept positional arguments `args` and keyword arguments `kwargs`; the predict method
+        just takes those `args` and `kwargs`. The train
+        method selects or estimates a model of the nuisance function, based on the input
         data to fit. Predict evaluates the fitted nuisance function on the input
         data to predict.
     folds : list of tuple or None
@@ -177,7 +179,7 @@ def _crossfit(model, folds, use_ray, ray_remote_fun_option, *args, **kwargs):
         class Wrapper:
             def __init__(self, model):
                 self._model = model
-            def fit(self, X, y, W=None):
+            def train(self, is_selecting, X, y, W=None):
                 self._model.fit(X, y)
                 return self
             def predict(self, X, y, W=None):
@@ -202,13 +204,17 @@ def _crossfit(model, folds, use_ray, ray_remote_fun_option, *args, **kwargs):
 
     """
     model_list = []
+
+    kwargs = filter_none_kwargs(**kwargs)
+    model.train(True, *args, **kwargs)
+
     calculate_scores = hasattr(model, 'score')
     # remove None arguments
-    kwargs = filter_none_kwargs(**kwargs)
 
     if folds is None:  # skip crossfitting
         model_list.append(clone(model, safe=False))
-        model_list[0].fit(*args, **kwargs)
+        model_list[0].train(True, *args, **kwargs)
+        model_list[0].train(False, *args, **kwargs)  # fit the selected model
         nuisances = model_list[0].predict(*args, **kwargs)
         scores = model_list[0].score(*args, **kwargs) if calculate_scores else None
 
@@ -394,7 +400,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             def __init__(self, model_t, model_y):
                 self._model_t = model_t
                 self._model_y = model_y
-            def fit(self, Y, T, W=None):
+            def train(self, is_selecting, Y, T, W=None):
                 self._model_t.fit(W, T)
                 self._model_y.fit(W, Y)
                 return self
@@ -448,7 +454,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             def __init__(self, model_t, model_y):
                 self._model_t = model_t
                 self._model_y = model_y
-            def fit(self, Y, T, W=None):
+            def train(self, is_selecting, Y, T, W=None):
                 self._model_t.fit(W, np.matmul(T, np.arange(1, T.shape[1]+1)))
                 self._model_y.fit(W, Y)
                 return self
@@ -532,15 +538,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_nuisance(self):
-        """ Must return a fresh instance of a nuisance model
+        """Must return a fresh instance of a nuisance model selector
 
         Returns
         -------
-        model_nuisance: estimator
-            The estimator for fitting the nuisance function. Must implement
-            `fit` and `predict` methods that both have signatures::
+        model_nuisance: selector
+            The selector for fitting the nuisance function. The returned estimator must implement
+            `train` and `predict` methods that both have signatures::
 
-                model_nuisance.fit(Y, T, X=X, W=W, Z=Z,
+                model_nuisance.train(is_selecting, Y, T, X=X, W=W, Z=Z,
                                 sample_weight=sample_weight)
                 model_nuisance.predict(Y, T, X=X, W=W, Z=Z,
                                     sample_weight=sample_weight)

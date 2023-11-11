@@ -20,8 +20,7 @@ import numpy as np
 import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
-from econml.sklearn_extensions.model_selection import WeightedKFold, WeightedStratifiedKFold
-from econml.utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
+from ..utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.linear_model._base import _preprocess_data
@@ -41,7 +40,24 @@ from joblib import Parallel, delayed
 from typing import List
 
 
+class _WeightedCVIterableWrapper(_CVIterableWrapper):
+    def __init__(self, cv):
+        super().__init__(cv)
+
+    def get_n_splits(self, X=None, y=None, groups=None, sample_weight=None):
+        if groups is not None and sample_weight is not None:
+            raise ValueError("Cannot simultaneously use grouping and weighting")
+        return super().get_n_splits(X, y, groups)
+
+    def split(self, X=None, y=None, groups=None, sample_weight=None):
+        if groups is not None and sample_weight is not None:
+            raise ValueError("Cannot simultaneously use grouping and weighting")
+        return super().split(X, y, groups)
+
+
 def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
+    # local import to avoid circular imports
+    from .model_selection import WeightedKFold, WeightedStratifiedKFold
     cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
@@ -58,21 +74,6 @@ def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
         return _WeightedCVIterableWrapper(cv)
 
     return cv  # New style cv objects are passed without any modification
-
-
-class _WeightedCVIterableWrapper(_CVIterableWrapper):
-    def __init__(self, cv):
-        super().__init__(cv)
-
-    def get_n_splits(self, X=None, y=None, groups=None, sample_weight=None):
-        if groups is not None and sample_weight is not None:
-            raise ValueError("Cannot simultaneously use grouping and weighting")
-        return super().get_n_splits(X, y, groups)
-
-    def split(self, X=None, y=None, groups=None, sample_weight=None):
-        if groups is not None and sample_weight is not None:
-            raise ValueError("Cannot simultaneously use grouping and weighting")
-        return super().split(X, y, groups)
 
 
 class WeightedModelMixin:
@@ -1204,71 +1205,89 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         setattr(self, attribute_name, attribute_value)
 
 
-class WeightedLassoCVWrapper:
-    """Helper class to wrap either WeightedLassoCV or WeightedMultiTaskLassoCV depending on the shape of the target."""
+class _PairedEstimatorWrapper:
+    """Helper class to wrap two different estimators, one of which can be used only with single targets and the other
+    which can be used on multiple targets.  Not intended to be used directly by users."""
+
+    _SingleEst = None
+    _MultiEst = None
+    _known_params = []
+    _post_fit_attrs = []
 
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
-        # set model to WeightedLassoCV by default so there's always a model to get and set attributes on
-        self.model = WeightedLassoCV(*args, **kwargs)
-
-    # whitelist known params because full set is not necessarily identical between LassoCV and MultiTaskLassoCV
-    # (e.g. former has 'positive' and 'precompute' while latter does not)
-    known_params = set(['eps', 'n_alphas', 'alphas', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'copy_X',
-                        'cv', 'verbose', 'n_jobs', 'random_state', 'selection'])
+        # set model to the single-target estimator by default so there's always a model to get and set attributes on
+        self.model = self._SingleEst(*args, **kwargs)
 
     def fit(self, X, y, sample_weight=None):
-        self.needs_unravel = False
+        self._needs_unravel = False
         params = {key: value
                   for (key, value) in self.get_params().items()
-                  if key in self.known_params}
+                  if key in self._known_params}
         if ndim(y) == 2 and shape(y)[1] > 1:
-            self.model = WeightedMultiTaskLassoCV(**params)
+            self.model = self._MultiEst(**params)
         else:
             if ndim(y) == 2 and shape(y)[1] == 1:
                 y = np.ravel(y)
-                self.needs_unravel = True
-            self.model = WeightedLassoCV(**params)
+                self._needs_unravel = True
+            self.model = self._SingleEst(**params)
         self.model.fit(X, y, sample_weight)
-        # set intercept_ attribute
-        self.intercept_ = self.model.intercept_
-        # set coef_ attribute
-        self.coef_ = self.model.coef_
-        # set alpha_ attribute
-        self.alpha_ = self.model.alpha_
-        # set alphas_ attribute
-        self.alphas_ = self.model.alphas_
-        # set n_iter_ attribute
-        self.n_iter_ = self.model.n_iter_
+        for param in self._post_fit_attrs:
+            setattr(self, param, getattr(self.model, param))
         return self
 
     def predict(self, X):
         predictions = self.model.predict(X)
-        return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
+        return reshape(predictions, (-1, 1)) if self._needs_unravel else predictions
 
     def score(self, X, y, sample_weight=None):
         return self.model.score(X, y, sample_weight)
 
     def __getattr__(self, key):
-        if key in self.known_params:
+        if key in self._known_params:
             return getattr(self.model, key)
         else:
             raise AttributeError("No attribute " + key)
 
     def __setattr__(self, key, value):
-        if key in self.known_params:
+        if key in self._known_params:
             setattr(self.model, key, value)
         else:
             super().__setattr__(key, value)
 
     def get_params(self, deep=True):
         """Get parameters for this estimator."""
-        return self.model.get_params(deep=deep)
+        return {k: v for k, v in self.model.get_params(deep=deep).items() if k in self._known_params}
 
     def set_params(self, **params):
         """Set parameters for this estimator."""
         self.model.set_params(**params)
+
+
+class WeightedLassoCVWrapper(_PairedEstimatorWrapper):
+    """Helper class to wrap either WeightedLassoCV or WeightedMultiTaskLassoCV depending on the shape of the target."""
+
+    _SingleEst = WeightedLassoCV
+    _MultiEst = WeightedMultiTaskLassoCV
+
+    # whitelist known params because full set is not necessarily identical between LassoCV and MultiTaskLassoCV
+    # (e.g. former has 'positive' and 'precompute' while latter does not)
+    _known_params = set(['eps', 'n_alphas', 'alphas', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'copy_X',
+                         'cv', 'verbose', 'n_jobs', 'random_state', 'selection'])
+
+    _post_fit_attrs = set(['alpha_', 'alphas_', 'coef_', 'dual_gap_',
+                           'intercept_', 'n_iter_', 'n_features_in_', 'mse_path_'])
+
+
+class WeightedLassoWrapper(_PairedEstimatorWrapper):
+    """Helper class to wrap either WeightedLasso or WeightedMultiTaskLasso depending on the shape of the target."""
+
+    _SingleEst = WeightedLasso
+    _MultiEst = WeightedMultiTaskLasso
+    _known_params = set(['alpha', 'fit_intercept', 'copy_X', 'max_iter', 'tol',
+                         'random_state', 'selection'])
+    _post_fit_attrs = set(['coef_', 'dual_gap_', 'intercept_', 'n_iter_', 'n_features_in_'])
 
 
 class SelectiveRegularization:

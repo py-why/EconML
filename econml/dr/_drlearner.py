@@ -43,6 +43,7 @@ from sklearn.linear_model import (LassoCV, LinearRegression,
                                   LogisticRegressionCV)
 from sklearn.ensemble import RandomForestRegressor
 
+
 from .._ortho_learner import _OrthoLearner
 from .._cate_estimator import (DebiasedLassoCateEstimatorDiscreteMixin, BaseCateEstimator,
                                ForestModelFinalCateEstimatorDiscreteMixin,
@@ -51,13 +52,17 @@ from ..inference import GenericModelFinalInferenceDiscrete
 from ..grf import RegressionForest
 from ..sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
+from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, get_selector
 from ..utilities import (_deprecate_positional, check_high_dimensional,
-                         filter_none_kwargs, fit_with_groups, inverse_onehot, get_feature_names_or_default)
+                         filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
 
-class _ModelNuisance:
-    def __init__(self, model_propensity, model_regression, min_propensity):
+class _ModelNuisance(ModelSelector):
+    def __init__(self,
+                 model_propensity: SingleModelSelector,
+                 model_regression: SingleModelSelector,
+                 min_propensity):
         self._model_propensity = model_propensity
         self._model_regression = model_regression
         self._min_propensity = min_propensity
@@ -65,7 +70,7 @@ class _ModelNuisance:
     def _combine(self, X, W):
         return np.hstack([arr for arr in [X, W] if arr is not None])
 
-    def fit(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
+    def train(self, is_selecting, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         if Y.ndim != 1 and (Y.ndim != 2 or Y.shape[1] != 1):
             raise ValueError("The outcome matrix must be of shape ({0}, ) or ({0}, 1), "
                              "instead got {1}.".format(len(X), Y.shape))
@@ -77,22 +82,16 @@ class _ModelNuisance:
         XW = self._combine(X, W)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight)
 
-        fit_with_groups(self._model_propensity, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
-        fit_with_groups(self._model_regression, np.hstack([XW, T]), Y, groups=groups, **filtered_kwargs)
+        self._model_propensity.train(is_selecting, XW, inverse_onehot(T), groups=groups, **filtered_kwargs)
+        self._model_regression.train(is_selecting, np.hstack([XW, T]), Y, groups=groups, **filtered_kwargs)
         return self
 
     def score(self, Y, T, X=None, W=None, *, sample_weight=None, groups=None):
         XW = self._combine(X, W)
         filtered_kwargs = filter_none_kwargs(sample_weight=sample_weight)
 
-        if hasattr(self._model_propensity, 'score'):
-            propensity_score = self._model_propensity.score(XW, inverse_onehot(T), **filtered_kwargs)
-        else:
-            propensity_score = None
-        if hasattr(self._model_regression, 'score'):
-            regression_score = self._model_regression.score(np.hstack([XW, T]), Y, **filtered_kwargs)
-        else:
-            regression_score = None
+        propensity_score = self._model_propensity.score(XW, inverse_onehot(T), **filtered_kwargs)
+        regression_score = self._model_regression.score(np.hstack([XW, T]), Y, **filtered_kwargs)
 
         return propensity_score, regression_score
 
@@ -112,6 +111,12 @@ class _ModelNuisance:
         T_complete = np.hstack(((np.all(T == 0, axis=1) * 1).reshape(-1, 1), T))
         propensities_weight = np.sum(propensities * T_complete, axis=1)
         return Y_pred.reshape(Y.shape + (T.shape[1] + 1,)), propensities_weight.reshape((n,))
+
+
+def _make_first_stage_selector(model, is_discrete, random_state):
+    if model == "auto":
+        model = ['linear', 'forest']
+    return get_selector(model, is_discrete=is_discrete, random_state=random_state)
 
 
 class _ModelFinal:
@@ -335,30 +340,29 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.const_marginal_effect(X[:2])
-    array([[0.511640..., 1.144004...],
-           [0.378140..., 0.613143...]])
+    array([[0.520977..., 1.244073...],
+           [0.365645..., 0.749762...]])
     >>> est.effect(X[:2], T0=0, T1=1)
-    array([0.511640..., 0.378140...])
+    array([0.520977..., 0.365645...])
     >>> est.score_
-    5.11238581...
+    3.15958089...
     >>> est.score(y, T, X=X)
-    5.78673506...
+    2.60965712...
     >>> est.model_cate(T=1).coef_
-    array([0.434910..., 0.010226..., 0.047913...])
+    array([0.369069..., 0.016610..., 0.019072...])
     >>> est.model_cate(T=2).coef_
-    array([ 0.863723...,  0.086946..., -0.022288...])
+    array([ 0.768336...,  0.082106..., -0.030475...])
     >>> est.cate_feature_names()
     ['X0', 'X1', 'X2']
     >>> [mdl.coef_ for mdls in est.models_regression for mdl in mdls]
-    [array([ 1.472...,  0.001..., -0.011...,  0.698..., 2.049...]),
-     array([ 1.455..., -0.002...,  0.005...,  0.677...,  1.998...])]
+    [array([ 1.463...,  0.006..., -0.006...,  0.726...,  2.029...]),
+    array([ 1.466..., -0.002...,  0...,  0.646...,  2.014...])]
     >>> [mdl.coef_ for mdls in est.models_propensity for mdl in mdls]
-    [array([[-0.747...,  0.153..., -0.018...],
-           [ 0.083..., -0.110..., -0.076...],
-           [ 0.663..., -0.043... ,  0.094...]]),
-     array([[-1.048...,  0.000...,  0.032...],
-           [ 0.019...,  0.124..., -0.081...],
-           [ 1.029..., -0.124...,  0.049...]])]
+    [array([[-0.67903093,  0.04261741, -0.05969718],
+           [ 0.034..., -0.013..., -0.013...],
+           [ 0.644..., -0.028...,  0.073...]]), array([[-0.831...,  0.100...,  0.090...],
+           [ 0.084...,  0.013..., -0.154...],
+           [ 0.747..., -0.113...,  0.063...]])]
 
     Beyond default models:
 
@@ -380,19 +384,19 @@ class DRLearner(_OrthoLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.score_
-    1.7...
+    3.7...
     >>> est.const_marginal_effect(X[:3])
-    array([[0.68...,  1.10...],
-           [0.56...,  0.79...],
-           [0.34...,  0.10...]])
+    array([[0.64..., 1.23...],
+           [0.49..., 0.92...],
+           [0.20..., 0.26...]])
     >>> est.model_cate(T=2).coef_
-    array([0.74..., 0.        , 0.        ])
+    array([0.72..., 0.        , 0.        ])
     >>> est.model_cate(T=2).intercept_
-    1.9...
+    2.0...
     >>> est.model_cate(T=1).coef_
-    array([0.24..., 0.00..., 0.        ])
+    array([0.31..., 0.01..., 0.00...])
     >>> est.model_cate(T=1).intercept_
-    0.94...
+    0.97...
 
     Attributes
     ----------
@@ -499,16 +503,8 @@ class DRLearner(_OrthoLearner):
         return options
 
     def _gen_ortho_learner_model_nuisance(self):
-        if self.model_propensity == 'auto':
-            model_propensity = LogisticRegressionCV(cv=3, solver='lbfgs', multi_class='auto',
-                                                    random_state=self.random_state)
-        else:
-            model_propensity = clone(self.model_propensity, safe=False)
-
-        if self.model_regression == 'auto':
-            model_regression = WeightedLassoCVWrapper(cv=3, random_state=self.random_state)
-        else:
-            model_regression = clone(self.model_regression, safe=False)
+        model_propensity = _make_first_stage_selector(self.model_propensity, True, self.random_state)
+        model_regression = _make_first_stage_selector(self.model_regression, False, self.random_state)
 
         return _ModelNuisance(model_propensity, model_regression, self.min_propensity)
 
@@ -648,7 +644,7 @@ class DRLearner(_OrthoLearner):
             monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_propensity for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_propensity.best_model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_regression(self):
@@ -662,7 +658,7 @@ class DRLearner(_OrthoLearner):
             monte carlo iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_regression for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_regression.best_model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_propensity(self):
@@ -868,17 +864,17 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.409743...,  0.312604..., -0.127394...])
+    array([0.457602..., 0.335707..., 0.011288...])
     >>> est.effect_interval(X[:3])
-    (array([ 0.065306..., -0.182074..., -0.765901...]), array([0.754180..., 0.807284..., 0.511113...]))
+    (array([ 0.164623..., -0.098980..., -0.493464...]), array([0.750582..., 0.77039... , 0.516041...]))
     >>> est.coef_(T=1)
-    array([ 0.450779..., -0.003214... ,  0.063884... ])
+    array([0.338061..., 0.025654..., 0.044389...])
     >>> est.coef__interval(T=1)
-    (array([ 0.155111..., -0.246272..., -0.136827...]), array([0.746447..., 0.239844..., 0.264595...]))
+    (array([ 0.135677..., -0.155845..., -0.143376...]), array([0.540446..., 0.207155..., 0.232155...]))
     >>> est.intercept_(T=1)
-    0.88425066...
+    0.78646497...
     >>> est.intercept__interval(T=1)
-    (0.64868548..., 1.11981585...)
+    (0.60344468..., 0.96948526...)
 
     Attributes
     ----------
@@ -1161,17 +1157,17 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([ 0.41...,  0.31..., -0.12...])
+    array([0.45..., 0.33..., 0.01...])
     >>> est.effect_interval(X[:3])
-    (array([-0.02..., -0.29... , -0.84...]), array([0.84..., 0.92..., 0.59...]))
+    (array([ 0.11..., -0.13..., -0.54...]), array([0.79..., 0.80..., 0.57...]))
     >>> est.coef_(T=1)
-    array([ 0.45..., -0.00..., 0.06...])
+    array([0.33..., 0.02..., 0.04...])
     >>> est.coef__interval(T=1)
-    (array([ 0.20..., -0.23..., -0.17...]), array([0.69..., 0.23..., 0.30...]))
+    (array([ 0.14..., -0.15..., -0.14...]), array([0.53..., 0.20..., 0.23...]))
     >>> est.intercept_(T=1)
-    0.88...
+    0.78...
     >>> est.intercept__interval(T=1)
-    (0.64..., 1.11...)
+    (0.60..., 0.96...)
 
     Attributes
     ----------

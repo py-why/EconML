@@ -765,6 +765,7 @@ class TestDRLearner(unittest.TestCase):
         outcome_model = Pipeline(
             [('poly', PolynomialFeatures()), ('model', LinearRegression())])
         DR_learner = DRLearner(model_regression=outcome_model,
+                               model_propensity=LogisticRegressionCV(),
                                model_final=LinearRegression())
         self._test_te(DR_learner, tol=0.5, te_type="heterogeneous")
         # Test heterogenous treatment effect for W =/= None
@@ -828,25 +829,16 @@ class TestDRLearner(unittest.TestCase):
         #       cross-fit generate one
         est = LinearDRLearner(model_propensity=LogisticRegression(),
                               # with 2-fold grouping, we should get exactly 3 groups per split
-                              model_regression=GroupingModel(LinearRegression(), (3, 3), n_copies),
+                              model_regression=GroupingModel(LinearRegression(), 60, (3, 3), n_copies),
                               cv=StratifiedGroupKFold(2))
         est.fit(y, t, W=w, groups=groups)
 
         # test nested grouping
         est = LinearDRLearner(model_propensity=LogisticRegression(),
                               # with 2-fold outer and 2-fold inner grouping, we should get 1-2 groups per split
-                              model_regression=NestedModel(LassoCV(cv=2), (1, 2), n_copies),
+                              model_regression=NestedModel(LassoCV(cv=2), 60, (1, 2), n_copies),
                               cv=StratifiedGroupKFold(2))
         est.fit(y, t, W=w, groups=groups)
-
-        # by default, we use 5 split cross-validation for our T and Y models
-        # but we don't have enough groups here to split both the outer and inner samples with grouping
-        # TODO: does this imply we should change some defaults to make this more likely to succeed?
-        est = LinearDRLearner(model_propensity=LogisticRegressionCV(cv=5),
-                              model_regression=LassoCV(cv=5),
-                              cv=StratifiedGroupKFold(2))
-        with pytest.raises(Exception):
-            est.fit(y, t, W=w, groups=groups)
 
     def test_score(self):
         """Test that scores are the same no matter whether the prediction of cate model has the same shape of

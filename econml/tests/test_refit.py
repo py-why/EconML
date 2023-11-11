@@ -188,9 +188,9 @@ class TestRefit(unittest.TestCase):
         est.model_t_xw = ElasticNet()
         est.model_z_xw = WeightedLasso()
         est.fit(y, T, Z=Z, W=W, cache_values=True)
-        assert isinstance(est.models_nuisance_[0][0]._model_y_xw._model, Lasso)
-        assert isinstance(est.models_nuisance_[0][0]._model_t_xw._model, ElasticNet)
-        assert isinstance(est.models_nuisance_[0][0]._model_z_xw._model, WeightedLasso)
+        assert isinstance(est.models_y_xw[0][0], Lasso)
+        assert isinstance(est.models_t_xw[0][0], ElasticNet)
+        assert isinstance(est.models_z_xw[0][0], WeightedLasso)
 
         est = DMLIV(model_y_xw=LinearRegression(),
                     model_t_xw=LinearRegression(),
@@ -202,9 +202,9 @@ class TestRefit(unittest.TestCase):
         est.model_t_xw = ElasticNet()
         est.model_t_xwz = WeightedLasso()
         est.fit(y, T, Z=Z, X=X, W=W, cache_values=True)
-        assert isinstance(est.models_nuisance_[0][0]._model_y_xw._model, Lasso)
-        assert isinstance(est.models_nuisance_[0][0]._model_t_xw._model, ElasticNet)
-        assert isinstance(est.models_nuisance_[0][0]._model_t_xwz._model, WeightedLasso)
+        assert isinstance(est.models_y_xw[0][0], Lasso)
+        assert isinstance(est.models_t_xw[0][0], ElasticNet)
+        assert isinstance(est.models_t_xwz[0][0], WeightedLasso)
 
         est = NonParamDMLIV(model_y_xw=LinearRegression(),
                             model_t_xw=LinearRegression(),
