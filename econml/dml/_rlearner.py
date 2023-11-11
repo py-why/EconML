@@ -258,9 +258,9 @@ class _RLearner(_OrthoLearner):
     array([0.999631...])
     >>> est.score_
     9.82623204...e-05
-    >>> [mdl.best_model._model for mdls in est.models_y for mdl in mdls]
+    >>> [mdl._model for mdls in est.models_y for mdl in mdls]
     [LinearRegression(), LinearRegression()]
-    >>> [mdl.best_model._model for mdls in est.models_t for mdl in mdls]
+    >>> [mdl._model for mdls in est.models_t for mdl in mdls]
     [LinearRegression(), LinearRegression()]
 
     Attributes

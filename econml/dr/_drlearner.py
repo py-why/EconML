@@ -868,7 +868,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     >>> est.effect_interval(X[:3])
     (array([ 0.164623..., -0.098980..., -0.493464...]), array([0.750582..., 0.77039... , 0.516041...]))
     >>> est.coef_(T=1)
-    array([ 0.338061..., 0.025654..., 0.044389...])
+    array([0.338061..., 0.025654..., 0.044389...])
     >>> est.coef__interval(T=1)
     (array([ 0.135677..., -0.155845..., -0.143376...]), array([0.540446..., 0.207155..., 0.232155...]))
     >>> est.intercept_(T=1)
