@@ -134,7 +134,7 @@ class TLearner(TreatmentExpansionMixin, LinearCateEstimator):
             the corresponding singleton dimensions in the output will be collapsed
         """
         # Check inputs
-        X = check_array(X)
+        X = check_array(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         taus = []
         for ind in range(self._d_t[0]):
             taus.append(self.models[ind + 1].predict(X) - self.models[0].predict(X))
@@ -259,7 +259,7 @@ class SLearner(TreatmentExpansionMixin, LinearCateEstimator):
         # Check inputs
         if X is None:
             X = np.zeros((1, 1))
-        X = check_array(X)
+        X = check_array(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         Xs, Ts = broadcast_unit_treatments(X, self._d_t[0] + 1)
         feat_arr = np.concatenate((Xs, Ts), axis=1)
         prediction = self.overall_model.predict(feat_arr).reshape((-1, self._d_t[0] + 1,) + self._d_y)
@@ -418,7 +418,7 @@ class XLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Note that when Y is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
         """
-        X = check_array(X)
+        X = check_array(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         m = X.shape[0]
         taus = []
         for ind in range(self._d_t[0]):
@@ -586,7 +586,7 @@ class DomainAdaptationLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Note that when Y is a vector rather than a 2-dimensional array,
             the corresponding singleton dimensions in the output will be collapsed
         """
-        X = check_array(X)
+        X = check_array(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         taus = []
         for model in self.final_models:
             taus.append(model.predict(X))
