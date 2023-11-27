@@ -53,7 +53,7 @@ from ..grf import RegressionForest
 from ..sklearn_extensions.linear_model import (
     DebiasedLasso, StatsModelsLinearRegression, WeightedLassoCVWrapper)
 from ..sklearn_extensions.model_selection import ModelSelector, SingleModelSelector, get_selector
-from ..utilities import (_deprecate_positional, check_high_dimensional,
+from ..utilities import (_deprecate_positional, check_high_dimensional, check_inputs,
                          filter_none_kwargs, inverse_onehot, get_feature_names_or_default)
 from .._shap import _shap_explain_multitask_model_cate, _shap_explain_model_cate
 
@@ -555,6 +555,8 @@ class DRLearner(_OrthoLearner):
         -------
         self: DRLearner instance
         """
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         # Replacing fit from _OrthoLearner, to enforce Z=None and improve the docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
@@ -970,6 +972,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         -------
         self: DRLearner instance
         """
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         # Replacing fit from DRLearner, to add statsmodels inference in docstring
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
@@ -1283,6 +1287,8 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                                discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
                                    "We recommend using the LinearDRLearner for this low-dimensional setting.")
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
@@ -1597,6 +1603,8 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         if X is None:
             raise ValueError("This estimator does not support X=None!")
 
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                                  force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)

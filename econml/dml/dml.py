@@ -10,6 +10,7 @@ from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import KFold, StratifiedKFold, check_cv
 from sklearn.pipeline import Pipeline
+from sklearn.utils import check_array
 from sklearn.preprocessing import (FunctionTransformer, LabelEncoder,
                                    OneHotEncoder)
 from sklearn.utils import check_random_state
@@ -28,7 +29,7 @@ from ..sklearn_extensions.linear_model import (MultiOutputDebiasedLasso,
                                                WeightedLassoCVWrapper)
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..utilities import (_deprecate_positional, add_intercept,
-                         broadcast_unit_treatments, check_high_dimensional,
+                         broadcast_unit_treatments, check_high_dimensional, check_inputs,
                          cross_product, deprecated,
                          hstack, inverse_onehot, ndim, reshape,
                          reshape_treatmentwise_effects, shape, transpose,
@@ -188,6 +189,7 @@ class _FinalWrapper:
         return self
 
     def predict(self, X):
+        X = check_array(X, force_all_finite='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         X2, T = broadcast_unit_treatments(X if X is not None else np.empty((1, 0)),
                                           self._d_t[0] if self._d_t else 1)
         # This works both with our without the weighting trick as the treatments T are unit vector
@@ -576,6 +578,8 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         -------
         self
         """
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight,
                            sample_var=sample_var, groups=groups,
                            cache_values=cache_values,
@@ -795,6 +799,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         -------
         self
         """
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var, groups=groups,
                            cache_values=cache_values,
@@ -1068,6 +1074,8 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                                discrete_treatment=self.discrete_treatment,
                                msg="The number of features in the final model (< 5) is too small for a sparse model. "
                                "We recommend using the LinearDML estimator for this low-dimensional setting.")
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
@@ -1280,6 +1288,9 @@ class KernelDML(DML):
         -------
         self
         """
+
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         return super().fit(Y, T, X=X, W=W,
                            sample_weight=sample_weight, groups=groups,
                            cache_values=cache_values, inference=inference)
@@ -1512,6 +1523,8 @@ class NonParamDML(_BaseDML):
         -------
         self
         """
+        Y, T, X, _ = check_inputs(Y, T, X, multi_output_T=False,
+                            force_all_finite_X='allow-nan' if 'X' in self._gen_allowed_missing_vars() else True)
         return super().fit(Y, T, X=X, W=W, sample_weight=sample_weight, freq_weight=freq_weight, sample_var=sample_var,
                            groups=groups,
                            cache_values=cache_values,
