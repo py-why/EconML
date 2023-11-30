@@ -20,7 +20,7 @@ The method reduces the problem to first estimating *two predictive tasks*:
     2) predicting the treatment from the controls;
 
 Then the method combines these two predictive models in a final stage estimation so as to create a
-model of the heterogeneous treatment efffect. The approach allows for *arbitrary Machine Learning algorithms* to be
+model of the heterogeneous treatment effect. The approach allows for *arbitrary Machine Learning algorithms* to be
 used for the two predictive tasks, while maintaining many favorable statistical properties related to the final
 model (e.g. small mean squared error, asymptotic normality, construction of confidence intervals).
 
