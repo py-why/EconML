@@ -45,19 +45,89 @@ from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, check_input_arrays,
                         cross_product, filter_none_kwargs,
                         inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
+from .sklearn_extensions.model_selection import ModelSelector
+
+try:
+    import ray
+except ImportError as exn:
+    from .utilities import MissingModule
+    ray = MissingModule(
+        "Ray is not a dependency of the base econml package; install econml[ray] or econml[all] to require it, "
+        "or install ray separately, to use functionality that depends on ray", exn)
 
 
-def _crossfit(model, folds, *args, **kwargs):
+def _fit_fold(model, train_idxs, test_idxs, calculate_scores, args, kwargs):
+    """
+    Fits a single model on the training data and calculates the nuisance value on the test data.
+    model:  object
+        An object that supports fit and predict. Fit must accept all the args
+        and the keyword arguments kwargs. Similarly predict must all accept
+        all the args as arguments and kwards as keyword arguments. The fit
+        function estimates a model of the nuisance function, based on the input
+        data to fit. Predict evaluates the fitted nuisance function on the input
+        data to predict.
+
+    train_idxs (array-like): Indices for the training data.
+    test_idxs (array-like): Indices for the test data.
+    calculate_scores (bool): Whether to calculate scores after fitting.
+
+    args : a sequence of (numpy matrices or None)
+        Each matrix is a data variable whose first index corresponds to a sample
+    kwargs : a sequence of key-value args, with values being (numpy matrices or None)
+        Each keyword argument is of the form Var=x, with x a numpy array. Each
+        of these arrays are data variables. The model fit and predict will be
+        called with signature: `model.fit(*args, **kwargs)` and
+        `model.predict(*args, **kwargs)`. Key-value arguments that have value
+        None, are ommitted from the two calls. So all the args and the non None
+        kwargs variables must be part of the models signature.
+    Returns:
+    --------
+    -Tuple containing:
+    nuisance_temp (tuple): Predictions or values of interest from the model.
+    fitted_model: The fitted model after training.
+    test_idxs (array-like): Indices of the test data.
+    score_temp (tuple or None): Scores calculated after fitting if `calculate_scores` is True, otherwise None.
+    """
+    model = clone(model, safe=False)
+
+    if len(np.intersect1d(train_idxs, test_idxs)) > 0:
+        raise AttributeError(
+            "Invalid crossfitting fold structure. Train and test indices of each fold must be disjoint. {},{}".format(
+                train_idxs, test_idxs))
+
+    args_train = tuple(var[train_idxs] if var is not None else None for var in args)
+    args_test = tuple(var[test_idxs] if var is not None else None for var in args)
+
+    kwargs_train = {key: var[train_idxs] for key, var in kwargs.items()}
+    kwargs_test = {key: var[test_idxs] for key, var in kwargs.items()}
+
+    model.train(False, *args_train, **kwargs_train)
+    nuisance_temp = model.predict(*args_test, **kwargs_test)
+
+    if not isinstance(nuisance_temp, tuple):
+        nuisance_temp = (nuisance_temp,)
+
+    if calculate_scores:
+        score_temp = model.score(*args_test, **kwargs_test)
+
+        if not isinstance(score_temp, tuple):
+            score_temp = (score_temp,)
+
+    return nuisance_temp, model, test_idxs, (score_temp if calculate_scores else None)
+
+
+def _crossfit(model: ModelSelector, folds, use_ray, ray_remote_fun_option, *args, **kwargs):
     """
     General crossfit based calculation of nuisance parameters.
 
     Parameters
     ----------
-    model : object
-        An object that supports fit and predict. Fit must accept all the args
-        and the keyword arguments kwargs. Similarly predict must all accept
-        all the args as arguments and kwards as keyword arguments. The fit
-        function estimates a model of the nuisance function, based on the input
+    model : ModelSelector
+        An object that has train and predict methods.
+        The train method must take an 'is_selecting' argument first, and then
+        accept positional arguments `args` and keyword arguments `kwargs`; the predict method
+        just takes those `args` and `kwargs`. The train
+        method selects or estimates a model of the nuisance function, based on the input
         data to fit. Predict evaluates the fitted nuisance function on the input
         data to predict.
     folds : list of tuple or None
@@ -67,6 +137,10 @@ def _crossfit(model, folds, *args, **kwargs):
         is not the full set of all indices, then the remaining nuisance parameters
         for the missing indices have value NaN.  If folds is None, then cross fitting
         is not performed; all indices are used for both model fitting and prediction
+    use_ray: bool, default False
+        Flag to indicate whether to use ray to parallelize the cross-fitting step.
+    ray_remote_fun_option: dict, default None
+        Options to pass to the ray.remote decorator.
     args : a sequence of (numpy matrices or None)
         Each matrix is a data variable whose first index corresponds to a sample
     kwargs : a sequence of key-value args, with values being (numpy matrices or None)
@@ -105,7 +179,7 @@ def _crossfit(model, folds, *args, **kwargs):
         class Wrapper:
             def __init__(self, model):
                 self._model = model
-            def fit(self, X, y, W=None):
+            def train(self, is_selecting, X, y, W=None):
                 self._model.fit(X, y)
                 return self
             def predict(self, X, y, W=None):
@@ -115,7 +189,10 @@ def _crossfit(model, folds, *args, **kwargs):
         y = X[:, 0] + np.random.normal(size=(5000,))
         folds = list(KFold(2).split(X, y))
         model = Lasso(alpha=0.01)
-        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model), folds, X, y, W=y, Z=None)
+        use_ray = False
+        ray_remote_fun_option = {}
+        nuisance, model_list, fitted_inds, scores = _crossfit(Wrapper(model),folds, use_ray, ray_remote_fun_option,
+         X, y,W=y, Z=None)
 
     >>> nuisance
     (array([-1.105728... , -1.537566..., -2.451827... , ...,  1.106287...,
@@ -127,15 +204,17 @@ def _crossfit(model, folds, *args, **kwargs):
 
     """
     model_list = []
-    fitted_inds = []
-    calculate_scores = hasattr(model, 'score')
 
-    # remove None arguments
     kwargs = filter_none_kwargs(**kwargs)
+    model.train(True, *args, **kwargs)
+
+    calculate_scores = hasattr(model, 'score')
+    # remove None arguments
 
     if folds is None:  # skip crossfitting
         model_list.append(clone(model, safe=False))
-        model_list[0].fit(*args, **kwargs)
+        model_list[0].train(True, *args, **kwargs)
+        model_list[0].train(False, *args, **kwargs)  # fit the selected model
         nuisances = model_list[0].predict(*args, **kwargs)
         scores = model_list[0].score(*args, **kwargs) if calculate_scores else None
 
@@ -150,28 +229,27 @@ def _crossfit(model, folds, *args, **kwargs):
         first_arr = args[0] if args else kwargs.items()[0][1]
         return nuisances, model_list, np.arange(first_arr.shape[0]), scores
 
+    folds = list(folds)
+    fold_refs = []
+    if use_ray:
+        # Adding the kwargs to ray object store to be used by remote functions for each fold to avoid IO overhead
+        ray_args = ray.put(kwargs)
+        for idx, (train_idxs, test_idxs) in enumerate(folds):
+            fold_refs.append(
+                ray.remote(_fit_fold).options(**ray_remote_fun_option).remote(model, train_idxs, test_idxs,
+                                                                              calculate_scores, args, ray_args))
+    fitted_inds = []
     for idx, (train_idxs, test_idxs) in enumerate(folds):
-        model_list.append(clone(model, safe=False))
-        if len(np.intersect1d(train_idxs, test_idxs)) > 0:
-            raise AttributeError("Invalid crossfitting fold structure." +
-                                 "Train and test indices of each fold must be disjoint.")
+        if use_ray:
+            nuisance_temp, model, test_idxs, score_temp = ray.get(fold_refs[idx])
+        else:
+            nuisance_temp, model, test_idxs, score_temp = _fit_fold(model, train_idxs, test_idxs,
+                                                                    calculate_scores, args, kwargs)
+
         if len(np.intersect1d(fitted_inds, test_idxs)) > 0:
-            raise AttributeError("Invalid crossfitting fold structure. The same index appears in two test folds.")
+            raise AttributeError(
+                "Invalid crossfitting fold structure. The same index appears in two test folds.")
         fitted_inds = np.concatenate((fitted_inds, test_idxs))
-
-        args_train = tuple(var[train_idxs] if var is not None else None for var in args)
-        args_test = tuple(var[test_idxs] if var is not None else None for var in args)
-
-        kwargs_train = {key: var[train_idxs] for key, var in kwargs.items()}
-        kwargs_test = {key: var[test_idxs] for key, var in kwargs.items()}
-
-        model_list[idx].fit(*args_train, **kwargs_train)
-
-        nuisance_temp = model_list[idx].predict(*args_test, **kwargs_test)
-
-        if not isinstance(nuisance_temp, tuple):
-            nuisance_temp = (nuisance_temp,)
-
         if idx == 0:
             nuisances = tuple([np.full((args[0].shape[0],) + nuis.shape[1:], np.nan) for nuis in nuisance_temp])
 
@@ -179,16 +257,12 @@ def _crossfit(model, folds, *args, **kwargs):
             nuisances[it][test_idxs] = nuis
 
         if calculate_scores:
-            score_temp = model_list[idx].score(*args_test, **kwargs_test)
-
-            if not isinstance(score_temp, tuple):
-                score_temp = (score_temp,)
-
             if idx == 0:
                 scores = tuple([] for _ in score_temp)
-
             for it, score in enumerate(score_temp):
                 scores[it].append(score)
+
+        model_list.append(model)
 
     return nuisances, model_list, np.sort(fitted_inds.astype(int)), (scores if calculate_scores else None)
 
@@ -302,6 +376,12 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         Whether to allow missing values in X, W. If True, will need to supply nuisance models that can handle
         missing values.
 
+    use_ray: bool, default False
+        Whether to use ray to parallelize the cross-fitting step.
+
+    ray_remote_func_options: dict, default None
+        Options to pass to the ray.remote decorator.
+
     Examples
     --------
 
@@ -320,7 +400,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             def __init__(self, model_t, model_y):
                 self._model_t = model_t
                 self._model_y = model_y
-            def fit(self, Y, T, W=None):
+            def train(self, is_selecting, Y, T, W=None):
                 self._model_t.fit(W, T)
                 self._model_y.fit(W, Y)
                 return self
@@ -374,7 +454,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             def __init__(self, model_t, model_y):
                 self._model_t = model_t
                 self._model_y = model_y
-            def fit(self, Y, T, W=None):
+            def train(self, is_selecting, Y, T, W=None):
                 self._model_t.fit(W, np.matmul(T, np.arange(1, T.shape[1]+1)))
                 self._model_y.fit(W, Y)
                 return self
@@ -445,7 +525,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                  random_state,
                  mc_iters=None,
                  mc_agg='mean',
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.cv = cv
         self.binary_outcome = binary_outcome
         self.discrete_treatment = discrete_treatment
@@ -456,6 +538,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         self.mc_iters = mc_iters
         self.mc_agg = mc_agg
         self.allow_missing = allow_missing
+        self.use_ray = use_ray
+        self.ray_remote_func_options = ray_remote_func_options
         super().__init__()
 
     def _gen_allowed_missing_vars(self):
@@ -463,15 +547,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     @abstractmethod
     def _gen_ortho_learner_model_nuisance(self):
-        """ Must return a fresh instance of a nuisance model
+        """Must return a fresh instance of a nuisance model selector
 
         Returns
         -------
-        model_nuisance: estimator
-            The estimator for fitting the nuisance function. Must implement
-            `fit` and `predict` methods that both have signatures::
+        model_nuisance: selector
+            The selector for fitting the nuisance function. The returned estimator must implement
+            `train` and `predict` methods that both have signatures::
 
-                model_nuisance.fit(Y, T, X=X, W=W, Z=Z,
+                model_nuisance.train(is_selecting, Y, T, X=X, W=W, Z=Z,
                                 sample_weight=sample_weight)
                 model_nuisance.predict(Y, T, X=X, W=W, Z=Z,
                                     sample_weight=sample_weight)
@@ -699,9 +783,26 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                     sample_weight_nuisances = sample_weight
 
             self._models_nuisance = []
+
+            if self.use_ray:
+                if not ray.is_initialized():
+                    ray.init()
+                self.ray_remote_func_options = self.ray_remote_func_options or {}
+
+                # Define Ray remote function (Ray remote wrapper of the _fit_nuisances function)
+                def _fit_nuisances(Y, T, X, W, Z, sample_weight, groups):
+                    return self._fit_nuisances(Y, T, X, W, Z, sample_weight=sample_weight, groups=groups)
+
+                # Create Ray remote jobs for parallel processing
+                self.nuisances_ref = [ray.remote(_fit_nuisances).options(**self.ray_remote_func_options).remote(
+                    Y, T, X, W, Z, sample_weight_nuisances, groups) for _ in range(self.mc_iters or 1)]
+
             for idx in range(self.mc_iters or 1):
-                nuisances, fitted_models, new_inds, scores = self._fit_nuisances(
-                    Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
+                if self.use_ray:
+                    nuisances, fitted_models, new_inds, scores = ray.get(self.nuisances_ref[idx])
+                else:
+                    nuisances, fitted_models, new_inds, scores = self._fit_nuisances(
+                        Y, T, X, W, Z, sample_weight=sample_weight_nuisances, groups=groups)
                 all_nuisances.append(nuisances)
                 self._models_nuisance.append(fitted_models)
                 if scores is None:
@@ -851,8 +952,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 folds = splitter.split(to_split, strata)
 
         nuisances, fitted_models, fitted_inds, scores = _crossfit(self._ortho_learner_model_nuisance, folds,
-                                                                  Y, T, X=X, W=W, Z=Z,
-                                                                  sample_weight=sample_weight, groups=groups)
+                                                                  self.use_ray, self.ray_remote_func_options, Y, T,
+                                                                  X=X, W=W, Z=Z, sample_weight=sample_weight,
+                                                                  groups=groups)
         return nuisances, fitted_models, fitted_inds, scores
 
     def _fit_final(self, Y, T, X=None, W=None, Z=None, nuisances=None, sample_weight=None,
@@ -877,30 +979,35 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             return self._ortho_learner_model_final.predict()
         else:
             return self._ortho_learner_model_final.predict(X)
+
     const_marginal_effect.__doc__ = LinearCateEstimator.const_marginal_effect.__doc__
 
     def const_marginal_effect_interval(self, X=None, *, alpha=0.05):
         X, = check_input_arrays(X)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_interval(X, alpha=alpha)
+
     const_marginal_effect_interval.__doc__ = LinearCateEstimator.const_marginal_effect_interval.__doc__
 
     def const_marginal_effect_inference(self, X=None):
         X, = check_input_arrays(X)
         self._check_fitted_dims(X)
         return super().const_marginal_effect_inference(X)
+
     const_marginal_effect_inference.__doc__ = LinearCateEstimator.const_marginal_effect_inference.__doc__
 
     def effect_interval(self, X=None, *, T0=0, T1=1, alpha=0.05):
         X, T0, T1 = check_input_arrays(X, T0, T1)
         self._check_fitted_dims(X)
         return super().effect_interval(X, T0=T0, T1=T1, alpha=alpha)
+
     effect_interval.__doc__ = LinearCateEstimator.effect_interval.__doc__
 
     def effect_inference(self, X=None, *, T0=0, T1=1):
         X, T0, T1 = check_input_arrays(X, T0, T1)
         self._check_fitted_dims(X)
         return super().effect_inference(X, T0=T0, T1=T1)
+
     effect_inference.__doc__ = LinearCateEstimator.effect_inference.__doc__
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):

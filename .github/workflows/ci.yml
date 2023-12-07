@@ -117,7 +117,7 @@ jobs:
         kind: [except-customer-scenarios, customer-scenarios]
         include:
         - kind: "except-customer-scenarios"
-          extras: "[tf,plt]"
+          extras: "[tf,plt,ray]"
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
           version: '3.8' # no supported version of tensorflow for 3.9
@@ -201,32 +201,35 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.7', '3.8', '3.9', '3.10']
-        kind: [serial, other, dml, main, treatment]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+        kind: [serial, other, dml, main, treatment, ray]
         exclude:
           # Serial tests fail randomly on mac sometimes, so we don't run them there
           - os: macos-latest
             kind: serial
-          # Python 3.7 is broken on the mac runner image, see https://github.com/actions/runner-images/issues/7764
-          - os: macos-latest
-            python-version: '3.7'
+          # Ray tests run out of memory on Windows
+          - os: windows-latest
+            kind: ray
         # Assign the correct package and testing options for each kind of test
         include:
           - kind: serial
-            opts: '-m "serial" -n 1'
-            extras: "[tf,plt]"
+            opts: '-m "serial and not ray" -n 1'
+            extras: ""
           - kind: other
-            opts: '-m "cate_api" -n auto'
+            opts: '-m "cate_api and not ray" -n auto'
             extras: "[tf,plt]"
           - kind: dml
-            opts: '-m "dml"'
+            opts: '-m "dml and not ray"'
             extras: "[tf,plt]"
           - kind: main
-            opts: '-m "not (notebook or automl or dml or serial or cate_api or treatment_featurization)" -n 2'
+            opts: '-m "not (notebook or automl or dml or serial or cate_api or treatment_featurization or ray)" -n 2'
             extras: "[tf,plt,dowhy]"
           - kind: treatment
-            opts: '-m "treatment_featurization" -n auto'
+            opts: '-m "treatment_featurization and not ray" -n auto'
             extras: "[tf,plt]"
+          - kind: ray
+            opts: '-m "ray"'
+            extras: "[ray]"
       fail-fast: false    
     runs-on: ${{ matrix.os }}
     env:

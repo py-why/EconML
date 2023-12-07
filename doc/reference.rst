@@ -249,6 +249,16 @@ Inference Methods
     econml.inference.LinearModelFinalInferenceDiscrete
     econml.inference.StatsModelsInferenceDiscrete
 
+.. _federated_api:
+
+Federated Estimation
+--------------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    econml.federated_learning.FederatedEstimator
+
 .. _solutions_api:
 
 Solutions

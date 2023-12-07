@@ -11,7 +11,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.model_selection import train_test_split
 from itertools import product
 from .dml import _BaseDML
-from .dml import _FirstStageWrapper
+from .dml import _make_first_stage_selector
 from ..sklearn_extensions.linear_model import WeightedLassoCVWrapper
 from ..sklearn_extensions.model_selection import WeightedStratifiedKFold
 from ..inference import NormalInferenceResults
@@ -518,6 +518,13 @@ class CausalForestDML(_BaseDML):
         Whether to allow missing values in W. If True, will need to supply model_y, model_y that can handle
         missing values.
 
+    use_ray: bool, default False
+        Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
+
+    ray_remote_func_options : dict, default None
+        Options to pass to the remote function when using Ray.
+        See https://docs.ray.io/en/latest/ray-core/api/doc/ray.remote.html
+
     Examples
     --------
     A simple example with the default models and discrete treatment:
@@ -541,10 +548,10 @@ class CausalForestDML(_BaseDML):
         est.fit(y, T, X=X, W=None)
 
     >>> est.effect(X[:3])
-    array([0.76625..., 1.52176..., 0.73679...])
+    array([0.88518..., 1.25061..., 0.81112...])
     >>> est.effect_interval(X[:3])
-    (array([0.39668..., 1.08245... , 0.16566...]),
-    array([1.13581..., 1.96107..., 1.30791...]))
+    (array([0.40163..., 0.75023..., 0.46629...]),
+    array([1.36873..., 1.75099..., 1.15596...]))
 
     Attributes
     ----------
@@ -607,7 +614,9 @@ class CausalForestDML(_BaseDML):
                  n_jobs=-1,
                  random_state=None,
                  verbose=0,
-                 allow_missing=False):
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
 
         # TODO: consider whether we need more care around stateful featurizers,
         #       since we clone it and fit separate copies
@@ -644,7 +653,9 @@ class CausalForestDML(_BaseDML):
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
                          random_state=random_state,
-                         allow_missing=allow_missing)
+                         allow_missing=allow_missing,
+                         use_ray=use_ray,
+                         ray_remote_func_options=ray_remote_func_options)
 
     def _gen_allowed_missing_vars(self):
         return ['W'] if self.allow_missing else []
@@ -659,28 +670,10 @@ class CausalForestDML(_BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        if self.model_y == 'auto':
-            if self.binary_outcome:
-                model_y = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                               random_state=self.random_state)
-            else:
-                model_y = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_y = clone(self.model_y, safe=False)
-        return _FirstStageWrapper(model_y, True, self._gen_featurizer(), False,
-                                  self.discrete_treatment, self.binary_outcome)
+        return _make_first_stage_selector(self.model_y, self.binary_outcome, self.random_state)
 
     def _gen_model_t(self):
-        if self.model_t == 'auto':
-            if self.discrete_treatment:
-                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                               random_state=self.random_state)
-            else:
-                model_t = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t = clone(self.model_t, safe=False)
-        return _FirstStageWrapper(model_t, False, self._gen_featurizer(), False,
-                                  self.discrete_treatment, self.binary_outcome)
+        return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state)
 
     def _gen_model_final(self):
         return MultiOutputGRF(CausalForest(n_estimators=self.n_estimators,

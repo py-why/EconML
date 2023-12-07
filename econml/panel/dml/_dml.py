@@ -9,13 +9,13 @@ from sklearn.model_selection import GroupKFold
 from scipy.stats import norm
 from sklearn.linear_model import (ElasticNetCV, LassoCV, LogisticRegressionCV)
 from ...sklearn_extensions.linear_model import (StatsModelsLinearRegression, WeightedLassoCVWrapper)
-from ...sklearn_extensions.model_selection import WeightedStratifiedKFold
-from ...dml.dml import _FirstStageWrapper, _FinalWrapper
+from ...sklearn_extensions.model_selection import ModelSelector, WeightedStratifiedKFold
+from ...dml.dml import _make_first_stage_selector, _FinalWrapper
 from ..._cate_estimator import TreatmentExpansionMixin, LinearModelFinalCateEstimatorMixin
 from ..._ortho_learner import _OrthoLearner
 from ...utilities import (_deprecate_positional, add_intercept,
                           broadcast_unit_treatments, check_high_dimensional,
-                          cross_product, deprecated, fit_with_groups,
+                          cross_product, deprecated,
                           hstack, inverse_onehot, ndim, reshape,
                           reshape_treatmentwise_effects, shape, transpose,
                           get_feature_names_or_default, check_input_arrays,
@@ -33,7 +33,7 @@ def _get_groups_period_filter(groups, n_periods):
     return group_period_filter
 
 
-class _DynamicModelNuisance:
+class _DynamicModelNuisanceSelector(ModelSelector):
     """
     Nuisance model fits the model_y and model_t at fit time and at predict time
     calculates the residual Y and residual T based on the fitted models and returns
@@ -45,21 +45,27 @@ class _DynamicModelNuisance:
         self._model_t = model_t
         self.n_periods = n_periods
 
-    def fit(self, Y, T, X=None, W=None, sample_weight=None, groups=None):
+    def train(self, is_selecting, Y, T, X=None, W=None, sample_weight=None, groups=None):
         """Fit a series of nuisance models for each period or period pairs."""
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
         period_filters = _get_groups_period_filter(groups, self.n_periods)
-        self._model_y_trained = {}
-        self._model_t_trained = {j: {} for j in np.arange(self.n_periods)}
+        if is_selecting:  # create the per-period y and t models
+            self._model_y_trained = {t: clone(self._model_y, safe=False)
+                                     for t in np.arange(self.n_periods)}
+            self._model_t_trained = {j: {t: clone(self._model_t, safe=False)
+                                         for t in np.arange(j + 1)}
+                                     for j in np.arange(self.n_periods)}
         for t in np.arange(self.n_periods):
-            self._model_y_trained[t] = clone(self._model_y, safe=False).fit(
+            self._model_y_trained[t].train(
+                is_selecting,
                 self._index_or_None(X, period_filters[t]),
                 self._index_or_None(
                     W, period_filters[t]),
                 Y[period_filters[self.n_periods - 1]])
             for j in np.arange(t, self.n_periods):
-                self._model_t_trained[j][t] = clone(self._model_t, safe=False).fit(
+                self._model_t_trained[j][t].train(
+                    is_selecting,
                     self._index_or_None(X, period_filters[t]),
                     self._index_or_None(W, period_filters[t]),
                     T[period_filters[j]])
@@ -428,33 +434,33 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         est.fit(y, T, X=X, W=None, groups=groups, inference="auto")
 
     >>> est.const_marginal_effect(X[:2])
-    array([[-0.336..., -0.048..., -0.061...,  0.042..., -0.204...,
-         0.00667271],
-        [-0.101...,  0.433...,  0.054..., -0.217..., -0.101...,
-         -0.159...]])
+    array([[-0.345..., -0.056..., -0.044...,  0.046..., -0.202...,
+             0.023...],
+           [-0.120...,  0.434...,  0.052..., -0.201..., -0.115...,
+            -0.134...]])
     >>> est.effect(X[:2], T0=0, T1=1)
-    array([-0.601..., -0.091...])
+    array([-0.579..., -0.085...])
     >>> est.effect(X[:2], T0=np.zeros((2, n_periods*T.shape[1])), T1=np.ones((2, n_periods*T.shape[1])))
-    array([-0.601..., -0.091...])
+    array([-0.579..., -0.085...])
     >>> est.coef_
-    array([[ 0.112...],
-       [ 0.231...],
-       [ 0.055...],
-       [-0.125...],
-       [ 0.049...],
-       [-0.079...]])
+    array([[ 0.108...],
+           [ 0.235...],
+           [ 0.046...],
+           [-0.119...],
+           [ 0.042...],
+           [-0.075...]])
     >>> est.coef__interval()
-    (array([[-0.063...],
-           [-0.009...],
-           [-0.114...],
-           [-0.413...],
-           [-0.117...],
-           [-0.262...]]), array([[0.289...],
-           [0.471...],
-           [0.225...],
-           [0.163...],
-           [0.216...],
-           [0.103...]]))
+    (array([[-0.042...],
+           [-0.001...],
+           [-0.120...],
+           [-0.393...],
+           [-0.120...],
+           [-0.256...]]), array([[0.258...],
+           [0.473...],
+           [0.212...],
+           [0.154...],
+           [0.204...],
+           [0.104...]]))
     """
 
     def __init__(self, *,
@@ -536,34 +542,18 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        if self.model_y == 'auto':
-            if self.binary_outcome:
-                model_y = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                               random_state=self.random_state)
-            else:
-                model_y = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_y = clone(self.model_y, safe=False)
-        return _FirstStageWrapper(model_y, True, self._gen_featurizer(),
-                                  self.linear_first_stages, self.discrete_treatment, self.binary_outcome)
+        return _make_first_stage_selector(self.model_y, is_discrete=self.binary_outcome, random_state=self.random_state)
 
     def _gen_model_t(self):
-        if self.model_t == 'auto':
-            if self.discrete_treatment:
-                model_t = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                               random_state=self.random_state)
-            else:
-                model_t = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t = clone(self.model_t, safe=False)
-        return _FirstStageWrapper(model_t, False, self._gen_featurizer(),
-                                  self.linear_first_stages, self.discrete_treatment, self.binary_outcome)
+        return _make_first_stage_selector(self.model_t,
+                                          is_discrete=self.discrete_treatment,
+                                          random_state=self.random_state)
 
     def _gen_model_final(self):
         return StatsModelsLinearRegression(fit_intercept=False)
 
     def _gen_ortho_learner_model_nuisance(self):
-        return _DynamicModelNuisance(
+        return _DynamicModelNuisanceSelector(
             model_t=self._gen_model_t(),
             model_y=self._gen_model_y(),
             n_periods=self._n_periods)

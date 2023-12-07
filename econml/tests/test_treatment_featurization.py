@@ -4,7 +4,7 @@ import pytest
 import unittest
 import numpy as np
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LassoCV, LinearRegression, LogisticRegression
 from sklearn.ensemble import RandomForestRegressor
 from joblib import Parallel, delayed
 
@@ -14,15 +14,11 @@ from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr import DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV
 from econml.orf import DMLOrthoForest
 from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
-from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, WeightedLassoCVWrapper
 
 from econml.utilities import jacify_featurizer
 from econml.iv.sieve import DPolynomialFeatures
-
-from econml.tests.test_dml import TestDML
-
 from copy import deepcopy
-from econml.tests.test_dml import TestDML
 
 
 class DGP():
@@ -204,6 +200,25 @@ sum_squeeze_treatment_featurizer = FunctionTransformer(func=sum_squeeze_func_tra
 class TestTreatmentFeaturization(unittest.TestCase):
 
     def test_featurization(self):
+        # use LassoCV rather than also selecting over RandomForests to save time
+        dml_models = {
+            "model_t": WeightedLassoCVWrapper(),
+            "model_y": WeightedLassoCVWrapper()
+        }
+
+        dmliv_models = {
+            "model_y_xw": WeightedLassoCVWrapper(),
+            "model_t_xw": WeightedLassoCVWrapper(),
+            "model_t_xwz": WeightedLassoCVWrapper(),
+        }
+
+        driv_models = {
+            "model_y_xw": WeightedLassoCVWrapper(),
+            "model_t_xw": WeightedLassoCVWrapper(),
+            "model_z_xw": WeightedLassoCVWrapper(),
+            "model_tz_xw": WeightedLassoCVWrapper(),
+        }
+
         identity_config = {
             'DGP_params': {
                 'n': 2000,
@@ -227,10 +242,10 @@ class TestTreatmentFeaturization(unittest.TestCase):
             'squeeze_Ts': [False, True],
             'squeeze_Ys': [False, True],
             'est_dicts': [
-                {'class': LinearDML, 'init_args': {}},
-                {'class': CausalForestDML, 'init_args': {}},
-                {'class': SparseLinearDML, 'init_args': {}},
-                {'class': KernelDML, 'init_args': {}},
+                {'class': LinearDML, 'init_args': dml_models},
+                {'class': CausalForestDML, 'init_args': dml_models},
+                {'class': SparseLinearDML, 'init_args': dml_models},
+                {'class': KernelDML, 'init_args': dml_models},
             ]
         }
 
@@ -257,10 +272,10 @@ class TestTreatmentFeaturization(unittest.TestCase):
             'squeeze_Ts': [False, True],
             'squeeze_Ys': [False, True],
             'est_dicts': [
-                {'class': LinearDML, 'init_args': {}},
-                {'class': CausalForestDML, 'init_args': {}},
-                {'class': SparseLinearDML, 'init_args': {}},
-                {'class': KernelDML, 'init_args': {}},
+                {'class': LinearDML, 'init_args': dml_models},
+                {'class': CausalForestDML, 'init_args': dml_models},
+                {'class': SparseLinearDML, 'init_args': dml_models},
+                {'class': KernelDML, 'init_args': dml_models},
             ]
         }
 
@@ -272,9 +287,11 @@ class TestTreatmentFeaturization(unittest.TestCase):
         poly_IV_config['DGP_params']['d_z'] = 1
         poly_IV_config['DGP_params']['nuisance_TZ'] = lambda Z: Z
         poly_IV_config['est_dicts'] = [
-            {'class': OrthoIV, 'init_args': {
-                'model_t_xwz': RandomForestRegressor(random_state=1), 'projection': True}},
-            {'class': DMLIV, 'init_args': {'model_t_xwz': RandomForestRegressor(random_state=1)}},
+            {'class': OrthoIV, 'init_args': {**dmliv_models,
+                                             'model_t_xwz': RandomForestRegressor(random_state=1),
+                                             'projection': True}},
+            {'class': DMLIV, 'init_args': {**dmliv_models,
+                                           'model_t_xwz': RandomForestRegressor(random_state=1)}},
         ]
 
         poly_1d_config = deepcopy(poly_config)
@@ -291,11 +308,13 @@ class TestTreatmentFeaturization(unittest.TestCase):
         poly_1d_IV_config['treatment_featurizer'] = polynomial_1d_treatment_featurizer
         poly_1d_IV_config['actual_cme'] = poly_1d_actual_cme
         poly_1d_IV_config['est_dicts'] = [
-            {'class': NonParamDMLIV, 'init_args': {'model_final': StatsModelsLinearRegression()}},
-            {'class': DRIV, 'init_args': {'fit_cate_intercept': True}},
-            {'class': LinearDRIV, 'init_args': {}},
-            {'class': SparseLinearDRIV, 'init_args': {}},
-            {'class': ForestDRIV, 'init_args': {}},
+            {'class': NonParamDMLIV, 'init_args': {**dmliv_models,
+                                                   'model_final': StatsModelsLinearRegression()}},
+            {'class': DRIV, 'init_args': {**driv_models,
+                                          'fit_cate_intercept': True}},
+            {'class': LinearDRIV, 'init_args': driv_models},
+            {'class': SparseLinearDRIV, 'init_args': driv_models},
+            {'class': ForestDRIV, 'init_args': driv_models},
         ]
 
         sum_IV_config = {
@@ -323,11 +342,13 @@ class TestTreatmentFeaturization(unittest.TestCase):
             'squeeze_Ts': [False],
             'squeeze_Ys': [False, True],
             'est_dicts': [
-                {'class': NonParamDMLIV, 'init_args': {'model_final': StatsModelsLinearRegression()}},
-                {'class': DRIV, 'init_args': {'fit_cate_intercept': True}},
-                {'class': LinearDRIV, 'init_args': {}},
-                {'class': SparseLinearDRIV, 'init_args': {}},
-                {'class': ForestDRIV, 'init_args': {}},
+                {'class': NonParamDMLIV, 'init_args': {**dmliv_models,
+                                                       'model_final': StatsModelsLinearRegression()}},
+                {'class': DRIV, 'init_args': {**driv_models,
+                                              'fit_cate_intercept': True}},
+                {'class': LinearDRIV, 'init_args': driv_models},
+                {'class': SparseLinearDRIV, 'init_args': driv_models},
+                {'class': ForestDRIV, 'init_args': driv_models},
             ]
         }
 
@@ -577,5 +598,6 @@ class TestTreatmentFeaturization(unittest.TestCase):
         assert (lb1 < lb2).all() and (ub1 > ub2).all()
 
     def test_identity_feat_with_cate_api(self):
+        from .test_dml import TestDML
         treatment_featurizations = [FunctionTransformer()]
         TestDML()._test_cate_api(treatment_featurizations)

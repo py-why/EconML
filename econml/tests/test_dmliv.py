@@ -8,12 +8,12 @@ import numpy as np
 import pytest
 from scipy import special
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression, LogisticRegressionCV
 from sklearn.preprocessing import PolynomialFeatures
 
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
 from econml.iv.dr._dr import _DummyCATE
-from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression
+from econml.sklearn_extensions.linear_model import StatsModelsLinearRegression, WeightedLassoCVWrapper
 from econml.utilities import shape
 from econml.tests.utilities import GroupingModel
 
@@ -62,26 +62,40 @@ class TestDMLIV(unittest.TestCase):
                                 None,
                                 PolynomialFeatures(degree=2, include_bias=False),
                             ]:
+                                # since we're running so many combinations, just use LassoCV/LogisticRegressionCV
+                                # for the models instead of also selecting over random forest models
                                 est_list = [
                                     OrthoIV(
+                                        model_y_xw=WeightedLassoCVWrapper(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
+                                        model_z_xw=LogisticRegressionCV() if binary_Z else WeightedLassoCVWrapper(),
                                         projection=False,
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     OrthoIV(
+                                        model_y_xw=WeightedLassoCVWrapper(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
                                         projection=True,
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     DMLIV(
+                                        model_y_xw=WeightedLassoCVWrapper(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
                                         model_final=LinearRegression(fit_intercept=False),
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
                                         discrete_instrument=binary_Z,
                                     ),
                                     NonParamDMLIV(
+                                        model_y_xw=WeightedLassoCVWrapper(),
+                                        model_t_xw=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
+                                        model_t_xwz=LogisticRegressionCV() if binary_T else WeightedLassoCVWrapper(),
                                         model_final=RandomForestRegressor(),
                                         featurizer=featurizer,
                                         discrete_treatment=binary_T,
@@ -207,7 +221,7 @@ class TestDMLIV(unittest.TestCase):
                 projection=False,
                 discrete_treatment=True,
                 discrete_instrument=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims, n_copies),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims, n_copies),
                 model_t_xw=LogisticRegression(),
                 model_z_xw=LogisticRegression(),
             ),
@@ -215,7 +229,7 @@ class TestDMLIV(unittest.TestCase):
                 projection=True,
                 discrete_treatment=True,
                 discrete_instrument=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims, n_copies),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims, n_copies),
                 model_t_xw=LogisticRegression(),
                 model_t_xwz=LogisticRegression(),
             ),
@@ -223,7 +237,7 @@ class TestDMLIV(unittest.TestCase):
                 model_final=LinearRegression(fit_intercept=False),
                 discrete_treatment=True,
                 discrete_instrument=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims, n_copies),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims, n_copies),
                 model_t_xw=LogisticRegression(),
                 model_t_xwz=LogisticRegression(),
             ),
@@ -231,7 +245,7 @@ class TestDMLIV(unittest.TestCase):
                 model_final=RandomForestRegressor(),
                 discrete_treatment=True,
                 discrete_instrument=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims, n_copies),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims, n_copies),
                 model_t_xw=LogisticRegression(),
                 model_t_xwz=LogisticRegression(),
             ),

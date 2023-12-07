@@ -27,7 +27,7 @@ class ModelNuisance:
         self._model_t = model_t
         self._model_y = model_y
 
-    def fit(self, Y, T, W=None):
+    def train(self, is_selecting, Y, T, W=None):
         self._model_t.fit(W, T)
         self._model_y.fit(W, Y)
         return self

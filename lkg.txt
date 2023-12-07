@@ -1,89 +1,101 @@
+Cython==0.29.36
 Keras-Applications==1.0.8; python_version<='3.8'
 Keras-Preprocessing==1.1.2; python_version<='3.8'
 Keras==2.3.1; python_version<='3.8'
-Markdown==3.4.3; python_version<='3.8'
-MarkupSafe==2.1.2; python_version<='3.8'
-Pillow==9.5.0
-PyYAML==6.0; python_version<='3.8'
-Werkzeug==2.2.3; python_version<='3.7'
-Werkzeug==2.3.4; python_version=='3.8'
-absl-py==1.4.0; python_version<='3.8'
-argcomplete==3.0.8; '3.9'<=python_version and platform_system=='Windows'
+Markdown==3.5.1; python_version<='3.8'
+MarkupSafe==2.1.3; python_version<='3.8'
+Pillow==10.1.0
+PyYAML==6.0.1
+Werkzeug==3.0.1; python_version<='3.8'
+absl-py==2.0.0; python_version<='3.8'
+aiosignal==1.3.1; (platform_system=='Darwin' or platform_system=='Linux')
+argcomplete==3.1.2; python_version=='3.9' and platform_system=='Windows'
 astunparse==1.6.3; python_version<='3.8'
+attrs==23.1.0; (platform_system=='Darwin' or platform_system=='Linux')
 cachetools==4.2.4; python_version<='3.8'
-certifi==2023.5.7; python_version<='3.8'
-charset-normalizer==3.1.0; python_version<='3.8'
-click==8.1.3; '3.9'<=python_version and platform_system=='Windows'
-cloudpickle==2.2.1
+causal-learn==0.1.3.7
+certifi==2023.7.22
+charset-normalizer==3.3.2
+clarabel==0.6.0
+click==8.1.7
+cloudpickle==3.0.0
 colorama==0.4.6; platform_system=='Windows'
-cycler==0.11.0
-dowhy==0.8
-fonttools==4.38.0; python_version<='3.7'
-fonttools==4.39.4; '3.8'<=python_version
+contourpy==1.1.1; python_version<='3.8'
+contourpy==1.2.0; '3.9'<=python_version
+cvxpy==1.4.1
+cycler==0.12.1
+dowhy==0.10.1
+ecos==2.0.12
+filelock==3.13.1; (platform_system=='Darwin' or platform_system=='Linux')
+fonttools==4.44.0
+frozenlist==1.4.0; (platform_system=='Darwin' or platform_system=='Linux')
 gast==0.3.3; python_version<='3.8'
 google-auth-oauthlib==0.4.6; python_version<='3.8'
 google-auth==1.35.0; python_version<='3.8'
 google-pasta==0.2.0; python_version<='3.8'
 graphviz==0.20.1
-grpcio==1.54.0; python_version<='3.8'
+grpcio==1.59.2; python_version<='3.8'
 h5py==2.10.0; python_version<='3.8'
+idna==3.4; '3.9'<=python_version and ((platform_system=='Darwin' or platform_system=='Linux'))
 idna==3.4; python_version<='3.8'
-importlib-metadata==6.6.0; python_version<='3.8'
-joblib==1.2.0
-kiwisolver==1.4.4
-lightgbm==3.3.5
-llvmlite==0.39.1; python_version<='3.7'
-llvmlite==0.40.0; '3.8'<=python_version
-matplotlib==3.5.3
+importlib-metadata==6.8.0; python_version<='3.8'
+importlib-resources==6.1.0; python_version<='3.9'
+joblib==1.3.2
+jsonschema-specifications==2023.7.1; (platform_system=='Darwin' or platform_system=='Linux')
+jsonschema==4.19.2; (platform_system=='Darwin' or platform_system=='Linux')
+kiwisolver==1.4.5
+lightgbm==4.1.0
+llvmlite==0.41.1
+matplotlib==3.7.3; python_version<='3.8'
+matplotlib==3.8.1; '3.9'<=python_version
 mpmath==1.3.0
-networkx==2.6.3; python_version<='3.7'
-networkx==3.1; '3.8'<=python_version
-numba==0.56.4; python_version<='3.7'
-numba==0.57.0; '3.8'<=python_version
-numpy==1.18.5; python_version<='3.7'
-numpy==1.23.5; '3.8'<=python_version
+msgpack==1.0.7; (platform_system=='Darwin' or platform_system=='Linux')
+networkx==3.1; python_version<='3.8'
+networkx==3.2.1; '3.9'<=python_version
+numba==0.58.1
+numpy==1.23.5
 oauthlib==3.2.2; python_version<='3.8'
 opt-einsum==3.3.0; python_version<='3.8'
-packaging==23.1
-pandas==1.3.5; python_version<='3.7'
-pandas==2.0.1; '3.8'<=python_version
+osqp==0.6.3
+packaging==23.2
+pandas==2.0.3; python_version<='3.8'
+pandas==2.1.2; '3.9'<=python_version
 patsy==0.5.3
-pipx==1.2.0; '3.9'<=python_version and platform_system=='Windows'
+pipx==1.2.1; python_version=='3.9' and platform_system=='Windows'
+pkgutil_resolve_name==1.3.10; python_version<='3.8' and ((platform_system=='Darwin' or platform_system=='Linux'))
 protobuf==3.20.3
 pyasn1-modules==0.3.0; python_version<='3.8'
 pyasn1==0.5.0; python_version<='3.8'
+pybind11==2.11.1
 pydot==1.4.2
-pyparsing==3.0.9
+pyparsing==3.1.1
 python-dateutil==2.8.2
-pytz==2023.3
+pytz==2023.3.post1
+qdldl==0.1.7.post0
+ray==2.8.0; (platform_system=='Darwin' or platform_system=='Linux')
+referencing==0.30.2; (platform_system=='Darwin' or platform_system=='Linux')
 requests-oauthlib==1.3.1; python_version<='3.8'
-requests==2.30.0; python_version<='3.8'
+requests==2.31.0
+rpds-py==0.10.6; (platform_system=='Darwin' or platform_system=='Linux')
 rsa==4.9; python_version<='3.8'
-scikit-learn==1.0.2; python_version<='3.7'
-scikit-learn==1.2.2; '3.8'<=python_version
-scipy==1.10.1; '3.9'<=python_version
-scipy==1.4.1; python_version=='3.8'
-scipy==1.7.3; python_version<='3.7'
-shap==0.41.0
+scikit-learn==1.2.2; python_version<='3.8'
+scipy==1.4.1; python_version<='3.8'
+scs==3.2.3
+shap==0.43.0
 six==1.16.0
 slicer==0.0.7
-sparse==0.13.0; python_version<='3.7'
-sparse==0.14.0; '3.8'<=python_version
-statsmodels==0.13.5; python_version<='3.7'
-statsmodels==0.14.0; '3.8'<=python_version
-sympy==1.10.1; python_version<='3.7'
-sympy==1.12; '3.8'<=python_version
+sparse==0.14.0
+statsmodels==0.14.0
+sympy==1.12
 tensorboard-plugin-wit==1.8.1; python_version<='3.8'
 tensorboard==2.2.2; python_version<='3.8'
 tensorflow-estimator==2.2.0; python_version<='3.8'
-tensorflow==2.2.0; python_version=='3.8'
-tensorflow==2.2.3; python_version<='3.7'
+tensorflow==2.2.0; python_version<='3.8'
 termcolor==2.3.0; python_version<='3.8'
-threadpoolctl==3.1.0
-tqdm==4.65.0
-typing_extensions==4.5.0; python_version<='3.7'
-tzdata==2023.3; '3.8'<=python_version
-urllib3==2.0.2; python_version<='3.8'
-userpath==1.8.0; '3.9'<=python_version and platform_system=='Windows'
+threadpoolctl==3.2.0
+tqdm==4.66.1
+tzdata==2023.3
+urllib3==2.0.7
+userpath==1.9.1; python_version=='3.9' and platform_system=='Windows'
 wrapt==1.15.0; python_version<='3.8'
-zipp==3.15.0; python_version<='3.8'
+zipp==3.17.0; python_version<='3.9'

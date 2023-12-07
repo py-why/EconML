@@ -13,13 +13,20 @@ import pytest
 import pickle
 from scipy import special
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LassoCV, LinearRegression, LogisticRegression
 import unittest
+
+try:
+    import ray
+
+    ray_installed = True
+except ImportError:
+    ray_installed = False
 
 
 @pytest.mark.cate_api
 class TestDRIV(unittest.TestCase):
-    def test_cate_api(self):
+    def _test_cate_api(self, use_ray=False):
         def const_marg_eff_shape(n, d_x, binary_T):
             """Constant marginal effect shape."""
             return (n if d_x else 1,) + ((1,) if binary_T else ())
@@ -67,7 +74,14 @@ class TestDRIV(unittest.TestCase):
                 Z = np.random.normal(size=(n,))
 
             est_list = [
+                # we're running a lot of tests, so use fixed models instead of model selection
                 DRIV(
+                    model_y_xw=LinearRegression(),
+                    model_t_xw=LogisticRegression() if binary_T else LinearRegression(),
+                    model_tz_xw=LogisticRegression() if binary_T and binary_Z and not (
+                        projection or fit_cov_directly) else LinearRegression(),
+                    model_t_xwz="auto" if not projection else LogisticRegression() if binary_T else LinearRegression(),
+                    model_z_xw="auto" if projection else LogisticRegression() if binary_Z else LinearRegression(),
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     model_final=StatsModelsLinearRegression(
                         fit_intercept=False
@@ -78,8 +92,15 @@ class TestDRIV(unittest.TestCase):
                     discrete_instrument=binary_Z,
                     discrete_treatment=binary_T,
                     featurizer=featurizer,
+                    use_ray=use_ray,
                 ),
                 LinearDRIV(
+                    model_y_xw=LinearRegression(),
+                    model_t_xw=LogisticRegression() if binary_T else LinearRegression(),
+                    model_tz_xw=LogisticRegression() if binary_T and binary_Z and not (
+                        projection or fit_cov_directly) else LinearRegression(),
+                    model_t_xwz="auto" if not projection else LogisticRegression() if binary_T else LinearRegression(),
+                    model_z_xw="auto" if projection else LogisticRegression() if binary_Z else LinearRegression(),
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     fit_cate_intercept=True,
                     projection=projection,
@@ -87,8 +108,15 @@ class TestDRIV(unittest.TestCase):
                     discrete_instrument=binary_Z,
                     discrete_treatment=binary_T,
                     featurizer=featurizer,
+                    use_ray=use_ray,
                 ),
                 SparseLinearDRIV(
+                    model_y_xw=LinearRegression(),
+                    model_t_xw=LogisticRegression() if binary_T else LinearRegression(),
+                    model_tz_xw=LogisticRegression() if binary_T and binary_Z and not (
+                        projection or fit_cov_directly) else LinearRegression(),
+                    model_t_xwz="auto" if not projection else LogisticRegression() if binary_T else LinearRegression(),
+                    model_z_xw="auto" if projection else LogisticRegression() if binary_Z else LinearRegression(),
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     fit_cate_intercept=True,
                     projection=projection,
@@ -96,14 +124,22 @@ class TestDRIV(unittest.TestCase):
                     discrete_instrument=binary_Z,
                     discrete_treatment=binary_T,
                     featurizer=featurizer,
+                    use_ray=use_ray,
                 ),
                 ForestDRIV(
+                    model_y_xw=LinearRegression(),
+                    model_t_xw=LogisticRegression() if binary_T else LinearRegression(),
+                    model_tz_xw=LogisticRegression() if binary_T and binary_Z and not (
+                        projection or fit_cov_directly) else LinearRegression(),
+                    model_t_xwz="auto" if not projection else LogisticRegression() if binary_T else LinearRegression(),
+                    model_z_xw="auto" if projection else LogisticRegression() if binary_Z else LinearRegression(),
                     flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
                     projection=projection,
                     fit_cov_directly=fit_cov_directly,
                     discrete_instrument=binary_Z,
                     discrete_treatment=binary_T,
                     featurizer=featurizer,
+                    use_ray=use_ray,
                 ),
             ]
 
@@ -114,17 +150,23 @@ class TestDRIV(unittest.TestCase):
             if binary_T and binary_Z and not fit_cov_directly:
                 est_list += [
                     IntentToTreatDRIV(
+                        model_y_xw=LinearRegression(),
+                        model_t_xwz=LogisticRegression(),
                         flexible_model_effect=StatsModelsLinearRegression(
                             fit_intercept=False
                         ),
                         fit_cate_intercept=True,
                         featurizer=featurizer,
+                        use_ray=use_ray,
                     ),
                     LinearIntentToTreatDRIV(
+                        model_y_xw=LinearRegression(),
+                        model_t_xwz=LogisticRegression(),
                         flexible_model_effect=StatsModelsLinearRegression(
                             fit_intercept=False
                         ),
                         featurizer=featurizer,
+                        use_ray=use_ray,
                     ),
                 ]
 
@@ -182,8 +224,20 @@ class TestDRIV(unittest.TestCase):
                         # test can run shap values
                         _ = est.shap_values(X[:10])
 
-    def test_accuracy(self):
-        np.random.seed(123)
+    @pytest.mark.ray
+    def test_cate_api_with_ray(self):
+        try:
+            ray.init(num_cpus=1)
+            self._test_cate_api(use_ray=True)
+        finally:
+            ray.shutdown()
+
+    def test_cate_api_without_ray(self):
+        self._test_cate_api(use_ray=False)
+
+    def _test_accuracy(self, use_ray=False):
+        np.random.seed(0)
+
         # dgp (binary T, binary Z)
 
         def dgp(n, p, true_fn):
@@ -202,13 +256,15 @@ class TestDRIV(unittest.TestCase):
             return y, T, Z, X
 
         ests_list = [LinearIntentToTreatDRIV(
-            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False), fit_cate_intercept=True
+            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False), fit_cate_intercept=True,
+            use_ray=use_ray
         ), LinearDRIV(
             fit_cate_intercept=True,
             projection=False,
             discrete_instrument=True,
             discrete_treatment=True,
-            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False)
+            flexible_model_effect=StatsModelsLinearRegression(fit_intercept=False),
+            use_ray=use_ray
         )]
         for est in ests_list:
             with self.subTest(est=est):
@@ -241,9 +297,23 @@ class TestDRIV(unittest.TestCase):
                 np.testing.assert_array_less(intercept_lb, 0)
                 np.testing.assert_array_less(0, intercept_ub)
 
+    @pytest.mark.ray
+    def test_accuracy_with_ray(self):
+        try:
+            ray.init(num_cpus=1)
+            self._test_accuracy(use_ray=True)
+        finally:
+            ray.shutdown()
+
+    def test_accuracy_without_ray(self):
+        self._test_accuracy(use_ray=False)
+
     def test_fit_cov_directly(self):
         # fitting the covariance directly should be at least as good as computing the covariance from separate models
-        est = LinearDRIV()
+
+        # set the models so that model selection over random forests doesn't take too much time in the repeated trials
+        est = LinearDRIV(model_y_xw=LinearRegression(), model_t_xw=LinearRegression(), model_z_xw=LinearRegression(),
+                         model_tz_xw=LassoCV())
 
         n = 500
         p = 10
@@ -296,8 +366,8 @@ class TestDRIV(unittest.TestCase):
             DRIV(
                 discrete_instrument=True,
                 discrete_treatment=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
-                model_z_xw=LinearRegression(),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_2, n_copies),
+                model_z_xw=LogisticRegression(),
                 model_t_xw=LogisticRegression(),
                 model_tz_xw=LinearRegression(),
                 model_t_xwz=LogisticRegression(),
@@ -306,8 +376,8 @@ class TestDRIV(unittest.TestCase):
             LinearDRIV(
                 discrete_instrument=True,
                 discrete_treatment=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
-                model_z_xw=LinearRegression(),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_2, n_copies),
+                model_z_xw=LogisticRegression(),
                 model_t_xw=LogisticRegression(),
                 model_tz_xw=LinearRegression(),
                 model_t_xwz=LogisticRegression(),
@@ -316,8 +386,8 @@ class TestDRIV(unittest.TestCase):
             SparseLinearDRIV(
                 discrete_instrument=True,
                 discrete_treatment=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
-                model_z_xw=LinearRegression(),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_2, n_copies),
+                model_z_xw=LogisticRegression(),
                 model_t_xw=LogisticRegression(),
                 model_tz_xw=LinearRegression(),
                 model_t_xwz=LogisticRegression(),
@@ -326,20 +396,20 @@ class TestDRIV(unittest.TestCase):
             ForestDRIV(
                 discrete_instrument=True,
                 discrete_treatment=True,
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_2, n_copies),
-                model_z_xw=LinearRegression(),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_2, n_copies),
+                model_z_xw=LogisticRegression(),
                 model_t_xw=LogisticRegression(),
                 model_tz_xw=LinearRegression(),
                 model_t_xwz=LogisticRegression(),
                 prel_cate_approach='dmliv'
             ),
             IntentToTreatDRIV(
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_3, n_copies),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_3, n_copies),
                 model_t_xwz=LogisticRegression(),
                 prel_cate_approach='dmliv'
             ),
             LinearIntentToTreatDRIV(
-                model_y_xw=GroupingModel(LinearRegression(), ct_lims_3, n_copies),
+                model_y_xw=GroupingModel(LinearRegression(), n, ct_lims_3, n_copies),
                 model_t_xwz=LogisticRegression(),
                 prel_cate_approach='dmliv'
             )

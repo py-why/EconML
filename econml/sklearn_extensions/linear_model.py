@@ -13,13 +13,14 @@
     from sklearn.linear_model import lasso_path
 """
 
+from __future__ import annotations  # needed to allow type signature to refer to containing type
+
 import numbers
 import numpy as np
 import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
-from econml.sklearn_extensions.model_selection import WeightedKFold, WeightedStratifiedKFold
-from econml.utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
+from ..utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.linear_model._base import _preprocess_data
@@ -36,9 +37,27 @@ from statsmodels.tools.tools import add_constant
 from statsmodels.api import RLM
 import statsmodels
 from joblib import Parallel, delayed
+from typing import List
+
+
+class _WeightedCVIterableWrapper(_CVIterableWrapper):
+    def __init__(self, cv):
+        super().__init__(cv)
+
+    def get_n_splits(self, X=None, y=None, groups=None, sample_weight=None):
+        if groups is not None and sample_weight is not None:
+            raise ValueError("Cannot simultaneously use grouping and weighting")
+        return super().get_n_splits(X, y, groups)
+
+    def split(self, X=None, y=None, groups=None, sample_weight=None):
+        if groups is not None and sample_weight is not None:
+            raise ValueError("Cannot simultaneously use grouping and weighting")
+        return super().split(X, y, groups)
 
 
 def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
+    # local import to avoid circular imports
+    from .model_selection import WeightedKFold, WeightedStratifiedKFold
     cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
@@ -55,21 +74,6 @@ def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
         return _WeightedCVIterableWrapper(cv)
 
     return cv  # New style cv objects are passed without any modification
-
-
-class _WeightedCVIterableWrapper(_CVIterableWrapper):
-    def __init__(self, cv):
-        super().__init__(cv)
-
-    def get_n_splits(self, X=None, y=None, groups=None, sample_weight=None):
-        if groups is not None and sample_weight is not None:
-            raise ValueError("Cannot simultaneously use grouping and weighting")
-        return super().get_n_splits(X, y, groups)
-
-    def split(self, X=None, y=None, groups=None, sample_weight=None):
-        if groups is not None and sample_weight is not None:
-            raise ValueError("Cannot simultaneously use grouping and weighting")
-        return super().split(X, y, groups)
 
 
 class WeightedModelMixin:
@@ -1201,71 +1205,89 @@ class MultiOutputDebiasedLasso(MultiOutputRegressor):
         setattr(self, attribute_name, attribute_value)
 
 
-class WeightedLassoCVWrapper:
-    """Helper class to wrap either WeightedLassoCV or WeightedMultiTaskLassoCV depending on the shape of the target."""
+class _PairedEstimatorWrapper:
+    """Helper class to wrap two different estimators, one of which can be used only with single targets and the other
+    which can be used on multiple targets.  Not intended to be used directly by users."""
+
+    _SingleEst = None
+    _MultiEst = None
+    _known_params = []
+    _post_fit_attrs = []
 
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
-        # set model to WeightedLassoCV by default so there's always a model to get and set attributes on
-        self.model = WeightedLassoCV(*args, **kwargs)
-
-    # whitelist known params because full set is not necessarily identical between LassoCV and MultiTaskLassoCV
-    # (e.g. former has 'positive' and 'precompute' while latter does not)
-    known_params = set(['eps', 'n_alphas', 'alphas', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'copy_X',
-                        'cv', 'verbose', 'n_jobs', 'random_state', 'selection'])
+        # set model to the single-target estimator by default so there's always a model to get and set attributes on
+        self.model = self._SingleEst(*args, **kwargs)
 
     def fit(self, X, y, sample_weight=None):
-        self.needs_unravel = False
+        self._needs_unravel = False
         params = {key: value
                   for (key, value) in self.get_params().items()
-                  if key in self.known_params}
+                  if key in self._known_params}
         if ndim(y) == 2 and shape(y)[1] > 1:
-            self.model = WeightedMultiTaskLassoCV(**params)
+            self.model = self._MultiEst(**params)
         else:
             if ndim(y) == 2 and shape(y)[1] == 1:
                 y = np.ravel(y)
-                self.needs_unravel = True
-            self.model = WeightedLassoCV(**params)
+                self._needs_unravel = True
+            self.model = self._SingleEst(**params)
         self.model.fit(X, y, sample_weight)
-        # set intercept_ attribute
-        self.intercept_ = self.model.intercept_
-        # set coef_ attribute
-        self.coef_ = self.model.coef_
-        # set alpha_ attribute
-        self.alpha_ = self.model.alpha_
-        # set alphas_ attribute
-        self.alphas_ = self.model.alphas_
-        # set n_iter_ attribute
-        self.n_iter_ = self.model.n_iter_
+        for param in self._post_fit_attrs:
+            setattr(self, param, getattr(self.model, param))
         return self
 
     def predict(self, X):
         predictions = self.model.predict(X)
-        return reshape(predictions, (-1, 1)) if self.needs_unravel else predictions
+        return reshape(predictions, (-1, 1)) if self._needs_unravel else predictions
 
     def score(self, X, y, sample_weight=None):
         return self.model.score(X, y, sample_weight)
 
     def __getattr__(self, key):
-        if key in self.known_params:
+        if key in self._known_params:
             return getattr(self.model, key)
         else:
             raise AttributeError("No attribute " + key)
 
     def __setattr__(self, key, value):
-        if key in self.known_params:
+        if key in self._known_params:
             setattr(self.model, key, value)
         else:
             super().__setattr__(key, value)
 
     def get_params(self, deep=True):
         """Get parameters for this estimator."""
-        return self.model.get_params(deep=deep)
+        return {k: v for k, v in self.model.get_params(deep=deep).items() if k in self._known_params}
 
     def set_params(self, **params):
         """Set parameters for this estimator."""
         self.model.set_params(**params)
+
+
+class WeightedLassoCVWrapper(_PairedEstimatorWrapper):
+    """Helper class to wrap either WeightedLassoCV or WeightedMultiTaskLassoCV depending on the shape of the target."""
+
+    _SingleEst = WeightedLassoCV
+    _MultiEst = WeightedMultiTaskLassoCV
+
+    # whitelist known params because full set is not necessarily identical between LassoCV and MultiTaskLassoCV
+    # (e.g. former has 'positive' and 'precompute' while latter does not)
+    _known_params = set(['eps', 'n_alphas', 'alphas', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'copy_X',
+                         'cv', 'verbose', 'n_jobs', 'random_state', 'selection'])
+
+    _post_fit_attrs = set(['alpha_', 'alphas_', 'coef_', 'dual_gap_',
+                           'intercept_', 'n_iter_', 'n_features_in_', 'mse_path_'])
+
+
+class WeightedLassoWrapper(_PairedEstimatorWrapper):
+    """Helper class to wrap either WeightedLasso or WeightedMultiTaskLasso depending on the shape of the target."""
+
+    _SingleEst = WeightedLasso
+    _MultiEst = WeightedMultiTaskLasso
+    _known_params = set(['alpha', 'fit_intercept', 'copy_X', 'max_iter', 'tol',
+                         'random_state', 'selection'])
+    _post_fit_attrs = set(['coef_', 'dual_gap_', 'intercept_', 'n_iter_', 'n_features_in_'])
 
 
 class SelectiveRegularization:
@@ -1679,7 +1701,6 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
     def __init__(self, fit_intercept=True, cov_type="HC0"):
         self.cov_type = cov_type
         self.fit_intercept = fit_intercept
-        return
 
     def _check_input(self, X, y, sample_weight, freq_weight, sample_var):
         """Check dimensions and other assertions."""
@@ -1784,21 +1805,45 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             wy = y * np.sqrt(freq_weight).reshape(-1, 1)
 
         param, _, rank, _ = np.linalg.lstsq(WX, wy, rcond=None)
-
-        if rank < param.shape[0]:
-            warnings.warn("Co-variance matrix is underdetermined. Inference will be invalid!")
-
-        sigma_inv = np.linalg.pinv(np.matmul(WX.T, WX))
-        self._param = param
-        var_i = sample_var + (y - np.matmul(X, param))**2
         n_obs = np.sum(freq_weight)
-        df = len(param) if self._n_out == 0 else param.shape[0]
+        self._n_obs = n_obs
+
+        df = param.shape[0]
+
+        if rank < df:
+            warnings.warn("Co-variance matrix is underdetermined. Inference will be invalid!")
 
         if n_obs <= df:
             warnings.warn("Number of observations <= than number of parameters. Using biased variance calculation!")
             correction = 1
         else:
             correction = (n_obs / (n_obs - df))
+
+        # For aggregation calculations, always treat wy as an array so that einsum expressions don't need to change
+        # We'll collapse results back down afterwards if necessary
+        wy = wy.reshape(-1, 1) if y.ndim < 2 else wy
+        sv = sample_var.reshape(-1, 1) if y.ndim < 2 else sample_var
+        self.XX = np.matmul(WX.T, WX)
+        self.Xy = np.matmul(WX.T, wy)
+
+        # for federation, we need to store these 5 arrays when using heteroskedasticity-robust inference
+        if (self.cov_type in ['HC0', 'HC1']):
+            # y dimension is always first in the output when present so that broadcasting works correctly
+            self.XXyy = np.einsum('nw,nx,ny,ny->ywx', X, X, wy, wy)
+            self.XXXy = np.einsum('nv,nw,nx,ny->yvwx', X, X, WX, wy)
+            self.XXXX = np.einsum('nu,nv,nw,nx->uvwx', X, X, WX, WX)
+            self.sample_var = np.einsum('nw,nx,ny->ywx', WX, WX, sv)
+        elif (self.cov_type is None) or (self.cov_type == 'nonrobust'):
+            self.XXyy = np.einsum('ny,ny->y', wy, wy)
+            self.XXXy = np.einsum('nx,ny->yx', WX, wy)
+            self.XXXX = np.einsum('nw,nx->wx', WX, WX)
+            self.sample_var = np.average(sv, weights=freq_weight, axis=0) * n_obs
+
+        sigma_inv = np.linalg.pinv(self.XX)
+
+        var_i = sample_var + (y - np.matmul(X, param))**2
+
+        self._param = param
 
         if (self.cov_type is None) or (self.cov_type == 'nonrobust'):
             if y.ndim < 2:
@@ -1828,7 +1873,82 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             raise AttributeError("Unsupported cov_type. Must be one of nonrobust, HC0, HC1.")
 
         self._param_var = np.array(self._var)
+
         return self
+
+    @staticmethod
+    def aggregate(models: List[StatsModelsLinearRegression]):
+        """
+        Aggregate multiple models into one.
+
+        Parameters
+        ----------
+        models : list of StatsModelsLinearRegression
+            The models to aggregate
+
+        Returns
+        -------
+        agg_model : StatsModelsLinearRegression
+            The aggregated model
+        """
+        if len(models) == 0:
+            raise ValueError("Must aggregate at least one model!")
+        cov_types = set([model.cov_type for model in models])
+        fit_intercepts = set([model.fit_intercept for model in models])
+        _n_outs = set([model._n_out for model in models])
+        assert len(cov_types) == 1, "All models must have the same cov_type!"
+        assert len(fit_intercepts) == 1, "All models must have the same fit_intercept!"
+        assert len(_n_outs) == 1, "All models must have the same number of outcomes!"
+        agg_model = StatsModelsLinearRegression(cov_type=models[0].cov_type, fit_intercept=models[0].fit_intercept)
+
+        agg_model._n_out = models[0]._n_out
+
+        XX = np.sum([model.XX for model in models], axis=0)
+        Xy = np.sum([model.Xy for model in models], axis=0)
+        XXyy = np.sum([model.XXyy for model in models], axis=0)
+        XXXy = np.sum([model.XXXy for model in models], axis=0)
+        XXXX = np.sum([model.XXXX for model in models], axis=0)
+
+        sample_var = np.sum([model.sample_var for model in models], axis=0)
+        n_obs = np.sum([model._n_obs for model in models], axis=0)
+
+        sigma_inv = np.linalg.pinv(XX)
+        param = sigma_inv @ Xy
+        df = np.shape(param)[0]
+
+        agg_model._param = param if agg_model._n_out > 0 else param.squeeze(1)
+
+        if n_obs <= df:
+            warnings.warn("Number of observations <= than number of parameters. Using biased variance calculation!")
+            correction = 1
+        elif agg_model.cov_type == 'HC0':
+            correction = 1
+        else:  # both HC1 and nonrobust use the same correction factor
+            correction = (n_obs / (n_obs - df))
+
+        if agg_model.cov_type in ['HC0', 'HC1']:
+            weighted_sigma = XXyy - 2 * np.einsum('yvwx,vy->ywx', XXXy, param) + \
+                np.einsum('uvwx,uy,vy->ywx', XXXX, param, param) + sample_var
+            if agg_model._n_out == 0:
+                agg_model._var = correction * np.matmul(sigma_inv, np.matmul(weighted_sigma.squeeze(0), sigma_inv))
+            else:
+                agg_model._var = [correction * np.matmul(sigma_inv, np.matmul(ws, sigma_inv)) for ws in weighted_sigma]
+
+        else:
+            assert agg_model.cov_type == 'nonrobust' or agg_model.cov_type is None
+            sigma = XXyy - 2 * np.einsum('yx,xy->y', XXXy, param) + np.einsum('wx,wy,xy->y', XXXX, param, param)
+            var_i = (sample_var + sigma) / n_obs
+            if agg_model._n_out == 0:
+                agg_model._var = correction * var_i * sigma_inv
+            else:
+                agg_model._var = [correction * var * sigma_inv for var in var_i]
+
+        agg_model._param_var = np.array(agg_model._var)
+
+        (agg_model.XX, agg_model.Xy, agg_model.XXyy, agg_model.XXXy, agg_model.XXXX,
+         agg_model.sample_var, agg_model._n_obs) = XX, Xy, XXyy, XXXy, XXXX, sample_var, n_obs
+
+        return agg_model
 
 
 class StatsModelsRLM(_StatsModelsWrapper):

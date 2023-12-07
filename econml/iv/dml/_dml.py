@@ -24,17 +24,30 @@ from ..._ortho_learner import _OrthoLearner
 from ..._cate_estimator import LinearModelFinalCateEstimatorMixin, StatsModelsCateEstimatorMixin, LinearCateEstimator
 from ...inference import StatsModelsInference, GenericSingleTreatmentModelFinalInference
 from ...sklearn_extensions.linear_model import StatsModels2SLS, StatsModelsLinearRegression, WeightedLassoCVWrapper
-from ...sklearn_extensions.model_selection import WeightedStratifiedKFold
+from ...sklearn_extensions.model_selection import (ModelSelector, SingleModelSelector,
+                                                   WeightedStratifiedKFold, get_selector)
 from ...utilities import (_deprecate_positional, get_feature_names_or_default, filter_none_kwargs, add_intercept,
                           cross_product, broadcast_unit_treatments, reshape_treatmentwise_effects, shape,
                           parse_final_model_params, deprecated, Summary)
-from ...dml.dml import _FirstStageWrapper, _FinalWrapper
+from ...dml.dml import _make_first_stage_selector, _FinalWrapper
 from ...dml._rlearner import _ModelFinal
 from ..._shap import _shap_explain_joint_linear_model_cate, _shap_explain_model_cate
 
 
-class _OrthoIVModelNuisance:
-    def __init__(self, model_y_xw, model_t_xw, model_z, projection):
+def _combine(W, Z, n_samples):
+    if Z is not None:
+        Z = Z.reshape(n_samples, -1)
+        return Z if W is None else np.hstack([W, Z])
+    return None if W is None else W
+
+
+class _OrthoIVNuisanceSelector(ModelSelector):
+
+    def __init__(self,
+                 model_y_xw: SingleModelSelector,
+                 model_t_xw: SingleModelSelector,
+                 model_z: SingleModelSelector,
+                 projection):
         self._model_y_xw = model_y_xw
         self._model_t_xw = model_t_xw
         self._projection = projection
@@ -43,21 +56,15 @@ class _OrthoIVModelNuisance:
         else:
             self._model_z_xw = model_z
 
-    def _combine(self, W, Z, n_samples):
-        if Z is not None:
-            Z = Z.reshape(n_samples, -1)
-            return Z if W is None else np.hstack([W, Z])
-        return None if W is None else W
-
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        self._model_y_xw.fit(X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
-        self._model_t_xw.fit(X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
+    def train(self, is_selecting, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        self._model_y_xw.train(is_selecting, X=X, W=W, Target=Y, sample_weight=sample_weight, groups=groups)
+        self._model_t_xw.train(is_selecting, X=X, W=W, Target=T, sample_weight=sample_weight, groups=groups)
         if self._projection:
             # concat W and Z
-            WZ = self._combine(W, Z, Y.shape[0])
-            self._model_t_xwz.fit(X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
+            WZ = _combine(W, Z, Y.shape[0])
+            self._model_t_xwz.train(is_selecting, X=X, W=WZ, Target=T, sample_weight=sample_weight, groups=groups)
         else:
-            self._model_z_xw.fit(X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
+            self._model_z_xw.train(is_selecting, X=X, W=W, Target=Z, sample_weight=sample_weight, groups=groups)
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -71,7 +78,7 @@ class _OrthoIVModelNuisance:
             T_X_score = None
         if self._projection:
             # concat W and Z
-            WZ = self._combine(W, Z, Y.shape[0])
+            WZ = _combine(W, Z, Y.shape[0])
             if hasattr(self._model_t_xwz, 'score'):
                 T_XZ_score = self._model_t_xwz.score(X=X, W=WZ, Target=T, sample_weight=sample_weight)
             else:
@@ -91,7 +98,7 @@ class _OrthoIVModelNuisance:
 
         if self._projection:
             # concat W and Z
-            WZ = self._combine(W, Z, Y.shape[0])
+            WZ = _combine(W, Z, Y.shape[0])
             T_proj = self._model_t_xwz.predict(X, WZ)
         else:
             Z_pred = self._model_z_xw.predict(X=X, W=W)
@@ -324,19 +331,19 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.57086...,  6.06523..., -3.02513...])
+    array([-4.49594...,  5.79852..., -2.88049...])
     >>> est.effect_interval(X[:3])
-    (array([-7.45472...,  1.85334..., -5.47322...]),
-    array([-1.68700... , 10.27712..., -0.57704...]))
+    (array([-7.40954...,  1.47475..., -5.32889...]),
+    array([-1.58235..., 10.12229..., -0.43209...]))
     >>> est.coef_
-    array([ 5.11260... ,  0.71353...,  0.38242..., -0.23891..., -0.07036...])
+    array([ 5.27614...,  0.92092...,  0.57579..., -0.22810..., -0.16952...])
     >>> est.coef__interval()
-    (array([ 3.76773..., -0.42532..., -0.78145..., -1.36996..., -1.22505...]),
-    array([6.45747..., 1.85239..., 1.54631..., 0.89213..., 1.08432...]))
+    (array([ 3.93362..., -0.22159..., -0.59863..., -1.39139..., -1.34549...]),
+    array([6.61866..., 2.06345..., 1.75022..., 0.93518..., 1.00644...]))
     >>> est.intercept_
-    -0.24090...
+    -0.29110...
     >>> est.intercept__interval()
-    (-1.39053..., 0.90872...)
+    (-1.45607..., 0.87386...)
     """
 
     def __init__(self, *,
@@ -389,65 +396,30 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return _OrthoIVModelFinal(self._gen_model_final(), self._gen_featurizer(), self.fit_cate_intercept)
 
     def _gen_ortho_learner_model_nuisance(self):
-        if self.model_y_xw == 'auto':
-            if self.binary_outcome:
-                model_y_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                  random_state=self.random_state)
-            else:
-                model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_y_xw = clone(self.model_y_xw, safe=False)
+        model_y = _make_first_stage_selector(self.model_y_xw,
+                                             is_discrete=self.binary_outcome,
+                                             random_state=self.random_state)
 
-        if self.model_t_xw == 'auto':
-            if self.discrete_treatment:
-                model_t_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                  random_state=self.random_state)
-            else:
-                model_t_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t_xw = clone(self.model_t_xw, safe=False)
+        model_t = _make_first_stage_selector(self.model_t_xw,
+                                             is_discrete=self.discrete_treatment,
+                                             random_state=self.random_state)
 
         if self.projection:
             # train E[T|X,W,Z]
-            if self.model_t_xwz == 'auto':
-                if self.discrete_treatment:
-                    model_t_xwz = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                       random_state=self.random_state)
-                else:
-                    model_t_xwz = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_t_xwz = clone(self.model_t_xwz, safe=False)
-
-            return _OrthoIVModelNuisance(_FirstStageWrapper(clone(model_y_xw, safe=False), True,
-                                                            self._gen_featurizer(), False, False, self.binary_outcome),
-                                         _FirstStageWrapper(clone(model_t_xw, safe=False), False,
-                                                            self._gen_featurizer(), False,
-                                                            self.discrete_treatment, self.binary_outcome),
-                                         _FirstStageWrapper(clone(model_t_xwz, safe=False), False,
-                                                            self._gen_featurizer(), False,
-                                                            self.discrete_treatment, self.binary_outcome),
-                                         self.projection)
+            model_z = _make_first_stage_selector(self.model_t_xwz,
+                                                 is_discrete=self.discrete_treatment,
+                                                 random_state=self.random_state)
 
         else:
-            # train [Z|X,W]
-            if self.model_z_xw == "auto":
-                if self.discrete_instrument:
-                    model_z_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                      random_state=self.random_state)
-                else:
-                    model_z_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-            else:
-                model_z_xw = clone(self.model_z_xw, safe=False)
+            # train E[Z|X,W]
+            # note: discrete_instrument rather than discrete_treatment in call to _make_first_stage_selector
+            model_z = _make_first_stage_selector(self.model_z_xw,
+                                                 is_discrete=self.discrete_instrument,
+                                                 random_state=self.random_state)
 
-            return _OrthoIVModelNuisance(_FirstStageWrapper(clone(model_y_xw, safe=False), True,
-                                                            self._gen_featurizer(), False, False, self.binary_outcome),
-                                         _FirstStageWrapper(clone(model_t_xw, safe=False), False,
-                                                            self._gen_featurizer(), False,
-                                                            self.discrete_treatment, self.binary_outcome),
-                                         _FirstStageWrapper(clone(model_z_xw, safe=False), False,
-                                                            self._gen_featurizer(), False,
-                                                            self.discrete_instrument, self.binary_outcome),
-                                         self.projection)
+
+        return _OrthoIVNuisanceSelector(model_y, model_t, model_z,
+                                        self.projection)
 
     def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
             cache_values=False, inference="auto"):
@@ -614,7 +586,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_y_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_y_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t_xw(self):
@@ -628,7 +600,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_t_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_z_xw(self):
@@ -644,7 +616,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         """
         if self.projection:
             raise AttributeError("Projection model is fitted for instrument! Use models_t_xwz.")
-        return [[mdl._model_z_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_z_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t_xwz(self):
@@ -660,7 +632,7 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         """
         if not self.projection:
             raise AttributeError("Direct model is fitted for instrument! Use models_z_xw.")
-        return [[mdl._model_t_xwz._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t_xwz.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_y_xw(self):
@@ -727,29 +699,24 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return Y_res, T_res, Z_res, self._cached_values.X, self._cached_values.W, self._cached_values.Z
 
 
-class _BaseDMLIVModelNuisance:
+class _BaseDMLIVNuisanceSelector(ModelSelector):
     """
     Nuisance model fits the three models at fit time and at predict time
     returns :math:`Y-\\E[Y|X]` and :math:`\\E[T|X,Z]-\\E[T|X]` as residuals.
     """
 
-    def __init__(self, model_y_xw, model_t_xw, model_t_xwz):
-        self._model_y_xw = clone(model_y_xw, safe=False)
-        self._model_t_xw = clone(model_t_xw, safe=False)
-        self._model_t_xwz = clone(model_t_xwz, safe=False)
+    def __init__(self, model_y_xw: ModelSelector, model_t_xw: ModelSelector, model_t_xwz: ModelSelector):
+        self._model_y_xw = model_y_xw
+        self._model_t_xw = model_t_xw
+        self._model_t_xwz = model_t_xwz
 
-    def _combine(self, W, Z, n_samples):
-        if Z is not None:
-            Z = Z.reshape(n_samples, -1)
-            return Z if W is None else np.hstack([W, Z])
-        return None if W is None else W
-
-    def fit(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
-        self._model_y_xw.fit(X, W, Y, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
-        self._model_t_xw.fit(X, W, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+    def train(self, is_selecting, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
+        self._model_y_xw.train(is_selecting, X, W, Y, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        self._model_t_xw.train(is_selecting, X, W, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         # concat W and Z
-        WZ = self._combine(W, Z, Y.shape[0])
-        self._model_t_xwz.fit(X, WZ, T, **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
+        WZ = _combine(W, Z, Y.shape[0])
+        self._model_t_xwz.train(is_selecting, X, WZ, T,
+                                **filter_none_kwargs(sample_weight=sample_weight, groups=groups))
         return self
 
     def score(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
@@ -764,7 +731,7 @@ class _BaseDMLIVModelNuisance:
             T_X_score = None
         if hasattr(self._model_t_xwz, 'score'):
             # concat W and Z
-            WZ = self._combine(W, Z, Y.shape[0])
+            WZ = _combine(W, Z, Y.shape[0])
             T_XZ_score = self._model_t_xwz.score(X, WZ, T, **filter_none_kwargs(sample_weight=sample_weight))
         else:
             T_XZ_score = None
@@ -774,7 +741,7 @@ class _BaseDMLIVModelNuisance:
         # note that sample_weight and groups are not passed to predict because they are only used for fitting
         Y_pred = self._model_y_xw.predict(X, W)
         # concat W and Z
-        WZ = self._combine(W, Z, Y.shape[0])
+        WZ = _combine(W, Z, Y.shape[0])
         TXZ_pred = self._model_t_xwz.predict(X, WZ)
         TX_pred = self._model_t_xw.predict(X, W)
         if (X is None) and (W is None):  # In this case predict above returns a single row
@@ -919,7 +886,7 @@ class _BaseDMLIV(_OrthoLearner):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_y_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_y_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t_xw(self):
@@ -933,7 +900,7 @@ class _BaseDMLIV(_OrthoLearner):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_t_xw._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t_xw.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def models_t_xwz(self):
@@ -947,7 +914,7 @@ class _BaseDMLIV(_OrthoLearner):
             iterations, each element in the sublist corresponds to a crossfitting
             fold and is the model instance that was fitted for that training fold.
         """
-        return [[mdl._model_t_xwz._model for mdl in mdls] for mdls in super().models_nuisance_]
+        return [[mdl._model_t_xwz.best_model._model for mdl in mdls] for mdls in super().models_nuisance_]
 
     @property
     def nuisance_scores_y_xw(self):
@@ -1149,11 +1116,11 @@ class DMLIV(_BaseDMLIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-4.47392...,  5.74626..., -3.08471...])
+    array([-6.83575...,  9.40666..., -4.27123...])
     >>> est.coef_
-    array([ 5.00993...,  0.86981...,  0.35110..., -0.11390... , -0.17933...])
+    array([ 8.07179...,  1.51080...,  0.87328..., -0.06944..., -0.47404...])
     >>> est.intercept_
-    -0.27719...
+    -0.20555...
 
     """
 
@@ -1195,46 +1162,21 @@ class DMLIV(_BaseDMLIV):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y_xw(self):
-        if self.model_y_xw == 'auto':
-            if self.binary_outcome:
-                model_y_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                  random_state=self.random_state)
-            else:
-                model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_y_xw = clone(self.model_y_xw, safe=False)
-        return _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(),
-                                  False, False, self.binary_outcome)
+        return _make_first_stage_selector(self.model_y_xw, self.binary_outcome, self.random_state)
 
     def _gen_model_t_xw(self):
-        if self.model_t_xw == 'auto':
-            if self.discrete_treatment:
-                model_t_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                  random_state=self.random_state)
-            else:
-                model_t_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t_xw = clone(self.model_t_xw, safe=False)
-        return _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                  False, self.discrete_treatment, self.binary_outcome)
+        return _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state)
 
     def _gen_model_t_xwz(self):
-        if self.model_t_xwz == 'auto':
-            if self.discrete_treatment:
-                model_t_xwz = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                   random_state=self.random_state)
-            else:
-                model_t_xwz = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t_xwz = clone(self.model_t_xwz, safe=False)
-        return _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                  False, self.discrete_treatment, self.binary_outcome)
+        return _make_first_stage_selector(self.model_t_xwz, self.discrete_treatment, self.random_state)
+
+      > main
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
 
     def _gen_ortho_learner_model_nuisance(self):
-        return _BaseDMLIVModelNuisance(self._gen_model_y_xw(), self._gen_model_t_xw(), self._gen_model_t_xwz())
+        return _BaseDMLIVNuisanceSelector(self._gen_model_y_xw(), self._gen_model_t_xw(), self._gen_model_t_xwz())
 
     def _gen_ortho_learner_model_final(self):
         return _BaseDMLIVModelFinal(_FinalWrapper(self._gen_model_final(),
@@ -1557,7 +1499,7 @@ class NonParamDMLIV(_BaseDMLIV):
         est.fit(Y=y, T=T, Z=Z, X=X)
 
     >>> est.effect(X[:3])
-    array([-5.52240...,  7.86930..., -3.57966...])
+    array([-6.18157...,  8.70189..., -4.06004...])
 
     """
 
@@ -1597,46 +1539,19 @@ class NonParamDMLIV(_BaseDMLIV):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y_xw(self):
-        if self.model_y_xw == 'auto':
-            if self.binary_outcome:
-                model_y_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                  random_state=self.random_state)
-            else:
-                model_y_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_y_xw = clone(self.model_y_xw, safe=False)
-        return _FirstStageWrapper(model_y_xw, True, self._gen_featurizer(),
-                                  False, False, self.binary_outcome)
+        return _make_first_stage_selector(self.model_y_xw, self.binary_outcome, self.random_state)
 
     def _gen_model_t_xw(self):
-        if self.model_t_xw == 'auto':
-            if self.discrete_treatment:
-                model_t_xw = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                  random_state=self.random_state)
-            else:
-                model_t_xw = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t_xw = clone(self.model_t_xw, safe=False)
-        return _FirstStageWrapper(model_t_xw, False, self._gen_featurizer(),
-                                  False, self.discrete_treatment, self.binary_outcome)
+        return _make_first_stage_selector(self.model_t_xw, self.discrete_treatment, self.random_state)
 
     def _gen_model_t_xwz(self):
-        if self.model_t_xwz == 'auto':
-            if self.discrete_treatment:
-                model_t_xwz = LogisticRegressionCV(cv=WeightedStratifiedKFold(random_state=self.random_state),
-                                                   random_state=self.random_state)
-            else:
-                model_t_xwz = WeightedLassoCVWrapper(random_state=self.random_state)
-        else:
-            model_t_xwz = clone(self.model_t_xwz, safe=False)
-        return _FirstStageWrapper(model_t_xwz, False, self._gen_featurizer(),
-                                  False, self.discrete_treatment, self.binary_outcome)
+        return _make_first_stage_selector(self.model_t_xwz, self.discrete_treatment, self.random_state)
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
 
     def _gen_ortho_learner_model_nuisance(self):
-        return _BaseDMLIVModelNuisance(self._gen_model_y_xw(), self._gen_model_t_xw(), self._gen_model_t_xwz())
+        return _BaseDMLIVNuisanceSelector(self._gen_model_y_xw(), self._gen_model_t_xw(), self._gen_model_t_xwz())
 
     def _gen_ortho_learner_model_final(self):
         return _BaseDMLIVModelFinal(_FinalWrapper(self._gen_model_final(),
