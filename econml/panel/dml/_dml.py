@@ -542,7 +542,9 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _make_first_stage_selector(self.model_y, is_discrete=self.binary_outcome, random_state=self.random_state)
+        return _make_first_stage_selector(self.model_y,
+                                          is_discrete=self.binary_outcome,
+                                          random_state=self.random_state)
 
     def _gen_model_t(self):
         return _make_first_stage_selector(self.model_t,

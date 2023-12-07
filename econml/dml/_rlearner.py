@@ -290,20 +290,19 @@ class _RLearner(_OrthoLearner):
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
     """
 
-    def __init__(
-      self,
-      *,
-      binary_outcome,
-      discrete_treatment,
-      treatment_featurizer,
-      categories,
-      cv,
-      random_state,
-      mc_iters=None,
-      mc_agg='mean',
-      allow_missing=False,
-      use_ray=False,
-      ray_remote_func_options=None):
+    def __init__(self,
+                 *,
+                 binary_outcome,
+                 discrete_treatment,
+                 treatment_featurizer,
+                 categories,
+                 cv,
+                 random_state,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         super().__init__(binary_outcome=binary_outcome,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,

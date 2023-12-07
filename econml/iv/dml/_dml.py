@@ -417,7 +417,6 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                                                  is_discrete=self.discrete_instrument,
                                                  random_state=self.random_state)
 
-
         return _OrthoIVNuisanceSelector(model_y, model_t, model_z,
                                         self.projection)
 
@@ -1169,8 +1168,6 @@ class DMLIV(_BaseDMLIV):
 
     def _gen_model_t_xwz(self):
         return _make_first_stage_selector(self.model_t_xwz, self.discrete_treatment, self.random_state)
-
-      > main
 
     def _gen_model_final(self):
         return clone(self.model_final, safe=False)
