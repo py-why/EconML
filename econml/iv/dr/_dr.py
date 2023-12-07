@@ -2464,7 +2464,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
         return clone(self.prel_model_effect, safe=False)
 
     def _gen_ortho_learner_model_nuisance(self):
-        model_y_xw = _make_first_stage_selector(self.model_y_xw, 
+        model_y_xw = _make_first_stage_selector(self.model_y_xw,
                                                 is_discrete=self.binary_outcome,
                                                 random_state=self.random_state)
         model_t_xwz = _make_first_stage_selector(self.model_t_xwz, is_discrete=True, random_state=self.random_state)
@@ -2479,7 +2479,7 @@ class _IntentToTreatDRIV(_BaseDRIV):
         dummy_z = _make_first_stage_selector(dummy_z, is_discrete=True, random_state=self.random_state)
 
         return _IntentToTreatDRIVNuisanceSelector(model_y_xw, model_t_xwz, dummy_z, self._gen_prel_model_effect())
-      
+
 
 class _DummyCATE:
     """

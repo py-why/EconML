@@ -722,7 +722,6 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
-                 linear_first_stages="deprecated,
                  binary_outcome=False,
                  linear_first_stages="deprecated",
                  discrete_treatment=False,
