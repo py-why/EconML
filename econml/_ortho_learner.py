@@ -924,7 +924,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
 
         if self.binary_outcome:
-            Y = self.outcome_transformer.transform(Y).reshape(Y.shape)
+            Y = self.outcome_transformer.transform(Y).reshape(-1, 1)
 
         if self.cv == 1:  # special case, no cross validation
             folds = None
@@ -1057,7 +1057,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if self.z_transformer is not None:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
         if self.binary_outcome:
-            Y = self.outcome_transformer.transform(Y).reshape(Y.shape)
+            Y = self.outcome_transformer.transform(Y).reshape(-1, 1)
         n_iters = len(self._models_nuisance)
         n_splits = len(self._models_nuisance[0])
 

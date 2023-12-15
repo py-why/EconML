@@ -135,7 +135,7 @@ class TestBinaryOutcome(unittest.TestCase):
                         OrthoIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
                                 discrete_instrument=discrete_instrument),
                         NonParamDMLIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
-                                      discrete_instrument=discrete_instrument)
+                                      discrete_instrument=discrete_instrument, model_final=LinearRegression())
                     ]
 
                     if discrete_instrument:
