@@ -2866,7 +2866,7 @@ class IntentToTreatDRIV(_IntentToTreatDRIV):
                  z_propensity="auto",
                  featurizer=None,
                  fit_cate_intercept=False,
-                 binary_outcome=True,
+                 binary_outcome=False,
                  cov_clip=1e-3,
                  cv=3,
                  mc_iters=None,
