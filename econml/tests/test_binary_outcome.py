@@ -11,9 +11,9 @@ from joblib import Parallel, delayed
 
 from econml._ortho_learner import _OrthoLearner
 from econml.dml import LinearDML, SparseLinearDML, KernelDML, CausalForestDML, NonParamDML
-from econml.dr import LinearDRLearner
+from econml.dr import LinearDRLearner, ForestDRLearner
 from econml.iv.dml import OrthoIV, DMLIV, NonParamDMLIV
-from econml.iv.dr import DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV
+from econml.iv.dr import DRIV, LinearDRIV, SparseLinearDRIV, ForestDRIV, IntentToTreatDRIV, LinearIntentToTreatDRIV
 from econml.orf import DMLOrthoForest
 
 from econml.utilities import filter_none_kwargs
@@ -119,20 +119,42 @@ class TestBinaryOutcome(unittest.TestCase):
 
                 if Z is not None:
                     est_list = [
-                        DRIV(binary_outcome=binary_outcome),
-                        DMLIV(binary_outcome=binary_outcome),
-                        OrthoIV(binary_outcome=binary_outcome),
+                        DRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                             discrete_instrument=discrete_instrument),
+                        DMLIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                              discrete_instrument=discrete_instrument),
+                        OrthoIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                                discrete_instrument=discrete_instrument),
+                        LinearDRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                                   discrete_instrument=discrete_instrument),
+                        SparseLinearDRIV(binary_outcome=binary_outcome,
+                                         discrete_treatment=discrete_treatment,
+                                         discrete_instrument=discrete_instrument),
+                        ForestDRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                                   discrete_instrument=discrete_instrument),
+                        OrthoIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                                discrete_instrument=discrete_instrument),
+                        NonParamDMLIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                                      discrete_instrument=discrete_instrument)
                     ]
+
+                    if discrete_instrument:
+                        est_list += [
+                            LinearIntentToTreatDRIV(binary_outcome=binary_outcome),
+                            IntentToTreatDRIV(binary_outcome=binary_outcome),
+                        ]
 
                 else:
                     est_list = [
                         LinearDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
+                        SparseLinearDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
                         CausalForestDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment)
                     ]
 
                     if discrete_treatment:
                         est_list += [
                             LinearDRLearner(binary_outcome=binary_outcome),
+                            ForestDRLearner(binary_outcome=binary_outcome),
                         ]
 
                 for est in est_list:

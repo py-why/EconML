@@ -137,6 +137,9 @@ class _RLearner(_OrthoLearner):
 
     Parameters
     ----------
+    binary_outcome: bool
+        Whether the outcome should be treated as binary
+
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 

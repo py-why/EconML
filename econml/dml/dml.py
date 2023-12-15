@@ -348,20 +348,35 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', default 'auto'
-        The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+    model_y: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
+        Determines how to fit the treatment to the features.
 
-    model_t: estimator or 'auto' (default is 'auto')
-        The estimator for fitting the treatment to the features.
-        If estimator, it must implement `fit` and `predict` methods.  Must be a linear model for correctness
-        when linear_first_stages is ``True``;
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
-        will be applied for discrete treatment,
-        and :class:`.WeightedLassoCV`/
-        :class:`.WeightedMultiTaskLassoCV`
-        will be applied for continuous treatment.
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
+
+    model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto
+        Determines how to fit the treatment to the features.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if discrete_treatment=True.
 
     model_final: estimator
         The estimator for fitting the response residuals to the treatment residuals. Must implement
@@ -384,7 +399,10 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    discrete_treatment: bool, default False
+    binary_outcome: bool, default ``False``
+        Whether the outcome should be treated as binary
+
+    discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
     categories: 'auto' or list, default 'auto'
@@ -483,7 +501,9 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     """
 
     def __init__(self, *,
-                 model_y, model_t, model_final,
+                 model_y,
+                 model_t,
+                 model_final,
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
@@ -602,17 +622,35 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', default 'auto'
-        The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+    model_y: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
+        Determines how to fit the treatment to the features.
 
-    model_t: estimator or 'auto', default 'auto'
-        The estimator for fitting the treatment to the features.
-        If estimator, it must implement `fit` and `predict` methods;
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be applied for discrete treatment,
-        and :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV`
-        will be applied for continuous treatment.
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
+
+    model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
+        Determines how to fit the treatment to the features.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if discrete_treatment=True.
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -630,6 +668,9 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
+
+    binary_outcome: bool, default ``False``
+        Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
@@ -722,8 +763,8 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
-                 binary_outcome=False,
                  linear_first_stages="deprecated",
+                 binary_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -826,20 +867,35 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', default 'auto'
-        The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+    model_y: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
+        Determines how to fit the treatment to the features.
 
-    model_t: estimator or 'auto', default 'auto'
-        The estimator for fitting the treatment to the features.
-        If estimator, it must implement `fit` and `predict` methods, and must be a
-        linear model for correctness;
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
-        will be applied for discrete treatment,
-        and :class:`.WeightedLassoCV`/
-        :class:`.WeightedMultiTaskLassoCV`
-        will be applied for continuous treatment.
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
+
+    model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
+        Determines how to fit the treatment to the features.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if discrete_treatment=True.
 
     alpha: str or float, default 'auto'
         CATE L1 regularization applied through the debiased lasso in the final model.
@@ -887,6 +943,9 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
     linear_first_stages: bool
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
+
+    binary_outcome: bool, default ``False``
+        Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
@@ -1111,19 +1170,32 @@ class KernelDML(DML):
 
     Parameters
     ----------
-    model_y: estimator or 'auto', default 'auto'
-        The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+    model_y: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
+        Determines how to fit the treatment to the features.
 
-    model_t: estimator or 'auto', default 'auto'
-        The estimator for fitting the treatment to the features.
-        If estimator, it must implement `fit` and `predict` methods;
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV`
-        will be applied for discrete treatment,
-        and :class:`.WeightedLassoCV`/
-        :class:`.WeightedMultiTaskLassoCV`
-        will be applied for continuous treatment.
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
+
+    model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
+        Determines how to fit the treatment to the features.
+
+        - If an estimator, will use the model as is for fitting.
+
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if discrete_treatment=True.
 
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
@@ -1133,6 +1205,9 @@ class KernelDML(DML):
 
     bw: float, default 1.0
         The bandwidth of the Gaussian used to generate features
+
+    binary_outcome: bool, default ``False``
+        Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
@@ -1320,13 +1395,32 @@ class NonParamDML(_BaseDML):
 
     Parameters
     ----------
-    model_y: estimator
-        The estimator for fitting the response to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
+    model_y: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
+        Determines how to fit the treatment to the features.
 
-    model_t: estimator
-        The estimator for fitting the treatment to the features. Must implement
-        `fit` and `predict` methods.  Must be a linear model for correctness when linear_first_stages is ``True``.
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
+
+    model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
+        Determines how to fit the treatment to the features.
+
+        - If an estimator, will use the model as is for fitting.
+
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if discrete_treatment=True.
 
     model_final: estimator
         The estimator for fitting the response residuals to the treatment residuals. Must implement
@@ -1336,6 +1430,9 @@ class NonParamDML(_BaseDML):
     featurizer: transformer
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
+
+    binary_outcome: bool, default ``False``
+        Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
         Whether the treatment values should be treated as categorical, rather than continuous, quantities

@@ -239,18 +239,34 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier or 'auto', default 'auto'
+    model_propensity : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
-        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
-        where T is a shape (n, ) array.
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor or 'auto', default 'auto'
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV
+            - 'forest' - RandomForestClassifier
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict', and 'predict_proba'.
+
+    model_regression : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
-        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
-        `predict` methods. If different models per treatment arm are desired, see the
-        :class:`.MultiModelWrapper` helper class.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+        concatenated. The one-hot-encoding excludes the baseline treatment.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV
+            - 'forest' - RandomForestClassifier
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods.
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -635,18 +651,34 @@ class DRPolicyForest(_BaseDRPolicyLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier or 'auto', default 'auto'
+    model_propensity : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
-        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
-        where T is a shape (n, ) array.
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor or 'auto', default 'auto'
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV
+            - 'forest' - RandomForestClassifier
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict', and 'predict_proba'.
+
+    model_regression : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
-        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
-        `predict` methods. If different models per treatment arm are desired, see the
-        :class:`.MultiModelWrapper` helper class.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+        concatenated. The one-hot-encoding excludes the baseline treatment.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV
+            - 'forest' - RandomForestClassifier
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods.
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.

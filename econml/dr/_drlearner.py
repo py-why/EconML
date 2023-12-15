@@ -241,18 +241,35 @@ class DRLearner(_OrthoLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier or 'auto', default 'auto'
+    model_propensity : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
-        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
-        where T is a shape (n, ) array.
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor or 'auto', default 'auto'
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV
+            - 'forest' - RandomForestClassifier
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict', and 'predict_proba'.
+
+    model_regression : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
-        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
-        `predict` methods. If different models per treatment arm are desired, see the
-        :class:`.MultiModelWrapper` helper class.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+        concatenated. The one-hot-encoding excludes the baseline treatment.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
 
     model_final :
         estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
@@ -267,6 +284,9 @@ class DRLearner(_OrthoLearner):
           baseline treatment (lexicographically smallest). If multitask_model_final is False, it is assumed to be a
           mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
           clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
+
+    binary_outcome: bool, default False
+        Whether the outcome should be treated as binary
 
     multitask_model_final : bool, default False
         Whether the model_final should be treated as a multi-task model. See description of model_final.
@@ -783,18 +803,35 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier or 'auto', default 'auto'
+    model_propensity : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
-        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
-        where T is a shape (n, ) array.
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor or 'auto', default 'auto'
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV
+            - 'forest' - RandomForestClassifier
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict', and 'predict_proba'.
+
+    model_regression : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
-        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
-        `predict` methods. If different models per treatment arm are desired, see the
-        :class:`.MultiModelWrapper` helper class.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+        concatenated. The one-hot-encoding excludes the baseline treatment.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -803,6 +840,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
 
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
+
+    binary_outcome: bool, default False
+        Whether the outcome should be treated as binary
 
     min_propensity : float, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
@@ -903,9 +943,9 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     def __init__(self, *,
                  model_propensity='auto',
                  model_regression='auto',
-                 binary_outcome=False,
                  featurizer=None,
                  fit_cate_intercept=True,
+                 binary_outcome=False,
                  min_propensity=1e-6,
                  categories='auto',
                  cv=2,
@@ -1048,18 +1088,35 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier or 'auto', default 'auto'
+    model_propensity : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
-        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
-        where T is a shape (n, ) array.
-        If 'auto', :class:`~sklearn.linear_model.LogisticRegressionCV` will be chosen.
 
-    model_regression : scikit-learn regressor or 'auto', default 'auto'
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV
+            - 'forest' - RandomForestClassifier
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict', and 'predict_proba'.
+
+    model_regression : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
-        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
-        `predict` methods. If different models per treatment arm are desired, see the
-        :class:`.MultiModelWrapper` helper class.
-        If 'auto' :class:`.WeightedLassoCV`/:class:`.WeightedMultiTaskLassoCV` will be chosen.
+        concatenated. The one-hot-encoding excludes the baseline treatment.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -1068,6 +1125,9 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
 
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
+
+    binary_outcome: bool, default False
+        Whether the outcome should be treated as binary
 
     alpha: str | float, optional., default 'auto'.
         CATE L1 regularization applied through the debiased lasso in the final model.
@@ -1330,16 +1390,38 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
 
     Parameters
     ----------
-    model_propensity : scikit-learn classifier
+    model_propensity : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
-        Must implement `fit` and `predict_proba` methods. The `fit` method must be able to accept X and T,
-        where T is a shape (n, ) array.
 
-    model_regression : scikit-learn regressor
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV
+            - 'forest' - RandomForestClassifier
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict', and 'predict_proba'.
+
+    model_regression : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
-        concatenated. The one-hot-encoding excludes the baseline treatment. Must implement `fit` and
-        `predict` methods. If different models per treatment arm are desired, see the
-        :class:`~econml.utilities.MultiModelWrapper` helper class.
+        concatenated. The one-hot-encoding excludes the baseline treatment.
+
+        - If an estimator, will use the model as is for fitting.
+        - If str, will use model associated with the keyword.
+
+            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
+            and then use the best estimator for fitting.
+        - If 'auto', model will select over linear and forest models
+
+        User-supplied estimators should support 'fit' and 'predict' methods,
+        and additionally 'predict_proba' if binary_outcome=True.
+
+    binary_outcome: bool, default False
+        Whether the outcome should be treated as binary
 
     min_propensity : float, default ``1e-6``
         The minimum propensity at which to clip propensity estimates to avoid dividing by zero.
