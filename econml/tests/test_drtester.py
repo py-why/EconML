@@ -245,6 +245,12 @@ class TestDRTester(unittest.TestCase):
                 self.assertTrue(str(exc.exception) ==
                                 "CATE predictions not yet calculated - must provide both Xval, Xtrain")
 
+        with self.assertRaises(Exception) as exc:
+            my_dr_tester.evaluate_uplift(metric='blah')
+        self.assertTrue(
+            str(exc.exception) == "Uplift metric must be one of ['qini', 'toc']"
+        )
+
         for func in [
             my_dr_tester.evaluate_cal,
             my_dr_tester.evaluate_uplift,
