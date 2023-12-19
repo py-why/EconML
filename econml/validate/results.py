@@ -201,12 +201,16 @@ class UpliftEvaluationResults:
 
         df = self.curves[tmt].copy()
         df['95_err'] = 1.96 * df['err']
+        res = self.summary()
+        coeff = round(res.loc[res['treatment'] == tmt]['est'].values[0], 3)
+        err = round(res.loc[res['treatment'] == tmt]['se'].values[0], 3)
         fig = df.plot(
             kind='scatter',
             x='Percentage treated',
             y='value',
             yerr='95_err',
             ylabel='Gain over Random',
+            title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}"
         )
 
         return fig
