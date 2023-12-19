@@ -88,19 +88,15 @@ class TestDRTester(unittest.TestCase):
         res = my_dr_tester.evaluate_all(Xval, Xtrain)
         res_df = res.summary()
 
-        for k in range(3):
-            if k == 0:
-                with self.assertRaises(Exception) as exc:
-                    res.plot_cal(k)
-                self.assertTrue(str(exc.exception) == 'Plotting only supported for treated units (not controls)')
-            else:
+        for k in range(4):
+            if k in [0, 3]:
+                self.assertRaises(ValueError, res.plot_cal, k)
+                self.assertRaises(ValueError, res.plot_qini, k)
+                self.assertRaises(ValueError, res.plot_toc, k)
+            else:  # real treatments, k = 1 or 2
                 self.assertTrue(res.plot_cal(k) is not None)
                 self.assertTrue(res.plot_qini(k) is not None)
                 self.assertTrue(res.plot_toc(k) is not None)
-
-        self.assertRaises(ValueError, res.plot_cal, 10)
-        self.assertRaises(ValueError, res.plot_qini, 10)
-        self.assertRaises(ValueError, res.plot_toc, 10)
 
         self.assertGreater(res_df.blp_pval.values[0], 0.1)  # no heterogeneity
         self.assertLess(res_df.blp_pval.values[1], 0.05)  # heterogeneity
@@ -143,12 +139,12 @@ class TestDRTester(unittest.TestCase):
         res = my_dr_tester.evaluate_all(Xval, Xtrain)
         res_df = res.summary()
 
-        for k in range(2):
-            if k == 0:
-                with self.assertRaises(Exception) as exc:
-                    res.plot_cal(k)
-                self.assertTrue(str(exc.exception) == 'Plotting only supported for treated units (not controls)')
-            else:
+        for k in range(3):
+            if k in [0, 2]:
+                self.assertRaises(ValueError, res.plot_cal, k)
+                self.assertRaises(ValueError, res.plot_qini, k)
+                self.assertRaises(ValueError, res.plot_toc, k)
+            else:  # real treatment, k = 1
                 self.assertTrue(res.plot_cal(k) is not None)
                 self.assertTrue(res.plot_qini(k) is not None)
                 self.assertTrue(res.plot_toc(k) is not None)
