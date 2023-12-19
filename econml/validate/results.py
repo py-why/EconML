@@ -155,12 +155,14 @@ class QiniEvaluationResults:
         params: List[float],
         errs: List[float],
         pvals: List[float],
-        treatments: np.array
+        treatments: np.array,
+        curve_dfs: List[pd.DataFrame]
     ):
         self.params = params
         self.errs = errs
         self.pvals = pvals
         self.treatments = treatments
+        self.curves = curve_dfs
 
     def summary(self):
         """
@@ -181,6 +183,34 @@ class QiniEvaluationResults:
             'qini_pval': self.pvals
         }).round(3)
         return res
+
+    def plot_qini(self, tmt: int):
+        """
+        Plots QINI curves.
+
+        Parameters
+        ----------
+        tmt: integer
+            Treatment level to plot
+
+        Returns
+        -------
+        matplotlib plot with percentage treated on x-axis and QINI (and 95% CI) on y-axis
+        """
+        if tmt == 0:
+            raise Exception('Plotting only supported for treated units (not controls)')
+
+        tmt_idx = [i for i, x in enumerate(self.treatments[1:]) if x == i][0]
+        df = self.curves[tmt_idx]
+        fig = df.plot(
+            kind='scatter',
+            x='Percentage treated',
+            y='Est. QINI',
+            yerr='95_err',
+            ylabel='Gain in Policy Value over Random Treatment',
+        )
+
+        return fig
 
 
 class EvaluationResults:
@@ -243,3 +273,18 @@ class EvaluationResults:
         matplotlib plot with predicted GATE on x-axis and GATE (and 95% CI) on y-axis
         """
         return self.cal.plot_cal(tmt)
+
+    def plot_qini(self, tmt: int):
+        """
+        Plots QINI curves.
+
+        Parameters
+        ----------
+        tmt: integer
+            Treatment level to plot
+
+        Returns
+        -------
+        matplotlib plot with percentage treated on x-axis and QINI value (and 95% CI) on y-axis
+        """
+        return self.qini.plot_qini(tmt)

@@ -1,6 +1,7 @@
 from typing import Tuple
 
 import numpy as np
+import pandas as pd
 
 
 def calculate_dr_outcomes(
@@ -52,7 +53,7 @@ def calc_qini_coeff(
     cate_preds_val: np.array,
     dr_val: np.array,
     percentiles: np.array
-) -> Tuple[float, float]:
+) -> Tuple[float, float, pd.DataFrame]:
     """
     Helper function for QINI coefficient calculation. See documentation for "evaluate_qini" method
     for more details.
@@ -91,4 +92,10 @@ def calc_qini_coeff(
     qini = np.sum(toc[:-1] * np.diff(percentiles) / 100)
     qini_stderr = np.sqrt(np.mean(qini_psi ** 2) / n)
 
-    return qini, qini_stderr
+    curve_df = pd.DataFrame({
+        'Percentage treated': 100 - percentiles,
+        'Est. QINI': toc,
+        '95_err': 1.96 * toc_std
+    })
+
+    return qini, qini_stderr, curve_df

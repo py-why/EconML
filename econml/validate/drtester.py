@@ -519,7 +519,7 @@ class DRtester:
             self.get_cate_preds(Xval, Xtrain)
 
         if self.n_treat == 1:
-            qini, qini_err = calc_qini_coeff(
+            qini, qini_err, qini_curve_df = calc_qini_coeff(
                 self.cate_preds_train_,
                 self.cate_preds_val_,
                 self.dr_val_,
@@ -527,11 +527,13 @@ class DRtester:
             )
             qinis = [qini]
             errs = [qini_err]
+            curve_dfs = [qini_curve_df]
         else:
             qinis = []
             errs = []
+            curve_dfs = []
             for k in range(self.n_treat):
-                qini, qini_err = calc_qini_coeff(
+                qini, qini_err, qini_curve_df = calc_qini_coeff(
                     self.cate_preds_train_[:, k],
                     self.cate_preds_val_[:, k],
                     self.dr_val_[:, k],
@@ -540,6 +542,7 @@ class DRtester:
 
                 qinis.append(qini)
                 errs.append(qini_err)
+                curve_dfs.append(qini_curve_df)
 
         pvals = [st.norm.sf(abs(q / e)) for q, e in zip(qinis, errs)]
 
@@ -547,7 +550,8 @@ class DRtester:
             params=qinis,
             errs=errs,
             pvals=pvals,
-            treatments=self.treatments
+            treatments=self.treatments,
+            curve_dfs=curve_dfs
         )
 
         return self.qini_res
