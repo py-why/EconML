@@ -48,15 +48,16 @@ def calculate_dr_outcomes(
     return dr
 
 
-def calc_qini_coeff(
+def calc_uplift(
     cate_preds_train: np.array,
     cate_preds_val: np.array,
     dr_val: np.array,
-    percentiles: np.array
+    percentiles: np.array,
+    metric: str
 ) -> Tuple[float, float, pd.DataFrame]:
     """
-    Helper function for QINI coefficient calculation. See documentation for "evaluate_qini" method
-    for more details.
+    Helper function for QINI curve generation and QINI coefficient calculation.
+    See documentation for "evaluate_qini" method for more details.
 
     Parameters
     ----------
@@ -69,10 +70,12 @@ def calc_qini_coeff(
         control, e.g. for treatment k the value is Y(k) - Y(0), where 0 signifies no treatment.
     percentiles: one-dimensional array
         Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of 5%.
+    metric: string
+        String indicating whether to calculate TOC or QINI; should be one of ['toc', 'qini']
 
     Returns
     -------
-    QINI coefficient and associated standard error.
+    Uplift coefficient and associated standard error, as well as associated curve.
     """
     qs = np.percentile(cate_preds_train, percentiles)
     toc, toc_std, group_prob = np.zeros(len(qs)), np.zeros(len(qs)), np.zeros(len(qs))
@@ -82,20 +85,25 @@ def calc_qini_coeff(
     for it in range(len(qs)):
         inds = (qs[it] <= cate_preds_val)  # group with larger CATE prediction than the q-th quantile
         group_prob = np.sum(inds) / n  # fraction of population in this group
-        toc[it] = group_prob * (
-            np.mean(dr_val[inds]) - ate)  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
-        toc_psi[it, :] = np.squeeze(
-            (dr_val - ate) * (inds - group_prob) - toc[it])  # influence function for the tau(q)
+        if metric == 'qini':
+            toc[it] = group_prob * (
+                np.mean(dr_val[inds]) - ate)  # tau(q) = q * E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+            toc_psi[it, :] = np.squeeze(
+                (dr_val - ate) * (inds - group_prob) - toc[it])  # influence function for the tau(q)
+        else:
+            toc[it] = np.mean(dr_val[inds]) - ate  # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
+            toc_psi[it, :] = np.squeeze((dr_val - ate) * (inds / group_prob - 1) - toc[it])
+
         toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
 
-    qini_psi = np.sum(toc_psi[:-1] * np.diff(percentiles).reshape(-1, 1) / 100, 0)
-    qini = np.sum(toc[:-1] * np.diff(percentiles) / 100)
-    qini_stderr = np.sqrt(np.mean(qini_psi ** 2) / n)
+    coeff_psi = np.sum(toc_psi[:-1] * np.diff(percentiles).reshape(-1, 1) / 100, 0)
+    coeff = np.sum(toc[:-1] * np.diff(percentiles) / 100)
+    coeff_stderr = np.sqrt(np.mean(coeff_psi ** 2) / n)
 
     curve_df = pd.DataFrame({
         'Percentage treated': 100 - percentiles,
-        'Est. QINI': toc,
+        'value': toc,
         '95_err': 1.96 * toc_std
     })
 
-    return qini, qini_stderr, curve_df
+    return coeff, coeff_stderr, curve_df

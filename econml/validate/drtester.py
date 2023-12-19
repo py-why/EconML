@@ -8,8 +8,8 @@ from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from statsmodels.api import OLS
 from statsmodels.tools import add_constant
 
-from .results import CalibrationEvaluationResults, BLPEvaluationResults, QiniEvaluationResults, EvaluationResults
-from .utils import calculate_dr_outcomes, calc_qini_coeff
+from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
+from .utils import calculate_dr_outcomes, calc_uplift
 
 
 class DRtester:
@@ -480,12 +480,13 @@ class DRtester:
 
         return self.blp_res
 
-    def evaluate_qini(
+    def evaluate_uplift(
         self,
         Xval: np.array = None,
         Xtrain: np.array = None,
-        percentiles: np.array = np.linspace(5, 95, 50)
-    ) -> QiniEvaluationResults:
+        percentiles: np.array = np.linspace(5, 95, 50),
+        metric: str = 'qini'
+    ) -> UpliftEvaluationResults:
         """
         Calculates QINI coefficient for the given model as in Radcliffe (2007), where units are ordered by predicted
         CATE values and a running measure of the average treatment effect in each cohort is kept as we progress
@@ -505,13 +506,18 @@ class DRtester:
         percentiles: one-dimensional array, default ``np.linspace(5, 95, 50)''
             Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of
             5%.
+        metric: string, default 'qini'
+            Which type of uplift curve to evaluate. Must be one of ['toc', 'qini']
 
         Returns
         -------
-        QiniEvaluationResults object showing the results of the QINI fit
+        UpliftEvaluationResults object showing the fitted results
         """
         if not hasattr(self, 'dr_val_'):
             raise Exception("Must fit nuisances before evaluating")
+
+        if not (metric in ['qini', 'toc']):
+            raise ValueError("Uplift metric must be one of ['qini', 'toc']")
 
         if (not hasattr(self, 'cate_preds_train_')) or (not hasattr(self, 'cate_preds_val_')):
             if (Xval is None) or (Xtrain is None):
@@ -519,42 +525,44 @@ class DRtester:
             self.get_cate_preds(Xval, Xtrain)
 
         if self.n_treat == 1:
-            qini, qini_err, qini_curve_df = calc_qini_coeff(
+            coeff, err, curve_df = calc_uplift(
                 self.cate_preds_train_,
                 self.cate_preds_val_,
                 self.dr_val_,
-                percentiles
+                percentiles,
+                metric
             )
-            qinis = [qini]
-            errs = [qini_err]
-            curve_dfs = [qini_curve_df]
+            coeffs = [coeff]
+            errs = [err]
+            curve_dfs = [curve_df]
         else:
-            qinis = []
+            coeffs = []
             errs = []
             curve_dfs = []
             for k in range(self.n_treat):
-                qini, qini_err, qini_curve_df = calc_qini_coeff(
+                coeff, err, curve_df = calc_uplift(
                     self.cate_preds_train_[:, k],
                     self.cate_preds_val_[:, k],
                     self.dr_val_[:, k],
-                    percentiles
+                    percentiles,
+                    metric
                 )
 
-                qinis.append(qini)
-                errs.append(qini_err)
-                curve_dfs.append(qini_curve_df)
+                coeffs.append(coeff)
+                errs.append(err)
+                curve_dfs.append(curve_df)
 
-        pvals = [st.norm.sf(abs(q / e)) for q, e in zip(qinis, errs)]
+        pvals = [st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
 
-        self.qini_res = QiniEvaluationResults(
-            params=qinis,
+        self.uplift_res = UpliftEvaluationResults(
+            params=coeffs,
             errs=errs,
             pvals=pvals,
             treatments=self.treatments,
             curve_dfs=curve_dfs
         )
 
-        return self.qini_res
+        return self.uplift_res
 
     def evaluate_all(
         self,
@@ -563,8 +571,8 @@ class DRtester:
         n_groups: int = 4
     ) -> EvaluationResults:
         """
-        Implements the best linear prediction (`evaluate_blp'), calibration (`evaluate_cal') and QINI coefficient
-        (`evaluate_qini') methods.
+        Implements the best linear prediction (`evaluate_blp'), calibration (`evaluate_cal'), uplift curve
+        ('evaluate_uplift') methods
 
         Parameters
         ----------
@@ -587,12 +595,14 @@ class DRtester:
 
         blp_res = self.evaluate_blp()
         cal_res = self.evaluate_cal(n_groups=n_groups)
-        qini_res = self.evaluate_qini()
+        qini_res = self.evaluate_uplift(metric='qini')
+        toc_res = self.evaluate_uplift(metric='toc')
 
         self.res = EvaluationResults(
             blp_res=blp_res,
             cal_res=cal_res,
-            qini_res=qini_res
+            qini_res=qini_res,
+            toc_res=toc_res
         )
 
         return self.res

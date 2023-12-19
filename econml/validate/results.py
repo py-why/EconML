@@ -132,9 +132,9 @@ class BLPEvaluationResults:
         return res
 
 
-class QiniEvaluationResults:
+class UpliftEvaluationResults:
     """
-    Results class for QINI test.
+    Results class for uplift curve-based tests.
 
     Parameters
     ----------
@@ -178,36 +178,35 @@ class QiniEvaluationResults:
         """
         res = pd.DataFrame({
             'treatment': self.treatments[1:],
-            'qini_est': self.params,
-            'qini_se': self.errs,
-            'qini_pval': self.pvals
+            'est': self.params,
+            'se': self.errs,
+            'pval': self.pvals
         }).round(3)
         return res
 
-    def plot_qini(self, tmt: int):
+    def plot_uplift(self, tmt: int):
         """
-        Plots QINI curves.
+        Plots uplift curves.
 
         Parameters
         ----------
         tmt: integer
-            Treatment level to plot
+            Treatment level (index) to plot
 
         Returns
         -------
-        matplotlib plot with percentage treated on x-axis and QINI (and 95% CI) on y-axis
+        matplotlib plot with percentage treated on x-axis and uplift metric (and 95% CI) on y-axis
         """
         if tmt == 0:
             raise Exception('Plotting only supported for treated units (not controls)')
 
-        tmt_idx = [i for i, x in enumerate(self.treatments[1:]) if x == i][0]
-        df = self.curves[tmt_idx]
+        df = self.curves[tmt - 1]
         fig = df.plot(
             kind='scatter',
             x='Percentage treated',
-            y='Est. QINI',
+            y='value',
             yerr='95_err',
-            ylabel='Gain in Policy Value over Random Treatment',
+            ylabel='Gain over Random',
         )
 
         return fig
@@ -232,11 +231,13 @@ class EvaluationResults:
         self,
         cal_res: CalibrationEvaluationResults,
         blp_res: BLPEvaluationResults,
-        qini_res: QiniEvaluationResults
+        qini_res: UpliftEvaluationResults,
+        toc_res: UpliftEvaluationResults
     ):
         self.cal = cal_res
         self.blp = blp_res
         self.qini = qini_res
+        self.toc = toc_res
 
     def summary(self):
         """
@@ -252,6 +253,9 @@ class EvaluationResults:
         """
         res = self.blp.summary().merge(
             self.qini.summary(),
+            on='treatment'
+        ).merge(
+            self.toc.summary(),
             on='treatment'
         ).merge(
             self.cal.summary(),
@@ -287,4 +291,19 @@ class EvaluationResults:
         -------
         matplotlib plot with percentage treated on x-axis and QINI value (and 95% CI) on y-axis
         """
-        return self.qini.plot_qini(tmt)
+        return self.qini.plot_uplift(tmt)
+
+    def plot_toc(self, tmt: int):
+        """
+        Plots TOC curves.
+
+        Parameters
+        ----------
+        tmt: integer
+            Treatment level to plot
+
+        Returns
+        -------
+        matplotlib plot with percentage treated on x-axis and TOC value (and 95% CI) on y-axis
+        """
+        return self.toc.plot_uplift(tmt)
