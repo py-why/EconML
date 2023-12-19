@@ -382,7 +382,7 @@ class DRtester:
             self.get_cate_preds(Xval, Xtrain)
 
         cal_r_squared = np.zeros(self.n_treat)
-        df_plot = pd.DataFrame()
+        plot_dict = dict()
         for k in range(self.n_treat):
             cuts = np.quantile(self.cate_preds_train_[:, k], np.linspace(0, 1, n_groups + 1))
             probs = np.zeros(n_groups)
@@ -409,15 +409,19 @@ class DRtester:
             # Calculate R-square calibration score
             cal_r_squared[k] = 1 - (cal_score_g / cal_score_o)
 
-            df_plot1 = pd.DataFrame({'ind': np.array(range(n_groups)),
-                                     'gate': gate, 'se_gate': se_gate,
-                                    'g_cate': g_cate, 'se_g_cate': se_g_cate})
-            df_plot1['tmt'] = self.treatments[k + 1]
-            df_plot = pd.concat((df_plot, df_plot1))
+            df_plot1 = pd.DataFrame({
+                'ind': np.array(range(n_groups)),
+                'gate': gate,
+                'se_gate': se_gate,
+                'g_cate': g_cate,
+                'se_g_cate': se_g_cate
+            })
+
+            plot_dict[self.treatments[k + 1]] = df_plot1
 
         self.cal_res = CalibrationEvaluationResults(
             cal_r_squared=cal_r_squared,
-            df_plot=df_plot,
+            plot_dict=plot_dict,
             treatments=self.treatments
         )
 
@@ -524,6 +528,7 @@ class DRtester:
                 raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
             self.get_cate_preds(Xval, Xtrain)
 
+        curve_dict = dict()
         if self.n_treat == 1:
             coeff, err, curve_df = calc_uplift(
                 self.cate_preds_train_,
@@ -534,11 +539,10 @@ class DRtester:
             )
             coeffs = [coeff]
             errs = [err]
-            curve_dfs = [curve_df]
+            curve_dict[self.treatments[1]] = curve_df
         else:
             coeffs = []
             errs = []
-            curve_dfs = []
             for k in range(self.n_treat):
                 coeff, err, curve_df = calc_uplift(
                     self.cate_preds_train_[:, k],
@@ -547,10 +551,9 @@ class DRtester:
                     percentiles,
                     metric
                 )
-
                 coeffs.append(coeff)
                 errs.append(err)
-                curve_dfs.append(curve_df)
+                curve_dict[self.treatments[k + 1]] = curve_df
 
         pvals = [st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
 
@@ -559,7 +562,7 @@ class DRtester:
             errs=errs,
             pvals=pvals,
             treatments=self.treatments,
-            curve_dfs=curve_dfs
+            curve_dict=curve_dict
         )
 
         return self.uplift_res

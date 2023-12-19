@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from typing import List
+from typing import List, Dict, Any
 
 
 class CalibrationEvaluationResults:
@@ -22,11 +22,11 @@ class CalibrationEvaluationResults:
     def __init__(
         self,
         cal_r_squared: np.array,
-        df_plot: pd.DataFrame,
+        plot_dict: Dict[Any, pd.DataFrame],
         treatments: np.array
     ):
         self.cal_r_squared = cal_r_squared
-        self.df_plot = df_plot
+        self.plot_dict = plot_dict
         self.treatments = treatments
 
     def summary(self) -> pd.DataFrame:
@@ -48,24 +48,23 @@ class CalibrationEvaluationResults:
         }).round(3)
         return res
 
-    def plot_cal(self, tmt: int):
+    def plot_cal(self, tmt: Any):
         """
         Plots group average treatment effects (GATEs) and predicted GATEs by quantile-based group in validation sample.
 
         Parameters
         ----------
-        tmt: integer
-            Treatment level to plot
+        tmt: Any
+            Name of treatment to plot
 
         Returns
         -------
         matplotlib plot with predicted GATE on x-axis and GATE (and 95% CI) on y-axis
         """
-        if tmt == 0:
-            raise Exception('Plotting only supported for treated units (not controls)')
+        if tmt not in self.treatments[1:]:
+            raise ValueError(f'Invalid treatment; must be one of {self.treatments[1:]}')
 
-        df = self.df_plot
-        df = df[df.tmt == tmt].copy()
+        df = self.plot_dict[tmt].copy()
         rsq = round(self.cal_r_squared[np.where(self.treatments == tmt)[0][0] - 1], 3)
         df['95_err'] = 1.96 * df['se_gate']
         fig = df.plot(
@@ -156,13 +155,13 @@ class UpliftEvaluationResults:
         errs: List[float],
         pvals: List[float],
         treatments: np.array,
-        curve_dfs: List[pd.DataFrame]
+        curve_dict: Dict[Any, pd.DataFrame]
     ):
         self.params = params
         self.errs = errs
         self.pvals = pvals
         self.treatments = treatments
-        self.curves = curve_dfs
+        self.curves = curve_dict
 
     def summary(self):
         """
@@ -184,23 +183,24 @@ class UpliftEvaluationResults:
         }).round(3)
         return res
 
-    def plot_uplift(self, tmt: int):
+    def plot_uplift(self, tmt: Any):
         """
         Plots uplift curves.
 
         Parameters
         ----------
-        tmt: integer
-            Treatment level (index) to plot
+        tmt: any (sortable)
+            Name of treatment to plot.
 
         Returns
         -------
         matplotlib plot with percentage treated on x-axis and uplift metric (and 95% CI) on y-axis
         """
-        if tmt == 0:
-            raise Exception('Plotting only supported for treated units (not controls)')
+        if tmt not in self.treatments[1:]:
+            raise ValueError(f'Invalid treatment; must be one of {self.treatments[1:]}')
 
-        df = self.curves[tmt - 1]
+        df = self.curves[tmt].copy()
+        df['95_err'] = 1.96 * df['err']
         fig = df.plot(
             kind='scatter',
             x='Percentage treated',
@@ -252,10 +252,10 @@ class EvaluationResults:
         pandas dataframe containing summary of all test results
         """
         res = self.blp.summary().merge(
-            self.qini.summary(),
+            self.qini.summary().rename({'est': 'qini_est', 'se': 'qini_se', 'pval': 'qini_pval'}, axis=1),
             on='treatment'
         ).merge(
-            self.toc.summary(),
+            self.toc.summary().rename({'est': 'autoc_est', 'se': 'autoc_se', 'pval': 'autoc_pval'}, axis=1),
             on='treatment'
         ).merge(
             self.cal.summary(),

@@ -95,6 +95,12 @@ class TestDRTester(unittest.TestCase):
                 self.assertTrue(str(exc.exception) == 'Plotting only supported for treated units (not controls)')
             else:
                 self.assertTrue(res.plot_cal(k) is not None)
+                self.assertTrue(res.plot_qini(k) is not None)
+                self.assertTrue(res.plot_toc(k) is not None)
+
+        self.assertRaises(ValueError, res.plot_cal, 10)
+        self.assertRaises(ValueError, res.plot_qini, 10)
+        self.assertRaises(ValueError, res.plot_toc, 10)
 
         self.assertGreater(res_df.blp_pval.values[0], 0.1)  # no heterogeneity
         self.assertLess(res_df.blp_pval.values[1], 0.05)  # heterogeneity
@@ -103,6 +109,7 @@ class TestDRTester(unittest.TestCase):
         self.assertGreater(res_df.cal_r_squared.values[1], 0)  # good R2
 
         self.assertLess(res_df.qini_pval.values[1], res_df.qini_pval.values[0])
+        self.assertLess(res_df.autoc_pval.values[1], res_df.autoc_pval.values[0])
 
     def test_binary(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
@@ -143,10 +150,13 @@ class TestDRTester(unittest.TestCase):
                 self.assertTrue(str(exc.exception) == 'Plotting only supported for treated units (not controls)')
             else:
                 self.assertTrue(res.plot_cal(k) is not None)
+                self.assertTrue(res.plot_qini(k) is not None)
+                self.assertTrue(res.plot_toc(k) is not None)
 
         self.assertLess(res_df.blp_pval.values[0], 0.05)  # heterogeneity
         self.assertGreater(res_df.cal_r_squared.values[0], 0)  # good R2
         self.assertLess(res_df.qini_pval.values[0], 0.05)  # heterogeneity
+        self.assertLess(res_df.autoc_pval.values[0], 0.05)  # heterogeneity
 
     def test_nuisance_val_fit(self):
         Xtrain, Dtrain, Ytrain, Xval, Dval, Yval = self._get_data(num_treatments=1)
@@ -209,7 +219,7 @@ class TestDRTester(unittest.TestCase):
         )
 
         # fit nothing
-        for func in [my_dr_tester.evaluate_blp, my_dr_tester.evaluate_cal, my_dr_tester.evaluate_qini]:
+        for func in [my_dr_tester.evaluate_blp, my_dr_tester.evaluate_cal, my_dr_tester.evaluate_uplift]:
             with self.assertRaises(Exception) as exc:
                 func()
             if func.__name__ == 'evaluate_cal':
@@ -226,7 +236,7 @@ class TestDRTester(unittest.TestCase):
         for func in [
             my_dr_tester.evaluate_blp,
             my_dr_tester.evaluate_cal,
-            my_dr_tester.evaluate_qini,
+            my_dr_tester.evaluate_uplift,
             my_dr_tester.evaluate_all
         ]:
             with self.assertRaises(Exception) as exc:
@@ -241,7 +251,7 @@ class TestDRTester(unittest.TestCase):
 
         for func in [
             my_dr_tester.evaluate_cal,
-            my_dr_tester.evaluate_qini,
+            my_dr_tester.evaluate_uplift,
             my_dr_tester.evaluate_all
         ]:
             with self.assertRaises(Exception) as exc:
@@ -259,5 +269,8 @@ class TestDRTester(unittest.TestCase):
         ).fit_nuisance(
             Xval, Dval, Yval, Xtrain, Dtrain, Ytrain
         )
-        qini_res = my_dr_tester.evaluate_qini(Xval, Xtrain)
+        qini_res = my_dr_tester.evaluate_uplift(Xval, Xtrain)
         self.assertLess(qini_res.pvals[0], 0.05)
+
+        autoc_res = my_dr_tester.evaluate_uplift(Xval, Xtrain, metric='toc')
+        self.assertLess(autoc_res.pvals[0], 0.05)

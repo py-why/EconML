@@ -103,7 +103,7 @@ def calc_uplift(
     curve_df = pd.DataFrame({
         'Percentage treated': 100 - percentiles,
         'value': toc,
-        '95_err': 1.96 * toc_std
+        'err': toc_std
     })
 
     return coeff, coeff_stderr, curve_df
