@@ -138,7 +138,7 @@ class TestBinaryOutcome(unittest.TestCase):
                                       discrete_instrument=discrete_instrument, model_final=LinearRegression())
                     ]
 
-                    if discrete_instrument:
+                    if discrete_instrument and discrete_treatment:
                         est_list += [
                             LinearIntentToTreatDRIV(binary_outcome=binary_outcome),
                             IntentToTreatDRIV(binary_outcome=binary_outcome),
