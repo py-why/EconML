@@ -50,14 +50,14 @@ def DynamicDML(*,
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Determines how to fit the treatment to the features.

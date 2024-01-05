@@ -137,7 +137,7 @@ class _RLearner(_OrthoLearner):
 
     Parameters
     ----------
-    binary_outcome: bool
+    discrete_outcome: bool
         Whether the outcome should be treated as binary
 
     discrete_treatment: bool
@@ -245,7 +245,7 @@ class _RLearner(_OrthoLearner):
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
-        est = RLearner(cv=2, binary_outcome=False, discrete_treatment=False,
+        est = RLearner(cv=2, discrete_outcome=False, discrete_treatment=False,
                        treatment_featurizer=None, categories='auto', random_state=None)
         est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
 
@@ -295,7 +295,7 @@ class _RLearner(_OrthoLearner):
 
     def __init__(self,
                  *,
-                 binary_outcome,
+                 discrete_outcome,
                  discrete_treatment,
                  treatment_featurizer,
                  categories,
@@ -306,7 +306,7 @@ class _RLearner(_OrthoLearner):
                  allow_missing=False,
                  use_ray=False,
                  ray_remote_func_options=None):
-        super().__init__(binary_outcome=binary_outcome,
+        super().__init__(discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter

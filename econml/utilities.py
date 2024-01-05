@@ -18,7 +18,7 @@ from sklearn.linear_model import LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLass
 from functools import reduce, wraps
 from sklearn.utils import check_array, check_X_y
 from sklearn.utils.validation import assert_all_finite
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import PolynomialFeatures, LabelEncoder
 import warnings
 from warnings import warn
 from collections.abc import Iterable
@@ -1482,3 +1482,29 @@ def jacify_featurizer(featurizer):
        a function for calculating the jacobian
     """
     return _TransformerWrapper(featurizer)
+
+
+def single_strata_from_discrete_arrays(arrs):
+    """
+    Combine multiple discrete arrays into a single array for stratification purposes:
+
+    e.g. if arrs are
+    [0 1 2 0 1 2 0 1 2 0 1 2],
+    [0 1 0 1 0 1 0 1 0 1 0 1],
+    [0 0 0 0 0 0 1 1 1 1 1 1]
+    then output will be
+    [0 8 4 6 2 10 1 9 5 7 3 11]
+
+    Every distinct combination of these discrete arrays will have it's own label.
+    """
+    if not arrs:
+        return None
+
+    curr_array = np.zeros(shape=np.ravel(arrs[0]).shape, dtype='int')
+
+    for arr in arrs:
+        enc = LabelEncoder()
+        temp = enc.fit_transform(np.ravel(arr))
+        curr_array = temp + curr_array * len(enc.classes_)
+
+    return curr_array

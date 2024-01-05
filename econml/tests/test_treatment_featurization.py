@@ -525,7 +525,7 @@ class TestTreatmentFeaturization(unittest.TestCase):
                 'estimator': OrthoLearner,
                 'params': {
                     'cv': 2,
-                    'binary_outcome': False,
+                    'discrete_outcome': False,
                     'discrete_treatment': False,
                     'treatment_featurizer': None,
                     'discrete_instrument': False,

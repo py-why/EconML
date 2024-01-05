@@ -350,14 +350,14 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
         Determines how to fit the treatment to the features.
@@ -386,7 +386,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    binary_outcome: bool, default False
+    discrete_outcome: bool, default False
         Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
@@ -489,7 +489,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=False,
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -502,7 +502,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
-        super().__init__(binary_outcome=binary_outcome,
+        super().__init__(discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=None,
                          discrete_instrument=False,
@@ -564,7 +564,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     def _gen_model_y(self):
         return _make_first_stage_selector(self.model_y,
-                                          is_discrete=self.binary_outcome,
+                                          is_discrete=self.discrete_outcome,
                                           random_state=self.random_state)
 
     def _gen_model_t(self):

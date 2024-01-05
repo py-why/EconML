@@ -52,8 +52,14 @@ class _FirstStageWrapper:
     def predict(self, X, W):
         n_samples = X.shape[0] if X is not None else (W.shape[0] if W is not None else 1)
         if self._discrete_target:
-            return self._model.predict_proba(_combine(X, W, n_samples))[:, 1:]
+            if hasattr(self._model, 'predict_proba'):
+                return self._model.predict_proba(_combine(X, W, n_samples))[:, 1:]
+            else:
+                warn('First stage model has discrete target but model is not a classifier!', UserWarning)
+                return self._model.predict(_combine(X, W, n_samples))
         else:
+            if hasattr(self._model, 'predict_proba'):
+                raise AttributeError("Cannot use a classifier as a first stage model when the target is continuous!")
             return self._model.predict(_combine(X, W, n_samples))
 
     def score(self, X, W, Target, sample_weight=None):
@@ -354,14 +360,14 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto
         Determines how to fit the treatment to the features.
@@ -399,7 +405,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    binary_outcome: bool, default ``False``
+    discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
@@ -508,7 +514,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages="deprecated",
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -528,7 +534,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
         self.model_final = clone(model_final, safe=False)
-        super().__init__(binary_outcome=binary_outcome,
+        super().__init__(discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
@@ -547,7 +553,7 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _make_first_stage_selector(self.model_y, self.binary_outcome, self.random_state)
+        return _make_first_stage_selector(self.model_y, self.discrete_outcome, self.random_state)
 
     def _gen_model_t(self):
         return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state)
@@ -628,14 +634,14 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Determines how to fit the treatment to the features.
@@ -669,7 +675,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    binary_outcome: bool, default ``False``
+    discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
@@ -764,7 +770,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages="deprecated",
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -783,7 +789,7 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
                          treatment_featurizer=treatment_featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
-                         binary_outcome=binary_outcome,
+                         discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
@@ -873,14 +879,14 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Determines how to fit the treatment to the features.
@@ -944,7 +950,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
         Whether the first stage models are linear (in which case we will expand the features passed to
         `model_y` accordingly)
 
-    binary_outcome: bool, default ``False``
+    discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
@@ -1046,7 +1052,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
                  linear_first_stages=True,
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -1070,7 +1076,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                          treatment_featurizer=treatment_featurizer,
                          fit_cate_intercept=fit_cate_intercept,
                          linear_first_stages=linear_first_stages,
-                         binary_outcome=binary_outcome,
+                         discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
@@ -1176,14 +1182,14 @@ class KernelDML(DML):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Determines how to fit the treatment to the features.
@@ -1206,7 +1212,7 @@ class KernelDML(DML):
     bw: float, default 1.0
         The bandwidth of the Gaussian used to generate features
 
-    binary_outcome: bool, default ``False``
+    discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
@@ -1289,7 +1295,7 @@ class KernelDML(DML):
     """
 
     def __init__(self, model_y='auto', model_t='auto',
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
                  categories='auto',
@@ -1310,7 +1316,7 @@ class KernelDML(DML):
                          featurizer=None,
                          treatment_featurizer=treatment_featurizer,
                          fit_cate_intercept=fit_cate_intercept,
-                         binary_outcome=binary_outcome,
+                         discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
                          categories=categories,
                          cv=cv,
@@ -1401,14 +1407,14 @@ class NonParamDML(_BaseDML):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
         Determines how to fit the treatment to the features.
@@ -1431,7 +1437,7 @@ class NonParamDML(_BaseDML):
         The transformer used to featurize the raw features when fitting the final model.  Must implement
         a `fit_transform` method.
 
-    binary_outcome: bool, default ``False``
+    discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
@@ -1523,7 +1529,7 @@ class NonParamDML(_BaseDML):
     def __init__(self, *,
                  model_y, model_t, model_final,
                  featurizer=None,
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  discrete_treatment=False,
                  treatment_featurizer=None,
                  categories='auto',
@@ -1540,7 +1546,7 @@ class NonParamDML(_BaseDML):
         self.model_t = clone(model_t, safe=False)
         self.featurizer = clone(featurizer, safe=False)
         self.model_final = clone(model_final, safe=False)
-        super().__init__(binary_outcome=binary_outcome,
+        super().__init__(discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
@@ -1566,7 +1572,7 @@ class NonParamDML(_BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _make_first_stage_selector(self.model_y, is_discrete=self.binary_outcome,
+        return _make_first_stage_selector(self.model_y, is_discrete=self.discrete_outcome,
                                           random_state=self.random_state)
 
     def _gen_model_t(self):

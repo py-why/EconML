@@ -20,11 +20,11 @@ from econml.utilities import filter_none_kwargs
 from copy import deepcopy
 
 
-class TestBinaryOutcome(unittest.TestCase):
+class TestDiscreteOutcome(unittest.TestCase):
     # accuracy test
     def test_accuracy(self):
         n = 1000
-        binary_outcome = True
+        discrete_outcome = True
         discrete_treatment = True
         true_ate = 0.3
         W = np.random.uniform(-1, 1, size=(n, 1))
@@ -32,9 +32,9 @@ class TestBinaryOutcome(unittest.TestCase):
         Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
 
         ests = [
-            LinearDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
-            CausalForestDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
-            LinearDRLearner(binary_outcome=binary_outcome)
+            LinearDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+            CausalForestDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+            LinearDRLearner(discrete_outcome=discrete_outcome)
         ]
 
         for est in ests:
@@ -60,7 +60,7 @@ class TestBinaryOutcome(unittest.TestCase):
     # accuracy test, DML
     def test_accuracy_iv(self):
         n = 10000
-        binary_outcome = True
+        discrete_outcome = True
         discrete_treatment = True
         true_ate = 0.3
         W = np.random.uniform(-1, 1, size=(n, 1))
@@ -69,8 +69,8 @@ class TestBinaryOutcome(unittest.TestCase):
         Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
 
         ests = [
-            OrthoIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
-            LinearDRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
+            OrthoIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+            LinearDRIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
         ]
 
         for est in ests:
@@ -91,12 +91,12 @@ class TestBinaryOutcome(unittest.TestCase):
         D = np.random.binomial(1, .5 + .1 * W[:, 0], size=(n,))
         Y = np.random.binomial(1, .5 + true_ate * D + .1 * W[:, 0], size=(n,))
         Y_str = pd.Series(Y).replace(0, 'a').replace(1, 'b').values
-        est = LinearDML(binary_outcome=True, discrete_treatment=True)
+        est = LinearDML(discrete_outcome=True, discrete_treatment=True)
         est.fit(Y_str, D, X=W)
 
     def test_basic_functionality(self):
         n = 100
-        binary_outcome = True
+        discrete_outcome = True
         d_x = 3
 
         def gen_array(n, is_binary, d):
@@ -110,7 +110,7 @@ class TestBinaryOutcome(unittest.TestCase):
         for discrete_treatment in [True, False]:
             for discrete_instrument in [True, False, None]:
 
-                Y = gen_array(n, binary_outcome, d=0)
+                Y = gen_array(n, discrete_outcome, d=0)
                 T = gen_array(n, discrete_treatment, d=0)
                 Z = None
                 if discrete_instrument is not None:
@@ -119,43 +119,43 @@ class TestBinaryOutcome(unittest.TestCase):
 
                 if Z is not None:
                     est_list = [
-                        DRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                        DRIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment,
                              discrete_instrument=discrete_instrument),
-                        DMLIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                        DMLIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment,
                               discrete_instrument=discrete_instrument),
-                        OrthoIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                        OrthoIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment,
                                 discrete_instrument=discrete_instrument),
-                        LinearDRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                        LinearDRIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment,
                                    discrete_instrument=discrete_instrument),
-                        SparseLinearDRIV(binary_outcome=binary_outcome,
+                        SparseLinearDRIV(discrete_outcome=discrete_outcome,
                                          discrete_treatment=discrete_treatment,
                                          discrete_instrument=discrete_instrument),
-                        ForestDRIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                        ForestDRIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment,
                                    discrete_instrument=discrete_instrument),
-                        OrthoIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                        OrthoIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment,
                                 discrete_instrument=discrete_instrument),
                         # uncomment when issue #837 is resolved
-                        # NonParamDMLIV(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment,
+                        # NonParamDMLIV(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment,
                         #               discrete_instrument=discrete_instrument, model_final=LinearRegression())
                     ]
 
                     if discrete_instrument and discrete_treatment:
                         est_list += [
-                            LinearIntentToTreatDRIV(binary_outcome=binary_outcome),
-                            IntentToTreatDRIV(binary_outcome=binary_outcome),
+                            LinearIntentToTreatDRIV(discrete_outcome=discrete_outcome),
+                            IntentToTreatDRIV(discrete_outcome=discrete_outcome),
                         ]
 
                 else:
                     est_list = [
-                        LinearDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
-                        SparseLinearDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment),
-                        CausalForestDML(binary_outcome=binary_outcome, discrete_treatment=discrete_treatment)
+                        LinearDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+                        SparseLinearDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment),
+                        CausalForestDML(discrete_outcome=discrete_outcome, discrete_treatment=discrete_treatment)
                     ]
 
                     if discrete_treatment:
                         est_list += [
-                            LinearDRLearner(binary_outcome=binary_outcome),
-                            ForestDRLearner(binary_outcome=binary_outcome),
+                            LinearDRLearner(discrete_outcome=discrete_outcome),
+                            ForestDRLearner(discrete_outcome=discrete_outcome),
                         ]
 
                 for est in est_list:

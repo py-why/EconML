@@ -63,11 +63,11 @@ class _ModelNuisance(ModelSelector):
                  model_propensity: SingleModelSelector,
                  model_regression: SingleModelSelector,
                  min_propensity,
-                 binary_outcome):
+                 discrete_outcome):
         self._model_propensity = model_propensity
         self._model_regression = model_regression
         self._min_propensity = min_propensity
-        self._binary_outcome = binary_outcome
+        self._discrete_outcome = discrete_outcome
 
     def _combine(self, X, W):
         return np.hstack([arr for arr in [X, W] if arr is not None])
@@ -103,15 +103,18 @@ class _ModelNuisance(ModelSelector):
         n = T.shape[0]
         Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
         T_counter = np.zeros(T.shape)
-        if self._binary_outcome and hasattr(self._model_regression, 'predict_proba'):
+        if self._discrete_outcome and hasattr(self._model_regression, 'predict_proba'):
             Y_pred[:, 0] = self._model_regression.predict_proba(np.hstack([XW, T_counter]))[:, 1].reshape(n)
         else:
+            if self._discrete_outcome:
+                warn("A regressor was passed when discrete_outcome=True. \
+                     Using a classifier is recommended.", UserWarning)
             Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
         Y_pred[:, 0] += (Y.reshape(n) - Y_pred[:, 0]) * np.all(T == 0, axis=1) / propensities[:, 0]
         for t in np.arange(T.shape[1]):
             T_counter = np.zeros(T.shape)
             T_counter[:, t] = 1
-            if self._binary_outcome and hasattr(self._model_regression, 'predict_proba'):
+            if self._discrete_outcome and hasattr(self._model_regression, 'predict_proba'):
                 Y_pred[:, t + 1] = self._model_regression.predict_proba(np.hstack([XW, T_counter]))[:, 1].reshape(n)
             else:
                 Y_pred[:, t + 1] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
@@ -262,14 +265,14 @@ class DRLearner(_OrthoLearner):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_final :
         estimator for the final cate model. Trained on regressing the doubly robust potential outcomes
@@ -285,7 +288,7 @@ class DRLearner(_OrthoLearner):
           mono-task model and a separate clone of the model is trained for each outcome. Then predict(X) of the t-th
           clone will be the CATE of the t-th lexicographically ordered treatment compared to the baseline.
 
-    binary_outcome: bool, default False
+    discrete_outcome: bool, default False
         Whether the outcome should be treated as binary
 
     multitask_model_final : bool, default False
@@ -445,7 +448,7 @@ class DRLearner(_OrthoLearner):
                  model_propensity='auto',
                  model_regression='auto',
                  model_final=StatsModelsLinearRegression(),
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  multitask_model_final=False,
                  featurizer=None,
                  min_propensity=1e-6,
@@ -467,7 +470,7 @@ class DRLearner(_OrthoLearner):
         super().__init__(cv=cv,
                          mc_iters=mc_iters,
                          mc_agg=mc_agg,
-                         binary_outcome=binary_outcome,
+                         discrete_outcome=discrete_outcome,
                          discrete_treatment=True,
                          treatment_featurizer=None,  # treatment featurization not supported with discrete treatment
                          discrete_instrument=False,  # no instrument, so doesn't matter
@@ -534,9 +537,9 @@ class DRLearner(_OrthoLearner):
 
     def _gen_ortho_learner_model_nuisance(self):
         model_propensity = _make_first_stage_selector(self.model_propensity, True, self.random_state)
-        model_regression = _make_first_stage_selector(self.model_regression, self.binary_outcome, self.random_state)
+        model_regression = _make_first_stage_selector(self.model_regression, self.discrete_outcome, self.random_state)
 
-        return _ModelNuisance(model_propensity, model_regression, self.min_propensity, self.binary_outcome)
+        return _ModelNuisance(model_propensity, model_regression, self.min_propensity, self.discrete_outcome)
 
     def _gen_featurizer(self):
         return clone(self.featurizer, safe=False)
@@ -824,14 +827,14 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -841,7 +844,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    binary_outcome: bool, default False
+    discrete_outcome: bool, default False
         Whether the outcome should be treated as binary
 
     min_propensity : float, default ``1e-6``
@@ -945,7 +948,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  model_regression='auto',
                  featurizer=None,
                  fit_cate_intercept=True,
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  min_propensity=1e-6,
                  categories='auto',
                  cv=2,
@@ -960,7 +963,7 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=None,
-                         binary_outcome=binary_outcome,
+                         discrete_outcome=discrete_outcome,
                          featurizer=featurizer,
                          multitask_model_final=False,
                          min_propensity=min_propensity,
@@ -1109,14 +1112,14 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -1126,7 +1129,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    binary_outcome: bool, default False
+    discrete_outcome: bool, default False
         Whether the outcome should be treated as binary
 
     alpha: str | float, optional., default 'auto'.
@@ -1260,7 +1263,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
                  model_regression='auto',
                  featurizer=None,
                  fit_cate_intercept=True,
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  alpha='auto',
                  n_alphas=100,
                  alpha_cov='auto',
@@ -1289,7 +1292,7 @@ class SparseLinearDRLearner(DebiasedLassoCateEstimatorDiscreteMixin, DRLearner):
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=None,
-                         binary_outcome=binary_outcome,
+                         discrete_outcome=discrete_outcome,
                          featurizer=featurizer,
                          multitask_model_final=False,
                          min_propensity=min_propensity,
@@ -1411,16 +1414,16 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
-    binary_outcome: bool, default False
+    discrete_outcome: bool, default False
         Whether the outcome should be treated as binary
 
     min_propensity : float, default ``1e-6``
@@ -1583,7 +1586,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
     def __init__(self, *,
                  model_regression="auto",
                  model_propensity="auto",
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  featurizer=None,
                  min_propensity=1e-6,
                  categories='auto',
@@ -1623,7 +1626,7 @@ class ForestDRLearner(ForestModelFinalCateEstimatorDiscreteMixin, DRLearner):
         super().__init__(model_regression=model_regression,
                          model_propensity=model_propensity,
                          model_final=None,
-                         binary_outcome=binary_outcome,
+                         discrete_outcome=discrete_outcome,
                          featurizer=featurizer,
                          multitask_model_final=False,
                          min_propensity=min_propensity,

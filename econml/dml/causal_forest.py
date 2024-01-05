@@ -274,14 +274,14 @@ class CausalForestDML(_BaseDML):
         - If an estimator, will use the model as is for fitting.
         - If str, will use model associated with the keyword.
 
-            - 'linear' - LogisticRegressionCV if binary_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if binary_outcome=True else RandomForestRegressor
+            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
+            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
         - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
             and then use the best estimator for fitting.
         - If 'auto', model will select over linear and forest models
 
         User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if binary_outcome=True.
+        and additionally 'predict_proba' if discrete_outcome=True.
 
     model_t: estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
         Determines how to fit the treatment to the features. str in a sentence
@@ -308,7 +308,7 @@ class CausalForestDML(_BaseDML):
         The final CATE will be trained on the outcome of featurizer.fit_transform(T).
         If featurizer=None, then CATE is trained on T.
 
-    binary_outcome: bool, default ``False``
+    discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
 
     discrete_treatment: bool, default ``False``
@@ -609,7 +609,7 @@ class CausalForestDML(_BaseDML):
                  model_t='auto',
                  featurizer=None,
                  treatment_featurizer=None,
-                 binary_outcome=False,
+                 discrete_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
                  cv=2,
@@ -666,7 +666,7 @@ class CausalForestDML(_BaseDML):
         self.subforest_size = subforest_size
         self.n_jobs = n_jobs
         self.verbose = verbose
-        super().__init__(binary_outcome=binary_outcome,
+        super().__init__(discrete_outcome=discrete_outcome,
                          discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          categories=categories,
@@ -691,7 +691,7 @@ class CausalForestDML(_BaseDML):
         return clone(self.featurizer, safe=False)
 
     def _gen_model_y(self):
-        return _make_first_stage_selector(self.model_y, self.binary_outcome, self.random_state)
+        return _make_first_stage_selector(self.model_y, self.discrete_outcome, self.random_state)
 
     def _gen_model_t(self):
         return _make_first_stage_selector(self.model_t, self.discrete_treatment, self.random_state)
