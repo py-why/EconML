@@ -166,7 +166,8 @@ class TestMissing(unittest.TestCase):
         x_w_missing_models = [
             NonParamDML(model_y=regr, model_t=clsf, model_final=non_param_model_final,
                         discrete_treatment=discrete_treatment, allow_missing=True),
-            DML(model_y=regr, model_t=clsf, model_final=param_model_final, allow_missing=True),
+            DML(model_y=regr, model_t=clsf, discrete_treatment=discrete_treatment,
+                model_final=param_model_final, allow_missing=True),
             DMLIV(model_y_xw=regr, model_t_xw=clsf, model_t_xwz=clsf,
                   model_final=param_model_final, discrete_treatment=discrete_treatment,
                   discrete_instrument=discrete_instrument, allow_missing=True),

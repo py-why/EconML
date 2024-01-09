@@ -23,6 +23,13 @@ class FunctionRegressor:
     def predict(self, X):
         return self.func(X)
 
+
+class FunctionClassifier(FunctionRegressor):
+    """A simple model that ignores the data it is fitted on, always just using the specified function to predict"""
+
+    def __init__(self, func):
+        self.func = func
+
     def predict_proba(self, X):
         return self.func(X)
 
@@ -62,8 +69,8 @@ class TestFederatedLearning(unittest.TestCase):
             a = np.random.normal(size=(n_x + n_w, n_t))
             b = np.random.normal(size=(n_x + n_w + n_t - 1))
 
-            t_model = FunctionRegressor(lambda XW: np.exp(XW @ a))
-            y_model = FunctionRegressor(lambda XW: XW @ b)
+            t_model = FunctionClassifier(lambda XW: np.exp(XW @ a))
+            y_model = FunctionClassifier(lambda XW: XW @ b)
 
             for cov_type in ['HC0', 'HC1', 'nonrobust']:
                 with self.subTest(n_t=n_t, cov_type=cov_type):
