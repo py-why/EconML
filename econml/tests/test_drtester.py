@@ -245,12 +245,6 @@ class TestDRTester(unittest.TestCase):
                 self.assertTrue(str(exc.exception) ==
                                 "CATE predictions not yet calculated - must provide both Xval, Xtrain")
 
-        with self.assertRaises(Exception) as exc:
-            my_dr_tester.evaluate_uplift(metric='blah')
-        self.assertTrue(
-            str(exc.exception) == "Uplift metric must be one of ['qini', 'toc']"
-        )
-
         for func in [
             my_dr_tester.evaluate_cal,
             my_dr_tester.evaluate_uplift,
@@ -263,6 +257,12 @@ class TestDRTester(unittest.TestCase):
 
         cal_res = my_dr_tester.evaluate_cal(Xval, Xtrain)
         self.assertGreater(cal_res.cal_r_squared[0], 0)  # good R2
+
+        with self.assertRaises(Exception) as exc:
+            my_dr_tester.evaluate_uplift(metric='blah')
+        self.assertTrue(
+            str(exc.exception) == "Unsupported metric - must be one of ['toc', 'qini']"
+        )
 
         my_dr_tester = DRtester(
             model_regression=reg_y,
