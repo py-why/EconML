@@ -94,7 +94,7 @@ def calc_uplift(
             toc[it] = np.mean(dr_val[inds]) - ate  # tau(q) := E[Y(1) - Y(0) | tau(X) >= q[it]] - E[Y(1) - Y(0)]
             toc_psi[it, :] = np.squeeze((dr_val - ate) * (inds / group_prob - 1) - toc[it])
         else:
-            raise ValueError("Unsupported metric! Must be one of ['toc', 'qini']")
+            raise ValueError("Unsupported metric - must be one of ['toc', 'qini']")
 
         toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
 

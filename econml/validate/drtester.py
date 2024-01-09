@@ -520,9 +520,6 @@ class DRtester:
         if not hasattr(self, 'dr_val_'):
             raise Exception("Must fit nuisances before evaluating")
 
-        if not (metric in ['qini', 'toc']):
-            raise ValueError("Uplift metric must be one of ['qini', 'toc']")
-
         if (not hasattr(self, 'cate_preds_train_')) or (not hasattr(self, 'cate_preds_val_')):
             if (Xval is None) or (Xtrain is None):
                 raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
