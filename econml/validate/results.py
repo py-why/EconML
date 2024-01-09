@@ -13,8 +13,9 @@ class CalibrationEvaluationResults:
     cal_r_squared: list or numpy array of floats
         Sequence of calibration R^2 values
 
-    df_plot: pandas dataframe
-        Dataframe containing necessary data for plotting calibration test GATE results
+    plot_data_dict: dict
+        Dictionary mapping treatment levels to dataframes containing necessary
+        data for plotting calibration test GATE results
 
     treatments: list or numpy array of floats
         Sequence of treatment labels
@@ -22,11 +23,11 @@ class CalibrationEvaluationResults:
     def __init__(
         self,
         cal_r_squared: np.array,
-        plot_dict: Dict[Any, pd.DataFrame],
+        plot_data_dict: Dict[Any, pd.DataFrame],
         treatments: np.array
     ):
         self.cal_r_squared = cal_r_squared
-        self.plot_dict = plot_dict
+        self.plot_data_dict = plot_data_dict
         self.treatments = treatments
 
     def summary(self) -> pd.DataFrame:
@@ -64,7 +65,7 @@ class CalibrationEvaluationResults:
         if tmt not in self.treatments[1:]:
             raise ValueError(f'Invalid treatment; must be one of {self.treatments[1:]}')
 
-        df = self.plot_dict[tmt].copy()
+        df = self.plot_data_dict[tmt].copy()
         rsq = round(self.cal_r_squared[np.where(self.treatments == tmt)[0][0] - 1], 3)
         df['95_err'] = 1.96 * df['se_gate']
         fig = df.plot(
@@ -148,6 +149,10 @@ class UpliftEvaluationResults:
 
     treatments: list or numpy array of floats
        Sequence of treatment labels
+
+    curve_data_dict: dict
+        Dictionary mapping treatment levels to dataframes containing
+        necessary data for plotting uplift curves
     """
     def __init__(
         self,
@@ -155,13 +160,13 @@ class UpliftEvaluationResults:
         errs: List[float],
         pvals: List[float],
         treatments: np.array,
-        curve_dict: Dict[Any, pd.DataFrame]
+        curve_data_dict: Dict[Any, pd.DataFrame]
     ):
         self.params = params
         self.errs = errs
         self.pvals = pvals
         self.treatments = treatments
-        self.curves = curve_dict
+        self.curves = curve_data_dict
 
     def summary(self):
         """
@@ -228,8 +233,11 @@ class EvaluationResults:
     blp_res: BLPEvaluationResults object
        Results object for BLP test
 
-    qini_res: QiniEvaluationResults object
+    qini_res: UpliftEvaluationResults object
        Results object for QINI test
+
+    toc_res: UpliftEvaluationResults object
+       Results object for TOC test
     """
     def __init__(
         self,
