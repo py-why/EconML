@@ -1484,7 +1484,7 @@ def jacify_featurizer(featurizer):
     return _TransformerWrapper(featurizer)
 
 
-def single_strata_from_discrete_arrays(arrs):
+def strata_from_discrete_arrays(arrs):
     """
     Combine multiple discrete arrays into a single array for stratification purposes:
 

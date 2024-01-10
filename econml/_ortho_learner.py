@@ -43,7 +43,7 @@ from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                               TreatmentExpansionMixin)
 from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, check_input_arrays,
-                        cross_product, filter_none_kwargs, single_strata_from_discrete_arrays,
+                        cross_product, filter_none_kwargs, strata_from_discrete_arrays,
                         inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
 from .sklearn_extensions.model_selection import ModelSelector
 
@@ -636,7 +636,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         if self.discrete_instrument:
             arrs.append(Z)
 
-        return single_strata_from_discrete_arrays(arrs)
+        return strata_from_discrete_arrays(arrs)
 
     def _prefit(self, Y, T, *args, only_final=False, **kwargs):
 
@@ -721,7 +721,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                         f"Only one outcome variable is supported when discrete_outcome=True. Got Y of shape {Y.shape}")
                 if len(self.outcome_transformer.classes_) > 2:
                     raise AttributeError(
-                        f"({self.outcome_transformer.classes_} outcome classes detected. \
+                        f"({len(self.outcome_transformer.classes_)} outcome classes detected. \
                             Currently, only 2 outcome classes are allowed when discrete_outcome=True. \
                             Classes provided include {self.outcome_transformer.classes_[:5]}")
             else:

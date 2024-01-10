@@ -10,7 +10,7 @@ import sparse as sp
 import pytest
 from econml.utilities import (einsum_sparse, todense, tocoo, transpose,
                               inverse_onehot, cross_product, transpose_dictionary, deprecated, _deprecate_positional,
-                              single_strata_from_discrete_arrays)
+                              strata_from_discrete_arrays)
 from sklearn.preprocessing import OneHotEncoder
 
 
@@ -184,7 +184,7 @@ class TestUtilities(unittest.TestCase):
         Z = np.repeat([[0, 1]], 6, axis=0).ravel()
         Y = np.repeat([0, 1], 6, axis=0)
 
-        assert set(single_strata_from_discrete_arrays([T, Z, Y])) == set(np.arange(12))
-        assert set(single_strata_from_discrete_arrays([T, Z])) == set(np.arange(6))
-        assert set(single_strata_from_discrete_arrays([T])) == set(np.arange(3))
-        assert single_strata_from_discrete_arrays([]) is None
+        assert set(strata_from_discrete_arrays([T, Z, Y])) == set(np.arange(12))
+        assert set(strata_from_discrete_arrays([T, Z])) == set(np.arange(6))
+        assert set(strata_from_discrete_arrays([T])) == set(np.arange(3))
+        assert strata_from_discrete_arrays([]) is None
