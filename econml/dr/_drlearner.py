@@ -103,12 +103,15 @@ class _ModelNuisance(ModelSelector):
         n = T.shape[0]
         Y_pred = np.zeros((T.shape[0], T.shape[1] + 1))
         T_counter = np.zeros(T.shape)
-        if self._discrete_outcome and hasattr(self._model_regression, 'predict_proba'):
-            Y_pred[:, 0] = self._model_regression.predict_proba(np.hstack([XW, T_counter]))[:, 1].reshape(n)
+        if hasattr(self._model_regression, 'predict_proba'):
+            if self._discrete_outcome:
+                Y_pred[:, 0] = self._model_regression.predict_proba(np.hstack([XW, T_counter]))[:, 1].reshape(n)
+            else:
+                raise AttributeError("Cannot use a classifier for model_regression when discrete_outcome=False!")
         else:
             if self._discrete_outcome:
-                warn("A regressor was passed when discrete_outcome=True. \
-                     Using a classifier is recommended.", UserWarning)
+                warn("A regressor was passed to model_regression when discrete_outcome=True. "
+                     "Using a classifier is recommended.", UserWarning)
             Y_pred[:, 0] = self._model_regression.predict(np.hstack([XW, T_counter])).reshape(n)
         Y_pred[:, 0] += (Y.reshape(n) - Y_pred[:, 0]) * np.all(T == 0, axis=1) / propensities[:, 0]
         for t in np.arange(T.shape[1]):

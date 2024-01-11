@@ -587,7 +587,7 @@ def check_input_arrays(*args, validate_len=True, force_all_finite=True, dtype=No
                 try:
                     assert_all_finite(new_arg)
                 except ValueError:
-                    warnings.warn("Input contains NaN. Causal identification strategy can be"
+                    warnings.warn("Input contains NaN. Causal identification strategy can be erroneous"
                                   " in the presence of missing values.")
 
             if validate_len:

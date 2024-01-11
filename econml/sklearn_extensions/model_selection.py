@@ -318,8 +318,13 @@ class SingleModelSelector(ModelSelector):
     def predict(self, *args, **kwargs):
         return self.best_model.predict(*args, **kwargs)
 
-    def predict_proba(self, *args, **kwargs):
-        return self.best_model.predict_proba(*args, **kwargs)
+    # only expose predict_proba if best_model has predict_proba
+    # used because logic elsewhere uses hasattr predict proba to check if model is a classifier
+    def __getattr__(self, name):
+        if name == 'predict_proba':
+            return getattr(self.best_model, name)
+        else:
+            self.__getattribute__(name)
 
     def score(self, *args, **kwargs):
         if hasattr(self.best_model, 'score'):

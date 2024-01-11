@@ -180,3 +180,46 @@ class TestDiscreteOutcome(unittest.TestCase):
                             'predict_proba'
                         )
                     ), 'Auto outcome model is not a classifier!'
+
+    def test_constraints(self):
+        """
+        Confirm errors/warnings when discreteness is not handled correctly for
+        discrete outcomes and treatments
+        """
+        X = np.random.normal(size=(100, 3))
+        Y = np.random.choice([0, 1], size=(100))
+        T = np.random.choice([0, 1], size=(100, 1))
+
+        ests = [
+            LinearDML()
+        ]
+
+        for est in ests:
+            with self.subTest(est=est, kind='discrete treatment'):
+                est.discrete_treatment = False
+                est.model_t = LogisticRegression()
+                with pytest.raises(AttributeError):
+                    est.fit(Y=Y, T=T, X=X)
+                est.discrete_treatment = True
+                est.model_t = LinearRegression()
+                with pytest.warns(UserWarning):
+                    est.fit(Y=Y, T=T, X=X)
+
+        ests += [LinearDRLearner()]
+        for est in ests:
+            print(est)
+            with self.subTest(est=est, kind='discrete outcome'):
+                est.discrete_outcome = False
+                if isinstance(est, LinearDRLearner):
+                    est.model_regression = LogisticRegression()
+                else:
+                    est.model_y = LogisticRegression()
+                with pytest.raises(AttributeError):
+                    est.fit(Y=Y, T=T, X=X)
+                est.discrete_outcome = True
+                if isinstance(est, LinearDRLearner):
+                    est.model_regression = LinearRegression()
+                else:
+                    est.model_y = LinearRegression()
+                with pytest.warns(UserWarning):
+                    est.fit(Y=Y, T=T, X=X)

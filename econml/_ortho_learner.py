@@ -721,9 +721,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                         f"Only one outcome variable is supported when discrete_outcome=True. Got Y of shape {Y.shape}")
                 if len(self.outcome_transformer.classes_) > 2:
                     raise AttributeError(
-                        f"({len(self.outcome_transformer.classes_)} outcome classes detected. \
-                            Currently, only 2 outcome classes are allowed when discrete_outcome=True. \
-                            Classes provided include {self.outcome_transformer.classes_[:5]}")
+                        f"({len(self.outcome_transformer.classes_)} outcome classes detected. "
+                        "Currently, only 2 outcome classes are allowed when discrete_outcome=True. "
+                        f"Classes provided include {self.outcome_transformer.classes_[:5]}")
             else:
                 self.outcome_transformer = None
 
