@@ -70,7 +70,7 @@ class TestFederatedLearning(unittest.TestCase):
             b = np.random.normal(size=(n_x + n_w + n_t - 1))
 
             t_model = FunctionClassifier(lambda XW: np.exp(XW @ a))
-            y_model = FunctionClassifier(lambda XW: XW @ b)
+            y_model = FunctionRegressor(lambda XW: XW @ b)
 
             for cov_type in ['HC0', 'HC1', 'nonrobust']:
                 with self.subTest(n_t=n_t, cov_type=cov_type):
