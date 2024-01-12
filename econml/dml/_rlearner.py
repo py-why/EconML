@@ -137,6 +137,9 @@ class _RLearner(_OrthoLearner):
 
     Parameters
     ----------
+    discrete_outcome: bool
+        Whether the outcome should be treated as binary
+
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
@@ -242,7 +245,7 @@ class _RLearner(_OrthoLearner):
         np.random.seed(123)
         X = np.random.normal(size=(1000, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.01, size=(1000,))
-        est = RLearner(cv=2, discrete_treatment=False,
+        est = RLearner(cv=2, discrete_outcome=False, discrete_treatment=False,
                        treatment_featurizer=None, categories='auto', random_state=None)
         est.fit(y, X[:, 0], X=np.ones((X.shape[0], 1)), W=X[:, 1:])
 
@@ -290,10 +293,21 @@ class _RLearner(_OrthoLearner):
         is multidimensional, then the average of the MSEs for each dimension of Y is returned.
     """
 
-    def __init__(self, *, discrete_treatment, treatment_featurizer, categories,
-                 cv, random_state, mc_iters=None, mc_agg='mean', allow_missing=False,
-                 use_ray=False, ray_remote_func_options=None):
-        super().__init__(discrete_treatment=discrete_treatment,
+    def __init__(self,
+                 *,
+                 discrete_outcome,
+                 discrete_treatment,
+                 treatment_featurizer,
+                 categories,
+                 cv,
+                 random_state,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
+        super().__init__(discrete_outcome=discrete_outcome,
+                         discrete_treatment=discrete_treatment,
                          treatment_featurizer=treatment_featurizer,
                          discrete_instrument=False,  # no instrument, so doesn't matter
                          categories=categories,

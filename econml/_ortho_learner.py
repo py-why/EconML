@@ -43,7 +43,7 @@ from ._cate_estimator import (BaseCateEstimator, LinearCateEstimator,
                               TreatmentExpansionMixin)
 from .inference import BootstrapInference
 from .utilities import (_deprecate_positional, check_input_arrays,
-                        cross_product, filter_none_kwargs,
+                        cross_product, filter_none_kwargs, strata_from_discrete_arrays,
                         inverse_onehot, jacify_featurizer, ndim, reshape, shape, transpose)
 from .sklearn_extensions.model_selection import ModelSelector
 
@@ -327,6 +327,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
     Parameters
     ----------
+    discrete_outcome: bool
+        Whether the outcome should be treated as binary
+
     discrete_treatment: bool
         Whether the treatment values should be treated as categorical, rather than continuous, quantities
 
@@ -426,7 +429,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         np.random.seed(123)
         X = np.random.normal(size=(100, 3))
         y = X[:, 0] + X[:, 1] + np.random.normal(0, 0.1, size=(100,))
-        est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None,
+        est = OrthoLearner(cv=2, discrete_outcome=False, discrete_treatment=False, treatment_featurizer=None,
                            discrete_instrument=False, categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
 
@@ -484,7 +487,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         import scipy.special
         T = np.random.binomial(1, scipy.special.expit(W[:, 0]))
         y = T + W[:, 0] + np.random.normal(0, 0.01, size=(100,))
-        est = OrthoLearner(cv=2, discrete_treatment=True, discrete_instrument=False,
+        est = OrthoLearner(cv=2, discrete_outcome=False, discrete_treatment=True, discrete_instrument=False,
                            treatment_featurizer=None, categories='auto', random_state=None)
         est.fit(y, T, W=W)
 
@@ -516,11 +519,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     """
 
     def __init__(self, *,
-                 discrete_treatment, treatment_featurizer,
-                 discrete_instrument, categories, cv, random_state,
-                 mc_iters=None, mc_agg='mean', allow_missing=False, use_ray=False, ray_remote_func_options=None):
-        self.actors = []
+                 discrete_outcome,
+                 discrete_treatment,
+                 treatment_featurizer,
+                 discrete_instrument,
+                 categories,
+                 cv,
+                 random_state,
+                 mc_iters=None,
+                 mc_agg='mean',
+                 allow_missing=False,
+                 use_ray=False,
+                 ray_remote_func_options=None):
         self.cv = cv
+        self.discrete_outcome = discrete_outcome
         self.discrete_treatment = discrete_treatment
         self.treatment_featurizer = treatment_featurizer
         self.discrete_instrument = discrete_instrument
@@ -616,20 +628,15 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _strata(self, Y, T, X=None, W=None, Z=None,
                 sample_weight=None, freq_weight=None, sample_var=None, groups=None,
                 cache_values=False, only_final=False, check_input=True):
-        if self.discrete_instrument:
-            Z = LabelEncoder().fit_transform(np.ravel(Z))
-
+        arrs = []
+        if self.discrete_outcome:
+            arrs.append(Y)
         if self.discrete_treatment:
-            enc = LabelEncoder()
-            T = enc.fit_transform(np.ravel(T))
-            if self.discrete_instrument:
-                return T + Z * len(enc.classes_)
-            else:
-                return T
-        elif self.discrete_instrument:
-            return Z
-        else:
-            return None
+            arrs.append(T)
+        if self.discrete_instrument:
+            arrs.append(Z)
+
+        return strata_from_discrete_arrays(arrs)
 
     def _prefit(self, Y, T, *args, only_final=False, **kwargs):
 
@@ -705,6 +712,20 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
             self._check_input_dims(Y, T, X, W, Z, sample_weight, freq_weight, sample_var, groups)
 
         if not only_final:
+
+            if self.discrete_outcome:
+                self.outcome_transformer = LabelEncoder()
+                self.outcome_transformer.fit(Y)
+                if Y.shape[1:] and Y.shape[1] > 1:
+                    raise ValueError(
+                        f"Only one outcome variable is supported when discrete_outcome=True. Got Y of shape {Y.shape}")
+                if len(self.outcome_transformer.classes_) > 2:
+                    raise AttributeError(
+                        f"({len(self.outcome_transformer.classes_)} outcome classes detected. "
+                        "Currently, only 2 outcome classes are allowed when discrete_outcome=True. "
+                        f"Classes provided include {self.outcome_transformer.classes_[:5]}")
+            else:
+                self.outcome_transformer = None
 
             if self.discrete_treatment:
                 categories = self.categories
@@ -865,7 +886,7 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
     def _fit_nuisances(self, Y, T, X=None, W=None, Z=None, sample_weight=None, groups=None):
 
         # use a binary array to get stratified split in case of discrete treatment
-        stratify = self.discrete_treatment or self.discrete_instrument
+        stratify = self.discrete_treatment or self.discrete_instrument or self.discrete_outcome
         strata = self._strata(Y, T, X=X, W=W, Z=Z, sample_weight=sample_weight, groups=groups)
         if strata is None:
             strata = T  # always safe to pass T as second arg to split even if we're not actually stratifying
@@ -877,6 +898,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
 
         if self.discrete_instrument:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
+
+        if self.discrete_outcome:
+            Y = self.outcome_transformer.transform(Y).reshape(-1, 1)
 
         if self.cv == 1:  # special case, no cross validation
             folds = None
@@ -1008,6 +1032,8 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
         X, T = self._expand_treatments(X, T)
         if self.z_transformer is not None:
             Z = self.z_transformer.transform(reshape(Z, (-1, 1)))
+        if self.discrete_outcome:
+            Y = self.outcome_transformer.transform(Y).reshape(-1, 1)
         n_iters = len(self._models_nuisance)
         n_splits = len(self._models_nuisance[0])
 

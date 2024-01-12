@@ -2,7 +2,6 @@
 # Licensed under the MIT License.
 
 from sklearn.datasets import make_regression
-
 from econml._ortho_learner import _OrthoLearner, _crossfit
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
@@ -256,7 +255,7 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
 
-        est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None,
+        est = OrthoLearner(cv=2, discrete_outcome=False, discrete_treatment=False, treatment_featurizer=None,
                            discrete_instrument=False, categories='auto', random_state=None, use_ray=use_ray)
         est.fit(y, X[:, 0], W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
@@ -273,8 +272,8 @@ class TestOrthoLearner(unittest.TestCase):
         X = np.random.normal(size=(10000, 3))
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
-        est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None, discrete_instrument=False,
-                           categories='auto', random_state=None, use_ray=use_ray)
+        est = OrthoLearner(cv=2, discrete_outcome=False, discrete_treatment=False, treatment_featurizer=None,
+                           discrete_instrument=False, categories='auto', random_state=None, use_ray=use_ray)
         # test non-array inputs
         est.fit(list(y), list(X[:, 0]), X=None, W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
@@ -289,7 +288,7 @@ class TestOrthoLearner(unittest.TestCase):
         X = np.random.normal(size=(10000, 3))
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
-        est = OrthoLearner(cv=KFold(n_splits=3),
+        est = OrthoLearner(cv=KFold(n_splits=3), discrete_outcome=False,
                            discrete_treatment=False, treatment_featurizer=None, discrete_instrument=False,
                            categories='auto', random_state=None, use_ray=use_ray)
         est.fit(y, X[:, 0], X=None, W=X[:, 1:])
@@ -306,7 +305,7 @@ class TestOrthoLearner(unittest.TestCase):
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
         folds = [(np.arange(X.shape[0] // 2), np.arange(X.shape[0] // 2, X.shape[0]))]
-        est = OrthoLearner(cv=KFold(n_splits=3),
+        est = OrthoLearner(cv=KFold(n_splits=3), discrete_outcome=False,
                            discrete_treatment=False, treatment_featurizer=None, discrete_instrument=False,
                            categories='auto', random_state=None, use_ray=use_ray)
 
@@ -363,7 +362,8 @@ class TestOrthoLearner(unittest.TestCase):
         X = np.random.normal(size=(10000, 3))
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
-        est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None, discrete_instrument=False,
+        est = OrthoLearner(cv=2, discrete_outcome=False, discrete_treatment=False,
+                           treatment_featurizer=None, discrete_instrument=False,
                            categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
@@ -413,7 +413,8 @@ class TestOrthoLearner(unittest.TestCase):
         X = np.random.normal(size=(10000, 3))
         sigma = 0.1
         y = X[:, 0] + X[:, 1] + np.random.normal(0, sigma, size=(10000,))
-        est = OrthoLearner(cv=2, discrete_treatment=False, treatment_featurizer=None, discrete_instrument=False,
+        est = OrthoLearner(cv=2, discrete_outcome=False, discrete_treatment=False,
+                           treatment_featurizer=None, discrete_instrument=False,
                            categories='auto', random_state=None)
         est.fit(y, X[:, 0], W=X[:, 1:])
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)
@@ -475,7 +476,8 @@ class TestOrthoLearner(unittest.TestCase):
         T = np.random.binomial(1, scipy.special.expit(X[:, 0]))
         sigma = 0.01
         y = T + X[:, 0] + np.random.normal(0, sigma, size=(10000,))
-        est = OrthoLearner(cv=2, discrete_treatment=True, treatment_featurizer=None, discrete_instrument=False,
+        est = OrthoLearner(cv=2, discrete_outcome=False, discrete_treatment=True,
+                           treatment_featurizer=None, discrete_instrument=False,
                            categories='auto', random_state=None)
         est.fit(y, T, W=X)
         np.testing.assert_almost_equal(est.const_marginal_effect(), 1, decimal=3)

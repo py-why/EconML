@@ -65,7 +65,8 @@ class TestDRTester(unittest.TestCase):
         cate = DML(
             model_y=reg_y,
             model_t=reg_t,
-            model_final=reg_y
+            model_final=reg_y,
+            discrete_treatment=True
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
@@ -117,7 +118,8 @@ class TestDRTester(unittest.TestCase):
         cate = DML(
             model_y=reg_y,
             model_t=reg_t,
-            model_final=reg_y
+            model_final=reg_y,
+            discrete_treatment=True
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
@@ -164,7 +166,8 @@ class TestDRTester(unittest.TestCase):
         cate = DML(
             model_y=reg_y,
             model_t=reg_t,
-            model_final=reg_y
+            model_final=reg_y,
+            discrete_treatment=True
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference
@@ -204,7 +207,8 @@ class TestDRTester(unittest.TestCase):
         cate = DML(
             model_y=reg_y,
             model_t=reg_t,
-            model_final=reg_y
+            model_final=reg_y,
+            discrete_treatment=True
         ).fit(Y=Ytrain, T=Dtrain, X=Xtrain)
 
         # test the DR outcome difference

@@ -265,8 +265,8 @@ class TestRefit(unittest.TestCase):
         est.fit(y, T, X=X, W=W)
         est.effect(X)
         est.discrete_treatment = False
-        est.fit(y, T, X=X, W=W)
-        est.effect(X)
+        with pytest.raises(AttributeError):
+            est.fit(y, T, X=X, W=W)  # should fail because passing a clf when discrete_treatment=False
 
     def test_refit_final_inference(self):
         """Test that we can perform inference during refit_final"""
