@@ -35,6 +35,8 @@ Unlike other estimators, you should not call `fit` on an instance of :class:`.Fe
 you should train your individual estimators separately and then pass the already trained models to the :class:`.FederatedEstimator`
 initializer.  The :class:`.FederatedEstimator` will then aggregate the individual estimators into a single model.
 
+Note that because there is a memory overhead to using federated learning, each estimator must opt-in to it by setting
+`enable_federation` to `True`.
 
 Example Usage
 ~~~~~~~~~~~~~
@@ -47,13 +49,15 @@ Example Usage
     n = 1000
     (X, y, t) = (np.random.normal(size=(n,)+s) for s in [(3,), (), ()])
 
+Here is an extremely basic demonstration of the basic :class:`.FederatedEstimator` API:
+
 .. testcode::
 
     # Create individual LinearDML estimators
     num_partitions = 3
     estimators = []
     for i in range(num_partitions):
-        est = LinearDML(random_state=123)
+        est = LinearDML(random_state=123, enable_federation=True)
         # Get the data for this partition
         X_part, y_part, t_part = (arr[i::num_partitions] for arr in (X, y, t))
 
@@ -68,7 +72,39 @@ Example Usage
     # The federated estimator can now be used like a typical CATE estimator
     cme = federated_estimator.const_marginal_effect(X)
 
+In practice, if all of your data fits into memory and can be brought onto a single machine (as in the previous example),
+then there is no benefit to using federated learning rather than learning a single model over the data.  In a more realistic
+scenario where it is impractical to fit a single model on all of the data, models should be trained in parallel on different machines,
+serialized, and then deserialized on a single central machine that can create the federated estimator.  Using python's built-in serialization
+via the :mod:`.pickle` module, this would look something like:
 
+.. testcode::
+
+    # We're running this as a loop here, but in practice each of these iterations would be run on a different machine
+    for i in range(num_partitions):
+
+        # Get the data for this partition, in practice probably by loading from disk
+        X_part, y_part, t_part = (arr[i::num_partitions] for arr in (X, y, t))
+
+        # The code to train a model and serialize it runs on each machine
+        import pickle
+
+        est = LinearDML(random_state=123, enable_federation=True)
+        est.fit(Y=y_part, T=t_part, X=X_part)
+
+        with open(f'model{i+1}.pkl', 'wb') as f:
+            pickle.dump(est, f)
+
+
+    # On the central machine, deserialize the models and create the federated estimator
+    with open('model1.pkl', 'rb') as f1, open('model2.pkl', 'rb') as f2, open('model3.pkl', 'rb') as f3:
+        est1 = pickle.load(f1)
+        est2 = pickle.load(f2)
+        est3 = pickle.load(f3)
+    federated_estimator = FederatedEstimator([est1, est2, est3])
+
+    # The federated estimator can now be used like a typical CATE estimator
+    cme = federated_estimator.const_marginal_effect(X)
 
 Theory
 ------
