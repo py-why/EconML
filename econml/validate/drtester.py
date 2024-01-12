@@ -8,8 +8,8 @@ from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
 from statsmodels.api import OLS
 from statsmodels.tools import add_constant
 
-from .results import CalibrationEvaluationResults, BLPEvaluationResults, QiniEvaluationResults, EvaluationResults
-from .utils import calculate_dr_outcomes, calc_qini_coeff
+from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
+from .utils import calculate_dr_outcomes, calc_uplift
 
 
 class DRtester:
@@ -382,7 +382,7 @@ class DRtester:
             self.get_cate_preds(Xval, Xtrain)
 
         cal_r_squared = np.zeros(self.n_treat)
-        df_plot = pd.DataFrame()
+        plot_data_dict = dict()
         for k in range(self.n_treat):
             cuts = np.quantile(self.cate_preds_train_[:, k], np.linspace(0, 1, n_groups + 1))
             probs = np.zeros(n_groups)
@@ -409,15 +409,19 @@ class DRtester:
             # Calculate R-square calibration score
             cal_r_squared[k] = 1 - (cal_score_g / cal_score_o)
 
-            df_plot1 = pd.DataFrame({'ind': np.array(range(n_groups)),
-                                     'gate': gate, 'se_gate': se_gate,
-                                    'g_cate': g_cate, 'se_g_cate': se_g_cate})
-            df_plot1['tmt'] = self.treatments[k + 1]
-            df_plot = pd.concat((df_plot, df_plot1))
+            df_plot = pd.DataFrame({
+                'ind': np.array(range(n_groups)),
+                'gate': gate,
+                'se_gate': se_gate,
+                'g_cate': g_cate,
+                'se_g_cate': se_g_cate
+            })
+
+            plot_data_dict[self.treatments[k + 1]] = df_plot
 
         self.cal_res = CalibrationEvaluationResults(
             cal_r_squared=cal_r_squared,
-            df_plot=df_plot,
+            plot_data_dict=plot_data_dict,
             treatments=self.treatments
         )
 
@@ -480,12 +484,13 @@ class DRtester:
 
         return self.blp_res
 
-    def evaluate_qini(
+    def evaluate_uplift(
         self,
         Xval: np.array = None,
         Xtrain: np.array = None,
-        percentiles: np.array = np.linspace(5, 95, 50)
-    ) -> QiniEvaluationResults:
+        percentiles: np.array = np.linspace(5, 95, 50),
+        metric: str = 'qini'
+    ) -> UpliftEvaluationResults:
         """
         Calculates QINI coefficient for the given model as in Radcliffe (2007), where units are ordered by predicted
         CATE values and a running measure of the average treatment effect in each cohort is kept as we progress
@@ -505,10 +510,12 @@ class DRtester:
         percentiles: one-dimensional array, default ``np.linspace(5, 95, 50)''
             Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of
             5%.
+        metric: string, default 'qini'
+            Which type of uplift curve to evaluate. Must be one of ['toc', 'qini']
 
         Returns
         -------
-        QiniEvaluationResults object showing the results of the QINI fit
+        UpliftEvaluationResults object showing the fitted results
         """
         if not hasattr(self, 'dr_val_'):
             raise Exception("Must fit nuisances before evaluating")
@@ -518,39 +525,44 @@ class DRtester:
                 raise Exception('CATE predictions not yet calculated - must provide both Xval, Xtrain')
             self.get_cate_preds(Xval, Xtrain)
 
+        curve_data_dict = dict()
         if self.n_treat == 1:
-            qini, qini_err = calc_qini_coeff(
+            coeff, err, curve_df = calc_uplift(
                 self.cate_preds_train_,
                 self.cate_preds_val_,
                 self.dr_val_,
-                percentiles
+                percentiles,
+                metric
             )
-            qinis = [qini]
-            errs = [qini_err]
+            coeffs = [coeff]
+            errs = [err]
+            curve_data_dict[self.treatments[1]] = curve_df
         else:
-            qinis = []
+            coeffs = []
             errs = []
             for k in range(self.n_treat):
-                qini, qini_err = calc_qini_coeff(
+                coeff, err, curve_df = calc_uplift(
                     self.cate_preds_train_[:, k],
                     self.cate_preds_val_[:, k],
                     self.dr_val_[:, k],
-                    percentiles
+                    percentiles,
+                    metric
                 )
+                coeffs.append(coeff)
+                errs.append(err)
+                curve_data_dict[self.treatments[k + 1]] = curve_df
 
-                qinis.append(qini)
-                errs.append(qini_err)
+        pvals = [st.norm.sf(abs(q / e)) for q, e in zip(coeffs, errs)]
 
-        pvals = [st.norm.sf(abs(q / e)) for q, e in zip(qinis, errs)]
-
-        self.qini_res = QiniEvaluationResults(
-            params=qinis,
+        self.uplift_res = UpliftEvaluationResults(
+            params=coeffs,
             errs=errs,
             pvals=pvals,
-            treatments=self.treatments
+            treatments=self.treatments,
+            curve_data_dict=curve_data_dict
         )
 
-        return self.qini_res
+        return self.uplift_res
 
     def evaluate_all(
         self,
@@ -559,8 +571,8 @@ class DRtester:
         n_groups: int = 4
     ) -> EvaluationResults:
         """
-        Implements the best linear prediction (`evaluate_blp'), calibration (`evaluate_cal') and QINI coefficient
-        (`evaluate_qini') methods.
+        Implements the best linear prediction (`evaluate_blp'), calibration (`evaluate_cal'), uplift curve
+        ('evaluate_uplift') methods
 
         Parameters
         ----------
@@ -583,12 +595,14 @@ class DRtester:
 
         blp_res = self.evaluate_blp()
         cal_res = self.evaluate_cal(n_groups=n_groups)
-        qini_res = self.evaluate_qini()
+        qini_res = self.evaluate_uplift(metric='qini')
+        toc_res = self.evaluate_uplift(metric='toc')
 
         self.res = EvaluationResults(
             blp_res=blp_res,
             cal_res=cal_res,
-            qini_res=qini_res
+            qini_res=qini_res,
+            toc_res=toc_res
         )
 
         return self.res
