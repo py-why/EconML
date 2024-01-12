@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from typing import List
+from typing import List, Dict, Any
 
 
 class CalibrationEvaluationResults:
@@ -13,8 +13,9 @@ class CalibrationEvaluationResults:
     cal_r_squared: list or numpy array of floats
         Sequence of calibration R^2 values
 
-    df_plot: pandas dataframe
-        Dataframe containing necessary data for plotting calibration test GATE results
+    plot_data_dict: dict
+        Dictionary mapping treatment levels to dataframes containing necessary
+        data for plotting calibration test GATE results
 
     treatments: list or numpy array of floats
         Sequence of treatment labels
@@ -22,11 +23,11 @@ class CalibrationEvaluationResults:
     def __init__(
         self,
         cal_r_squared: np.array,
-        df_plot: pd.DataFrame,
+        plot_data_dict: Dict[Any, pd.DataFrame],
         treatments: np.array
     ):
         self.cal_r_squared = cal_r_squared
-        self.df_plot = df_plot
+        self.plot_data_dict = plot_data_dict
         self.treatments = treatments
 
     def summary(self) -> pd.DataFrame:
@@ -48,24 +49,23 @@ class CalibrationEvaluationResults:
         }).round(3)
         return res
 
-    def plot_cal(self, tmt: int):
+    def plot_cal(self, tmt: Any):
         """
         Plots group average treatment effects (GATEs) and predicted GATEs by quantile-based group in validation sample.
 
         Parameters
         ----------
-        tmt: integer
-            Treatment level to plot
+        tmt: Any
+            Name of treatment to plot
 
         Returns
         -------
         matplotlib plot with predicted GATE on x-axis and GATE (and 95% CI) on y-axis
         """
-        if tmt == 0:
-            raise Exception('Plotting only supported for treated units (not controls)')
+        if tmt not in self.treatments[1:]:
+            raise ValueError(f'Invalid treatment; must be one of {self.treatments[1:]}')
 
-        df = self.df_plot
-        df = df[df.tmt == tmt].copy()
+        df = self.plot_data_dict[tmt].copy()
         rsq = round(self.cal_r_squared[np.where(self.treatments == tmt)[0][0] - 1], 3)
         df['95_err'] = 1.96 * df['se_gate']
         fig = df.plot(
@@ -132,9 +132,9 @@ class BLPEvaluationResults:
         return res
 
 
-class QiniEvaluationResults:
+class UpliftEvaluationResults:
     """
-    Results class for QINI test.
+    Results class for uplift curve-based tests.
 
     Parameters
     ----------
@@ -149,18 +149,24 @@ class QiniEvaluationResults:
 
     treatments: list or numpy array of floats
        Sequence of treatment labels
+
+    curve_data_dict: dict
+        Dictionary mapping treatment levels to dataframes containing
+        necessary data for plotting uplift curves
     """
     def __init__(
         self,
         params: List[float],
         errs: List[float],
         pvals: List[float],
-        treatments: np.array
+        treatments: np.array,
+        curve_data_dict: Dict[Any, pd.DataFrame]
     ):
         self.params = params
         self.errs = errs
         self.pvals = pvals
         self.treatments = treatments
+        self.curves = curve_data_dict
 
     def summary(self):
         """
@@ -176,11 +182,43 @@ class QiniEvaluationResults:
         """
         res = pd.DataFrame({
             'treatment': self.treatments[1:],
-            'qini_est': self.params,
-            'qini_se': self.errs,
-            'qini_pval': self.pvals
+            'est': self.params,
+            'se': self.errs,
+            'pval': self.pvals
         }).round(3)
         return res
+
+    def plot_uplift(self, tmt: Any):
+        """
+        Plots uplift curves.
+
+        Parameters
+        ----------
+        tmt: any (sortable)
+            Name of treatment to plot.
+
+        Returns
+        -------
+        matplotlib plot with percentage treated on x-axis and uplift metric (and 95% CI) on y-axis
+        """
+        if tmt not in self.treatments[1:]:
+            raise ValueError(f'Invalid treatment; must be one of {self.treatments[1:]}')
+
+        df = self.curves[tmt].copy()
+        df['95_err'] = 1.96 * df['err']
+        res = self.summary()
+        coeff = round(res.loc[res['treatment'] == tmt]['est'].values[0], 3)
+        err = round(res.loc[res['treatment'] == tmt]['se'].values[0], 3)
+        fig = df.plot(
+            kind='scatter',
+            x='Percentage treated',
+            y='value',
+            yerr='95_err',
+            ylabel='Gain over Random',
+            title=f"Treatment = {tmt}, Integral = {coeff} +/- {err}"
+        )
+
+        return fig
 
 
 class EvaluationResults:
@@ -195,18 +233,23 @@ class EvaluationResults:
     blp_res: BLPEvaluationResults object
        Results object for BLP test
 
-    qini_res: QiniEvaluationResults object
+    qini_res: UpliftEvaluationResults object
        Results object for QINI test
+
+    toc_res: UpliftEvaluationResults object
+       Results object for TOC test
     """
     def __init__(
         self,
         cal_res: CalibrationEvaluationResults,
         blp_res: BLPEvaluationResults,
-        qini_res: QiniEvaluationResults
+        qini_res: UpliftEvaluationResults,
+        toc_res: UpliftEvaluationResults
     ):
         self.cal = cal_res
         self.blp = blp_res
         self.qini = qini_res
+        self.toc = toc_res
 
     def summary(self):
         """
@@ -221,7 +264,10 @@ class EvaluationResults:
         pandas dataframe containing summary of all test results
         """
         res = self.blp.summary().merge(
-            self.qini.summary(),
+            self.qini.summary().rename({'est': 'qini_est', 'se': 'qini_se', 'pval': 'qini_pval'}, axis=1),
+            on='treatment'
+        ).merge(
+            self.toc.summary().rename({'est': 'autoc_est', 'se': 'autoc_se', 'pval': 'autoc_pval'}, axis=1),
             on='treatment'
         ).merge(
             self.cal.summary(),
@@ -243,3 +289,33 @@ class EvaluationResults:
         matplotlib plot with predicted GATE on x-axis and GATE (and 95% CI) on y-axis
         """
         return self.cal.plot_cal(tmt)
+
+    def plot_qini(self, tmt: int):
+        """
+        Plots QINI curves.
+
+        Parameters
+        ----------
+        tmt: integer
+            Treatment level to plot
+
+        Returns
+        -------
+        matplotlib plot with percentage treated on x-axis and QINI value (and 95% CI) on y-axis
+        """
+        return self.qini.plot_uplift(tmt)
+
+    def plot_toc(self, tmt: int):
+        """
+        Plots TOC curves.
+
+        Parameters
+        ----------
+        tmt: integer
+            Treatment level to plot
+
+        Returns
+        -------
+        matplotlib plot with percentage treated on x-axis and TOC value (and 95% CI) on y-axis
+        """
+        return self.toc.plot_uplift(tmt)
