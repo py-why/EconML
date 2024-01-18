@@ -5,7 +5,7 @@ import pandas as pd
 import scipy.stats as st
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 
-from econml.validate.drtester import DRtester
+from validate.drtester import DRtester
 from econml.dml import DML
 
 
@@ -279,7 +279,7 @@ class TestDRTester(unittest.TestCase):
         self.assertLess(qini_res.pvals[0], 0.05)
 
         with self.assertRaises(Exception) as exc:
-            qini_res.plot_uplift(metric='blah')
+            qini_res.plot_uplift(tmt=1, err_type='blah')
         self.assertTrue(
             str(exc.exception) == "Invalid error type; must be one of [None, 'ucb2', 'ucb1']"
         )

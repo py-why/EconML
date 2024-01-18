@@ -53,7 +53,8 @@ def calc_uplift(
     cate_preds_val: np.array,
     dr_val: np.array,
     percentiles: np.array,
-    metric: str
+    metric: str,
+
 ) -> Tuple[float, float, pd.DataFrame]:
     """
     Helper function for uplift curve generation and coefficient calculation.
@@ -100,14 +101,8 @@ def calc_uplift(
 
         toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
 
-    if dr_val.shape[0] > 1e6:  # avoid computational issues if dataset too large
-        mboot = np.zeros((len(qs), 1000))
-        for it in range(1000):
-            w = np.random.normal(0, 1, size=(n,))
-            mboot[:, it] = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
-    else:
-        w = np.random.normal(0, 1, size=(n, 1000))
-        mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
+    w = np.random.normal(0, 1, size=(n, 1000))
+    mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
 
     max_mboot = np.max(np.abs(mboot), axis=0)
     uniform_critical_value = np.percentile(max_mboot, 95)
