@@ -492,9 +492,9 @@ class DRtester:
         metric: str = 'qini'
     ) -> UpliftEvaluationResults:
         """
-        Calculates QINI coefficient for the given model as in Radcliffe (2007), where units are ordered by predicted
+        Calculates uplift curves and coefficients for the given model, where units are ordered by predicted
         CATE values and a running measure of the average treatment effect in each cohort is kept as we progress
-        through ranks. The QINI coefficient is then the area under the resulting curve, with a value of 0 interpreted
+        through ranks. The uplift coefficient is then the area under the resulting curve, with a value of 0 interpreted
         as corresponding to a model with randomly assigned CATE coefficients. All calculations are performed on
         validation dataset results, using the training set as input.
 

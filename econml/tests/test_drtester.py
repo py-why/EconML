@@ -148,8 +148,8 @@ class TestDRTester(unittest.TestCase):
                 self.assertRaises(ValueError, res.plot_toc, k)
             else:  # real treatment, k = 1
                 self.assertTrue(res.plot_cal(k) is not None)
-                self.assertTrue(res.plot_qini(k) is not None)
-                self.assertTrue(res.plot_toc(k) is not None)
+                self.assertTrue(res.plot_qini(k, 'ucb2') is not None)
+                self.assertTrue(res.plot_toc(k, 'ucb1') is not None)
 
         self.assertLess(res_df.blp_pval.values[0], 0.05)  # heterogeneity
         self.assertGreater(res_df.cal_r_squared.values[0], 0)  # good R2
@@ -277,6 +277,12 @@ class TestDRTester(unittest.TestCase):
         )
         qini_res = my_dr_tester.evaluate_uplift(Xval, Xtrain)
         self.assertLess(qini_res.pvals[0], 0.05)
+
+        with self.assertRaises(Exception) as exc:
+            qini_res.plot_uplift(metric='blah')
+        self.assertTrue(
+            str(exc.exception) == "Invalid error type; must be one of [None, 'ucb2', 'ucb1']"
+        )
 
         autoc_res = my_dr_tester.evaluate_uplift(Xval, Xtrain, metric='toc')
         self.assertLess(autoc_res.pvals[0], 0.05)
