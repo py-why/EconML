@@ -5,7 +5,7 @@ import pandas as pd
 import scipy.stats as st
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingRegressor
 
-from validate.drtester import DRtester
+from econml.validate.drtester import DRtester
 from econml.dml import DML
 
 
