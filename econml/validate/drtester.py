@@ -46,16 +46,26 @@ class DRtester:
     The calibration r-squared metric is similar to the standard R-square score in that it can take any value
     less than or equal to 1, with scores closer to 1 indicating a better calibrated CATE model.
 
-    **QINI**
+    **Uplift Modeling**
 
     Units are ordered by predicted CATE values and a running measure of the average treatment effect in each cohort is
-    kept as we progress through ranks. The QINI coefficient is then the area under the resulting curve, with a value
-    of 0 interpreted as corresponding to a model with randomly assigned CATE coefficients. All calculations are
-    performed on validation dataset results, using the training set as input.
+    kept as we progress through ranks. The resulting TOC curve can then be plotted and its integral calculated and used
+    as a measure of true heterogeneity captured by the CATE model; this integral is referred to as the AUTOC (area
+    under TOC). The QINI curve is a variant of this curve that also incorporates treatment probability; its integral is
+    referred to as the QINI coefficient.
 
-    More formally, the QINI curve is given by the following function:
+    More formally, the TOC and QINI curves are given by the following functions:
 
     .. math::
+
+        \\tau_{TOC}(q) = \\mathrm{Cov}(
+            Y^{DR}(g,p),
+            \\frac{
+                \\mathbb{1}\\{\\hat{\\tau}(Z) \\geq \\hat{\\mu}(q)\\}
+            }{
+                \\mathrm{Pr}(\\hat{\\tau}(Z) \\geq \\hat{\\mu}(q))
+            }
+        )
 
         \\tau_{QINI}(q) = \\mathrm{Cov}(Y^{DR}(g,p), \\mathbb{1}\\{\\hat{\\tau}(Z) \\geq \\hat{\\mu}(q)\\})
 
@@ -63,9 +73,11 @@ class DRtester:
     the predicted CATE function.
     :math:`Y^{DR}(g,p)` refers to the doubly robust outcome difference (relative to control) for the given observation.
 
-    The QINI coefficient is then given by:
+    The AUTOC and QINI coefficient are then given by:
 
     .. math::
+
+        AUTOC = \\int_0^1 \\tau_{TOC}(q) dq
 
         QINI = \\int_0^1 \\tau_{QINI}(q) dq
 
@@ -80,8 +92,12 @@ class DRtester:
         method and either `predict' (in the case of binary treatment) or `predict_proba' methods (in the case of
         multiple categorical treatments).
 
-    n_splits: integer, default 5
-        Number of splits used to generate cross-validated predictions
+    cate: estimator
+        Fitted conditional average treatment effect (CATE) estimator to be validated.
+
+    cv: int or list, default 5
+        Splitter used for cross-validation. Can be either an integer (corresponding to the number of desired folds)
+        or a list of indices corresponding to membership in each fold.
 
     References
     ----------
