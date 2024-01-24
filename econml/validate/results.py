@@ -217,7 +217,7 @@ class UpliftEvaluationResults:
         elif err_type == 'ucb1':
             df['95_err'] = df['uniform_one_side_critical_value'] * df['err']
         else:
-            raise ValueError("Invalid error type; must be one of [None, 'ucb2', 'ucb1']")
+            raise ValueError(f"Invalid error type {err_type}; must be one of [None, 'ucb2', 'ucb1']")
 
         res = self.summary()
         coeff = round(res.loc[res['treatment'] == tmt]['est'].values[0], 3)
