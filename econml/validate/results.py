@@ -199,7 +199,7 @@ class UpliftEvaluationResults:
 
         err_type: str
             Type of error to plot. Accepted values are normal (None), two-sided uniform confidence band ('ucb2'),
-            or 1-sided uniform confidence band).
+            or 1-sided uniform confidence band ('ucb1').
 
         Returns
         -------
