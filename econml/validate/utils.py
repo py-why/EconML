@@ -54,12 +54,12 @@ def calc_uplift(
     dr_val: np.array,
     percentiles: np.array,
     metric: str,
-
+    n_bootstrap: int = 1000
 ) -> Tuple[float, float, pd.DataFrame]:
     """
     Helper function for uplift curve generation and coefficient calculation.
     Calculates uplift curve points, integral, and errors on both points and integral.
-    Also calculates appropriate critical value multipliers for confidence interval construction (via multiplier bootstrap).
+    Also calculates appropriate critical value multipliers for confidence intervals (via multiplier bootstrap).
     See documentation for "drtester.evaluate_uplift" method for more details.
 
     Parameters
@@ -75,6 +75,8 @@ def calc_uplift(
         Array of percentiles over which the QINI curve should be constructed. Defaults to 5%-95% in intervals of 5%.
     metric: string
         String indicating whether to calculate TOC or QINI; should be one of ['toc', 'qini']
+    n_bootstrap: integer, default 1000
+        Number of bootstrap samples to run when calculating uniform confidence bands.
 
     Returns
     -------
@@ -101,7 +103,7 @@ def calc_uplift(
 
         toc_std[it] = np.sqrt(np.mean(toc_psi[it] ** 2) / n)  # standard error of tau(q)
 
-    w = np.random.normal(0, 1, size=(n, 1000))
+    w = np.random.normal(0, 1, size=(n, n_bootstrap))
     mboot = (toc_psi / toc_std.reshape(-1, 1)) @ w / n
 
     max_mboot = np.max(np.abs(mboot), axis=0)

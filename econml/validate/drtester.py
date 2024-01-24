@@ -86,7 +86,6 @@ class DRtester:
     References
     ----------
 
-
     [Chernozhukov2022] V. Chernozhukov et al.
     Generic Machine Learning Inference on Heterogeneous Treatment Effects in Randomized Experiments
     arXiv preprint arXiv:1712.04802, 2022.
@@ -96,7 +95,6 @@ class DRtester:
     Stable Discovery of Interpretable Subgroups via Calibration in Causal Studies
     arXiv preprint 	arXiv:2008.10109, 2020.
     `<https://arxiv.org/abs/2008.10109>`_
-
 
     [Radcliffe2007] N. Radcliffe
     Using control groups to target on predicted lift: Building and assessing uplift model.
@@ -489,7 +487,8 @@ class DRtester:
         Xval: np.array = None,
         Xtrain: np.array = None,
         percentiles: np.array = np.linspace(5, 95, 50),
-        metric: str = 'qini'
+        metric: str = 'qini',
+        n_bootstrap: int = 1000
     ) -> UpliftEvaluationResults:
         """
         Calculates uplift curves and coefficients for the given model, where units are ordered by predicted
@@ -512,6 +511,8 @@ class DRtester:
             5%.
         metric: string, default 'qini'
             Which type of uplift curve to evaluate. Must be one of ['toc', 'qini']
+        n_bootstrap: integer, default 1000
+            Number of bootstrap samples to run when calculating uniform confidence bands.
 
         Returns
         -------
@@ -532,7 +533,8 @@ class DRtester:
                 self.cate_preds_val_,
                 self.dr_val_,
                 percentiles,
-                metric
+                metric,
+                n_bootstrap
             )
             coeffs = [coeff]
             errs = [err]
@@ -546,7 +548,8 @@ class DRtester:
                     self.cate_preds_val_[:, k],
                     self.dr_val_[:, k],
                     percentiles,
-                    metric
+                    metric,
+                    n_bootstrap
                 )
                 coeffs.append(coeff)
                 errs.append(err)
@@ -568,7 +571,8 @@ class DRtester:
         self,
         Xval: np.array = None,
         Xtrain: np.array = None,
-        n_groups: int = 4
+        n_groups: int = 4,
+        n_bootstrap: int = 1000
     ) -> EvaluationResults:
         """
         Implements the best linear prediction (`evaluate_blp'), calibration (`evaluate_cal'), uplift curve
@@ -582,6 +586,10 @@ class DRtester:
         Xtrain: (n_train x k) matrix, default ``None''
             Training sample features for CATE model. If not specified, then `fit_cate' method must already have been
             implemented
+        n_groups: integer, default 4
+            Number of quantile-based groups used to calculate calibration score.
+        n_bootstrap: integer, default 1000
+            Number of bootstrap samples to run when calculating uniform confidence bands for uplift curves.
 
         Returns
         -------
@@ -595,8 +603,8 @@ class DRtester:
 
         blp_res = self.evaluate_blp()
         cal_res = self.evaluate_cal(n_groups=n_groups)
-        qini_res = self.evaluate_uplift(metric='qini')
-        toc_res = self.evaluate_uplift(metric='toc')
+        qini_res = self.evaluate_uplift(metric='qini', n_bootstrap=n_bootstrap)
+        toc_res = self.evaluate_uplift(metric='toc', n_bootstrap=n_bootstrap)
 
         self.res = EvaluationResults(
             blp_res=blp_res,
