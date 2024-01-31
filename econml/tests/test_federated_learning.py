@@ -170,11 +170,11 @@ class TestFederatedLearning(unittest.TestCase):
                                 with self.subTest(d_x=d_x, d_t=d_t, d_y=d_y,
                                                   weights=(weights is not None), fw=(freq_weights is not None),
                                                   cov_type=cov_type):
-                                    est_all = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False,
+                                    est_all = LinearDML(model_t=t_model, model_y=y_model,
                                                         enable_federation=True)
-                                    est_h1 = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False,
+                                    est_h1 = LinearDML(model_t=t_model, model_y=y_model,
                                                        enable_federation=True)
-                                    est_h2 = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False,
+                                    est_h2 = LinearDML(model_t=t_model, model_y=y_model,
                                                        enable_federation=True)
 
                                     est_all.fit(Y, T, X=X, W=W,

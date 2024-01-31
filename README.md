@@ -509,7 +509,7 @@ See the <a href="#references">References</a> section for more details.
   reg = lambda: RandomForestRegressor(min_samples_leaf=20)
   clf = lambda: RandomForestClassifier(min_samples_leaf=20)
   models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
-                               linear_first_stages=False, cv=3)),
+                               cv=3)),
             ('xlearner', XLearner(models=reg(), cate_models=reg(), propensity_model=clf())),
             ('dalearner', DomainAdaptationLearner(models=reg(), final_models=reg(), propensity_model=clf())),
             ('slearner', SLearner(overall_model=reg())),
@@ -521,7 +521,7 @@ See the <a href="#references">References</a> section for more details.
                                model_final=LassoCV(cv=3, fit_intercept=False),
                                discrete_treatment=True,
                                featurizer=PolynomialFeatures(degree=3),
-                               linear_first_stages=False, cv=3))
+                               cv=3))
   ]
 
   # fit cate models on train data

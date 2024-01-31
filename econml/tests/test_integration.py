@@ -243,7 +243,7 @@ class TestPandasIntegration(unittest.TestCase):
         Y = TestPandasIntegration.df[TestPandasIntegration.outcome]
         T = TestPandasIntegration.df[TestPandasIntegration.cat_treat]
         # Test categorical treatments
-        est = LinearDML(discrete_treatment=True, linear_first_stages=False,
+        est = LinearDML(discrete_treatment=True,
                         categories=TestPandasIntegration.cat_treat_labels)
         est.fit(Y, T, X=X)
         self._check_input_names(est.summary(), T_cat=True)

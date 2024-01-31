@@ -33,8 +33,7 @@ class TestDowhy(unittest.TestCase):
 
         Y, T, X, W, Z = self._get_data()
         # test at least one estimator from each category
-        models = {"dml": LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
-                                   linear_first_stages=False),
+        models = {"dml": LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True),
                   "dr": DRLearner(model_propensity=clf(), model_regression=reg(),
                                   model_final=reg()),
                   "forestdr": ForestDRLearner(model_propensity=clf(), model_regression=reg()),

@@ -401,10 +401,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    linear_first_stages: bool
-        Whether the first stage models are linear (in which case we will expand the features passed to
-        `model_y` accordingly)
-
     discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
 
@@ -485,7 +481,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
             model_y=RandomForestRegressor(),
             model_t=RandomForestClassifier(),
             model_final=StatsModelsLinearRegression(fit_intercept=False),
-            linear_first_stages=False,
             discrete_treatment=True
         )
         est.fit(y, T, X=X, W=None)
@@ -529,7 +524,6 @@ class DML(LinearModelFinalCateEstimatorMixin, _BaseDML):
         if linear_first_stages != "deprecated":
             warn("The linear_first_stages parameter is deprecated and will be removed in a future version of EconML",
                  DeprecationWarning)
-        self.linear_first_stages = linear_first_stages
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)
@@ -670,10 +664,6 @@ class LinearDML(StatsModelsCateEstimatorMixin, DML):
 
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
-
-    linear_first_stages: bool
-        Whether the first stage models are linear (in which case we will expand the features passed to
-        `model_y` accordingly)
 
     discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
@@ -952,10 +942,6 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    linear_first_stages: bool
-        Whether the first stage models are linear (in which case we will expand the features passed to
-        `model_y` accordingly)
-
     discrete_outcome: bool, default ``False``
         Whether the outcome should be treated as binary
 
@@ -1057,7 +1043,7 @@ class SparseLinearDML(DebiasedLassoCateEstimatorMixin, DML):
                  featurizer=None,
                  treatment_featurizer=None,
                  fit_cate_intercept=True,
-                 linear_first_stages=True,
+                 linear_first_stages="deprecated",
                  discrete_outcome=False,
                  discrete_treatment=False,
                  categories='auto',

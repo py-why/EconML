@@ -37,11 +37,9 @@ class TestRScorer(unittest.TestCase):
         (X_train, X_val, T_train, T_val,
          Y_train, Y_val, _, true_eff_val) = train_test_split(X, T, y, true_eff, test_size=.4)
 
-        models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
-                                     linear_first_stages=False, cv=3)),
+        models = [('ldml', LinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True, cv=3)),
                   ('sldml', SparseLinearDML(model_y=reg(), model_t=clf(), discrete_treatment=True,
-                                            featurizer=PolynomialFeatures(degree=2, include_bias=False),
-                                            linear_first_stages=False, cv=3)),
+                                            featurizer=PolynomialFeatures(degree=2, include_bias=False), cv=3)),
                   ('xlearner', XLearner(models=reg(), cate_models=reg(), propensity_model=clf())),
                   ('dalearner', DomainAdaptationLearner(models=reg(), final_models=reg(), propensity_model=clf())),
                   ('slearner', SLearner(overall_model=reg())),
@@ -51,8 +49,7 @@ class TestRScorer(unittest.TestCase):
                   ('rlearner', NonParamDML(model_y=reg(), model_t=clf(), model_final=reg(),
                                            discrete_treatment=True, cv=3)),
                   ('dml3dlasso', DML(model_y=reg(), model_t=clf(), model_final=reg(), discrete_treatment=True,
-                                     featurizer=PolynomialFeatures(degree=3),
-                                     linear_first_stages=False, cv=3))
+                                     featurizer=PolynomialFeatures(degree=3), cv=3))
                   ]
 
         models = Parallel(n_jobs=1, verbose=1)(delayed(_fit_model)(name, mdl,
