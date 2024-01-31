@@ -63,11 +63,11 @@ jobs:
     name: Create and publish documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         name: Checkout repository
         with:
           ref: ${{ inputs.ref }}
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         name: Setup Python
         with:
           python-version: 3.8 # because of our supported TensorFlow versions, must build on 3.6-3.8
