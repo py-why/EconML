@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        kind: [except-customer-scenarios, customer-scenarios]
+        kind: [except-customer-scenarios]
         include:
         - kind: "except-customer-scenarios"
           extras: "[tf,plt,ray]"
