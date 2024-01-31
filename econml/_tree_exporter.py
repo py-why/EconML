@@ -17,7 +17,6 @@ from sklearn.utils.validation import check_is_fitted
 
 try:
     import matplotlib
-    matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 except ImportError as exn:
     from .utilities import MissingModule

@@ -16,6 +16,9 @@ try:
 except Exception:
     graphviz_works = False
 
+import matplotlib
+matplotlib.use('Agg')
+
 
 @pytest.mark.skipif(not graphviz_works, reason="graphviz must be installed to run CATE interpreter tests")
 class TestCateInterpreter(unittest.TestCase):
