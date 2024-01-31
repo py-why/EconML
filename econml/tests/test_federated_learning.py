@@ -74,9 +74,16 @@ class TestFederatedLearning(unittest.TestCase):
 
             for cov_type in ['HC0', 'HC1', 'nonrobust']:
                 with self.subTest(n_t=n_t, cov_type=cov_type):
-                    est_all = LinearDRLearner(model_propensity=t_model, model_regression=y_model)
-                    est_h1 = LinearDRLearner(model_propensity=t_model, model_regression=y_model)
-                    est_h2 = LinearDRLearner(model_propensity=t_model, model_regression=y_model)
+                    est_all = LinearDRLearner(model_propensity=t_model, model_regression=y_model,
+                                              enable_federation=True)
+                    est_h1 = LinearDRLearner(model_propensity=t_model, model_regression=y_model,
+                                             enable_federation=True)
+                    est_h2 = LinearDRLearner(model_propensity=t_model, model_regression=y_model,
+                                             enable_federation=True)
+                    est_h2_no_fed = LinearDRLearner(model_propensity=t_model, model_regression=y_model,
+                                                    enable_federation=False)
+                    est_h2_wrong_cov = LinearDRLearner(model_propensity=t_model, model_regression=y_model,
+                                                       enable_federation=True)
 
                     est_all.fit(Y, T, X=X, W=W,
                                 inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
@@ -84,10 +91,23 @@ class TestFederatedLearning(unittest.TestCase):
                                inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
                     est_h2.fit(Y2, T2, X=X2, W=W2,
                                inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
+                    est_h2_no_fed.fit(Y2, T2, X=X2, W=W2,
+                                      inference=StatsModelsInferenceDiscrete(cov_type=cov_type))
+                    est_h2_wrong_cov.fit(Y2, T2, X=X2, W=W2,
+                                         inference=StatsModelsInferenceDiscrete(cov_type=('HC0' if cov_type != 'HC0'
+                                                                                          else 'HC1')))
 
                     est_fed1 = FederatedEstimator([est_all])
 
                     est_fed2 = FederatedEstimator([est_h1, est_h2])
+
+                    with self.assertRaises(AssertionError):
+                        # all estimators must have opted in to federation
+                        FederatedEstimator([est_h1, est_h2_no_fed])
+
+                    with self.assertRaises(AssertionError):
+                        # all estimators must have the same covariance type
+                        FederatedEstimator([est_h1, est_h2_wrong_cov])
 
                     # test coefficients
                     for t in range(1, n_t):
@@ -150,9 +170,12 @@ class TestFederatedLearning(unittest.TestCase):
                                 with self.subTest(d_x=d_x, d_t=d_t, d_y=d_y,
                                                   weights=(weights is not None), fw=(freq_weights is not None),
                                                   cov_type=cov_type):
-                                    est_all = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False)
-                                    est_h1 = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False)
-                                    est_h2 = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False)
+                                    est_all = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False,
+                                                        enable_federation=True)
+                                    est_h1 = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False,
+                                                       enable_federation=True)
+                                    est_h2 = LinearDML(model_t=t_model, model_y=y_model, linear_first_stages=False,
+                                                       enable_federation=True)
 
                                     est_all.fit(Y, T, X=X, W=W,
                                                 sample_weight=weights,

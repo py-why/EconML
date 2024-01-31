@@ -3122,6 +3122,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
         Whether to allow missing values in W. If True, will need to supply nuisance models
         that can handle missing values.
 
+    enable_federation: bool, default False
+        Whether to enable federation for the final model.  This has a memory cost so should be enabled only
+        if this model will be aggregated with other models.
+
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-validation step. If True, Ray must be installed.
 
@@ -3203,6 +3207,7 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                  categories='auto',
                  random_state=None,
                  allow_missing=False,
+                 enable_federation=False,
                  use_ray=False,
                  ray_remote_func_options=None):
         super().__init__(model_y_xw=model_y_xw,
@@ -3226,9 +3231,10 @@ class LinearIntentToTreatDRIV(StatsModelsCateEstimatorMixin, IntentToTreatDRIV):
                          allow_missing=allow_missing,
                          use_ray=use_ray,
                          ray_remote_func_options=ray_remote_func_options)
+        self.enable_federation = enable_federation
 
     def _gen_model_final(self):
-        return StatsModelsLinearRegression(fit_intercept=False)
+        return StatsModelsLinearRegression(fit_intercept=False, enable_federation=self.enable_federation)
 
     # override only so that we can update the docstring to indicate support for `StatsModelsInference`
     def fit(self, Y, T, *, Z, X=None, W=None, sample_weight=None, freq_weight=None, sample_var=None, groups=None,
