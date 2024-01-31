@@ -890,6 +890,10 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         Whether to allow missing values in W. If True, will need to supply model_propensity and
         model_regression that can handle missing values.
 
+    enable_federation: bool, default False
+        Whether to enable federation for the final model.  This has a memory cost so should be enabled only
+        if this model will be aggregated with other models.
+
     use_ray: bool, default False
         Whether to use Ray to parallelize the cross-fitting step. If True, Ray must be installed.
 
@@ -959,10 +963,12 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
                  mc_agg='mean',
                  random_state=None,
                  allow_missing=False,
+                 enable_federation=False,
                  use_ray=False,
                  ray_remote_func_options=None):
 
         self.fit_cate_intercept = fit_cate_intercept
+        self.enable_federation = enable_federation
         super().__init__(model_propensity=model_propensity,
                          model_regression=model_regression,
                          model_final=None,
@@ -984,7 +990,8 @@ class LinearDRLearner(StatsModelsCateEstimatorDiscreteMixin, DRLearner):
         return ['W'] if self.allow_missing else []
 
     def _gen_model_final(self):
-        return StatsModelsLinearRegression(fit_intercept=self.fit_cate_intercept)
+        return StatsModelsLinearRegression(fit_intercept=self.fit_cate_intercept,
+                                           enable_federation=self.enable_federation)
 
     def _gen_ortho_learner_model_final(self):
         return _ModelFinal(self._gen_model_final(), self._gen_featurizer(), False)

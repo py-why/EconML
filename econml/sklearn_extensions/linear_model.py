@@ -1694,13 +1694,17 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
     ----------
     fit_intercept : bool, default True
         Whether to fit an intercept in this model
-    fit_args : dict, default {}
-        The statsmodels-style fit arguments; keys can include 'cov_type'
+    cov_type : string, default "HC0"
+        The covariance approach to use.  Supported values are "HCO", "HC1", and "nonrobust".
+    enable_federation : bool, default False
+        Whether to enable federation (aggregating this model's results with other models in a distributed setting).
+        This requires additional memory proportional to the number of columns in X to the fourth power.
     """
 
-    def __init__(self, fit_intercept=True, cov_type="HC0"):
+    def __init__(self, fit_intercept=True, cov_type="HC0", *, enable_federation=False):
         self.cov_type = cov_type
         self.fit_intercept = fit_intercept
+        self.enable_federation = enable_federation
 
     def _check_input(self, X, y, sample_weight, freq_weight, sample_var):
         """Check dimensions and other assertions."""
@@ -1826,18 +1830,19 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
         self.XX = np.matmul(WX.T, WX)
         self.Xy = np.matmul(WX.T, wy)
 
-        # for federation, we need to store these 5 arrays when using heteroskedasticity-robust inference
-        if (self.cov_type in ['HC0', 'HC1']):
-            # y dimension is always first in the output when present so that broadcasting works correctly
-            self.XXyy = np.einsum('nw,nx,ny,ny->ywx', X, X, wy, wy)
-            self.XXXy = np.einsum('nv,nw,nx,ny->yvwx', X, X, WX, wy)
-            self.XXXX = np.einsum('nu,nv,nw,nx->uvwx', X, X, WX, WX)
-            self.sample_var = np.einsum('nw,nx,ny->ywx', WX, WX, sv)
-        elif (self.cov_type is None) or (self.cov_type == 'nonrobust'):
-            self.XXyy = np.einsum('ny,ny->y', wy, wy)
-            self.XXXy = np.einsum('nx,ny->yx', WX, wy)
-            self.XXXX = np.einsum('nw,nx->wx', WX, WX)
-            self.sample_var = np.average(sv, weights=freq_weight, axis=0) * n_obs
+        if self.enable_federation:
+            # for federation, we need to store these 5 arrays when using heteroskedasticity-robust inference
+            if (self.cov_type in ['HC0', 'HC1']):
+                # y dimension is always first in the output when present so that broadcasting works correctly
+                self.XXyy = np.einsum('nw,nx,ny,ny->ywx', X, X, wy, wy)
+                self.XXXy = np.einsum('nv,nw,nx,ny->yvwx', X, X, WX, wy)
+                self.XXXX = np.einsum('nu,nv,nw,nx->uvwx', X, X, WX, WX)
+                self.sample_var = np.einsum('nw,nx,ny->ywx', WX, WX, sv)
+            elif (self.cov_type is None) or (self.cov_type == 'nonrobust'):
+                self.XXyy = np.einsum('ny,ny->y', wy, wy)
+                self.XXXy = np.einsum('nx,ny->yx', WX, wy)
+                self.XXXX = np.einsum('nw,nx->wx', WX, WX)
+                self.sample_var = np.average(sv, weights=freq_weight, axis=0) * n_obs
 
         sigma_inv = np.linalg.pinv(self.XX)
 
@@ -1895,7 +1900,9 @@ class StatsModelsLinearRegression(_StatsModelsWrapper):
             raise ValueError("Must aggregate at least one model!")
         cov_types = set([model.cov_type for model in models])
         fit_intercepts = set([model.fit_intercept for model in models])
+        enable_federation = set([model.enable_federation for model in models])
         _n_outs = set([model._n_out for model in models])
+        assert enable_federation == {True}, "All models must have enable_federation=True!"
         assert len(cov_types) == 1, "All models must have the same cov_type!"
         assert len(fit_intercepts) == 1, "All models must have the same fit_intercept!"
         assert len(_n_outs) == 1, "All models must have the same number of outcomes!"
