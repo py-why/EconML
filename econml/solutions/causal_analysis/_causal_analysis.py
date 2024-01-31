@@ -415,7 +415,6 @@ def _process_feature(name, feat_ind, verbose, categorical_inds, categories, hete
                             model_t=pipelined_model_t,
                             discrete_treatment=discrete_treatment,
                             fit_cate_intercept=True,
-                            linear_first_stages=False,
                             categories=cats,
                             random_state=random_state,
                             cv=cv,

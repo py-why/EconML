@@ -382,10 +382,6 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
     fit_cate_intercept : bool, default True
         Whether the linear CATE model should have a constant term.
 
-    linear_first_stages: bool
-        Whether the first stage models are linear (in which case we will expand the features passed to
-        `model_y` accordingly)
-
     discrete_outcome: bool, default False
         Whether the outcome should be treated as binary
 
@@ -488,7 +484,7 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  model_y='auto', model_t='auto',
                  featurizer=None,
                  fit_cate_intercept=True,
-                 linear_first_stages=False,
+                 linear_first_stages="deprecated",
                  discrete_outcome=False,
                  discrete_treatment=False,
                  categories='auto',
@@ -498,7 +494,9 @@ class DynamicDML(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
                  random_state=None,
                  allow_missing=False):
         self.fit_cate_intercept = fit_cate_intercept
-        self.linear_first_stages = linear_first_stages
+        if linear_first_stages != "deprecated":
+            warn("The linear_first_stages parameter is deprecated and will be removed in a future version of EconML",
+                 DeprecationWarning)
         self.featurizer = clone(featurizer, safe=False)
         self.model_y = clone(model_y, safe=False)
         self.model_t = clone(model_t, safe=False)

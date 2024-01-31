@@ -30,7 +30,6 @@ class TestRefit(unittest.TestCase):
         dml = DML(model_y=LinearRegression(),
                   model_t=LinearRegression(),
                   model_final=StatsModelsLinearRegression(fit_intercept=False),
-                  linear_first_stages=False,
                   random_state=123)
         dml.fit(y, T, X=X, W=W)
         with pytest.raises(Exception):
@@ -76,29 +75,25 @@ class TestRefit(unittest.TestCase):
         np.testing.assert_array_equal(coefpreint[0], dml.coef__interval()[0])
         dml.discrete_treatment = True
         dml.featurizer = None
-        dml.linear_first_stages = True
         dml.model_t = LogisticRegression(random_state=123)
         dml.fit(y, T, X=X, W=W)
         newdml = DML(model_y=LinearRegression(),
                      model_t=LogisticRegression(random_state=123),
                      model_final=StatsModelsLinearRegression(fit_intercept=False),
                      discrete_treatment=True,
-                     linear_first_stages=True,
                      random_state=123).fit(y, T, X=X, W=W)
         np.testing.assert_array_equal(dml.coef_, newdml.coef_)
         np.testing.assert_array_equal(dml.coef__interval()[0], newdml.coef__interval()[0])
 
         ldml = LinearDML(model_y=LinearRegression(),
-                         model_t=LinearRegression(),
-                         linear_first_stages=False)
+                         model_t=LinearRegression())
         ldml.fit(y, T, X=X, W=W, cache_values=True)
         # can set final model for plain DML, but can't for LinearDML (hardcoded to StatsModelsRegression)
         with pytest.raises(ValueError):
             ldml.model_final = StatsModelsRLM()
 
         ldml = SparseLinearDML(model_y=LinearRegression(),
-                               model_t=LinearRegression(),
-                               linear_first_stages=False)
+                               model_t=LinearRegression())
         ldml.fit(y, T, X=X, W=W, cache_values=True)
         # can set final model for plain DML, but can't for LinearDML (hardcoded to StatsModelsRegression)
         with pytest.raises(ValueError):
@@ -132,7 +127,6 @@ class TestRefit(unittest.TestCase):
         dml.effect_interval(X[:1])
         dml.discrete_treatment = True
         dml.featurizer = None
-        dml.linear_first_stages = True
         dml.model_t = LogisticRegression(random_state=123)
         dml.model_final = DebiasedLasso(random_state=123)
         dml.fit(y, T, X=X, W=W)
@@ -260,7 +254,6 @@ class TestRefit(unittest.TestCase):
         est = LinearDML(model_y=RandomForestRegressor(),
                         model_t=RandomForestClassifier(min_samples_leaf=10),
                         discrete_treatment=True,
-                        linear_first_stages=False,
                         cv=3)
         est.fit(y, T, X=X, W=W)
         est.effect(X)
@@ -270,7 +263,7 @@ class TestRefit(unittest.TestCase):
 
     def test_refit_final_inference(self):
         """Test that we can perform inference during refit_final"""
-        est = LinearDML(linear_first_stages=False, featurizer=PolynomialFeatures(1, include_bias=False))
+        est = LinearDML(featurizer=PolynomialFeatures(1, include_bias=False))
 
         X = np.random.choice(np.arange(5), size=(500, 3))
         y = np.random.normal(size=(500,))
@@ -291,7 +284,6 @@ class TestRefit(unittest.TestCase):
                   model_t=LinearRegression(),
                   cv=1,
                   model_final=StatsModelsLinearRegression(fit_intercept=False),
-                  linear_first_stages=False,
                   random_state=123)
         with pytest.raises(AttributeError):
             y_res, T_res, X_res, W_res = dml.residuals_

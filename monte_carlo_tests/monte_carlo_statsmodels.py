@@ -275,7 +275,6 @@ def run_all_mc(first_stage, folder, n_list, n_exp, hetero_coef_list, d_list,
                                     est = LinearDML(model_y=first_stage(),
                                                     model_t=first_stage(),
                                                     cv=SplitterSum(),
-                                                    linear_first_stages=False,
                                                     discrete_treatment=False)
                                     est.fit(y_sum,
                                             X_final[:, -d_t:],
@@ -296,7 +295,6 @@ def run_all_mc(first_stage, folder, n_list, n_exp, hetero_coef_list, d_list,
                                     lr = LinearDML(model_y=first_stage(),
                                                    model_t=first_stage(),
                                                    cv=Splitter(),
-                                                   linear_first_stages=False,
                                                    discrete_treatment=False)
                                     lr.fit(y, X[:, -d_t:], X=X[:, :d_x], W=X[:, d_x:-d_t],
                                            inference=StatsModelsInference(cov_type=cov_type))
