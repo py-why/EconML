@@ -12,6 +12,7 @@ EconML User Guide
     estimation_iv
     estimation_dynamic
     inference
+    model_selection
     interpretability
     federated_learning
     references

@@ -210,65 +210,41 @@ class OrthoIV(LinearModelFinalCateEstimatorMixin, _OrthoLearner):
 
     Parameters
     ----------
-    model_y_xw : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
-        model to estimate :math:`\\E[Y | X, W]`.
+    model_y_xw: estimator, default ``'auto'``
+        Determines how to fit the outcome to the features and controls (:math:`\\E[Y | X, W]`).
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_outcome` is True
+          and a regressor otherwise
 
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_outcome=True.
+    model_t_xw: estimator, default ``'auto'``
+        Determines how to fit the treatment to the features and controls (:math:`\\E[T | X, W]`).
 
-    model_t_xw : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
-        model to estimate :math:`\\E[T | X, W]`.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_treatment` is True
+          and a regressor otherwise
 
-            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+    model_t_xwz: estimator, default ``'auto'``
+        Determines how to fit the treatment to the features, controls, and instrument (:math:`\\E[T | X, W, Z]`).
 
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_treatment=True.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-    model_t_xwz : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
-        model to estimate :math:`\\E[T | X, W, Z]`.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_treatment` is True
+          and a regressor otherwise
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+    model_z_xw: estimator, default ``'auto'``
+        Determines how to fit the instrument to the features and controls (:math:`\\E[Z | X, W]`).
 
-            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_treatment=True.
-
-    model_z_xw : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
-        model to estimate :math:`\\E[Z | X, W]`.
-
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
-
-            - 'linear' - LogisticRegressionCV if discrete_instrument=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_instrument=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
-
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_instrument=True.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_instrument` is True
+          and a regressor otherwise
 
     projection: bool, default False
         If True, we fit a slight variant of OrthoIV where we use E[T|X, W, Z] as the instrument as opposed to Z,
@@ -1044,50 +1020,32 @@ class DMLIV(_BaseDMLIV):
 
     Parameters
     ----------
-    model_y_xw : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
-        model to estimate :math:`\\E[Y | X, W]`.
+    model_y_xw: estimator, default ``'auto'``
+        Determines how to fit the outcome to the features and controls (:math:`\\E[Y | X, W]`).
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_outcome` is True
+          and a regressor otherwise
 
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_outcome=True.
+    model_t_xw: estimator, default ``'auto'``
+        Determines how to fit the treatment to the features and controls (:math:`\\E[T | X, W]`).
 
-    model_t_xw : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
-        Model to estimate :math:`\\E[T | X, W]`.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_treatment` is True
+          and a regressor otherwise
 
-            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+    model_t_xwz: estimator, default ``'auto'``
+        Determines how to fit the treatment to the features, controls, and instrument (:math:`\\E[T | X, W, Z]`).
 
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_treatment=True.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-    model_t_xwz : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
-        Model to estimate :math:`\\E[T | X, W, Z]`.
-
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
-
-            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
-
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_treatment=True.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_treatment` is True
+          and a regressor otherwise
 
     model_final : estimator (default is :class:`.StatsModelsLinearRegression`)
         final model that at fit time takes as input :math:`(Y-\\E[Y|X])`, :math:`(\\E[T|X,Z]-\\E[T|X])` and X
@@ -1452,50 +1410,32 @@ class NonParamDMLIV(_BaseDMLIV):
 
     Parameters
     ----------
-    model_y_xw : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
-        model to estimate :math:`\\E[Y | X, W]`.
+    model_y_xw: estimator, default ``'auto'``
+        Determines how to fit the outcome to the features and controls (:math:`\\E[Y | X, W]`).
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-            - 'linear' - LogisticRegressionCV if discrete_outcome=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_outcome=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_outcome` is True
+          and a regressor otherwise
 
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_outcome=True.
+    model_t_xw: estimator, default ``'auto'``
+        Determines how to fit the treatment to the features and controls (:math:`\\E[T | X, W]`).
 
-    model_t_xw : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
-        Model to estimate :math:`\\E[T | X, W]`.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_treatment` is True
+          and a regressor otherwise
 
-            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+    model_t_xwz: estimator, default ``'auto'``
+        Determines how to fit the treatment to the features, controls, and instrument (:math:`\\E[T | X, W, Z]`).
 
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_treatment=True.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-    model_t_xwz : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
-        Model to estimate :math:`\\E[T | X, W, Z]`.
-
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
-
-            - 'linear' - LogisticRegressionCV if discrete_treatment=True else WeightedLassoCVWrapper
-            - 'forest' - RandomForestClassifier if discrete_treatment=True else RandomForestRegressor
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
-
-        User-supplied estimators should support 'fit' and 'predict' methods,
-        and additionally 'predict_proba' if discrete_treatment=True.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_treatment` is True
+          and a regressor otherwise
 
     model_final : estimator
         final model for predicting :math:`\\tilde{Y}` from X with sample weights V(X)

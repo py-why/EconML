@@ -239,34 +239,22 @@ class DRPolicyTree(_BaseDRPolicyLearner):
 
     Parameters
     ----------
-    model_propensity : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
-        Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
+    model_propensity: estimator, default ``'auto'``
+        Classifier for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-            - 'linear' - LogisticRegressionCV
-            - 'forest' - RandomForestClassifier
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+        - Otherwise, see :ref:`model_selection` for the range of supported options
 
-        User-supplied estimators should support 'fit' and 'predict', and 'predict_proba'.
-
-    model_regression : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
+    model_regression: estimator, default ``'auto'``
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment.
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-            - 'linear' - LogisticRegressionCV
-            - 'forest' - RandomForestClassifier
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
-
-        User-supplied estimators should support 'fit' and 'predict' methods.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_outcome` is True
+          and a regressor otherwise
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
@@ -651,34 +639,22 @@ class DRPolicyForest(_BaseDRPolicyLearner):
 
     Parameters
     ----------
-    model_propensity : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto', default 'auto'
-        Estimator for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
+    model_propensity: estimator, default ``'auto'``
+        Classifier for Pr[T=t | X, W]. Trained by regressing treatments on (features, controls) concatenated.
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-            - 'linear' - LogisticRegressionCV
-            - 'forest' - RandomForestClassifier
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
+        - Otherwise, see :ref:`model_selection` for the range of supported options
 
-        User-supplied estimators should support 'fit' and 'predict', and 'predict_proba'.
-
-    model_regression : estimator, {'linear', 'forest'}, list of str/estimator, or 'auto'
+    model_regression: estimator, default ``'auto'``
         Estimator for E[Y | X, W, T]. Trained by regressing Y on (features, controls, one-hot-encoded treatments)
         concatenated. The one-hot-encoding excludes the baseline treatment.
 
-        - If an estimator, will use the model as is for fitting.
-        - If str, will use model associated with the keyword.
+        - If ``'auto'``, the model will be the best-fitting of a set of linear and forest models
 
-            - 'linear' - LogisticRegressionCV
-            - 'forest' - RandomForestClassifier
-        - If list, will perform model selection on the supplied list, which can be a mix of str and estimators, \
-            and then use the best estimator for fitting.
-        - If 'auto', model will select over linear and forest models
-
-        User-supplied estimators should support 'fit' and 'predict' methods.
+        - Otherwise, see :ref:`model_selection` for the range of supported options;
+          if a single model is specified it should be a classifier if `discrete_outcome` is True
+          and a regressor otherwise
 
     featurizer : :term:`transformer`, optional
         Must support fit_transform and transform. Used to create composite features in the final CATE regression.
