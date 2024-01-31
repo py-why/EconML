@@ -40,13 +40,13 @@ def test_notebook(file):
     os.chdir(cwd) # change back to the original directory"""))
 
     for i in range(len(nb.cells), 9, -1):
-        if nb.cells[i].cell_type == 'code':
-            nb.cells.insert(i+1, nbformat.v4.new_code_cell("""assert(matplotlib.get_backend() != 'agg')"""))
-                                                         
+        if nb.cells[i-1].cell_type == 'code':
+            nb.cells.insert(i, nbformat.v4.new_code_cell("""assert(matplotlib.get_backend() != 'agg')"""))
+
     # require all cells to complete within 15 minutes, which will help prevent us from
     # creating notebooks that are annoying for our users to actually run themselves
     ep = nbconvert.preprocessors.ExecutePreprocessor(
-        timeout=1800, allow_errors=True, extra_arguments=["--HistoryManager.enabled=False"])
+        timeout=1800, extra_arguments=["--HistoryManager.enabled=False"])
 
     ep.preprocess(nb, {'metadata': {'path': _nbdir}})
 
