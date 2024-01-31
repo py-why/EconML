@@ -5,6 +5,7 @@ import unittest
 import logging
 import time
 import random
+import warnings
 import numpy as np
 import sparse as sp
 import pytest
@@ -152,9 +153,9 @@ class TestUtilities(unittest.TestCase):
             instance = Deprecated(1)
 
         # using the instance should not warn
-        with pytest.warns(None) as counter:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             assert instance.get_sum() == 2
-        assert not counter
 
         # using the deprecated method should warn
         with self.assertWarnsRegex(DeprecationWarning, "This method is deprecated"):
@@ -173,11 +174,11 @@ class TestUtilities(unittest.TestCase):
             m(1, 2, c=2)
 
         # don't warn if b and c are passed by keyword
-        with pytest.warns(None) as counter:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             m(1, b=2)
             m(a=1, b=2)
             m(1, b=2, c=3, X='other')
-        assert not counter
 
     def test_single_strata_from_discrete_array(self):
         T = np.repeat([[0, 1, 2]], 4, axis=0).ravel()
