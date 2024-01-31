@@ -13,7 +13,8 @@ import scipy.sparse as sp
 import sklearn
 from joblib import Parallel, delayed
 from sklearn.base import BaseEstimator, clone, is_classifier
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import (GradientBoostingClassifier, GradientBoostingRegressor,
+                              RandomForestClassifier, RandomForestRegressor)
 from sklearn.exceptions import FitFailedWarning
 from sklearn.linear_model import (ElasticNet, ElasticNetCV, Lasso, LassoCV, MultiTaskElasticNet, MultiTaskElasticNetCV,
                                   MultiTaskLasso, MultiTaskLassoCV, Ridge, RidgeCV, RidgeClassifier, RidgeClassifierCV,
@@ -24,8 +25,9 @@ from sklearn.model_selection import (BaseCrossValidator, GridSearchCV, GroupKFol
 # TODO: conisder working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.neural_network import MLPClassifier, MLPRegressor
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import LabelEncoder, PolynomialFeatures, StandardScaler
 from sklearn.utils import check_random_state, indexable
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import _num_samples
@@ -612,9 +614,20 @@ def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=Grid
     named_models = {
         'linear': (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
                    else WeightedLassoCVWrapper(random_state=random_state, cv=cv)),
+        'poly': ([make_pipeline(PolynomialFeatures(d),
+                                (LogisticRegressionCV(random_state=random_state, cv=cv) if is_discrete
+                                 else WeightedLassoCVWrapper(random_state=random_state, cv=cv)))
+                  for d in range(1, 4)]),
         'forest': (GridSearchCV(RandomForestClassifier(random_state=random_state) if is_discrete
                                 else RandomForestRegressor(random_state=random_state),
                                 param_grid={}, cv=cv)),
+        'gbf': (GridSearchCV(GradientBoostingClassifier(random_state=random_state) if is_discrete
+                             else GradientBoostingRegressor(random_state=random_state),
+                             param_grid={}, cv=cv)),
+        'nnet': (GridSearchCV(MLPClassifier(random_state=random_state) if is_discrete
+                              else MLPRegressor(random_state=random_state),
+                              param_grid={}, cv=cv)),
+        'automl': ["poly", "forest", "gbf", "nnet"],
     }
     if isinstance(input, ModelSelector):  # we've already got a model selector, don't need to do anything
         return input
