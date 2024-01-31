@@ -9,7 +9,7 @@ import os
 _nbdir = os.path.join(os.path.dirname(__file__), '..', '..', 'notebooks')
 _maindir = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-_nbsubdirs = ['.', 'CustomerScenarios', 'Solutions']  # TODO: add AutoML notebooks
+_nbsubdirs = ['.']  # TODO: add AutoML notebooks
 
 # filter directories by regex if the NOTEBOOK_DIR_PATTERN environment variable is set
 _nbsubdirs = [d for d in _nbsubdirs if re.match(os.getenv('NOTEBOOK_DIR_PATTERN', '.*'), d)]

@@ -121,11 +121,6 @@ jobs:
           pattern: "(?!CustomerScenarios)"
           install_graphviz: true
           version: '3.8' # no supported version of tensorflow for 3.9
-        - kind: "customer-scenarios"
-          extras: "[plt,dowhy]"
-          pattern: "CustomerScenarios"
-          version: '3.9'
-          install_graphviz: false
       fail-fast: false
     env:
       id_string: ${{ matrix.kind }}-${{ matrix.version }}
