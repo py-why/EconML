@@ -38,7 +38,7 @@ jobs:
     name: Evaluate changes
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       name: Checkout repository
       with:
         ref: ${{ env.ref }}
@@ -95,11 +95,11 @@ jobs:
     if: ${{ needs.eval.outputs.testCode == 'True' }}
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       name: Checkout repository
       with:
         ref: ${{ env.ref }}
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       name: Setup Python
       with:
         python-version: '3.9'
@@ -130,11 +130,11 @@ jobs:
     env:
       id_string: ${{ matrix.kind }}-${{ matrix.version }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       name: Checkout repository
       with:
         ref: ${{ env.ref }}
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       name: Setup Python
       with:
         python-version: ${{ matrix.version }}
@@ -235,11 +235,11 @@ jobs:
     env:
       id_string: ${{ matrix.os }}-${{ matrix.python-version }}-${{ matrix.kind }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       name: Checkout repository
       with:
         ref: ${{ env.ref }}
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       name: Setup Python
       with:
         python-version: ${{ matrix.python-version }}
@@ -290,7 +290,7 @@ jobs:
     if: success() || failure()
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       name: Checkout repository
       with:
         ref: ${{ env.ref }}
@@ -299,7 +299,7 @@ jobs:
       with:
         name: coverage
         path: coverage
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       name: Setup Python
       with:
         python-version: '3.8'
