@@ -50,7 +50,7 @@ class _DynamicModelNuisanceSelector(ModelSelector):
         assert Y.shape[0] % self.n_periods == 0, \
             "Length of training data should be an integer multiple of time periods."
         period_filters = _get_groups_period_filter(groups, self.n_periods)
-        if is_selecting:  # create the per-period y and t models
+        if not hasattr(self, '_model_y_trained'):  # create the per-period y and t models
             self._model_y_trained = {t: clone(self._model_y, safe=False)
                                      for t in np.arange(self.n_periods)}
             self._model_t_trained = {j: {t: clone(self._model_t, safe=False)
@@ -140,6 +140,10 @@ class _DynamicModelNuisanceSelector(ModelSelector):
 
     def _index_or_None(self, X, filter_idx):
         return None if X is None else X[filter_idx]
+
+    @property
+    def needs_fit(self):
+        return self._model_t.needs_fit or self._model_y.needs_fit
 
 
 class _DynamicModelFinal:

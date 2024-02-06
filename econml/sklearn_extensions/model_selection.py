@@ -298,6 +298,15 @@ class ModelSelector(metaclass=abc.ABCMeta):
         """
         raise NotImplementedError("Abstract method")
 
+    @property
+    @abc.abstractmethod
+    def needs_fit(self):
+        """
+        Whether the model selector needs to be fit before it can be used for prediction or scoring;
+        in many cases this is equivalent to whether the selector is choosing between multiple models
+        """
+        raise NotImplementedError("Abstract method")
+
 
 class SingleModelSelector(ModelSelector):
     """
@@ -393,6 +402,10 @@ class FixedModelSelector(SingleModelSelector):
     @property
     def best_score(self):
         return self._score
+
+    @property
+    def needs_fit(self):
+        return False  # We have only a single model
 
 
 def _copy_to(m1, m2, attrs, insert_underscore=False):
@@ -515,6 +528,11 @@ class SklearnCVSelector(SingleModelSelector):
     def best_score(self):
         return self._best_score
 
+    @property
+    def needs_fit(self):
+        return True  # strictly speaking, could be false if the hyperparameters are fixed
+        # but it would be complicated to check that
+
 
 class ListSelector(SingleModelSelector):
     """
@@ -556,6 +574,12 @@ class ListSelector(SingleModelSelector):
     @property
     def best_score(self):
         return self._best_score
+
+    @property
+    def needs_fit(self):
+        # technically, if there is just one model and it doesn't need to be fit we don't need to fit it,
+        # but that complicates the training logic so we don't bother with that case
+        return True
 
 
 def get_selector(input, is_discrete, *, random_state=None, cv=None, wrapper=GridSearchCV):

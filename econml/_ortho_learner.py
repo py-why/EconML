@@ -184,6 +184,9 @@ def _crossfit(model: ModelSelector, folds, use_ray, ray_remote_fun_option, *args
                 return self
             def predict(self, X, y, W=None):
                 return self._model.predict(X)
+            @property
+            def needs_fit(self):
+                return False
         np.random.seed(123)
         X = np.random.normal(size=(5000, 3))
         y = X[:, 0] + np.random.normal(size=(5000,))
@@ -206,14 +209,14 @@ def _crossfit(model: ModelSelector, folds, use_ray, ray_remote_fun_option, *args
     model_list = []
 
     kwargs = filter_none_kwargs(**kwargs)
-    model.train(True, *args, **kwargs)
+    if model.needs_fit:
+        model.train(True, *args, **kwargs)
 
     calculate_scores = hasattr(model, 'score')
     # remove None arguments
 
     if folds is None:  # skip crossfitting
         model_list.append(clone(model, safe=False))
-        model_list[0].train(True, *args, **kwargs)
         model_list[0].train(False, *args, **kwargs)  # fit the selected model
         nuisances = model_list[0].predict(*args, **kwargs)
         scores = model_list[0].score(*args, **kwargs) if calculate_scores else None
@@ -409,6 +412,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 return self
             def predict(self, Y, T, W=None):
                 return Y - self._model_y.predict(W), T - self._model_t.predict(W)
+            @property
+            def needs_fit(self):
+                return False
         class ModelFinal:
             def __init__(self):
                 return
@@ -463,6 +469,9 @@ class _OrthoLearner(TreatmentExpansionMixin, LinearCateEstimator):
                 return self
             def predict(self, Y, T, W=None):
                 return Y - self._model_y.predict(W), T - self._model_t.predict_proba(W)[:, 1:]
+            @property
+            def needs_fit(self):
+                return False
         class ModelFinal:
             def __init__(self):
                 return
