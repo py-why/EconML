@@ -23,6 +23,7 @@ from sklearn.model_selection import (BaseCrossValidator, GridSearchCV, GroupKFol
 # TODO: conisder working around relying on sklearn implementation details
 from sklearn.model_selection._validation import (_check_is_permutation,
                                                  _fit_and_predict)
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.utils import check_random_state, indexable
 from sklearn.utils.multiclass import type_of_target
@@ -342,7 +343,7 @@ class SingleModelSelector(ModelSelector):
             return None
 
 
-def _fit_with_groups(model, X, y, *, groups, **kwargs):
+def _fit_with_groups(model, X, y, *, sub_model=None, groups, **kwargs):
     """
     Fits a model while correctly handling grouping if necessary.
 
@@ -358,8 +359,10 @@ def _fit_with_groups(model, X, y, *, groups, **kwargs):
     rows that GroupKFold would have generated rather than using GroupKFold as the cv instance.
     """
     if groups is not None:
-        if hasattr(model, 'cv'):
-            old_cv = model.cv
+        if sub_model is None:
+            sub_model = model
+        if hasattr(sub_model, 'cv'):
+            old_cv = sub_model.cv
             # logic copied from check_cv
             cv = 5 if old_cv is None else old_cv
             if isinstance(cv, numbers.Integral):
@@ -369,10 +372,10 @@ def _fit_with_groups(model, X, y, *, groups, **kwargs):
 
             splits = list(cv.split(X, y, groups=groups))
             try:
-                model.cv = splits
+                sub_model.cv = splits
                 return model.fit(X, y, **kwargs)  # drop groups from arg list
             finally:
-                model.cv = old_cv
+                sub_model.cv = old_cv
 
     # drop groups from arg list, which were already used at the outer level and may not be supported by the model
     return model.fit(X, y, **kwargs)
@@ -485,6 +488,8 @@ class SklearnCVSelector(SingleModelSelector):
 
     @staticmethod
     def can_wrap(model):
+        if isinstance(model, Pipeline):
+            return SklearnCVSelector.can_wrap(model.steps[-1][1])
         return any(isinstance(model, model_type) for model_type in SklearnCVSelector.convertible_types())
 
     @staticmethod
@@ -501,19 +506,29 @@ class SklearnCVSelector(SingleModelSelector):
                                                                      extra_attrs=[]),
                 }
 
+    @staticmethod
+    def _convert_model(model):
+        if isinstance(model, Pipeline):
+            name, inner_model = model.steps[-1]
+            best_model, score = SklearnCVSelector._convert_model(inner_model)
+            return Pipeline(steps=[*model.steps[:-1], (name, best_model)]), score
+
+        if isinstance(model, GridSearchCV) or isinstance(model, RandomizedSearchCV):
+            return model.best_estimator_, model.best_score_
+
+        for known_type in SklearnCVSelector._model_mapping().keys():
+            if isinstance(model, known_type):
+                converter = SklearnCVSelector._model_mapping()[known_type]
+                return converter(model)
+
     def train(self, is_selecting: bool, *args, groups=None, **kwargs):
         if is_selecting:
-            _fit_with_groups(self.searcher, *args, groups=groups, **kwargs)
+            sub_model = None
+            if isinstance(self.searcher, Pipeline):
+                sub_model = self.searcher.steps[-1][1]
+            _fit_with_groups(self.searcher, *args, sub_model=sub_model, groups=groups, **kwargs)
 
-            if isinstance(self.searcher, GridSearchCV) or isinstance(self.searcher, RandomizedSearchCV):
-                self._best_model = self.searcher.best_estimator_
-                self._best_score = self.searcher.best_score_
-
-            for known_type in self._model_mapping().keys():
-                if isinstance(self.searcher, known_type):
-                    converter = self._model_mapping()[known_type]
-                    self._best_model, self._best_score = converter(self.searcher)
-                    return self
+            self._best_model, self._best_score = self._convert_model(self.searcher)
 
         else:
             # don't need to use _fit_with_groups here since none of these models support it
